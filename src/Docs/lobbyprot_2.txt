@@ -1,0 +1,181 @@
+Packetlength (lobbypacket)
+
+Id	Length			Type
+$2	13			Ping
+$6	1			???
+$7	1			???
+$20	193			Sessiondata
+$1a	14			Unitsyncdata
+$17	2			???
+$18	2			???
+$15	1			FinishedLoading
+$8	1			Launch (byte 2 is $6. although it probably isn't anyway)
+$5	65			Chat
+&	41			Which players are there
+"	6			Which player are which
+*	2			Progress during loading
+$1e	2			??? Sends during loading two times.. Just when you are ready
+À	10			??? Sends when loading is finished
+$a0	20			??? When loading are finished.. Maybe not even 20
+$9	7			??? When loading is finished, lenght maybe is 7 or 1
+,	<var>			Length is second byte. Total length.
+(	58			???
+$c	11			??? During the game
+$f	6			??? during the game
+
+
+    $d0       :len := 22;			?? loading
+    $1f       :len := 5;		Answere on a $1e - should contain your pid
+
+--------------
+
+
+some packets
+
+
+
+Ping:
+ + idFrom       : 6340466
+ + idTo         : 6340478
+ + lpData       : F×ÿÿ$02
+
+	JÛ¢$00			a number
+	$00$00$00$00
+	r¿`$00			ID for sender
+
+Then you answere
+
+ + lpData       : ÿÿÿÿ$02
+
+	JÛ¢$00			Same number
+	…¹œ$00			How long did it take?
+	r¿`$00			sender ID
+
+
+
+Typ 6 är väl vad som är just nu.. Baninställningar och sånt
+
+
+
+Before launch "-packet" is sent (?)
+
+dword			playerid
+byte			player number. server is $1
+
+One for each player if you are server
+
+Server also sends an extra with itself
+
+
+
+During unitsyc, server receives $17. It answeres with $18$01 and then sends unitsync.
+
+-----------
+
+launching
+
+<before>
+
+$04$01$00$00
+P$00$00$00
+$00$00$00$00
+À˜pf$1DÒ$11»Ì$02 $025¤!
+ ty™õõÏ$11˜'$00 $$$14–È
+$0A$00$00$00
+$02$00$00$00
+œæˆ$01
+¼æˆ$01
+…Ý¿$00
+$00$00$00$00
+
+`$00$02O
+$04$00$00$00
+$0A$00$0A$00
+ú$00$03$01
+
+88i8ii8         Ashap Plateau  $00$00
+
+<after>
+
+$04$01$00$00
+P$00$00$00
+ $00$00$00
+À˜pf$1DÒ$11»Ì$02 $025¤!
+ ty™õõÏ$11˜'$00 $$$14–È
+
+$0A$00$00$00
+$02$00$00$00
+œæˆ$01
+¼æˆ$01
+…Ý¿$00
+$00$00$00$00
+
+`$002O					<<< Aha!!
+$04$00$00$00
+$0A$00$0A$00
+ú$00$03$01
+
+88i8ii8         Ashap Plateau  $00$00
+
+
+$8$6 means Launch.
+
++ lpData       : Dÿÿÿ*d$06
+
+Byte 1 <d> increases during loading, and is ready when d (d = 100. percent)
+
+
+
+$15 means you are ready
+
+They also sends $7 forwad and back... No not back
+------------
+
+Spel
+
+Det skickas hela tiden , -paket, de är nog speldata
+
+Emellanåt skickas ett )-paket, riktat
+
+
+Hmm paket verkar kunna bäddas in i ett Send-anrop. Tex blev ett $5-chat paket inlagt i mitten av ett ,-paket.
+Senare kommer det dock ett ensamt. <nej följs av ett ,-paket i samma data s.a.s efter 64 bytes som är
+storleken på ett $5>
+
+
+-------
+
+Paket. Längder anges exklusive kind-byten ($1a på den första tex)
+
+
+$1a			- syncpacket, 13 bytes length
+byte			- subtyp
+dword			- ??
+dword			- unitnr
+
+Subtyp = $3
+word			- $01$00 = tell a client that this unit exists or if it shouldn't be used. First time
+				   client sends crc on unit
+			- $01$01 = tell client that it is synced 
+word			- limitation
+
+Subtyp = $2
+dword			- checksum
+
+Subtyp = $0
+Öh helt tom
+
+subtyp = $1
+word			- $12$01 .. ?? Number of answerpackets it will send (number of units) this will be sent by client
+
+word			- 0..?
+
+subtyp = $4		- Looks like it is comming as an answere on $7-packets. during next burst.
+
+
+----------
+
+Mapchange. Only one dword differentiate
+
+ + data         : j$FF$FF$FF  $20Metal$20He  c  k  $00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$04$00$03$00`$EA$01$00$01$00$00$01$00`$00$02$02$00$00$00$00$0A$00$0A$00$F4$01$03$01[  $C3k  $9B$00$00$00$00$00$00$00$00$00$00$00$00$$`$EA$01$00$05
+ + data         : $FF$FF$FF$FF$20LUSCHI  E$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$04$00$03$00`$EA$01$00$01$00$00$01$00`$00$02$02$00$00$00$00$0A$00$0A$00$F4$01$03$01$CE$A2$C8@  $00$00$00$00$00$00$00$00$00$00$00$00$$`$EA$01$00$05

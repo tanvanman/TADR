@@ -1,0 +1,46 @@
+struct header
+{
+  word 		length;
+  string 	magic="TA Demo\0";
+  word		version;          //detta är version 0
+  byte 		numPlayers;	//antal spelare	
+  string        mapName;
+}
+
+struct player
+{
+  word		length;
+  byte		color;		//sparas ej riktigt i denna version
+  byte 		side;        	//0=arm,1=core,2=watch
+  byte 		number;		//spelaren nummer
+  string	name;
+}
+
+struct playerstatusmessage
+{
+  word		length;
+  byte		number;		//spelar nummer
+  string	statusmessage;	//i TA net format
+}
+
+struct unitdata
+{
+  word 		length;
+  string	unitdata;	//alla $1a (subtyp 2,3) sända mellan player 1 och 2 ,efter varandra i okomprimerat format
+} 
+
+struct packet
+{
+  word		length;
+  word		time;		//tid sedan senaste paket i ms
+  byte          sender;
+  string	data;
+} 
+
+struktur på filen
+
+1		header
+numplayer	player
+numplayer	playerstatusmessage
+1		unitdata
+massa		packet  

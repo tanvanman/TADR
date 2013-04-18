@@ -1,0 +1,41 @@
+function unSmartPak(c:string; const FromPlayer, ToPlayer : string ):string;
+var
+   packnum      :cardinal;
+   cpoint       :^cardinal;
+   s,ut,tmp     :string;
+begin
+  ut:='';
+  c:=c[1]+'xx'+copy(c,2,10000);
+  if c[1]=#$4 then
+    c:=TPacket.decompress(c);
+  c:=copy(c,4,10000);
+  packnum := 0;
+  repeat
+    s:=TPacket.split2(c,True, FromPlayer, ToPlayer );
+    case s[1] of
+      #$fe    : begin
+                  cpoint:=@s[2];
+                  packnum:=cpoint^;
+                end;
+      #$ff    : begin
+                  tmp:=','+#$0b+#$00+'xxxx'+#$ff#$ff#$01#$00;
+                  cpoint:=@tmp[4];
+                  cpoint^:=packnum;
+                  inc(packnum);
+                  ut:=ut+tmp;
+                end;
+      #$fd     : begin
+                  tmp:=copy(s,1,3)+'zzzz'+copy(s,4,10000);
+                  cpoint:=@tmp[4];
+                  cpoint^:=packnum;
+                  inc(packnum);
+                  tmp[1] :=#$2c;
+                  ut:=ut+tmp;
+                end;
+      else     begin
+                ut:=ut+s;
+               end;
+      end;
+   until c='';
+   result:=ut;
+end;

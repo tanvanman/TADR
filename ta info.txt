@@ -1,0 +1,225 @@
+- Harden get/set on Unit IDs so they dont access invalid units (aka value too high)
+
+- Patch built in teleporting to be accessable by script
+
+get BROADCAST(id, value);
+get LISTEN(id);
+
+set BROADCAST to value;// "value" being any 32 bit signed integer
+get LISTEN;
+if player A emits a BROADCAST, only player A can get it via a listen
+
+- Kill unit via script.
+
+- Oh, you know that bug where the view is centered on the first player even when you are not the first player? Guess what happens when there is no first player? Right, a crash!
+
+- Dig into how Script global variable updating occurs
+
+
+COB fuction; XY_HYPOT breaks on epic maps
+- figure out why
+
+
+UnitDefStruct.UnitBitfields (241h)
+0x2000 - Is Teleporter
+.text:00429D86 mov     [ecx+TAdynmemStruct.Cursor_Teleport], eax
+.text:00429D8C call    sub_4B8D40
+
+track down how to enable teleporter code
+
+
+
+loc_43F813
+- Teleport mission type dispatcher
+
+sub_40FBE0
+- An Unit Orders dispatcher
+
+
+480770 UnitScripting_Handler_Get
+- match COB get constants with internal actions
+
+467633
+- Sonar jamming!! Fix this
+
+
+0x49D170 - check for if the projectile unit's is the same as the unit's owner!!!
+
+
+sub_4866D0 - projectile hits another unit something & explodes?
+
+sub_49BE60 - cant see projectile?!
+0x49BEA3
+
+sub_499EB0 - todo with weapons fire hitting stuff?
+Has an ownership check too
+
+
+sub_4866D0 - called during network unit moves?
+
+
+sets allied & team state:
+sub_446C70 
+sub_452CC0 - 452D96
+4645B3
+
+sets allied state:
+447225 
+Player_SetAlliedState
+- 452A2D
+- 452ADB
+
+464359
+4662B9
+
+Needs more work:
+46654C 
+
+sub_490230 - does something with the allied player's structure
+
+
+The motherload: 0x464F80 UpdateDatePlayers
+
+LOS_Set_LOS_State
+ - Updates various LOS states. true and circular included
+GameUnit_LOS_Unknown1
+
+
+See projectiles on mini-map;
+.text:00466E6F 02C mov     dl, [ebx+UnitStruct.OwnerIndex]
+.text:00466E75 02C mov     al, [esi+TAdynmemStruct.LOS_Sight]
+.text:00466E7B 02C cmp     dl, al
+.text:00466E7D 02C jnz     loc_46718C
+loc_466E83:
+
+(inject code so if the unit is owned by any of the allied players, allow)
+
+sub_4B7F30
+- Compares the player index against something, trues a value if it is something
+
+
+Something todo with LOS updating:
+0x465053
+
+sub_4825B0
+- 4825CE
+- 482683
+- 048275D
+
+
+
+
+sub_45F1D0 - reports which players are watch, cheat codes, and other interesting things about a game
+
+
+Circular LOS updating, *not* true LOS:
+sub_481930 
+ 0x481A67 <- looks to write
+ 0x481B5E <- looks to write
+ 0x481CAA <- looks to write 
+0x485460 <- Updates LOS table on network message 
+
+
+Only triggered in multiplayer when a player allies or unallies and when a team is broken.
+
+DOES NOT trigger when team changes or during single player
+
+00452960 Player_SetAlliedState proc near 
+
+// wierd, modifies the Unit selected flags. ( creates new unit?)
+.text:00485C1E 00C mov     al, [edx+PlayerStruct.PlayerIndex]
+.text:00485C24 00C mov     edx, TAdynmemStructPtr
+.text:00485C2A 00C xor     ecx, ecx
+.text:00485C2C 00C cmp     al, [edx+TAdynmemStruct.LOS_Sight]
+.text:00485C32 00C mov     eax, dword ptr [esi+UnitStruct.UnitSelected]
+.text:00485C38 00C setz    cl
+.text:00485C3B 00C and     ecx, 1
+.text:00485C3E 00C and     ah, 0FCh
+.text:00485C41 00C shl     ecx, 9
+.text:00485C44 00C or      ecx, eax
+.text:00485C46 00C xor     edi, edi
+.text:00485C48 00C mov     dword ptr [esi+UnitStruct.UnitSelected], ecx
+
+
+
+
+sub_464E70 - trigger when a player dies and is offered to be able to watch
+464DE0 - actually called when the player decides if they are watching or quiting
+
+00467E50     Unit_StateProbe proc near
+004685A0     Unit_BuilderProbe proc near
+!!!! Indept info on a unit's state!!?!
+
+Inject code into a location witha  unit value, see WTF this does;
+
+
+.text:0046814B 0B4 mov     dl, [ebx+UnitStruct.field_57]
+.text:0046814E 0B4 mov     cl, [ebx+UnitStruct.field_3B]
+.text:00468151 0B4 and     dl, 10h
+.text:00468154 0B4 neg     dl
+.text:00468156 0B4 sbb     dl, dl
+.text:00468158 0B4 and     cl, 10h
+.text:0046815B 0B4 and     dl, 2Bh
+.text:0046815E 0B4 add     dl, 2Dh
+.text:00468161 0B4 movsx   eax, dl
+.text:00468164 0B4 neg     cl
+.text:00468166 0B4 push    eax
+.text:00468167 0B8 mov     al, [ebx+UnitStruct.Builder]
+.text:0046816A 0B8 sbb     cl, cl
+.text:0046816C 0B8 and     al, 10h
+.text:0046816E 0B8 and     cl, 2Bh
+.text:00468171 0B8 add     cl, 2Dh
+.text:00468174 0B8 neg     al
+.text:00468176 0B8 sbb     al, al
+.text:00468178 0B8 and     al, 2Bh
+.text:0046817A 0B8 add     al, 2Dh
+.text:0046817C 0B8 movsx   edx, cl
+.text:0046817F 0B8 movsx   ecx, al
+.text:00468182 0B8 push    edx
+.text:00468183 0BC push    ecx
+.text:00468184 0C0 lea     edx, [esp+0C0h+var_80]
+.text:00468188 0C0 push    offset aAutotargetWPriSecSpeWCCC ; "autotarget w[pri:sec:spe]: w[%c:%c:%c]\n"...
+.text:0046818D 0C4 push    edx
+.text:0046818E 0C8 call    _sprintf
+.text:00468193 0C8 add     esp, 14h
+.text:00468196 0B4 lea     eax, [esp+0B4h+var_80]
+
+
+
+
+.rdata:004FC4A5
+.rdata:004FC490
+.rdata:004FCA18
+
+"Action string"
+"unit responce string"
+Action Command handler ???
+Unit responce handler ???
+dword flags1
+byte flags2
+dword flags3
+
+- On all but 1st entry,
+dword flags4
+
+
+
+flags before/after variable sized structure, not understood.
+
+Macro customized structure/classes?
+
+- String based handling of order types?! Transforms it to an index and does something with it
+sub_48CF30
+sub_43F0E0
+
+sub_43AFC0 - fiddles with the status bit?
+
+.text:0047F0C0     ; int __stdcall TriggerSounds(int SoundIndex,int)
+.text:0047F0C0     TriggerSounds proc near  
+
+
+.text:0047F0F4 01C call    PlaySound_Looping
+.text:0047F100 01C call    PlaySound_Once
+
+.text:0049F680     PlaySound_Once proc near
+.text:0049F6A0     PlaySound_Looping proc near 

@@ -1,0 +1,27 @@
+
+--- stuff that is done ---
+
+* Installer now install in the TA Dir you type instead of the default.. heh
+
+* The game progress indicator is now movable. So you can skip to anywhere in the game. Note that this only
+  affects units and their positions really, so any DT's for example that were built in the skipped time will
+  therefore NOT be visible. Same goes for wreckage, reclaimable features, etc. Not much to do about that. 
+  Better than nothing. :)
+
+* Current Ack Status... fixed. Or rather, if you see it, decrease Sync Speed from the Options screen.
+
+* Memory Leak is now gone
+
+* Unit sync now works as intended (dont ask :p)
+
+* Double-clicked files in explorer now works correctly
+
+* Added an Options screen.
+
+* Listing of units that were used in the game
+
+
+
+--- SJ-Bugs (tm) ---
+
+* Adding comments updates file info window

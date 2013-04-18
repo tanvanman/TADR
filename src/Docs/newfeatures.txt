@@ -1,0 +1,101 @@
+Ok here's stuff that I want to add.
+-------------------------------------------
+
+
+* Correct unitsync
+You mean no CRC errors?
+> Partly that, and well, I assumed some stuff that really was.. well completely wrong. :) The reported 
+"missings units" has no meaning at all.
+
+* Listing of units that were used in the game
+Incl. 3rd party?
+> not now, mostly those 3 extras. But I'm thinking of doing something "open" so that ppl can add the signatures
+> of 3rd-party to a textfile.. but I dunno. maybe next version. :)
+
+* No more memory leaks
+Cool, important
+
+* use better timer routines
+Hm?
+> windows offer some that are much more exact, but it produced weird effects last time. :) So we just didn't care
+> to find the problem..
+
+* Setting los to Perm so ppl can join as real players instead of watchers, so you can discuss a played-back game
+Uhm, whatever works, sure
+
+* Making the game-pos indicator moveable so you can at least fast-forward. (rewind may be hard)
+This would be cool, but as far as I understand, you record momvement orders, not their actual movements? Maybe some kind of added utility to convert a .tad file into a .mpg? that would be very cool
+> yes, but the positions are transmitted regularly so it would probably stabilize after a min or so
+> if we just skip ahead in the packet-list..at least in theory. :)
+
+* MPlayer support (or at least not MPlayer crashing. But. well.. MPlayer sucks, so maybe it's good as it is. :))
+hehe, ok
+
+* Continuous loading of recorded file -> less memory being used + faster loadtimes
+cool
+
+* supporting Pause key
+cool
+
+* fix that "current ack status xxx of xxx" that some ppl see
+cool, afaik it happens when ppl choose IPX. it works using tcp/ip instead, but that means one has to be online, or simulate things
+> heh, I use ipx all the time. :) but I finally reproduced that error in my win95 so it should be easy to fix.
+
+* Fix the handling of double-clicked-files in explorer.. doesn't work very good right now.
+ok
+
+* Send some keep-alive stuff so watchers dont drop -> see stats for everyone
+
+--- stuff that is done ---
+
+* Installer now install in the TA Dir you type instead of the default.. heh
+
+* The game progress indicator is now movable. So you can skip to anywhere in the game. Note that this only
+  affects units and their positions really, so any DT's for example that were built in the skipped time will
+  therefore NOT be visible. Same goes for wreckade, reclaimable features, etc. Not much to do about that. 
+  Better than nothing. :)
+
+* Current Ack Status... fixed. Or rather, if you see it, decrease Sync Speed from the Options screen.
+
+* Memory Leak - The Story: Seems like it is caused by DirectPlay. Commenting out the one call to dp->Send fixes
+  the leak. So not much we can do about it.. (TA seems to leak mem at about the same rate as the server.exe, so
+  it's probably all microsofts fault)
+
+* Unit sync now works as intended (dont ask :p)
+
+
+
+
+--- SJ-Bugs (tm) ---
+
+* Adding comments updates file info window
+
+
+--- SJ-work ---
+
+have you solved the problem of playing a game while recording, then exiting to menu and starting again and recording a different filename, causing TA to crash with illegal operation while loading?
+
+ think you should look more into protecting the code from hampering
+
+I can imagine some ppl wanting to change the code so that the recorder doesn't reveal it's presence, f.ex., and having more than 3 seconds invulnerability on new untis
+
+some kind of encryption
+
+
+
+checksum
+
+hey, found a bug in the new recorder.  When I go into comment and click add without entering text it locks....just an FYI..
+
+
+
+eyy, bugreport svenne...
+
+när man kollat klart på ett game asså när man vunnit o den ska köra över till slutskärmen med poäng mm så krashar båre servern o TA så att man får kicka dem med aktivitetshanteraren...
+
+othuur eller är det bara på min maskin? jag kör NT o har en P120 med 24 Mb ram but hey... VM makes up for it i heard
+
+got an idea for a possible future version....how about displaying the length of the game.... (like the clock if at normal game speed)...of course would have to be approx....
+
+
+heh, got another.  How about displaying starting resources....

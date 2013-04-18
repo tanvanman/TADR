@@ -1,0 +1,34 @@
+
+This is the source to the TA Demo Recorder version 0.99b2 in all its glory.
+Released on November 5th, 2003.
+
+Available for download from http://www.clan-sy.com
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+So what is everything in here?
+
+Folder  	what it is
+---------------------------
+Root		Contains several files that are shared among all the 
+		sub-applications, and also a project that builds a basic 
+		directplay/ta packet logger.
+CRC		Calculated and writes a CRC value to dplay.xll which is then
+		checked on every startup to prevent tampering.
+DDraw		The DLL that provides the interface upgrade and TAHook and 
+		probably even more such as 3dta-stuff.
+Docs		Various texts on packet structures and things like that. Some 
+		of the texts are in swedish.
+IDAnalyze	Utility to find the 32bit "id" of a unit from a saved unit
+		restriction list. This number can be used in the unitid.txt
+		used by the replayer.
+Installer	Nullsoft Installer script that creates the installation program.
+Recorder	Builds dplayx.dll which is the main part of the recorder.
+Server		Replays demo files.
+VisPatcher	Launched by the installer if the user is running windows 95.
+		Patches totala.exe to load spank.dll instead of ddraw.dll.
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+The TA Demo Recorder is created by Fnordia, SJ and Yeha.
+The source is provided as is, there's no warranty or anything.

@@ -1,0 +1,99 @@
+; 
+; TA Demo Recoder 0.90ß.
+;
+; This file describes different groups of units.
+; You can therefore add 3rd party units etc to this list if you feel like.
+;
+; The hex-number <unitid> is the same number that is saved in a unit restrictions file. Don't know
+; how that is related to the unit, or if it can be found in the unit's file somewhere. So if
+; you know, feel free to enlighten me.
+;
+; If you add stuff to the file, you could always send it to me so that future releases of TA Demo can
+; recognize what 3rd-party units was used. (If there should happen to be a nice easy way to get the unit
+; names from those id numbers, this file might become obsolete)
+;
+; Edited by Fnordia 990220
+;                   991027
+;		    000219
+;                   010318	
+;
+;
+; Syntax: (very simple)
+;
+; = <group name / unit name>
+; <unitid>
+; <unitid>
+; <...>
+;
+; = <group name>
+;
+; etc..
+;
+; update: only units in one of the +-groups will show. with the group furthest down takes presedence.
+;         however, the units before the first +-group will be tested for all groups
+
+; I just added one unit to CC cuz I'm lazy. Btw, it's inclusive, so if any unit in the groups list were
+; enabled in the game, this group's name will be listed under used units.
+
+=BAI
+6da73737
+
+=Queller
+; albatross
+62cc5579
+
+=Counterstrike
+; fluxor
+9a34465c
+
++regular ta
+=Core Contingency
+
+; it's the nixter btw. :)
+848ebee6
+
+=ARM Flea
+371d264a
+
+=ARM Scarab
+6b81b8be
+
+=CORE Hedgehog
+763476f4
+
+=CORE Immolator
+3fcf5935
+
+=ARM Fast Attack-Repair Kbot
+d6d867f3
+
+=CORE Necro
+f4c81832
+
++uberhack 1.0
+=UberHack 1.0 TAEC
+; The anemone
+b9f36d39
+
++uberhack 1.1
+=Uberhack 1.1
+; the gimp
+16b40f07
+
+=TAEC units
+; the thumper hehe
+a89cec32
+
++uberhack 3.0
+=Uberhack 3.0
+;centurion
+3b978743
+
++xta 0.8
+=XTA 0.8
+f804eafe
+
++xta betas
+=XTA pre1.0
+; fortwall
+6d197dcf

@@ -1,0 +1,7 @@
+Pros    + Can adjust speed with standard + - keys	
+	+ Recording will never playback so fast that you computer cant keep up
+	+ Replay speed independent of if the game was slow upon recording
+	
+Suggestions
+
+If you wish to see how slow it was when recorded use old timer mode, otherwise use the new one.

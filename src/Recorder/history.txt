@@ -1,0 +1,130 @@
+v0.99b3.513
+- Fixed stack overflow in 512 due to bad refactoring.
+- Implemented quering a player for most reportable commands. ie ".report foo"
+- Minor fixes to get TADR working with lobbied games
+
+v0.99b3.512
+- Fixed sharelos issue when in the game with biulds 509.
+  WARNING: Biuld 510 is broken.
+
+
+v0.99b3.511b
+- Fixed issue with the Windows 9x OS line
+
+v0.99b3.511
+- Hardening against corner cases to prevent accessing a null pointer
+- Reduced spamminess about broken recorders by making it an option (reg key, defaults to off)
+- Posible fix to allow lobbyable games to work properly
+
+v0.99b3.510b
+- Fixed bug with players leaving/dropping and the 
+  sharedmemory stuct not getting properly updated
+- Fixed bug in handling of more than 500 units per side.
+- Sharelos handling improved (complete fix still pending)
+- Backported fixes from biuld 606 to 510b
+
+v0.99b3.509b
+- Fixed bug with sharelos code being injected at startup causing +view to fail.
+  Using .sharelos will cause +view to fail to work
+
+v0.99b3.509b
+- Fixed bug in code handling status packets.
+- Misc minor code fixes.
+- Potential preformance increases(hopefully)
+- More hardening against invalid player references
+- Started reverse engineering the allied network message
+
+v0.99b3.508
+- Restructed code to allow for greater code sharing between code forks.
+  This also increased code modularity.
+- Fixed TLog2.add, no longer implodes when an empty string is passed to it.
+  However, might flood the logfile.
+
+
+v0.99b3.506
+- Reduced spamminess of .voteready.
+- aliased .voteready command to .ready.
+- Fixed posible once in a blue moon crashes caused by sharelos code being 
+  touched while the sharelos code was only partially installed.
+  This means code injection occurs once TA Demo recorder bootsup at startup. 
+  Before any of the injected code can be touched.
+- Fixed error reporting code, really!
+
+v0.99b3.503
+- .voteready now resets once the game unpauses instead of the time it next pauses.
+
+v0.99b3.502
+- .report command does not works under windows 2003 (working on this issue)
+- Fixed bug with the recording of the last time a unit died
+- Fixed the major issue of TA demo recorder imploding when the max unit count is greater than 500
+- Fixed issue with a player droping & the code which syncs the view the TA hook sees
+- Added .voteready command. Indictes that a player is ready to go.
+  Once all non-watching players indicate they are ready to go, the game is unpaused.
+
+v0.99b3.497
+- ShareMapPos only generates events when the map view changes, 
+  instead of spamming the connection
+- Added .autopause command. Autopauses at the start of a game. 
+  Stops anyone up the host from unpausing 1st(unless the host drops)
+  Works even if the person unpausing doesnt have the latest version.
+
+v0.99b3.483
+- Command reporting fixed up so it doesnt spam the chat.
+- Fixed some issues with the .take code
+- Added warning about watchers doing a .take
+- Added .help command. Allows ingame polling of the supported commands
+- Posible fix on the multi-line bug. Not positive it breaks something or is 100% effective
+
+v0.99b3.472
+- Added .polldp command. Reports the DirectPlay Players known on each client with the same of greater version 
+- Cleanup how TDPlay.GetPlayerName reads the player's name (Reverse engineering a known data structure is stupid)
+- Working on why multi-lines of text are sent to a player once they rejoin.
+  Results from TA sending a broadcast msg, and Dplay sending multipule messages to the same location.
+  Even when Dplay does not report the players at the duplicate point.
+
+v0.99b3.462
+- Fixed .Take so it can handle another player finishing a take claim
+- TADR logs now outputed to a subdirectory instead of the TA dir
+- Fixed .report (sometimes read the version string from the real dplayx.dll)
+- Added .players command. Lists the players the recorder can see.
+- Fixed issue with AI players leaving/being kicked
+- Revamped some internal code which handled player management
+- Fixed exception location reporting
+- Major milestone: Fixed the issue with TA Demo Recorder not handling player drops in Battleroom
+
+v0.99b3.428
+- Can take from multipule people at once.
+- Take only occurs once for each effected player(enforced client only)
+- Now causes errors to access player data when the applications shouldnt be
+- Fixes to .sharelos command (still working on it)
+
+v0.99b3.395
+- fixed bug in sharelos which didnt do the code injection untill someone else did a sharelos
+- fixed crash bug in sharelos code injection
+
+v0.99b3.386
+- Now logs the version in the log file
+
+v0.99b3.383
+- Added code which auto-magically grabs the exact biuld number of the recorder for .report
+- Integrated adding biuld number to recorder version report
+- Fixed a few misc bugs
+- Identified a memory leak in the function which checks for the TA demo recorder dll being changed
+
+v0.99b3.3
+- reimplemented the commands; stoplog, onlyunits/unitsonly, randmap, fakewatch, forcecd, lockon, createtxt, 3dta
+- yet more tweaking of the exception logging system
+- The symbol file so it is loaded on demand (aka when an exception occurs)
+
+v0.99b3.2
+- Fixed exception logging system
+- DirectPlay lobby wrapper included in exception logging system
+- Allowed levels of verbosity for logging
+- added command ".loggingverbosity" accepts numbers <0-5>  & no paramater to get the current verbosity level
+- added command ".crashme" - Triggers an exception which can cause a crash if .crash was typed
+
+v0.99b3.1
+- Added reporting of where an exception occured, (module, function & line #)
+- Added exception loggin on all functions exposed to TA
+- Improved cheat detection reporting (lists the potential cheats enabled, in english)
+

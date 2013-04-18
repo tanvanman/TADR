@@ -1,0 +1,182 @@
+Paketlängder (lobbypaket)
+
+Id	Längd			Typ
+$2	13			Ping
+$6	1			???
+$7	1			???
+$20	193			Sessionsdata
+$1a	14			Unitsyncdata
+$17	2			???
+$18	2			???
+$15	1			Klarladdad
+$8	1			Launch (byte 2 är $6. fast det är nog inte så ändå)
+$5	65			Chat
+&	41			Vilka spelare som är med
+"	6			Vilken spelare som är vem
+*	2			Progress vid laddning
+$1e	2			??? Sänds under laddning typ två gånger.. Precis när man är klar
+À	10			??? Skickas när laddningen precis är klar
+$a0	20			??? När laddningen är klar.. Vet inte om det ens är 20..
+$9	7			??? När laddningen är klar Kanske är längd 7 eller 1
+,	<var>			Längden är andra byten. Totala längden.
+(	58			???
+$c	11			??? under spelets gång
+$f	6			??? under spelets gång
+
+
+    $d0       :len := 22;			?? laddning
+    $1f       :len := 5;		Svar på en $1e - ska innehålla ens pid
+
+--------------
+
+
+Lite paket
+
+
+
+Ping:
+ + idFrom       : 6340466
+ + idTo         : 6340478
+ + lpData       : F×ÿÿ$02
+
+	JÛ¢$00			Ett tal
+	$00$00$00$00
+	r¿`$00			ID på den som skickar
+
+Då svarar man
+
+ + lpData       : ÿÿÿÿ$02
+
+	JÛ¢$00			Samma tal
+	…¹œ$00			Hur lång tid det tog? mikrosek? nej nåt helt annat.. hmm.
+	r¿`$00			ID på den som skickade
+
+
+
+Typ 6 är väl vad som är just nu.. Baninställningar och sånt
+
+
+
+Innan man launchar ska man skicka ett "-paket
+
+"
+dword			playerid
+byte			Spelarnr. Servern är $1
+
+Man ska skicka ett för varje spelare när man är server.
+
+Servern skickar även ett extra med sig själv efteråt.
+
+
+Unitsynkningen föregås av att servern får ett $17. Den svarar med $18$01 och skickar sen unitsynkar.
+
+-----------
+
+launching
+
+<före>
+
+$04$01$00$00
+P$00$00$00
+$00$00$00$00
+À˜pf$1DÒ$11»Ì$02 $025¤!
+ ty™õõÏ$11˜'$00 $$$14–È
+$0A$00$00$00
+$02$00$00$00
+œæˆ$01
+¼æˆ$01
+…Ý¿$00
+$00$00$00$00
+
+`$00$02O
+$04$00$00$00
+$0A$00$0A$00
+ú$00$03$01
+
+88i8ii8         Ashap Plateau  $00$00
+
+<efter>
+
+$04$01$00$00
+P$00$00$00
+ $00$00$00
+À˜pf$1DÒ$11»Ì$02 $025¤!
+ ty™õõÏ$11˜'$00 $$$14–È
+
+$0A$00$00$00
+$02$00$00$00
+œæˆ$01
+¼æˆ$01
+…Ý¿$00
+$00$00$00$00
+
+`$002O					<<< Aha!!
+$04$00$00$00
+$0A$00$0A$00
+ú$00$03$01
+
+88i8ii8         Ashap Plateau  $00$00
+
+
+Ett $8$6 betyder Launch.
+
++ lpData       : Dÿÿÿ*d$06
+
+Byte 1 <d> ökas uppåt under laddningen, och vid d är den klar. (d = 100. Procent alltså)
+
+
+
+Ett $15 betyder Jag är klar nu.
+
+De sitter även och skickar $7 fram och tillbaka.. Hmm. Nej inte tillbaka. Aha.
+
+------------
+
+Spel
+
+Det skickas hela tiden , -paket, de är nog speldata
+
+Emellanåt skickas ett )-paket, riktat
+
+
+Hmm paket verkar kunna bäddas in i ett Send-anrop. Tex blev ett $5-chat paket inlagt i mitten av ett ,-paket.
+Senare kommer det dock ett ensamt. <nej följs av ett ,-paket i samma data s.a.s efter 64 bytes som är
+storleken på ett $5>
+
+
+-------
+
+Paket. Längder anges exklusive kind-byten ($1a på den första tex)
+
+
+$1a			- synkpaketet, 13 bytes långt
+byte			- subtyp
+dword			- ??
+dword			- unitnr
+
+Subtyp = $3
+word			- $01$00 = berätta för klient att denna unit finns eller inte ska användas. Första gången
+				   klienten får den skickar den crc på den uniten.
+			- $01$01 = berätta för klient att denna är synkad. :) 
+word			- limitation
+
+Subtyp = $2
+dword			- checksum
+
+Subtyp = $0
+Öh helt tom
+
+subtyp = $1
+word			- $12$01 .. ?? Antal svarspaket den kommer att skicka (= antal units) Denna skickas
+			  alltså av klienten
+word			- 0..?
+
+subtyp = $4		- verkar komma som svar på $7-paketen. i nästa burst.
+
+
+----------
+
+Kartbyte. Endast ett dword skiljer
+
+ + data         : j$FF$FF$FF  $20Metal$20He  c  k  $00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$04$00$03$00`$EA$01$00$01$00$00$01$00`$00$02$02$00$00$00$00$0A$00$0A$00$F4$01$03$01[  $C3k  $9B$00$00$00$00$00$00$00$00$00$00$00$00$$`$EA$01$00$05
+ + data         : $FF$FF$FF$FF$20LUSCHI  E$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$00$04$00$03$00`$EA$01$00$01$00$00$01$00`$00$02$02$00$00$00$00$0A$00$0A$00$F4$01$03$01$CE$A2$C8@  $00$00$00$00$00$00$00$00$00$00$00$00$$`$EA$01$00$05

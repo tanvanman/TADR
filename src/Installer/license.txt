@@ -1,0 +1,11 @@
+Please understand that TA Demo is an experimental work in progress and to be used entirely at your own risk. This means the authors can not be held accountable for any loss of data, corruption of files, shortage of milk at your local grocery store or any other real or imagined error resulting from the use of this program. 
+
+Side effects such as loss of sleep, opponent's TA skills improving or the expulsion of cheaters from the TA community might occur as a direct result of watching games recorded with TA Demo.
+
+If you fail to read the documentation before asking us questions or reporting a problem you will be haunted by evil penguins for the rest of your natural life.
+
+In case you find problems that you strongly suspect to be caused by TA Demo Recorder and which you haven't experienced before installing TA Demo, please submit a bug report to us using the bug report form. Miscellaneous feedback on TA Demo is of course also appreciated; feel free to email us your thoughts, or post them on the message board on our site.
+
+The Swedish Yankspankers are in no way affiliated with Cavedog Entertainment, Humongous Entertainment, GT Interactive, Infogrames or any other company that has rights to the Total Annihilation products and brand name.
+
+TA Demo may be freely distributed as long as it is provided as is, with the documentation included unchanged (readme.html, recorder.html, replayer.html, history.html). All rights reserved.

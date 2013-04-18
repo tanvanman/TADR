@@ -1,0 +1,153 @@
+Player LOS Table writes:
+sub_482270 - 482381 (clears some LOS state?)
+           - 482472 (?!?)
+
+Master LOS table writes:
+
+sub_485420 - 485460
+sub_481930 - 481B58 481B75    
+	     481CAA 481CCC 481CE4
+
+LOS_Set_State - 481734 (For when LOS is reset, make sure everythign updates properly)
+
+passes the master LOS table to a function:
+
+sub_484FA0 - 484FEE
+sub_484F50 - 484F8B
+
+
+
+sub_408090 - hits master LOS table & checks against the current ViewPlayer
+
+LOS_Sight Refs-
+
+Have patches for:
+
+ 00467440 -
+ 00467440 - GameUnit_LOS_Radar
+ 00466DC0 - GameUnit_LOS_Minimap_Projectiles (need to patch caller[UpdateDatePlayers 00465072])
+                                             
+On indefinit hold:
+ 004843C0 GameUnit_LOS_Painting - 004843CD
+
+Patches to finish:
+ sub_465AC0 PlayerCanSeeUnit - 00465ACA
+                                This handles GameUnit_LOS_Sight 
+			     - patch not complete
+
+In pipeline:
+
+ 0x408090 LOS_PlayerCanSeeLocation  
+	- Hook 0x408090. Start of loop
+	- Hook 0x4080C1. Player failed, check next ally
+	- Hook 0x4080FC. Player might have failed. Check eax, 
+		if zero keep checking till we run out of players to check against
+
+
+ 0x49BE60 LOS_SeeProjectiles - 0049BEBE
+			     - start patching at 0x49BEBE
+			     - patch end at: 0x49BF27	
+
+				   
+
+
+
+ 0x46A860 LOS_GUIText
+                      - 0x46AC85
+                      - 0x46AD0B
+                      - 0x46B02F
+                      - 0046B10E                      
+                      - 0x46B457
+                      - 0x46B617 - triggered by mouse over a unit
+
+                      - 0x469CA2 some ref to player index?
+
+
+ UpdateDatePlayers - 0046506A
+                   - 00465565  - ignore?
+                                             
+ 00468CF0 GameUnit_LOS_Unknown1 - Handles a lot of crap
+                                - 00468E4B
+                                - 0046967D
+                                // required work arounds at:
+                                - 004698EE 00469A77
+
+
+                                
+  0x448784 - remove no-cd check enforment in battleroom
+  0x4487D6 - Remove 1 AI per human player limit?
+Can be ignored:
+ sub_4169D0
+ 0x416B50 TextCommand_View
+ sub_4170C0  
+ sub_419B00
+ sub_4244B0
+ sub_4644D0
+ sub_466050 - 00466097   
+ sub_47A760 - 0047A7D2
+ sub_4942E0 - 0049437B
+ 00466C20 GameUnit_LOS_MiniMap - unneeded
+
+ 0048BAE0 GameUnit_LOS_Sight - 0048BB05 - PlayerCanSeeUnit fixes this
+                             - 0048BC48 
+Might be useful:
+ sub_4866D0 - 00486722
+ sub_48D630 - 0048D63D
+ sub_48D790 - 0048D7A0
+
+ sub_43E490 - Needs more study. Need to use debugger to determine runtime state
+              0043E6BC
+              0043E92C
+              0043EBE7
+              0043ECFA
+              0043EEB3
+              0043EFCA
+              0043F5F2
+              0043F662
+              0043FC26
+              0043FD3B
+              0043FFA6
+              004400CB
+
+                          
+Likely to ignore:
+ sub_497180 - 00497B56
+
+             
+Unknown:
+ sub_408090
+ sub_418310
+
+ sub_459200
+
+ sub_4658E0 - 004659C0
+              00465A91
+
+ sub_467840 - 0046786B
+
+ sub_467D70 - 00467D98
+ 
+
+            
+ sub_473590 - 004735BB
+ sub_473A00 - 00473A56
+ sub_474170 - 0047419B
+ sub_4745E0 - 0047462C
+ sub_474B80 - 00474BAB
+ sub_475470 - 004754C7
+ sub_47D2E0 - 0047D3D1
+ sub_47F300 - 0047F3E8
+ sub_47F780 - 0047F78B
+ sub_47F7E0 - 0047F7FF
+ sub_47F850 - 0047F86F
+ sub_480EB0 - 00480ECB
+
+ sub_481930 - 00481D23
+ sub_481D50 - 00481D69
+ sub_482270 - 00482289
+
+ sub_482910 - 00482945
+ sub_485A40 - 00485C2C
+
+
+

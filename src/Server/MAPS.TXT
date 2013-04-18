@@ -1,0 +1,139 @@
+; 
+; Default list of maps that the Random Map Selector (tm) will chose from, with weightings.
+; Thanks to Xeno for making the list of mapnames!
+;
+; Structure of this file (quite simple)
+;
+; +Group_name
+; <weight> <mapname>
+; <weight> <mapname>
+; ...
+; +Group_name
+; ...
+;
+; NOTE: If you want to disable a group, just remove the + since all lines that doesn't start with either an 
+;       integer or a + will be considered as groups to ignore. (and no +10 won't count as an integer). If you want 
+;       to disable a specific map, just delete the line or perhaps set the weight to 0. 
+;
+; About the weightings: They are an INTEGER, and the chance for getting a certain map is proportional to
+;                       <map_weighting> / <sum_of_all>. 
+
++ORIGINAL TA MAPS
+
+100 Anteer Strait
+100 Ashap Plateau
+100 Caldera's Rim
+100 Coast to Coast
+100 Dark Side
+100 Etorrep Glacier
+100 Evad River Confluence
+100 Fox Holes
+100 Full Moon
+100 Gods of War
+100 Great Divide
+100 Greenhaven
+100 Hundred Isles
+100 Kill the Middle
+100 King of the Hill
+100 Lava & Two Hills
+100 Lava Alley
+100 Lava Highground
+100 Lava Mania
+100 Lava Run
+100 Metal Heck
+100 Over Crude Water
+100 Painted Desert
+100 Pincushion
+100 Red Hot Lava
+100 Red Planet
+100 Red Triangle
+100 Ring Atoll
+100 Rock Alley
+100 Seven Islands
+100 Sherwood
+100 Shore to Shore
+100 The Cold Place
+100 The Desert Triad
+100 The Pass
+100 Two Continents
+100 Yerrot Mountains
+
+
++CORE CONTINGENCY MAPS
+
+100 Acid Foursome
+100 Acid Pools
+100 Acid Trip
+100 Assault on Suburbia
+100 Biggie Biggs
+100 Block Wars
+100 Brain Coral
+100 Cavedog Links CC
+100 Checker Ponds
+100 Cluster Freak
+100 Comet Catcher
+100 Core Prime Industrial Area
+100 Crater Islands
+100 Crystal Cracked
+100 Crystal Isles
+100 Crystal Maze
+100 Crystal Treasure Island
+100 Dire Straits
+100 East Indeez
+100 Eastside Westside
+100 Expanded Confluence
+100 Flooded Glaciers
+100 Gasbag Forests
+100 Gasplant Plain
+100 Higher Ground
+100 Ice Scream
+100 Icy Bergs
+100 John's Pass
+100 Lake Shore
+100 Lusch Puppy
+100 Luschaven
+100 Metal Isles
+100 Moon Quartet
+100 Ooooweeee
+100 Pillopeens
+100 Plains and Passes
+100 Polar Range
+100 Polyp Fields
+100 Red River North
+100 Red River
+100 Ror Shock
+100 Sail Away
+100 Sector 410b
+100 Show Down
+100 Slate Gordon
+100 Slated Fate
+100 Steel Jungle
+100 Surface Meltdown
+100 Temblorian Mist
+100 The Barrier Reef
+100 The Bayou
+100 Town & Country
+100 Trout Farm
+
+
++BATTLE TACTICS MAPS
+
+100 Aqua Verdigris
+100 Brilliant Cut Lake
+100 Canal Crossing
+100 Coremageddon
+100 Metal Gridlock
+100 Wretched Ridges
+
+
++ONLINE CAVEDOG MAPS
+
+100 Ancient Issaquah
+100 Evad River Delta
+100 Luschie
+100 Luschinfloggen
+100 Mounds of Mars
+100 ThundurLok Rok
+100 Tropical Paradise
+
+

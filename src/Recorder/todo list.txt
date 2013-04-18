@@ -1,0 +1,25 @@
+TODO:
+- Add unpause/speed hack to prevent speed jacking & rapid pause/unpausing
+- Add hot patching of the;
+--
+ mov <register>, <TA ADDRESS>
+ jmp <register>
+--
+ code sequance to an actual direct jump at run time (faster)
+
+
+
+Things todo:
+- Add .ignore - ignore list management & functionality to ignore a player
+- Add .watchers - extra watchers abilities
+- Finish merging the translated Swedish -> English comments from the translated file into sourcecode
+
+- Better error reporting for packet handling on unkown/corrupted packets
+- Revamp the packet handling system
+- Revamp the C++ ddraw.dll module
+
+
+The following existing Recorder commands are not yet implemented: plfrom,staton,logpl,pltest,plresults
+
+
+

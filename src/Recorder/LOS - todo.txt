@@ -1,0 +1,68 @@
+
+[18:50:54] <Gnug215> Hmm, I think one suggestion I had was a "chatroom" for watchers in the game.
+[18:51:06] <Gnug215> Or well, just the ability to chat for watchers, that the players didn't see.
+[18:51:17] <Gnug215> And uhm, a cursor for the Ctrl-F2 box.
+[18:51:50] <Gnug215> And maybe checkboxes. Like "Activate Shootall/Noshake/Shareall" etc.
+[18:51:55] <Xon> ^_^
+[18:52:13] <Xon> these are actually good suggestions
+[18:52:19] <Gnug215> Yay!
+[18:52:34] <Gnug215> Well, I mean, if you ever delete the macro stuff.
+[18:52:39] <Gnug215> You have to re-write everything.
+[18:52:50] <Gnug215> You can't jump lines, and you can't copy paste.
+[18:52:51] <Gnug215> It sucks!
+ <Gnug215> Is there any way to make a "chat log" show or something?
+<Gnug215> Did I remember to suggest a visible blinking cursor in the battleroom chat? :)
+
+
+[19:55:47] <Gnug215> Hey, how about making shortcuts for the commands?
+[19:55:53] <Gnug215> Like, setshareenergy 1000
+[19:56:07] <Gnug215> could be +sete 1000
+[19:56:12] <Gnug215> Or +she 1000
+[19:56:28] <Gnug215> Or +ssh 1000
+[19:56:35] <Gnug215> And +ssm 1000
+
+<DopeFishhh> ggs can you make it so that it automatically does +shareradar when you .sharelos
+
+Increase the max text length ingame chat?
+
+Yes, thats right. I've restarted work on TADR.
+
+Working off the 0.99b3 513 codebase, the new version will have a few improvements over the standard 0.99b2 version.
+
+[list]
+[*]Increased stability.
+[*]+5000 unit support. 0.99b2 only supports 500. Anything more and you start having some issues with a few of the features.
+
+[*]Sharelos improvements:
+
+- It is no longer posible for the recorder to get confused when typing .sharelos ingame.
+
+- [b]+view and .sharelos now work together! [/b]
+
+[*] Major Bug fix for TA: TA does not handle players dropping/being kicked from the battle room properly. This causes multi-line text when someone drops rejoins. This also trashes the recorder. TADR implements a fix for this now.
+
+[*]Autopause - automatically pauses the game when you get into the game. Great for team games were you teamup ingame.
+
+[*].cmdwarp will now work if a new person joined after the host typed it.
+
+[*] Bundling Gnome's Extended chat interface(with permision) 
+
+[*] 5000 unit limit. No need to alter the exe, just use TADR!
+[/list]
+
+There are a number of improvements still in the works, and I will add more as they are good enough to be included. 
+
+Features in the pipeline:
+[list]
+[*]The actual recorder itself will be external to TA, thus crashes which kill TA will not corrupt the .tad file.
+[*]Universal ancient TADR .tad format + server version to new version converter 
+[*]New replayer server version
+[/list]
+
+Potenial feature list:
+[list]
+[*] Improvements to sharelos have been strongly considered, but will be time consuming to implement.
+[*] CD check bypass. No need to alter the exe, just use TADR! (Legal issues?, will only include if Nexus & others OKs it)
+[*] Integration of Prognosis's "TA Battleroom Text Scrolling" hack (optional)
+[*] Resurrection and integration of Prognosis's TA4 scripting project.
+[/list]

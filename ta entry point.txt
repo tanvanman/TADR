@@ -1,0 +1,17 @@
+447D87
+047187
+
+C00
+
+Point to hook; 0x49EDDD (4 params on stack)
+File offset; 0x9E1DD
+
+
+DLL name; 0x4FDB98
+16 bytes; 0x49ED85 (9E185)
+16 bytes; 0x49ED91 (9E191)
+
+
+
+
+Calls; 0x49E830
