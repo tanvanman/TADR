@@ -9,17 +9,20 @@ const
 
 type TTACheats = type longint;
 const
-  Cheat_Invulnerabilety : TTACheats = $1;
+  Cheat_Invulnerability : TTACheats = 1;
   Cheat_Invisible : TTACheats = 2;
-  Cheat_FastBiuld : TTACheats = 4;
+  Cheat_FastBuild : TTACheats = 4;
   Cheat_InfiniteResources : TTACheats = 8;
   Cheat_LosRadar : TTACheats = $10;
   Cheat_ControlMenu : TTACheats = $20;
-  Cheat_BiuldAnywhere : TTACheats = $40;
+  Cheat_BuildAnywhere : TTACheats = $40;
   Cheat_InstantCapture : TTACheats = $80;
   Cheat_SpecialMove : TTACheats = $100;
   Cheat_JamAll : TTACheats = $200;
   Cheat_ExtraDamage : TTACheats = $400;
+  Cheat_InstantBuild : TTACheats = $800;
+  Cheat_ResourcesFreeze : TTACheats = $1000;
+  Cheat_DeveloperMode: TTACheats = $2000;
 
 type
   PMKChatMem = ^MKChatMem;
@@ -86,19 +89,19 @@ function ListCheats( cheats : TTACheats ) : string;
 
 begin
 Result := '';
-if CheatEnabled(Cheat_Invulnerabilety) then
-  AddCheatDescription('invulnerabilety');
+if CheatEnabled(Cheat_Invulnerability) then
+  AddCheatDescription('invulnerability');
 if CheatEnabled(Cheat_Invisible) then
-  AddCheatDescription( 'invisible');
-if CheatEnabled(Cheat_FastBiuld) then
-  AddCheatDescription('fast biuld');
+  AddCheatDescription('invisible');
+if CheatEnabled(Cheat_FastBuild) then
+  AddCheatDescription('fast build');
 if CheatEnabled(Cheat_InfiniteResources) then
   AddCheatDescription('infinite resources');
 if CheatEnabled(Cheat_LosRadar) then
   AddCheatDescription('los&radar');
 if CheatEnabled(Cheat_ControlMenu) then
   AddCheatDescription('control menu');
-if CheatEnabled(Cheat_BiuldAnywhere) then
+if CheatEnabled(Cheat_BuildAnywhere) then
   AddCheatDescription('biuld anywhere');
 if CheatEnabled(Cheat_InstantCapture) then
   AddCheatDescription('instant capture');
@@ -108,6 +111,12 @@ if CheatEnabled(Cheat_JamAll) then
   AddCheatDescription('jam all' );
 if CheatEnabled(Cheat_ExtraDamage) then
   AddCheatDescription('extra damage');
+if CheatEnabled(Cheat_InstantBuild) then
+  AddCheatDescription('instant build');
+if CheatEnabled(Cheat_ResourcesFreeze) then
+  AddCheatDescription('resources freeze');
+if CheatEnabled(Cheat_DeveloperMode) then
+  AddCheatDescription('developer mode');
 end;
 
 function IsTAHookRunning : boolean;

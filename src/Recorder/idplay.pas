@@ -1,4 +1,5 @@
 unit idplay;
+{$DEFINE Release}
 {.$DEFINE DebuggerHooks}
 
 // causes the $2c packets to be logged
@@ -1271,8 +1272,6 @@ IsRecording := true;
     logsave.add(s);                            //write extra sector
   end;
 
-
-
   for a:=1 to Players.Count do begin
     s:=#0#0;                         //empty size
     s:=s+char(Players[a].Color);  //color
@@ -1575,7 +1574,7 @@ if assigned(chatview) then
     PRec2Rec_CheatsDetected_Message(@s[1])^.CheatsDetected := oldMyCheats;
     SendRecorderToRecorderMsg( TANM_Rec2Rec_CheatDetection, s );
       
-    SendChat(Players[1].Name+' has cheats enabled ' + ListCheats(oldMyCheats));
+    SendChat(Players[1].Name+' has cheats enabled: ' + ListCheats(oldMyCheats));
     end;
   if (chatview^.NewData = 1) then
     SendClipboard();
@@ -1798,7 +1797,7 @@ if FromPlayer <> nil then
                   Players[i].HasWarnedOnUnitLimit := True;
                   SendChat( 'Warning: ' + Players[i].Name + ' is using a broken recorder');
                   SendChat( 'This player is unable to handle more than 500 units per side');
-                  SendChat( 'Visit www.clan-sy.com to download a different version');
+                  SendChat( 'Visit www.tauniverse.com to download a different version');
                   end;
               end;
             if 10*maxunits+1 > Length(UnitStatus) then
@@ -1868,7 +1867,7 @@ if FromPlayer <> nil then
             begin
             SendChat( 'Warning: ' + FromPlayer.Name + ' is using a broken recorder');
             SendChat( 'This may give him/her advantages such as permanent LOS');
-            SendChat( 'Visit www.clan-sy.com to download a different version');
+            SendChat( 'Visit www.tauniverse.com to download a different version');
 
             FromPlayer.HasBrokenRecorder := true;
 {            tmps:=$1b'1234'#$06;
@@ -1886,7 +1885,7 @@ if FromPlayer <> nil then
             FromPlayer.HasWarnedOnUnitLimit := True;
             SendChat( 'Warning: ' + FromPlayer.Name + ' is using a broken recorder');
             SendChat( 'This player is unable to handle more than 500 units per side');
-            SendChat( 'Visit www.clan-sy.com to download a different version');
+            SendChat( 'Visit www.tauniverse.com to download a different version');
             end;
           end;
         end;
@@ -2460,7 +2459,7 @@ if FromPlayer <> nil then
                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_CheatsDetected_Message) );
                  FromPlayer.otherCheats := PRec2Rec_CheatsDetected_Message(Rec2Rec_Data)^.CheatsDetected;
                  if date>36983 then
-                   SendChat(FromPlayer.Name+' has cheats enabled ' + ListCheats(FromPlayer.otherCheats));
+                   SendChat(FromPlayer.Name+' has cheats enabled: ' + ListCheats(FromPlayer.otherCheats));
                  end;
                TANM_Rec2Rec_Sharelos :
                  begin
@@ -3224,7 +3223,7 @@ var
 begin
 cs.Acquire;
 try
-reg := TRegInifile.Create ('Software\Yankspankers\TA Demo');
+  reg := TRegInifile.Create('Software\TA Patch\TA Demo');
 try
 {$IFDEF ThreadLogging}
   ThreadLogger.KnownThreads.Clear;
@@ -3250,10 +3249,10 @@ try
   fixon := True;
   DecompressionBufferSize := reg.ReadInteger( 'Options', 'DecompressionBufferSize', 2048);
 
-  fixfacexps := reg.ReadBool ('Options', 'fixall', true);
-  protectdt := reg.ReadBool ('Options', 'fixall', true);
-  shareMapPos := reg.ReadBool ('Options', 'sharepos', false);
-  createTxtFile:=reg.ReadBool ('Options', 'createtxt', false);
+  fixfacexps := reg.ReadBool ('Options', 'fixall', True);
+  protectdt := reg.ReadBool ('Options', 'fixall', True);
+  shareMapPos := reg.ReadBool ('Options', 'sharepos', True);
+  createTxtFile:=reg.ReadBool ('Options', 'createtxt', False);
 
   logpl:=false;
   EmitBuggyVersionWarnings := reg.ReadBool( 'Options', 'EmitBuggyVersionWarnings', False );
@@ -3261,8 +3260,8 @@ try
   auto3d := reg.ReadBool( 'Options', 'ta3d', True );
   UseCompression := reg.ReadBool( 'Options', 'usecomp', False );
   RecordPlayerNames := reg.ReadBool( 'Options', 'playernames', false );
-  serverdir := FixPath( reg.ReadString ( 'Options', 'serverdir', '' ) );
-  demodir := IncludeTrailingPathDelimiter( FixPath( reg.ReadString( 'Options', 'defdir', '' ) ));
+  serverdir := IncludeTrailingPathDelimiter(reg.ReadString ( 'Options', 'serverdir', ''));
+  demodir := IncludeTrailingPathDelimiter(reg.ReadString('Options', 'defdir', ''));
 
   if demodir <> '' then
   try
@@ -3362,7 +3361,7 @@ IsInGame := False;
 TADemoRecorderOff := True;
 try
   // write out persistant options
-  reg := TRegInifile.Create ('Software\Yankspankers\TA Demo');
+  reg := TRegInifile.Create ('Software\TA Patch\TA Demo');
   try
     reg.WriteInteger( 'Options', 'DecompressionBufferSize', DecompressionBufferSize);
   finally

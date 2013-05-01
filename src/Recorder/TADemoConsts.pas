@@ -95,7 +95,7 @@ if len = 0 then
 // retry with more buffer space
 if len > 2*MAX_PATH then
   GetSystemDirectory( @Result[1], len );
-Result := IncludeTrailingBackslash(Result);
+Result := IncludeTrailingPathDelimiter(Result);
 end; 
 
 var

@@ -120,8 +120,8 @@ begin
 Result := True;
 SendChat('TA demo recorder ' + GetTADemoVersion);
 SendChat('Written by SY_SJ and SY_Fnordia');
-SendChat('Updated by Xon');
-SendChat('Visit our site at http://www.clan-sy for more info');
+SendChat('Updated by Xon, Xpoy and Rime');
+SendChat('Visit http://www.tauniverse.com for more info');
 end;
 
 function TDPlay.OnFixall( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
