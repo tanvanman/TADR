@@ -22,7 +22,7 @@ const
   Cheat_ExtraDamage : TTACheats = $400;
   Cheat_InstantBuild : TTACheats = $800;
   Cheat_ResourcesFreeze : TTACheats = $1000;
-  Cheat_DeveloperMode: TTACheats = $2000;
+  //Cheat_DeveloperMode: TTACheats = $2000;
 
 type
   PMKChatMem = ^MKChatMem;
@@ -115,8 +115,8 @@ if CheatEnabled(Cheat_InstantBuild) then
   AddCheatDescription('instant build');
 if CheatEnabled(Cheat_ResourcesFreeze) then
   AddCheatDescription('resources freeze');
-if CheatEnabled(Cheat_DeveloperMode) then
-  AddCheatDescription('developer mode');
+{if CheatEnabled(Cheat_DeveloperMode) then
+  AddCheatDescription('developer mode');}
 end;
 
 function IsTAHookRunning : boolean;

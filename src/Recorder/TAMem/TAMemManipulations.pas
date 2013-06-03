@@ -146,8 +146,8 @@ if TestByte($401AFE,$90) and TestByte($401AFF,$90) and
    TestByte($401B02,$90) and TestByte($401B03,$90) then
  result:= result or Cheat_ResourcesFreeze;
 
-if (PByte(Plongword($511de8)^+$37F2F)^ and (1 shl 1) ) <> 0 then
- result:= result or Cheat_DeveloperMode;
+{if (PByte(Plongword($511de8)^+$37F2F)^ and (1 shl 1) ) <> 0 then
+ result:= result or Cheat_DeveloperMode; }
 
 end; {CheckForCheats}
 

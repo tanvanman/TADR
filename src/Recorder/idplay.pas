@@ -9,7 +9,7 @@ unit idplay;
 interface
 uses
   SyncObjs,
-  Windows, sysutils, classes,
+  Windows, sysutils, classes, INI_Options,
   DPlay, DPLobby,  
   //DplayPacketU,
   ListsU, CommandHandlerU,
@@ -3247,6 +3247,7 @@ try
   IsRecording := false;
 
   fixon := True;
+  ReadINIOptions;
   DecompressionBufferSize := reg.ReadInteger( 'Options', 'DecompressionBufferSize', 2048);
 
   fixfacexps := reg.ReadBool ('Options', 'fixall', True);
