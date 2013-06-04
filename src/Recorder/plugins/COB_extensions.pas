@@ -40,8 +40,6 @@ var
 
 Procedure COB_Extensions_Handling;
 procedure SetCOBType;
-var
- alreadyset: boolean = false;
 
 implementation
 uses
@@ -80,8 +78,6 @@ end;
 
 procedure SetCOBType;
 begin
- if not alreadyset then
-  begin
   if COBExtType = true then
     begin
       UNIT_IS_ON_THIS_COMP := 75;
@@ -93,8 +89,6 @@ begin
       CUSTOM_LOW := UNIT_IS_ON_THIS_COMP; //68
       CUSTOM_HIGH := UNIT_ALLIED; //74
     end;
-  alreadyset:= true;
- end;
 end;
 
 function CustomGetters( index : longword;

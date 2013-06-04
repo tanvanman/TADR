@@ -61,9 +61,10 @@ begin
 //len := StrLen(line);
 CommandHandler := nil;
 params := nil;
+try
 Tail := CommandText;
 repeat
-  while Tail^ = ' ' do
+ while Tail^ = ' ' do
     Inc(Tail);
   Head := Tail;
   while (Tail^ <> ' ') and (Tail^ <> #0) do
@@ -88,6 +89,9 @@ repeat
     end;
   inc(Tail);
 until EOS;
+except
+ Exit;
+end;
 
 if assigned(CommandHandler) then
   begin

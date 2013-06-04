@@ -2,7 +2,8 @@ unit INI_Options;
 
 interface
 
-uses windows, sysutils, inifiles;
+uses Windows, SysUtils, IniFiles;
+
 
 var
  COBextType: boolean;
@@ -11,6 +12,7 @@ function ReadININame: string;
 function ReadINIOptions: boolean;
 
 implementation
+uses COB_extensions;
 
 function ReadINIname: string;
 const
@@ -50,7 +52,8 @@ COBextType:= True;
     begin
       INIFile:= TIniFile.Create(ReadININame);
       try
-        if INIFile.ReadInteger('MOD','COBExtensionsStandard', 1) = 1 then COBextType:= True else COBextType:= False;
+        if INIFile.ReadInteger('Preferences','COBExtensionsStandard', 1) = 1 then COBextType:= True else COBextType:= False;
+        SetCOBType;
         Result:= True;
       finally
         INIFIle.Free;
