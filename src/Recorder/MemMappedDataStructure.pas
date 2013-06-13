@@ -23,6 +23,7 @@ const
   Cheat_InstantBuild : TTACheats = $800;
   Cheat_ResourcesFreeze : TTACheats = $1000;
   //Cheat_DeveloperMode: TTACheats = $2000;
+  Cheat_DoubleShot : TTACheats = $2000;
 
 type
   PMKChatMem = ^MKChatMem;
@@ -102,7 +103,7 @@ if CheatEnabled(Cheat_LosRadar) then
 if CheatEnabled(Cheat_ControlMenu) then
   AddCheatDescription('control menu');
 if CheatEnabled(Cheat_BuildAnywhere) then
-  AddCheatDescription('biuld anywhere');
+  AddCheatDescription('build anywhere');
 if CheatEnabled(Cheat_InstantCapture) then
   AddCheatDescription('instant capture');
 if CheatEnabled(Cheat_SpecialMove) then
@@ -117,6 +118,9 @@ if CheatEnabled(Cheat_ResourcesFreeze) then
   AddCheatDescription('resources freeze');
 {if CheatEnabled(Cheat_DeveloperMode) then
   AddCheatDescription('developer mode');}
+if CheatEnabled(Cheat_DoubleShot) then
+  AddCheatDescription('double shot');
+
 end;
 
 function IsTAHookRunning : boolean;

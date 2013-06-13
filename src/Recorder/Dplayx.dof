@@ -101,7 +101,7 @@ DebugSourceDirs=
 UsePackages=0
 [Parameters]
 RunParams=-d
-HostApplication=G:\TA3.1\totala.exe
+HostApplication=g:\caVEDOG\totala\TotalA.exe
 Launcher=
 UseLauncher=0
 DebugCWD=
@@ -157,8 +157,8 @@ Item0=dcu\
 [HistoryLists\hlOutputDirectorry]
 Count=11
 Item0=output\
-Item1=g:\cavedog\taesc\
-Item2=g:\cavedog\totala
+Item1=g:\cavedog\totala
+Item2=g:\cavedog\taesc\
 Item3=g:\TA3.1\
 Item4=c:\games\TOTALA\
 Item5=c:\games\

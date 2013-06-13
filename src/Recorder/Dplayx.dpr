@@ -19,7 +19,7 @@ uses
   DPLobbyWrapper in 'DPLobbyWrapper.pas',
   TADemoConsts in 'TADemoConsts.pas',
   Dplayx_exports in 'Dplayx_exports.pas',
-  TAMemManipulations,
+  TAMemManipulations in 'TAMem\TAMemManipulations.pas',
   uDebug in '..\uDebug.pas',
   TA_NetworkingMessages in 'netmsgHandling\TA_NetworkingMessages.pas',
   TextFileU in '..\TextFileU.pas',

@@ -1573,8 +1573,10 @@ if assigned(chatview) then
     s := '$$$$'; //show that we are ready
     PRec2Rec_CheatsDetected_Message(@s[1])^.CheatsDetected := oldMyCheats;
     SendRecorderToRecorderMsg( TANM_Rec2Rec_CheatDetection, s );
-      
-    SendChat(Players[1].Name+' has cheats enabled: ' + ListCheats(oldMyCheats));
+    if ListCheats(oldMyCheats) <> '' then
+      SendChat(Players[1].Name+' has cheats enabled: ' + ListCheats(oldMyCheats))
+     else
+      SendChat(Players[1].Name+' disabled cheats.');
     end;
   if (chatview^.NewData = 1) then
     SendClipboard();
@@ -2458,8 +2460,10 @@ if FromPlayer <> nil then
                  begin
                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_CheatsDetected_Message) );
                  FromPlayer.otherCheats := PRec2Rec_CheatsDetected_Message(Rec2Rec_Data)^.CheatsDetected;
-                 if date>36983 then
-                   SendChat(FromPlayer.Name+' has cheats enabled: ' + ListCheats(FromPlayer.otherCheats));
+                 if (date>36983) and (ListCheats(FromPlayer.otherCheats) <> '') then
+                   SendChat(FromPlayer.Name+' has cheats enabled: ' + ListCheats(FromPlayer.otherCheats))
+                  else
+                   SendChat(FromPlayer.Name+' disabled cheats.');
                  end;
                TANM_Rec2Rec_Sharelos :
                  begin
