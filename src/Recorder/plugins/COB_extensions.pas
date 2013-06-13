@@ -78,7 +78,7 @@ end;
 
 procedure SetCOBType;
 begin
-  if COBExtType = true then
+  if iOptions.COBextType = true then
     begin
       UNIT_IS_ON_THIS_COMP := 75;
       CUSTOM_LOW := MIN_ID; //69

@@ -4,9 +4,11 @@ interface
 
 uses Windows, SysUtils, IniFiles;
 
-
-var
- COBextType: boolean;
+type
+ TiOptions = record
+  COBExtType: boolean;
+ end;
+var iOptions: TiOptions;
 
 function ReadININame: string;
 function ReadINIOptions: boolean;
@@ -28,12 +30,16 @@ begin
  Result:= #0;
  Address:= $5098A3;
  SetLength(Buffer, SizeOfBuffer);
+ try
   for i := 0 to SizeOfBuffer - 1 do
     begin
      Buffer[i]:= Pbyte(Address)^;
      Inc(Address);
     end;
- SetString(CheckIsINI, PAnsiChar(@Buffer[0]), SizeOfBuffer);
+  SetString(CheckIsINI, PAnsiChar(@Buffer[0]), SizeOfBuffer);
+ except
+  CheckIsIni:= 'totala.ini';
+ end;
 
  Trim(CheckIsINI);
  GetModuleFileName(hInstance, DllPathBuffer, Length(DllPathBuffer));
@@ -47,12 +53,12 @@ var
 INIFile: TINIFile;
 begin
 Result:= False;
-COBextType:= True;
+ioptions.COBextType:= True;
   if ReadININame <> #0 then
     begin
       INIFile:= TIniFile.Create(ReadININame);
       try
-        if INIFile.ReadInteger('Preferences','COBExtensionsStandard', 1) = 1 then COBextType:= True else COBextType:= False;
+        if INIFile.ReadInteger('Recorder','COBExt', 1) = 1 then ioptions.COBextType:= True else ioptions.COBextType:= False;
         SetCOBType;
         Result:= True;
       finally

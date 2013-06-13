@@ -117,7 +117,7 @@ AutoIncBuild=0
 MajorVer=1
 MinorVer=0
 Release=0
-Build=545
+Build=546
 Debug=0
 PreRelease=1
 Special=0
@@ -128,13 +128,13 @@ CodePage=1252
 [Version Info Keys]
 CompanyName=
 FileDescription=TA Demo Recorder component
-FileVersion=1.0.0.545
+FileVersion=1.0.0.546
 InternalName=
 LegalCopyright=
 LegalTrademarks=
 OriginalFilename=
 ProductName=
-ProductVersion=1.0.0.0
+ProductVersion=3.0.9.2
 Comments=
 [HistoryLists\hlConditionals]
 Count=2
