@@ -2,7 +2,7 @@ unit InitCode;
 
 interface
 uses
-  sysutils, INI_Options;
+  sysutils;
 
 type
   EValidationFailed = class(Exception);
@@ -130,8 +130,6 @@ if not OnMainRun then
     TLog.Add( 0, 'Running in Win9x compatibility mode' );
   if not IsTAVersion31 then
     TLog.Add( 0, 'Not running Total Annihilation 3.1' );
-  if not ReadINIOptions then
-    TLog.Add( 0, 'Couldn''t find or read INI file' );
 {$IFNDEF NoDplayExports}
   // load the actual dplayx.dll, we dont bother unloading it,as we only dont need it when TA is closing
   if DPlayxHandleInvalid then

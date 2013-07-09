@@ -2,7 +2,7 @@ unit COB_extensions;
 
 interface
 uses
-  PluginEngine, INI_Options;
+  PluginEngine;
 
 // -----------------------------------------------------------------------------
 
@@ -18,6 +18,8 @@ Procedure OnUninstallCobExtensions;
 
 // -----------------------------------------------------------------------------
 const
+ // indicates if the 1st parameter(a unit ID) is local to this computer
+ UNIT_IS_ON_THIS_COMP = 75;
  // returns the lowest valid unit ID number
  MIN_ID = 69;
  // returns the highest valid unit ID number
@@ -32,14 +34,12 @@ const
  UNIT_ALLIED = 74;
  // gets kills * 100
  VETERAN_LEVEL = 32;
-var
- UNIT_IS_ON_THIS_COMP: LongWord;
- CUSTOM_LOW: LongWord;
- CUSTOM_HIGH: LongWord;
+ 
+ CUSTOM_LOW = MIN_ID;
+ CUSTOM_HIGH = UNIT_IS_ON_THIS_COMP;
 // -----------------------------------------------------------------------------
 
 Procedure COB_Extensions_Handling;
-procedure SetCOBType;
 
 implementation
 uses
@@ -73,22 +73,7 @@ if IsTAVersion31 and State_COB_extensions then
 
   end
 else
-  result := nil;  
-end;
-
-procedure SetCOBType;
-begin
-  if iOptions.COBextType = true then
-    begin
-      UNIT_IS_ON_THIS_COMP := 75;
-      CUSTOM_LOW := MIN_ID; //69
-      CUSTOM_HIGH := UNIT_IS_ON_THIS_COMP; //75
-    end else
-    begin
-      UNIT_IS_ON_THIS_COMP := 68;
-      CUSTOM_LOW := UNIT_IS_ON_THIS_COMP; //68
-      CUSTOM_HIGH := UNIT_ALLIED; //74
-    end;
+  result := nil;
 end;
 
 function CustomGetters( index : longword;
@@ -100,7 +85,6 @@ var
   TAPlayerType : TTAPlayerType;
 begin
 result := 0;
-SetCOBType;
 if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
   begin
   case index of
@@ -132,20 +116,19 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result := TAUnit.getKills(pointer(unitPtr))*100;
       end;
-  end;
-  if index = UNIT_IS_ON_THIS_COMP then
+    UNIT_IS_ON_THIS_COMP:
       begin
       Unit2Ptr := TAMem.GetUnitPtr(arg1);
       playerPtr := TAUnit.GetOwnerPtr(pointer(Unit2Ptr));
       TAPlayerType := TAPlayer.PlayerType(playerPtr);
-      case TAPlayerType of
+       case TAPlayerType of
            Player_LocalHuman:
                              result := 1;
            Player_LocalAI:
                           result := 1;
+       end;
       end;
-
-      end;
+    end;
   end;
 end;
 
