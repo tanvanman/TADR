@@ -170,22 +170,75 @@ const
   TANM_Rec2Rec_GameStateInfo = $4;
 type
 {$MINENUMSIZE 1}
-  TTADRStateSet = set of (
+  {TTADRStateSet = set of (
                           TADRState_AutoPause,
                           TADRState_CmdWarp,
                           TADRState_F1Disable,
                           TADRState_SpeedLock
-                         );
+                         ); }
 
   PRec2Rec_GameStateInfo_Message = ^TRec2Rec_GameStateInfo_Message;
   TRec2Rec_GameStateInfo_Message = packed record
-    TADRState : TTADRStateSet;
+    //TADRState : TTADRStateSet;
     AutopauseState : byte;
     F1Disable      : Byte;
     Commanderwarp  : Byte;
     SpeedLock      : Byte;
     SlowSpeed      : Byte;
     FastSpeed      : Byte;
+  end;
+
+{
+  After interpreting vote command by host, launches voting. Host -> players
+}
+const
+  TANM_Rec2Rec_VoteStart = $5;
+type
+  PRec2Rec_VoteStart_Message = ^TRec2Rec_VoteStart_Message;
+  TRec2Rec_VoteStart_Message = packed record
+    VoteType       : byte;  // map / kick player 
+    VoteExpireTime : Word;
+    VoteString     : string[64]; // map or player name
+    // to przy przetwarzaniu komendy
+    //VoteStartedBy  : string[32];
+    //VoteTimeStamp  : Integer;
+  end;
+
+{
+  Vote answer. Player -> Host
+  From which player = FromPlayer.ID
+}
+const
+  TANM_Rec2Rec_VoteAnswer = $6;
+type
+  PRec2Rec_VoteAnswer_Message = ^TRec2Rec_VoteAnswer_Message;
+  TRec2Rec_VoteAnswer_Message = packed record
+    Answer       : byte; // yes / no
+  end;
+
+{
+  Vote status. Host -> players
+  Only host counts votes so displayed numbers on players screen will be always correct
+  If player clicks yes/no button bump count, disable buttons
+}
+const
+  TANM_Rec2Rec_VoteStatus = $7;
+type
+  PRec2Rec_VoteStatus_Message = ^TRec2Rec_VoteStatus_Message;
+  TRec2Rec_VoteStatus_Message = packed record
+    YesCount       : byte;
+    NoCount        : byte;
+  end;
+
+{
+  Used to end vote. F.e. 'yes' won or voting expired. Host -> players
+}
+const
+  TANM_Rec2Rec_VoteEnd = $8;
+type
+  PRec2Rec_VoteEnd_Message = ^TRec2Rec_VoteEnd_Message;
+  TRec2Rec_VoteEnd_Message = packed record
+    VoteResult       : byte; // yes / no / expired
   end;
 
 {

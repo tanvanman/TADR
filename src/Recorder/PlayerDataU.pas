@@ -92,7 +92,8 @@ type
     public
       GiveBase          : boolean;
       WarpDone          : Boolean;
-
+      ReceivedBRSettings : boolean;
+      CanParticipateInVote : boolean;
       UnpauseReady      : Boolean;
       CanTake           : Boolean;
       IsAllied          : boolean;

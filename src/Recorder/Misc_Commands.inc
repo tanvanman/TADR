@@ -218,6 +218,48 @@ else
   end;
 end; {OnVoteReady}
 
+{function TDPlay.OnVoteMap( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
+var
+  i : Integer;
+begin
+Result := True;
+// check if map name is provided and Sender is a player (not watcher)
+if (params.Count = 0) or not
+   ((Sender.Side = 0) or (Sender.Side = 1)) then
+ Exit;
+
+// only host can change map anyway so, only host will handle map voting commands
+ If ImServer then
+   begin
+     // todo : check anti flood
+     // check if other vote is in progress
+     if VoteInProgress then
+       begin
+         SendChat('Other vote is in progress.');
+         Exit;
+       end;
+
+     // todo : check params if map actually exists
+
+     VoteInProgress:= True;
+     
+     // create 'can participate in vote' list
+     for i := 1 to Players.Count do
+      begin
+       // watchers will be not allowed to participate
+       if ((Players[i].Side = 0) or (Players[i].Side = 1)) then
+        Players[i].CanParticipateInVote:= True else Players[i].CanParticipateInVote:= False;
+      end;
+
+     // todo : vote accepted, send start packet.
+     // todo : Enable GUI elemnts: vote results for watchers, results + yes/no for CanParticipate players
+     // todo : start expire timer
+     VoteTimer.SetExpire(10);
+     SendChat('Voting started');
+
+   end;
+end; }
+
 function TDPlay.OnVoteGo( const Command : string;  Sender : TPlayerData; params : TStringList ) : Boolean;
 var
   NotVotedGoCount : Integer;

@@ -21,7 +21,8 @@ uses
   MultiAILimit,
   //nocd,
   COB_extensions,
-  LOS_extensions;
+  LOS_extensions,
+  BattleRoomScroll;
 
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
 begin
@@ -39,7 +40,7 @@ if OnMainRun then
   RegisterPlugin( LOS_extensions.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );
   RegisterPlugin( MultiAILimit.GetPlugin() );
-
+  RegisterPlugin( BattleRoomScroll.GetPlugin() );
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );

@@ -42,7 +42,8 @@ uses
   TA_FunctionsU in 'TAMem\TA_FunctionsU.pas',
   LOS_AllyPlayer in 'plugins\LOS_AllyPlayer.pas',
   ErrorLog_ExtraData in 'plugins\ErrorLog_ExtraData.pas',
-  Thread_marshaller in 'plugins\Thread_marshaller.pas';
+  Thread_marshaller in 'plugins\Thread_marshaller.pas',
+  BattleRoomScroll in 'plugins\BattleRoomScroll.pas';
 
 {$R *.res}
 

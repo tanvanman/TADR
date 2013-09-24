@@ -117,7 +117,7 @@ AutoIncBuild=0
 MajorVer=1
 MinorVer=0
 Release=0
-Build=546
+Build=550
 Debug=0
 PreRelease=1
 Special=0
@@ -128,7 +128,7 @@ CodePage=1252
 [Version Info Keys]
 CompanyName=
 FileDescription=TA Demo Recorder component
-FileVersion=1.0.0.546
+FileVersion=1.0.0.550
 InternalName=
 LegalCopyright=
 LegalTrademarks=
@@ -136,6 +136,16 @@ OriginalFilename=
 ProductName=
 ProductVersion=3.0.9.2
 Comments=
+[Excluded Packages]
+E:\Program Files\Borland\Delphi7\Bin\vclhie70.bpl=Internet Explorer Hosting Support Package
+e:\program files\borland\delphi7\Bin\designdgm70.bpl=Borland Module Diagram Editview
+E:\Program Files\Borland\Delphi7\Bin\clxdesigner70.bpl=CLX Form designer and property and component editors
+E:\Program Files\Borland\Delphi7\Bin\vcldesigner70.bpl=VCL Form designer and property and component editors
+E:\Program Files\Boldsoft\BfDR40D7Arch\Bin\Bold40D7UDPProp.bpl=Bold for Delphi 4.0 (UDP Based Propagation)
+e:\program files\borland\delphi7\Bin\dclmcn70.bpl=Borland DataSnap Connection Components
+E:\Program Files\Borland\Delphi7\Bin\dclmid70.bpl=Borland MyBase DataAccess Components
+e:\program files\borland\delphi7\Bin\dcldbxcds70.bpl=Borland SimpleDataset Component (DBX)
+e:\program files\borland\delphi7\Bin\dclact70.bpl=Borland ActionBar Components
 [HistoryLists\hlConditionals]
 Count=2
 Item0=IsTesting

@@ -670,7 +670,7 @@ procedure TfmMain.LoadOptions;
 var
   r :TRegIniFile;
 begin
-  r := TRegIniFile.Create ('Software\Yankspankers\TA Demo');
+  r := TRegIniFile.Create ('Software\TA Patch\TA Demo');
 
   options.Tadir := r.ReadString ('Options', 'TADir', '');
   options.usedir := r.ReadInteger ('Options', 'usedir', 0);
@@ -700,7 +700,7 @@ procedure TfmMain.SaveOptions;
 var
   r :TRegIniFile;
 begin
-  r := TRegIniFile.Create ('Software\Yankspankers\TA Demo');
+  r := TRegIniFile.Create ('Software\TA Patch\TA Demo');
 
   r.WriteString ('Options', 'TADir', options.tadir);
   r.writeinteger ('Options', 'usedir', options.usedir);

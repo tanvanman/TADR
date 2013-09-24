@@ -27,6 +27,12 @@ var
   // called by GUI+engine to process all commands
   DoInterpretCommand : DoInterpretCommandHandler = DoInterpretCommandHandler($4B7900);
 
+type
+  CreateMultiplayerMapsListHandler = function ( a1: Longint; a2: Longint; a3: Longint): Longint; stdcall;
+  // a1 = 0, a2 = 0, a3 = 0
+  // result = current amount of maps
+var
+  CreateMultiplayerMapsList : CreateMultiplayerMapsListHandler = CreateMultiplayerMapsListHandler($434BF0);
 
 
 // Displays text to the screen (no parsing for commands)  

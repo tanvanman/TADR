@@ -421,7 +421,7 @@ uses
  SpeedHack,
  TAMemManipulations,
  TA_MemoryLocations,
- TA_NetworkingMessages, InputHook;
+ TA_NetworkingMessages, InputHook, BattleRoomScroll;
 
 {$WARNINGS ON}
 {$HINTS ON}
@@ -619,7 +619,7 @@ Rec2Rec^.MsgSize := Byte(Length(Data));
 Rec2Rec^.MsgSubType := MesageType;
 if Length(Data) <> 0 then
   Move( Data[1], Msg[SizeOf(TRecorderToRecorderMessage)+1], Rec2Rec^.MsgSize );
-SendRecorderToRecorderMsg2( Msg, EchoLocal );
+SendRecorderToRecorderMsg2( Msg, EchoLocal, Dest, Source );
 end;
 
 
@@ -1505,7 +1505,9 @@ var
   c               :string;
   w,w2,w3,dtfix         :word;
   pw              :^word;
+  plw             :^LongWord;
   pf              :^single;
+  lw              :LongWord;
   f,f2,f3,f4      :single;
   ip              :^integer;
   InternalVersion : Integer;
@@ -1514,6 +1516,7 @@ var
    ally         :^byte;
   playerlist    :TList;
   tmps          :string;
+  xtrasettings  :string;
 
   player : TPlayerData;
   FromPlayer : TPlayerData;
@@ -1861,7 +1864,36 @@ if FromPlayer <> nil then
           FromPlayer.RecConnect := InternalVersion > TADemoVersion_97;
           FromPlayer.Uses_Rec2Rec_Notification := InternalVersion >= TADemoVersion_99b3_beta2;
 
-          //Trasiga recorders varnas
+          // send extra battleroom settings (autopause, cmdwarp, syncon)
+          if ImServer and
+             (not FromPlayer.ReceivedBRSettings) and
+             (not FromPlayer.IsServer) then
+            begin
+              if FromPlayer.Uses_Rec2Rec_Notification then
+               begin
+                xtrasettings:= '';
+                SetLength( xtrasettings, SizeOf(TRec2Rec_GameStateInfo_Message) );
+
+                move( AutopauseAtStart, xtrasettings[1], 1 );
+                move( F1Disable, xtrasettings[2], 1 );
+                move( CommanderWarp, xtrasettings[3], 1 );
+                move( SpeedLock, xtrasettings[4], 1 );
+                move( SlowSpeed, xtrasettings[5], 1 );
+                move( FastSpeed, xtrasettings[6], 1 );
+
+                SendRecorderToRecorderMsg( TANM_Rec2Rec_GameStateInfo, xtrasettings, True, FromPlayer.Id, Players[1].ID );
+
+               end else
+                begin
+
+                { if CommanderWarp = 1 then SendLocal('.cmdwarp',FromPlayer.Id,false,true);
+                if SpeedLock = 1 then SendLocal('.cmdwarp',FromPlayer.Id,false,true); }
+
+                end;
+             FromPlayer.ReceivedBRSettings:= True;
+           end;
+
+          // warn about older versions
           if  EmitBuggyVersionWarnings and
               (InternalVersion <> TADemoVersion_OTA) and
               (InternalVersion < TADemoVersion_98b1) and
@@ -1901,6 +1933,33 @@ if FromPlayer <> nil then
         // allow sharelos to see everyone
         Players[0].SharingLos := true;
 // todo : fibbers require preventing sonar jamming from effecting allies
+        end;
+
+      if s[1] = #$fb then
+        begin
+         Rec2Rec := PRecorderToRecorderMessage(@tmp[1]);
+         Rec2Rec_Data := Pointer(Longword(Rec2Rec)+SizeOf(TRecorderToRecorderMessage) );
+          if Rec2Rec^.MsgSubType = TANM_Rec2Rec_GameStateInfo then
+           begin
+            assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_GameStateInfo_Message) );
+            if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.AutopauseState = 1 then
+              SetAutoPauseAtStart(True)
+             else
+              SetAutoPauseAtStart(False);
+
+            SetF1Disable(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.F1Disable);
+            SetCommanderWarp(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.CommanderWarp);
+
+            if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SpeedLock = 1 then
+              SetSpeedLock(True)
+             else
+              SetSpeedLock(False);
+
+            SetSlowSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SlowSpeed);
+            SetFastSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.FastSpeed);
+           end;
+        tmp := #$2a'd';          //Remove packets, so nothing happens
+        datachanged := true;
         end;
 
       //ally-packet
@@ -2650,6 +2709,7 @@ try
     player.EnemyChat := true;
     player.RecConnect := true;
     player.Uses_Rec2Rec_Notification := True;
+    //player.ReceivedBRSettings:= True;
     end
   else
     begin
