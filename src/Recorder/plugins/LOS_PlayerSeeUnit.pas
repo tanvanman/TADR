@@ -10,6 +10,7 @@ var
   PlayerPtr : pointer;
   // the player currently being tested to see if it can see a unit
   TestPlayer : longint;
+  PlSeeU: longint;
 
 Procedure GameUnit_LOS_PlayerSeeUnit_IsOwnerAllowedToSee;
 Procedure GameUnit_LOS_PlayerSeeUnit_EpilogCode_Exit;
