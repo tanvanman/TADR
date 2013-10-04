@@ -104,7 +104,8 @@ if aTAGameSpeed < SpeedHack.LowerLimit then
 else if aTAGameSpeed > SpeedHack.Upperlimit then
   SendLocal( #$19#$01+char(aTAGameSpeed), 0, true, true);
 
-sendchat ('Speed locked between ' + IntToStr(SpeedHack.LowerLimit-10)+ ' and '+
+if ImServer then
+  SendChat('Speed locked between ' + IntToStr(SpeedHack.LowerLimit-10)+ ' and '+
                                     IntToStr(SpeedHack.Upperlimit-10));
 end;
 

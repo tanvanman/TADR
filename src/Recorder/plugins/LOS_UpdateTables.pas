@@ -314,9 +314,9 @@ NoMoreAllies:
   jmp DoLOSStuff;
 
 FinalExit:
-  mov ecx, ViewPlayer;
+//  mov ecx, ViewPlayer;
   mov esi, [TADynmemStructPtr]
-  mov [esi+TAdynmemStruct_LOS_Sight], cl
+//  mov [esi+TAdynmemStruct_LOS_Sight], cl
   
   pop     edi
   pop     esi

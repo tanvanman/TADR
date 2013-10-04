@@ -168,7 +168,7 @@ begin
 Result := True;
 if (params.Count > 0) and not (params.find(Players[1].Name,i)) then
   Exit;
-SendChat('*** '+Players[1].Name+' uses TADR ' + GetTADemoVersion + ' ('+getRecorderStatusString+')');
+SendChat('*** '+Players[1].Name+' uses TA Unofficial Patch ' + GetTADemoVersion + ' ('+getRecorderStatusString+')');
 {
 if imserver then
    SendChat ('imserver ' + inttostr(servernumber))

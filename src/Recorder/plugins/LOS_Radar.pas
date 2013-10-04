@@ -9,6 +9,7 @@ var
   TestPlayerIndex : longint;
   TestPlayerPtr : pointer;
   PlayerPtr : pointer;
+  ViewPlayerRadar: longint;
 
 //radar
 Procedure GameUnit_LOS_Radar_CanDirectlySeeUnit;
@@ -151,7 +152,7 @@ l1:
   // ViewPlayer = [TADynmemStrutPtr+TAdynmemStruct.LOS_Sight]
   mov esi, [TADynmemStructPtr] // mov esi, TADynmemStrutPtr
   mov cl, [esi+TAdynmemStruct_LOS_Sight]
-  mov ViewPlayer, ecx;
+  mov ViewPlayerRadar, ecx;
 
   // TestPlayerPtr = TAdynmemStruct.Players[0]
   mov eax, esi
@@ -186,7 +187,7 @@ label
 asm // uses: ecx, esi
   mov ecx, TestPlayerIndex;
   mov eax, TestPlayerPtr;
-  mov esi, ViewPlayer;
+  mov esi, ViewPlayerRadar;
   jmp TryNextPlayer_Condition
   // todo : fix me!
 TryNextPlayer_NextValue:
@@ -251,7 +252,7 @@ CleanupNExit:
   // finished doing LOS_Radar stuff, cleanup
 
   // [TADynmemStrutPtr+TAdynmemStruct.LOS_Sight] = ViewPlayer
-  mov ecx, ViewPlayer;
+  mov ecx, ViewPlayerRadar;
   mov esi, [TADynmemStructPtr]
   mov [esi+TAdynmemStruct_LOS_Sight], cl
   xor eax, eax

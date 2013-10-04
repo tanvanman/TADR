@@ -14,6 +14,7 @@ uses
   TA_MemoryLocations in 'TAMem\TA_MemoryLocations.pas',
   logging in '..\logging.pas',
   packet_old in '..\packet_old.pas',
+  //packet in 'packets\packet.pas',
   textdata in '..\textdata.pas',
   MemMappedDataStructure in 'MemMappedDataStructure.pas',
   DPLobbyWrapper in 'DPLobbyWrapper.pas',

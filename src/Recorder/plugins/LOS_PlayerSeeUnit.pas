@@ -10,7 +10,8 @@ var
   PlayerPtr : pointer;
   // the player currently being tested to see if it can see a unit
   TestPlayer : longint;
-  PlSeeU: longint;
+  ViewPlayerPlSeeU: longint;
+  TestPlayerPlSeeU: longint;
 
 Procedure GameUnit_LOS_PlayerSeeUnit_IsOwnerAllowedToSee;
 Procedure GameUnit_LOS_PlayerSeeUnit_EpilogCode_Exit;
@@ -105,7 +106,7 @@ asm  // uses eax, ecx
   // ViewPlayer = [TADynmemStructPtr+TAdynmemStruct.LOS_Sight]
   mov eax, [TADynmemStructPtr]
   mov cl, [eax+TAdynmemStruct_LOS_Sight]
-  mov ViewPlayer, ecx;
+  mov ViewPlayerPlSeeU, ecx;
   // check to see if this player is allowed to see the unit
 {
   xor eax, eax;
@@ -178,7 +179,7 @@ asm // uses ecx, eax, edi, ebp
   
   // if ( UnitStruct.Owner.AlliedPlayers[ViewPlayer] != 0) goto CanSeeUnit; else goto TryNextPlayer;
   
-  mov edi, ViewPlayer
+  mov edi, ViewPlayerPlSeeU
   mov ecx, [ebx+UnitStruct_OwnerPtr]
   cmp byte [edi+ecx+PlayerStruct_AlliedPlayers], 0
   jnz CanSeeUnit
@@ -190,14 +191,14 @@ asm // uses ecx, eax, edi, ebp
   NextPlayer = TAdynmemStruct.Players[ViewPlayer]
   if (NextPlayer.AlliedPlayers[TestPlayer] != 0)
     {
-    if (NextPlayer = Player)  continue; 
+    if (NextPlayer = Player)  continue;
     if (!player^.Active)  continue;
     Player = NextPlayer;
     DoLOSChecks();
     }
   }
 *)
-  mov ebp, TestPlayer;
+  mov ebp, TestPlayerPlSeeU;
   jmp TryNextPlayer_Condition;
 TryNextPlayer_NextValue:
   // TestPlayer++
@@ -214,7 +215,7 @@ TryNextPlayer_Condition:
   cmp byte [ecx+PlayerStruct_Index], bl
   jnz TryNextPlayer_NextValue
 
-  mov TestPlayer, ebp;
+  mov TestPlayerPlSeeU, ebp;
     
   // NextPlayer = [TADynmemStructPtr+TAdynmemStruct.Players[TestPlayer]]
   mov eax, ebp
@@ -236,7 +237,7 @@ TryNextPlayer_Condition:
 TestPlayerLOS:
   // TestPlayer++
   inc ebp;
-  mov TestPlayer, ebp;  
+  mov TestPlayerPlSeeU, ebp;  
   
   // restore the player pointer
   // we *might* can be able to see this unit
@@ -249,7 +250,7 @@ CanSeeUnit:
   mov esi, PlayerPtr;
   jmp GameUnit_LOS_PlayerSeeUnit_EpilogCode_Exit;
 CanNotSeeUnit:
-  mov TestPlayer, ebp;
+  mov TestPlayerPlSeeU, ebp;
   // we definitely can *not* see this unit
   xor eax, eax;
   // restore the player pointer

@@ -4,7 +4,7 @@ uses
   Forms,
   main in 'main.pas' {fmMain},
   tasv in 'tasv.pas',
-  packet in '..\packet.pas',
+  packet in 'packet.pas',
   textdata in '..\TextData.pas',
   lobby in 'lobby.pas',
   loading in 'loading.pas',

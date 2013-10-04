@@ -125,7 +125,7 @@ if not OnMainRun then
   // create the log file
   if Log_ = nil then
     Log_ := TLog.Create( logFilename, False, VerboseLoggingLevelc );
-  Tlog.add( 0, 'TADR version:'+ GetTADemoVersion );
+  Tlog.add( 0, 'Recorder version:'+ GetTADemoVersion );
   if IsWin9x then
     TLog.Add( 0, 'Running in Win9x compatibility mode' );
   if not IsTAVersion31 then

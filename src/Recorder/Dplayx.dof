@@ -114,27 +114,27 @@ RootDir=
 [Version Info]
 IncludeVerInfo=1
 AutoIncBuild=0
-MajorVer=1
-MinorVer=0
-Release=0
-Build=550
+MajorVer=3
+MinorVer=9
+Release=2
+Build=0
 Debug=0
 PreRelease=1
 Special=0
 Private=0
 DLL=1
-Locale=3081
+Locale=1033
 CodePage=1252
 [Version Info Keys]
-CompanyName=
-FileDescription=TA Demo Recorder component
-FileVersion=1.0.0.550
+CompanyName=Swedish Yankspankers & TA Universe community
+FileDescription=TA Unofficial Patch - Demo Recorder Component
+FileVersion=3.9.2.0
 InternalName=
 LegalCopyright=
 LegalTrademarks=
 OriginalFilename=
 ProductName=
-ProductVersion=3.0.9.2
+ProductVersion=1.0.0.0
 Comments=
 [Excluded Packages]
 E:\Program Files\Borland\Delphi7\Bin\vclhie70.bpl=Internet Explorer Hosting Support Package
@@ -167,7 +167,7 @@ Item0=dcu\
 [HistoryLists\hlOutputDirectorry]
 Count=11
 Item0=output\
-Item1=g:\cavedog\totala
+Item1=output\
 Item2=g:\cavedog\taesc\
 Item3=g:\TA3.1\
 Item4=c:\games\TOTALA\
