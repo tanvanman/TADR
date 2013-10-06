@@ -2028,7 +2028,9 @@ if FromPlayer <> nil then
         //autorecording
         if (filename = '') and AutoRecording and NotViewingRecording then
           begin
-          filename := DateToStr (now) + ' - ' + mapname;
+          filename := DateToStr (now);
+          if iniSettings.demosprefix <> '' then filename := filename + ' - ' + iniSettings.demosprefix + ' - ' else filename:= filename + ' - ';
+          filename := filename + mapname;
           if RecordPlayerNames then
             begin
             filename := filename + ' - ';

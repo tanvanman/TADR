@@ -1,7 +1,7 @@
 unit INI_Options;
 
 interface
-uses Windows, SysUtils, IniFiles, dialogs;
+uses Windows, SysUtils, IniFiles;
 
 type
  TIniSettings = record

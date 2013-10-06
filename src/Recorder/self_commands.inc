@@ -344,7 +344,7 @@ if TAStatus = InBattleRoom then
     FileName := '';
 
   if (ExtractFileExt(FileName)='') and (FileName<>'') and (FileName<>'none') then
-    FileName := FileName+'.tad';
+    if iniSettings.demosprefix <> '' then FileName := iniSettings.demosprefix + FileName+'.tad' else FileName := FileName+'.tad';
   if FileName<>'none' then
     SendChat('Recording to '+FileName)
   else
@@ -363,7 +363,7 @@ else
       FileName := '';
 
     if (ExtractFileExt(FileName)='') and (FileName<>'') then
-      FileName:=FileName+'.tad';
+      if iniSettings.demosprefix <> '' then FileName := iniSettings.demosprefix + FileName+'.tad' else FileName := FileName+'.tad';
     if FileName <> '' then
       begin
       FileName := removeinvalid (FileName);
