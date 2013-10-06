@@ -44,7 +44,8 @@ uses
   LOS_AllyPlayer in 'plugins\LOS_AllyPlayer.pas',
   ErrorLog_ExtraData in 'plugins\ErrorLog_ExtraData.pas',
   Thread_marshaller in 'plugins\Thread_marshaller.pas',
-  BattleRoomScroll in 'plugins\BattleRoomScroll.pas';
+  BattleRoomScroll in 'plugins\BattleRoomScroll.pas',
+  INI_Options in 'INI_Options.pas';
 
 {$R *.res}
 

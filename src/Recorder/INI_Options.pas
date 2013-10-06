@@ -1,81 +1,92 @@
 unit INI_Options;
 
 interface
-
 uses Windows, SysUtils, IniFiles, dialogs;
 
 type
- TiOptions = record
-  COBExtType: boolean;
+ TIniSettings = record
+   //cobexttype: boolean;
+   // Mod ID
+   modid: word;
+   // demos name prefix
+   demosprefix: string;
+   weaponidpatch: boolean;
  end;
-var iOptions: TiOptions;
 
-function ReadININame: string;
-function ReadINIOptions: boolean;
+ function GetINIFileName: string;
+ function ReadINISettings: boolean;
+
+var iniSettings: TIniSettings;
+
+const
+  INIFILENAME_MAXLENGTH = 12;
 
 implementation
-uses COB_extensions;
+uses COB_extensions, TADemoConsts;
 
-function ReadINIname: string;
-const
- SizeOfBuffer: DWord = 13;
+// read INI file name from TA's memory
 var
- CheckIsINI: string;
- DllPathBuffer: array[0..260] of Char;
- INIPath: string;
- Buffer: array of byte;
- Address: DWord;
- i: byte;
+  iniFileName_cache : string;
+function GetINIFileName: string;
+var
+ tadir: string;
+ iniName: string;
+ address: Cardinal;
+ buffer: array of Byte;
+ i: Byte;
 begin
- Result:= #0;
- Address:= $5098A3;
- SetLength(Buffer, SizeOfBuffer);
- showmessage('INI name buffer set');
- try
-  for i := 0 to SizeOfBuffer - 1 do
-    begin
-     Buffer[i]:= Pbyte(Address)^;
-     Inc(Address);
-    end;
- showmessage('Buffer filled');
-  SetString(CheckIsINI, PAnsiChar(@Buffer[0]), SizeOfBuffer);
- showmessage('Set string done');
- except
- showmessage('read failure, using totala.ini');
-  CheckIsIni:= 'totala.ini';
- end;
-
- Trim(CheckIsINI);
- showmessage('trim');
- GetModuleFileName(hInstance, DllPathBuffer, Length(DllPathBuffer));
- showmessage('working dir set');
- INIPath:= IncludeTrailingPathDelimiter(ExtractFileDir(DllPathBuffer));
-  if FileExists(INIPath + CheckIsINI) then
-  begin
-    Result:= INIPath + CheckIsINI;
- showmessage('INI found and exist');
-    end;
+if iniFileName_cache = '' then
+begin
+  Result:= #0;
+  tadir:= IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation));
+  address:= $5098A3;
+  try
+    SetLength(buffer, INIFILENAME_MAXLENGTH + 1);
+    for i := 0 to INIFILENAME_MAXLENGTH do
+      begin
+        buffer[i]:= PByte(address)^;
+        Inc(address);
+      end;
+    SetString(ininame, PAnsiChar(@Buffer[0]), INIFILENAME_MAXLENGTH);
+    Trim(ininame);
+    if FileExists(tadir + ininame) then
+        iniFileName_cache:= tadir + iniName
+        else iniFileName_cache:= #0;
+    result:= iniFileName_cache;
+  except
+    //shouldn't fail, however ...
+    if FileExists(tadir + 'totala.ini') then
+      iniFileName_cache:= tadir + 'totala.ini' else iniFileName_cache:= #0;
+    result:= iniFileName_cache;
+  end;
+end else
+  result:= iniFileName_cache;
 end;
 
-function ReadINIOptions: boolean;
+function ReadINISettings: boolean;
 var
-INIFile: TINIFile;
+  iniFile: TIniFile;
+  tempstring: string;
 begin
 Result:= False;
-ioptions.COBextType:= True;
- showmessage('read ini options begin');
-  if ReadININame <> #0 then
-    begin
-      INIFile:= TIniFile.Create(ReadININame);
-      try
-        if INIFile.ReadInteger('Recorder','COBExt', 1) = 1 then ioptions.COBextType:= True else ioptions.COBextType:= False;
-        SetCOBType;
- showmessage('set cob type');
-        Result:= True;
-      finally
-        INIFIle.Free;
-      end;
+
+iniSettings.modid:= 0;
+iniSettings.demosprefix:= '';
+iniSettings.weaponidpatch:= False;
+if GetINIFileName <> #0 then
+  begin
+    iniFile:= TIniFile.Create(GetINIFileName);
+    try
+      iniSettings.modid:= iniFile.ReadInteger('MOD','ID', 0);
+      iniSettings.demosprefix:= iniFile.ReadString('MOD','DemosFileNamePrefix', '');
+      tempstring:= Trim(iniFile.ReadString('Preferences','WeaponType', '256;'));
+      tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);
+      iniSettings.weaponidpatch:= (StrToInt(tempstring) > 256);
+    finally
+      Result:= True;
+      iniFile.Free;
     end;
+  end;
 end;
 
 end.

@@ -421,7 +421,7 @@ uses
  SpeedHack,
  TAMemManipulations,
  TA_MemoryLocations,
- TA_NetworkingMessages, InputHook, BattleRoomScroll;
+ TA_NetworkingMessages, InputHook, BattleRoomScroll, INI_Options;
 
 {$WARNINGS ON}
 {$HINTS ON}
@@ -1212,7 +1212,7 @@ IsRecording := true;
   logsave.docrc := true;
   s:=#0#0;                           //empty size
   s:=s+'TA Demo'+#0;                 //magic
-  s:=s+#5#0;                         //version
+  if iniSettings.weaponidpatch then s:=s+#7#0 else s:=s+#5#0; //version
   s:=s+char(Players.Count);            //number of players
   s:=s+char(maxunits and $ff)+char(maxunits div 256);
   s:=s+mapname;                      //map
@@ -1221,7 +1221,11 @@ IsRecording := true;
   logsave.add(s);                       //write header
 
   s:=#0#0#0#0#0#0;                           //size of extra header
-  setlongword (@s[3], 4 + Players.Count);        //number of extra sectors
+  //mod id 0 = OTA. Will never use more than 256 weapons.
+  //if (iniSettings.weaponidpatch) and (iniSettings.modid > 0) then
+  setlongword (@s[3], 5 + Players.Count);        //number of extra sectors
+  // else
+  //   setlongword (@s[3], 4 + Players.Count);
   s[1] :=char(length(s) and $ff);          //fill in size
   s[2] :=char(length(s) shr 8);
   logsave.add(s);                            //write extra header
@@ -1271,6 +1275,18 @@ IsRecording := true;
     s[2] :=char(length(s) shr 8);
     logsave.add(s);                            //write extra sector
   end;
+
+  //----------Addition to save mod ID ----------
+
+  //if (iniSettings.weaponidpatch) and (iniSettings.modid > 0) then
+  //begin
+  s := #0#0;
+  s := s + #7#0#0#0;      //sectortype = modID
+  s := s + IntToStr(iniSettings.modid);
+  s[1] :=char(length(s) and $ff);          //fill in size
+  s[2] :=char(length(s) shr 8);
+  logsave.add(s);                            //write extra sector
+  //end;
 
   for a:=1 to Players.Count do begin
     s:=#0#0;                         //empty size
@@ -1853,7 +1869,7 @@ if FromPlayer <> nil then
             Players[1].ClickedIn := true;
             end;
           //Identifierar rec som klarar av enemy-chat
-          tmp[182] := char(TADemoVersion_Current);
+          if iniSettings.weaponidpatch then tmp[182] := char(TADemoVersion_3_9_2) else tmp[182] := char(TADemoVersion_99b3_beta3); //version
           datachanged := true;
           end
         else
@@ -2705,7 +2721,7 @@ try
   player := Players.Add( lpName^.lpszLongName, idPlayer );
   if Players.Count = 1 then
     begin
-    player.InternalVersion := TADemoVersion_Current;
+    if iniSettings.weaponidpatch then player.InternalVersion := TADemoVersion_3_9_2 else player.InternalVersion := TADemoVersion_99b3_beta3;
     player.EnemyChat := true;
     player.RecConnect := true;
     player.Uses_Rec2Rec_Notification := True;

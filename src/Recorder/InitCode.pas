@@ -23,7 +23,8 @@ uses
 {$ENDIF}  
   TADemoConsts,
   TA_MemoryLocations,
-  Plugins;
+  Plugins,
+  INI_Options;
 
 
 
@@ -130,6 +131,14 @@ if not OnMainRun then
     TLog.Add( 0, 'Running in Win9x compatibility mode' );
   if not IsTAVersion31 then
     TLog.Add( 0, 'Not running Total Annihilation 3.1' );
+  if not ReadINISettings then
+    TLog.Add( 0, 'Couldnt read INI settings' ) else
+    begin
+    TLog.Add( 0, 'Read settings stored in: ' +GetINIFileName );
+    TLog.Add( 0, 'modid: ' +IntToStr(iniSettings.modid) );
+    TLog.Add( 0, 'demosprefix: ' +iniSettings.demosprefix );
+    if iniSettings.weaponidpatch then TLog.Add( 0, 'weapons id patch: true') else TLog.Add( 0, 'weapons id patch: false');
+    end;
 {$IFNDEF NoDplayExports}
   // load the actual dplayx.dll, we dont bother unloading it,as we only dont need it when TA is closing
   if DPlayxHandleInvalid then

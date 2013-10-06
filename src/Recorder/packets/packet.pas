@@ -85,7 +85,7 @@ var
 implementation
 
 uses
-  TextData, Logging, sysutils;
+  TextData, Logging, INI_Options, SysUtils;
 
 
 // -----------------------------------------------------------------------------
@@ -145,7 +145,7 @@ case value of
   // Speed/pause change
   $19       :result := 3;
   //Bullet. They stay put, though. And they miss...
-  $0d       :Result := 36;
+  $0d       :if iniSettings.weaponidpatch then Result:= 40 else Result := 36;
   // Eliminates bullet scraps/rests of bullets
   $0b       :result := 9;
   // Makes the Commander's upperbody/torso to turn correctly when he's building, among other things (or perhaps: etc).
@@ -156,13 +156,13 @@ case value of
   $1f       :result := 5;
   $23       :result := 14;
   $16       :result := 17;
-  $1b       :result := 6;
+  $1b       :if iniSettings.weaponidpatch then Result:= 8 else result := 6;
   $29       :result := 3;
   $14       :result := 24;
 
   $21       :result := 10;
   $03       :result := 7;
-  $0e       :result := 14;
+  $0e       :if iniSettings.weaponidpatch then Result:= 17 else result := 14;
 
   // TADR packet types
   $f6       :result := 1;

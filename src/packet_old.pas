@@ -70,7 +70,7 @@ var
 implementation
 
 uses
-  TextData, Logging, sysutils;
+  TextData, Logging, INI_Options, sysutils;
 
 {$WARNINGS OFF}
 
@@ -233,7 +233,7 @@ case byte(s[index]) of
   $0a       :result := 7;         //?? krasch
   $28       :result := 58;        //?? ingen skillnad
   $19       :result := 3;         // Speed/pause change
-  $0d       :Result := 36;        //Skott. dock stannar skotten kvar. och de missar..
+  $0d       :if iniSettings.weaponidpatch then Result:= 40 else Result := 36;        //Skott. dock stannar skotten kvar. och de missar..
   $0b       :result := 9;         //Eliminerar skottrester
   $0f       :Result := 6;         //Får commanderns överkropp att vridas rätt när han bygger bl.a
   $0c       :result := 11;        //hmm. verkar ge explosioner med
@@ -241,13 +241,13 @@ case byte(s[index]) of
   $1f       :result := 5;
   $23       :result := 14;
   $16       :result := 17;  // resource share packet
-  $1b       :result := 6;
+  $1b       :if iniSettings.weaponidpatch then Result:= 8 else result := 6;
   $29       :result := 3;
   $14       :result := 24;
 
   $21       :result := 10;
   $03       :result := 7;
-  $0e       :result := 14;
+  $0e       :if iniSettings.weaponidpatch then Result:= 17 else result := 14;
 
   $f6       :result := 1;
   $f9       :result := 73;          //enemy-chat
