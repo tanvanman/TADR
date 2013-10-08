@@ -235,13 +235,13 @@ case byte(s[index]) of
   $19       :result := 3;         // Speed/pause change
   $0d       :if iniSettings.weaponidpatch then Result:= 40 else Result := 36;        //Skott. dock stannar skotten kvar. och de missar..
   $0b       :result := 9;         //Eliminerar skottrester
-  $0f       :Result := 6;         //Får commanderns överkropp att vridas rätt när han bygger bl.a
+  $0f       :if iniSettings.weaponidpatch then Result:= 8 else Result := 6;         //Får commanderns överkropp att vridas rätt när han bygger bl.a
   $0c       :result := 11;        //hmm. verkar ge explosioner med
 
   $1f       :result := 5;
   $23       :result := 14;
   $16       :result := 17;  // resource share packet
-  $1b       :if iniSettings.weaponidpatch then Result:= 8 else result := 6;
+  $1b       :result := 6;
   $29       :result := 3;
   $14       :result := 24;
 
