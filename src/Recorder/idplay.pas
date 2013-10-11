@@ -421,7 +421,7 @@ uses
  SpeedHack,
  TAMemManipulations,
  TA_MemoryLocations,
- TA_NetworkingMessages, InputHook, BattleRoomScroll, INI_Options;
+ TA_NetworkingMessages, InputHook, BattleRoomScroll, INI_Options, ModsList;
 
 {$WARNINGS ON}
 {$HINTS ON}
@@ -1221,11 +1221,11 @@ IsRecording := true;
   logsave.add(s);                       //write header
 
   s:=#0#0#0#0#0#0;                           //size of extra header
-  //mod id 0 = OTA. Will never use more than 256 weapons.
-  //if (iniSettings.weaponidpatch) and (iniSettings.modid > 0) then
-  setlongword (@s[3], 5 + Players.Count);        //number of extra sectors
-  // else
-  //   setlongword (@s[3], 4 + Players.Count);
+  //mod id 0 = backward compat.
+  if iniSettings.modid > 0 then
+    setlongword (@s[3], 5 + Players.Count)        //number of extra sectors
+  else
+    setlongword (@s[3], 4 + Players.Count);
   s[1] :=char(length(s) and $ff);          //fill in size
   s[2] :=char(length(s) shr 8);
   logsave.add(s);                            //write extra header
@@ -1278,15 +1278,15 @@ IsRecording := true;
 
   //----------Addition to save mod ID ----------
 
-  //if (iniSettings.weaponidpatch) and (iniSettings.modid > 0) then
-  //begin
+  if iniSettings.modid > 0 then
+  begin
   s := #0#0;
   s := s + #7#0#0#0;      //sectortype = modID
   s := s + IntToStr(iniSettings.modid);
   s[1] :=char(length(s) and $ff);          //fill in size
   s[2] :=char(length(s) shr 8);
   logsave.add(s);                            //write extra sector
-  //end;
+  end;
 
   for a:=1 to Players.Count do begin
     s:=#0#0;                         //empty size
@@ -3369,7 +3369,8 @@ try
       end;
     end;
 
-
+  if not CheckModsList(serverdir) then
+    if iniSettings.modid <> 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
 
   crash := false;
   TADemoRecorderOff := false;
@@ -3387,7 +3388,6 @@ try
   fakewatch := false;
   FileName := '';
   unitdata := '';
-
 
   LOS_extensions.ResetShareLosState;
   SpeedHack.ResetGameSpeedLimits;

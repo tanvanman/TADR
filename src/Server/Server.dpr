@@ -14,7 +14,9 @@ uses
   logging in 'logging.pas',
   cstream in 'cstream.pas',
   unitid in 'unitid.pas',
-  selip in 'selip.pas' {fmSelIP};
+  selip in 'selip.pas' {fmSelIP},
+  modslist in 'modslist.pas' {fmModsAssignList},
+  backwardcompat in 'backwardcompat.pas' {fmBackwardCompat};
 
 {$R *.RES}
 
@@ -22,5 +24,7 @@ begin
   Application.Initialize;
   Application.CreateForm(TfmMain, fmMain);
   Application.CreateForm(TfmSelIP, fmSelIP);
+  Application.CreateForm(TfmModsAssignList, fmModsAssignList);
+  Application.CreateForm(TfmBackwardCompat, fmBackwardCompat);
   Application.Run;
 end.

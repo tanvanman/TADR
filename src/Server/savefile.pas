@@ -85,6 +85,7 @@ type
     VerName :string;
     Datum   :string;
     Playeradress :array[1..10] of string;
+    modId :string;
     RecFrom :string;
     fsize :string;
 
@@ -96,6 +97,7 @@ type
     constructor Create (name :string; justinfo :boolean);
     destructor Destroy; override;
     procedure AddCommentSector (kommentar :string; name :string);
+    procedure ChangeModAssignation (backcompat: boolean; newmod: word; name :string);
     class function MakeString (const base; const ofs; len :integer) :string;
     class function unsmartpak( c:string; version :integer; health :PSaveHealth;var last2c:cardinal;incnon2c:boolean):string;
    end;
@@ -103,7 +105,7 @@ type
 implementation
 
 uses
-  tasv, lobby, selip;
+  tasv, lobby, selip, modslist;
 
 type
   PHeader = ^RHeader;
@@ -316,7 +318,7 @@ begin
       exit;
     end;
   version:=h.version;
-  if h.Version > 5 then
+  if h.Version > 7 then
   begin
     Error := sfNewVersion;
     inf.Free;
@@ -333,7 +335,8 @@ begin
   case h.Version of
     3 :VerName := '0.80ß';
     4 :VerName := '0.81a';
-    5 :VerName := '0.90ß';
+    5 :VerName := '1.0.0.545';
+    7 :VerName := '3.9.2.2';
   else
     VerName := 'Unknown (' + inttostr (h.version) + ')';
   end;
@@ -381,9 +384,13 @@ begin
         if es.sectortype=6 then
         begin
           playeradress[a] := SimpleCrypt (MakeString (es^, es.data, es.length));
-
-          playeradress [a] := fmSelIP.GetAddress (playeradress [a]);
+          playeradress[a] := fmSelIP.GetAddress (playeradress [a]);
           inc(a);
+        end;
+        
+        if es.sectortype=7 then
+        begin
+          modId := MakeString (es^, es.data, es.length);
         end;
       end;
   end;
@@ -566,7 +573,7 @@ begin
     end;
 
   version:=h.version;
-  if h.Version > 5 then
+  if h.Version > 7 then
   begin
     Error := sfNewVersion;
     inf.Free;
@@ -610,6 +617,141 @@ begin
   s[1]:=char(length(s) and $ff);     //fyll i storlek
   s[2]:=char(length(s) shr 8);
   unf.write(s[1],length(s));
+
+  while ReadRec (move) do
+  begin
+    unf.Write(move.length,move.length);
+    FreeMem (move, move^.length);
+  end;
+
+  //Stäng filen och markera success
+  inf.Free;
+  unf.free;
+  DeleteFile(name);
+  RenameFile(name+'.tmp',name);
+end;
+
+procedure TSaveFile.ChangeModAssignation (backcompat: boolean; newmod: word; name :string);
+var
+  inf    :TFileStream;
+  unf    :TFileStream;
+  s      :string;
+  i      :integer;
+  h      :PHeader2;
+  move   :PPacket;
+  eh     :PExtraHeader;
+  es     :PExtraSector;
+  sectors:integer;
+  id     :TIdent;
+  stemp: string;
+
+  function ReadRec (var p) :boolean;
+  type
+    PBuf = ^TBuf;
+    TBuf = packed record
+      len :word;
+      data :byte;
+    end;
+  var
+    len :word;
+    pt  :pointer;
+  begin
+    Result := inf.Read (len, Sizeof (len)) = Sizeof (len);
+    if not Result then exit;
+    GetMem (pt, len);
+    Result := inf.Read (PBuf(pt)^.data, Len - sizeof (len)) = len - sizeof (len);
+    PBuf(pt)^.Len := Len;
+
+    System.Move (pt, p, Sizeof (pt));
+  end;
+begin
+  inf := TFileStream.Create (name, fmOpenRead);
+  unf := TFileStream.Create (name+'.tmp',fmCreate);
+  ReadRec (h);
+  s := 'TA Demo';
+  for i := 1 to 7 do
+    if s[i] <> h.Magic[i-1] then
+    begin
+      Error := sfNoMagic;
+      inf.Free;
+      unf.Free;
+      DeleteFile(name+'.tmp');
+      exit;
+    end;
+  version:=h.version;
+  if h.Version > 7 then
+  begin
+    Error := sfNewVersion;
+    inf.Free;
+    unf.Free;
+    DeleteFile(name+'.tmp');
+    exit;
+  end;
+  if h.Version < 4 then
+  begin
+    Error := sfOldVersion;
+    inf.Free;
+    unf.Free;
+    DeleteFile(name+'.tmp');
+    exit;
+  end;
+  if h.version=4 then
+    h.version:=5;
+  if backcompat then h.version:= 5 else h.version:= 7;
+  unf.write(h.length,h.length);
+
+  if version=4 then begin
+    s:=#6#0#1#0#0#0;
+    unf.write(s[1],length(s));
+  end else begin
+    readrec(eh);
+    //backcompat to backcompat... user friendly app lulz
+    if (backcompat and (ReadedTad.version = 5)) or
+       (not backcompat and (ReadedTad.version = 7)) then
+    begin
+      unf.write(eh.length,eh.length);
+    end;
+    //adding mods sector, set v7 + write mod id
+    if not backcompat and (ReadedTad.version = 5) then
+    begin
+      eh.length:= eh.length + 1;
+      eh.numsectors:= eh.numsectors + 1;
+      unf.write(eh.length,eh.length);
+    end;
+    //reverting to backward compat - v5 and no mod id
+    if backcompat and (ReadedTad.version = 7) then
+    begin
+      eh.length:= eh.length - 1;
+      eh.numsectors:= eh.numsectors - 1;
+      unf.write(eh.length,eh.length);
+      eh.numsectors:= eh.numsectors + 1;
+    end;
+
+    if eh.numsectors > 1 then begin
+      for i:=2 to eh.numsectors do begin
+        ReadRec (move);
+        unf.Write(move.length,move.length);
+        FreeMem (move, move^.length);
+      end;
+    end;
+    freemem(eh);
+  end;
+
+  //write mod id for v5 -> v7 or v7 <-> v7
+  if not backcompat then
+  begin
+    s:=#0#0;
+    s:=s+#7#0#0#0;
+    s:=s+inttostr(newmod);
+    s[1]:=char(length(s) and $ff);
+    s[2]:=char(length(s) shr 8);
+    unf.write(s[1],length(s));
+  end;
+
+  //If result will be v7 we want to
+  //avoid writing old mod id from orginal stream
+  if ReadedTad.version > 5 then
+    inf.Position:= inf.Position + 6 + Length(ReadedTad.modid);
 
   while ReadRec (move) do
   begin

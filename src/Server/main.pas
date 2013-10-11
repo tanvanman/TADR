@@ -5,7 +5,15 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, Menus, ComCtrls, ExtCtrls, tasv, savefile, dplay, ActiveX,
-  FileCtrl, ShellApi, Registry, textdata, unitid, unitsync{, dplobby};
+  FileCtrl, ShellApi, Registry, textdata, unitid, unitsync{, dplobby}, IniFiles, ShlObj;
+
+type
+  TModsIniSettings = record
+    ID: word;
+    Name: string;
+    Path: string;
+  end;
+var LoadedModsList: array of TModsIniSettings;
 
 type
   TOptions = record
@@ -18,6 +26,8 @@ type
     smooth:integer;
     lastprot :integer;
     mod2cstatus:integer; //borde inte vara här men error i tasv
+    usemod0 :boolean;
+    windowedmode :boolean;
 
     usecomp :boolean;
     usenewtimer :boolean;
@@ -58,14 +68,14 @@ type
     Label7: TLabel;
     Label8: TLabel;
     Label9: TLabel;
-    Button7: TButton;
+    btnPlay: TButton;
     Button8: TButton;
     FileListBox1: TFileListBox;
     DirectoryListBox1: TDirectoryListBox;
     DriveComboBox1: TDriveComboBox;
     FilterComboBox1: TFilterComboBox;
     meGameInfo: TMemo;
-    Button6: TButton;
+    btnComments: TButton;
     btUnits: TButton;
     Button9: TButton;
     Button10: TButton;
@@ -86,7 +96,6 @@ type
     edDemoDir: TEdit;
     Label19: TLabel;
     Label20: TLabel;
-    Label21: TLabel;
     tbSync: TTrackBar;
     Label22: TLabel;
     Label23: TLabel;
@@ -117,6 +126,23 @@ type
     cbCreatetxt: TCheckBox;
     cbShareMapPos: TCheckBox;
     cb3DTA: TCheckBox;
+    Button13: TButton;
+    Button14: TButton;
+    odSelectExe: TOpenDialog;
+    cbUseMod0: TCheckBox;
+    Bevel5: TBevel;
+    btnModsEditor: TButton;
+    Bevel8: TBevel;
+    Bevel6: TBevel;
+    Label21: TLabel;
+    Bevel7: TBevel;
+    cbWindowedMode: TCheckBox;
+    CheckBox1: TCheckBox;
+    Bevel9: TBevel;
+    Label32: TLabel;
+    Bevel10: TBevel;
+    Bevel11: TBevel;
+    combModsFilter: TComboBox;
     procedure nbMainPageChanged(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
@@ -125,14 +151,13 @@ type
     procedure Button4Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button5Click(Sender: TObject);
-    procedure Button7Click(Sender: TObject);
+    procedure btnPlayClick(Sender: TObject);
     procedure procmess;
     procedure Button8Click(Sender: TObject);
     procedure FileListBox1Click(Sender: TObject);
-    procedure FileListBox1Change(Sender: TObject);
     procedure tbSpeedChange(Sender: TObject);
     procedure Label12Click(Sender: TObject);
-    procedure Button6Click(Sender: TObject);
+    procedure btnCommentsClick(Sender: TObject);
     procedure Button9Click(Sender: TObject);
     procedure Button10Click(Sender: TObject);
     procedure btUnitsClick(Sender: TObject);
@@ -143,11 +168,18 @@ type
     procedure Button12Click(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
+    procedure btnModsEditorClick(Sender: TObject);
+    procedure Button14Click(Sender: TObject);
+    procedure Button13Click(Sender: TObject);
+    procedure FileListBox1MouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
   private
     { Private declarations }
     procedure ShowHint (Sender: TObject);
     procedure LoadOptions;
+    function LoadModsList: boolean;
     procedure SaveOptions;
+    function LoadSelectedDemo: boolean;
   public
     { Public declarations }
     running :integer;
@@ -158,12 +190,13 @@ type
     function CanWork :boolean;
     function getunits :TStringList;
     procedure CheckDir (st :string);
+    function FindModName(id: string): string; //returns #0 if not present on list
+    function FindModId(id: word): integer; //return -1 if not found
+    procedure SetMod0(newlist: boolean);
   end;
 
 var
   fmMain: TfmMain;
-
-var
   options :TOptions;
 
 implementation
@@ -171,7 +204,164 @@ implementation
 {$R *.DFM}
 
 uses
-  lobby, selip;
+  lobby, selip, modslist, backwardcompat;
+
+function BrowseDialog
+ (const Title: string; const Flag: integer): string;
+var
+  lpItemID : PItemIDList;
+  BrowseInfo : TBrowseInfo;
+  DisplayName : array[0..MAX_PATH] of char;
+  TempPath : array[0..MAX_PATH] of char;
+begin
+  Result:='';
+  FillChar(BrowseInfo, sizeof(TBrowseInfo), #0);
+  with BrowseInfo do begin
+    hwndOwner := Application.Handle;
+    pszDisplayName := @DisplayName;
+    lpszTitle := PChar(Title);
+    ulFlags := Flag;
+  end;
+  lpItemID := SHBrowseForFolder(BrowseInfo);
+  if lpItemId <> nil then begin
+    SHGetPathFromIDList(lpItemID, TempPath);
+    Result := TempPath;
+    GlobalFreePtr(lpItemID);
+  end;
+end;
+
+function TfmMain.LoadSelectedDemo: boolean;
+var
+  i :integer;
+  l :TStringList;
+  tmp :string;
+  us :TUnitSync;
+begin
+  Result:= False;
+  ReadedTad.error:= True;
+  ReadedTad.usemod:= FindModID(0);
+  save := TSaveFile.Create (filelistbox1.items[filelistbox1.itemindex], true);
+  if save.error = sfNone then
+  begin
+    meGameInfo.Lines.Clear;
+    megameinfo.lines.beginupdate;
+//  megameinfo.visible := false;
+    meGameInfo.Lines.Add ('Name of file: ' + filelistbox1.items[filelistbox1.itemindex]);
+    meGameInfo.Lines.Add ('Recorded with version: ' +save.vername);
+    // demo ID is present in TAD extra sector and it isn't OTA
+    if (save.modId <> '') and (save.modId <> '0') then
+    begin
+      // is known (in mods.ini list)
+      if FindModName(save.modId) <> #0 then
+        begin
+          meGameInfo.Lines.Add ('Game modification: ' + FindModName(save.modId));
+        end else
+          meGameInfo.Lines.Add ('Game modification: ['+save.modId+'] Unknown (not present in mods.ini)');
+    ReadedTad.usemod:= FindModID(StrToInt(save.modId));
+    end;
+    if save.datum <> '' then
+      meGameInfo.Lines.Add ('Recorded at: ' +save.Datum);
+    meGameInfo.Lines.add ('Number of players: ' + IntToStr(save.numplayers));
+    meGameInfo.Lines.add ('Map name: ' +save.map);
+    meGameInfo.Lines.add ('Max units: ' + inttostr (save.maxunits));
+    meGameInfo.Lines.Add ('Filesize: ' + save.fsize);
+    {$IFDEF CRC}
+    meGameInfo.Lines.Add ('Recorded from: ' + save.recfrom);
+    us := TUnitsync.create (save.units);
+    if save.crc = us.crc then
+      meGameInfo.Lines.Add ('The crc status: Correct (' + inttostr (save.crc) + ')')
+    else
+      meGameInfo.Lines.Add ('The crc status: Incorrect! (file: ' + inttostr (us.crc) + ' calc: ' + inttostr (save.crc) + ')');
+    us.free;
+    {$ENDIF}
+    meGameInfo.Lines.Add ('');
+    meGameInfo.Lines.Add ('The players');
+    meGameInfo.Lines.Add ('-----------------');
+    for i := 1 to save.Numplayers do
+    begin
+      {$IFDEF CRC}
+      if save.playeradress[i] <> '' then
+        meGameInfo.Lines.add (save.players[i].name + ' - ' + save.playeradress [i])
+      else
+        meGameInfo.Lines.add (save.players[i].name);
+      {$ELSE}
+      if i = 1 then
+        meGameInfo.Lines.add (save.players[i].name + ' <<-- Recorded the game')
+      else
+        meGameInfo.Lines.add (save.players[i].name);
+      {$ENDIF}
+
+{      if save.Playeradress[i]<>'' then
+        meGameInfo.Lines.add (save.playeradress[i]);}
+    end;
+
+    meGameInfo.Lines.Add ('');
+    l := getunits;
+    if assigned (l) then
+    begin
+      if l.count > 0 then
+      begin
+        meGameInfo.Lines.Add ('Extra units used in this game:');
+        meGameInfo.Lines.Add ('-----------------');
+        for i := 0 to l.count - 1 do
+          meGameInfo.Lines.Add (l.strings [i]);
+      end;
+//      l.Free;
+    end;
+    
+    if save.comments<>'' then begin
+      meGameInfo.Lines.Add ('');
+      meGameInfo.Lines.add ('Comments in this file');
+      meGameInfo.Lines.Add ('-----------------');
+      meGameInfo.Lines.add (save.comments);
+    end;
+
+
+
+    if save.chat<>'' then begin
+      meGameInfo.Lines.Add ('');
+      meGameInfo.Lines.add ('Lobby chat');
+      meGameInfo.Lines.Add ('-----------------');
+      tmp := save.chat;
+      while Length (tmp) > 1 do
+      begin
+        meGameInfo.Lines.add (Copy (tmp, 1, Pos (#13, tmp) - 1));
+        Delete (tmp, 1, Pos (#13, tmp));
+      end;
+    end;
+
+    btnPlay.Enabled := true;
+    btnComments.Enabled := true;
+  end else
+  begin
+    meGameInfo.Lines.Clear;
+    meGameInfo.Lines.Add ('This is not a valid TA Demo file');
+    meGameInfo.Lines.Add ('');
+    case save.Error of
+      sfUnknown :meGameInfo.Lines.Add ('Unknown error');
+      sfOldVersion :meGameInfo.Lines.Add ('We are sorry, but old versions of the file format are not supported since they contain corrupted packets');
+      sfNoMagic :meGameInfo.Lines.Add ('The header is incorrect');
+      sfNewVersion :meGameInfo.Lines.Add ('This file is too new. Please upgrade your replayer');
+    end;
+    btnPlay.Enabled := false;
+    btnComments.Enabled := false;
+
+  end;
+
+  //Scrollar upp..
+  meGameInfo.Lines.Insert (0, 'hey man');
+  meGameInfo.Lines.Delete (0);
+  megameinfo.lines.endupdate;
+
+//  megameinfo.visible := true;
+  ReadedTad.modid:= save.modId;
+  ReadedTad.filename:= filelistbox1.items[filelistbox1.itemindex];
+  ReadedTad.version:= save.version;
+  ReadedTad.error:= not (save.Error = sfNone);
+
+  save.Free;
+  Result:= True;
+end;
 
 procedure TfmMain.nbMainPageChanged(Sender: TObject);
 begin
@@ -194,6 +384,8 @@ begin
           tbInterval.Position := options.interval;
           tbsmooth.Position := options.smooth;
 
+          cbUseMod0.Checked := options.usemod0;
+          cbWindowedMode.Checked:= options.windowedmode;
           cbfixall.Checked := options.fixall;
           cbautorec.Checked := options.autorec;
           cbcreatetxt.Checked := options.createtxt;
@@ -235,6 +427,7 @@ begin
   {$ENDIF}
   
   LoadOptions;
+  LoadModsList;
 
   ids := TUnitIds.Create (ExtractFilePath (paramstr (0)) + '\unitid.txt');
 
@@ -338,7 +531,7 @@ begin
 //  server.quit := true;
 end;
 
-procedure TfmMain.Button7Click(Sender: TObject);
+procedure TfmMain.btnPlayClick(Sender: TObject);
 begin
   meGameinfo.Lines.Add ('');
   meGameinfo.Lines.Add ('Processing demo file, this might take a few minutes');
@@ -349,7 +542,36 @@ begin
   begin
     MessageDlg ('Invalid file selected', mtError, [mbok], 0);
   end else
-    nbMain.PageIndex := 0;
+  begin
+    if ReadedTad.version < 7 then
+    begin
+      if not options.usemod0 then
+      begin
+        fmBackwardCompat.ShowModal;
+        if fmBackwardCompat.ModalResult = mrOK then
+        begin
+          if fmBackwardCompat.cbfmbcompat.Checked then
+            options.usemod0:= True;
+          nbMain.PageIndex := 0;
+        end else
+          save.Free;
+      end else
+        nbMain.PageIndex := 0;
+    end else
+      begin
+        if ReadedTad.usemod <> - 1 then
+        begin
+          nbMain.PageIndex := 0;
+        end else
+        begin
+          //v7, stored mod number in tad but not found on list
+          ShowMessage('This demo file has been recorded by game mod that is not present' +#10#13+
+          'in mods.ini list. Please reassign this demo or install mod first.');
+          save.Free;
+          FileListBox1Click(Self);
+        end;
+      end;
+  end;
 end;
 
 function TfmMain.CanWork :boolean;
@@ -370,118 +592,9 @@ end;
 
 procedure TfmMain.FileListBox1Click(Sender: TObject);
 var
-  i :integer;
-  l :TStringList;
-  tmp :string;
-  us :TUnitSync;
+  done: boolean;
 begin
-  save := TSaveFile.Create (filelistbox1.items[filelistbox1.itemindex], true);
-  if save.error = sfNone then
-  begin
-    meGameInfo.Lines.Clear;
-    megameinfo.lines.beginupdate;
-//  megameinfo.visible := false;
-    meGameInfo.Lines.Add ('Name of file: ' + filelistbox1.items[filelistbox1.itemindex]);
-    meGameInfo.Lines.Add ('Recorded with version: ' +save.vername);
-    if save.datum<>'' then
-      meGameInfo.Lines.Add ('Recorded at: ' +save.Datum);
-    meGameInfo.Lines.add ('Number of players: ' + IntToStr(save.numplayers));
-    meGameInfo.Lines.add ('Map name: ' +save.map);
-    meGameInfo.Lines.add ('Max units: ' + inttostr (save.maxunits));
-    meGameInfo.Lines.Add ('Filesize: ' + save.fsize);
-    {$IFDEF CRC}
-    meGameInfo.Lines.Add ('Recorded from: ' + save.recfrom);
-    us := TUnitsync.create (save.units);
-    if save.crc = us.crc then
-      meGameInfo.Lines.Add ('The crc status: Correct (' + inttostr (save.crc) + ')')
-    else
-      meGameInfo.Lines.Add ('The crc status: Incorrect! (file: ' + inttostr (us.crc) + ' calc: ' + inttostr (save.crc) + ')');
-    us.free;
-    {$ENDIF}
-    meGameInfo.Lines.Add ('');
-    meGameInfo.Lines.Add ('The players');
-    meGameInfo.Lines.Add ('-----------------');
-    for i := 1 to save.Numplayers do
-    begin
-      {$IFDEF CRC}
-      if save.playeradress[i] <> '' then
-        meGameInfo.Lines.add (save.players[i].name + ' - ' + save.playeradress [i])
-      else
-        meGameInfo.Lines.add (save.players[i].name);
-      {$ELSE}
-      if i = 1 then
-        meGameInfo.Lines.add (save.players[i].name + ' <<-- Recorded the game')
-      else
-        meGameInfo.Lines.add (save.players[i].name);
-      {$ENDIF}
-
-{      if save.Playeradress[i]<>'' then
-        meGameInfo.Lines.add (save.playeradress[i]);}
-    end;
-
-    meGameInfo.Lines.Add ('');
-    l := getunits;
-    if assigned (l) then
-    begin
-      if l.count > 0 then
-      begin
-        meGameInfo.Lines.Add ('Extra units used in this game:');
-        meGameInfo.Lines.Add ('-----------------');
-        for i := 0 to l.count - 1 do
-          meGameInfo.Lines.Add (l.strings [i]);
-      end;
-//      l.Free;
-    end;
-    
-    if save.comments<>'' then begin
-      meGameInfo.Lines.Add ('');
-      meGameInfo.Lines.add ('Comments in this file');
-      meGameInfo.Lines.Add ('-----------------');
-      meGameInfo.Lines.add (save.comments);
-    end;
-
-    if save.chat<>'' then begin
-      meGameInfo.Lines.Add ('');
-      meGameInfo.Lines.add ('Lobby chat');
-      meGameInfo.Lines.Add ('-----------------');
-      tmp := save.chat;
-      while Length (tmp) > 1 do
-      begin
-        meGameInfo.Lines.add (Copy (tmp, 1, Pos (#13, tmp) - 1));
-        Delete (tmp, 1, Pos (#13, tmp));
-      end;
-    end;
-
-    Button7.Enabled := true;
-    Button6.Enabled := true;
-  end else
-  begin
-    meGameInfo.Lines.Clear;
-    meGameInfo.Lines.Add ('This is not a valid TA Demo file');
-    meGameInfo.Lines.Add ('');
-    case save.Error of
-      sfUnknown :meGameInfo.Lines.Add ('Unknown error');
-      sfOldVersion :meGameInfo.Lines.Add ('We are sorry, but old versions of the file format are not supported since they contain corrupted packets');
-      sfNoMagic :meGameInfo.Lines.Add ('The header is incorrect');
-      sfNewVersion :meGameInfo.Lines.Add ('This file is too new. Please upgrade your replayer');
-    end;
-    Button7.Enabled := false;
-    Button6.Enabled := false;
-
-  end;
-
-  //Scrollar upp..
-  meGameInfo.Lines.Insert (0, 'hey man');
-  meGameInfo.Lines.Delete (0);
-  megameinfo.lines.endupdate;
-
-//  megameinfo.visible := true;
-  save.Free;
-end;
-
-procedure TfmMain.FileListBox1Change(Sender: TObject);
-begin
-//  Button7.Enabled := false;
+  done:= LoadSelectedDemo;
 end;
 
 procedure TfmMain.tbSpeedChange(Sender: TObject);
@@ -497,7 +610,7 @@ begin
   ShellExecute (0, nil, @s[1], nil, nil, SW_NORMAL);
 end;
 
-procedure TfmMain.Button6Click(Sender: TObject);
+procedure TfmMain.btnCommentsClick(Sender: TObject);
 begin
   save := TSaveFile.Create (filelistbox1.items[filelistbox1.itemindex], true);
   if save.Error <> sfNone then
@@ -535,7 +648,11 @@ var
   param :string;
   ip :string;
 begin
-  path := Trim(options.Tadir);
+  if FindModId(ReadedTad.usemod) <> - 1 then
+    path:= LoadedModsList[FindModId(ReadedTad.usemod)].Path;
+  
+  if path = '' then
+    path:= Trim(options.Tadir);
 
   if path = '' then
   begin
@@ -556,9 +673,7 @@ begin
       exit;
     end;
   end;
-
-  path := path + '\totala.exe';
-
+  
   param := '';
 
   if IsSameGuid (DPSPGUID_IPX, server.provider) then
@@ -581,8 +696,7 @@ end;
 
 procedure TfmMain.btUnitsClick(Sender: TObject);
 begin
-  nbmain.pageindex := 6;
-
+  nbMain.pageindex := 6;
 end;
 
 procedure TfmMain.NocommentClick(Sender: TObject);
@@ -638,13 +752,17 @@ begin
 end;
 
 procedure TfmMain.Button11Click(Sender: TObject);
+var
+  s : string;
 begin
-  options.tadir := FixPath(edTADir.Text);
+  options.tadir := edTADir.Text;
   options.usedir := rgUseDir.ItemIndex;
-  options.defdir := FixPath(edDemoDir.Text);
+  options.defdir := IncludeTrailingPathDelimiter(edDemoDir.Text);
   options.syncspeed := tbSync.Position;
   options.interval := tbinterval.Position;
   options.smooth := tbsmooth.Position;
+  options.usemod0 := cbUseMod0.Checked;
+  options.windowedmode := cbWindowedMode.Checked;
 
   options.fixall := cbfixall.Checked;
   options.autorec := cbautorec.checked;
@@ -658,6 +776,7 @@ begin
 //  checkdir (options.tadir);
   checkdir (options.defdir);
 
+  SetMod0(false);
   SaveOptions;
 
   if paramstr (1) = '---cp' then
@@ -680,17 +799,19 @@ begin
   options.interval := r.ReadInteger ('Options', 'interval', 90);
   options.smooth := r.ReadInteger ('Options', 'smooth', 3);
   options.lastprot := r.ReadInteger ('Options', 'lastprot', -1);
+  options.usemod0 := r.readbool ('Options', 'usemod0', true);
+  options.windowedmode := r.readbool ('Options', 'windowedmode', false);
 
   options.usecomp := r.ReadBool ('Options', 'usecomp', true);
   options.usenewtimer := r.Readbool ('Options', 'newtimer', true);
-  options.ta3d := r.ReadBool ('Options', 'ta3d', true);
+  options.ta3d := r.ReadBool ('Options', 'ta3d', false);
   options.fixall := r.readbool ('Options', 'fixall', false);
-  options.autorec := r.readbool ('Options', 'autorec', false);
-  options.sharemappos := r.readbool ('Options', 'sharepos', false);
+  options.autorec := r.readbool ('Options', 'autorec', true);
+  options.sharemappos := r.readbool ('Options', 'sharepos', true);
   options.createtxt := r.readbool ('Options', 'createtxt', false);
   options.skippause := r.readbool ('Options', 'skippause', true);
   options.usenewtimer := r.readbool ('Options', 'newtime', true);
-  options.playernames := r.readbool ('Options', 'playernames', false);
+  options.playernames := r.readbool ('Options', 'playernames', true);
 
   r.WriteString ('Options', 'serverdir', ExtractFilePath (paramstr (0)));
   r.Free;
@@ -710,6 +831,8 @@ begin
   r.writeinteger ('Options', 'interval', options.interval);
   r.writeinteger ('Options', 'smooth', options.smooth);
   r.writeinteger ('Options', 'lastprot', options.lastprot);
+  r.writebool ('Options', 'usemod0', options.usemod0);
+  r.writebool ('Options', 'windowedmode', options.windowedmode);
 
   r.writebool ('Options', 'usecomp', options.usecomp);
   r.writebool ('Options', 'newtimer', options.usenewtimer);
@@ -723,6 +846,116 @@ begin
   r.writebool ('Options', 'playernames', options.playernames);
 
   r.Free;
+end;
+
+function TfmMain.LoadModsList: boolean;
+var
+  Sections: TStringList;
+  i: word;
+  incorrect: word;
+begin
+Result:= False;
+incorrect:= 0;
+if FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'mods.ini') then
+begin
+  with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'mods.ini') do
+    try
+      Sections := TStringList.Create;
+      try
+        ReadSections(Sections);
+        SetLength(LoadedModsList, Sections.Count);
+        for i := 0 to Sections.Count - 1 do
+        begin
+          if (ReadString(Sections[i], 'ID', '') <> '') and
+             (ReadString(Sections[i], 'Path', '') <> '') then
+          begin
+            LoadedModsList[i].ID := ReadInteger(Sections[i], 'ID', 0);
+            LoadedModsList[i].Name := ReadString(Sections[i], 'Name', '');
+            LoadedModsList[i].Path := ReadString(Sections[i], 'Path', '');
+          end else
+            Inc(incorrect);
+            Continue;
+          end;
+      finally
+        Sections.Free;
+      end;
+    finally
+      Free;
+    end;
+  if incorrect > 0 then
+    showmessage('Warning ! Found '+intToStr(incorrect)+' incorrect entries in mods.ini');
+  if High(LoadedModsList) > 0 then
+    Result:= True
+  else
+    SetMod0(False);
+end else
+begin
+   SetMod0(True);
+end;
+end;
+
+procedure TfmMain.SetMod0(newlist: boolean);
+var
+ s : string;
+begin
+  if newlist then
+  begin
+    s:= ExtractFileName(options.Tadir);
+    if Copy(s, Length(s)-2, 3) <> 'exe' then
+    begin
+      if FileExists(IncludeTrailingPathDelimiter(options.Tadir) + 'TotalA.exe') then
+        s := IncludeTrailingPathDelimiter(options.Tadir) + 'TotalA.exe';
+        options.Tadir:= s;
+    end;
+  end;
+
+  with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'mods.ini') do
+    try
+      if newlist then SetLength(LoadedModsList, 1);
+      LoadedModsList[0].ID := 0;
+      LoadedModsList[0].Name := 'Backward compatibility';
+      LoadedModsList[0].Path := options.Tadir;
+      WriteInteger('MOD0', 'ID', LoadedModsList[0].ID);
+      WriteString('MOD0', 'Name', LoadedModsList[0].Name);
+      WriteString('MOD0', 'Path', LoadedModsList[0].Path);
+    finally
+      Free;
+    end;
+end;
+
+function TfmMain.FindModName(id: string): string;
+var
+  iid: word;
+  i: word;
+begin
+  Result:= #0;
+  if id <> '' then
+  begin
+    iid:= StrToInt(id);
+    for i := Low(LoadedModsList) to High(LoadedModsList) do
+    begin
+      if LoadedModsList[i].ID = iid then
+      begin
+        Result:= LoadedModsList[i].Name;
+        Break;
+      end;
+    end;
+  end;
+end;
+
+function TfmMain.FindModId(id: word): integer;
+var
+  i: word;
+begin
+  Result:= -1;
+  for i := Low(LoadedModsList) to High(LoadedModsList) do
+  begin
+    if LoadedModsList[i].ID = id then
+    begin
+      Result:= i;
+      Break;
+    end;
+  end;
 end;
 
 procedure TfmMain.Button12Click(Sender: TObject);
@@ -788,5 +1021,86 @@ begin
   DeleteFile (st + '__tmp.txt');
 end;
 
+
+procedure TfmMain.btnModsEditorClick(Sender: TObject);
+var
+s:string;
+begin
+ // nbMain.PageIndex := 7;
+end;
+
+procedure TfmMain.Button14Click(Sender: TObject);
+begin
+  if options.Tadir <> '' then
+    odSelectExe.InitialDir:= IncludeTrailingPathDelimiter(ExtractFileDir(options.Tadir));
+  if odSelectExe.Execute then
+  begin
+    if odSelectExe.FileName <> '' then
+      edTADir.Text:= odSelectExe.FileName;
+  end;
+end;
+
+procedure TfmMain.Button13Click(Sender: TObject);
+var sTitle, sFolder: string;
+    iFlag : integer;
+begin
+  sFolder := BrowseDialog('Select directory...', BIF_RETURNONLYFSDIRS);
+  if sFolder <> '' then
+  begin
+    edDemoDir.text := IncludeTrailingPathDelimiter(sFolder);
+    DirectoryListbox1.Directory:= edDemoDir.text;
+  end;
+end;
+
+procedure TfmMain.FileListBox1MouseUp(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+  APoint: TPoint;
+  Index: integer;
+  newid: integer;
+  done: boolean;
+begin
+  if Button = mbRight then
+  begin
+    APoint.X := X;
+    APoint.Y := Y;
+    Index := FileListBox1.ItemAtPos(APoint, True);
+    if Index > -1 then
+      begin
+      FileListBox1.Selected[Index] := True;
+  done:= LoadSelectedDemo;
+  if ReadedTad.Error = false then
+  begin
+    if ReadedTad.modId <> '' then setItemIndex:= FindModId(StrToInt(ReadedTad.modId))
+      else if ReadedTad.version < 7 then
+        if MessageDlg('This demo file has been recorded with backward compatibility mode enabled. '+
+        #13#10+'Assigning it to mod that requires more than 256 weapon ID''s will make it unplayable'+
+        ' for older Replayers (like 1.0.0.545).', mtConfirmation, mbOKCancel, 0) = mrCancel then
+          Exit else setItemIndex:= -1;
+    end;
+    fmModsAssignList.ShowModal;
+    if fmModsAssignList.ModalResult = mrOk then
+      begin
+        //save new mod ID or/and tad version
+        newid:= LoadedModsList[fmModsAssignList.lbModsAssign.ItemIndex].ID;
+        case newid of
+          -1: Exit;
+          0: begin
+               //set version to 5, remove mods sector
+               save.ChangeModAssignation(true, 0, filelistbox1.items[filelistbox1.itemindex]);
+             end;
+          else
+            begin
+               //set version to 7, mod id to newid
+               save.ChangeModAssignation(false, newid, filelistbox1.items[filelistbox1.itemindex]);
+            end;
+        end;
+        FileListBox1Click(Self);
+        nbMain.PageIndex := 4;
+      end else
+        Exit;
+      end;
+  end;
+end;
 
 end.

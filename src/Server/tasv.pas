@@ -150,10 +150,13 @@ type
     conn :PDPLConnection;
   end;
 
+function RightPad(S: string; Ch: Char; Len: Integer): string;
+function LeftPad(S: string; Ch: Char; Len: Integer): string;
+
 implementation
 
 uses
-  main, textdata, loading;
+  main, textdata, loading, modslist;
 
 {99797420-F5F5-11CF-9827-00A0241496C8}
 const
@@ -382,6 +385,7 @@ var
   name :TDPName;
   id   :TIdent;
   pd   :string;
+  pdtemp: string;
   i,j  :integer;
   tmp  :array[0..63] of char;
   x    :TPlayers;
@@ -414,7 +418,16 @@ begin
   sess.guidApplication := TOTALA_GUID;
   sess.dwCurrentPlayers := 0;
   sess.dwMaxPlayers := 100;
-  pd := 'TA DEMO 0.99ß    ' + save.map;
+
+  if ReadedTad.usemod > 0 then
+  begin
+    pdtemp:= Copy(LoadedModsList[ReadedTad.usemod].Name, 1, 13);
+    pdtemp:= LeftPad(LoadedModsList[ReadedTad.usemod].Name, #32, 16);
+    pd:= pdtemp + save.Map;
+  end else
+  begin
+    pd := 'TADR 3.9.2.2    ' + save.map;
+  end;
 
   sn := stralloc (100);
   StrPCopy (sn, pd);
@@ -2055,4 +2068,25 @@ begin
     end;
   end;
 end;
+
+function RightPad(S: string; Ch: Char; Len: Integer): string;
+var
+  RestLen: Integer;
+begin
+  Result  := S;
+  RestLen := Len - Length(s);
+  if RestLen < 1 then Exit;
+  Result := StringOfChar(Ch, RestLen) + S;
+end;
+
+function LeftPad(S: string; Ch: Char; Len: Integer): string;
+var
+  RestLen: Integer;
+begin
+  Result  := S;
+  RestLen := Len - Length(s);
+  if RestLen < 1 then Exit;
+  Result := S + StringOfChar(Ch, RestLen);
+end;
+
 end.

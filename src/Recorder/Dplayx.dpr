@@ -14,7 +14,6 @@ uses
   TA_MemoryLocations in 'TAMem\TA_MemoryLocations.pas',
   logging in '..\logging.pas',
   packet_old in '..\packet_old.pas',
-  //packet in 'packets\packet.pas',
   textdata in '..\textdata.pas',
   MemMappedDataStructure in 'MemMappedDataStructure.pas',
   DPLobbyWrapper in 'DPLobbyWrapper.pas',
@@ -45,7 +44,8 @@ uses
   ErrorLog_ExtraData in 'plugins\ErrorLog_ExtraData.pas',
   Thread_marshaller in 'plugins\Thread_marshaller.pas',
   BattleRoomScroll in 'plugins\BattleRoomScroll.pas',
-  INI_Options in 'INI_Options.pas';
+  INI_Options in 'INI_Options.pas',
+  ModsList in 'ModsList.pas';
 
 {$R *.res}
 

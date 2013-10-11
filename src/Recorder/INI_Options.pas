@@ -5,11 +5,9 @@ uses Windows, SysUtils, IniFiles;
 
 type
  TIniSettings = record
-   //cobexttype: boolean;
-   // Mod ID
    modid: word;
-   // demos name prefix
    demosprefix: string;
+   name: string;
    weaponidpatch: boolean;
  end;
 
@@ -78,7 +76,10 @@ if GetINIFileName <> #0 then
     iniFile:= TIniFile.Create(GetINIFileName);
     try
       iniSettings.modid:= iniFile.ReadInteger('MOD','ID', 0);
+      iniSettings.name:= iniFile.ReadString('MOD','Name', '');
       iniSettings.demosprefix:= iniFile.ReadString('MOD','DemosFileNamePrefix', '');
+      {if (iniSettings.name = '') and (iniSettings.demosprefix <> '') then
+        iniSettings.name := iniSettings.demosprefix; }
       tempstring:= Trim(iniFile.ReadString('Preferences','WeaponType', '256;'));
       tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);
       iniSettings.weaponidpatch:= (StrToInt(tempstring) > 256);
