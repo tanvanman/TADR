@@ -13,6 +13,7 @@ type
     version: integer;
     usemod: integer;
     error: boolean;
+    useweapid: boolean;
   end;
 var ReadedTad : TReadedTADRec;
 

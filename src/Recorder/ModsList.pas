@@ -22,12 +22,14 @@ begin
   with TIniFile.Create(replayerDir + MODSINI) do
   try
     try
-      readedModID:= IntToStr(iniSettings.modId);
-      if SectionExists('MOD' + readedModID) then
-        EraseSection('MOD' + readedModID);
-      WriteInteger('MOD' + readedModID, 'ID', iniSettings.modid);
-      WriteString('MOD' + readedModID, 'Name', iniSettings.name);
-      WriteString('MOD' + readedModID, 'Path', ParamStr(0));
+      if iniSettings.modId <> - 1 then
+      begin
+        readedModID:= IntToStr(iniSettings.modId);
+        WriteInteger('MOD' + readedModID, 'ID', iniSettings.modid);
+        WriteString('MOD' + readedModID, 'Name', iniSettings.name);
+        WriteString('MOD' + readedModID, 'Path', ParamStr(0));
+        WriteBool('MOD' + readedModID, 'UseWeaponIdPatch', iniSettings.weaponidpatch);
+      end;
     finally
       Result:= True;
       Free;

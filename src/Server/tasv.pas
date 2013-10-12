@@ -419,7 +419,7 @@ begin
   sess.dwCurrentPlayers := 0;
   sess.dwMaxPlayers := 100;
 
-  if ReadedTad.usemod > 0 then
+  if ReadedTad.modid <> '' then
   begin
     pdtemp:= Copy(LoadedModsList[ReadedTad.usemod].Name, 1, 13);
     pdtemp:= LeftPad(LoadedModsList[ReadedTad.usemod].Name, #32, 16);

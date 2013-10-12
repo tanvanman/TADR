@@ -9,6 +9,7 @@ function OnTaHookOff( const Command : string; Sender : TPlayerData; params : TSt
 function OnColors( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function Onehareport( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnReport( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
+function OnReportMod( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnStatus( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnDate( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnVoteGo( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;

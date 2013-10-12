@@ -1,10 +1,10 @@
 object fmModsAssignList: TfmModsAssignList
-  Left = 549
-  Top = 378
+  Left = 1459
+  Top = 494
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsDialog
   Caption = 'Assign a mod ID to the selected demo file'
-  ClientHeight = 447
+  ClientHeight = 455
   ClientWidth = 305
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -18,7 +18,7 @@ object fmModsAssignList: TfmModsAssignList
   OnShow = FormShow
   DesignSize = (
     305
-    447)
+    455)
   PixelsPerInch = 96
   TextHeight = 13
   object Label1: TLabel
@@ -30,7 +30,7 @@ object fmModsAssignList: TfmModsAssignList
   end
   object btnCancelModAssign: TBitBtn
     Left = 137
-    Top = 417
+    Top = 421
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
@@ -39,7 +39,7 @@ object fmModsAssignList: TfmModsAssignList
   end
   object btnAcceptModAssign: TBitBtn
     Left = 217
-    Top = 417
+    Top = 421
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]

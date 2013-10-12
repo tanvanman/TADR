@@ -3331,8 +3331,8 @@ try
   fixon := True;
   DecompressionBufferSize := reg.ReadInteger( 'Options', 'DecompressionBufferSize', 2048);
 
-  fixfacexps := reg.ReadBool ('Options', 'fixall', True);
-  protectdt := reg.ReadBool ('Options', 'fixall', True);
+  fixfacexps := reg.ReadBool ('Options', 'fixall', False);
+  protectdt := reg.ReadBool ('Options', 'fixall', False);
   shareMapPos := reg.ReadBool ('Options', 'sharepos', True);
   createTxtFile:=reg.ReadBool ('Options', 'createtxt', False);
 
@@ -3341,10 +3341,12 @@ try
   AutoRecording := reg.ReadBool( 'Options', 'autorec', False );
   auto3d := reg.ReadBool( 'Options', 'ta3d', True );
   UseCompression := reg.ReadBool( 'Options', 'usecomp', False );
-  RecordPlayerNames := reg.ReadBool( 'Options', 'playernames', false );
+  RecordPlayerNames := reg.ReadBool( 'Options', 'playernames', True );
   serverdir := IncludeTrailingPathDelimiter(reg.ReadString ( 'Options', 'serverdir', ''));
   demodir := IncludeTrailingPathDelimiter(reg.ReadString('Options', 'defdir', ''));
-
+  if reg.ReadString('Options', 'TADir', '') = '' then
+    reg.WriteString('Options', 'TADir', ParamStr(0));
+    
   if demodir <> '' then
   try
     ForceDirectories( demodir );

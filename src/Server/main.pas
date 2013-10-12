@@ -4,7 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, Menus, ComCtrls, ExtCtrls, tasv, savefile, dplay, ActiveX,
+  StdCtrls, Menus, ComCtrls, ExtCtrls, tasv, savefile, dplay, dplay2, ActiveX,
   FileCtrl, ShellApi, Registry, textdata, unitid, unitsync{, dplobby}, IniFiles, ShlObj;
 
 type
@@ -12,6 +12,7 @@ type
     ID: word;
     Name: string;
     Path: string;
+    UseWeaponIdPatch: boolean;
   end;
 var LoadedModsList: array of TModsIniSettings;
 
@@ -28,6 +29,7 @@ type
     mod2cstatus:integer; //borde inte vara här men error i tasv
     usemod0 :boolean;
     windowedmode :boolean;
+    quickjoin :boolean;
 
     usecomp :boolean;
     usenewtimer :boolean;
@@ -52,7 +54,7 @@ type
     edChat: TEdit;
     lbChat: TListBox;
     Button2: TButton;
-    Button3: TButton;
+    btnPrevious_brscreen: TButton;
     lbCom: TListBox;
     Button4: TButton;
     pbLoading: TProgressBar;
@@ -137,17 +139,16 @@ type
     Label21: TLabel;
     Bevel7: TBevel;
     cbWindowedMode: TCheckBox;
-    CheckBox1: TCheckBox;
+    cbQuickJoin: TCheckBox;
     Bevel9: TBevel;
     Label32: TLabel;
     Bevel10: TBevel;
     Bevel11: TBevel;
-    combModsFilter: TComboBox;
     procedure nbMainPageChanged(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
-    procedure Button3Click(Sender: TObject);
+    procedure btnPrevious_brscreenClick(Sender: TObject);
     procedure Button4Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button5Click(Sender: TObject);
@@ -175,11 +176,14 @@ type
       Shift: TShiftState; X, Y: Integer);
   private
     { Private declarations }
+    JoinDPlay: TDPlay2;
     procedure ShowHint (Sender: TObject);
     procedure LoadOptions;
     function LoadModsList: boolean;
     procedure SaveOptions;
     function LoadSelectedDemo: boolean;
+    function GetPath: string;
+    procedure AfterPlayButton;
   public
     { Public declarations }
     running :integer;
@@ -195,6 +199,9 @@ type
     procedure SetMod0(newlist: boolean);
   end;
 
+const
+ MODSINI = 'mods.ini';
+
 var
   fmMain: TfmMain;
   options :TOptions;
@@ -204,7 +211,7 @@ implementation
 {$R *.DFM}
 
 uses
-  lobby, selip, modslist, backwardcompat;
+  lobby, selip, modslist, backwardcompat, waitform;
 
 function BrowseDialog
  (const Title: string; const Flag: integer): string;
@@ -386,6 +393,7 @@ begin
 
           cbUseMod0.Checked := options.usemod0;
           cbWindowedMode.Checked:= options.windowedmode;
+          cbQuickJoin.Checked:= options.quickjoin;
           cbfixall.Checked := options.fixall;
           cbautorec.Checked := options.autorec;
           cbcreatetxt.Checked := options.createtxt;
@@ -497,7 +505,7 @@ begin
   server.Free;
 end;
 
-procedure TfmMain.Button3Click(Sender: TObject);
+procedure TfmMain.btnPrevious_brscreenClick(Sender: TObject);
 begin
   server.Leave;
   nbMain.PageIndex := 0;
@@ -533,11 +541,20 @@ end;
 
 procedure TfmMain.btnPlayClick(Sender: TObject);
 begin
-  meGameinfo.Lines.Add ('');
-  meGameinfo.Lines.Add ('Processing demo file, this might take a few minutes');
+  {meGameinfo.Lines.Add ('');
+  meGameinfo.Lines.Add ('Processing demo file, this might take a few minutes');}
+  fmWait.Show;
   SaveOptions;
   Application.ProcessMessages;
   save := TSaveFile.Create (filelistbox1.items[filelistbox1.itemindex], false);
+  
+  if options.quickjoin then
+  begin
+    fmWait.lbWait.Caption:= 'Preparing server...';
+    fmWait.Refresh;
+  end
+  else fmWait.Close;
+
   if save.Error <> sfNone then
   begin
     MessageDlg ('Invalid file selected', mtError, [mbok], 0);
@@ -552,26 +569,52 @@ begin
         begin
           if fmBackwardCompat.cbfmbcompat.Checked then
             options.usemod0:= True;
-          nbMain.PageIndex := 0;
+          ReadedTad.usemod:= 0;  
+          AfterPlayButton;
         end else
           save.Free;
       end else
-        nbMain.PageIndex := 0;
+        AfterPlayButton;
     end else
       begin
         if ReadedTad.usemod <> - 1 then
         begin
-          nbMain.PageIndex := 0;
+          AfterPlayButton;
         end else
         begin
           //v7, stored mod number in tad but not found on list
           ShowMessage('This demo file has been recorded by game mod that is not present' +#10#13+
-          'in mods.ini list. Please reassign this demo or install mod first.');
+          'in '+MODSINI+' list. Please reassign this demo or install mod first.');
           save.Free;
           FileListBox1Click(Self);
         end;
       end;
   end;
+end;
+
+procedure TfmMain.AfterPlayButton;
+begin
+  if options.quickjoin then
+  begin
+   lbProviders.ItemIndex := options.lastprot;
+   if lbProviders.Itemindex <> -1 then
+   begin
+     server.CreateSession (pointer (lbProviders.Items.Objects [lbProviders.ItemIndex]), save);
+     fmWait.lbWait.Caption:= 'Joining the game...';
+     fmWait.Refresh;
+     JoinDPlay := TDPlay2.Create;
+     if JoinDPlay.Initialize then
+     begin
+       if JoinDPlay.JoinSession(TA_GUID, GUID_NULL, fmSelIP.GetIP (dp, server), 'TA DEMO') then
+       begin
+         fmWait.Close;
+         nbMain.PageIndex:= 1;
+       end;
+     end;
+    fmWait.lbWait.Caption:= 'Processing demo file. Please wait...';
+   end;
+  end else
+    nbMain.PageIndex:= 0;
 end;
 
 function TfmMain.CanWork :boolean;
@@ -587,7 +630,7 @@ end;
 
 procedure TfmMain.Button8Click(Sender: TObject);
 begin
-  Application.Terminate;
+  fmMain.Close;
 end;
 
 procedure TfmMain.FileListBox1Click(Sender: TObject);
@@ -641,18 +684,30 @@ begin
   save.Free;
 end;
 
-procedure TfmMain.Button10Click(Sender: TObject);
+function TfmMain.GetPath: string;
 var
-  r :TRegistry;
-  path :string;
-  param :string;
-  ip :string;
+ r :TRegistry;
+ path: string;
 begin
-  if FindModId(ReadedTad.usemod) <> - 1 then
-    path:= LoadedModsList[FindModId(ReadedTad.usemod)].Path;
-  
+path:= '';
+  if ReadedTad.modid <> '' then
+  begin
+    if FindModId(StrToInt(ReadedTad.modid)) <> - 1 then
+    begin
+      ReadedTad.useweapid:= LoadedModsList[FindModId(StrToInt(ReadedTad.modid))].UseWeaponIdPatch;
+      path:= LoadedModsList[FindModId(StrToInt(ReadedTad.modid))].Path;
+    end;
+  end else
+  begin
+    if FindModId(0) <> - 1 then
+    path:= LoadedModsList[FindModId(0)].path;
+  end;
+
   if path = '' then
-    path:= Trim(options.Tadir);
+    if ExtractFileExt(options.Tadir) <> '.exe' then
+      path:= Trim(options.Tadir)+'\totala.exe'
+    else
+      path:= Trim(options.Tadir);
 
   if path = '' then
   begin
@@ -673,6 +728,16 @@ begin
       exit;
     end;
   end;
+  Result:= path;
+end;
+
+procedure TfmMain.Button10Click(Sender: TObject);
+var
+  path :string;
+  param :string;
+  ip :string;
+begin
+  path:= GetPath;
   
   param := '';
 
@@ -688,7 +753,10 @@ begin
     ip := fmSelIP.GetIP (dp, server);
     if ip = '' then
       exit;
-    param := '/n1:' + ip;
+    case options.windowedmode of
+    true: param := '-d /n1:' + ip;
+    false: param := '/n1:' + ip;
+    end;
   end;
 
   ShellExecute (0, nil, @path[1], @param[1], nil, SW_NORMAL);
@@ -752,8 +820,6 @@ begin
 end;
 
 procedure TfmMain.Button11Click(Sender: TObject);
-var
-  s : string;
 begin
   options.tadir := edTADir.Text;
   options.usedir := rgUseDir.ItemIndex;
@@ -763,7 +829,8 @@ begin
   options.smooth := tbsmooth.Position;
   options.usemod0 := cbUseMod0.Checked;
   options.windowedmode := cbWindowedMode.Checked;
-
+  options.quickjoin:= cbQuickJoin.Checked;
+  
   options.fixall := cbfixall.Checked;
   options.autorec := cbautorec.checked;
   options.sharemappos := cbsharemappos.checked;
@@ -799,8 +866,9 @@ begin
   options.interval := r.ReadInteger ('Options', 'interval', 90);
   options.smooth := r.ReadInteger ('Options', 'smooth', 3);
   options.lastprot := r.ReadInteger ('Options', 'lastprot', -1);
-  options.usemod0 := r.readbool ('Options', 'usemod0', true);
+  options.usemod0 := r.readbool ('Options', 'usemod0', false);
   options.windowedmode := r.readbool ('Options', 'windowedmode', false);
+  options.quickjoin:= r.readbool('Options', 'quickjoin', false);
 
   options.usecomp := r.ReadBool ('Options', 'usecomp', true);
   options.usenewtimer := r.Readbool ('Options', 'newtimer', true);
@@ -833,6 +901,7 @@ begin
   r.writeinteger ('Options', 'lastprot', options.lastprot);
   r.writebool ('Options', 'usemod0', options.usemod0);
   r.writebool ('Options', 'windowedmode', options.windowedmode);
+  r.writebool ('Options', 'quickjoin', options.quickjoin);
 
   r.writebool ('Options', 'usecomp', options.usecomp);
   r.writebool ('Options', 'newtimer', options.usenewtimer);
@@ -853,16 +922,19 @@ var
   Sections: TStringList;
   i: word;
   incorrect: word;
+  s: string;
 begin
 Result:= False;
 incorrect:= 0;
-if FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'mods.ini') then
+if FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI) then
 begin
-  with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'mods.ini') do
+  with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI) do
     try
       Sections := TStringList.Create;
       try
         ReadSections(Sections);
+        if Sections.Count > 0 then
+        begin
         SetLength(LoadedModsList, Sections.Count);
         for i := 0 to Sections.Count - 1 do
         begin
@@ -872,9 +944,40 @@ begin
             LoadedModsList[i].ID := ReadInteger(Sections[i], 'ID', 0);
             LoadedModsList[i].Name := ReadString(Sections[i], 'Name', '');
             LoadedModsList[i].Path := ReadString(Sections[i], 'Path', '');
+            LoadedModsList[i].UseWeaponIdPatch := ReadBool(Sections[i], 'UseWeaponIdPatch', False);
           end else
             Inc(incorrect);
             Continue;
+          end;
+        if not SectionExists('MOD0') then
+        begin
+          LoadedModsList[0].ID := 0;
+          LoadedModsList[0].Name := 'Backward compatibility';
+          LoadedModsList[0].Path := options.Tadir;
+          LoadedModsList[0].UseWeaponIdPatch := False;
+          WriteInteger('MOD0', 'ID', LoadedModsList[0].ID);
+          WriteString('MOD0', 'Name', LoadedModsList[0].Name);
+          WriteString('MOD0', 'Path', LoadedModsList[0].Path);
+          WriteBool('MOD0', 'UseWeaponIdPatch', LoadedModsList[0].UseWeaponIdPatch);
+        end;
+        end else {sections count < 1 }
+          begin
+            s:= ExtractFileName(options.Tadir);
+            if Copy(s, Length(s)-2, 3) <> 'exe' then
+            begin
+              if FileExists(IncludeTrailingPathDelimiter(options.Tadir) + 'TotalA.exe') then
+                s := IncludeTrailingPathDelimiter(options.Tadir) + 'TotalA.exe';
+              options.Tadir:= s;
+            end;
+            SetLength(LoadedModsList, 1);
+            LoadedModsList[0].ID := 0;
+            LoadedModsList[0].Name := 'Backward compatibility';
+            LoadedModsList[0].Path := options.Tadir;
+            LoadedModsList[0].UseWeaponIdPatch := False;
+            WriteInteger('MOD0', 'ID', LoadedModsList[0].ID);
+            WriteString('MOD0', 'Name', LoadedModsList[0].Name);
+            WriteString('MOD0', 'Path', LoadedModsList[0].Path);
+            WriteBool('MOD0', 'UseWeaponIdPatch', LoadedModsList[0].UseWeaponIdPatch);
           end;
       finally
         Sections.Free;
@@ -883,7 +986,7 @@ begin
       Free;
     end;
   if incorrect > 0 then
-    showmessage('Warning ! Found '+intToStr(incorrect)+' incorrect entries in mods.ini');
+    showmessage('Warning ! Found '+intToStr(incorrect)+' incorrect entries in '+MODSINI);
   if High(LoadedModsList) > 0 then
     Result:= True
   else
@@ -909,15 +1012,17 @@ begin
     end;
   end;
 
-  with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'mods.ini') do
+  with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI) do
     try
       if newlist then SetLength(LoadedModsList, 1);
       LoadedModsList[0].ID := 0;
       LoadedModsList[0].Name := 'Backward compatibility';
       LoadedModsList[0].Path := options.Tadir;
+      LoadedModsList[0].UseWeaponIdPatch := False;
       WriteInteger('MOD0', 'ID', LoadedModsList[0].ID);
       WriteString('MOD0', 'Name', LoadedModsList[0].Name);
       WriteString('MOD0', 'Path', LoadedModsList[0].Path);
+      WriteBool('MOD0', 'UseWeaponIdPatch', LoadedModsList[0].UseWeaponIdPatch);
     finally
       Free;
     end;
@@ -1023,8 +1128,6 @@ end;
 
 
 procedure TfmMain.btnModsEditorClick(Sender: TObject);
-var
-s:string;
 begin
  // nbMain.PageIndex := 7;
 end;
@@ -1041,8 +1144,7 @@ begin
 end;
 
 procedure TfmMain.Button13Click(Sender: TObject);
-var sTitle, sFolder: string;
-    iFlag : integer;
+var sFolder: string;
 begin
   sFolder := BrowseDialog('Select directory...', BIF_RETURNONLYFSDIRS);
   if sFolder <> '' then

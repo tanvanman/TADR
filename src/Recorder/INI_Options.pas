@@ -5,7 +5,7 @@ uses Windows, SysUtils, IniFiles;
 
 type
  TIniSettings = record
-   modid: word;
+   modid: integer;
    demosprefix: string;
    name: string;
    weaponidpatch: boolean;
@@ -75,7 +75,7 @@ if GetINIFileName <> #0 then
   begin
     iniFile:= TIniFile.Create(GetINIFileName);
     try
-      iniSettings.modid:= iniFile.ReadInteger('MOD','ID', 0);
+      iniSettings.modid:= iniFile.ReadInteger('MOD','ID', -1);
       iniSettings.name:= iniFile.ReadString('MOD','Name', '');
       iniSettings.demosprefix:= iniFile.ReadString('MOD','DemosFileNamePrefix', '');
       {if (iniSettings.name = '') and (iniSettings.demosprefix <> '') then

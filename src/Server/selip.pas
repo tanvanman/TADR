@@ -67,8 +67,8 @@ begin
 
   if lbAddresses.Items.Count = 0 then
   begin
-    MessageDlg ('Your computer does not appear to have an IP address. Please see the readme.txt for further information', mtError, [mbok], 0);
-    Result := 'localhost';
+    //MessageDlg ('Your computer does not appear to have an IP address. Please see the readme.txt for further information', mtError, [mbok], 0);
+    Result := '127.0.0.1';
     exit;
   end;
 

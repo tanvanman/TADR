@@ -25,6 +25,10 @@
                         'Any combination of the above is possible. No answer from a player means they don''t have TA Demo installed.',
               '',0,
               [InGame,InBattleRoom], False, False, False, OnReport );
+  Commands.AddCommand( 'reportmod', 'All players in the game report their game mod versions'#10+
+                        'No answer from a player means they don''t have mod configured.',
+              '',0,
+              [InGame,InBattleRoom], False, False, False, OnReportMod );
   Commands.AddCommand( 'date', 'All recorders in the game report the date',
               '',0,
               [InGame,InBattleRoom], False, false, False, OnDate);

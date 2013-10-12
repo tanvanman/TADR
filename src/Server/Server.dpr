@@ -14,9 +14,11 @@ uses
   logging in 'logging.pas',
   cstream in 'cstream.pas',
   unitid in 'unitid.pas',
+  dplay2 in 'dplay2.pas',
   selip in 'selip.pas' {fmSelIP},
   modslist in 'modslist.pas' {fmModsAssignList},
-  backwardcompat in 'backwardcompat.pas' {fmBackwardCompat};
+  backwardcompat in 'backwardcompat.pas' {fmBackwardCompat},
+  waitform in 'waitform.pas' {fmWait};
 
 {$R *.RES}
 
@@ -26,5 +28,6 @@ begin
   Application.CreateForm(TfmSelIP, fmSelIP);
   Application.CreateForm(TfmModsAssignList, fmModsAssignList);
   Application.CreateForm(TfmBackwardCompat, fmBackwardCompat);
+  Application.CreateForm(TfmWait, fmWait);
   Application.Run;
 end.

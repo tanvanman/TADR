@@ -47,7 +47,7 @@ type
 implementation
 
 uses
-  TextData, Logging, sysutils;
+  TextData, Logging, sysutils, modslist;
 
 {--------------------------------------------------------------------}
 
@@ -405,9 +405,9 @@ begin
     $0a       :result := 7;         //?? krasch
     $28       :result := 58;        //?? ingen skillnad
     $19       :result := 3;         //??
-    $0d       :Result := 40;        //Skott. dock stannar skotten kvar. och de missar..
+    $0d       :if ReadedTad.useweapid then Result:= 40 else Result := 36;         //Skott. dock stannar skotten kvar. och de missar..
     $0b       :result := 9;         //Eliminerar skottrester
-    $0f       :Result := 8;         //Får commanderns överkropp att vridas rätt när han bygger bl.a
+    $0f       :if ReadedTad.useweapid then Result:= 8 else Result := 6;         //Får commanderns överkropp att vridas rätt när han bygger bl.a
     $0c       :result := 11;        //hmm. verkar ge explosioner med
 
     $1f       :result := 5;
@@ -419,7 +419,7 @@ begin
 
     $21       :result := 10;
     $03       :result := 7;
-    $0e       :result := 17;
+    $0e       :if ReadedTad.useweapid then Result:= 17 else result := 14;
 
     $ff       :result := 1;           //smartpak paket ska inte finnas i vilt tillstånd
     $fe       :result := 5;
