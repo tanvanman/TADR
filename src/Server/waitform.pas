@@ -4,11 +4,12 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls;
+  Dialogs, StdCtrls, ExtCtrls;
 
 type
   TfmWait = class(TForm)
     lbWait: TLabel;
+    Shape1: TShape;
   private
     { Private declarations }
   public

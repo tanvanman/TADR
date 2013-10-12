@@ -2054,7 +2054,10 @@ if FromPlayer <> nil then
             until not fileexists (filename + ' - nr ' + inttostr (a) + '.tad');
             filename := filename + ' - nr ' + inttostr (a);
             end;
-          filename := filename + '.tad';
+          if iniSettings.modid > 0 then
+            filename := filename + ' ['+ IntToStr(iniSettings.modid) +'].tad'
+          else
+            filename := filename + '.tad';
           createlogfile();
           prevtime:=timeGetTime;
         end;

@@ -43,6 +43,15 @@ type
   end;
 
 type
+ TBckpRegDplay = record
+   sCurrentDirectory : string;
+   sPath: string;
+   sFile : string;
+   sCommandLine : string;
+ end;
+var bckregistrydplay: TBckpRegDplay;
+
+type
   TfmMain = class(TForm)
     nbMain: TNotebook;
     sbMain: TStatusBar;
@@ -144,6 +153,8 @@ type
     Label32: TLabel;
     Bevel10: TBevel;
     Bevel11: TBevel;
+    lbMod: TLabel;
+    imgIcon: TImage;
     procedure nbMainPageChanged(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
@@ -174,6 +185,7 @@ type
     procedure Button13Click(Sender: TObject);
     procedure FileListBox1MouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
+    procedure FileListBox1DblClick(Sender: TObject);
   private
     { Private declarations }
     JoinDPlay: TDPlay2;
@@ -243,13 +255,21 @@ var
   l :TStringList;
   tmp :string;
   us :TUnitSync;
+  Icon: TIcon;
+  FileInfo: SHFILEINFO;
+  pathtemp: string;
+  empty: hicon;
 begin
+  imgIcon.Picture.Icon.Handle:= empty;
   Result:= False;
   ReadedTad.error:= True;
   ReadedTad.usemod:= FindModID(0);
+  if filelistbox1.itemindex <> -1 then
+  begin
   save := TSaveFile.Create (filelistbox1.items[filelistbox1.itemindex], true);
   if save.error = sfNone then
   begin
+    lbMod.Caption:= '';
     meGameInfo.Lines.Clear;
     megameinfo.lines.beginupdate;
 //  megameinfo.visible := false;
@@ -261,9 +281,24 @@ begin
       // is known (in mods.ini list)
       if FindModName(save.modId) <> #0 then
         begin
-          meGameInfo.Lines.Add ('Game modification: ' + FindModName(save.modId));
+          lbMod.Caption:= (FindModName(save.modId));
+          if FindModId(StrToInt(save.modid)) <> - 1 then
+            if LoadedModsList[FindModId(StrToInt(save.modid))].Path <> '' then
+              if FileExists(LoadedModsList[FindModId(StrToInt(save.modid))].Path) then
+              begin
+                Icon := TIcon.Create;
+                try
+                  pathtemp:= LoadedModsList[FindModId(StrToInt(save.modid))].Path;
+                  SHGetFileInfo(PChar(pathtemp), 0, FileInfo, SizeOf(FileInfo), SHGFI_ICON);
+                  icon.Handle := FileInfo.hIcon;
+                  //DestroyIcon(FileInfo.hIcon);
+                  imgIcon.Picture.Icon.Handle:= icon.Handle;
+                finally
+                  //Icon.Free;
+                end;
+              end;
         end else
-          meGameInfo.Lines.Add ('Game modification: ['+save.modId+'] Unknown (not present in mods.ini)');
+          lbMod.Caption:= ('['+save.modId+'] Unknown');
     ReadedTad.usemod:= FindModID(StrToInt(save.modId));
     end;
     if save.datum <> '' then
@@ -368,6 +403,7 @@ begin
 
   save.Free;
   Result:= True;
+  end;
 end;
 
 procedure TfmMain.nbMainPageChanged(Sender: TObject);
@@ -593,6 +629,8 @@ begin
 end;
 
 procedure TfmMain.AfterPlayButton;
+var
+r: tregistry;
 begin
   if options.quickjoin then
   begin
@@ -600,8 +638,29 @@ begin
    if lbProviders.Itemindex <> -1 then
    begin
      server.CreateSession (pointer (lbProviders.Items.Objects [lbProviders.ItemIndex]), save);
-     fmWait.lbWait.Caption:= 'Joining the game...';
+     fmWait.lbWait.Caption:= 'Launching the game...';
      fmWait.Refresh;
+     //backup registry
+     r := TRegistry.Create;
+     r.Rootkey := HKEY_LOCAL_MACHINE;
+     if r.OpenKey ('SOFTWARE\Microsoft\DirectPlay\Applications\Total Annihilation', false) then
+     begin
+      try
+        bckregistrydplay.sCurrentDirectory:= r.ReadString('CurrentDirectory');
+        bckregistrydplay.sPath:= r.ReadString('Path');
+        bckregistrydplay.sFile:= r.ReadString('File');
+        bckregistrydplay.sCommandLine:= r.ReadString('CommandLine');
+        r.WriteString('CurrentDirectory', ExtractFilePath(getpath));
+        r.WriteString('Path', ExtractFilePath(getpath));
+        r.WriteString('File', ExtractFileName(getpath));
+        if options.windowedmode then
+          r.WriteString('CommandLine', '-d')
+        else
+          r.WriteString('CommandLine', '');
+      finally
+       r.Free;
+      end;
+    end;
      JoinDPlay := TDPlay2.Create;
      if JoinDPlay.Initialize then
      begin
@@ -611,6 +670,7 @@ begin
          nbMain.PageIndex:= 1;
        end;
      end;
+    if nbMain.PageIndex <> 1 then fmWait.Close;
     fmWait.lbWait.Caption:= 'Processing demo file. Please wait...';
    end;
   end else
@@ -888,6 +948,7 @@ end;
 procedure TfmMain.SaveOptions;
 var
   r :TRegIniFile;
+  r2 : TRegistry;
 begin
   r := TRegIniFile.Create ('Software\TA Patch\TA Demo');
 
@@ -915,6 +976,24 @@ begin
   r.writebool ('Options', 'playernames', options.playernames);
 
   r.Free;
+
+  //backup registry
+  r2 := TRegistry.Create;
+  r2.Rootkey := HKEY_LOCAL_MACHINE;
+  if r2.OpenKey ('SOFTWARE\Microsoft\DirectPlay\Applications\Total Annihilation', false) then
+  begin
+    try
+      if bckregistrydplay.sFile <> '' then
+      begin
+        r2.WriteString('CurrentDirectory', bckregistrydplay.sCurrentDirectory);
+        r2.WriteString('Path', bckregistrydplay.sPath);
+        r2.WriteString('File', bckregistrydplay.sFile);
+        r2.WriteString('CommandLine', bckregistrydplay.sCommandLine);
+      end;
+    finally
+       r2.Free;
+    end;
+  end;
 end;
 
 function TfmMain.LoadModsList: boolean;
@@ -945,6 +1024,9 @@ begin
             LoadedModsList[i].Name := ReadString(Sections[i], 'Name', '');
             LoadedModsList[i].Path := ReadString(Sections[i], 'Path', '');
             LoadedModsList[i].UseWeaponIdPatch := ReadBool(Sections[i], 'UseWeaponIdPatch', False);
+            if LoadedModsList[i].ID <> 0 then
+              FilterComboBox1.Filter:= FilterComboBox1.Filter +
+                '|'+LoadedModsList[i].Name+'|*['+ IntToStr(LoadedModsList[i].ID) +'].tad';
           end else
             Inc(incorrect);
             Continue;
@@ -1161,6 +1243,7 @@ var
   Index: integer;
   newid: integer;
   done: boolean;
+  oldindex: integer;
 begin
   if Button = mbRight then
   begin
@@ -1183,6 +1266,9 @@ begin
     fmModsAssignList.ShowModal;
     if fmModsAssignList.ModalResult = mrOk then
       begin
+        fmWait.lbWait.Caption:= 'Working...';
+        fmWait.Show;
+        fmWait.Refresh;
         //save new mod ID or/and tad version
         newid:= LoadedModsList[fmModsAssignList.lbModsAssign.ItemIndex].ID;
         case newid of
@@ -1197,12 +1283,24 @@ begin
                save.ChangeModAssignation(false, newid, filelistbox1.items[filelistbox1.itemindex]);
             end;
         end;
+        oldindex:= FileListBox1.ItemIndex;
+        directoryListBox1.fileList:= nil;
+        fileListBox1.update;
+        directoryListBox1.fileList:= fileListBox1;
+        FileListBox1.ItemIndex:= oldindex;
+        fmWait.Close;
+        fmWait.lbWait.Caption:= 'Processing demo file. Please wait...';
         FileListBox1Click(Self);
         nbMain.PageIndex := 4;
       end else
         Exit;
       end;
   end;
+end;
+
+procedure TfmMain.FileListBox1DblClick(Sender: TObject);
+begin
+ if options.quickjoin then btnPlay.Click;
 end;
 
 end.

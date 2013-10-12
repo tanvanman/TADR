@@ -102,6 +102,8 @@ type
     class function unsmartpak( c:string; version :integer; health :PSaveHealth;var last2c:cardinal;incnon2c:boolean):string;
    end;
 
+function ExtractFileNameEX(const AFileName:String): String;
+
 implementation
 
 uses
@@ -644,6 +646,7 @@ var
   sectors:integer;
   id     :TIdent;
   stemp: string;
+  newname: string;
 
   function ReadRec (var p) :boolean;
   type
@@ -764,6 +767,23 @@ begin
   unf.free;
   DeleteFile(name);
   RenameFile(name+'.tmp',name);
+  if (ReadedTad.version > 5) and not backcompat then
+  begin
+    newname:= ExtractFileNameEX(name);
+    newname:= Copy(newname, 1, Length(newname) - 2 - Length(ReadedTad.modid)) + ' [' + IntToStr(newmod) + '].tad';
+    RenameFile(name, newname);
+  end;
+  if not backcompat and (ReadedTad.version = 5) then
+  begin
+    newname:= ExtractFileNameEX(name) + ' [' + IntToStr(newmod) + '].tad';
+    RenameFile(name, newname);
+  end;
+  if backcompat then
+  begin
+    newname:= ExtractFileNameEX(name);
+    newname:= Copy(newname, 1, Length(newname) - 3 - Length(ReadedTad.modid)) +'.tad';
+    RenameFile(name, newname);
+  end;
 end;
 
 class function TSaveFile.MakeString (const base; const ofs; len :integer) :string;
@@ -928,5 +948,16 @@ begin
 
   Result := Moves.Items[index - startline];
 end;
+
+function ExtractFileNameEX(const AFileName:String): String;
+ var
+   I: integer;
+ begin
+    I := LastDelimiter('.'+PathDelim+DriveDelim,AFileName);
+        if (I=0)  or  (AFileName[I] <> '.')
+            then
+                 I := MaxInt;
+          Result := ExtractFileName(Copy(AFileName,1,I-1));
+ end;
 
 end.

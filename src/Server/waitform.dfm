@@ -1,12 +1,11 @@
 object fmWait: TfmWait
-  Left = 296
-  Top = 320
+  Left = 332
+  Top = 333
   BorderStyle = bsNone
-  BorderWidth = 2
   Caption = 'fmWait'
-  ClientHeight = 119
-  ClientWidth = 462
-  Color = clSilver
+  ClientHeight = 123
+  ClientWidth = 466
+  Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
@@ -16,10 +15,19 @@ object fmWait: TfmWait
   Position = poMainFormCenter
   PixelsPerInch = 96
   TextHeight = 13
-  object lbWait: TLabel
+  object Shape1: TShape
     Left = 0
-    Top = 40
-    Width = 462
+    Top = 0
+    Width = 466
+    Height = 123
+    Align = alClient
+    Brush.Color = clBtnFace
+    Pen.Width = 3
+  end
+  object lbWait: TLabel
+    Left = 4
+    Top = 44
+    Width = 453
     Height = 33
     Align = alCustom
     Alignment = taCenter

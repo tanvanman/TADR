@@ -628,9 +628,17 @@ procedure TAServer.Say (from :integer; st :String);
 var
   t :TChat;
 begin
-  t := TChat.Create (st);
-  SendUdp (from, 0, t);
-  t.Free;
+ try
+  try
+    t := TChat.Create(st);
+    SendUdp (from, 0, t);
+  finally
+    t.Free;
+  end;
+  except
+  
+  end;
+
 end;
 
 function TAServer.IsDrone (id :TDPID) :boolean;
