@@ -9,6 +9,7 @@ type
    demosprefix: string;
    name: string;
    weaponidpatch: boolean;
+   unitlimit: integer;
  end;
 
  function GetINIFileName: string;
@@ -20,7 +21,11 @@ const
   INIFILENAME_MAXLENGTH = 12;
 
 implementation
-uses COB_extensions, TADemoConsts;
+uses COB_extensions, TADemoConsts,
+  PluginEngine,
+  ErrorLog_ExtraData,
+  Thread_marshaller,
+  UnitLimit;
 
 // read INI file name from TA's memory
 var
@@ -83,6 +88,11 @@ if GetINIFileName <> #0 then
       tempstring:= Trim(iniFile.ReadString('Preferences','WeaponType', '256;'));
       tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);
       iniSettings.weaponidpatch:= (StrToInt(tempstring) > 256);
+
+      tempstring:= Trim(iniFile.ReadString('Preferences','UnitLimit', '1500;'));
+      tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);
+      iniSettings.unitlimit:= StrToInt(tempstring);
+      RegisterPlugin( UnitLimit.GetPlugin() );
     finally
       Result:= True;
       iniFile.Free;

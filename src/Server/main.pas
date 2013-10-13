@@ -1097,14 +1097,18 @@ begin
   with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI) do
     try
       if newlist then SetLength(LoadedModsList, 1);
-      LoadedModsList[0].ID := 0;
-      LoadedModsList[0].Name := 'Backward compatibility';
-      LoadedModsList[0].Path := options.Tadir;
-      LoadedModsList[0].UseWeaponIdPatch := False;
-      WriteInteger('MOD0', 'ID', LoadedModsList[0].ID);
-      WriteString('MOD0', 'Name', LoadedModsList[0].Name);
-      WriteString('MOD0', 'Path', LoadedModsList[0].Path);
-      WriteBool('MOD0', 'UseWeaponIdPatch', LoadedModsList[0].UseWeaponIdPatch);
+      //fix loadedmodslist and write new path to ini
+      if FindModId(0) <> - 1 then
+      begin
+        LoadedModsList[FindModId(0)].Path:= options.Tadir;
+        WriteString('MOD0', 'Path', options.Tadir);
+      end else
+        begin
+          WriteInteger('MOD0', 'ID', 0);
+          WriteString('MOD0', 'Name', 'Backward compatibility');
+          WriteString('MOD0', 'Path', options.Tadir);
+          WriteBool('MOD0', 'UseWeaponIdPatch', False);
+        end;
     finally
       Free;
     end;

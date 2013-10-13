@@ -520,9 +520,9 @@ begin
     $0a       :len := 7;         //?? krasch
     $28       :len := 58;        //?? ingen skillnad
     $19       :len := 3;         //??
-    $0d       :len := 36;        //Skott. dock stannar skotten kvar. och de missar..
+    $0d       :if ReadedTad.useweapid then len:= 40 else len:= 36;         //Skott. dock stannar skotten kvar. och de missar..
     $0b       :len := 9;         //Eliminerar skottrester
-    $0f       :len := 6;         //Får commanderns överkropp att vridas rätt när han bygger bl.a
+    $0f       :if ReadedTad.useweapid then len:= 8 else len:= 6;          //Får commanderns överkropp att vridas rätt när han bygger bl.a
     $0c       :len := 11;        //hmm. verkar ge explosioner med
 
     $1f       :len := 5;
@@ -533,7 +533,7 @@ begin
     $14       :len := 24;
     $21       :len := 10;
     $03       :len := 7;
-    $0e       :len := 14;
+    $0e       :if ReadedTad.useweapid then len:= 17 else len:= 14;
 
     $ff       :len := 1;           //smartpak paket ska inte finnas i vilt tillstånd
     $fe       :len := 5;           //smartpak

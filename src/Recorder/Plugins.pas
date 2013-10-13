@@ -13,7 +13,7 @@ uses
   PluginEngine,
   ErrorLog_ExtraData,
   Thread_marshaller,
-  
+
   InputHook,
   SpeedHack,
   PauseLock,
@@ -36,7 +36,7 @@ if OnMainRun then
   RegisterPlugin( InputHook.GetPlugin() );
   RegisterPlugin( SpeedHack.GetPlugin() );
   RegisterPlugin( PauseLock.GetPlugin() );
-  RegisterPlugin( UnitLimit.GetPlugin() );
+
   RegisterPlugin( LOS_extensions.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );
   RegisterPlugin( MultiAILimit.GetPlugin() );
