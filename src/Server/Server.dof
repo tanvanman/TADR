@@ -90,7 +90,7 @@ MaxStackSize=1048576
 ImageBase=4194304
 ExeDescription=
 [Directories]
-OutputDir=G:\CAVEDOG\TADemo
+OutputDir=output\
 UnitOutputDir=dcu\
 PackageDLLOutputDir=
 PackageDCPOutputDir=
@@ -153,6 +153,6 @@ Item0=dcu\
 Item1=\dcu
 [HistoryLists\hlOutputDirectorry]
 Count=3
-Item0=G:\CAVEDOG\TADemo
-Item1=output\
+Item0=output\
+Item1=G:\CAVEDOG\TADemo
 Item2=\output

@@ -508,6 +508,12 @@ else
    GetRandomMap(serverdir + mapname);
 end;
 
+function TDPlay.OnRandMapEx( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
+begin
+  Result := True;
+  If ImServer then GetRandomMapEx;
+end;
+
 function TDPlay.OnFakeWatch( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 begin
 Result := True;

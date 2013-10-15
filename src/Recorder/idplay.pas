@@ -178,8 +178,10 @@ type
     TakeRef : Integer;
 
     killunits    : string;
+    MapsList : TStringList;
     function getRecorderStatusString : string;
     procedure GetRandomMap (fname :string);
+    procedure GetRandomMapEx;
 
   protected
     Commands : TCommands;
@@ -421,7 +423,12 @@ uses
  SpeedHack,
  TAMemManipulations,
  TA_MemoryLocations,
- TA_NetworkingMessages, InputHook, BattleRoomScroll, INI_Options, ModsList;
+ TA_NetworkingMessages,
+ TA_FunctionsU,
+ InputHook,
+ BattleRoomScroll,
+ INI_Options,
+ ModsList;
 
 {$WARNINGS ON}
 {$HINTS ON}
@@ -746,6 +753,57 @@ begin
   finally
     maps.Free;
   end;
+end;
+
+procedure TDPlay.GetRandomMapEx;
+var
+  state :integer;
+  st    :string;
+  nr    :integer;
+  part  :string;
+  error :integer;
+  tot   :integer;
+  i     :integer;
+begin
+  if (not Assigned(MapsList)) then
+  begin
+    //create list
+    MapsList:= TStringlist.create;
+    tot := CreateMultiplayerMapsList(0, 0, 0);
+    SendChat('Host total amount of maps: '+IntToStr(tot));
+    //load lsit to stringlist
+  end;
+
+  {while not koniec map do
+  begin
+              maps.AddObject (nazwa mapy, pointer (nr));
+              tot := tot + nr;
+            end;
+          end;
+    end;
+  end;   }
+
+  if MapsList.count = 0 then
+  begin
+    SendChat( 'Could not find any map names to pick from');
+    exit;
+  end;
+
+  nr := Random (tot);
+  error := 0;
+  st := 'none!! should not happen heh';
+  for i := 0 to MapsList.count - 1 do
+  begin
+    inc (error, integer(MapsList.Objects [i]));
+    if nr < error then
+    begin
+      st := MapsList.strings [i];
+      break;
+    end;
+  end;
+
+  SendChat('The randomly selected map is:');
+  SendChat(st);
 end;
 
 // -----------------------------------------------------------------------------
@@ -1182,9 +1240,17 @@ if NoRecording then
 
 //remove strange characters
 //add default searchpath
+{ TODO -orime : mod path }
 if ExtractFilePath(filename) = '' then
-  filename := IncludeTrailingPathDelimiter(demodir) + filename;
-
+  if iniSettings.modid > 0 then
+    {filename := IncludeTrailingPathDelimiter(demodir +
+      IncludeTrailingPathDelimiter(ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0)))))) +
+      filename }
+    filename := IncludeTrailingPathDelimiter(demodir) +
+                IncludeTrailingPathDelimiter(iniSettings.name) +
+                filename
+  else
+    filename := IncludeTrailingPathDelimiter(demodir) + filename;
 path := ExtractFilePath(filename);
 try
   ForceDirectories( path );
@@ -2044,7 +2110,18 @@ if FromPlayer <> nil then
           filename := RemoveInvalid (filename);
           //Lägg till default sökväg
           if demodir <> '' then
-            filename := IncludeTrailingPathDelimiter(demodir) + filename;
+{ TODO -orime : mod path }
+          begin
+            if iniSettings.modid > 0 then
+              {filename := IncludeTrailingPathDelimiter(demodir +
+                IncludeTrailingPathDelimiter(ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0)))))) +
+                filename }
+              filename := IncludeTrailingPathDelimiter(demodir) +
+                          IncludeTrailingPathDelimiter(iniSettings.name) +
+                          filename
+            else
+              filename := IncludeTrailingPathDelimiter(demodir) + filename;
+          end;
 
           if fileexists (filename + '.tad') then
             begin
@@ -2054,10 +2131,6 @@ if FromPlayer <> nil then
             until not fileexists (filename + ' - nr ' + inttostr (a) + '.tad');
             filename := filename + ' - nr ' + inttostr (a);
             end;
-          if iniSettings.modid > 0 then
-            filename := filename + ' ['+ IntToStr(iniSettings.modid) +'].tad'
-          else
-            filename := filename + '.tad';
           createlogfile();
           prevtime:=timeGetTime;
         end;
@@ -3352,7 +3425,10 @@ try
     
   if demodir <> '' then
   try
-    ForceDirectories( demodir );
+    if iniSettings.modid > 0 then
+      ForceDirectories(IncludeTrailingPathDelimiter(demodir)+IncludeTrailingPathDelimiter(iniSettings.name))
+    else
+      ForceDirectories(demodir);  
   except
     on e : EInOutError do
       demodir := '';

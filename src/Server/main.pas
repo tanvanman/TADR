@@ -5,14 +5,17 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, Menus, ComCtrls, ExtCtrls, tasv, savefile, dplay, dplay2, ActiveX,
-  FileCtrl, ShellApi, Registry, textdata, unitid, unitsync{, dplobby}, IniFiles, ShlObj;
+  FileCtrl, ShellApi, Registry, textdata, unitid, unitsync{, dplobby}, IniFiles, ShlObj,
+  ImgList, Buttons;
 
 type
   TModsIniSettings = record
     ID: word;
     Name: string;
     Path: string;
+    DemosPath: string;
     UseWeaponIdPatch: boolean;
+    IconIndex : integer;
   end;
 var LoadedModsList: array of TModsIniSettings;
 
@@ -30,6 +33,7 @@ type
     usemod0 :boolean;
     windowedmode :boolean;
     quickjoin :boolean;
+    lastmoddir: integer;
 
     usecomp :boolean;
     usenewtimer :boolean;
@@ -83,7 +87,6 @@ type
     Button8: TButton;
     FileListBox1: TFileListBox;
     DirectoryListBox1: TDirectoryListBox;
-    DriveComboBox1: TDriveComboBox;
     FilterComboBox1: TFilterComboBox;
     meGameInfo: TMemo;
     btnComments: TButton;
@@ -153,8 +156,9 @@ type
     Label32: TLabel;
     Bevel10: TBevel;
     Bevel11: TBevel;
-    lbMod: TLabel;
-    imgIcon: TImage;
+    listSelectMod: TListBox;
+    ilModsIcons: TImageList;
+    SpeedButton1: TSpeedButton;
     procedure nbMainPageChanged(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
@@ -186,6 +190,13 @@ type
     procedure FileListBox1MouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure FileListBox1DblClick(Sender: TObject);
+    procedure listSelectModMeasureItem(Control: TWinControl;
+      Index: Integer; var Height: Integer);
+    procedure listSelectModDrawItem(Control: TWinControl; Index: Integer;
+      Rect: TRect; State: TOwnerDrawState);
+    procedure FileListBox1Change(Sender: TObject);
+    procedure listSelectModClick(Sender: TObject);
+    procedure SpeedButton1Click(Sender: TObject);
   private
     { Private declarations }
     JoinDPlay: TDPlay2;
@@ -209,6 +220,7 @@ type
     function FindModName(id: string): string; //returns #0 if not present on list
     function FindModId(id: word): integer; //return -1 if not found
     procedure SetMod0(newlist: boolean);
+    procedure FillModsSelectList;
   end;
 
 const
@@ -260,7 +272,7 @@ var
   pathtemp: string;
   empty: hicon;
 begin
-  imgIcon.Picture.Icon.Handle:= empty;
+  //imgIcon.Picture.Icon.Handle:= empty;
   Result:= False;
   ReadedTad.error:= True;
   ReadedTad.usemod:= FindModID(0);
@@ -269,7 +281,7 @@ begin
   save := TSaveFile.Create (filelistbox1.items[filelistbox1.itemindex], true);
   if save.error = sfNone then
   begin
-    lbMod.Caption:= '';
+    //lbMod.Caption:= '';
     meGameInfo.Lines.Clear;
     megameinfo.lines.beginupdate;
 //  megameinfo.visible := false;
@@ -281,7 +293,8 @@ begin
       // is known (in mods.ini list)
       if FindModName(save.modId) <> #0 then
         begin
-          lbMod.Caption:= (FindModName(save.modId));
+          meGameInfo.Lines.Add ('Mod: '+FindModName(save.modId));
+          {lbMod.Caption:= (FindModName(save.modId));
           if FindModId(StrToInt(save.modid)) <> - 1 then
             if LoadedModsList[FindModId(StrToInt(save.modid))].Path <> '' then
               if FileExists(LoadedModsList[FindModId(StrToInt(save.modid))].Path) then
@@ -296,9 +309,10 @@ begin
                 finally
                   //Icon.Free;
                 end;
-              end;
+              end; }
         end else
-          lbMod.Caption:= ('['+save.modId+'] Unknown');
+          meGameInfo.Lines.Add ('Mod: '+'['+save.modId+'] Unknown (not present in current mods list)');
+          //lbMod.Caption:= ('['+save.modId+'] Unknown'); }
     ReadedTad.usemod:= FindModID(StrToInt(save.modId));
     end;
     if save.datum <> '' then
@@ -513,8 +527,23 @@ begin
   end else
   begin
     case options.usedir of
-      0 :directorylistbox1.directory := options.lastdir;
-      1 :directorylistbox1.directory := options.defdir;
+      //0 :directorylistbox1.directory := options.lastdir;
+      0 : begin
+            if options.lastmoddir <> -1 then
+              if FindModId(options.lastmoddir) <> - 1 then
+              begin
+                listSelectMod.ItemIndex:= FindModId(options.lastmoddir);
+                if options.lastmoddir = 0 then
+                  directorylistbox1.directory := options.defdir
+                else
+                  listSelectModClick(self);
+              end;
+          end;
+      1 : begin
+            if FindModId(0) <> -1 then
+              listSelectMod.ItemIndex:= FindModId(0);
+            directorylistbox1.directory := options.defdir;
+          end;
     end;
   end;
 end;
@@ -929,6 +958,7 @@ begin
   options.usemod0 := r.readbool ('Options', 'usemod0', false);
   options.windowedmode := r.readbool ('Options', 'windowedmode', false);
   options.quickjoin:= r.readbool('Options', 'quickjoin', false);
+  options.lastmoddir:= r.ReadInteger ('Options', 'lastmoddir', -1);
 
   options.usecomp := r.ReadBool ('Options', 'usecomp', true);
   options.usenewtimer := r.Readbool ('Options', 'newtimer', true);
@@ -963,6 +993,7 @@ begin
   r.writebool ('Options', 'usemod0', options.usemod0);
   r.writebool ('Options', 'windowedmode', options.windowedmode);
   r.writebool ('Options', 'quickjoin', options.quickjoin);
+  r.writeinteger ('Options', 'lastmoddir', options.lastmoddir);
 
   r.writebool ('Options', 'usecomp', options.usecomp);
   r.writebool ('Options', 'newtimer', options.usenewtimer);
@@ -1015,6 +1046,7 @@ begin
         if Sections.Count > 0 then
         begin
         SetLength(LoadedModsList, Sections.Count);
+        // add "all mods" to list mod
         for i := 0 to Sections.Count - 1 do
         begin
           if (ReadString(Sections[i], 'ID', '') <> '') and
@@ -1024,13 +1056,34 @@ begin
             LoadedModsList[i].Name := ReadString(Sections[i], 'Name', '');
             LoadedModsList[i].Path := ReadString(Sections[i], 'Path', '');
             LoadedModsList[i].UseWeaponIdPatch := ReadBool(Sections[i], 'UseWeaponIdPatch', False);
-            if LoadedModsList[i].ID <> 0 then
+            // dont add backward compatibility
+            //if LoadedModsList[i].ID <> 0 then
+            //begin
+            {            icon:= TIcon.Create;
+              try
+                if SHGetFileInfo(PChar(LoadedModsList[i].Path), 0, FileInfo, SizeOf(FileInfo), SHGFI_ICON) <> 0 then
+                begin
+                  icon.Handle := FileInfo.hIcon;
+                  ilModsIcons.AddIcon(icon);
+                  LoadedModsList[i].IconIndex:= ilModsIcons.Count - 1;
+                end else
+                  LoadedModsList[i].IconIndex:= -1;
+              finally
+                icon.Free;
+              end;
+            listSelectMod.Items.BeginUpdate;
+            listSelectMod.Items.Add(LoadedModsList[i].Name);
+            listSelectMod.Items.EndUpdate;   }
+            //end;
+
+            {if LoadedModsList[i].ID <> 0 then
               FilterComboBox1.Filter:= FilterComboBox1.Filter +
-                '|'+LoadedModsList[i].Name+'|*['+ IntToStr(LoadedModsList[i].ID) +'].tad';
+                '|'+LoadedModsList[i].Name+'|*['+ IntToStr(LoadedModsList[i].ID) +'].tad'; }
           end else
             Inc(incorrect);
             Continue;
           end;
+        FillModsSelectList;
         if not SectionExists('MOD0') then
         begin
           LoadedModsList[0].ID := 0;
@@ -1076,6 +1129,33 @@ begin
 end else
 begin
    SetMod0(True);
+   FillModsSelectList;
+end;
+end;
+
+procedure TfmMain.FillModsSelectList;
+var
+ Icon: TIcon;
+ FileInfo: SHFILEINFO;
+ i: integer;
+begin
+for i:= Low(LoadedModslist) to High(LoadedModslist) do
+begin
+icon:= TIcon.Create;
+try
+if SHGetFileInfo(PChar(LoadedModsList[i].Path), 0, FileInfo, SizeOf(FileInfo), SHGFI_ICON) <> 0 then
+begin
+icon.Handle := FileInfo.hIcon;
+ilModsIcons.AddIcon(icon);
+LoadedModsList[i].IconIndex:= ilModsIcons.Count - 1;
+end else
+LoadedModsList[i].IconIndex:= -1;
+finally
+icon.Free;
+end;
+listSelectMod.Items.BeginUpdate;
+listSelectMod.Items.Add(LoadedModsList[i].Name);
+listSelectMod.Items.EndUpdate;
 end;
 end;
 
@@ -1101,7 +1181,13 @@ begin
       if FindModId(0) <> - 1 then
       begin
         LoadedModsList[FindModId(0)].Path:= options.Tadir;
+        LoadedModsList[FindModId(0)].Name:= 'Backward compatibility';
+        LoadedModsList[FindModId(0)].ID:= 0;
+        LoadedModsList[FindModId(0)].UseWeaponIdPatch:= False;
+        WriteInteger('MOD0', 'ID', 0);
+        WriteString('MOD0', 'Name', 'Backward compatibility');
         WriteString('MOD0', 'Path', options.Tadir);
+        WriteBool('MOD0', 'UseWeaponIdPatch', False);
       end else
         begin
           WriteInteger('MOD0', 'ID', 0);
@@ -1305,6 +1391,65 @@ end;
 procedure TfmMain.FileListBox1DblClick(Sender: TObject);
 begin
  if options.quickjoin then btnPlay.Click;
+end;
+
+procedure TfmMain.listSelectModMeasureItem(Control: TWinControl;
+  Index: Integer; var Height: Integer);
+begin
+height := ilModsIcons.Height + 4;
+end;
+
+procedure TfmMain.listSelectModDrawItem(Control: TWinControl;
+  Index: Integer; Rect: TRect; State: TOwnerDrawState);
+var
+CenterText : integer;
+
+begin
+
+listSelectMod.Canvas.FillRect (rect);
+
+// now draw
+if LoadedModsList[index].IconIndex <> - 1 then
+  ilModsIcons.Draw(listSelectMod.Canvas,rect.Left + 4, rect.Top + 4, LoadedModsList[index].IconIndex );
+
+// you have to center the text vertically besidethe bitmap, or it will appear a little heigher
+CenterText := ( rect.Bottom - rect.Top - listSelectMod.Canvas.TextHeight(text)) div 2 ;
+
+listSelectMod.Canvas.TextOut (rect.left + ilModsIcons.Width + 8 , rect.Top + CenterText,
+listSelectMod.Items.Strings[index]);
+end;
+
+procedure TfmMain.FileListBox1Change(Sender: TObject);
+begin
+  FileListBox1.Hint:= FileListBox1.FileName;
+end;
+
+procedure TfmMain.listSelectModClick(Sender: TObject);
+var
+path: string;
+begin
+  options.lastmoddir:= LoadedModsList[listSelectMod.ItemIndex].ID;
+  if LoadedModsList[listSelectMod.ItemIndex].ID <> 0 then
+  begin
+    path:= IncludeTrailingPathDelimiter(options.defdir);
+    //path:= path + IncludeTrailingPathDelimiter(ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(LoadedModsList[listSelectMod.ItemIndex].Path))));
+    path:= path + IncludeTrailingPathDelimiter(LoadedModsList[listSelectMod.ItemIndex].Name);
+  end else
+    path:= options.defdir;
+  if DirectoryExists(path) then
+    directorylistbox1.Directory:= path
+  else
+    if ForceDirectories(path) then
+      directorylistbox1.Directory:= path
+    else
+      directorylistbox1.Directory:= options.defdir;
+end;
+
+procedure TfmMain.SpeedButton1Click(Sender: TObject);
+begin
+     DirectoryListBox1.FileList := nil;
+    FileListBox1.Directory := '.';
+    DirectoryListBox1.FileList := FileListBox1 // reset
 end;
 
 end.

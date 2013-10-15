@@ -29,6 +29,7 @@ function OnSyncOff( const Command : string; Sender : TPlayerData; params : TStri
 function OnBase( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnBaseOff( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnDoBase( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
+function OnRandMapEx( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 // commands which are self specific
 function OnHelp( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnYankspank( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;

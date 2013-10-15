@@ -69,7 +69,7 @@ end;
 function ReadINISettings: boolean;
 var
   iniFile: TIniFile;
-  tempstring: string;
+  tempstring, tempstring2: string;
 begin
 Result:= False;
 
@@ -87,7 +87,11 @@ if GetINIFileName <> #0 then
         iniSettings.name := iniSettings.demosprefix; }
       tempstring:= Trim(iniFile.ReadString('Preferences','WeaponType', '256;'));
       tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);
-      iniSettings.weaponidpatch:= (StrToInt(tempstring) > 256);
+
+      tempstring2:= Trim(iniFile.ReadString('Preferences','MultiGameWeapon', 'FALSE;'));
+      tempstring2:= Copy(tempstring, 1, Length(tempstring) - 1);
+
+      iniSettings.weaponidpatch:= (StrToInt(tempstring) > 256) and (tempstring2 = 'TRUE');
 
       tempstring:= Trim(iniFile.ReadString('Preferences','UnitLimit', '1500;'));
       tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);

@@ -767,7 +767,7 @@ begin
   unf.free;
   DeleteFile(name);
   RenameFile(name+'.tmp',name);
-  if (ReadedTad.version > 5) and not backcompat then
+  {if (ReadedTad.version > 5) and not backcompat then
   begin
     newname:= ExtractFileNameEX(name);
     newname:= Copy(newname, 1, Length(newname) - 2 - Length(ReadedTad.modid)) + ' [' + IntToStr(newmod) + '].tad';
@@ -783,7 +783,7 @@ begin
     newname:= ExtractFileNameEX(name);
     newname:= Copy(newname, 1, Length(newname) - 3 - Length(ReadedTad.modid)) +'.tad';
     RenameFile(name, newname);
-  end;
+  end; }
 end;
 
 class function TSaveFile.MakeString (const base; const ofs; len :integer) :string;
