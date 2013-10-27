@@ -3,7 +3,7 @@ unit savefile;
 interface
 
 uses
-  Classes, Textdata, packet,logging, cstream, sysutils, dialogs;
+  Classes, Textdata, packet,logging, cstream, windows, sysutils, dialogs, jclntfs;
 
 const
   MEM_SIZE = 50000;
@@ -107,7 +107,7 @@ function ExtractFileNameEX(const AFileName:String): String;
 implementation
 
 uses
-  tasv, lobby, selip, modslist;
+   main, tasv, lobby, selip, modslist;
 
 type
   PHeader = ^RHeader;
@@ -646,7 +646,9 @@ var
   sectors:integer;
   id     :TIdent;
   stemp: string;
-  newname: string;
+  newpath: pansichar;
+  path: string;
+  oldpath: pansichar;
 
   function ReadRec (var p) :boolean;
   type
@@ -767,23 +769,50 @@ begin
   unf.free;
   DeleteFile(name);
   RenameFile(name+'.tmp',name);
-  {if (ReadedTad.version > 5) and not backcompat then
+  //set compression back on
+  if options.usecomp then
+    NtfsSetCompression(name, 1);
+  if IntToStr(newmod) <> ReadedTad.modid then
   begin
-    newname:= ExtractFileNameEX(name);
-    newname:= Copy(newname, 1, Length(newname) - 2 - Length(ReadedTad.modid)) + ' [' + IntToStr(newmod) + '].tad';
-    RenameFile(name, newname);
+    if fmmain.FindModID(newmod) <> - 1 then
+    begin
+      newpath:= PAnsiChar(AnsiString(name));
+      path:= IncludeTrailingPathDelimiter(options.defdir);
+      //path:= path + IncludeTrailingPathDelimiter(LoadedModsList[fmmain.FindModID(newmod)].Name);
+
+      if (LoadedModsList[fmmain.FindModID(newmod)].Name <> '') and
+         (LoadedModsList[fmmain.FindModID(newmod)].Version <> '') then
+      begin
+        path:= path + IncludeTrailingPathDelimiter(
+                      fnRemoveInvalidChar(LoadedModsList[fmmain.FindModID(newmod)].Name) +
+                      '\' + fnRemoveInvalidChar(LoadedModsList[fmmain.FindModID(newmod)].Version));
+      end else
+        if (LoadedModsList[fmmain.FindModID(newmod)].Name) <> '' then
+          path:= path + IncludeTrailingPathDelimiter(
+                        fnRemoveInvalidChar(LoadedModsList[fmmain.FindModID(newmod)].Name));
+
+      if newmod = 0 then
+        path:= IncludeTrailingPathDelimiter(options.defdir);
+      if ForceDirectories(path) then
+      begin
+        //move tad
+        oldpath:= PAnsiChar(AnsiString(IncludeTrailingPathDelimiter(fmmain.DirectoryListBox1.Directory)
+                            + name));
+        newpath:= PAnsiChar(AnsiString(path + name));
+        MoveFile(oldpath, newpath);
+        fmmain.directorylistbox1.Directory:= path;
+        fmmain.listSelectMod.ItemIndex:= fmmain.FindModID(newmod);
+        //move txt
+        if FileExists(Copy(oldpath, 1, Length(oldpath) -4) +'.txt') then
+        begin
+          oldpath:= PAnsiChar(AnsiString(Copy(oldpath, 1, Length(oldpath) -4) +'.txt'));
+          newpath:= PAnsiChar(AnsiString(Copy(newpath, 1, Length(newpath) -4) +'.txt'));
+          MoveFile(oldpath, newpath);
+        end;
+      end else
+        fmmain.directorylistbox1.Directory:= options.defdir;
+    end;
   end;
-  if not backcompat and (ReadedTad.version = 5) then
-  begin
-    newname:= ExtractFileNameEX(name) + ' [' + IntToStr(newmod) + '].tad';
-    RenameFile(name, newname);
-  end;
-  if backcompat then
-  begin
-    newname:= ExtractFileNameEX(name);
-    newname:= Copy(newname, 1, Length(newname) - 3 - Length(ReadedTad.modid)) +'.tad';
-    RenameFile(name, newname);
-  end; }
 end;
 
 class function TSaveFile.MakeString (const base; const ofs; len :integer) :string;

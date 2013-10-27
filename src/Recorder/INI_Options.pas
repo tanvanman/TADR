@@ -8,13 +8,15 @@ type
    modid: integer;
    demosprefix: string;
    name: string;
+   regname : string;
+   version: string;
    weaponidpatch: boolean;
    unitlimit: integer;
  end;
 
  function GetINIFileName: string;
  function ReadINISettings: boolean;
-
+ function fnRemoveInvalidChar(const sString: string) : String;
 var iniSettings: TIniSettings;
 
 const
@@ -25,7 +27,33 @@ uses COB_extensions, TADemoConsts,
   PluginEngine,
   ErrorLog_ExtraData,
   Thread_marshaller,
-  UnitLimit;
+  UnitLimit, ModsList, idplay;
+
+function fnRemoveInvalidChar(const sString: string) : String;
+var
+  sInvalidCharacters : array [1..10] of String;
+  iIndex : Integer;
+  sNewCharacter : String;
+begin
+  sNewCharacter := '';
+  sInvalidCharacters[1] := ':';
+  sInvalidCharacters[2] := '/';
+  sInvalidCharacters[3] := '*';
+  sInvalidCharacters[4] := '\';
+  sInvalidCharacters[5] := '?';
+  sInvalidCharacters[6] := '>';
+  sInvalidCharacters[7] := '<';
+  sInvalidCharacters[8] := '|';
+  sInvalidCharacters[9] := '&';
+  sInvalidCharacters[10] := '"';
+
+  Result := sString;
+
+  for iIndex := 1 to Length(sInvalidCharacters) do
+  begin
+    Result := StringReplace(Result, sInvalidCharacters[iIndex], sNewCharacter, [rfReplaceAll]);
+  end;
+end;
 
 // read INI file name from TA's memory
 var
@@ -82,9 +110,9 @@ if GetINIFileName <> #0 then
     try
       iniSettings.modid:= iniFile.ReadInteger('MOD','ID', -1);
       iniSettings.name:= iniFile.ReadString('MOD','Name', '');
+      iniSettings.version:= iniFile.ReadString('MOD','Version', '');
       iniSettings.demosprefix:= iniFile.ReadString('MOD','DemosFileNamePrefix', '');
-      {if (iniSettings.name = '') and (iniSettings.demosprefix <> '') then
-        iniSettings.name := iniSettings.demosprefix; }
+
       tempstring:= Trim(iniFile.ReadString('Preferences','WeaponType', '256;'));
       tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);
 

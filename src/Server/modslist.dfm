@@ -7,10 +7,10 @@ object fmModsAssignList: TfmModsAssignList
   ClientHeight = 455
   ClientWidth = 305
   Color = clBtnFace
-  Font.Charset = DEFAULT_CHARSET
+  Font.Charset = EASTEUROPE_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
   Position = poMainFormCenter
@@ -24,7 +24,7 @@ object fmModsAssignList: TfmModsAssignList
   object Label1: TLabel
     Left = 8
     Top = 4
-    Width = 175
+    Width = 178
     Height = 13
     Caption = 'Select mod from the list and press Ok'
   end
@@ -53,10 +53,10 @@ object fmModsAssignList: TfmModsAssignList
     Width = 289
     Height = 387
     Align = alCustom
-    Font.Charset = DEFAULT_CHARSET
+    Font.Charset = EASTEUROPE_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
-    Font.Name = 'MS Sans Serif'
+    Font.Name = 'Tahoma'
     Font.Style = []
     ItemHeight = 16
     ParentFont = False

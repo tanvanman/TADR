@@ -421,8 +421,17 @@ begin
 
   if ReadedTad.modid <> '' then
   begin
-    pdtemp:= Copy(LoadedModsList[ReadedTad.usemod].Name, 1, 13);
-    pdtemp:= LeftPad(LoadedModsList[ReadedTad.usemod].Name, #32, 16);
+    if LoadedModsList[ReadedTad.usemod].RegName <> '' then
+    begin
+      pdtemp:= Copy(LoadedModsList[ReadedTad.usemod].RegName, 1, 16);
+    end else
+    begin
+    {  if LoadedModsList[ReadedTad.usemod].Name <> '' then
+        pdtemp:= Copy(LoadedModsList[ReadedTad.usemod].Name, 1, 13)
+      else  }
+        pdtemp:= 'Replayer';
+    end;
+    pdtemp:= LeftPad(pdtemp, #32, 16);
     pd:= pdtemp + save.Map;
   end else
   begin

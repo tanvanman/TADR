@@ -1,16 +1,16 @@
 object fmBackwardCompat: TfmBackwardCompat
-  Left = 307
-  Top = 712
+  Left = 228
+  Top = 692
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsDialog
   Caption = 'Confirm'
   ClientHeight = 175
   ClientWidth = 382
   Color = clBtnFace
-  Font.Charset = DEFAULT_CHARSET
+  Font.Charset = EASTEUROPE_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
   Position = poMainFormCenter

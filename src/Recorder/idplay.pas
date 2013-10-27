@@ -71,7 +71,6 @@ type
     Procedure SetFastSpeed( value : word);
     Procedure SetSlowSpeed( value : word);
   public
-
     Property AutoPauseAtStart : Boolean read fBattleRoomState.AutoPauseAtStart write SetAutoPauseAtStart;
     Property CommanderWarp : Byte read fBattleRoomState.CommanderWarp write SetCommanderWarp;
     Property F1Disable : byte read fBattleRoomState.F1Disable write SetF1Disable;
@@ -407,7 +406,7 @@ type
 var
   chatview     :PMKChatMem;
   logsave : TLog2 = nil;
-
+  
 implementation
 
 uses
@@ -757,31 +756,48 @@ end;
 
 procedure TDPlay.GetRandomMapEx;
 var
-  state :integer;
   st    :string;
   nr    :integer;
-  part  :string;
   error :integer;
   tot   :integer;
   i     :integer;
+  currchar :char;
+  pos: integer;
+  mapname :string;
+begin
+if ImServer then
 begin
   if (not Assigned(MapsList)) then
   begin
-    //create list
     MapsList:= TStringlist.create;
     tot := CreateMultiplayerMapsList(0, 0, 0);
     SendChat('Host total amount of maps: '+IntToStr(tot));
-    //load lsit to stringlist
-  end;
-
-  {while not koniec map do
-  begin
-              maps.AddObject (nazwa mapy, pointer (nr));
-              tot := tot + nr;
-            end;
+    if tot > 0 then
+    begin
+      pos:= Plongword($5122D4)^;
+      nr:= 1;
+      while nr < tot do
+      begin
+        for i:= 1 to 64 do
+        begin
+          currchar:= PChar(pos)^;
+          if currchar <> #0 then
+          begin
+            mapname:= mapname + currchar;
+            Inc(pos);
+          end else
+          begin
+            MapsList.AddObject (mapname, pointer(nr));
+            Inc(nr);
+            mapname:= '';
+            //avoid #0
+            Inc(pos);
+            Break;
           end;
-    end;
-  end;   }
+        end;
+      end;
+  end else
+   tot := CreateMultiplayerMapsList(0, 0, 0);
 
   if MapsList.count = 0 then
   begin
@@ -789,7 +805,7 @@ begin
     exit;
   end;
 
-  nr := Random (tot);
+  nr := Random (tot-1);
   error := 0;
   st := 'none!! should not happen heh';
   for i := 0 to MapsList.count - 1 do
@@ -801,9 +817,9 @@ begin
       break;
     end;
   end;
-
-  SendChat('The randomly selected map is:');
-  SendChat(st);
+  SendChat('The randomly selected map is: '+st);
+  end;
+ end;
 end;
 
 // -----------------------------------------------------------------------------
@@ -1240,17 +1256,28 @@ if NoRecording then
 
 //remove strange characters
 //add default searchpath
-{ TODO -orime : mod path }
 if ExtractFilePath(filename) = '' then
+begin
   if iniSettings.modid > 0 then
-    {filename := IncludeTrailingPathDelimiter(demodir +
-      IncludeTrailingPathDelimiter(ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0)))))) +
-      filename }
-    filename := IncludeTrailingPathDelimiter(demodir) +
-                IncludeTrailingPathDelimiter(iniSettings.name) +
+  begin
+    if (iniSettings.Name <> '') and
+       (iniSettings.Version <> '') then
+    begin
+      filename := IncludeTrailingPathDelimiter(demodir) +
+                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)) +
+                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.Version)) +
+                filename;
+    end else
+      if (iniSettings.Name <> '') then
+      filename := IncludeTrailingPathDelimiter(demodir) +
+                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)) +
                 filename
-  else
+      else
+        filename := IncludeTrailingPathDelimiter(demodir) + filename;
+  end else
     filename := IncludeTrailingPathDelimiter(demodir) + filename;
+end;
+
 path := ExtractFilePath(filename);
 try
   ForceDirectories( path );
@@ -1278,7 +1305,7 @@ IsRecording := true;
   logsave.docrc := true;
   s:=#0#0;                           //empty size
   s:=s+'TA Demo'+#0;                 //magic
-  if iniSettings.weaponidpatch then s:=s+#7#0 else s:=s+#5#0; //version
+  if iniSettings.modid > 0 then s:=s+#7#0 else s:=s+#5#0; //version
   s:=s+char(Players.Count);            //number of players
   s:=s+char(maxunits and $ff)+char(maxunits div 256);
   s:=s+mapname;                      //map
@@ -1307,7 +1334,15 @@ IsRecording := true;
 
   s := #0#0;
   s := s + #3#0#0#0;                //sectortype = version
-  s := s + GetTADemoVersion;
+  if iniSettings.modid > 0 then
+  begin
+    if iniSettings.version <> '' then
+      s := s + iniSettings.version
+    else
+      s := s + 'Patch ' + GetTADemoVersion;
+  end else
+    s := s + GetTADemoVersion;
+
   s[1] :=char(length(s) and $ff);          //fill in size
   s[2] :=char(length(s) shr 8);
   logsave.add(s);                            //write extra sector
@@ -2110,16 +2145,24 @@ if FromPlayer <> nil then
           filename := RemoveInvalid (filename);
           //Lägg till default sökväg
           if demodir <> '' then
-{ TODO -orime : mod path }
           begin
             if iniSettings.modid > 0 then
-              {filename := IncludeTrailingPathDelimiter(demodir +
-                IncludeTrailingPathDelimiter(ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0)))))) +
-                filename }
-              filename := IncludeTrailingPathDelimiter(demodir) +
-                          IncludeTrailingPathDelimiter(iniSettings.name) +
-                          filename
-            else
+            begin
+              if (iniSettings.Name <> '') and
+                  (iniSettings.Version <> '') then
+              begin
+                filename := IncludeTrailingPathDelimiter(demodir) +
+                          IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)) +
+                          IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.Version)) +
+                          filename;
+              end else
+                if (iniSettings.Name <> '') then
+                  filename := IncludeTrailingPathDelimiter(demodir) +
+                            IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)) +
+                            filename
+                else
+                  filename := IncludeTrailingPathDelimiter(demodir) + filename;
+            end else
               filename := IncludeTrailingPathDelimiter(demodir) + filename;
           end;
 
@@ -2131,6 +2174,7 @@ if FromPlayer <> nil then
             until not fileexists (filename + ' - nr ' + inttostr (a) + '.tad');
             filename := filename + ' - nr ' + inttostr (a);
             end;
+          filename := filename + '.tad';
           createlogfile();
           prevtime:=timeGetTime;
         end;
@@ -3426,9 +3470,13 @@ try
   if demodir <> '' then
   try
     if iniSettings.modid > 0 then
-      ForceDirectories(IncludeTrailingPathDelimiter(demodir)+IncludeTrailingPathDelimiter(iniSettings.name))
-    else
-      ForceDirectories(demodir);  
+    begin
+      if iniSettings.name <> '' then
+        ForceDirectories(IncludeTrailingPathDelimiter(demodir)+IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)))
+      else
+        ForceDirectories(demodir);
+    end else
+      ForceDirectories(demodir);
   except
     on e : EInOutError do
       demodir := '';
@@ -3450,8 +3498,17 @@ try
       end;
     end;
 
-  if not CheckModsList(serverdir) then
+  if not FixModsINI(serverdir) then
     if iniSettings.modid <> 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
+
+  if iniSettings.name = '' then
+    if ReadModsIniField(serverdir, 'Name') <> #0 then
+      iniSettings.name:= ReadModsIniField(serverdir, 'Name')
+    else
+      if iniSettings.modid <> 0 then TLog.Add( 0, 'Couldn''t read mod name !' );
+  if iniSettings.version = '' then
+    if ReadModsIniField(serverdir, 'Version') <> #0 then
+      iniSettings.version:= ReadModsIniField(serverdir, 'Version');
 
   crash := false;
   TADemoRecorderOff := false;

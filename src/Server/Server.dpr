@@ -24,6 +24,7 @@ uses
 
 begin
   Application.Initialize;
+  Application.Title := 'TA Demo Replayer';
   Application.CreateForm(TfmMain, fmMain);
   Application.CreateForm(TfmSelIP, fmSelIP);
   Application.CreateForm(TfmModsAssignList, fmModsAssignList);

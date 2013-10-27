@@ -178,16 +178,22 @@ else
 end;
 
 function TDPlay.OnReportMod( const Command : string;  Sender : TPlayerData; params : TStringList ) : Boolean;
-var i : Integer;
+var
+  i: Integer;
+  sWeapID: string;
+  sVersion: string;
 begin
 Result := True;
 if (params.Count > 0) and not (params.find(Players[1].Name,i)) then
   Exit;
 if iniSettings.modId <> 0 then
   if iniSettings.weaponidpatch then
-    SendChat('*** '+Players[1].Name+' uses ' + iniSettings.Name + ' (Mod ID: '+ IntToStr(iniSettings.modId) +') (T)')
+    sWeapID:= '(T)'
   else
-    SendChat('*** '+Players[1].Name+' uses ' + iniSettings.Name + ' (Mod ID: '+ IntToStr(iniSettings.modId) +') (F)');
+    sWeapID:= '(F)';
+  if iniSettings.Version <> '' then
+    sVersion:= ' ' + iniSettings.Version;
+  SendChat('*** '+Players[1].Name+' uses ' + iniSettings.Name + sVersion +  ' (Mod ID: '+ IntToStr(iniSettings.modId) +') ' + sVersion);
 end;
 
 function TDPlay.OnDate( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;

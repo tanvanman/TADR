@@ -6,12 +6,14 @@ uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, Menus, ComCtrls, ExtCtrls, tasv, savefile, dplay, dplay2, ActiveX,
   FileCtrl, ShellApi, Registry, textdata, unitid, unitsync{, dplobby}, IniFiles, ShlObj,
-  ImgList, Buttons;
+  ImgList, Buttons, XPMan;
 
 type
   TModsIniSettings = record
     ID: word;
     Name: string;
+    Version: string;
+    RegName: string;
     Path: string;
     DemosPath: string;
     UseWeaponIdPatch: boolean;
@@ -159,6 +161,11 @@ type
     listSelectMod: TListBox;
     ilModsIcons: TImageList;
     SpeedButton1: TSpeedButton;
+    Label33: TLabel;
+    XPManifest1: TXPManifest;
+    Bevel12: TBevel;
+    lbVersions: TListBox;
+    lbSelectVersion: TLabel;
     procedure nbMainPageChanged(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
@@ -197,6 +204,8 @@ type
     procedure FileListBox1Change(Sender: TObject);
     procedure listSelectModClick(Sender: TObject);
     procedure SpeedButton1Click(Sender: TObject);
+    procedure lbVersionsClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
   private
     { Private declarations }
     JoinDPlay: TDPlay2;
@@ -222,6 +231,9 @@ type
     procedure SetMod0(newlist: boolean);
     procedure FillModsSelectList;
   end;
+
+function fnRemoveInvalidChar(const sString: string) : String;
+procedure GetSubDirectories(const directory : string; list : TStrings);
 
 const
  MODSINI = 'mods.ini';
@@ -286,7 +298,6 @@ begin
     megameinfo.lines.beginupdate;
 //  megameinfo.visible := false;
     meGameInfo.Lines.Add ('Name of file: ' + filelistbox1.items[filelistbox1.itemindex]);
-    meGameInfo.Lines.Add ('Recorded with version: ' +save.vername);
     // demo ID is present in TAD extra sector and it isn't OTA
     if (save.modId <> '') and (save.modId <> '0') then
     begin
@@ -294,26 +305,10 @@ begin
       if FindModName(save.modId) <> #0 then
         begin
           meGameInfo.Lines.Add ('Mod: '+FindModName(save.modId));
-          {lbMod.Caption:= (FindModName(save.modId));
-          if FindModId(StrToInt(save.modid)) <> - 1 then
-            if LoadedModsList[FindModId(StrToInt(save.modid))].Path <> '' then
-              if FileExists(LoadedModsList[FindModId(StrToInt(save.modid))].Path) then
-              begin
-                Icon := TIcon.Create;
-                try
-                  pathtemp:= LoadedModsList[FindModId(StrToInt(save.modid))].Path;
-                  SHGetFileInfo(PChar(pathtemp), 0, FileInfo, SizeOf(FileInfo), SHGFI_ICON);
-                  icon.Handle := FileInfo.hIcon;
-                  //DestroyIcon(FileInfo.hIcon);
-                  imgIcon.Picture.Icon.Handle:= icon.Handle;
-                finally
-                  //Icon.Free;
-                end;
-              end; }
         end else
           meGameInfo.Lines.Add ('Mod: '+'['+save.modId+'] Unknown (not present in current mods list)');
-          //lbMod.Caption:= ('['+save.modId+'] Unknown'); }
-    ReadedTad.usemod:= FindModID(StrToInt(save.modId));
+      meGameInfo.Lines.Add ('Recorded with version: ' +save.vername);
+      ReadedTad.usemod:= FindModID(StrToInt(save.modId));
     end;
     if save.datum <> '' then
       meGameInfo.Lines.Add ('Recorded at: ' +save.Datum);
@@ -471,6 +466,7 @@ var
   path, name :string;
   s :string;
   i :integer;
+  parammod: integer;
 begin
   //Hindra att detta körs mer än en gång.. kanske orsakar 215-kraschen
   if running = 4711 then
@@ -508,12 +504,25 @@ begin
     end;
     s := trim (s);
 
-    if s = '---cp' then
+    if Pos('---cp',s) <> 0 then
     begin
       nbMain.PageIndex := 6;
       exit;
     end;
 
+    if Pos('-m:',s) <> 0 then
+    begin
+      parammod:= StrToInt(Copy(s, 4, Length(s)-3));
+      if FindModId(parammod) <> - 1 then
+      begin
+        listSelectMod.ItemIndex:= FindModId(parammod);
+        if options.lastmoddir = 0 then
+          directorylistbox1.directory := options.defdir
+        else
+          listSelectModClick(self);
+      end;
+      Exit;
+    end;
 
     path := ExtractFilePath (s);
     name := ExtractFileName (s);
@@ -522,8 +531,20 @@ begin
     filelistbox1.directory := path;
 
     filelistbox1.itemindex := filelistbox1.items.IndexOf (name);
-//    filelistbox1.filename := s;
     FileListBox1Click(Self);
+    if ReadedTad.modid <> '' then
+    begin
+      if FindModId(StrToInt(ReadedTad.modid)) <> - 1 then
+      begin
+        listSelectMod.ItemIndex:= FindModId(StrToInt(ReadedTad.modid));
+        if ReadedTad.modid = '0' then
+          directorylistbox1.directory := options.defdir
+        else
+          listSelectModClick(self);
+          filelistbox1.itemindex := filelistbox1.items.IndexOf (name);
+          FileListBox1Click(Self);
+      end;
+    end;
   end else
   begin
     case options.usedir of
@@ -647,11 +668,16 @@ begin
           AfterPlayButton;
         end else
         begin
+          if options.quickjoin then
+          begin
+            fmWait.Close;
+            fmWait.lbWait.Caption:= 'Processing demo file. Please wait...';
+          end;
+          FileListBox1Click(Self);
           //v7, stored mod number in tad but not found on list
           ShowMessage('This demo file has been recorded by game mod that is not present' +#10#13+
           'in '+MODSINI+' list. Please reassign this demo or install mod first.');
           save.Free;
-          FileListBox1Click(Self);
         end;
       end;
   end;
@@ -738,7 +764,7 @@ procedure TfmMain.Label12Click(Sender: TObject);
 var
   s :string;
 begin
-  s := 'http://www.clan-sy.com';
+  s := 'http://www.tauniverse.com';
   ShellExecute (0, nil, @s[1], nil, nil, SW_NORMAL);
 end;
 
@@ -1053,32 +1079,11 @@ begin
              (ReadString(Sections[i], 'Path', '') <> '') then
           begin
             LoadedModsList[i].ID := ReadInteger(Sections[i], 'ID', 0);
-            LoadedModsList[i].Name := ReadString(Sections[i], 'Name', '');
+            LoadedModsList[i].Name := ReadString(Sections[i], 'Name', 'Unknown');
+            LoadedModsList[i].Version := ReadString(Sections[i], 'Version', '');
+            LoadedModsList[i].RegName := ReadString(Sections[i], 'RegName', '');
             LoadedModsList[i].Path := ReadString(Sections[i], 'Path', '');
             LoadedModsList[i].UseWeaponIdPatch := ReadBool(Sections[i], 'UseWeaponIdPatch', False);
-            // dont add backward compatibility
-            //if LoadedModsList[i].ID <> 0 then
-            //begin
-            {            icon:= TIcon.Create;
-              try
-                if SHGetFileInfo(PChar(LoadedModsList[i].Path), 0, FileInfo, SizeOf(FileInfo), SHGFI_ICON) <> 0 then
-                begin
-                  icon.Handle := FileInfo.hIcon;
-                  ilModsIcons.AddIcon(icon);
-                  LoadedModsList[i].IconIndex:= ilModsIcons.Count - 1;
-                end else
-                  LoadedModsList[i].IconIndex:= -1;
-              finally
-                icon.Free;
-              end;
-            listSelectMod.Items.BeginUpdate;
-            listSelectMod.Items.Add(LoadedModsList[i].Name);
-            listSelectMod.Items.EndUpdate;   }
-            //end;
-
-            {if LoadedModsList[i].ID <> 0 then
-              FilterComboBox1.Filter:= FilterComboBox1.Filter +
-                '|'+LoadedModsList[i].Name+'|*['+ IntToStr(LoadedModsList[i].ID) +'].tad'; }
           end else
             Inc(incorrect);
             Continue;
@@ -1129,7 +1134,8 @@ begin
 end else
 begin
    SetMod0(True);
-   FillModsSelectList;
+   loadModsList;
+   //FillModsSelectList;
 end;
 end;
 
@@ -1139,24 +1145,28 @@ var
  FileInfo: SHFILEINFO;
  i: integer;
 begin
-for i:= Low(LoadedModslist) to High(LoadedModslist) do
-begin
-icon:= TIcon.Create;
-try
-if SHGetFileInfo(PChar(LoadedModsList[i].Path), 0, FileInfo, SizeOf(FileInfo), SHGFI_ICON) <> 0 then
-begin
-icon.Handle := FileInfo.hIcon;
-ilModsIcons.AddIcon(icon);
-LoadedModsList[i].IconIndex:= ilModsIcons.Count - 1;
-end else
-LoadedModsList[i].IconIndex:= -1;
-finally
-icon.Free;
-end;
-listSelectMod.Items.BeginUpdate;
-listSelectMod.Items.Add(LoadedModsList[i].Name);
-listSelectMod.Items.EndUpdate;
-end;
+  for i:= Low(LoadedModslist) to High(LoadedModslist) do
+  begin
+    icon:= TIcon.Create;
+    try
+      if SHGetFileInfo(PChar(LoadedModsList[i].Path), 0, FileInfo, SizeOf(FileInfo), SHGFI_ICON) <> 0 then
+      begin
+        icon.Handle := FileInfo.hIcon;
+        ilModsIcons.AddIcon(icon);
+        LoadedModsList[i].IconIndex:= ilModsIcons.Count - 1;
+      end else
+        LoadedModsList[i].IconIndex:= -1;
+    finally
+      icon.Free;
+    end;
+    listSelectMod.Items.BeginUpdate;
+    if LoadedModsList[i].ID = 0 then
+        listSelectMod.Items.Add('Not assigned demo files')
+    else
+      //listSelectMod.Items.Add(LoadedModsList[i].Name + ' ' + LoadedModsList[i].Version);
+      listSelectMod.Items.Add(LoadedModsList[i].Name);
+    listSelectMod.Items.EndUpdate;
+  end;
 end;
 
 procedure TfmMain.SetMod0(newlist: boolean);
@@ -1318,7 +1328,7 @@ end;
 procedure TfmMain.Button13Click(Sender: TObject);
 var sFolder: string;
 begin
-  sFolder := BrowseDialog('Select directory...', BIF_RETURNONLYFSDIRS);
+  sFolder := BrowseDialog('Select directory...', BIF_NEWDIALOGSTYLE or BIF_RETURNONLYFSDIRS);
   if sFolder <> '' then
   begin
     edDemoDir.text := IncludeTrailingPathDelimiter(sFolder);
@@ -1333,7 +1343,7 @@ var
   Index: integer;
   newid: integer;
   done: boolean;
-  oldindex: integer;
+  oldindex: string;
 begin
   if Button = mbRight then
   begin
@@ -1346,6 +1356,7 @@ begin
   done:= LoadSelectedDemo;
   if ReadedTad.Error = false then
   begin
+    oldindex:= ExtractFileName(filelistbox1.items[filelistbox1.itemindex]);
     if ReadedTad.modId <> '' then setItemIndex:= FindModId(StrToInt(ReadedTad.modId))
       else if ReadedTad.version < 7 then
         if MessageDlg('This demo file has been recorded with backward compatibility mode enabled. '+
@@ -1373,13 +1384,12 @@ begin
                save.ChangeModAssignation(false, newid, filelistbox1.items[filelistbox1.itemindex]);
             end;
         end;
-        oldindex:= FileListBox1.ItemIndex;
         directoryListBox1.fileList:= nil;
-        fileListBox1.update;
-        directoryListBox1.fileList:= fileListBox1;
-        FileListBox1.ItemIndex:= oldindex;
+        FileListBox1.update;
+        directoryListBox1.fileList:= FileListBox1;
         fmWait.Close;
         fmWait.lbWait.Caption:= 'Processing demo file. Please wait...';
+        FileListBox1.ItemIndex:= FileListBox1.Items.IndexOf(oldindex);
         FileListBox1Click(Self);
         nbMain.PageIndex := 4;
       end else
@@ -1426,14 +1436,68 @@ end;
 
 procedure TfmMain.listSelectModClick(Sender: TObject);
 var
-path: string;
+  path, path2: string;
+  listversions: boolean;
 begin
+  btnPlay.Enabled:= False;
+  btnComments.Enabled := False;
+  listversions:= False;
+  meGameInfo.Clear;
+  lbVersions.Items.Clear;
+  lbVersions.Visible:= False;
   options.lastmoddir:= LoadedModsList[listSelectMod.ItemIndex].ID;
+  path:= IncludeTrailingPathDelimiter(options.defdir);
+  
   if LoadedModsList[listSelectMod.ItemIndex].ID <> 0 then
   begin
+    if LoadedModsList[listSelectMod.ItemIndex].Name <> '' then
+    begin
+      path:= path + IncludeTrailingPathDelimiter(
+                    fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Name));
+      if (LoadedModsList[listSelectMod.ItemIndex].Version) <> '' then
+        listversions:= True;
+ //                   '\' + fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Version));
+    end;
+  end;
+
+  if listversions then
+  begin
+    lbSelectVersion.Visible:= True;
+    listSelectMod.Width:= 329;
+    path2:= path + fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Version);
+    ForceDirectories(path2);
+    directorylistbox1.Directory:= path2;
+    // fill lbVersions here
+    lbVersions.Visible:= True;
+    GetSubDirectories(path, lbVersions.Items);
+    lbVersions.ItemIndex:= lbVersions.Items.IndexOf(LoadedModsList[listSelectMod.ItemIndex].Version);
+    // select index if found itemof
+  end else
+    begin
+      lbSelectVersion.Visible:= False;
+      listSelectMod.Width:= 477;
+      if DirectoryExists(path) then
+        directorylistbox1.Directory:= path
+      else
+        if ForceDirectories(path) then
+          directorylistbox1.Directory:= path
+        else
+          directorylistbox1.Directory:= options.defdir;
+    end;
+
+  {if LoadedModsList[listSelectMod.ItemIndex].ID <> 0 then
+  begin
     path:= IncludeTrailingPathDelimiter(options.defdir);
-    //path:= path + IncludeTrailingPathDelimiter(ExtractFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(LoadedModsList[listSelectMod.ItemIndex].Path))));
-    path:= path + IncludeTrailingPathDelimiter(LoadedModsList[listSelectMod.ItemIndex].Name);
+    if (LoadedModsList[listSelectMod.ItemIndex].Name <> '') and
+       (LoadedModsList[listSelectMod.ItemIndex].Version <> '') then
+    begin
+      path:= path + IncludeTrailingPathDelimiter(
+                    fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Name) +
+                    '\' + fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Version));
+    end else
+      if (LoadedModsList[listSelectMod.ItemIndex].Name) <> '' then
+        path:= path + IncludeTrailingPathDelimiter(
+                      fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Name));
   end else
     path:= options.defdir;
   if DirectoryExists(path) then
@@ -1442,14 +1506,79 @@ begin
     if ForceDirectories(path) then
       directorylistbox1.Directory:= path
     else
-      directorylistbox1.Directory:= options.defdir;
+      directorylistbox1.Directory:= options.defdir;  }
 end;
+
+procedure GetSubDirectories(const directory : string; list : TStrings);
+ var
+   sr : TSearchRec;
+ begin
+   try
+     if FindFirst(IncludeTrailingPathDelimiter(directory) + '*.*', faDirectory, sr) < 0 then
+       Exit
+     else
+     repeat
+       if ((sr.Attr and faDirectory <> 0) AND (sr.Name <> '.') AND (sr.Name <> '..')) then
+         List.Add(sr.Name) ;
+     until FindNext(sr) <> 0;
+   finally
+     SysUtils.FindClose(sr) ;
+   end;
+ end;
 
 procedure TfmMain.SpeedButton1Click(Sender: TObject);
 begin
      DirectoryListBox1.FileList := nil;
     FileListBox1.Directory := '.';
     DirectoryListBox1.FileList := FileListBox1 // reset
+end;
+
+function fnRemoveInvalidChar(const sString: string) : String;
+var
+  sInvalidCharacters : array [1..10] of String;
+  iIndex : Integer;
+  sNewCharacter : String;
+begin
+  sNewCharacter := '';
+  sInvalidCharacters[1] := ':';
+  sInvalidCharacters[2] := '/';
+  sInvalidCharacters[3] := '*';
+  sInvalidCharacters[4] := '\';
+  sInvalidCharacters[5] := '?';
+  sInvalidCharacters[6] := '>';
+  sInvalidCharacters[7] := '<';
+  sInvalidCharacters[8] := '|';
+  sInvalidCharacters[9] := '&';
+  sInvalidCharacters[10] := '"';
+
+  Result := sString;
+
+  for iIndex := 1 to Length(sInvalidCharacters) do
+  begin
+    Result := StringReplace(Result, sInvalidCharacters[iIndex], sNewCharacter, [rfReplaceAll]);
+  end;
+end;
+
+procedure TfmMain.lbVersionsClick(Sender: TObject);
+var
+  path: string;
+begin
+  btnPlay.Enabled:= False;
+  btnComments.Enabled := False;
+  meGameInfo.Clear;
+
+  path:= IncludeTrailingPathDelimiter(options.defdir);
+  path:= path +
+         IncludeTrailingPathDelimiter(fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Name)) +
+         IncludeTrailingPathDelimiter(lbVersions.Items.Strings[lbVersions.ItemIndex]);
+
+  directorylistbox1.Directory:= path;
+end;
+
+procedure TfmMain.FormCreate(Sender: TObject);
+begin
+  listSelectMod.Width:= 477;
+  lbSelectVersion.Visible:= False;
 end;
 
 end.

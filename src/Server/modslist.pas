@@ -65,7 +65,7 @@ begin
   lbModsAssign.Items.BeginUpdate;
   for i := Low(main.LoadedModsList) to High(main.LoadedModsList) do
   begin
-    lbModsAssign.Items.Add(LoadedModsList[i].Name);
+    lbModsAssign.Items.Add(LoadedModsList[i].Name + ' ' +LoadedModsList[i].Version);
   end;
   lbModsAssign.Items.EndUpdate;
 end;

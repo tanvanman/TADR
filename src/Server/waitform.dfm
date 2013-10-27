@@ -27,16 +27,16 @@ object fmWait: TfmWait
   object lbWait: TLabel
     Left = 4
     Top = 44
-    Width = 453
+    Width = 457
     Height = 33
     Align = alCustom
     Alignment = taCenter
     AutoSize = False
     Caption = 'Processing demo file. Please wait...'
-    Font.Charset = DEFAULT_CHARSET
+    Font.Charset = EASTEUROPE_CHARSET
     Font.Color = clWindowText
     Font.Height = -23
-    Font.Name = 'MS Sans Serif'
+    Font.Name = 'Tahoma'
     Font.Style = []
     ParentFont = False
   end
