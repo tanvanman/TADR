@@ -95,16 +95,27 @@ type
   end;
 
   TAPlayer = class
+  protected
+    class function getShareEnergyVal : single;
+    class function getShareMetalVal : single;
+    class function getShareEnergy : boolean;
+    class function getShareMetal : boolean;
+    class function getShootAll : boolean;
   public
+    property ShareEnergyVal : single read getShareEnergyVal;
+    property ShareMetalVal : single read getShareMetalVal;
+    property ShareEnergy : boolean read getShareEnergy;
+    property ShareMetal : boolean read getShareMetal;
+    property ShootAll : boolean read getShootAll;
+
     class Function getDPID(player : pointer) : TDPID;
     class Function PlayerType(player : pointer) : TTAPlayerType;
 
-    Class Procedure SetShareRadar(player : pointer; value : boolean);
-    Class function GetShareRadar(player : pointer) : boolean;
+    class Procedure SetShareRadar(player : pointer; value : boolean);
+    class function GetShareRadar(player : pointer) : boolean;
 
-    Class function GetIsWatcher(player : pointer) : boolean;
-
-    Class function GetIsActive(player : pointer) : boolean;    
+    class function GetIsWatcher(player : pointer) : boolean;
+    class function GetIsActive(player : pointer) : boolean;
 
     class function GetAlliedState(Player1 : pointer; Player2 : integer) : boolean;
     class Procedure SetAlliedState(Player1 : pointer; Player2 : integer; value : boolean);
@@ -122,7 +133,8 @@ type
 
 var
   TAData : TAMem;
-   
+  PlayerInfo: TAPlayer;
+
 function IsTAVersion31 : Boolean;
 
 implementation
@@ -148,7 +160,7 @@ const
 var
   FailIndex : integer;
   FailValue : byte;
-    
+
   Procedure DoReport;
   begin
   Tlog.Add(0, 'At 0x'+IntToHex(Address,8)+' index '+IntToStr(FailIndex)+
@@ -325,6 +337,40 @@ var
 begin
 Bitfield := PByte(PLongword(Longword(player)+PlayerStruct_PlayerInfo)^+PlayerInfoStruct_IsWatching);
 result := (Bitfield^ and $40) = $40;
+end;
+
+Class function TAPlayer.GetShareEnergyVal : single;
+begin
+result := PSingle( PLongword(TADynmemStructPtr)^+TAdynmemStruct_Players+$E8 )^;
+end;
+
+Class function TAPlayer.GetShareMetalVal : single;
+begin
+result := PSingle( PLongword(TADynmemStructPtr)^+TAdynmemStruct_Players+$E4 )^;
+end;
+
+Class function TAPlayer.GetShareEnergy : boolean;
+var
+  Bitfield : PWord;
+begin
+Bitfield := PWord(PLongword(PLongword(TADynmemStructPtr)^+TAdynmemStruct_Players+PlayerStruct_PlayerInfo)^+PlayerInfoStruct_SharedBits);
+result := (Bitfield^ and $4) = $4;
+end;
+
+Class function TAPlayer.GetShareMetal : boolean;
+var
+  Bitfield : PWord;
+begin
+Bitfield := PWord(PLongword(PLongword(TADynmemStructPtr)^+TAdynmemStruct_Players+PlayerStruct_PlayerInfo)^+PlayerInfoStruct_SharedBits);
+result := (Bitfield^ and $2) = $2;
+end;
+
+Class function TAPlayer.GetShootAll : boolean;
+begin
+  if (PByte(Plongword($511DE8)^+$37F30)^ and (1 shl 2)) = 4 then
+    Result:= True
+  else
+    Result:= False;
 end;
 
 {

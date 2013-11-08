@@ -30,12 +30,11 @@ type
   TKill_StatEvent = procedure (killed:word;killer:word;tid:longword) stdcall;
   TStats_StatEvent = procedure (player:longword;mstored:single;estored:single;mstorage:single;estorage:single;mincome:single;eincome:single;tid:longword) stdcall;
 
-
   TTADRState = record
     AutoPauseAtStart : Boolean;
     CommanderWarp : Byte;
     F1Disable : byte;
-    SpeedLock  : Boolean;
+    SpeedLock : Boolean;
     FastSpeed : word;
     SlowSpeed : word;
   end;
@@ -180,7 +179,7 @@ type
     MapsList : TStringList;
     function getRecorderStatusString : string;
     procedure GetRandomMap (fname :string);
-    procedure GetRandomMapEx;
+    //procedure GetRandomMapEx;
 
   protected
     Commands : TCommands;
@@ -425,8 +424,8 @@ uses
  TA_NetworkingMessages,
  TA_FunctionsU,
  InputHook,
- BattleRoomScroll,
  INI_Options,
+ //KeyboardHook,
  ModsList;
 
 {$WARNINGS ON}
@@ -754,7 +753,7 @@ begin
   end;
 end;
 
-procedure TDPlay.GetRandomMapEx;
+{procedure TDPlay.GetRandomMapEx;
 var
   st    :string;
   nr    :integer;
@@ -820,7 +819,7 @@ begin
   SendChat('The randomly selected map is: '+st);
   end;
  end;
-end;
+end;  }
 
 // -----------------------------------------------------------------------------
 
@@ -2100,6 +2099,7 @@ if FromPlayer <> nil then
         begin //börja ladda
         TLog.add(3,'loading started');
         TAStatus := InLoading;
+        //keyboardHookLevel:= 0;
         if assigned(chatview) then
           begin
           if (not NotViewingRecording) then
@@ -2129,7 +2129,8 @@ if FromPlayer <> nil then
         //autorecording
         if (filename = '') and AutoRecording and NotViewingRecording then
           begin
-          filename := DateToStr (now);
+          //filename := DateToStr (now);
+          filename := FormatDateTime('yyyy-mm-dd',Date);
           if iniSettings.demosprefix <> '' then filename := filename + ' - ' + iniSettings.demosprefix + ' - ' else filename:= filename + ' - ';
           filename := filename + mapname;
           if RecordPlayerNames then
@@ -2223,6 +2224,7 @@ if FromPlayer <> nil then
         begin
         IsInGame := True;
         TAStatus := InGame;
+        //keyboardHookLevel:= 2;
         if assigned(chatview) then
           begin
           chatview^.TAStatus:=3;
@@ -3445,6 +3447,7 @@ try
   ServerPlayer := nil;
   PacketsToFilter := nil;
   TAStatus := InBattleRoom;
+  //keyboardHookLevel:= 1;
 //  IamServer := false;
   IsRecording := false;
 
@@ -3454,7 +3457,7 @@ try
   fixfacexps := reg.ReadBool ('Options', 'fixall', False);
   protectdt := reg.ReadBool ('Options', 'fixall', False);
   shareMapPos := reg.ReadBool ('Options', 'sharepos', True);
-  createTxtFile:=reg.ReadBool ('Options', 'createtxt', False);
+  createTxtFile:= reg.ReadBool ('Options', 'createtxt', False);
 
   logpl:=false;
   EmitBuggyVersionWarnings := reg.ReadBool( 'Options', 'EmitBuggyVersionWarnings', False );
@@ -3464,6 +3467,8 @@ try
   RecordPlayerNames := reg.ReadBool( 'Options', 'playernames', True );
   serverdir := IncludeTrailingPathDelimiter(reg.ReadString ( 'Options', 'serverdir', ''));
   demodir := IncludeTrailingPathDelimiter(reg.ReadString('Options', 'defdir', ''));
+  // any running copy of TA when TADir is empty
+  // will be set as "backward compatibility" in Replayer
   if reg.ReadString('Options', 'TADir', '') = '' then
     reg.WriteString('Options', 'TADir', ParamStr(0));
     
@@ -3499,13 +3504,17 @@ try
     end;
 
   if not FixModsINI(serverdir) then
-    if iniSettings.modid <> 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
+    if iniSettings.modid > 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
 
   if iniSettings.name = '' then
     if ReadModsIniField(serverdir, 'Name') <> #0 then
       iniSettings.name:= ReadModsIniField(serverdir, 'Name')
     else
-      if iniSettings.modid <> 0 then TLog.Add( 0, 'Couldn''t read mod name !' );
+      if iniSettings.modid > 0 then
+      begin
+        TLog.Add( 0, 'Couldn''t read mod name !' );
+        iniSettings.name:= 'Unknown';
+      end;
   if iniSettings.version = '' then
     if ReadModsIniField(serverdir, 'Version') <> #0 then
       iniSettings.version:= ReadModsIniField(serverdir, 'Version');

@@ -182,6 +182,7 @@ var
   i: Integer;
   sWeapID: string;
   sVersion: string;
+  Msg: string;
 begin
 Result := True;
 if (params.Count > 0) and not (params.find(Players[1].Name,i)) then
@@ -193,7 +194,9 @@ if iniSettings.modId <> 0 then
     sWeapID:= '(F)';
   if iniSettings.Version <> '' then
     sVersion:= ' ' + iniSettings.Version;
-  SendChat('*** '+Players[1].Name+' uses ' + iniSettings.Name + sVersion +  ' (Mod ID: '+ IntToStr(iniSettings.modId) +') ' + sVersion);
+  msg:= Players[1].Name+' uses ' + iniSettings.Name + sVersion +  ' (Mod ID: '+ IntToStr(iniSettings.modId) +') ' + sWeapID;
+  msg:= Copy(msg, 1, 63);
+  SendChat(msg);
 end;
 
 function TDPlay.OnDate( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
@@ -284,14 +287,29 @@ var
   NotVotedGoCount : Integer;
   i : Integer;
 begin
-Result := True;
-Sender.VotedGo := true;
-NotVotedGoCount := 0;
-for i :=1 to Players.Count do
-  if (not Players[i].VotedGo or not not Players[i].ClickedIn ) and
-     ((Players[i].Side =0) or (Players[i].Side=1)) then
-    inc( NotVotedGoCount );
-ForceGo := NotVotedGoCount = 0;
+  Result := True;
+  Sender.VotedGo := true;
+  NotVotedGoCount := 0;
+  for i :=1 to Players.Count do
+    if (not Players[i].VotedGo or not not Players[i].ClickedIn ) and
+       ((Players[i].Side =0) or (Players[i].Side=1)) then
+      inc( NotVotedGoCount );
+  case NotVotedGoCount of
+    2..9: SendChatLocal('Missing '+IntToStr(NotVotedGoCount)+' votes...');
+    1   : SendChatLocal('Missing 1 vote...');
+  end;
+
+  ForceGo := NotVotedGoCount = 0;
+end;
+
+function TDPlay.OnForceGo( const Command : string;  Sender : TPlayerData; params : TStringList ) : Boolean;
+begin
+  Result := True;
+  If Sender.IsServer then
+  begin
+    SendChat('Forcibly clicked in watchers.');
+    ForceGo := True;
+  end;
 end;
 
 function TDPlay.OnGive( const Command : string;  Sender : TPlayerData; params : TStringList ) : Boolean;
@@ -304,7 +322,7 @@ if params.find( Players[1].Name, i ) then
   Sender.cantake := True;
   SendChat(Players[1].Name+' ready to take units from '+ Sender.Name);
   if Sender.IsAllied then
-    SendChat ('You don''t really need to type .give.. allying is enough');
+    SendChat ('You don''t really need to type .give. Allying is enough.');
   end;
 end;
 

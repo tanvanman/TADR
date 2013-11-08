@@ -1,5 +1,5 @@
 object fmBackwardCompat: TfmBackwardCompat
-  Left = 228
+  Left = 241
   Top = 692
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsDialog
@@ -47,8 +47,8 @@ object fmBackwardCompat: TfmBackwardCompat
     Alignment = taCenter
     AutoSize = False
     Caption = 
-      'or cancel the playback and manually assign the demo file to a ex' +
-      'isting game setup'
+      'or cancel the playback and right-click the demo file to manually' +
+      ' assign it to an existing game setup'
     WordWrap = True
   end
   object BitBtn1: TBitBtn
@@ -56,8 +56,11 @@ object fmBackwardCompat: TfmBackwardCompat
     Top = 136
     Width = 101
     Height = 25
+    Caption = 'OK'
+    Default = True
+    ModalResult = 1
     TabOrder = 0
-    Kind = bkOK
+    NumGlyphs = 2
   end
   object cbfmbcompat: TCheckBox
     Left = 96
@@ -72,7 +75,10 @@ object fmBackwardCompat: TfmBackwardCompat
     Top = 136
     Width = 95
     Height = 25
+    Cancel = True
+    Caption = 'Cancel'
+    ModalResult = 2
     TabOrder = 2
-    Kind = bkCancel
+    NumGlyphs = 2
   end
 end

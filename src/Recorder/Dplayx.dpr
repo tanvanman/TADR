@@ -43,9 +43,11 @@ uses
   LOS_AllyPlayer in 'plugins\LOS_AllyPlayer.pas',
   ErrorLog_ExtraData in 'plugins\ErrorLog_ExtraData.pas',
   Thread_marshaller in 'plugins\Thread_marshaller.pas',
-  BattleRoomScroll in 'plugins\BattleRoomScroll.pas',
+  //BattleRoomScroll in 'plugins\BattleRoomScroll.pas',
+  //KeyboardHook in 'plugins\KeyboardHook.pas',
   INI_Options in 'INI_Options.pas',
   ModsList in 'ModsList.pas';
+  //MP3Player in 'plugins\MP3Player.pas';
 
 {$R *.res}
 

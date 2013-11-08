@@ -21,8 +21,10 @@ uses
   MultiAILimit,
   //nocd,
   COB_extensions,
-  LOS_extensions,
-  BattleRoomScroll;
+  LOS_extensions;
+  //KeyboardHook;
+  //BattleRoomScroll,
+  //MP3Player;
 
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
 begin
@@ -32,15 +34,17 @@ if OnMainRun then
   RegisterPlugin( ErrorLog_ExtraData.GetPlugin() );
   RegisterPlugin( Thread_marshaller.GetPlugin() );
 
-
   RegisterPlugin( InputHook.GetPlugin() );
   RegisterPlugin( SpeedHack.GetPlugin() );
   RegisterPlugin( PauseLock.GetPlugin() );
-
+  RegisterPlugin( UnitLimit.GetPlugin() );
+  
   RegisterPlugin( LOS_extensions.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );
   RegisterPlugin( MultiAILimit.GetPlugin() );
-  RegisterPlugin( BattleRoomScroll.GetPlugin() );
+  //RegisterPlugin( KeyboardHook.GetPlugin() );
+ // RegisterPlugin( BattleRoomScroll.GetPlugin() );
+ // RegisterPlugin( MP3Player.GetPlugin() );
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );

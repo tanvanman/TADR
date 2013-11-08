@@ -34,8 +34,11 @@ object fmModsAssignList: TfmModsAssignList
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
+    Cancel = True
+    Caption = 'Cancel'
+    ModalResult = 2
     TabOrder = 0
-    Kind = bkCancel
+    NumGlyphs = 2
   end
   object btnAcceptModAssign: TBitBtn
     Left = 217
@@ -43,9 +46,12 @@ object fmModsAssignList: TfmModsAssignList
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
+    Caption = 'OK'
+    Default = True
     Enabled = False
+    ModalResult = 1
     TabOrder = 1
-    Kind = bkOK
+    NumGlyphs = 2
   end
   object lbModsAssign: TListBox
     Left = 8

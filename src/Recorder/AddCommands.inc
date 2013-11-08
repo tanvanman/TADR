@@ -52,7 +52,10 @@
               [InGame,InBattleRoom], False, False, False, OnStatus );
   Commands.AddCommand( 'votego', 'Signifies you''re ready to go. If all players issue .votego, this will forcibly click in watchers. Useful if one of them left to take a shower or something without clicking in. ',
               '',0,
-              [InGame,InBattleRoom], False, False, False, OnVoteGo );
+              [InBattleRoom], False, False, False, OnVoteGo );
+  Commands.AddCommand( 'forcego', 'If you are hosting the game, this will forcibly click in watchers.',
+              '',0,
+              [InBattleRoom], True, False, False, OnForceGo );
   Commands.AddCommand( 'give', 'Grants the ability to a player todo a .take',
               ' [list of nicks]',1,
               [InGame,InBattleRoom], False, False, False, OnGive);
@@ -189,9 +192,9 @@
                          'list of maps to play on you can use it by specifying the filename. ',
               'filename',0,
               [InBattleRoom], False, True, False, OnRandMap);
-  Commands.AddCommand( 'randmapex', 'Proposes a map randomly picked out of a list from a maps that host has installed. ',
+  {Commands.AddCommand( 'randmapex', 'Proposes a map randomly picked out of a list from a maps that host has installed. ',
               '',0,
-              [InBattleRoom], False, False, False, OnRandMapEx);
+              [InBattleRoom], False, False, False, OnRandMapEx); }
   Commands.AddCommand( 'fakewatch', 'Gives you the ability to chat while watching. Join the game as a regular player for it to work. You will appear as a watcher to everyone else and will be unable to affect anything, except that you '+
                            'will be able to chat. Note that fake watchers occupy the first slots in the game, causing some disruption for the rest of the players'' start positions. You may want to use .cmdwarp as a workaround. ',
               '',0,

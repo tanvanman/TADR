@@ -117,14 +117,13 @@ if GetINIFileName <> #0 then
       tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);
 
       tempstring2:= Trim(iniFile.ReadString('Preferences','MultiGameWeapon', 'FALSE;'));
-      tempstring2:= Copy(tempstring, 1, Length(tempstring) - 1);
+      tempstring2:= Copy(tempstring2, 1, Length(tempstring2) - 1);
 
       iniSettings.weaponidpatch:= (StrToInt(tempstring) > 256) and (tempstring2 = 'TRUE');
 
       tempstring:= Trim(iniFile.ReadString('Preferences','UnitLimit', '1500;'));
       tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);
       iniSettings.unitlimit:= StrToInt(tempstring);
-      RegisterPlugin( UnitLimit.GetPlugin() );
     finally
       Result:= True;
       iniFile.Free;

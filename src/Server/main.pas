@@ -516,10 +516,7 @@ begin
       if FindModId(parammod) <> - 1 then
       begin
         listSelectMod.ItemIndex:= FindModId(parammod);
-        if options.lastmoddir = 0 then
-          directorylistbox1.directory := options.defdir
-        else
-          listSelectModClick(self);
+        listSelectModClick(self);
       end;
       Exit;
     end;
@@ -1432,6 +1429,7 @@ end;
 procedure TfmMain.FileListBox1Change(Sender: TObject);
 begin
   FileListBox1.Hint:= FileListBox1.FileName;
+
 end;
 
 procedure TfmMain.listSelectModClick(Sender: TObject);
@@ -1447,7 +1445,7 @@ begin
   lbVersions.Visible:= False;
   options.lastmoddir:= LoadedModsList[listSelectMod.ItemIndex].ID;
   path:= IncludeTrailingPathDelimiter(options.defdir);
-  
+
   if LoadedModsList[listSelectMod.ItemIndex].ID <> 0 then
   begin
     if LoadedModsList[listSelectMod.ItemIndex].Name <> '' then

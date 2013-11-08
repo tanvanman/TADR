@@ -6,6 +6,9 @@ interface
 /// Working.
 //////////////////////////////////////////////////////////////////////////////////////////
 
+const
+  access = 1;
+
 type
   //flags 0 = toggle show all, 1 = rebuild LOS fields
   Game_SetLOSStateHandler = function (flags : integer) : integer; stdcall;
@@ -19,6 +22,7 @@ type
 var
   // called by GUI to process player commands
   InterpretCommand : InterpretCommandHandler = InterpretCommandHandler($417B50);
+  procedure InterpretInternalCommand(CommandText: string);
 
 type
   //Access 1 = no cheats, 3 = cheats
@@ -41,7 +45,7 @@ type //TextType - 0 = chat, 1 = popup
                                TextType : Longint) : longint; stdcall;
 var
   SendText : SendTextHandler = SendTextHandler($46bc70);
-
+  procedure SendTextLocal(Text: string);
 
 type
                                // ^PlayerStruct
@@ -146,5 +150,17 @@ type
 var
   TestGridSpot : TestGridSpotHandler = TestGridSpotHandler($47D2E0);
 implementation
+
+procedure InterpretInternalCommand(CommandText: string);
+begin
+  InterpretCommand(PChar(CommandText),access);
+end;
+
+procedure SendTextLocal(Text: string);
+var
+  TmpResult: LongInt;
+begin
+  TmpResult:= SendText(PAnsiChar(Text), 0);
+end;
 
 end.

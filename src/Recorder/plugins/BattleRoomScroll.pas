@@ -33,12 +33,10 @@ const
 
 var
   nUpClicks: Word;
-  hBattleRoomScrollBarKeyboardHook: HHook;
-
-function BattleRoomScrollBarKeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
 
 procedure ScrollBattleRoomTextWindowUp;
 procedure ScrollBattleRoomTextWindowDown;
+
 // -----------------------------------------------------------------------------
 
 // asm block
@@ -51,13 +49,10 @@ uses
 
 Procedure OnInstallBattleRoomScroll;
 begin
-  hBattleRoomScrollBarKeyboardHook:= SetWindowsHookEx(WH_KEYBOARD, @BattleRoomScrollBarKeyboardHookFunction, 0, GetCurrentThreadId());
 end;
 
 Procedure OnUninstallBattleRoomScroll;
 begin
-  if (hBattleRoomScrollBarKeyboardHook <> 0) then
-    UnhookWindowsHookEx(hBattleRoomScrollBarKeyboardHook);
 end;
 
 function GetPlugin : TPluginData;
@@ -114,26 +109,6 @@ asm
   pop ecx
   push $463DD6;
   call PatchNJump;
-end;
-
-function BattleRoomScrollBarKeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
-begin
-  if nCode < 1 then
-  begin
-    CallNextHookEx(hBattleRoomScrollBarKeyboardHook, nCode, wParam, lParam);
-  end else
-  begin
-    // dont continue if key isn't pressed (i.e. don't continue on repeat, keyup, etc)
-    if (lParam and $C0000000) = 0 then
-    begin
-      case wParam of
-        VK_PRIOR: ScrollBattleRoomTextWindowUp;
-        VK_NEXT : ScrollBattleRoomTextWindowDown;
-      end;
-    end;
-  end;
-  // don't block key
-  Result:= 0;
 end;
 
 procedure ScrollBattleRoomTextWindowUp;

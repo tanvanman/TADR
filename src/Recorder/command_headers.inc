@@ -13,6 +13,7 @@ function OnReportMod( const Command : string; Sender : TPlayerData; params : TSt
 function OnStatus( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnDate( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnVoteGo( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
+function OnForceGo( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnGive( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnStopGive( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnUnits( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
@@ -29,7 +30,6 @@ function OnSyncOff( const Command : string; Sender : TPlayerData; params : TStri
 function OnBase( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnBaseOff( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnDoBase( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
-function OnRandMapEx( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 // commands which are self specific
 function OnHelp( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnYankspank( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
@@ -49,6 +49,7 @@ function OnOnlyUnits( const Command : string; Sender : TPlayerData; params : TSt
 function OnCreatetxt( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnLockOn( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnRandMap( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
+//function OnRandMapEx( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnFakeWatch( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnForceCd( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 // Debug functions!
