@@ -295,8 +295,8 @@ begin
        ((Players[i].Side =0) or (Players[i].Side=1)) then
       inc( NotVotedGoCount );
   case NotVotedGoCount of
-    2..9: SendChatLocal('Missing '+IntToStr(NotVotedGoCount)+' votes...');
-    1   : SendChatLocal('Missing 1 vote...');
+    3..5: SendChatLocal(IntToStr(NotVotedGoCount - 1)+' more votes required...');
+    2   : SendChatLocal('One more vote required...');
   end;
 
   ForceGo := NotVotedGoCount = 0;
@@ -337,6 +337,28 @@ if params.find( Players[1].Name, i ) then
   SendChat(Players[1].Name+' barred from taking units from '+ Sender.Name);
   end;
 end;
+
+{$IFDEF WarZone}
+function TDPlay.OnRank( const Command : string;  Sender : TPlayerData; params : TStringList ) : Boolean;
+var
+  ResultString: string;
+begin
+  Result := True;
+  if (params.Count < 1) then
+    Exit;
+
+  case DownloadParseRankFile(PChar(iniSettings.RanksURL), PChar(IncludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0)))+'ranks.htm')) of
+    0: SendChat('Error: Couln''t download and save ranks file.');
+    2: SendChat('Syntax error.');
+    3: begin
+         if SearchRanks(params[0], 1, ResultString) then
+           SendChat(ResultString)
+         else
+           SendChat('Player not found.');
+       end;
+  end;
+end;  { OnRank }
+{$ENDIF}
 
 function TDPlay.OnUnits( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 var

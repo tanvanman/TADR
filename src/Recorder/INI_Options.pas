@@ -8,9 +8,10 @@ type
    modid: integer;
    demosprefix: string;
    name: string;
-   regname : string;
+   regname: string;
    version: string;
    weaponidpatch: boolean;
+   RanksURL: string;
    unitlimit: integer;
  end;
 
@@ -112,6 +113,8 @@ if GetINIFileName <> #0 then
       iniSettings.name:= iniFile.ReadString('MOD','Name', '');
       iniSettings.version:= iniFile.ReadString('MOD','Version', '');
       iniSettings.demosprefix:= iniFile.ReadString('MOD','DemosFileNamePrefix', '');
+
+      iniSettings.RanksURL:= iniFile.ReadString('Preferences','RanksURL', '');
 
       tempstring:= Trim(iniFile.ReadString('Preferences','WeaponType', '256;'));
       tempstring:= Copy(tempstring, 1, Length(tempstring) - 1);

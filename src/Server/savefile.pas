@@ -338,7 +338,7 @@ begin
     3 :VerName := '0.80ß';
     4 :VerName := '0.81a';
     5 :VerName := '1.0.0.545';
-    7 :VerName := '3.9.2.2';
+    7 :VerName := '3.9';
   else
     VerName := 'Unknown (' + inttostr (h.version) + ')';
   end;
@@ -646,9 +646,9 @@ var
   sectors:integer;
   id     :TIdent;
   stemp: string;
-  newpath: pansichar;
+  newpath: pchar;
   path: string;
-  oldpath: pansichar;
+  oldpath: pchar;
 
   function ReadRec (var p) :boolean;
   type
@@ -776,7 +776,7 @@ begin
   begin
     if fmmain.FindModID(newmod) <> - 1 then
     begin
-      newpath:= PAnsiChar(AnsiString(name));
+      newpath:= PChar(String(name));
       path:= IncludeTrailingPathDelimiter(options.defdir);
       //path:= path + IncludeTrailingPathDelimiter(LoadedModsList[fmmain.FindModID(newmod)].Name);
 
@@ -796,17 +796,17 @@ begin
       if ForceDirectories(path) then
       begin
         //move tad
-        oldpath:= PAnsiChar(AnsiString(IncludeTrailingPathDelimiter(fmmain.DirectoryListBox1.Directory)
+        oldpath:= PChar(String(IncludeTrailingPathDelimiter(fmmain.DirectoryListBox1.Directory)
                             + name));
-        newpath:= PAnsiChar(AnsiString(path + name));
+        newpath:= PChar(String(path + name));
         MoveFile(oldpath, newpath);
         fmmain.directorylistbox1.Directory:= path;
-        fmmain.listSelectMod.ItemIndex:= fmmain.FindModID(newmod);
+        fmmain.lbSelectMod.ItemIndex:= fmmain.FindModID(newmod);
         //move txt
         if FileExists(Copy(oldpath, 1, Length(oldpath) -4) +'.txt') then
         begin
-          oldpath:= PAnsiChar(AnsiString(Copy(oldpath, 1, Length(oldpath) -4) +'.txt'));
-          newpath:= PAnsiChar(AnsiString(Copy(newpath, 1, Length(newpath) -4) +'.txt'));
+          oldpath:= PChar(String(Copy(oldpath, 1, Length(oldpath) -4) +'.txt'));
+          newpath:= PChar(String(Copy(newpath, 1, Length(newpath) -4) +'.txt'));
           MoveFile(oldpath, newpath);
         end;
       end else

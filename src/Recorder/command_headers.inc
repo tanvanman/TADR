@@ -52,6 +52,9 @@ function OnRandMap( const Command : string; Sender : TPlayerData; params : TStri
 //function OnRandMapEx( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnFakeWatch( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnForceCd( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
+{$IFDEF WarZone}
+function OnRank( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
+{$ENDIF}
 // Debug functions!
 function OnReportFilter( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnDisableFilter( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;

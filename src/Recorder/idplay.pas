@@ -1,5 +1,7 @@
 unit idplay;
 {$DEFINE Release}
+{.$DEFINE WarZone}
+{.$DEFINE KeybrdHook}
 {.$DEFINE DebuggerHooks}
 
 // causes the $2c packets to be logged
@@ -15,20 +17,13 @@ uses
   ListsU, CommandHandlerU,
 //  PacketHandlerU,
   TADemoConsts,MemMappedDataStructure, PlayerDataU, 
-  log2, //SavedDemoU,
+  log2, statslogging,//SavedDemoU,
   PacketBufferU;
 
 var
   StartedFrom :string;
 type
   ETADR = class(Exception);
-  
-  TStart_StatEvent = procedure(numplayers:longword;maxunits:longword) ; stdcall;
-  TNewUnit_StatEvent = procedure (unitid:word;netid:word;tid:longword) ; stdcall;
-  TUnitFinished_StatEvent = procedure (unitid:word;tid:longword) ; stdcall;
-  TDamage_StatEvent = procedure (receiver:word;sender:word;amount:word;tid:longword); stdcall;
-  TKill_StatEvent = procedure (killed:word;killer:word;tid:longword) stdcall;
-  TStats_StatEvent = procedure (player:longword;mstored:single;estored:single;mstorage:single;estorage:single;mincome:single;eincome:single;tid:longword) stdcall;
 
   TTADRState = record
     AutoPauseAtStart : Boolean;
@@ -99,14 +94,13 @@ type
     OldMapY : Word;
   protected // stats reporting
     statdll      : HModule;
-    staton       : boolean;
 
-    procstart    : TStart_StatEvent;
+   { procstart    : TStart_StatEvent;
     procnewunit  : TNewUnit_StatEvent;
     procunitfinished  : TUnitFinished_StatEvent;
     procdamage   : TDamage_StatEvent;
     prockill     : TKill_StatEvent;
-    procstat     : TStats_StatEvent;
+    procstat     : TStats_StatEvent; }
   protected
     //this is earlier recorded game?
     NotViewingRecording :Boolean;
@@ -119,19 +113,22 @@ type
     AutoRecording : boolean;
     // should the .txt file which contains the chatlog be created with the .tad file?
     CreateTxtFile: boolean;
+    // should the .csv file which contains statistics log be created with the .tad file?
+    CreateStatsFile: boolean;
     // Is recording currently occuring
     IsRecording    : Boolean;
 
-    starttime    : Longword;
+    starttime         : Longword;
 
-    FileName     : string;
-    RecordPlayerNames  : Boolean;
-    chatlog      : string;
-    MapName      : string;
-    demodir      : string;
-    prevtime     : longword;
+    FileName          : string;
+    StatsFileName     : string;
+    RecordPlayerNames : Boolean;
+    chatlog           : string;
+    MapName           : string;
+    demodir           : string;
+    prevtime          : longword;
 
-    NoFileName   : boolean;
+    NoFileName        : boolean;
 
 //    DemoRecordingFile : TDemoRecordingFile;
     procedure createlogfile();
@@ -403,8 +400,9 @@ type
   end;
 
 var
-  chatview     :PMKChatMem;
-  logsave : TLog2 = nil;
+  chatview  : PMKChatMem;
+  logsave   : TLog2 = nil;
+  statslog  : TStatsLogging = nil;
   
 implementation
 
@@ -425,7 +423,8 @@ uses
  TA_FunctionsU,
  InputHook,
  INI_Options,
- //KeyboardHook,
+ {$IFDEF KeybrdHook}KeyboardHook,{$ENDIF}
+ {$IFDEF WarZone}WarZoneRankings,{$ENDIF}
  ModsList;
 
 {$WARNINGS ON}
@@ -550,12 +549,13 @@ procedure TDPlay.SendAlliedChat();
 var
   data : string;
 begin
-if (chatview = nil) or (chatview^.toAlliesLength = 0) then Exit;
-data := '';
-SetLength( data, chatview^.toAlliesLength );
-move( chatview^.toAllies, data[1], chatview^.toAlliesLength );
-chatview^.toAlliesLength := 0;
-SendRecorderToRecorderMsg( TANM_Rec2Rec_MarkerData, data );
+  if (chatview = nil) or (chatview^.toAlliesLength = 0) then
+    Exit;
+  data := '';
+  SetLength( data, chatview^.toAlliesLength );
+  move( chatview^.toAllies, data[1], chatview^.toAlliesLength );
+  chatview^.toAlliesLength := 0;
+  SendRecorderToRecorderMsg( TANM_Rec2Rec_MarkerData, data );
 end; {SendAlliedChat}
 
 procedure TDPlay.SendRecorderToRecorderMsg2( const Msg : string;
@@ -569,17 +569,17 @@ var
   c,s     :string;
   a,b     :integer;
 begin
-if EchoLocal then
-  Sendlocal( msg, Source, 0, True, False );
-if Dest = 0 then
-  for i := 2 to Players.Count do
+  if EchoLocal then
+    Sendlocal( msg, Source, 0, True, False );
+  if Dest = 0 then
+    for i := 2 to Players.Count do
     begin
-    player := Players[i];
-    if player.RecConnect then
-      Sendlocal( msg, Source, player.Id, false, True );
+      player := Players[i];
+      if player.RecConnect then
+        Sendlocal( msg, Source, player.Id, false, True );
     end
-else
-  Sendlocal( msg, Source, Dest, false, True );
+  else
+    Sendlocal( msg, Source, Dest, false, True );
 
 if IsRecording then
   begin
@@ -1299,7 +1299,25 @@ except
     end;
 end;
 
-IsRecording := true;
+  if CreateStatsFile then
+  begin
+    StatsFileName:= ChangeFileExt(FileName, '.csv');
+    if statslog <> nil then
+      FreeAndNil( statslog );
+    try
+      statslog := TStatsLogging.create(StatsFileName);
+    except
+      on e : Exception do
+      begin
+        SendChat( 'Unable to create stats file with filename: ');
+        SendChat( StatsFileName );
+        LogException(e);
+        exit;
+      end;
+    end;
+  end;
+
+  IsRecording := true;
 
   logsave.docrc := true;
   s:=#0#0;                           //empty size
@@ -1747,17 +1765,19 @@ if assigned(chatview) then
 
 
 // every x seconds make sure the file logs are flushed
-if TimeStamp - LastFlushTimeStamp  > FlushDeltaTime then
+  if TimeStamp - LastFlushTimeStamp  > FlushDeltaTime then
   begin
-  LastFlushTimeStamp := TimeStamp;
-  TLog.Flush;
-  If logsave <> nil then
-    logsave.Flush;
+    LastFlushTimeStamp := TimeStamp;
+    TLog.Flush;
+    If logsave <> nil then
+      logsave.Flush;
+    If statslog <> nil then
+      statslog.Flush;
   end;
 
-result:=input;
-if FromPlayer <> nil then
-  FromPlayer.LastMsgTimeStamp := timeGetTime;
+  result:=input;
+  if FromPlayer <> nil then
+    FromPlayer.LastMsgTimeStamp := timeGetTime;
 
 
   // decompress & decrypt the packet
@@ -2099,7 +2119,9 @@ if FromPlayer <> nil then
         begin //börja ladda
         TLog.add(3,'loading started');
         TAStatus := InLoading;
-        //keyboardHookLevel:= 0;
+        {$IFDEF KeybrdHook}
+        keyboardHookLevel:= 0;
+        {$ENDIF}
         if assigned(chatview) then
           begin
           if (not NotViewingRecording) then
@@ -2224,7 +2246,9 @@ if FromPlayer <> nil then
         begin
         IsInGame := True;
         TAStatus := InGame;
-        //keyboardHookLevel:= 2;
+        {$IFDEF KeybrdHook}
+        keyboardHookLevel:= 2;
+        {$ENDIF}
         if assigned(chatview) then
           begin
           chatview^.TAStatus:=3;
@@ -2315,8 +2339,8 @@ if FromPlayer <> nil then
                 Assert( (Integer(w) >= Low(UnitStatus)) and ( w <= High(UnitStatus) ) );
                 pw:=@tmp[4];
                 w:=pw^;
-                if staton then begin
-                  procnewunit(w,w2,Players[1].LastTimeStamp);
+                if CreateStatsFile then begin
+                  statslog.NewUnit_StatEvent(FromPlayer.PlayerIndex,w,w2,Players[1].LastTimeStamp);
                 end;
 // kefft sätt att sätta StartInfo.ID.. damnusj
 
@@ -2496,31 +2520,31 @@ if FromPlayer <> nil then
         #$12 :begin //unit är klarbyggd
                 pw:=@tmp[2];
                 w:=pw^;
-                if staton then
-                  procunitfinished(w,Players[1].LastTimeStamp);
+                if CreateStatsFile then
+                  statslog.UnitFinished_StatEvent(w,Players[1].LastTimeStamp);
                 UnitStatus[w - 1].DoneStatus := 0;
 //                SendChat (Players.Name[FromPlayerID] + ' unit ' + inttostr (w - (StartInfo.ID [FromPlayerID] + 1)) + ' is done');
               end;
         #$0c :
           begin //unit dör
-          pw:=@tmp[2];
-          w:=pw^;
-          if staton then
+            pw:=@tmp[2];
+            w:=pw^;
+            if CreateStatsFile then
             begin
-            pw:=@tmp[8];
-            w2:=pw^;
-            prockill(w,w2,Players[1].LastTimeStamp);
+              pw:=@tmp[8];
+              w2:=pw^;
+              statslog.Kill_StatEvent(w,w2,Players[1].LastTimeStamp);
             end;
-          UnitStatus[w - 1].DoneStatus := 1000;
-          if UnitStatus[w - 1].unitalive then
+            UnitStatus[w - 1].DoneStatus := 1000;
+            if UnitStatus[w - 1].unitalive then
             begin
-            UnitStatus[w - 1].unitalive := false;
-            UnitCountChange(FromPlayer,-1);
+              UnitStatus[w - 1].unitalive := false;
+              UnitCountChange(FromPlayer,-1);
             end;
           end;
         #$0b :
           begin //skada
-          if staton then
+          if CreateStatsFile then
             begin
             pw:=@tmp[2];
             w:=pw^;
@@ -2528,7 +2552,7 @@ if FromPlayer <> nil then
             w2:=pw^;
             pw:=@tmp[6];
             w3:=pw^;
-            procdamage(w,w2,w3,Players[1].LastTimeStamp);
+            statslog.Damage_StatEvent(w,w2,w3,Players[1].LastTimeStamp);
             end;
           end;
         #$1b :
@@ -2612,11 +2636,11 @@ if FromPlayer <> nil then
                  chatview^.storageM[FromPlayer.PlayerIndex] :=f3;
                  chatview^.storageE[FromPlayer.PlayerIndex] :=f4;
                  end;
-               if staton then
-                 procstat( FromPlayer.PlayerIndex,f,f2,f3,f4,
+               if CreateStatsFile then
+                 statslog.Stats_StatEvent( FromPlayer.PlayerIndex,f,f2,f3,f4,
                            FromPlayer.Economy.IncomeMetal,
                            FromPlayer.Economy.IncomeEnergy,
-                           FromPlayer.LastTimeStamp);
+                           FromPlayer.LastTimeStamp); 
               end;
         #$16 :begin //share packet
                ResourcesSent:=true;
@@ -2780,9 +2804,9 @@ assert(ToPlayer <> nil);
         s[3] := char(b and $ff);                //tid sedan senaste
         s[4] := char(b shr 8);
         s[5] := char(FromPlayer.playerindex);             //spelare som sände
-        s:=s+c;                                 //paketet
-        s[1] :=char(length(s) and $ff);          //fyll i storlek
-        s[2] :=char(length(s) shr 8);
+        s:= s+c;                                 //paketet
+        s[1] := char(length(s) and $ff);          //fyll i storlek
+        s[2] := char(length(s) shr 8);
         logsave.add(s);                            //write a packet
         end;
       end;
@@ -3009,6 +3033,9 @@ except
       TLog.Flush;
       if logsave <> nil then
         logsave.Flush;
+      if statslog <> nil then
+        statslog.Flush;
+
 //      if DemoRecordingFile <> nil then
 //        DemoRecordingFile.Flush;
     end;
@@ -3218,6 +3245,8 @@ except
       TLog.Flush;
       if logsave <> nil then
         logsave.Flush;
+      if statslog <> nil then
+        statslog.Flush;
 //      if DemoRecordingFile <> nil then
 //        DemoRecordingFile.Flush;
     end;
@@ -3447,7 +3476,9 @@ try
   ServerPlayer := nil;
   PacketsToFilter := nil;
   TAStatus := InBattleRoom;
-  //keyboardHookLevel:= 1;
+  {$IFDEF KeybrdHook}
+  keyboardHookLevel:= 1;
+  {$ENDIF}
 //  IamServer := false;
   IsRecording := false;
 
@@ -3458,6 +3489,7 @@ try
   protectdt := reg.ReadBool ('Options', 'fixall', False);
   shareMapPos := reg.ReadBool ('Options', 'sharepos', True);
   createTxtFile:= reg.ReadBool ('Options', 'createtxt', False);
+  createStatsFile:= reg.ReadBool ('Options', 'createstats', False);
 
   logpl:=false;
   EmitBuggyVersionWarnings := reg.ReadBool( 'Options', 'EmitBuggyVersionWarnings', False );
@@ -3556,7 +3588,7 @@ try
   ai := '';
 
   NoRecording := false;
-  staton := false;
+  //staton := false;
 
   AlliedMarkerQueue.Clear;
   MessageQueue.Clear;
@@ -3584,6 +3616,11 @@ try
     TLog.Add (1,'flushing recording');
     FreeAndNil( logsave );
     end;
+  if assigned ( statslog ) then
+    begin
+    TLog.Add (1,'flushing stats');
+    FreeAndNil( statslog );
+    end;
     
 if not IsInGame then Exit;
 IsInGame := False;
@@ -3602,7 +3639,12 @@ try
     begin
     TLog.Add (1,'flushing recording');
     FreeAndNil( logsave );
-    end;  
+    end;
+  if assigned ( statslog ) then
+    begin
+    TLog.Add (1,'flushing stats');
+    FreeAndNil( statslog );
+    end;
   // write out the txt description of the demo file
   if not (filename='') and createtxtfile and IsRecording then
     begin

@@ -202,6 +202,11 @@
   Commands.AddCommand( 'forcecd', 'Toggles an in-memory no-cd crack!',
               '',0,
               [InBattleRoom], False, True, False, OnForceCd);
+  {$IFDEF WarZone}
+  Commands.AddCommand( 'rank', 'todo: rank description',
+              '',0,
+              [InGame,InBattleRoom], False, True, False, OnRank);
+  {$ENDIF}
 
 {$IFNDEF release}
   Commands.AddCommand( 'reportfilter', 'reports the filter list',

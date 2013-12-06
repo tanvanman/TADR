@@ -1,5 +1,5 @@
 unit Plugins;
-
+{.$DEFINE KeybrdHook}
 interface
 
 
@@ -20,11 +20,11 @@ uses
   UnitLimit,
   MultiAILimit,
   //nocd,
+  {$IFDEF KeybrdHook}KeyboardHook,{$ENDIF}
+  {$IFDEF KeybrdHook}BattleRoomScroll,{$ENDIF}
   COB_extensions,
   LOS_extensions;
-  //KeyboardHook;
-  //BattleRoomScroll,
-  //MP3Player;
+
 
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
 begin
@@ -42,9 +42,8 @@ if OnMainRun then
   RegisterPlugin( LOS_extensions.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );
   RegisterPlugin( MultiAILimit.GetPlugin() );
-  //RegisterPlugin( KeyboardHook.GetPlugin() );
- // RegisterPlugin( BattleRoomScroll.GetPlugin() );
- // RegisterPlugin( MP3Player.GetPlugin() );
+  {$IFDEF KeybrdHook}RegisterPlugin( KeyboardHook.GetPlugin() );{$ENDIF}
+  {$IFDEF KeybrdHook}RegisterPlugin( BattleRoomScroll.GetPlugin() );{$ENDIF}
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );

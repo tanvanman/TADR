@@ -90,7 +90,7 @@ MaxStackSize=1048576
 ImageBase=7340032
 ExeDescription=
 [Directories]
-OutputDir=g:\cavedog\totala\
+OutputDir=output\
 UnitOutputDir=dcu\
 PackageDLLOutputDir=
 PackageDCPOutputDir=
@@ -100,7 +100,7 @@ Conditionals=IsTesting
 DebugSourceDirs=
 UsePackages=0
 [Parameters]
-RunParams=-d -N1:127.0.0.1 -HMy_Game
+RunParams=-d
 HostApplication=g:\caVEDOG\totala\TotalA.exe
 Launcher=
 UseLauncher=0
@@ -166,10 +166,10 @@ Count=1
 Item0=dcu\
 [HistoryLists\hlOutputDirectorry]
 Count=15
-Item0=g:\cavedog\totala\
-Item1=G:\TA3.1\totala3\install\Total Mayhem\
-Item2=output\
-Item3=output\
+Item0=output\
+Item1=output\
+Item2=g:\cavedog\totala\
+Item3=G:\TA3.1\totala3\install\Total Mayhem\
 Item4=G:\TA3.1\totala3\install\TA Escalation\
 Item5=G:\TA3.1\totala3\install\TA Zero
 Item6=g:\cavedog\taesc\

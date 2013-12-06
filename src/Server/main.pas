@@ -6,17 +6,20 @@ uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, Menus, ComCtrls, ExtCtrls, tasv, savefile, dplay, dplay2, ActiveX,
   FileCtrl, ShellApi, Registry, textdata, unitid, unitsync{, dplobby}, IniFiles, ShlObj,
-  ImgList, Buttons, XPMan;
+  ImgList, Buttons, XPMan, VistaAltFixUnit;
 
 type
   TModsIniSettings = record
     ID: word;
     Name: string;
     Version: string;
-    RegName: string;
     Path: string;
-    DemosPath: string;
+    RegName: string;
     UseWeaponIdPatch: boolean;
+    UnitLimitLock: byte;
+    SFXLock: byte;
+
+    DemosPath: string;
     IconIndex : integer;
   end;
 var LoadedModsList: array of TModsIniSettings;
@@ -46,6 +49,9 @@ type
     skippause : boolean;
     createtxt : boolean;
     sharemappos:boolean;
+
+    { layout }
+    maintop: word;
   end;
 
 type
@@ -75,16 +81,15 @@ type
     pbLoading: TProgressBar;
     Label3: TLabel;
     lbLoading: TListBox;
-    Label4: TLabel;
+    lbWatcherProgress: TLabel;
     Button5: TButton;
     tbSpeed: TTrackBar;
     pbGame2: TProgressBar;
-    Label5: TLabel;
-    Label6: TLabel;
+    lbGameProgress: TLabel;
+    lbSpeed: TLabel;
     lbEvents: TListBox;
-    Label7: TLabel;
-    Label8: TLabel;
-    Label9: TLabel;
+    lbGameEvents: TLabel;
+    lbSelectDemoFile: TLabel;
     btnPlay: TButton;
     Button8: TButton;
     FileListBox1: TFileListBox;
@@ -128,17 +133,15 @@ type
     Label25: TLabel;
     Label26: TLabel;
     Bevel3: TBevel;
-    Bevel4: TBevel;
     Label27: TLabel;
     cbfixall: TCheckBox;
     cbautorec: TCheckBox;
     Label28: TLabel;
     cbCompress: TCheckBox;
     Label29: TLabel;
-    Label30: TLabel;
     cbPlayernames: TCheckBox;
     Skippause: TCheckBox;
-    Label31: TLabel;
+    lbTAUniverse: TLabel;
     cbCreatetxt: TCheckBox;
     cbShareMapPos: TCheckBox;
     cb3DTA: TCheckBox;
@@ -146,7 +149,6 @@ type
     Button14: TButton;
     odSelectExe: TOpenDialog;
     cbUseMod0: TCheckBox;
-    Bevel5: TBevel;
     btnModsEditor: TButton;
     Bevel8: TBevel;
     Bevel6: TBevel;
@@ -155,17 +157,34 @@ type
     cbWindowedMode: TCheckBox;
     cbQuickJoin: TCheckBox;
     Bevel9: TBevel;
-    Label32: TLabel;
+    lbPlaybackSettings: TLabel;
     Bevel10: TBevel;
     Bevel11: TBevel;
-    listSelectMod: TListBox;
+    lbSelectMod: TListBox;
     ilModsIcons: TImageList;
-    SpeedButton1: TSpeedButton;
-    Label33: TLabel;
+    lbSelectTheMod: TLabel;
     XPManifest1: TXPManifest;
     Bevel12: TBevel;
     lbVersions: TListBox;
     lbSelectVersion: TLabel;
+    Label4: TLabel;
+    Bevel15: TBevel;
+    Bevel4: TBevel;
+    Bevel5: TBevel;
+    Label5: TLabel;
+    lbModsOrder: TListBox;
+    btnSaveModsOrder: TButton;
+    btnCancelModsOrder: TButton;
+    panMainBot: TPanel;
+    panMainTop: TPanel;
+    panMain: TPanel;
+    splitterMainHoriz: TSplitter;
+    panMainRight: TPanel;
+    lbGameInfo: TLabel;
+    panMainLeft: TPanel;
+    panMainMid: TPanel;
+    imgSplitterVertic: TImage;
+    ilSplitters: TImageList;
     procedure nbMainPageChanged(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
@@ -197,17 +216,28 @@ type
     procedure FileListBox1MouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure FileListBox1DblClick(Sender: TObject);
-    procedure listSelectModMeasureItem(Control: TWinControl;
+    procedure lbSelectModMeasureItem(Control: TWinControl;
       Index: Integer; var Height: Integer);
-    procedure listSelectModDrawItem(Control: TWinControl; Index: Integer;
+    procedure lbSelectModDrawItem(Control: TWinControl; Index: Integer;
       Rect: TRect; State: TOwnerDrawState);
     procedure FileListBox1Change(Sender: TObject);
-    procedure listSelectModClick(Sender: TObject);
-    procedure SpeedButton1Click(Sender: TObject);
+    procedure lbSelectModClick(Sender: TObject);
     procedure lbVersionsClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure btnCancelModsOrderClick(Sender: TObject);
+    procedure lbModsOrderDragDrop(Sender, Source: TObject; X, Y: Integer);
+    procedure lbModsOrderDragOver(Sender, Source: TObject; X, Y: Integer;
+      State: TDragState; var Accept: Boolean);
+    procedure lbModsOrderMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure btnSaveModsOrderClick(Sender: TObject);
+    procedure splitterMainVerticMoved(Sender: TObject);
+    procedure imgSplitterVerticClick(Sender: TObject);
+    procedure splitterMainHorizMoved(Sender: TObject);
   private
     { Private declarations }
+    StartingPoint : TPoint;
+    GameInfoCollapsed: boolean;
     JoinDPlay: TDPlay2;
     procedure ShowHint (Sender: TObject);
     procedure LoadOptions;
@@ -416,6 +446,8 @@ begin
 end;
 
 procedure TfmMain.nbMainPageChanged(Sender: TObject);
+var
+  i: word;
 begin
   case nbMain.PageIndex of
     0 : begin
@@ -447,6 +479,15 @@ begin
           cb3dta.checked := options.ta3d;          
           skippause.Checked := options.skippause;
           cbPlayernames.checked := options.playernames;
+        end;
+    7 : begin
+        lbModsOrder.Items.Clear;
+        lbModsOrder.Items.BeginUpdate;
+        for i := Low(LoadedModsList) to High(LoadedModsList) do
+        begin
+          lbModsOrder.AddItem((LoadedModsList[i].Name + ' ' +LoadedModsList[i].Version), TObject(LoadedModsList[i].ID));
+        end;
+        lbModsOrder.Items.EndUpdate;
         end;
   end;
 end;
@@ -483,6 +524,8 @@ begin
   LoadOptions;
   LoadModsList;
 
+  panMainTop.Height:= options.maintop;
+
   ids := TUnitIds.Create (ExtractFilePath (paramstr (0)) + '\unitid.txt');
 
   nbMain.PageIndex := 4;
@@ -515,8 +558,8 @@ begin
       parammod:= StrToInt(Copy(s, 4, Length(s)-3));
       if FindModId(parammod) <> - 1 then
       begin
-        listSelectMod.ItemIndex:= FindModId(parammod);
-        listSelectModClick(self);
+        lbSelectMod.ItemIndex:= FindModId(parammod);
+        lbSelectModClick(self);
       end;
       Exit;
     end;
@@ -533,15 +576,27 @@ begin
     begin
       if FindModId(StrToInt(ReadedTad.modid)) <> - 1 then
       begin
-        listSelectMod.ItemIndex:= FindModId(StrToInt(ReadedTad.modid));
+        lbSelectMod.ItemIndex:= FindModId(StrToInt(ReadedTad.modid));
         if ReadedTad.modid = '0' then
           directorylistbox1.directory := options.defdir
         else
-          listSelectModClick(self);
-          filelistbox1.itemindex := filelistbox1.items.IndexOf (name);
+          lbSelectModClick(self);
+          if FileListBox1.Items.IndexOf (name) <> -1 then
+            FileListBox1.itemindex := FileListBox1.Items.IndexOf (name)
+          else
+          begin
+              // known mod but running tad from different directory
+              DirectoryListbox1.Directory := path;
+              filelistbox1.directory := path;
+              FileListBox1.itemindex := FileListBox1.Items.IndexOf(name);
+          end;
           FileListBox1Click(Self);
       end;
-    end;
+    end else
+      if FindModId(0) <> - 1 then
+      begin
+        lbSelectMod.ItemIndex:= FindModId(0);
+      end;
   end else
   begin
     case options.usedir of
@@ -550,16 +605,16 @@ begin
             if options.lastmoddir <> -1 then
               if FindModId(options.lastmoddir) <> - 1 then
               begin
-                listSelectMod.ItemIndex:= FindModId(options.lastmoddir);
+                lbSelectMod.ItemIndex:= FindModId(options.lastmoddir);
                 if options.lastmoddir = 0 then
                   directorylistbox1.directory := options.defdir
                 else
-                  listSelectModClick(self);
+                  lbSelectModClick(self);
               end;
           end;
       1 : begin
             if FindModId(0) <> -1 then
-              listSelectMod.ItemIndex:= FindModId(0);
+              lbSelectMod.ItemIndex:= FindModId(0);
             directorylistbox1.directory := options.defdir;
           end;
     end;
@@ -750,6 +805,13 @@ var
   done: boolean;
 begin
   done:= LoadSelectedDemo;
+  if not GameInfoCollapsed then
+  begin
+    PanMainLeft.Width:= PanMainLeft.Width - 280;
+    PanMainRight.Width:= 280;
+    GameInfoCollapsed:= not GameInfoCollapsed;
+    ilSplitters.GetBitmap(0, imgSplitterVertic.Picture.Bitmap);
+  end;
 end;
 
 procedure TfmMain.tbSpeedChange(Sender: TObject);
@@ -994,6 +1056,8 @@ begin
   options.usenewtimer := r.readbool ('Options', 'newtime', true);
   options.playernames := r.readbool ('Options', 'playernames', true);
 
+  options.maintop := r.ReadInteger ('Options', 'layout_maintop', 136);
+
   r.WriteString ('Options', 'serverdir', ExtractFilePath (paramstr (0)));
   r.Free;
 end;
@@ -1028,6 +1092,8 @@ begin
   r.writebool ('Options', 'newtime', options.usenewtimer);
   r.writebool ('Options', 'skippause', options.skippause);
   r.writebool ('Options', 'playernames', options.playernames);
+
+  r.writeinteger ('Options', 'layout_maintop', options.maintop);
 
   r.Free;
 
@@ -1076,7 +1142,10 @@ begin
              (ReadString(Sections[i], 'Path', '') <> '') then
           begin
             LoadedModsList[i].ID := ReadInteger(Sections[i], 'ID', 0);
-            LoadedModsList[i].Name := ReadString(Sections[i], 'Name', 'Unknown');
+            if LoadedModsList[i].ID > 0 then
+              LoadedModsList[i].Name := ReadString(Sections[i], 'Name', 'Unknown [ID: ' + IntToStr(LoadedModsList[i].ID)+']')
+            else
+              LoadedModsList[i].Name := ReadString(Sections[i], 'Name', 'Unknown');
             LoadedModsList[i].Version := ReadString(Sections[i], 'Version', '');
             LoadedModsList[i].RegName := ReadString(Sections[i], 'RegName', '');
             LoadedModsList[i].Path := ReadString(Sections[i], 'Path', '');
@@ -1085,40 +1154,16 @@ begin
             Inc(incorrect);
             Continue;
           end;
-        FillModsSelectList;
         if not SectionExists('MOD0') then
-        begin
-          LoadedModsList[0].ID := 0;
-          LoadedModsList[0].Name := 'Backward compatibility';
-          LoadedModsList[0].Path := options.Tadir;
-          LoadedModsList[0].UseWeaponIdPatch := False;
-          WriteInteger('MOD0', 'ID', LoadedModsList[0].ID);
-          WriteString('MOD0', 'Name', LoadedModsList[0].Name);
-          WriteString('MOD0', 'Path', LoadedModsList[0].Path);
-          WriteBool('MOD0', 'UseWeaponIdPatch', LoadedModsList[0].UseWeaponIdPatch);
-        end;
+          SetMod0(False);
         end else {sections count < 1 }
           begin
-            s:= ExtractFileName(options.Tadir);
-            if Copy(s, Length(s)-2, 3) <> 'exe' then
-            begin
-              if FileExists(IncludeTrailingPathDelimiter(options.Tadir) + 'TotalA.exe') then
-                s := IncludeTrailingPathDelimiter(options.Tadir) + 'TotalA.exe';
-              options.Tadir:= s;
-            end;
-            SetLength(LoadedModsList, 1);
-            LoadedModsList[0].ID := 0;
-            LoadedModsList[0].Name := 'Backward compatibility';
-            LoadedModsList[0].Path := options.Tadir;
-            LoadedModsList[0].UseWeaponIdPatch := False;
-            WriteInteger('MOD0', 'ID', LoadedModsList[0].ID);
-            WriteString('MOD0', 'Name', LoadedModsList[0].Name);
-            WriteString('MOD0', 'Path', LoadedModsList[0].Path);
-            WriteBool('MOD0', 'UseWeaponIdPatch', LoadedModsList[0].UseWeaponIdPatch);
+            SetMod0(True);
           end;
       finally
         Sections.Free;
       end;
+      FillModsSelectList;
     finally
       Free;
     end;
@@ -1142,6 +1187,7 @@ var
  FileInfo: SHFILEINFO;
  i: integer;
 begin
+  lbSelectMod.Clear;
   for i:= Low(LoadedModslist) to High(LoadedModslist) do
   begin
     icon:= TIcon.Create;
@@ -1156,19 +1202,21 @@ begin
     finally
       icon.Free;
     end;
-    listSelectMod.Items.BeginUpdate;
+
+    lbSelectMod.Items.BeginUpdate;
     if LoadedModsList[i].ID = 0 then
-        listSelectMod.Items.Add('Not assigned demo files')
+        lbSelectMod.Items.Add('Not assigned demo files')
     else
       //listSelectMod.Items.Add(LoadedModsList[i].Name + ' ' + LoadedModsList[i].Version);
-      listSelectMod.Items.Add(LoadedModsList[i].Name);
-    listSelectMod.Items.EndUpdate;
+      lbSelectMod.Items.Add(LoadedModsList[i].Name);
+    lbSelectMod.Items.EndUpdate;
   end;
 end;
 
 procedure TfmMain.SetMod0(newlist: boolean);
 var
  s : string;
+ maxmod: integer;
 begin
   if newlist then
   begin
@@ -1183,7 +1231,6 @@ begin
 
   with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI) do
     try
-      if newlist then SetLength(LoadedModsList, 1);
       //fix loadedmodslist and write new path to ini
       if FindModId(0) <> - 1 then
       begin
@@ -1191,17 +1238,24 @@ begin
         LoadedModsList[FindModId(0)].Name:= 'Backward compatibility';
         LoadedModsList[FindModId(0)].ID:= 0;
         LoadedModsList[FindModId(0)].UseWeaponIdPatch:= False;
-        WriteInteger('MOD0', 'ID', 0);
-        WriteString('MOD0', 'Name', 'Backward compatibility');
-        WriteString('MOD0', 'Path', options.Tadir);
-        WriteBool('MOD0', 'UseWeaponIdPatch', False);
       end else
+      begin
+        if not newlist then
+          maxmod:= High(LoadedModsList)
+        else
         begin
-          WriteInteger('MOD0', 'ID', 0);
-          WriteString('MOD0', 'Name', 'Backward compatibility');
-          WriteString('MOD0', 'Path', options.Tadir);
-          WriteBool('MOD0', 'UseWeaponIdPatch', False);
+          maxmod := 0;
         end;
+        SetLength(LoadedModsList, maxmod + 1);
+        LoadedModsList[High(LoadedModsList)].Path:= options.Tadir;
+        LoadedModsList[High(LoadedModsList)].Name:= 'Backward compatibility';
+        LoadedModsList[High(LoadedModsList)].ID:= 0;
+        LoadedModsList[High(LoadedModsList)].UseWeaponIdPatch:= False;
+      end;
+      WriteInteger('MOD0', 'ID', 0);
+      WriteString('MOD0', 'Name', 'Backward compatibility');
+      WriteString('MOD0', 'Path', options.Tadir);
+      WriteBool('MOD0', 'UseWeaponIdPatch', False);
     finally
       Free;
     end;
@@ -1232,6 +1286,8 @@ var
   i: word;
 begin
   Result:= -1;
+  if Pointer(LoadedModsList) <> nil then
+  begin
   for i := Low(LoadedModsList) to High(LoadedModsList) do
   begin
     if LoadedModsList[i].ID = id then
@@ -1239,6 +1295,7 @@ begin
       Result:= i;
       Break;
     end;
+  end;
   end;
 end;
 
@@ -1308,7 +1365,7 @@ end;
 
 procedure TfmMain.btnModsEditorClick(Sender: TObject);
 begin
- // nbMain.PageIndex := 7;
+  nbMain.PageIndex := 7;
 end;
 
 procedure TfmMain.Button14Click(Sender: TObject);
@@ -1400,30 +1457,28 @@ begin
  if options.quickjoin then btnPlay.Click;
 end;
 
-procedure TfmMain.listSelectModMeasureItem(Control: TWinControl;
+procedure TfmMain.lbSelectModMeasureItem(Control: TWinControl;
   Index: Integer; var Height: Integer);
 begin
 height := ilModsIcons.Height + 4;
 end;
 
-procedure TfmMain.listSelectModDrawItem(Control: TWinControl;
+procedure TfmMain.lbSelectModDrawItem(Control: TWinControl;
   Index: Integer; Rect: TRect; State: TOwnerDrawState);
 var
-CenterText : integer;
-
+  CenterText : integer;
 begin
+  lbSelectMod.Canvas.FillRect (rect);
 
-listSelectMod.Canvas.FillRect (rect);
-
-// now draw
-if LoadedModsList[index].IconIndex <> - 1 then
-  ilModsIcons.Draw(listSelectMod.Canvas,rect.Left + 4, rect.Top + 4, LoadedModsList[index].IconIndex );
-
-// you have to center the text vertically besidethe bitmap, or it will appear a little heigher
-CenterText := ( rect.Bottom - rect.Top - listSelectMod.Canvas.TextHeight(text)) div 2 ;
-
-listSelectMod.Canvas.TextOut (rect.left + ilModsIcons.Width + 8 , rect.Top + CenterText,
-listSelectMod.Items.Strings[index]);
+  // now draw
+  if LoadedModsList[index].IconIndex <> - 1 then
+  begin
+    ilModsIcons.Draw(lbSelectMod.Canvas,rect.Left + 4, rect.Top + 4, LoadedModsList[index].IconIndex );
+    // you have to center the text vertically besidethe bitmap, or it will appear a little heigher
+    CenterText := ( rect.Bottom - rect.Top - lbSelectMod.Canvas.TextHeight(text)) div 2 ;
+    lbSelectMod.Canvas.TextOut (rect.left + ilModsIcons.Width + 8 , rect.Top + CenterText,
+    lbSelectMod.Items.Strings[index]);
+  end;
 end;
 
 procedure TfmMain.FileListBox1Change(Sender: TObject);
@@ -1432,7 +1487,7 @@ begin
 
 end;
 
-procedure TfmMain.listSelectModClick(Sender: TObject);
+procedure TfmMain.lbSelectModClick(Sender: TObject);
 var
   path, path2: string;
   listversions: boolean;
@@ -1443,16 +1498,16 @@ begin
   meGameInfo.Clear;
   lbVersions.Items.Clear;
   lbVersions.Visible:= False;
-  options.lastmoddir:= LoadedModsList[listSelectMod.ItemIndex].ID;
+  options.lastmoddir:= LoadedModsList[lbSelectMod.ItemIndex].ID;
   path:= IncludeTrailingPathDelimiter(options.defdir);
 
-  if LoadedModsList[listSelectMod.ItemIndex].ID <> 0 then
+  if LoadedModsList[lbSelectMod.ItemIndex].ID <> 0 then
   begin
-    if LoadedModsList[listSelectMod.ItemIndex].Name <> '' then
+    if LoadedModsList[lbSelectMod.ItemIndex].Name <> '' then
     begin
       path:= path + IncludeTrailingPathDelimiter(
-                    fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Name));
-      if (LoadedModsList[listSelectMod.ItemIndex].Version) <> '' then
+                    fnRemoveInvalidChar(LoadedModsList[lbSelectMod.ItemIndex].Name));
+      if (LoadedModsList[lbSelectMod.ItemIndex].Version) <> '' then
         listversions:= True;
  //                   '\' + fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Version));
     end;
@@ -1461,19 +1516,30 @@ begin
   if listversions then
   begin
     lbSelectVersion.Visible:= True;
-    listSelectMod.Width:= 329;
-    path2:= path + fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Version);
+    lbSelectMod.Width:= panMainLeft.Width - lbVersions.Width - 7;
+    lbVersions.Left:= lbSelectMod.Width + 7;
+    lbVersions.Width:= panMainLeft.Width - lbSelectMod.Width - 7;
+    lbSelectVersion.Left:= lbSelectMod.Width + 7;
+    path2:= path + fnRemoveInvalidChar(LoadedModsList[lbSelectMod.ItemIndex].Version);
     ForceDirectories(path2);
     directorylistbox1.Directory:= path2;
     // fill lbVersions here
     lbVersions.Visible:= True;
     GetSubDirectories(path, lbVersions.Items);
-    lbVersions.ItemIndex:= lbVersions.Items.IndexOf(LoadedModsList[listSelectMod.ItemIndex].Version);
+    lbVersions.ItemIndex:= lbVersions.Items.IndexOf(LoadedModsList[lbSelectMod.ItemIndex].Version);
     // select index if found itemof
   end else
     begin
       lbSelectVersion.Visible:= False;
-      listSelectMod.Width:= 477;
+      if not GameInfoCollapsed then
+      begin
+        lbSelectMod.Width:= panMainLeft.Width;
+       // ilSplitters.GetBitmap(0, imgSplitterVertic.Picture.Bitmap);
+      end else
+      begin
+        lbSelectMod.Width:= panMainLeft.Width;
+        //ilSplitters.GetBitmap(1, imgSplitterVertic.Picture.Bitmap);
+      end;
       if DirectoryExists(path) then
         directorylistbox1.Directory:= path
       else
@@ -1482,7 +1548,6 @@ begin
         else
           directorylistbox1.Directory:= options.defdir;
     end;
-
   {if LoadedModsList[listSelectMod.ItemIndex].ID <> 0 then
   begin
     path:= IncludeTrailingPathDelimiter(options.defdir);
@@ -1523,13 +1588,9 @@ procedure GetSubDirectories(const directory : string; list : TStrings);
      SysUtils.FindClose(sr) ;
    end;
  end;
-
-procedure TfmMain.SpeedButton1Click(Sender: TObject);
-begin
-     DirectoryListBox1.FileList := nil;
+    {DirectoryListBox1.FileList := nil;
     FileListBox1.Directory := '.';
-    DirectoryListBox1.FileList := FileListBox1 // reset
-end;
+    DirectoryListBox1.FileList := FileListBox1;}
 
 function fnRemoveInvalidChar(const sString: string) : String;
 var
@@ -1567,7 +1628,7 @@ begin
 
   path:= IncludeTrailingPathDelimiter(options.defdir);
   path:= path +
-         IncludeTrailingPathDelimiter(fnRemoveInvalidChar(LoadedModsList[listSelectMod.ItemIndex].Name)) +
+         IncludeTrailingPathDelimiter(fnRemoveInvalidChar(LoadedModsList[lbSelectMod.ItemIndex].Name)) +
          IncludeTrailingPathDelimiter(lbVersions.Items.Strings[lbVersions.ItemIndex]);
 
   directorylistbox1.Directory:= path;
@@ -1575,8 +1636,124 @@ end;
 
 procedure TfmMain.FormCreate(Sender: TObject);
 begin
-  listSelectMod.Width:= 477;
+  TVistaAltFix.Create(Self);
+  lbSelectMod.Width:= panMainTop.Width;
   lbSelectVersion.Visible:= False;
+  GameInfoCollapsed:= True;
+  ilSplitters.GetBitmap(0, imgSplitterVertic.Picture.Bitmap);
+end;
+
+procedure TfmMain.btnCancelModsOrderClick(Sender: TObject);
+begin
+  nbMain.PageIndex := 6;
+end;
+
+procedure TfmMain.lbModsOrderDragDrop(Sender, Source: TObject; X,
+  Y: Integer);
+var
+  DropPosition, StartPosition: Integer;
+  DropPoint: TPoint;
+begin
+  DropPoint.X := X;
+  DropPoint.Y := Y;
+  with Source as TListBox do
+  begin
+    StartPosition := ItemAtPos(StartingPoint,True);
+    DropPosition := ItemAtPos(DropPoint,True);
+    Items.Move(StartPosition, DropPosition);
+  end;
+end;
+
+procedure TfmMain.lbModsOrderDragOver(Sender, Source: TObject; X,
+  Y: Integer; State: TDragState; var Accept: Boolean);
+begin
+  Accept := Source = lbModsOrder;
+end;
+
+procedure TfmMain.lbModsOrderMouseDown(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  StartingPoint.X := X;
+  StartingPoint.Y := Y;
+end;
+
+procedure TfmMain.btnSaveModsOrderClick(Sender: TObject);
+var
+  i, j, modid: integer;
+  Section, Ident, Value: string;
+  IdentValues: TStringList;
+  Old, New: TINIFile;
+begin
+  Old := TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI);
+  New := TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'tmp.ini');
+  IdentValues := TStringList.Create;
+  try
+    for i:= 0 to lbModsOrder.Items.Count - 1 do
+    begin
+      modid := Integer(lbModsOrder.Items.Objects[i]);
+      Section := 'MOD'+IntToStr(modid);
+      Old.ReadSectionValues(Section, IdentValues);
+      for j := 0 to IdentValues.Count - 1 do
+      begin
+        Ident := IdentValues.Names[j];
+        Value := IdentValues.Values[Ident];
+        New.WriteString(Section, Ident, Value);
+      end;
+    end;
+    finally
+      Old.Free;
+      New.Free;
+  end;
+
+  DeleteFile(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI);
+  RenameFile(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'tmp.ini', IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI);
+
+  SetLength(LoadedModsList, 0);
+  LoadModsList;
+  FillModsSelectList;
+  lbSelectMod.ItemIndex:= 0;
+  lbSelectModClick(Self);
+  nbMain.PageIndex:= 4;
+  // fill mods list on main
+  // go to main page
+  //FreeObjects(lbModsOrder.Items);
+end;
+
+procedure TfmMain.splitterMainVerticMoved(Sender: TObject);
+begin
+  if not lbSelectVersion.Visible then
+    lbSelectMod.Width:= panMainLeft.Width;
+end;
+
+procedure TfmMain.imgSplitterVerticClick(Sender: TObject);
+var
+bitm: tbitmap;
+begin
+  bitm:= tbitmap.Create;
+  GameInfoCollapsed := not GameInfoCollapsed;
+  if GameInfoCollapsed then
+  begin
+    PanMainLeft.Width:= PanMainLeft.Width - 280;
+    PanMainRight.Width:= 280;
+    if not lbSelectVersion.Visible then
+      lbSelectMod.Width:= PanMainLeft.Width;
+    imgSplitterVertic.Picture.Bitmap.Handle:= bitm.Handle;
+    ilSplitters.GetBitmap(0,imgSplitterVertic.Picture.Bitmap);
+  end else
+  begin
+    PanMainRight.Width:= 0;
+    PanMainLeft.Width:= PanMainLeft.Width + 280;
+    if not lbSelectVersion.Visible then
+      lbSelectMod.Width:= PanMainLeft.Width;
+    imgSplitterVertic.Picture.Bitmap.Handle:= bitm.Handle;
+    ilSplitters.GetBitmap(1,imgSplitterVertic.Picture.Bitmap);
+  end;
+  bitm.Free;
+end;
+
+procedure TfmMain.splitterMainHorizMoved(Sender: TObject);
+begin
+  options.maintop:= panMainTop.Height;
 end;
 
 end.
