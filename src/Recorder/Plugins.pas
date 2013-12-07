@@ -1,5 +1,5 @@
 unit Plugins;
-{.$DEFINE KeybrdHook}
+{.$DEFINE KeyboardHookPlugin}
 interface
 
 
@@ -20,8 +20,8 @@ uses
   UnitLimit,
   MultiAILimit,
   //nocd,
-  {$IFDEF KeybrdHook}KeyboardHook,{$ENDIF}
-  {$IFDEF KeybrdHook}BattleRoomScroll,{$ENDIF}
+  {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
+  {$IFDEF KeyboardHookPlugin}BattleRoomScroll,{$ENDIF}
   COB_extensions,
   LOS_extensions;
 
@@ -42,8 +42,8 @@ if OnMainRun then
   RegisterPlugin( LOS_extensions.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );
   RegisterPlugin( MultiAILimit.GetPlugin() );
-  {$IFDEF KeybrdHook}RegisterPlugin( KeyboardHook.GetPlugin() );{$ENDIF}
-  {$IFDEF KeybrdHook}RegisterPlugin( BattleRoomScroll.GetPlugin() );{$ENDIF}
+  {$IFDEF KeyboardHookPlugin}RegisterPlugin( KeyboardHook.GetPlugin() );{$ENDIF}
+  {$IFDEF KeyboardHookPlugin}RegisterPlugin( BattleRoomScroll.GetPlugin() );{$ENDIF}
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );

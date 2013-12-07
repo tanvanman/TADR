@@ -168,7 +168,7 @@ begin
 Result := True;
 if (params.Count > 0) and not (params.find(Players[1].Name,i)) then
   Exit;
-SendChat('*** '+Players[1].Name+' uses TA Unofficial Patch ' + GetTADemoVersion + ' ('+getRecorderStatusString+')');
+SendChat('*** '+Players[1].Name+' uses TA Unofficial Patch ' + {$IFDEF Warzone}'WZ ' +{$ENDIF}GetTADemoVersion + ' ('+getRecorderStatusString+')');
 {
 if imserver then
    SendChat ('imserver ' + inttostr(servernumber))
@@ -180,23 +180,22 @@ end;
 function TDPlay.OnReportMod( const Command : string;  Sender : TPlayerData; params : TStringList ) : Boolean;
 var
   i: Integer;
-  sWeapID: string;
   sVersion: string;
   Msg: string;
 begin
-Result := True;
-if (params.Count > 0) and not (params.find(Players[1].Name,i)) then
-  Exit;
-if iniSettings.modId <> 0 then
-  if iniSettings.weaponidpatch then
-    sWeapID:= '(T)'
-  else
-    sWeapID:= '(F)';
-  if iniSettings.Version <> '' then
-    sVersion:= ' ' + iniSettings.Version;
-  msg:= Players[1].Name+' uses ' + iniSettings.Name + sVersion +  ' (Mod ID: '+ IntToStr(iniSettings.modId) +') ' + sWeapID;
-  msg:= Copy(msg, 1, 63);
-  SendChat(msg);
+  Result := True;
+  if (params.Count > 0) and not (params.find(Players[1].Name,i)) then
+    Exit;
+  if iniSettings.modId <> 0 then
+  begin
+    if iniSettings.Version <> '' then
+      sVersion:= ' ' + iniSettings.Version;
+    Msg:= '*** '+Players[1].Name+' uses ' + iniSettings.Name + sVersion +  ' (ID: '+ IntToStr(iniSettings.modId) +')';
+  end else
+  begin
+    Msg:= '*** '+Players[1].Name+': OTA or backward compatibility mode';
+  end;
+    SendChat(Msg);
 end;
 
 function TDPlay.OnDate( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;

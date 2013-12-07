@@ -1,7 +1,10 @@
 unit idplay;
 {$DEFINE Release}
+
 {.$DEFINE WarZone}
-{.$DEFINE KeybrdHook}
+{.$DEFINE KeyboardHookPlugin}
+{.$DEFINE AllowStatsCreate}
+
 {.$DEFINE DebuggerHooks}
 
 // causes the $2c packets to be logged
@@ -92,15 +95,6 @@ type
     shareMapPos  : Boolean;
     OldMapX : Word;
     OldMapY : Word;
-  protected // stats reporting
-    statdll      : HModule;
-
-   { procstart    : TStart_StatEvent;
-    procnewunit  : TNewUnit_StatEvent;
-    procunitfinished  : TUnitFinished_StatEvent;
-    procdamage   : TDamage_StatEvent;
-    prockill     : TKill_StatEvent;
-    procstat     : TStats_StatEvent; }
   protected
     //this is earlier recorded game?
     NotViewingRecording :Boolean;
@@ -423,7 +417,7 @@ uses
  TA_FunctionsU,
  InputHook,
  INI_Options,
- {$IFDEF KeybrdHook}KeyboardHook,{$ENDIF}
+ {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
  {$IFDEF WarZone}WarZoneRankings,{$ENDIF}
  ModsList;
 
@@ -1061,6 +1055,10 @@ if fixfacexps then
 else
   result:=result+'-';
 if protectdt then
+  result:=result+'T'
+else
+  result:=result+'-';
+if iniSettings.weaponidpatch then
   result:=result+'T'
 else
   result:=result+'-';
@@ -2119,7 +2117,7 @@ if assigned(chatview) then
         begin //börja ladda
         TLog.add(3,'loading started');
         TAStatus := InLoading;
-        {$IFDEF KeybrdHook}
+        {$IFDEF KeyboardHookPlugin}
         keyboardHookLevel:= 0;
         {$ENDIF}
         if assigned(chatview) then
@@ -2246,7 +2244,7 @@ if assigned(chatview) then
         begin
         IsInGame := True;
         TAStatus := InGame;
-        {$IFDEF KeybrdHook}
+        {$IFDEF KeyboardHookPlugin}
         keyboardHookLevel:= 2;
         {$ENDIF}
         if assigned(chatview) then
@@ -3476,7 +3474,7 @@ try
   ServerPlayer := nil;
   PacketsToFilter := nil;
   TAStatus := InBattleRoom;
-  {$IFDEF KeybrdHook}
+  {$IFDEF KeyboardHookPlugin}
   keyboardHookLevel:= 1;
   {$ENDIF}
 //  IamServer := false;
@@ -3489,7 +3487,8 @@ try
   protectdt := reg.ReadBool ('Options', 'fixall', False);
   shareMapPos := reg.ReadBool ('Options', 'sharepos', True);
   createTxtFile:= reg.ReadBool ('Options', 'createtxt', False);
-  createStatsFile:= reg.ReadBool ('Options', 'createstats', False);
+  {$IFDEF AllowStatsCreate}createStatsFile:= reg.ReadBool ('Options', 'createstats', False);
+  {$ELSE}createStatsFile:= False;{$ENDIF}
 
   logpl:=false;
   EmitBuggyVersionWarnings := reg.ReadBool( 'Options', 'EmitBuggyVersionWarnings', False );

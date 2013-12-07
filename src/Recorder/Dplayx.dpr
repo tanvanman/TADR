@@ -43,8 +43,8 @@ uses
   LOS_AllyPlayer in 'plugins\LOS_AllyPlayer.pas',
   ErrorLog_ExtraData in 'plugins\ErrorLog_ExtraData.pas',
   Thread_marshaller in 'plugins\Thread_marshaller.pas',
-  {$IFDEF KeybrdHook}KeyboardHook in 'plugins\KeyboardHook.pas',{$ENDIF}
-  {$IFDEF KeybrdHook}BattleRoomScroll in 'plugins\BattleRoomScroll.pas',{$ENDIF}
+  {$IFDEF KeyboardHookPlugin}KeyboardHook in 'plugins\KeyboardHook.pas',{$ENDIF}
+  {$IFDEF KeyboardHookPlugin}BattleRoomScroll in 'plugins\BattleRoomScroll.pas',{$ENDIF}
   INI_Options in 'INI_Options.pas',
   {$IFDEF WarZone}WarZoneRankings in 'WarZoneRankings.pas',{$ENDIF}
   ModsList in 'ModsList.pas',

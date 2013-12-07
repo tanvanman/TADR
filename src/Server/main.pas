@@ -185,6 +185,9 @@ type
     panMainMid: TPanel;
     imgSplitterVertic: TImage;
     ilSplitters: TImageList;
+    Label6: TLabel;
+    Label7: TLabel;
+    Bevel13: TBevel;
     procedure nbMainPageChanged(Sender: TObject);
     procedure FormActivate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
