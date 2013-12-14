@@ -18,8 +18,8 @@ Procedure OnUninstallCobExtensions;
 
 // -----------------------------------------------------------------------------
 const
- // indicates if the 1st parameter(a unit ID) is local to this computer
- UNIT_IS_ON_THIS_COMP = 75;
+ // gets kills * 100
+ VETERAN_LEVEL = 32;
  // returns the lowest valid unit ID number
  MIN_ID = 69;
  // returns the highest valid unit ID number
@@ -32,14 +32,19 @@ const
  UNIT_BUILD_PERCENT_LEFT = 73;
  // is unit given with parameter allied to the unit of the current COB script. 1=allied, 0=not allied
  UNIT_ALLIED = 74;
- // gets kills * 100
- VETERAN_LEVEL = 32;
+ // indicates if the 1st parameter(a unit ID) is local to this computer
+ UNIT_IS_ON_THIS_COMP = 75;
+ // health value
+ HEALTH_VAL = 76;
+ 
  
  CUSTOM_LOW = MIN_ID;
- CUSTOM_HIGH = UNIT_IS_ON_THIS_COMP;
+ //CUSTOM_HIGH = UNIT_IS_ON_THIS_COMP;
+ CUSTOM_HIGH = HEALTH_VAL;
 // -----------------------------------------------------------------------------
 
 Procedure COB_Extensions_Handling;
+Procedure COB_ExtensionsSetters_Handling;
 
 implementation
 uses
@@ -70,6 +75,12 @@ if IsTAVersion31 and State_COB_extensions then
                           $480770,
                           $1 );
 
+  result.MakeRelativeJmp( State_COB_extensions,
+                          'COB Extensions Setters handler',
+                          @COB_ExtensionsSetters_Handling,
+                          $480B20,
+                          $1 );
+
 
   end
 else
@@ -85,6 +96,7 @@ var
   TAPlayerType : TTAPlayerType;
 begin
 result := 0;
+
 if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
   begin
   case index of
@@ -116,6 +128,10 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result := TAUnit.getKills(pointer(unitPtr))*100;
       end;
+    HEALTH_VAL :
+      begin
+      result := TAUnit.getHealth(pointer(unitPtr));
+      end;
     UNIT_IS_ON_THIS_COMP:
       begin
       Unit2Ptr := TAMem.GetUnitPtr(arg1);
@@ -128,6 +144,18 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
                           result := 1;
        end;
       end;
+    end;
+  end;
+end;
+
+procedure CustomSetters( index: longword; unitPtr : longword;
+                        arg1: longword); stdcall;
+begin
+  if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
+  begin
+    case index of
+      HEALTH_VAL  : TAUnit.setHealth(pointer(unitPtr), arg1);
+      
     end;
   end;
 end;
@@ -199,6 +227,63 @@ DoReturn:
   pop esi;
   add esp, 24h;
   ret 14h;  
+end;
+
+Procedure COB_ExtensionsSetters_Handling;
+
+label
+  DefaultCase,
+  DoReturn,
+  GeneralCaseSetter;
+asm
+  // function prolog
+  mov     eax, [ecx+540h]
+  mov     ecx, [esp+4]//[esp+arg_0]
+  push    esi
+  // start of case statement
+  mov     esi, [eax+0Ch];
+  mov     esi, [eax+0Ch]
+  lea     eax, [ecx-1]    // switch 20 cases
+  cmp     eax, 13h
+  ja      DefaultCase
+
+  xor edx, edx
+  mov dl, ds:$480C18[eax]
+  jmp     ds:$480BFC[edx*4] // switch jump
+  // should not get here
+  int 3
+  
+DefaultCase:
+  inc eax;
+  cmp eax, UNIT_BUILD_PERCENT_LEFT
+  jnz GeneralCaseSetter
+
+  mov ecx,[TADynmemStructPtr]
+  mov esi,[esp+28h+$8]
+  imul esi, UnitStructSize
+  mov eax, [ecx+TAdynmemStruct_Units]
+  add esi, eax
+
+  cmp esi, eax
+  jb DoReturn
+
+  mov eax, [ecx+TAdynmemStruct_Units_EndMarker]
+  cmp esi, eax
+  jae DoReturn  
+
+  push $480BF1  // dunno is it correct :<
+  Call PatchNJump;
+
+GeneralCaseSetter:
+  mov ecx, [esp+4h+$8] // value to be set
+  push ecx;
+  push esi;             // unitPtr
+  push eax;             // index
+  call CustomSetters;
+
+DoReturn:
+  pop esi;
+  ret 8h;
 end;
 
 end.

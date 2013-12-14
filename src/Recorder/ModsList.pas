@@ -12,7 +12,7 @@ const
 implementation
 uses idplay, INI_Options;
 
-var ReplayerPath: string;
+//var ReplayerPath: string;
 
 function FixModsINI(replayerDir: string): boolean;
 var

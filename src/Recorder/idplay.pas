@@ -167,11 +167,12 @@ type
     TakeRef : Integer;
 
     killunits    : string;
-    MapsList : TStringList;
+
     function getRecorderStatusString : string;
     procedure GetRandomMap (fname :string);
-    //procedure GetRandomMapEx;
-
+    procedure GetRandomMapEx;
+  public
+    MapsList : TStringList;
   protected
     Commands : TCommands;
 //    PacketHandlerMgr : TPacketHandlerMgr;
@@ -747,11 +748,11 @@ begin
   end;
 end;
 
-{procedure TDPlay.GetRandomMapEx;
+procedure TDPlay.GetRandomMapEx;
 var
   st    :string;
   nr    :integer;
-  error :integer;
+  //error :integer;
   tot   :integer;
   i     :integer;
   currchar :char;
@@ -771,9 +772,11 @@ begin
       nr:= 1;
       while nr < tot do
       begin
+
         for i:= 1 to 64 do
         begin
           currchar:= PChar(pos)^;
+
           if currchar <> #0 then
           begin
             mapname:= mapname + currchar;
@@ -783,14 +786,18 @@ begin
             MapsList.AddObject (mapname, pointer(nr));
             Inc(nr);
             mapname:= '';
-            //avoid #0
             Inc(pos);
             Break;
           end;
         end;
+
       end;
+    end;
+
   end else
-   tot := CreateMultiplayerMapsList(0, 0, 0);
+  begin
+    tot := CreateMultiplayerMapsList(0, 0, 0);
+  end;
 
   if MapsList.count = 0 then
   begin
@@ -799,9 +806,10 @@ begin
   end;
 
   nr := Random (tot-1);
-  error := 0;
-  st := 'none!! should not happen heh';
-  for i := 0 to MapsList.count - 1 do
+  //error := 0;
+  //st := 'none!! should not happen heh';
+  st := MapsList.strings[nr];
+  {for i := 0 to MapsList.count - 1 do
   begin
     inc (error, integer(MapsList.Objects [i]));
     if nr < error then
@@ -809,11 +817,12 @@ begin
       st := MapsList.strings [i];
       break;
     end;
-  end;
+  end;  }
+
+
   SendChat('The randomly selected map is: '+st);
-  end;
- end;
-end;  }
+end;
+end;
 
 // -----------------------------------------------------------------------------
 

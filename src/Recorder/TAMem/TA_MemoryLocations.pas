@@ -14,6 +14,8 @@ const
   TAdynmemStruct_GameSpeed = $38A4B; // word
   TAdynmemStruct_IsPaused = $38A51;  //
 
+  //1439B - unit info array
+  //1438F - unit info count
   TAdynmemStruct_Units = $14357;// pointer
   TAdynmemStruct_Units_EndMarker = $1435B; // pointer
   TAdynmemStruct_UnitCount_Unk = $14353; // pointer
@@ -41,10 +43,13 @@ const
 
 
   UnitStructSize = $118;
-  UnitStruct_OwnerIndex = $ff;
+  UnitStruct_OwnerIndex = $FF;
   UnitStruct_OwnerPtr = $96;  
-  UnitStruct_Kills = $b8;
+  UnitStruct_Kills = $B8;
+  UnitStruct_RecentDamage = $FA;
   UnitStruct_BuildTimeLeft = $104;
+  UnitStruct_HealthVal = $108;
+
 const
   ShiftBiuldClick_Add : PShortInt = PShortInt($41ac14);
   ShiftBiuldClick_Sub : PShortInt = PShortInt($41ac18);
@@ -125,6 +130,10 @@ type
   public
     class Function getKills(unitptr : pointer) : word;
     class procedure setKills(unitptr : pointer; Kills : word);
+
+    class Function getHealth(unitptr : pointer) : word;
+    class procedure setHealth(unitptr : pointer; Health : longword);
+    class Function getRecentDamage(unitptr : pointer) : byte;
     class Function getBuildTimeLeft(unitptr : pointer) : single;
 
     class Function GetOwnerPtr(unitptr : pointer) : pointer;
@@ -396,6 +405,21 @@ end;
 class procedure TAUnit.setKills(unitptr : pointer; Kills : word);
 begin
 PWord( Longword(unitptr)+UnitStruct_Kills)^ := Kills;
+end;
+
+class Function TAUnit.getHealth(unitptr : pointer) : word;
+begin
+result := PWord( Longword(unitptr)+UnitStruct_HealthVal)^
+end;
+
+class procedure TAUnit.setHealth(unitptr : pointer; Health : longword);
+begin
+PLongWord( Longword(unitptr)+UnitStruct_HealthVal)^ := Health;
+end;
+
+class Function TAUnit.getRecentDamage(unitptr : pointer) : byte;
+begin
+result := PByte( Longword(unitptr)+UnitStruct_RecentDamage)^
 end;
 
 class Function TAUnit.getBuildTimeLeft(unitptr : pointer) : single;
