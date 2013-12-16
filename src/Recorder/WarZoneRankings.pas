@@ -143,7 +143,6 @@ var
   foundid: integer;
 begin
   Result:= False;
-  foundpos:= 0;
   foundcount:= 0;
   foundid:= -1;
   ResultString:= '';

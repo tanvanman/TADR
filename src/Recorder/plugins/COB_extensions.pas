@@ -18,6 +18,7 @@ Procedure OnUninstallCobExtensions;
 
 // -----------------------------------------------------------------------------
 const
+ { GET }
  // gets kills * 100
  VETERAN_LEVEL = 32;
  // returns the lowest valid unit ID number
@@ -34,17 +35,26 @@ const
  UNIT_ALLIED = 74;
  // indicates if the 1st parameter(a unit ID) is local to this computer
  UNIT_IS_ON_THIS_COMP = 75;
+
+ { GET/SET }
  // health value
  HEALTH_VAL = 76;
- 
+ // cloack mode
+ CLOAKED = 77;
  
  CUSTOM_LOW = MIN_ID;
- //CUSTOM_HIGH = UNIT_IS_ON_THIS_COMP;
- CUSTOM_HIGH = HEALTH_VAL;
+ CUSTOM_HIGH = CLOAKED;
 // -----------------------------------------------------------------------------
 
 Procedure COB_Extensions_Handling;
 Procedure COB_ExtensionsSetters_Handling;
+
+function CustomGetters( index : longword;
+                        unitPtr : longword;
+                        arg1, arg2, arg3, arg4 : longword) : longword; stdcall;
+
+procedure CustomSetters( index: longword; unitPtr : longword;
+                        arg1: longword); stdcall;
 
 implementation
 uses
@@ -132,6 +142,13 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result := TAUnit.getHealth(pointer(unitPtr));
       end;
+    CLOAKED :
+      begin
+        if TAUnit.getCloak(pointer(unitPtr)) then
+          Result:= 1
+        else
+          Result:= 0;
+      end;
     UNIT_IS_ON_THIS_COMP:
       begin
       Unit2Ptr := TAMem.GetUnitPtr(arg1);
@@ -154,8 +171,22 @@ begin
   if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
   begin
     case index of
-      HEALTH_VAL  : TAUnit.setHealth(pointer(unitPtr), arg1);
-      
+      HEALTH_VAL :
+        begin
+          TAUnit.setHealth(pointer(unitPtr), arg1);
+        end;
+      CLOAKED :
+        begin
+          TAUnit.setCloak(pointer(unitPtr), arg1);
+        end;
+      {SUNITX :
+        begin
+          TAUnit.setUnitX(pointer(unitPtr), arg1);
+        end;
+      SUNITY :
+        begin
+          TAUnit.setUnitY(pointer(unitPtr), arg1);
+        end; }
     end;
   end;
 end;
@@ -271,7 +302,7 @@ DefaultCase:
   cmp esi, eax
   jae DoReturn  
 
-  push $480BF1  // dunno is it correct :<
+  push $480BF1
   Call PatchNJump;
 
 GeneralCaseSetter:

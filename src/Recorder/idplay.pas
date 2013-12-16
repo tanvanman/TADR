@@ -168,11 +168,11 @@ type
 
     killunits    : string;
 
-    function getRecorderStatusString : string;
+    MapsList : TStringList;
     procedure GetRandomMap (fname :string);
     procedure GetRandomMapEx;
-  public
-    MapsList : TStringList;
+
+    function getRecorderStatusString : string;
   protected
     Commands : TCommands;
 //    PacketHandlerMgr : TPacketHandlerMgr;
@@ -2338,7 +2338,7 @@ if assigned(chatview) then
                   ToPlayer := players.EveryonePlayer;
                   end;
               end;
-        #$09 :begin //börjar bygga
+        #$09 :begin // unit build started
 //yx bas
                 pw:=@tmp[2];
                 w:=pw^;
@@ -2469,9 +2469,9 @@ if assigned(chatview) then
                   if tmp[2] = #$0b then
                     begin
                     UnitStatus[a].DoneStatus := 1000;
-                    if UnitStatus[a].unitalive then
+                    if UnitStatus[a].UnitAlive then
                       begin
-                      UnitStatus[a].unitalive := false;
+                      UnitStatus[a].UnitAlive := false;
                       UnitCountChange(FromPlayer,-1);
                       end;
                     end;
@@ -2482,14 +2482,14 @@ if assigned(chatview) then
                   TLog.add (3,'StartInfo.ID :  ' + inttostr (StartInfo.ID [FromPlayerID]));}
                   if (pw^ = $ffff) and (Length (tmp) > 13) then
                     begin
-                    if not UnitStatus[a].unitalive then
+                    if not UnitStatus[a].UnitAlive then
                       begin
-                      UnitStatus[a].unitalive := true;
+                      UnitStatus[a].UnitAlive := true;
                       UnitCountChange(FromPlayer,1);
                       end;
                     UnitStatus[a].health := BinToInt(tmp, 11, 2, 16);
                     b := UnitStatus[a].DoneStatus;
-                    UnitStatus[a].DoneStatus := BinToInt (tmp, 13, 2, 8);
+                    UnitStatus[a].DoneStatus := BinToInt(tmp, 13, 2, 8);
                     if (UnitStatus[a].DoneStatus = 0) and (b > 0) then
                       begin end;
 //                      SendChat (FromPlayer.Name + ' unit ' + inttostr (currnr^ mod maxunits) + ' is done (confirmed)');
@@ -2524,7 +2524,7 @@ if assigned(chatview) then
             end;
             end;
               end;
-        #$12 :begin //unit är klarbyggd
+        #$12 :begin //unit build done
                 pw:=@tmp[2];
                 w:=pw^;
                 if CreateStatsFile then
@@ -2533,7 +2533,7 @@ if assigned(chatview) then
 //                SendChat (Players.Name[FromPlayerID] + ' unit ' + inttostr (w - (StartInfo.ID [FromPlayerID] + 1)) + ' is done');
               end;
         #$0c :
-          begin //unit dör
+          begin //unit is dead
             pw:=@tmp[2];
             w:=pw^;
             if CreateStatsFile then
@@ -2550,7 +2550,7 @@ if assigned(chatview) then
             end;
           end;
         #$0b :
-          begin //skada
+          begin //unit damage
           if CreateStatsFile then
             begin
             pw:=@tmp[2];
@@ -2600,7 +2600,7 @@ if assigned(chatview) then
               end;
           end;
           end;
-        #$28 :begin  //spelar status
+        #$28 :begin  // player resources status
                a:=FromPlayer.LastTimeStamp-FromPlayer.Economy.LastTimeStamp;
                if a<180 then
                  a:=120;

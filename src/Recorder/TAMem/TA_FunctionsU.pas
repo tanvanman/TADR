@@ -157,10 +157,10 @@ begin
 end;
 
 procedure SendTextLocal(Text: string);
-var
-  TmpResult: LongInt;
+{var
+  TmpResult: LongInt; }
 begin
-  TmpResult:= SendText(PAnsiChar(Text), 0);
+  SendText(PAnsiChar(Text), 0);
 end;
 
 end.

@@ -44,15 +44,26 @@ const
 
   UnitStructSize = $118;
   UnitStruct_OwnerIndex = $FF;
+
+  UnitStruct_Pos = $6A;
+  UnitStruct_Posx_ = $0;
+  UnitStruct_PosX = $2;
+  UnitStruct_Posz_ = $4;
+  UnitStruct_PosZ = $6;
+  UnitStruct_Posy_ = $8;
+  UnitStruct_PosY = $A;
+
   UnitStruct_OwnerPtr = $96;  
-  UnitStruct_Kills = $B8;
-  UnitStruct_RecentDamage = $FA;
-  UnitStruct_BuildTimeLeft = $104;
-  UnitStruct_HealthVal = $108;
+  UnitStruct_Kills = $B8; // word
+  UnitStruct_RecentDamage = $FA; // byte, it's a count down after being hit by sth, starts from $F0
+  UnitStruct_BuildTimeLeft = $104; // dword
+  UnitStruct_HealthVal = $108;  // word
+  UnitStruct_cIsCloaked = $10E;  // word, get is correct, set can be false positive, use unit state mask
+  UnitStruct_UnitStateMask = $110; // dword
 
 const
-  ShiftBiuldClick_Add : PShortInt = PShortInt($41ac14);
-  ShiftBiuldClick_Sub : PShortInt = PShortInt($41ac18);
+  ShiftBiuldClick_Add : PShortInt = PShortInt($41AC14);
+  ShiftBiuldClick_Sub : PShortInt = PShortInt($41AC18);
 
 
 // PLongword(0x4BF8C0)^ := 0xcc2 // disable TA buildrectangel, note: use WriteProcessMemory
@@ -133,6 +144,13 @@ type
 
     class Function getHealth(unitptr : pointer) : word;
     class procedure setHealth(unitptr : pointer; Health : longword);
+
+    class Function getCloak(unitptr : pointer) : boolean;
+    class procedure setCloak(unitptr : pointer; Cloak : word);
+
+    class procedure setUnitX(unitptr : pointer; X : word);
+    class procedure setUnitY(unitptr : pointer; Y : word);
+
     class Function getRecentDamage(unitptr : pointer) : byte;
     class Function getBuildTimeLeft(unitptr : pointer) : single;
 
@@ -376,7 +394,7 @@ end;
 
 Class function TAPlayer.GetShootAll : boolean;
 begin
-  if (PByte(Plongword($511DE8)^+$37F30)^ and (1 shl 2)) = 4 then
+  if (PByte(Plongword(TADynmemStructPtr)^+$37F30)^ and (1 shl 2)) = 4 then
     Result:= True
   else
     Result:= False;
@@ -399,7 +417,7 @@ end;
 
 class Function TAUnit.getKills(unitptr : pointer) : word;
 begin
-result := PWord( Longword(unitptr)+UnitStruct_Kills)^
+result := PWord( Longword(unitptr)+UnitStruct_Kills)^;
 end;
 
 class procedure TAUnit.setKills(unitptr : pointer; Kills : word);
@@ -409,7 +427,7 @@ end;
 
 class Function TAUnit.getHealth(unitptr : pointer) : word;
 begin
-result := PWord( Longword(unitptr)+UnitStruct_HealthVal)^
+result := PWord( Longword(unitptr)+UnitStruct_HealthVal)^;
 end;
 
 class procedure TAUnit.setHealth(unitptr : pointer; Health : longword);
@@ -417,24 +435,56 @@ begin
 PLongWord( Longword(unitptr)+UnitStruct_HealthVal)^ := Health;
 end;
 
+class procedure TAUnit.setUnitX(unitptr : pointer; X : word);
+begin
+PWord( Longword(unitptr)+UnitStruct_Pos+UnitStruct_PosX)^ := X;
+end;
+
+class procedure TAUnit.setUnitY(unitptr : pointer; Y : word);
+begin
+PWord( Longword(unitptr)+UnitStruct_Pos+UnitStruct_PosY)^ := Y;
+end;
+
+const
+  Cloak_BitMask = $4;
+  CloakUnitStateMask_BitMask = $8;
+class procedure TAUnit.setCloak(unitptr : pointer; Cloak : word);
+var
+  Bitfield : PWord;
+begin
+  Bitfield := PWord(Longword(unitptr)+UnitStruct_UnitStateMask+$1);
+  if Cloak = 1 then
+    Bitfield^ := Bitfield^ or CloakUnitStateMask_BitMask
+  else
+    Bitfield^ := Bitfield^ and not CloakUnitStateMask_BitMask;
+end;
+
+Class function TAUnit.getCloak(unitptr : pointer) : boolean;
+var
+  Bitfield : PWord;
+begin
+  Bitfield := PWord(Longword(unitptr)+UnitStruct_cIsCloaked);
+  result := (Bitfield^ and Cloak_BitMask) = Cloak_BitMask;
+end;
+
 class Function TAUnit.getRecentDamage(unitptr : pointer) : byte;
 begin
-result := PByte( Longword(unitptr)+UnitStruct_RecentDamage)^
+result := PByte( Longword(unitptr)+UnitStruct_RecentDamage)^;
 end;
 
 class Function TAUnit.getBuildTimeLeft(unitptr : pointer) : single;
 begin
-result := PSingle( Longword(unitptr)+UnitStruct_BuildTimeLeft)^
+result := PSingle( Longword(unitptr)+UnitStruct_BuildTimeLeft)^;
 end;
 
 class Function TAUnit.GetOwnerPtr(unitptr : pointer) : pointer;
 begin
-result := PPointer( Longword(unitptr)+UnitStruct_OwnerPtr)^
+result := PPointer( Longword(unitptr)+UnitStruct_OwnerPtr)^;
 end;
 
 class Function TAUnit.GetOwnerIndex(unitptr : pointer) : integer;
 begin
-result := PByte( Longword(unitptr)+UnitStruct_OwnerIndex)^
+result := PByte( Longword(unitptr)+UnitStruct_OwnerIndex)^;
 end;
 
 end.
