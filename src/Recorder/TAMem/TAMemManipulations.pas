@@ -5,10 +5,6 @@ uses
   sysutils,
   MemMappedDataStructure;
 
-Type
-  PWord = ^Word;
-  PLongword = ^Longword;
-
 function TestByte( p : longword; b : byte) : Boolean; overload;
 function TestByte( p : longword; b : byte; var failvalue : byte) : Boolean; overload;
 

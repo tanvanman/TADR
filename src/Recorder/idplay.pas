@@ -219,6 +219,8 @@ type
 
     procedure SendAlliedChat();
     procedure SendClipboard();
+    procedure SendCobEventMessage(EventType: Byte; UnitPtr: Pointer; arg1: PCardinal; arg2: PByte; arg3: PWord);
+    
     procedure ExceptMessage;
     function OnException(E: Exception) : boolean;     
   protected
@@ -398,6 +400,8 @@ var
   chatview  : PMKChatMem;
   logsave   : TLog2 = nil;
   statslog  : TStatsLogging = nil;
+  GlobalDPlay: TDPlay;
+
   
 implementation
 
@@ -640,6 +644,33 @@ if i > 0 then
   setlength(s,i);
 SendChatLocal2(s);
 chatview^.NewData := 0;
+end;
+
+procedure TDPlay.SendCobEventMessage(EventType: Byte; UnitPtr: Pointer; arg1: PCardinal; arg2: PByte; arg3: PWord);
+var
+  customPacket: string;
+  unitId: Word;
+begin
+  if Self <> nil then
+  begin
+    unitId:= TAUnit.GetID(Pointer(unitPtr^));
+    case eventType of
+      TANM_Rec2Rec_UnitWeapon :
+        begin
+          SetLength( customPacket, SizeOf(TRec2Rec_UnitWeapon_Message));
+          Move( unitId, customPacket[1], SizeOf(Word));
+          Move( arg2^, customPacket[3], SizeOf(Byte)); // which weap
+          Move( arg3^, customPacket[4], SizeOf(Word)); // new weap id
+        end;
+     { TANM_Rec2Rec_UnitTemplate :
+        begin
+          SetLength( customPacket, SizeOf(TRec2Rec_UnitTemplate_Message));
+          Move( unitId, customPacket[1], SizeOf(Word));
+          Move( arg3^, customPacket[3], SizeOf(Word)); // new template id
+        end;    }
+    end;
+    SendRecorderToRecorderMsg( eventType, customPacket, False );
+  end;
 end;
 
 // -----------------------------------------------------------------------------
@@ -1657,7 +1688,7 @@ var
    ally         :^byte;
   playerlist    :TList;
   tmps          :string;
-  xtrasettings  :string;
+  BattleRoomRecorderOptions  :string;
 
   player : TPlayerData;
   FromPlayer : TPlayerData;
@@ -2014,17 +2045,17 @@ if assigned(chatview) then
             begin
               if FromPlayer.Uses_Rec2Rec_Notification then
                begin
-                xtrasettings:= '';
-                SetLength( xtrasettings, SizeOf(TRec2Rec_GameStateInfo_Message) );
+                BattleRoomRecorderOptions:= '';
+                SetLength( BattleRoomRecorderOptions, SizeOf(TRec2Rec_GameStateInfo_Message) );
 
-                move( AutopauseAtStart, xtrasettings[1], 1 );
-                move( F1Disable, xtrasettings[2], 1 );
-                move( CommanderWarp, xtrasettings[3], 1 );
-                move( SpeedLock, xtrasettings[4], 1 );
-                move( SlowSpeed, xtrasettings[5], 1 );
-                move( FastSpeed, xtrasettings[6], 1 );
+                move( AutopauseAtStart, BattleRoomRecorderOptions[1], 1 );
+                move( F1Disable, BattleRoomRecorderOptions[2], 1 );
+                move( CommanderWarp, BattleRoomRecorderOptions[3], 1 );
+                move( SpeedLock, BattleRoomRecorderOptions[4], 1 );
+                move( SlowSpeed, BattleRoomRecorderOptions[5], 1 );
+                move( FastSpeed, BattleRoomRecorderOptions[6], 1 );
 
-                SendRecorderToRecorderMsg( TANM_Rec2Rec_GameStateInfo, xtrasettings, True, FromPlayer.Id, Players[1].ID );
+                SendRecorderToRecorderMsg( TANM_Rec2Rec_GameStateInfo, BattleRoomRecorderOptions, True, FromPlayer.Id, Players[1].ID );
 
                end else
                 begin
@@ -2083,7 +2114,7 @@ if assigned(chatview) then
          Rec2Rec := PRecorderToRecorderMessage(@tmp[1]);
          Rec2Rec_Data := Pointer(Longword(Rec2Rec)+SizeOf(TRecorderToRecorderMessage) );
           if Rec2Rec^.MsgSubType = TANM_Rec2Rec_GameStateInfo then
-           begin
+          begin
             assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_GameStateInfo_Message) );
             if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.AutopauseState = 1 then
               SetAutoPauseAtStart(True)
@@ -2100,7 +2131,7 @@ if assigned(chatview) then
 
             SetSlowSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SlowSpeed);
             SetFastSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.FastSpeed);
-           end;
+          end;
         tmp := #$2a'd';          //Remove packets, so nothing happens
         datachanged := true;
         end;
@@ -2699,6 +2730,24 @@ if assigned(chatview) then
                  begin
                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_Sharelos_Message) );
                  FromPlayer.SharingLos := PRec2Rec_Sharelos_Message(Rec2Rec_Data)^.ShareLosState <> 0;
+                 end;
+               TANM_Rec2Rec_UnitTemplate :
+                 begin
+                 assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitTemplate_Message) );
+                 SendChatLocal('ID: ' + IntToHex((PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID), 4) + ' from player ' + FromPlayer.Name + ' changed its template to:');
+                 SendChatLocal(IntToStr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID));
+
+                 SendChatLocal(IntToStr(PLongWord(TAMem.GetUnitPtr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID))^));
+                 if TAUnit.IsOnThisCOmp(TAMem.GetUnitPtr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID)) <> 1 then
+                 begin
+                   TAUnit.setTemplate(pointer( TAMem.GetUnitStruct(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID) ), PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID);
+                 end;
+                 end;
+               TANM_Rec2Rec_UnitWeapon :
+                 begin
+                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitWeapon_Message) );
+                   if TAUnit.IsOnThisComp(TAMem.GetUnitPtr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UniqueUnitID)) <> 1 then
+                     TAUnit.setWeapon(pointer( TAMem.GetUnitStruct(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UniqueUnitID) ), PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WhichWeapon, PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID);
                  end;
                end;
                tmp := #$2a'd';          //Remove packets, so nothing happens
@@ -3727,17 +3776,20 @@ begin
   {$ENDIF}
   {$I AddCommands.inc}
 
+  GlobalDPlay:= Self;
+
   ResetRecorder;
 end;
 
 destructor TDPlay.Destroy;
 begin
+GlobalDPlay:= nil;
   cs.Acquire;
   cs.Release;
 Exiting;
 {$IFDEF FindRetAddr}
 TLog.Add( 0, 'Dplay.Send caller :'+IntToHex( SendReturnAddr, 8 ) );
-TLog.Add( 0, 'Dplay.Recieve caller :'+IntToHex( RecieveReturnAddr, 8 ) );
+TLog.Add( 0, 'Dplay.Receive caller :'+IntToHex( RecieveReturnAddr, 8 ) );
 {$ENDIF}
 {$IFDEF ThreadLogging}
  ThreadLogger.Report;

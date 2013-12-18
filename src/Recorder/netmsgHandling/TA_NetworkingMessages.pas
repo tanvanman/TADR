@@ -2,7 +2,7 @@ unit TA_NetworkingMessages;
 
 interface
 uses
-  Dplay;
+  Dplay, TA_MemoryLocations;
 {
 Sent whenever a pause or speed change occurs
 }
@@ -170,17 +170,9 @@ const
   TANM_Rec2Rec_GameStateInfo = $4;
 type
 {$MINENUMSIZE 1}
-  {TTADRStateSet = set of (
-                          TADRState_AutoPause,
-                          TADRState_CmdWarp,
-                          TADRState_F1Disable,
-                          TADRState_SpeedLock
-                         ); }
-
   PRec2Rec_GameStateInfo_Message = ^TRec2Rec_GameStateInfo_Message;
   TRec2Rec_GameStateInfo_Message = packed record
-    //TADRState : TTADRStateSet;
-    AutopauseState : byte;
+    AutopauseState : Byte;
     F1Disable      : Byte;
     Commanderwarp  : Byte;
     SpeedLock      : Byte;
@@ -189,10 +181,35 @@ type
   end;
 
 {
+Used to signal that ...
+}
+const
+  TANM_Rec2Rec_UnitTemplate = $0A;
+type
+  PRec2Rec_UnitTemplate_Message = ^TRec2Rec_UnitTemplate_Message;
+  TRec2Rec_UnitTemplate_Message = packed record
+    UniqueUnitID  : Word;
+    NewTemplateID : Word;
+  end;
+
+{
+Used to signal that ...
+}
+const
+  TANM_Rec2Rec_UnitWeapon = $0B;
+type
+  PRec2Rec_UnitWeapon_Message = ^TRec2Rec_UnitWeapon_Message;
+  TRec2Rec_UnitWeapon_Message = packed record
+    UniqueUnitID  : Word;
+    WhichWeapon   : Byte;
+    NewWeaponID   : Word;
+  end;
+
+{
   After interpreting vote command by host, launches voting. Host -> players
 }
 const
-  TANM_Rec2Rec_VoteStart = $5;
+  TANM_Rec2Rec_VoteStart = $14;
 type
   PRec2Rec_VoteStart_Message = ^TRec2Rec_VoteStart_Message;
   TRec2Rec_VoteStart_Message = packed record
@@ -209,7 +226,7 @@ type
   From which player = FromPlayer.ID
 }
 const
-  TANM_Rec2Rec_VoteAnswer = $6;
+  TANM_Rec2Rec_VoteAnswer = $15;
 type
   PRec2Rec_VoteAnswer_Message = ^TRec2Rec_VoteAnswer_Message;
   TRec2Rec_VoteAnswer_Message = packed record
@@ -222,7 +239,7 @@ type
   If player clicks yes/no button bump count, disable buttons
 }
 const
-  TANM_Rec2Rec_VoteStatus = $7;
+  TANM_Rec2Rec_VoteStatus = $16;
 type
   PRec2Rec_VoteStatus_Message = ^TRec2Rec_VoteStatus_Message;
   TRec2Rec_VoteStatus_Message = packed record
@@ -234,7 +251,7 @@ type
   Used to end vote. F.e. 'yes' won or voting expired. Host -> players
 }
 const
-  TANM_Rec2Rec_VoteEnd = $8;
+  TANM_Rec2Rec_VoteEnd = $17;
 type
   PRec2Rec_VoteEnd_Message = ^TRec2Rec_VoteEnd_Message;
   TRec2Rec_VoteEnd_Message = packed record

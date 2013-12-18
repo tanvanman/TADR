@@ -61,9 +61,6 @@ type
     property TAData :string read GetTAData;       //Krypterar och komprimerar
   end;
 
-  PWord = ^Word;
-  PLongword = ^Longword;                      
-
 var
   DecompressionBufferSize : Integer = 2048;
   UseCompression : Boolean = false;

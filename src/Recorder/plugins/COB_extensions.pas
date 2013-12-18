@@ -41,25 +41,26 @@ const
  HEALTH_VAL = 76;
  // cloack mode
  CLOAKED = 77;
- 
+
+ { SET }
+ WEAPON1 = 78;
+ WEAPON2 = 79;
+ WEAPON3 = 80;
+
  CUSTOM_LOW = MIN_ID;
- CUSTOM_HIGH = CLOAKED;
+ CUSTOM_HIGH = WEAPON3;
 // -----------------------------------------------------------------------------
 
 Procedure COB_Extensions_Handling;
 Procedure COB_ExtensionsSetters_Handling;
 
-function CustomGetters( index : longword;
-                        unitPtr : longword;
-                        arg1, arg2, arg3, arg4 : longword) : longword; stdcall;
-
-procedure CustomSetters( index: longword; unitPtr : longword;
-                        arg1: longword); stdcall;
-
 implementation
 uses
-  TADemoConsts,
-  TA_MemoryLocations;
+  idplay,
+  TA_MemoryLocations,
+  TA_FunctionsU,
+  TA_NetworkingMessages,
+  sysutils;
 
 Procedure OnInstallCobExtensions;
 begin
@@ -103,7 +104,6 @@ function CustomGetters( index : longword;
 var
   playerPtr, Unit2Ptr : pointer;
   playerIndex : longword;
-  TAPlayerType : TTAPlayerType;
 begin
 result := 0;
 
@@ -144,22 +144,11 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       end;
     CLOAKED :
       begin
-        if TAUnit.getCloak(pointer(unitPtr)) then
-          Result:= 1
-        else
-          Result:= 0;
+      result := TAUnit.getCloak(pointer(unitPtr));
       end;
     UNIT_IS_ON_THIS_COMP:
       begin
-      Unit2Ptr := TAMem.GetUnitPtr(arg1);
-      playerPtr := TAUnit.GetOwnerPtr(pointer(Unit2Ptr));
-      TAPlayerType := TAPlayer.PlayerType(playerPtr);
-       case TAPlayerType of
-           Player_LocalHuman:
-                             result := 1;
-           Player_LocalAI:
-                          result := 1;
-       end;
+      result := TAUnit.isOnThisComp(pointer(unitPtr));
       end;
     end;
   end;
@@ -167,28 +156,35 @@ end;
 
 procedure CustomSetters( index: longword; unitPtr : longword;
                         arg1: longword); stdcall;
+var
+  tmp: word;
 begin
-  if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
+if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
+begin
+  if TAUnit.isOnThisComp(pointer(unitPtr)) <> 0 then
   begin
     case index of
-      HEALTH_VAL :
+      HEALTH_VAL       : TAUnit.setHealth(pointer(unitPtr), arg1);
+      CLOAKED          : TAUnit.setCloak(pointer(unitPtr), arg1);
+      WEAPON1..WEAPON3 :
         begin
-          TAUnit.setHealth(pointer(unitPtr), arg1);
+          tmp:= Word(arg1);
+          TAUnit.setWeapon(pointer(unitPtr), index, tmp);
+          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitWeapon, @unitPtr, nil, @index, @tmp);
         end;
-      CLOAKED :
+     { UNIT_TEMPLATE    :
         begin
-          TAUnit.setCloak(pointer(unitPtr), arg1);
+          TAUnit.setTemplate(pointer(unitPtr), PAnsiChar('ARMCOM'));
+          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitPtr, nil, nil, nil);
         end;
-      {SUNITX :
+      CLONE_TEMPLATE   :
         begin
-          TAUnit.setUnitX(pointer(unitPtr), arg1);
-        end;
-      SUNITY :
-        begin
-          TAUnit.setUnitY(pointer(unitPtr), arg1);
-        end; }
+          // collect all fields that modder wants to change in unit template into packet
+          // and send it
+        end;  }
     end;
   end;
+end;
 end;
 
 Procedure COB_Extensions_Handling;

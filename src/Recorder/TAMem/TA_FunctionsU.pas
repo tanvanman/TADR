@@ -38,6 +38,12 @@ type
 var
   CreateMultiplayerMapsList : CreateMultiplayerMapsListHandler = CreateMultiplayerMapsListHandler($434BF0);
 
+type
+  UnitName2IDHandler = function ( const UnitName: PAnsiChar ): Word; stdcall;
+  // result = UNITINFO.UnitTypeID
+  // 0 = unit type not found
+var
+  UnitName2ID : UnitName2IDHandler = UnitName2IDHandler($488B10);
 
 // Displays text to the screen (no parsing for commands)  
 type //TextType - 0 = chat, 1 = popup
