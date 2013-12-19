@@ -22,6 +22,8 @@ uses
   //nocd,
   {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
   {$IFDEF KeyboardHookPlugin}BattleRoomScroll,{$ENDIF}
+  INI_Options,
+  Colors,
   COB_extensions,
   LOS_extensions;
 
@@ -34,6 +36,7 @@ if OnMainRun then
   RegisterPlugin( ErrorLog_ExtraData.GetPlugin() );
   RegisterPlugin( Thread_marshaller.GetPlugin() );
 
+  RegisterPlugin( INI_Options.GetPlugin() );
   RegisterPlugin( InputHook.GetPlugin() );
   RegisterPlugin( SpeedHack.GetPlugin() );
   RegisterPlugin( PauseLock.GetPlugin() );
@@ -44,6 +47,8 @@ if OnMainRun then
   RegisterPlugin( MultiAILimit.GetPlugin() );
   {$IFDEF KeyboardHookPlugin}RegisterPlugin( KeyboardHook.GetPlugin() );{$ENDIF}
   {$IFDEF KeyboardHookPlugin}RegisterPlugin( BattleRoomScroll.GetPlugin() );{$ENDIF}
+  RegisterPlugin( Colors.GetPlugin() );
+
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );

@@ -18,7 +18,6 @@ function FixModsINI(replayerDir: string): boolean;
 var
   readedModID: string;
 begin
-Result:= False;
 if replayerDir <> '' then
 begin
   with TIniFile.Create(replayerDir + MODSINI) do

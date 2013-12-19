@@ -131,13 +131,13 @@ if not OnMainRun then
     TLog.Add( 0, 'Running in Win9x compatibility mode' );
   if not IsTAVersion31 then
     TLog.Add( 0, 'Not running Total Annihilation 3.1' );
-  if not ReadINISettings then
+  if not iniSettings.read then
     TLog.Add( 0, 'Couldnt read INI settings' ) else
     begin
-    TLog.Add( 0, 'Read settings stored in: ' +GetINIFileName );
+    TLog.Add( 0, 'Reading settings stored in: ' +GetINIFileName );
     if iniSettings.modid <> -1 then
       TLog.Add( 0, 'MOD ID: ' +IntToStr(iniSettings.modid) );
-    if iniSettings.weaponidpatch then TLog.Add( 0, 'Using weapon ID patch: True') else TLog.Add( 0, 'Using weapon ID patch: False');
+    if iniSettings.weaponidpatch then TLog.Add( 0, 'Using weapon ID patch.');
     end;
 {$IFNDEF NoDplayExports}
   // load the actual dplayx.dll, we dont bother unloading it,as we only dont need it when TA is closing

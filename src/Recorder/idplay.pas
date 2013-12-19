@@ -126,6 +126,7 @@ type
 
 //    DemoRecordingFile : TDemoRecordingFile;
     procedure createlogfile();
+    function fnRemoveInvalidChar(const sString: string) : String;
   protected
     fPlayers : TPlayers;
     fServerPlayer : TPlayerData;    
@@ -1478,6 +1479,32 @@ end;
   s[1] :=char(length(s) and $ff);          //fill in size
   s[2] :=char(length(s) shr 8);
   logsave.add(s);                            //write unitdata
+end;
+
+function TDPlay.fnRemoveInvalidChar(const sString: string) : String;
+var
+  sInvalidCharacters : array [1..10] of String;
+  iIndex : Integer;
+  sNewCharacter : String;
+begin
+  sNewCharacter := '';
+  sInvalidCharacters[1] := ':';
+  sInvalidCharacters[2] := '/';
+  sInvalidCharacters[3] := '*';
+  sInvalidCharacters[4] := '\';
+  sInvalidCharacters[5] := '?';
+  sInvalidCharacters[6] := '>';
+  sInvalidCharacters[7] := '<';
+  sInvalidCharacters[8] := '|';
+  sInvalidCharacters[9] := '&';
+  sInvalidCharacters[10] := '"';
+
+  Result := sString;
+
+  for iIndex := 1 to Length(sInvalidCharacters) do
+  begin
+    Result := StringReplace(Result, sInvalidCharacters[iIndex], sNewCharacter, [rfReplaceAll]);
+  end;
 end;
 
 function TDPlay.SmartPak(c:string; const FromPlayer, ToPlayer : string) :string;

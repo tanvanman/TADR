@@ -12,6 +12,8 @@ function TestBytes( p : longword;
                     ExpectedData : PByteArray; len : integer;
                     var FailIndex : integer; var failvalue : byte) : Boolean;
 
+procedure SetByte( p : pointer; data : Byte ); overload;
+procedure SetByte( p : longword; data : Byte ); overload;
 procedure SetWord( p : pointer; data : Word ); overload;
 procedure SetWord( p : longword; data : Word ); overload;
 procedure SetLongword( p : pointer; data : longword); overload;
@@ -62,6 +64,16 @@ for i := 0 to len -1 do
 FailIndex := -1;
 failvalue := 0;
 result := true;
+end;
+
+procedure SetByte( p : pointer; data : Byte );
+begin
+PByte(p)^ := data;
+end;
+
+procedure SetByte( p : longword; data : Byte );
+begin
+PByte(p)^ := data;
 end;
 
 procedure SetWord( p : pointer; data : Word );

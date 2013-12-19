@@ -3,7 +3,7 @@ unit WarZoneRankings;
 interface
 
 uses
-  SysUtils, Windows, Classes, IdHttp, IdAntiFreeze, Forms, DateUtils;
+  SysUtils, Windows, Classes, IdHttp, Forms, DateUtils;
 
 type TPlayer = record
   Name: string[20];
@@ -53,7 +53,6 @@ var
   countp: byte;
   posit, posit2: integer;
   m: Int64;
-  af: TIdAntiFreeze;
 begin
   Result:= 0;
   if (pUrl=nil) or (pFileName=nil) then  //Check arguments
@@ -73,8 +72,6 @@ begin
         Exit;
       end;
         Result:= 1;
-      af:= TIdAntiFreeze.Create(nil);
-      af.Active:= True;
       with TIdHttp.Create(nil) do    //Create http object
       begin
         Request.UserAgent:= INET_USERAGENT;                             //Define user agent
@@ -88,8 +85,6 @@ begin
         end;
         Free;                                                           //Free the http object
       end;
-      af.Active:= False;
-      af.Destroy;
     end;
   end;
 

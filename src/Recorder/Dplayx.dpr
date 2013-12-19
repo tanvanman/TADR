@@ -45,10 +45,11 @@ uses
   Thread_marshaller in 'plugins\Thread_marshaller.pas',
   {$IFDEF KeyboardHookPlugin}KeyboardHook in 'plugins\KeyboardHook.pas',{$ENDIF}
   {$IFDEF KeyboardHookPlugin}BattleRoomScroll in 'plugins\BattleRoomScroll.pas',{$ENDIF}
-  INI_Options in 'INI_Options.pas',
+  INI_Options in 'plugins\INI_Options.pas',
   {$IFDEF WarZone}WarZoneRankings in 'WarZoneRankings.pas',{$ENDIF}
   ModsList in 'ModsList.pas',
-  statslogging in 'statslogging.pas';
+  statslogging in 'statslogging.pas',
+  Colors in 'plugins\Colors.pas';
 
 {$R *.res}
 
