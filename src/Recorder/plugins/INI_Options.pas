@@ -15,6 +15,7 @@ type
     unitlimit: integer;
     Colors: array [0..27] of Integer;
     read: boolean;
+    docolors: boolean;
   end;
 var iniSettings: TIniSettings;
 
@@ -47,33 +48,54 @@ const
 type TIniFileName = array [0..INIFILENAME_MAXLENGTH] of AnsiChar;
 PIniFileName = ^TIniFileName;
 
+function TaFileExists(name: string; out path: string): boolean;
+var
+  taDir: string;
+begin
+  Result:= False;
+  path:= '';
+  if Length(name) > 0 then
+  begin
+    taDir:= IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation));
+    if name[1] = '\' then
+      name:= Copy(name, 2, Length(name) - 1);
+    if FileExists(taDir + name) then
+    begin
+      path:= taDir + name;
+      Result:= True;
+    end;
+  end;
+end;
+
 // read INI file name from TA's memory
 var
-  iniFileName_cache : string;
+  iniPath_cache : string;
 function GetINIFileName: string;
 var
- taDir: string;
  iniName: string;
+ tempPath: string;
 begin
-if iniFileName_cache = '' then
+if iniPath_cache = '' then
 begin
   Result:= #0;
-  taDir:= IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation));
   try
     iniName:= PIniFileName(INI_MEM_OFFSET)^;
     Trim(iniName);
-    if FileExists(taDir + iniName) then
-        iniFileName_cache:= taDir + iniName
-        else iniFileName_cache:= #0;
-    result:= iniFileName_cache;
+    if TaFileExists(iniName, tempPath) then
+      iniPath_cache:= tempPath
+    else
+      iniPath_cache:= #0;
+    result:= iniPath_cache;
   except
     //shouldn't fail, however ...
-    if FileExists(taDir + 'totala.ini') then
-      iniFileName_cache:= taDir + 'totala.ini' else iniFileName_cache:= #0;
-    result:= iniFileName_cache;
+    if TaFileExists('totala.ini', tempPath) then
+      iniPath_cache:= tempPath
+    else
+      iniPath_cache:= #0;
+    result:= iniPath_cache;
   end;
 end else
-  result:= iniFileName_cache;
+  result:= iniPath_cache;
 end;
 
 function ReadINISettings: boolean;
@@ -148,6 +170,30 @@ function ReadINISettings: boolean;
     end;
   end;
 
+function ReadIniPath(var iniFile: TIniFile; sect: string; ident: string; out path: string): boolean;
+  var
+    temp: string;
+  begin
+    Result:= false;
+    if iniFile.ValueExists(sect, ident) then
+    begin
+      temp:= iniFile.ReadString(sect, ident, '');
+      if Length(temp) > 1 then
+      begin
+        try
+          if Pos(';', temp) <> 0 then
+            temp:= LeftStr(temp, Length(temp) - 1);
+
+          Result:= true;
+        except
+          TLog.Add(0, 'Error reading setting [' + ident + ']');
+          Exit;
+        end;
+      end else
+        Result:= false;
+    end;
+  end;
+
   function ReadIniDword(var iniFile: TIniFile; sect: string; ident: string; default: dword): Integer;
   var
     temp: string;
@@ -181,6 +227,7 @@ Result:= False;
 iniSettings.modid:= 0;
 iniSettings.demosprefix:= '';
 iniSettings.weaponidpatch:= False;
+
 if GetINIFileName <> #0 then
   begin
     iniFile:= TIniFile.Create(GetINIFileName);
@@ -190,7 +237,7 @@ if GetINIFileName <> #0 then
       iniSettings.version:= ReadIniString(iniFile, 'MOD','Version', '');
       iniSettings.demosprefix:= ReadIniString(iniFile, 'MOD','DemosFileNamePrefix', '');
 
-      {$IFDEF WARZONE}iniSettings.RanksURL:= ReadIniString(iniFile, 'Preferences','RanksURL', '');{$ENDIF}
+      iniSettings.RanksURL:= ReadIniString(iniFile, 'Preferences','RanksURL', '');
 
       weaponType:= ReadIniValue(iniFile, 'Preferences','WeaponType', 256);
       multiGameWeapon:= ReadIniBool(iniFile, 'Preferences','MultiGameWeapon', False);
@@ -200,6 +247,7 @@ if GetINIFileName <> #0 then
 
       if iniFile.SectionExists('Colors') then
       begin
+      iniSettings.docolors:= true;
       iniSettings.Colors[0]:= ReadIniValue(iniFile, 'Colors','UnitSelectionBox', -1);
       iniSettings.Colors[1]:= ReadIniValue(iniFile, 'Colors','UnitHealthBarGood', -1);
       iniSettings.Colors[2]:= ReadIniValue(iniFile, 'Colors','UnitHealthBarMedium', -1);
@@ -264,4 +312,3 @@ if IsTAVersion31 and State_INI_Options then
 end;
 
 end.
- 

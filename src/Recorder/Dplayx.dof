@@ -90,7 +90,7 @@ MaxStackSize=1048576
 ImageBase=7340032
 ExeDescription=
 [Directories]
-OutputDir=output\
+OutputDir=G:\CAVEDOG\TADev
 UnitOutputDir=dcu\
 PackageDLLOutputDir=
 PackageDCPOutputDir=
@@ -166,9 +166,9 @@ Count=1
 Item0=dcu\
 [HistoryLists\hlOutputDirectorry]
 Count=17
-Item0=output\
-Item1=G:\CAVEDOG\TADev
-Item2=g:\cavedog\totala\
+Item0=G:\CAVEDOG\TADev
+Item1=g:\cavedog\totala\
+Item2=output\
 Item3=output\
 Item4=G:\TA3.1\totala3\install\TA Escalation
 Item5=G:\TA3.1\totala3\install\Total Mayhem\

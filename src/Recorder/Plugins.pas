@@ -1,5 +1,5 @@
 unit Plugins;
-{.$DEFINE KeyboardHookPlugin}
+{$DEFINE KeyboardHookPlugin}
 interface
 
 

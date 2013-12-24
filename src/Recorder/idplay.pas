@@ -2,7 +2,7 @@ unit idplay;
 {$DEFINE Release}
 
 {.$DEFINE WarZone}
-{.$DEFINE KeyboardHookPlugin}
+{$DEFINE KeyboardHookPlugin}
 {.$DEFINE AllowStatsCreate}
 
 {.$DEFINE DebuggerHooks}
@@ -651,17 +651,28 @@ procedure TDPlay.SendCobEventMessage(EventType: Byte; UnitPtr: Pointer; arg1: PC
 var
   customPacket: string;
   unitId: Word;
+  unitIdRemote: LongWord;
 begin
   if Self <> nil then
   begin
-    unitId:= TAUnit.GetID(Pointer(unitPtr^));
+    UnitIdRemote:= TAUnit.GetLongId(Pointer(unitPtr^));
+    unitId:= Word(unitIdRemote);
     case eventType of
       TANM_Rec2Rec_UnitWeapon :
         begin
+          // fix me to set only that on correct unit
+          // use player owner etc.
           SetLength( customPacket, SizeOf(TRec2Rec_UnitWeapon_Message));
           Move( unitId, customPacket[1], SizeOf(Word));
-          Move( arg2^, customPacket[3], SizeOf(Byte)); // which weap
-          Move( arg3^, customPacket[4], SizeOf(Word)); // new weap id
+          Move( arg2, customPacket[3], SizeOf(Byte)); // which weap
+          Move( arg3, customPacket[4], SizeOf(Word)); // new weap id
+        end;
+      TANM_Rec2Rec_UnitUpgradeable :
+        begin
+          SetLength( customPacket, SizeOf(TRec2Rec_UnitUpgradeable_Message));
+          Move( unitId, customPacket[1], SizeOf(Word));
+          Move( unitIdRemote, customPacket[3], SizeOf(LongWord));
+          Move( arg2, customPacket[7], SizeOf(Byte)); // new state
         end;
      { TANM_Rec2Rec_UnitTemplate :
         begin
@@ -2758,7 +2769,7 @@ if assigned(chatview) then
                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_Sharelos_Message) );
                  FromPlayer.SharingLos := PRec2Rec_Sharelos_Message(Rec2Rec_Data)^.ShareLosState <> 0;
                  end;
-               TANM_Rec2Rec_UnitTemplate :
+               {TANM_Rec2Rec_UnitTemplate :
                  begin
                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitTemplate_Message) );
                  SendChatLocal('ID: ' + IntToHex((PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID), 4) + ' from player ' + FromPlayer.Name + ' changed its template to:');
@@ -2769,12 +2780,21 @@ if assigned(chatview) then
                  begin
                    TAUnit.setTemplate(pointer( TAMem.GetUnitStruct(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID) ), PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID);
                  end;
-                 end;
+                 end; }
                TANM_Rec2Rec_UnitWeapon :
                  begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitWeapon_Message) );
                    if TAUnit.IsOnThisComp(TAMem.GetUnitPtr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UniqueUnitID)) <> 1 then
-                     TAUnit.setWeapon(pointer( TAMem.GetUnitStruct(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UniqueUnitID) ), PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WhichWeapon, PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID);
+                     TAUnit.setWeapon(pointer(  TAMem.GetUnitStruct(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UniqueUnitID) ),
+                                                PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WhichWeapon,
+                                                PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID);
+                 end;
+               TANM_Rec2Rec_UnitUpgradeable :
+                 begin
+                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitUpgradeable_Message) );
+                   TAUnit.setUpgradeable( nil,
+                                          PRec2Rec_UnitUpgradeable_Message(Rec2Rec_Data)^.NewState,
+                                          Pointer(PRec2Rec_UnitUpgradeable_Message(Rec2Rec_Data)^.UnitIdRemote));
                  end;
                end;
                tmp := #$2a'd';          //Remove packets, so nothing happens

@@ -180,21 +180,15 @@ type
     FastSpeed      : Byte;
   end;
 
-{
-Used to signal that ...
-}
-const
+{const
   TANM_Rec2Rec_UnitTemplate = $0A;
 type
   PRec2Rec_UnitTemplate_Message = ^TRec2Rec_UnitTemplate_Message;
   TRec2Rec_UnitTemplate_Message = packed record
     UniqueUnitID  : Word;
     NewTemplateID : Word;
-  end;
+  end;  }
 
-{
-Used to signal that ...
-}
 const
   TANM_Rec2Rec_UnitWeapon = $0B;
 type
@@ -203,6 +197,34 @@ type
     UniqueUnitID  : Word;
     WhichWeapon   : Byte;
     NewWeaponID   : Word;
+  end;
+
+{
+Used to signal that unit wants to have own "global" template
+}
+const
+  TANM_Rec2Rec_UnitUpgradeable = $0A;
+type
+  PRec2Rec_UnitUpgradeable_Message = ^TRec2Rec_UnitUpgradeable_Message;
+  TRec2Rec_UnitUpgradeable_Message = packed record
+    UnitId        : Word;
+    UnitIdRemote  : LongWord;
+    NewState      : Byte;
+  end;
+
+{
+Used to signal that unit with custom template enabled has changed
+some of its fields
+}
+const
+  TANM_Rec2Rec_UnitEditTemplate = $0C;
+type
+  PRec2Rec_UnitEditTemplate_Message = ^TRec2Rec_UnitEditTemplate_Message;
+  TRec2Rec_UnitEditTemplate_Message = packed record
+    UnitId        : Word;
+    UnitIdRemote  : LongWord;
+    FieldType     : LongWord;
+    NewValue      : LongWord;
   end;
 
 {
@@ -236,7 +258,7 @@ type
 {
   Vote status. Host -> players
   Only host counts votes so displayed numbers on players screen will be always correct
-  If player clicks yes/no button bump count, disable buttons
+  If player clicks yes/no button - bump count, disable buttons
 }
 const
   TANM_Rec2Rec_VoteStatus = $16;
@@ -248,7 +270,7 @@ type
   end;
 
 {
-  Used to end vote. F.e. 'yes' won or voting expired. Host -> players
+  Used to end vote. F.e. 'yes' won or voting has expired. Host -> players
 }
 const
   TANM_Rec2Rec_VoteEnd = $17;

@@ -2,7 +2,7 @@ unit COB_extensions;
 
 interface
 uses
-  PluginEngine;
+  PluginEngine, Classes, SynCommons, TA_MemoryLocations;
 
 // -----------------------------------------------------------------------------
 
@@ -41,14 +41,29 @@ const
  HEALTH_VAL = 76;
  // cloack mode
  CLOAKED = 77;
+ // unit x - left/right
+ UNITX = 100;
+ // unit y - above ground level
+ UNITY = 101;
+ // unit z - up/down
+ UNITZ = 102;
 
  { SET }
  WEAPON1 = 78;
  WEAPON2 = 79;
  WEAPON3 = 80;
-
+ KILLME = 85;
+ MOVEMENTCLASS = 150;
+ MAXHEALTH = 151;
+ UNIT_TEMPLATE = 104;
+ UPGRADEABLE = 200;
+ 
  CUSTOM_LOW = MIN_ID;
- CUSTOM_HIGH = WEAPON3;
+ CUSTOM_HIGH = UPGRADEABLE;
+
+var
+  CustomUnitInfosArray: TUnitInfos;
+  CustomUnitInfos: TDynArray;
 // -----------------------------------------------------------------------------
 
 Procedure COB_Extensions_Handling;
@@ -57,14 +72,14 @@ Procedure COB_ExtensionsSetters_Handling;
 implementation
 uses
   idplay,
-  TA_MemoryLocations,
   TA_FunctionsU,
   TA_NetworkingMessages,
   sysutils;
 
 Procedure OnInstallCobExtensions;
 begin
-end; 
+  CustomUnitInfos.Init(TypeInfo(TUnitInfos),CustomUnitInfosArray);
+end;
 
 Procedure OnUninstallCobExtensions;
 begin
@@ -150,6 +165,22 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result := TAUnit.isOnThisComp(pointer(unitPtr));
       end;
+    UNITX:
+      begin
+      result:= TAUnit.getUnitX(pointer(unitPtr)) div 163840;
+      end;
+    UNITY:
+      begin
+      result:= TAUnit.getUnitY(pointer(unitPtr)) div 163840;
+      end;
+    UNITZ:
+      begin
+      result:= TAUnit.getUnitZ(pointer(unitPtr)) div 163840;
+      end;
+    MOVEMENTCLASS:
+      begin
+      result:= TAUnit.getMovementClass(pointer(unitPtr));
+      end;
     end;
   end;
 end;
@@ -168,20 +199,46 @@ begin
       CLOAKED          : TAUnit.setCloak(pointer(unitPtr), arg1);
       WEAPON1..WEAPON3 :
         begin
-          tmp:= Word(arg1);
-          TAUnit.setWeapon(pointer(unitPtr), index, tmp);
-          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitWeapon, @unitPtr, nil, @index, @tmp);
+        tmp:= Word(arg1);
+        TAUnit.setWeapon(pointer(unitPtr), index, tmp);
+        //globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitWeapon, @unitPtr, nil, @index, @tmp);
         end;
-     { UNIT_TEMPLATE    :
+      UNITX :
         begin
-          TAUnit.setTemplate(pointer(unitPtr), PAnsiChar('ARMCOM'));
-          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitPtr, nil, nil, nil);
+        TAUnit.setUnitX(pointer(unitPtr), arg1);
         end;
-      CLONE_TEMPLATE   :
+      UNITY :
         begin
-          // collect all fields that modder wants to change in unit template into packet
-          // and send it
-        end;  }
+        TAUnit.setUnitY(pointer(unitPtr), arg1);
+        end;
+      UNITZ :
+        begin
+        TAUnit.setUnitZ(pointer(unitPtr), arg1);
+        end;
+      KILLME :
+        begin
+        //TAUnit.Kill(pointer(unitPtr), Byte(arg1));
+        end;
+      UNIT_TEMPLATE :
+        begin
+        TAUnit.setTemplate(pointer(unitPtr), arg1);
+       //   globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitPtr, nil, nil, nil);
+        end;
+      MOVEMENTCLASS :
+        begin
+        TAUnit.setMovementClass(pointer(unitPtr), arg1);
+       //   globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitPtr, nil, nil, nil);
+        end;
+      UPGRADEABLE :
+        begin
+        if TAUnit.setUpgradeable(pointer(unitPtr), Byte(arg1), nil) <> -1 then
+          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitUpgradeable, @unitPtr, nil, PByte(arg1), nil);
+        end;
+      MAXHEALTH :
+        begin
+        if TAUnit.editTemplate(pointer(unitPtr), index, arg1, nil) <> -1 then
+          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitEditTemplate, @unitPtr, nil, PByte(arg1), nil);
+        end;
     end;
   end;
 end;

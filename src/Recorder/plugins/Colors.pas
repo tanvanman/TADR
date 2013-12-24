@@ -93,6 +93,8 @@ Procedure OnInstallColors;
 var
   i: integer;
 begin
+if iniSettings.docolors then
+begin
   for i:= Low(iniSettings.Colors) to High(iniSettings.Colors) do
   begin
     if iniSettings.Colors[i] <> -1 then
@@ -129,6 +131,7 @@ begin
       end;
     end;
   end;
+end;
 end;
 
 Procedure OnUninstallColors;
