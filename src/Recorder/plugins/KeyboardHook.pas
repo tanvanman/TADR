@@ -22,8 +22,6 @@ var
   hKeyboardHook: HHook;
   keyboardHookLevel: byte;
   lastShareEnergyVal: single;
-  d: word;
-  lw: longint;
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
 
@@ -40,9 +38,8 @@ uses
 
 Procedure OnInstallKeyboardHook;
 begin
-  keyboardHookLevel:= 2;
+  keyboardHookLevel:= 0;
   lastShareEnergyVal:= 0;
-  d:= 22;
   hKeyboardHook:= SetWindowsHookEx(WH_KEYBOARD, @KeyboardHookFunction, 0, GetCurrentThreadId());
 end;
 
@@ -68,8 +65,6 @@ else
 end;
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
-var
-test: integer;
 begin
   if nCode < 1 then
   begin
@@ -112,18 +107,18 @@ begin
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-                if FindMouseUnit <> 0 then
-                  TAUnit.setUpgradeable( pointer(TAMem.GetUnitPtr(FindMouseUnit)), 1, nil);
+               // if FindMouseUnit <> 0 then
+               //   TAUnit.setUpgradeable( pointer(TAMem.GetUnitPtr(FindMouseUnit)), 1, nil);
                 end;
               end;
         $45 : begin     // left alt + shift + e
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-                  if FindMouseUnit <> 0 then
+                  //if FindMouseUnit <> 0 then
                   //SendTextLocal(inttostr(TAMem.getUnitTemplateId(pointer(TAMem.GetUnitPtr(FindMouseUnit)))));
                    // TAUnit.setTemplate(pointer(TAMem.GetUnitPtr(FindMouseUnit)), 168);
-                   TAUnit.setMovementClass(pointer(TAMem.GetUnitPtr(FindMouseUnit)), 7);
+                 //  TAUnit.setMovementClass(pointer(TAMem.GetUnitPtr(FindMouseUnit)), 7);
                     //TAUnit.setUnitY(pointer(TAMem.GetUnitPtr(FindMouseUnit)), 26);
                   // TAUnit.Kill( pointer(), 1);
                 end;
@@ -146,6 +141,10 @@ begin
   Result:= 0;
 end;
 
+{
+Switch share energy to 0 or latest value
+(also enable sharing if it's disabled)
+}
 procedure SwitchSetShareEnergy;
 var
   curShareEnergyVal: single;

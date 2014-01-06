@@ -117,7 +117,7 @@ AutoIncBuild=0
 MajorVer=3
 MinorVer=9
 Release=3
-Build=0
+Build=1
 Debug=0
 PreRelease=1
 Special=0
@@ -128,7 +128,7 @@ CodePage=1252
 [Version Info Keys]
 CompanyName=Swedish Yankspankers & TA Universe community
 FileDescription=TA Unofficial Patch - Demo Recorder Component
-FileVersion=3.9.3.0
+FileVersion=3.9.3.1
 InternalName=
 LegalCopyright=
 LegalTrademarks=

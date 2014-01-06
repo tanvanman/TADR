@@ -3,10 +3,10 @@ unit TA_NetworkingMessages;
 interface
 uses
   Dplay, TA_MemoryLocations;
+  
 {
 Sent whenever a pause or speed change occurs
 }
-
 const
   TANM_SimulationSpeedChange = $19;
   SpeedChange = $01;
@@ -139,7 +139,6 @@ const
   // no extra data
   TANM_Rec2Rec_CmdWarp = $1;
 
-
 {
 Use to notify other recorders that the cheat detection for well known trainers has been tripped.
 Generates false positives
@@ -151,6 +150,7 @@ type
   TRec2Rec_CheatsDetected_Message = packed record
     CheatsDetected : Longword;
   end;
+
 {
 Used to signal that sharelos is enabled/disabled for a particular player.
 Fixes the mess with detecting the use .sharelos command
@@ -189,18 +189,8 @@ type
     NewTemplateID : Word;
   end;  }
 
-const
-  TANM_Rec2Rec_UnitWeapon = $0B;
-type
-  PRec2Rec_UnitWeapon_Message = ^TRec2Rec_UnitWeapon_Message;
-  TRec2Rec_UnitWeapon_Message = packed record
-    UniqueUnitID  : Word;
-    WhichWeapon   : Byte;
-    NewWeaponID   : Word;
-  end;
-
 {
-Used to signal that unit wants to have own "global" template
+Use to notify other players that unit wants to have its own "global" template
 }
 const
   TANM_Rec2Rec_UnitUpgradeable = $0A;
@@ -212,8 +202,19 @@ type
     NewState      : Byte;
   end;
 
+const
+  TANM_Rec2Rec_UnitWeapon = $0B;
+type
+  PRec2Rec_UnitWeapon_Message = ^TRec2Rec_UnitWeapon_Message;
+  TRec2Rec_UnitWeapon_Message = packed record
+    UnitId        : Word;
+    WhichWeapon   : Byte;
+    NewWeaponID   : Word;
+    RequiresPatch : Boolean;
+  end;
+
 {
-Used to signal that unit with custom template enabled has changed
+Used to signal that unit with custom template enabled has modified
 some of its fields
 }
 const
@@ -228,7 +229,7 @@ type
   end;
 
 {
-  After interpreting vote command by host, launches voting. Host -> players
+After interpreting vote command by host, launches voting. Host -> players
 }
 const
   TANM_Rec2Rec_VoteStart = $14;
@@ -244,8 +245,8 @@ type
   end;
 
 {
-  Vote answer. Player -> Host
-  From which player = FromPlayer.ID
+Vote answer. Player -> Host
+From which player = FromPlayer.ID
 }
 const
   TANM_Rec2Rec_VoteAnswer = $15;
@@ -256,9 +257,9 @@ type
   end;
 
 {
-  Vote status. Host -> players
-  Only host counts votes so displayed numbers on players screen will be always correct
-  If player clicks yes/no button - bump count, disable buttons
+Vote status. Host -> players
+Only host counts votes so displayed numbers on players screen will be always correct
+If player clicks yes/no button - bump count, disable buttons
 }
 const
   TANM_Rec2Rec_VoteStatus = $16;
@@ -270,7 +271,7 @@ type
   end;
 
 {
-  Used to end vote. F.e. 'yes' won or voting has expired. Host -> players
+Used to end vote. F.e. 'yes' won or voting has expired. Host -> players
 }
 const
   TANM_Rec2Rec_VoteEnd = $17;

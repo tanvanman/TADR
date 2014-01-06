@@ -2,7 +2,7 @@ unit COB_extensions;
 
 interface
 uses
-  PluginEngine, Classes, SynCommons, TA_MemoryLocations;
+  PluginEngine, SynCommons, TA_MemoryLocations;
 
 // -----------------------------------------------------------------------------
 
@@ -16,7 +16,6 @@ function GetPlugin : TPluginData;
 Procedure OnInstallCobExtensions;
 Procedure OnUninstallCobExtensions;
 
-// -----------------------------------------------------------------------------
 const
  { GET }
  // gets kills * 100
@@ -37,33 +36,83 @@ const
  UNIT_IS_ON_THIS_COMP = 75;
 
  { GET/SET }
- // health value
  HEALTH_VAL = 76;
- // cloack mode
  CLOAKED = 77;
- // unit x - left/right
- UNITX = 100;
- // unit y - above ground level
- UNITY = 101;
- // unit z - up/down
- UNITZ = 102;
+ UNITX = 81;
+ UNITY = 82;
+ UNITZ = 83;
 
  { SET }
  WEAPON1 = 78;
  WEAPON2 = 79;
  WEAPON3 = 80;
  KILLME = 85;
- MOVEMENTCLASS = 150;
- MAXHEALTH = 151;
- UNIT_TEMPLATE = 104;
+
  UPGRADEABLE = 200;
+
+ NAME = 140;        //string
+ UNITNAME	= 141;    //string
+ DESCRIPTION = 142; //string
+ CATEGORY	= 143;    //string
+ SOUNDCTGR = 144;   //string
+
+ MOVEMENTCLASS = 149;
+
+ MAXHEALTH = 150;
+ HEALTIME = 151;
+
+ MAXSPEED = 152;
+ ACCELERATION = 153;
+ BRAKERATE = 154;
+ TURNRATE = 155;
+ CRUISEALT = 156;
+ MANEUVERLEASH = 157;
+ ATTACKRUNLEN = 158;
+ MAXSLOPE = 159;
+ MAXWATERSLOPE = 160;
+ WATERLINE = 161;
+
+ TRANSPORTSIZE = 162;
+ TRANSPORTCAP = 163;
+
+ BANKSCALE = 164;
+ KAMIKAZEDIST = 165;
+ DAMAGEMODIFIER = 166;
+
+ WORKERTIME = 167;
+ BUILDDIST = 168;
+
+ SIGHTDIST  = 169;
+ RADARDIST = 170;
+ SONARDIST = 171;
+ MINCLOAKDIST = 172;
+ RADARDISTJAM = 173;
+ SONARDISTJAM = 174;
+
+ MAKESMETAL = 175;
+ FENERGYMAKE = 176; 	//Multiply (when setting) or divide by 100 after getting
+ FMETALMAKE = 177;
+ FENERGYUSE = 178;
+ FMETALUSE = 179;
+ FENERGYSTOR = 180;
+ FMETALSTOR = 181;
+ FWINDGENERATOR = 182;
+ FTIDALGENERATOR = 183;
+ FCLOAKCOST = 184;
+ FCLOAKCOSTMOVE = 185;  //end multiply
+
+ UNIT_TEMPLATE = 190;
  
  CUSTOM_LOW = MIN_ID;
  CUSTOM_HIGH = UPGRADEABLE;
 
+// -----------------------------------------------------------------------------
+
 var
   CustomUnitInfosArray: TUnitInfos;
   CustomUnitInfos: TDynArray;
+  CustomUnitInfosCount: Integer;
+
 // -----------------------------------------------------------------------------
 
 Procedure COB_Extensions_Handling;
@@ -72,13 +121,13 @@ Procedure COB_ExtensionsSetters_Handling;
 implementation
 uses
   idplay,
-  TA_FunctionsU,
   TA_NetworkingMessages,
-  sysutils;
+  INI_Options;
 
 Procedure OnInstallCobExtensions;
 begin
-  CustomUnitInfos.Init(TypeInfo(TUnitInfos),CustomUnitInfosArray);
+  CustomUnitInfos.Init(TypeInfo(TUnitInfos),CustomUnitInfosArray, @CustomUnitInfosCount);
+  CustomUnitInfos.Capacity:= 5000;
 end;
 
 Procedure OnUninstallCobExtensions;
@@ -177,9 +226,9 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result:= TAUnit.getUnitZ(pointer(unitPtr)) div 163840;
       end;
-    MOVEMENTCLASS:
+    MOVEMENTCLASS..FCLOAKCOSTMOVE : // 149 - 185
       begin
-      result:= TAUnit.getMovementClass(pointer(unitPtr));
+      result:= TAUnit.getUnitInfoField(pointer(unitPtr), index, nil);
       end;
     end;
   end;
@@ -187,8 +236,6 @@ end;
 
 procedure CustomSetters( index: longword; unitPtr : longword;
                         arg1: longword); stdcall;
-var
-  tmp: word;
 begin
 if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
 begin
@@ -199,9 +246,8 @@ begin
       CLOAKED          : TAUnit.setCloak(pointer(unitPtr), arg1);
       WEAPON1..WEAPON3 :
         begin
-        tmp:= Word(arg1);
-        TAUnit.setWeapon(pointer(unitPtr), index, tmp);
-        //globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitWeapon, @unitPtr, nil, @index, @tmp);
+        if TAUnit.setWeapon(pointer(unitPtr), index, Word(arg1), iniSettings.weaponidpatch) then
+          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitWeapon, @unitPtr, @index, nil, @arg1, nil);
         end;
       UNITX :
         begin
@@ -221,23 +267,18 @@ begin
         end;
       UNIT_TEMPLATE :
         begin
-        TAUnit.setTemplate(pointer(unitPtr), arg1);
-       //   globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitPtr, nil, nil, nil);
-        end;
-      MOVEMENTCLASS :
-        begin
-        TAUnit.setMovementClass(pointer(unitPtr), arg1);
+       // TAUnit.setTemplate(pointer(unitPtr), arg1);
        //   globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitPtr, nil, nil, nil);
         end;
       UPGRADEABLE :
         begin
-        if TAUnit.setUpgradeable(pointer(unitPtr), Byte(arg1), nil) <> -1 then
-          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitUpgradeable, @unitPtr, nil, PByte(arg1), nil);
+        if TAUnit.setUpgradeable(pointer(unitPtr), arg1, nil) <> 0 then
+          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitUpgradeable, @unitPtr, nil, @arg1, nil, nil);
         end;
-      MAXHEALTH :
+      MOVEMENTCLASS..FCLOAKCOSTMOVE : // 149 - 185
         begin
-        if TAUnit.editTemplate(pointer(unitPtr), index, arg1, nil) <> -1 then
-          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitEditTemplate, @unitPtr, nil, PByte(arg1), nil);
+        if TAUnit.setUnitInfoField(pointer(unitPtr), index, arg1, nil) <> 0 then
+          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitEditTemplate, @unitPtr, @arg1, nil, nil, @index);
         end;
     end;
   end;

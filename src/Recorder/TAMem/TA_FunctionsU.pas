@@ -10,12 +10,17 @@ const
   access = 1;
 
 type
-  //flags 0 = toggle show all, 1 = rebuild LOS fields
   Game_SetLOSStateHandler = function (flags : integer) : integer; stdcall;
 var
   // called by to setup the LOS tables
   Game_SetLOSState : Game_SetLOSStateHandler = Game_SetLOSStateHandler($4816A0);
-  
+
+type
+  UpdateUnitLOSHandler = function (unitptr : longword) : integer; stdcall;
+var
+  // called to update unit LOS
+  UpdateUnitLOS : UpdateUnitLOSHandler = UpdateUnitLOSHandler($482AC0);
+
 type
   //Access 1 = no cheats, 3 = cheats
   InterpretCommandHandler = procedure ( Command : PChar; access : Longint); stdcall;
@@ -32,9 +37,9 @@ var
   DoInterpretCommand : DoInterpretCommandHandler = DoInterpretCommandHandler($4B7900);
 
 type
-  CreateMultiplayerMapsListHandler = function ( a1: Longint; a2: Longint; a3: Longint): Longint; stdcall;
   // a1 = 0, a2 = 0, a3 = 0
   // result = current amount of maps
+  CreateMultiplayerMapsListHandler = function ( a1: Longint; a2: Longint; a3: Longint): Longint; stdcall;
 var
   CreateMultiplayerMapsList : CreateMultiplayerMapsListHandler = CreateMultiplayerMapsListHandler($434BF0);
 
@@ -62,11 +67,10 @@ var
   SetHotGroup : SetHotGroupHandler = SetHotGroupHandler($480250);
 
 type
-  // kills ALL units. yes, of every player
+  // kills ALL units. yes, of all players
   KillAllUnitsHandler = procedure; stdcall;
 var
   KillAllUnits : KillAllUnitsHandler = KillAllUnitsHandler($486ED0);
-
 
 type
   PlaySoundEffectHandler = function ( VoiceName: AnsiChar; a2: Word ): LongInt ; stdcall;
