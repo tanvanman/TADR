@@ -16,10 +16,48 @@ var
   Game_SetLOSState : Game_SetLOSStateHandler = Game_SetLOSStateHandler($4816A0);
 
 type
-  UpdateUnitLOSHandler = function (unitptr : longword) : integer; stdcall;
+  TA_UpdateUnitLOSHandler = function (unitptr : longword) : longword; stdcall;
 var
   // called to update unit LOS
-  UpdateUnitLOS : UpdateUnitLOSHandler = UpdateUnitLOSHandler($482AC0);
+  TA_UpdateUnitLOS : TA_UpdateUnitLOSHandler = TA_UpdateUnitLOSHandler($482AC0);
+
+type
+  TA_UpdateLOSHandler = function (a1 : longword; FillFeatureMap_b: longword) : longword; stdcall;
+var
+  // a1 - player index ?
+  // called to update LOS
+  TA_UpdateLOS : TA_UpdateLOSHandler = TA_UpdateLOSHandler($4816A0);
+
+type
+  ObjectCOBandSomethingHandler = function (unitptr : longword) : integer; stdcall;
+var
+  ObjectCOBandSomething : ObjectCOBandSomethingHandler = ObjectCOBandSomethingHandler($485D40);
+
+type
+  sub_45A8D0Handler = function (unitptr : longword) : integer; stdcall;
+var
+  sub_45A8D0 : sub_45A8D0Handler = sub_45A8D0Handler($45A8D0);
+
+type
+  // createobject3d0
+  sub_45A950Handler = function (modelptr : longword; a2: longword; unitptr: longword) : longword; stdcall;
+var
+  sub_45A950 : sub_45A950Handler = sub_45A950Handler($45A950);
+
+type
+  PlaySound_UnitSpeechHandler = function (unitptr : longword; speechtype: longword; speechtext: PChar) : byte; stdcall;
+var
+  PlaySound_UnitSpeech : PlaySound_UnitSpeechHandler = PlaySound_UnitSpeechHandler($47F780);
+
+type
+  PlaySound_EffectNameHandler = function (VoiceName: PChar; unitptr: LongWord) : LongWord; stdcall;
+var
+  PlaySound_EffectName : PlaySound_EffectNameHandler = PlaySound_EffectNameHandler($47F1A0);
+
+type
+  PlaySound_EffectIdHandler = function (VoiceId: longword; unitptr: LongWord) : Integer; stdcall;
+var
+  PlaySound_EffectId : PlaySound_EffectIdHandler =  PlaySound_EffectIdHandler($47F0C0);
 
 type
   //Access 1 = no cheats, 3 = cheats
@@ -84,7 +122,12 @@ type
 var
   UnitName2ID : UnitName2IDHandler = UnitName2IDHandler($488B10);
 
-// Displays text to the screen (no parsing for commands)  
+type
+  WeaponName2IDHandler = function ( const WeaponName: PAnsiChar ): LongWord; stdcall;
+var
+  WeaponName2ID : WeaponName2IDHandler = WeaponName2IDHandler($49E5B0);
+
+// Displays text to the screen (no parsing for commands)
 type //TextType - 0 = chat, 1 = popup
   SendTextHandler = function ( Text : PChar;
                                TextType : Longint) : longint; stdcall;

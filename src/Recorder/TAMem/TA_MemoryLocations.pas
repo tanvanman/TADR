@@ -24,6 +24,7 @@ const
   TAdynmemStruct_UnitInfoCount = $1438F;
   TAdynmemStruct_UnitInfoArray = $1439B; // Pointer
 
+  TAdynmemStruct_ModelsArray = $14377; // array of pointers (4 bytes * model idx)
   TAdynmemStruct_WeaponTypedefArray = $2CF3;
 
   TAdynmemStruct_MaxUnitLimit = $37EEC; // Word
@@ -33,6 +34,8 @@ const
 
   TAdynmemStruct_GameState = $3923B;
 
+  TAMovementClassArray = $512358;
+  
   PlayerStructSize = $14b;
   PlayerStruct_Active = $0;
   PlayerStruct_DPID = $4;
@@ -71,7 +74,8 @@ const
   UnitStruct_BuildTimeLeft = $104; // dWord
   UnitStruct_HealthVal = $108;  // Word
   UnitStruct_cIsCloaked = $10E;  // Word, get is correct, set can be false positive, use unit state mask
-  UnitStruct_UnitStateMask = $110; // dWord
+  UnitStruct_UnitStateMask = $110; // DWord
+  UnitStruct_COBDataPtr = $18E;
 
   UnitInfoStructSize = $249;
   UnitInfoStruct_movementclass = $1B6;
@@ -79,9 +83,6 @@ const
   WeaponTypedefStructSize = $115;
   WeaponTypedefStruct_WeaponName = $0; // array of Byte 32
   WeaponTypedefStruct_ID = $10A; // Byte
-
-  TAMovementClassArray = $512358;
-  TAMovementClassStruct_Size = 32;
 
   SPEED_CONSTANT : double = 0.0000152587890625;
 
@@ -118,7 +119,7 @@ type
   end;
 
   // 0x249
-  PUnitfInfo = ^TGameUnitInfo;
+  PGameUnitfInfo = ^TGameUnitInfo;
   TGameUnitInfo = packed record
     szName               : array [0..31] of AnsiChar;
     szUnitName           : array [0..31] of AnsiChar;
@@ -224,63 +225,65 @@ type
   TTAPlayerType = (Player_LocalHuman = 1, Player_LocalAI = 2, Player_RemotePlayer = 3);
   TAMem = class
   protected
-    class Function getViewPLayer : Byte;
-    class Function getGameSpeed : Byte;
+    class Function GetViewPLayer : Byte;
+    class Function GetGameSpeed : Byte;
     
-    class Function getMaxUnitLimit : Word;
-    class Function getActualUnitLimit : Word;
-    class Function getIsAlteredUnitLimit : Boolean;
-    class function getUnitsPtr : LongWord;
-    class function getUnits_EndMarkerPtr : LongWord;
-    class function getUnitInfoPtr : LongWord;
-    class function getUnitInfoCount : LongWord;
+    class Function GetMaxUnitLimit : Word;
+    class Function GetActualUnitLimit : Word;
+    class Function GetIsAlteredUnitLimit : Boolean;
+    class function GetUnitsPtr : LongWord;
+    class function GetUnits_EndMarkerPtr : LongWord;
+    class function GetModelsArrayPtr : LongWord;
+    class function GetUnitInfoPtr : LongWord;
+    class function GetUnitInfoCount : LongWord;
 
-    class Function getPausedState : Boolean;
+    class Function GetPausedState : Boolean;
     class Procedure SetPausedState( value : Boolean);
   public
-    Property Paused : Boolean read getPausedState write setPausedState;
+    Property Paused : Boolean read GetPausedState write SetPausedState;
     
     // will return nil for units without movement class (!)
-    class Function getUnitPtr(unitIndex : LongWord) : Pointer;
-    class Function getUnitStruct(unitIndex : LongWord) : LongWord;
+    class Function GetUnitPtr(unitIndex : LongWord) : Pointer;
+    class Function GetUnitStruct(unitIndex : LongWord) : LongWord;
 
-    property ViewPlayer : Byte read getViewPlayer;
-    Property GameSpeed : Byte read getGameSpeed;
-    Property MaxUnitLimit : Word read getMaxUnitLimit;
-    Property ActualUnitLimit : Word read getActualUnitLimit;
-    Property IsAlteredUnitLimit : Boolean read getIsAlteredUnitLimit;
-    Property UnitsPtr : LongWord read getUnitsPtr;
-    Property Units_EndMarkerPtr : LongWord read getUnits_EndMarkerPtr;
-    Property UnitInfoPtr : LongWord read getUnitInfoPtr;
-    Property UnitInfoCount : LongWord read getUnitInfoCount;
+    property ViewPlayer : Byte read GetViewPlayer;
+    Property GameSpeed : Byte read GetGameSpeed;
+    Property MaxUnitLimit : Word read GetMaxUnitLimit;
+    Property ActualUnitLimit : Word read GetActualUnitLimit;
+    Property IsAlteredUnitLimit : Boolean read GetIsAlteredUnitLimit;
+    Property UnitsPtr : LongWord read GetUnitsPtr;
+    Property Units_EndMarkerPtr : LongWord read GetUnits_EndMarkerPtr;
+    Property UnitInfoPtr : LongWord read GetUnitInfoPtr;
+    Property UnitInfoCount : LongWord read GetUnitInfoCount;
 
-    class Function getPlayerByIndex(playerIndex : LongWord) : Pointer; 
-    class Function getPlayerByDPID(playerPID : TDPID) : Pointer;
+    class Function GetPlayerByIndex(playerIndex : LongWord) : Pointer;
+    class Function GetPlayerByDPID(playerPID : TDPID) : Pointer;
     // zero based player index
-    class Function getPlayerIndex(playerPID : TDPID) : LongWord;
+    class Function GetPlayerIndex(playerPID : TDPID) : LongWord;
 
-    class function getTemplatePtr(templateid: Word): LongWord;
-    class function getMovementClassPtr(classid: Word): LongWord;
-    class function getWeapon(weaponid: Word): LongWord;
+    class function GetModelPtr(index: Word): Pointer;
+    class function GetTemplatePtr(index: Word): LongWord;
+    class function GetMovementClassPtr(index: Word): LongWord;
+    class function GetWeapon(weaponid: Word): LongWord;
 
     class function IsTAVersion31 : Boolean;
   end;
 
   TAPlayer = class
   protected
-    class function getShareEnergyVal : single;
-    class function getShareMetalVal : single;
-    class function getShareEnergy : Boolean;
-    class function getShareMetal : Boolean;
-    class function getShootAll : Boolean;
+    class function GetShareEnergyVal : single;
+    class function GetShareMetalVal : single;
+    class function GetShareEnergy : Boolean;
+    class function GetShareMetal : Boolean;
+    class function GetShootAll : Boolean;
   public
-    property ShareEnergyVal : single read getShareEnergyVal;
-    property ShareMetalVal : single read getShareMetalVal;
-    property ShareEnergy : Boolean read getShareEnergy;
-    property ShareMetal : Boolean read getShareMetal;
-    property ShootAll : Boolean read getShootAll;
+    property ShareEnergyVal : single read GetShareEnergyVal;
+    property ShareMetalVal : single read GetShareMetalVal;
+    property ShareEnergy : Boolean read GetShareEnergy;
+    property ShareMetal : Boolean read GetShareMetal;
+    property ShootAll : Boolean read GetShootAll;
 
-    class Function getDPID(player : Pointer) : TDPID;
+    class Function GetDPID(player : Pointer) : TDPID;
     class Function PlayerType(player : Pointer) : TTAPlayerType;
 
     class Procedure SetShareRadar(player : Pointer; value : Boolean);
@@ -295,24 +298,24 @@ type
 
   TAUnit = class
   public
-    class Function getKills(unitptr : Pointer) : Word;
-    class procedure setKills(unitptr : Pointer; kills : Word);
+    class Function GetKills(unitptr : Pointer) : Word;
+    class procedure SetKills(unitptr : Pointer; kills : Word);
 
-    class Function getHealth(unitptr : Pointer) : Word;
-    class procedure setHealth(unitptr : Pointer; health : LongWord);
+    class Function GetHealth(unitptr : Pointer) : Word;
+    class procedure SetHealth(unitptr : Pointer; health : LongWord);
 
-    class Function getCloak(unitptr : Pointer) : LongWord;
-    class procedure setCloak(unitptr : Pointer; cloak : Word);
+    class Function GetCloak(unitptr : Pointer) : LongWord;
+    class procedure SetCloak(unitptr : Pointer; cloak : Word);
 
-    class function getUnitX(unitptr : Pointer): LongWord;
-    class function getUnitY(unitptr : Pointer): LongWord;
-    class function getUnitZ(unitptr : Pointer): LongWord;
-    class procedure setUnitX(unitptr : Pointer; X : LongWord);
-    class procedure setUnitY(unitptr : Pointer; Y : LongWord);
-    class procedure setUnitZ(unitptr : Pointer; Z : LongWord);
+    class function GetUnitX(unitptr : Pointer): LongWord;
+    class function GetUnitY(unitptr : Pointer): LongWord;
+    class function GetUnitZ(unitptr : Pointer): LongWord;
+    class procedure SetUnitX(unitptr : Pointer; X : LongWord);
+    class procedure SetUnitY(unitptr : Pointer; Y : LongWord);
+    class procedure SetUnitZ(unitptr : Pointer; Z : LongWord);
 
     class procedure Kill(unitptr : Pointer; deathtype : Byte);
-    class Function getBuildTimeLeft(unitptr : Pointer) : single;
+    class Function GetBuildTimeLeft(unitptr : Pointer) : single;
 
     class Function GetOwnerPtr(unitptr : Pointer) : Pointer;
     class Function GetOwnerIndex(unitptr : Pointer) : Integer;
@@ -320,15 +323,20 @@ type
     class Function IsLocal(unitptr: Pointer; remoteUnitId: PLongWord; out local: Boolean): LongWord;
     class Function GetId(unitptr : Pointer) : Word;
     class Function GetLongId(unitptr : Pointer) : LongWord;
+    class Function GetCOBDataPtr(unitptr : Pointer) : LongWord;
 
     class function SearchCustomUnitInfos(unitId: LongWord; remoteUnitId: PLongWord; local: Boolean; out index: Integer ): Boolean;
-    class function setUpgradeable(unitptr: Pointer; State: Byte; remoteUnitId: PLongWord): Byte;
-    class function getUnitTemplateId(unitptr: Pointer): Word;
-    class function getUnitInfoField(unitptr: Pointer; fieldType: LongWord; remoteUnitId: PLongWord): LongWord;
-    class function setUnitInfoField(unitptr: Pointer; fieldType: LongWord; value: LongWord; remoteUnitId: PLongWord): LongWord;
+    class function SetUpgradeable(unitptr: Pointer; State: Byte; remoteUnitId: PLongWord): Boolean;
+    class function GetUnitTemplateId(unitptr: Pointer): Word;
+    class function SetTemplate(unitptr: Pointer; newTemplateId: Word; recreate: boolean): Boolean;
+    class function GetUnitInfoField(unitptr: Pointer; fieldType: LongWord; remoteUnitId: PLongWord): LongWord;
+    class function SetUnitInfoField(unitptr: Pointer; fieldType: LongWord; value: LongWord; remoteUnitId: PLongWord): Boolean;
 
-    class function getMovementClass(unitptr : Pointer): LongWord;
-    class function setWeapon(unitptr : Pointer; index: LongWord; weaponid: Word; requirespatch: Boolean): Boolean;
+    class function GetMovementClass(unitptr : Pointer): LongWord;
+    class function SetWeapon(unitptr : Pointer; index: LongWord; weaponid: Word; requirespatch: Boolean): Boolean;
+    class function UpdateLos(unitptr: Pointer): LongWord;
+    class procedure Speech(unitptr : longword; speechtype: longword; speechtext: PChar);
+    class procedure SoundEffectId(unitptr : longword; voiceid: longword);
   end;
 
 var
@@ -388,57 +396,62 @@ end;
 
 // -----------------------------------------------------------------------------
 
-class Function TAMem.getViewPLayer : Byte;
+class Function TAMem.GetViewPLayer : Byte;
 begin
 result := PByte(PLongWord(TADynmemStructPtr)^ + TAdynmemStruct_LOS_Sight)^;
 end;
 
-class Function TAMem.getGameSpeed : Byte;
+class Function TAMem.GetGameSpeed : Byte;
 begin
 result := PByte(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_GameSpeed)^;
 end;
 
-class function TAMem.getMaxUnitLimit : Word;
+class function TAMem.GetMaxUnitLimit : Word;
 begin
 result := PWord(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_MaxUnitLimit)^;
 end;
 
-class function TAMem.getActualUnitLimit : Word;
+class function TAMem.GetActualUnitLimit : Word;
 begin
 result := PWord(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_ActualUnitLimit)^;
 end;
 
-class function TAMem.getIsAlteredUnitLimit : Boolean;
+class function TAMem.GetIsAlteredUnitLimit : Boolean;
 begin
 result := PByte(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_IsAlteredUnitLimit)^ <> 0;
 end;
 
-class function TAMem.getUnitsPtr : LongWord;
+class function TAMem.GetUnitsPtr : LongWord;
 begin
 result := PLongWord(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_Units)^;
 end;
 
-class function TAMem.getUnits_EndMarkerPtr : LongWord;
+class function TAMem.GetUnits_EndMarkerPtr : LongWord;
 begin
 result := PLongWord(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_Units_EndMarker)^;
 end;
 
-class function TAMem.getUnitInfoPtr : LongWord;
+class function TAMem.GetModelsArrayPtr : LongWord;
+begin
+result := PLongWord(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_ModelsArray)^;
+end;
+
+class function TAMem.GetUnitInfoPtr : LongWord;
 begin
 result := PLongWord(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_UnitInfoArray)^;
 end;
 
-class function TAMem.getUnitInfoCount : LongWord;
+class function TAMem.GetUnitInfoCount : LongWord;
 begin
 result := PLongWord(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_UnitInfoCount)^;
 end;
 
-class Function TAMem.getPlayerByIndex(playerIndex : LongWord) : Pointer;
+class Function TAMem.GetPlayerByIndex(playerIndex : LongWord) : Pointer;
 begin
 result := Pointer( PLongWord(TADynmemStructPtr)^+TAdynmemStruct_Players+(playerIndex*PlayerStructSize) );
 end;
 
-class Function TAMem.getPlayerIndex(playerPID : TDPID) : LongWord;
+class Function TAMem.GetPlayerIndex(playerPID : TDPID) : LongWord;
 var
   aplayerPID : PDPID;
   i : Integer;
@@ -458,7 +471,7 @@ while i < MAXPLAYERCOUNT do
   end;
 end;
 
-class Function TAMem.getPausedState : Boolean;
+class Function TAMem.GetPausedState : Boolean;
 begin
 result := PByte(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_IsPaused)^ <> 0;
 end;
@@ -468,22 +481,22 @@ begin
 PByte(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_IsPaused)^ := BoolValues[value]
 end;
 
-class Function TAMem.getUnitPtr(unitIndex : LongWord) : Pointer;
+class Function TAMem.GetUnitPtr(unitIndex : LongWord) : Pointer;
 begin
-if (unitIndex > getMaxUnitLimit * 10) then exit;
+if (unitIndex > GetMaxUnitLimit * 10) then exit;
 result := Pointer( PLongWord(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_Units)^+UnitStructSize*unitIndex );
 end;
 
-class Function TAMem.getUnitStruct(unitIndex : LongWord) : LongWord;
+class Function TAMem.GetUnitStruct(unitIndex : LongWord) : LongWord;
 begin
 Result:= 0;
-if (unitIndex > getMaxUnitLimit * 10) then exit;
+if (unitIndex > GetMaxUnitLimit * 10) then exit;
 result := LongWord(PLongWord(PLongWord(TADynmemStructPtr)^+TAdynmemStruct_Units)^+UnitStructSize*unitIndex );
 end;
 
 // -----------------------------------------------------------------------------
 
-class Function TAMem.getPlayerByDPID(playerPID : TDPID) : Pointer;
+class Function TAMem.GetPlayerByDPID(playerPID : TDPID) : Pointer;
 var
   aplayerPID : PDPID;
   i : Integer;
@@ -515,7 +528,7 @@ if (Player1 = nil) or (LongWord(Player2) >= MAXPLAYERCOUNT) then exit;
 PAlliedState(LongWord(Player1)+PlayerStruct_AlliedPlayers)[Player2] := BoolValues[value]
 end;
 
-class Function TAPlayer.getDPID(player : Pointer) : TDPID;
+class Function TAPlayer.GetDPID(player : Pointer) : TDPID;
 begin
 result := PDPID(LongWord(player)+ PlayerStruct_DPID )^;
 end;
@@ -608,12 +621,12 @@ end;
 
 // -----------------------------------------------------------------------------
 
-class Function TAUnit.getKills(unitptr : Pointer) : Word;
+class Function TAUnit.GetKills(unitptr : Pointer) : Word;
 begin
 result := PWord( LongWord(unitptr)+UnitStruct_Kills)^;
 end;
 
-class procedure TAUnit.setKills(unitptr : Pointer; Kills : Word);
+class procedure TAUnit.SetKills(unitptr : Pointer; Kills : Word);
 begin
 PWord( LongWord(unitptr)+UnitStruct_Kills)^ := Kills;
 end;
@@ -631,47 +644,47 @@ else
   Bitfield^ := Bitfield^ and not Kill_BitMask
 end;
 
-class Function TAUnit.getHealth(unitptr : Pointer) : Word;
+class Function TAUnit.GetHealth(unitptr : Pointer) : Word;
 begin
 result := PWord( LongWord(unitptr)+UnitStruct_HealthVal)^;
 end;
 
-class procedure TAUnit.setHealth(unitptr : Pointer; Health : LongWord);
+class procedure TAUnit.SetHealth(unitptr : Pointer; Health : LongWord);
 begin
 PLongWord( LongWord(unitptr)+UnitStruct_HealthVal)^ := Health;
 end;
 
-class procedure TAUnit.setUnitX(unitptr : Pointer; X : LongWord);
+class procedure TAUnit.SetUnitX(unitptr : Pointer; X : LongWord);
 begin
 PLongWord( LongWord(unitptr)+UnitStruct_Pos+UnitStruct_Posx_)^ := LongWord(X*163840);
 end;
 
-class procedure TAUnit.setUnitY(unitptr : Pointer; Y : LongWord);
+class procedure TAUnit.SetUnitY(unitptr : Pointer; Y : LongWord);
 begin
 PLongWord( LongWord(unitptr)+UnitStruct_Pos+UnitStruct_Posy_)^ := LongWord(Y*163840);
 end;
 
-class procedure TAUnit.setUnitZ(unitptr : Pointer; Z : LongWord);
+class procedure TAUnit.SetUnitZ(unitptr : Pointer; Z : LongWord);
 begin
 PLongWord( LongWord(unitptr)+UnitStruct_Pos+UnitStruct_Posz_)^ := LongWord(Z*163840);
 end;
 
-class function TAUnit.getUnitX(unitptr : Pointer): LongWord;
+class function TAUnit.GetUnitX(unitptr : Pointer): LongWord;
 begin
 result := PLongWord( LongWord(unitptr)+UnitStruct_Pos+UnitStruct_Posx_)^;
 end;
 
-class function TAUnit.getUnitY(unitptr : Pointer): LongWord;
+class function TAUnit.GetUnitY(unitptr : Pointer): LongWord;
 begin
 result := PLongWord( LongWord(unitptr)+UnitStruct_Pos+UnitStruct_Posy_)^;
 end;
 
-class function TAUnit.getUnitZ(unitptr : Pointer): LongWord;
+class function TAUnit.GetUnitZ(unitptr : Pointer): LongWord;
 begin
 result := PLongWord( LongWord(unitptr)+UnitStruct_Pos+UnitStruct_Posz_)^;
 end;
 
-class function TAUnit.getMovementClass(unitptr : Pointer): LongWord;
+class function TAUnit.GetMovementClass(unitptr : Pointer): LongWord;
 begin
 result := PLongWord( LongWord(unitptr)+UnitStruct_MoveClass)^;
 end;
@@ -679,7 +692,7 @@ end;
 const
   Cloak_BitMask = $4;
   CloakUnitStateMask_BitMask = $8;
-class procedure TAUnit.setCloak(unitptr : Pointer; Cloak : Word);
+class procedure TAUnit.SetCloak(unitptr : Pointer; Cloak : Word);
 var
   Bitfield : PWord;
 begin
@@ -690,7 +703,7 @@ begin
     Bitfield^ := Bitfield^ and not CloakUnitStateMask_BitMask;
 end;
 
-Class function TAUnit.getCloak(unitptr : Pointer) : LongWord;
+Class function TAUnit.GetCloak(unitptr : Pointer) : LongWord;
 var
   Bitfield : PWord;
 begin
@@ -701,7 +714,7 @@ begin
     Result:= 0;
 end;
 
-class Function TAUnit.getBuildTimeLeft(unitptr : Pointer) : single;
+class Function TAUnit.GetBuildTimeLeft(unitptr : Pointer) : single;
 begin
 result := PSingle( LongWord(unitptr)+UnitStruct_BuildTimeLeft)^;
 end;
@@ -765,22 +778,17 @@ begin
 result := PLongWord( LongWord(unitptr)+UnitStruct_UnitInGameIndex)^;
 end;
 
-class function TAMem.getTemplatePtr(templateid: Word): LongWord;
+class Function TAUnit.GetCOBDataPtr(unitptr : Pointer) : LongWord;
 begin
-result := getUnitInfoPtr + templateid * UnitInfoStructSize;
+result := PLongWord( LongWord(unitptr)+UnitStruct_COBDataPtr)^;
 end;
 
-class function TAUnit.getUnitTemplateId(unitptr: Pointer): Word;
+class function TAMem.GetMovementClassPtr(index: Word): LongWord;
 begin
-result := PWord( LongWord(unitptr)+UnitStruct_UnitINFOID)^;
+result := TAMovementClassArray + SizeOf(TMoveInfoClassStruct) * index;
 end;
 
-class function TAMem.getMovementClassPtr(classid: Word): LongWord;
-begin
-result := TAMovementClassArray + TAMovementClassStruct_Size * classid;
-end;
-
-class function TAMem.getWeapon(weaponid: Word): LongWord;
+class function TAMem.GetWeapon(weaponid: Word): LongWord;
 begin
 // fix me to be compatible with xpoy id patch
   if iniSettings.weaponidpatch then
@@ -789,21 +797,43 @@ begin
     result:= PLongWord(TADynmemStructPtr)^+TAdynmemStruct_WeaponTypedefArray + weaponid * WeaponTypedefStructSize;
 end;
 
-{class procedure TAUnit.setTemplate(unitptr : Pointer; newTemplateID: Word);
+class function TAMem.GetModelPtr(index: Word): Pointer;
+begin
+result := PLongWord(GetModelsArrayPtr + index * 4);
+end;
+
+class function TAMem.GetTemplatePtr(index: Word): LongWord;
+begin
+result := GetUnitInfoPtr + index * UnitInfoStructSize;
+end;
+
+class function TAUnit.GetUnitTemplateId(unitptr: Pointer): Word;
+begin
+result := PWord( LongWord(unitptr)+UnitStruct_UnitINFOID)^;
+end;
+
+class function TAUnit.SetTemplate(unitptr: Pointer; newTemplateId: Word; recreate: boolean): Boolean;
 var
   newTemplate: LongWord;
   ResultPtr: LongWord;
 begin
+  Result:= False;
   if unitptr <> nil then
   begin
-    newTemplate:= TAMem.getTemplatePtr(newTemplateID);
+    newTemplate:= TAMem.GetTemplatePtr(newTemplateID);
     PWord(LongWord(unitptr)+UnitStruct_UNITINFOID)^ := newTemplateID;
     PLongWord(LongWord(unitptr)+UnitStruct_UNITINFO_p)^ := newTemplate;
-    ResultPtr:= CreateMovementClass(LongWord(unitptr));
+    if recreate then
+    begin
+      ObjectCOBandSomething(LongWord(unitptr));
+      ResultPtr:= CreateMovementClass(LongWord(unitptr));
+    end;
+    TAUnit.UpdateLos(unitptr);
+    Result:= True;
   end;
-end;  }
+end;
 
-class function TAUnit.setWeapon(unitptr : Pointer; index: LongWord; weaponid: Word; requirespatch: Boolean): Boolean;
+class function TAUnit.SetWeapon(unitptr : Pointer; index: LongWord; weaponid: Word; requirespatch: Boolean): Boolean;
 var
   Weapon: LongWord;
 begin
@@ -811,9 +841,9 @@ begin
   if unitptr <> nil then
   begin
     if requirespatch and iniSettings.weaponidpatch then
-      Weapon:= TAMem.getWeapon(weaponid)
+      Weapon:= TAMem.GetWeapon(weaponid)
     else
-      Weapon:= TAMem.getWeapon(Byte(weaponid));
+      Weapon:= TAMem.GetWeapon(Byte(weaponid));
     case index of
       WEAPON1: PLongWord(LongWord(unitptr)+UnitStruct_Weapon1_p)^ := Weapon;
       WEAPON2: PLongWord(LongWord(unitptr)+UnitStruct_Weapon2_p)^ := Weapon;
@@ -823,9 +853,25 @@ begin
   end;
 end;
 
+class function TAUnit.UpdateLos(unitptr : pointer): LongWord;
+begin
+  TA_UpdateUnitLOS(LongWord(unitptr));
+  Result:= TA_UpdateLOS(LongWord(TAUnit.GetOwnerIndex(unitptr)), 1);
+end;
+
+class procedure TAUnit.Speech(unitptr : longword; speechtype: longword; speechtext: PChar);
+begin
+  PlaySound_UnitSpeech(unitptr, speechtype, speechtext);
+end;
+
+class procedure TAUnit.SoundEffectId(unitptr : longword; voiceid: longword);
+begin
+  PlaySound_EffectId(voiceid, unitptr);
+end;
+
 {
-  Searches non-sorted array of custom unit info structures.
-  we can't delete any elements of array (would move pointers and TA would crash),
+Searches non-sorted array of custom unit info structures.
+we can't delete any elements of array (would move pointers and TA would crash),
 }
 class function TAUnit.SearchCustomUnitInfos(unitId: LongWord; remoteUnitId: PLongWord; Local: Boolean; out Index: Integer ): Boolean;
 var
@@ -857,22 +903,22 @@ begin
 end;
 
 {
-  Clone current unit template to a new memory location that is writable,
-  making it fully customizable. Or restore the orginal TA's UNITINFO_p pointer
+Clone current unit template to a new memory location that is writable,
+making it fully customizable. Or restore the orginal TA's UNITINFO_p pointer
 }
-class function TAUnit.setUpgradeable(unitptr: Pointer; State: Byte; remoteUnitId: PLongWord): Byte;
+class function TAUnit.SetUpgradeable(unitptr: Pointer; State: Byte; remoteUnitId: PLongWord): Boolean;
 var
   tmpUnitInfo: TCustomUnitInfo;
-  arrId: Integer;
+  arrIdx: Integer;
   unitId: LongWord;
   local: Boolean;
   templateFound: Boolean;
 begin
-  Result:= 0;
+  Result:= False;
   unitId:= IsLocal(unitptr,remoteUnitId, Local);
-  TemplateFound:= TAUnit.SearchCustomUnitInfos(unitId, remoteUnitId, Local, ArrId);
+  TemplateFound:= TAUnit.SearchCustomUnitInfos(unitId, remoteUnitId, Local, arrIdx);
 
-  if (not TemplateFound) and (ArrId = -1) then
+  if (not TemplateFound) and (arrIdx = -1) then
   begin
     TmpUnitInfo.unitId:= unitId;
     if Local then
@@ -880,133 +926,196 @@ begin
     else
       begin
         TmpUnitInfo.unitIdRemote:= LongWord(remoteUnitId);
-        TmpUnitInfo.InfoPtrOld:= PLongWord(LongWord(TAMem.getUnitStruct(unitId))+UnitStruct_UNITINFO_p)^;
+        TmpUnitInfo.InfoPtrOld:= PLongWord(LongWord(TAMem.GetUnitStruct(unitId))+UnitStruct_UNITINFO_p)^;
       end;
-    TmpUnitInfo.InfoStruct:= PUnitfInfo(TmpUnitInfo.InfoPtrOld)^;
-    ArrId:= CustomUnitInfos.Add(TmpUnitInfo);
+    TmpUnitInfo.InfoStruct:= PGameUnitfInfo(TmpUnitInfo.InfoPtrOld)^;
+    arrIdx:= CustomUnitInfos.Add(TmpUnitInfo);
     TemplateFound:= True;
   end else
     if (not Local) then
     begin
      // if state = 1 then
     //  begin
-        // received remote setupgradeable but unit with the same short id already exists in array,
+        // received remote setupgradeable, but unit with the same short id already exists in array,
         // let's overwrite array element with new data, so we preserve pointers to other elements, hopefully not crashing TA
-        CustomUnitInfosArray[ArrId].unitIdRemote:= LongWord(remoteUnitId);
-        CustomUnitInfosArray[ArrId].InfoPtrOld:= TAMem.getTemplatePtr(PWord(LongWord(TAMem.getUnitStruct(Word(remoteUnitId)))+UnitStruct_UnitINFOID)^);
-        CustomUnitInfosArray[ArrId].InfoStruct:= PUnitfInfo(CustomUnitInfosArray[ArrId].InfoPtrOld)^;
+        CustomUnitInfosArray[arrIdx].unitIdRemote:= LongWord(remoteUnitId);
+        CustomUnitInfosArray[arrIdx].InfoPtrOld:= TAMem.GetTemplatePtr(PWord(LongWord(TAMem.GetUnitStruct(Word(remoteUnitId)))+UnitStruct_UnitINFOID)^);
+        CustomUnitInfosArray[arrIdx].InfoStruct:= PGameUnitfInfo(CustomUnitInfosArray[arrIdx].InfoPtrOld)^;
         TemplateFound:= True;
     //  end;
     end;
 
     if TemplateFound then
     begin
-      Result:= 1;
+      Result:= True;
       if state = 0 then
       begin
         if Local then
-          PLongWord(LongWord(Pointer(unitptr))+UnitStruct_UNITINFO_p)^ := CustomUnitInfosArray[ArrId].InfoPtrOld
+          PLongWord(LongWord(Pointer(unitptr))+UnitStruct_UNITINFO_p)^ := CustomUnitInfosArray[arrIdx].InfoPtrOld
         else
-          PLongWord(LongWord(TAMem.getUnitStruct(unitId))+UnitStruct_UNITINFO_p)^ := CustomUnitInfosArray[ArrId].InfoPtrOld;
+          PLongWord(LongWord(TAMem.GetUnitStruct(unitId))+UnitStruct_UNITINFO_p)^ := CustomUnitInfosArray[arrIdx].InfoPtrOld;
       end else
       begin
         if Local then
-          PLongWord(LongWord(Pointer(unitptr))+UnitStruct_UNITINFO_p)^ := LongWord(@CustomUnitInfosArray[ArrId].InfoStruct)
+          PLongWord(LongWord(Pointer(unitptr))+UnitStruct_UNITINFO_p)^ := LongWord(@CustomUnitInfosArray[arrIdx].InfoStruct)
         else
-          PLongWord(LongWord(TAMem.getUnitStruct(unitId))+UnitStruct_UNITINFO_p)^ := LongWord(@CustomUnitInfosArray[ArrId].InfoStruct);
+          PLongWord(LongWord(TAMem.GetUnitStruct(unitId))+UnitStruct_UNITINFO_p)^ := LongWord(@CustomUnitInfosArray[arrIdx].InfoStruct);
       end;
     end;
 end;
 
-class function TAUnit.getUnitInfoField(unitptr: Pointer; fieldType: LongWord; remoteUnitId: PLongWord): LongWord;
+class function TAUnit.GetUnitInfoField(unitptr: Pointer; fieldType: LongWord; remoteUnitId: PLongWord): LongWord;
 var
-  arrId: Integer;
+  arrIdx: Integer;
   unitId: LongWord;
   local: Boolean;
+  custTmplFound: boolean;
+  engineTmpl: PGameUnitfInfo;
 begin
+  Result:= 0;
   unitId:= IsLocal(unitptr, remoteUnitId, local);
-  if TAUnit.SearchCustomUnitInfos(unitId, remoteUnitId, local, arrId) then
+  custTmplFound:= TAUnit.SearchCustomUnitInfos(unitId, remoteUnitId, local, arrIdx);
+
+  // if getter was done for a unit that has no custom unitinfo template
+  // we are going to read field value from TA's GameUnitInfo array
+  if not custTmplFound then
   begin
-    case fieldType of
-      MAXHEALTH : Result:= LongWord(CustomUnitInfosArray[arrId].InfoStruct.nMaxHP);
-      HEALTIME  : Result:= LongWord(CustomUnitInfosArray[arrId].InfoStruct.nHealTime);
-      { ... }
-    end;
+    engineTmpl:= Pointer(TAMem.GetTemplatePtr(GetUnitTemplateId(Pointer(TAMem.GetUnitStruct(Word(unitId))))));
+    if (engineTmpl = nil) then Exit;
+  end;
+
+  case fieldType of
+    MAXHEALTH       : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nMaxHP else Result:= engineTmpl.nMaxHP;
+    HEALTIME        : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nHealTime else Result:= engineTmpl.nHealTime;
+
+    MAXSPEED        : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.lMaxSpeedRaw else Result:= engineTmpl.lMaxSpeedRaw;
+    ACCELERATION    : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.lAcceleration else Result:= engineTmpl.lAcceleration;
+    BRAKERATE       : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.lBrakeRate else Result:= engineTmpl.lBrakeRate;
+    TURNRATE        : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nTurnRate else Result:= engineTmpl.nTurnRate;
+    CRUISEALT       : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nCruiseAlt else Result:= engineTmpl.nCruiseAlt;
+    MANEUVERLEASH   : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nManeuverLeashLength else Result:= engineTmpl.nManeuverLeashLength;
+    ATTACKRUNLEN    : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nAttackRunLength else Result:= engineTmpl.nAttackRunLength;
+    MAXWATERDEPTH   : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nMaxWaterDepth else Result:= engineTmpl.nMaxWaterDepth;
+    MINWATERDEPTH   : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nMinWaterDepth else Result:= engineTmpl.nMinWaterDepth;
+    MAXSLOPE        : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.cMaxSlope else Result:= engineTmpl.cMaxSlope;
+    MAXWATERSLOPE   : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.cMaxWaterSlope else Result:= engineTmpl.cMaxWaterSlope;
+    WATERLINE       : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.cWaterLine else Result:= engineTmpl.cWaterLine;
+
+    TRANSPORTSIZE   : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.cTransportSize else Result:= engineTmpl.cTransportSize;
+    TRANSPORTCAP    : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.cTransportCapacity else Result:= engineTmpl.cTransportCapacity;
+
+    BANKSCALE       : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.lBankScale else Result:= engineTmpl.lBankScale;
+    KAMIKAZEDIST    : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nKamikazeDistance else Result:= engineTmpl.nKamikazeDistance;
+    DAMAGEMODIFIER  : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.lDamageModifier else Result:= engineTmpl.lDamageModifier;
+
+    WORKERTIME      : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nWorkerTime else Result:= engineTmpl.nWorkerTime;
+    BUILDDIST       : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nBuildDistance else Result:= engineTmpl.nBuildDistance;
+
+    SIGHTDIST       : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nSightDistance else Result:= engineTmpl.nSightDistance;
+    RADARDIST       : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nRadarDistance else Result:= engineTmpl.nRadarDistance;
+    SONARDIST       : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nSonarDistance else Result:= engineTmpl.nSonarDistance;
+    MINCLOAKDIST    : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nMinCloakDistance else Result:= engineTmpl.nMinCloakDistance;
+    RADARDISTJAM    : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nRadarDistanceJam else Result:= engineTmpl.nRadarDistanceJam;
+    SONARDISTJAM    : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.nSonarDistanceJam else Result:= engineTmpl.nSonarDistanceJam;
+
+    MAKESMETAL      : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.cMakesMetal else Result:= engineTmpl.cMakesMetal;
+    FENERGYMAKE     : if custTmplFound then Result:= Round(CustomUnitInfosArray[arrIdx].InfoStruct.fEnergyMake * 100) else Result:= Round(engineTmpl.fEnergyMake * 100);
+    FMETALMAKE      : if custTmplFound then Result:= Round(CustomUnitInfosArray[arrIdx].InfoStruct.fMetalMake * 100) else Result:= Round(engineTmpl.fMetalMake * 100);
+    FENERGYUSE      : if custTmplFound then Result:= Round(CustomUnitInfosArray[arrIdx].InfoStruct.fEnergyUse * 100) else Result:= Round(engineTmpl.fEnergyUse * 100);
+    FMETALUSE       : if custTmplFound then Result:= Round(CustomUnitInfosArray[arrIdx].InfoStruct.fMetalUse * 100) else Result:= Round(engineTmpl.fMetalUse * 100);
+    FENERGYSTOR     : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.lEnergyStorage else Result:= engineTmpl.lEnergyStorage;
+    FMETALSTOR      : if custTmplFound then Result:= CustomUnitInfosArray[arrIdx].InfoStruct.lMetalStorage else Result:= engineTmpl.lMetalStorage;
+    FWINDGENERATOR  : if custTmplFound then Result:= Round(CustomUnitInfosArray[arrIdx].InfoStruct.fWindGenerator * 100) else Result:= Round(engineTmpl.fWindGenerator * 100);
+    FTIDALGENERATOR : if custTmplFound then Result:= Round(CustomUnitInfosArray[arrIdx].InfoStruct.fTidalGenerator * 100) else Result:= Round(engineTmpl.fTidalGenerator * 100);
+    FCLOAKCOST      : if custTmplFound then Result:= Round(CustomUnitInfosArray[arrIdx].InfoStruct.fCloakCost * 100) else Result:= Round(engineTmpl.fCloakCost * 100);
+    FCLOAKCOSTMOVE  : if custTmplFound then Result:= Round(CustomUnitInfosArray[arrIdx].InfoStruct.fCloakCostMoving * 100) else Result:= Round(engineTmpl.fCloakCostMoving * 100);
   end;
 end;
 
-class function TAUnit.setUnitInfoField(unitptr: Pointer; fieldType: LongWord; value: LongWord; remoteUnitId: PLongWord): LongWord;
+class function TAUnit.SetUnitInfoField(unitptr: Pointer; fieldType: LongWord; value: LongWord; remoteUnitId: PLongWord): Boolean;
 var
-  arrId: Integer;
+  arrIdx: Integer;
   unitId: LongWord;
   local: Boolean;
   MovementClassStruct: PMoveInfoClassStruct;
 begin
-  Result:= 0;
+  Result:= False;
   unitId:= IsLocal(unitptr, remoteUnitId, local);
-  if TAUnit.SearchCustomUnitInfos(unitId, remoteUnitId, local, arrId) then
+  if TAUnit.SearchCustomUnitInfos(unitId, remoteUnitId, local, arrIdx) then
   begin
     case fieldType of
+      SOUNDCTGR : CustomUnitInfosArray[arrIdx].InfoStruct.nSoundCategory := Word(value);
       MOVEMENTCLASS :
         begin
         // movement class information is stored in both - specific and global template
         // we fix both of them to make TA engine happy
-        CustomUnitInfosArray[arrId].InfoStruct.lMovementClass:= TAMem.getMovementClassPtr(Word(value));
-        MovementClassStruct:= Pointer(CustomUnitInfosArray[arrId].InfoStruct.lMovementClass);
-        if MovementClassStruct <> nil then
+        CustomUnitInfosArray[arrIdx].InfoStruct.lMovementClass:= TAMem.GetMovementClassPtr(Word(value));
+        MovementClassStruct:= Pointer(CustomUnitInfosArray[arrIdx].InfoStruct.lMovementClass);
+        if MovementClassStruct.pName <> nil then
           begin
-          CustomUnitInfosArray[arrId].InfoStruct.nMaxWaterDepth:= MovementClassStruct.nMaxWaterDepth;
-          CustomUnitInfosArray[arrId].InfoStruct.nMinWaterDepth:= MovementClassStruct.nMinWaterDepth;
-          CustomUnitInfosArray[arrId].InfoStruct.cMaxSlope:= MovementClassStruct.cMaxSlope;
-          CustomUnitInfosArray[arrId].InfoStruct.cMaxWaterSlope:= MovementClassStruct.cMaxWaterSlope;
+          CustomUnitInfosArray[arrIdx].InfoStruct.nMaxWaterDepth:= MovementClassStruct.nMaxWaterDepth;
+          CustomUnitInfosArray[arrIdx].InfoStruct.nMinWaterDepth:= MovementClassStruct.nMinWaterDepth;
+          CustomUnitInfosArray[arrIdx].InfoStruct.cMaxSlope:= MovementClassStruct.cMaxSlope;
+          CustomUnitInfosArray[arrIdx].InfoStruct.cMaxWaterSlope:= MovementClassStruct.cMaxWaterSlope;
           CreateMovementClass(TAMem.GetUnitStruct(Word(unitId)));
           end else
             Exit;
         end;
-      MAXHEALTH : CustomUnitInfosArray[arrId].InfoStruct.nMaxHP := Word(value);// else Result:= LongWord(CustomUnitInfosArray[arrId].InfoStruct.nMaxHP);
-      HEALTIME  : CustomUnitInfosArray[arrId].InfoStruct.nHealTime := Word(value);// else Result:= LongWord(CustomUnitInfosArray[arrId].InfoStruct.nHealTime);
+      MAXHEALTH       : CustomUnitInfosArray[arrIdx].InfoStruct.nMaxHP := Word(value);
+      HEALTIME        : CustomUnitInfosArray[arrIdx].InfoStruct.nHealTime := Word(value);
 
-      MAXSPEED : CustomUnitInfosArray[arrId].InfoStruct.lMaxSpeedRaw := value;
-      ACCELERATION : CustomUnitInfosArray[arrId].InfoStruct.lAcceleration := value;
-      BRAKERATE : CustomUnitInfosArray[arrId].InfoStruct.lBrakeRate := value;
-      TURNRATE : CustomUnitInfosArray[arrId].InfoStruct.nTurnRate := Word(value);
-      CRUISEALT : CustomUnitInfosArray[arrId].InfoStruct.nCruiseAlt := Word(value);
-      MANEUVERLEASH : CustomUnitInfosArray[arrId].InfoStruct.nManeuverLeashLength := Word(value);
-      ATTACKRUNLEN : CustomUnitInfosArray[arrId].InfoStruct.nAttackRunLength := Word(value);
-      MAXSLOPE : CustomUnitInfosArray[arrId].InfoStruct.cMaxSlope := Byte(value);
-      MAXWATERSLOPE : CustomUnitInfosArray[arrId].InfoStruct.cMaxWaterSlope := Byte(value);
-      WATERLINE : CustomUnitInfosArray[arrId].InfoStruct.cWaterLine := Byte(value);
+      MAXSPEED        : CustomUnitInfosArray[arrIdx].InfoStruct.lMaxSpeedRaw := value;
+      ACCELERATION    : CustomUnitInfosArray[arrIdx].InfoStruct.lAcceleration := value;
+      BRAKERATE       : CustomUnitInfosArray[arrIdx].InfoStruct.lBrakeRate := value;
+      TURNRATE        : CustomUnitInfosArray[arrIdx].InfoStruct.nTurnRate := Word(value);
+      CRUISEALT       : CustomUnitInfosArray[arrIdx].InfoStruct.nCruiseAlt := Word(value);
+      MANEUVERLEASH   : CustomUnitInfosArray[arrIdx].InfoStruct.nManeuverLeashLength := Word(value);
+      ATTACKRUNLEN    : CustomUnitInfosArray[arrIdx].InfoStruct.nAttackRunLength := Word(value);
+      MAXWATERDEPTH   : CustomUnitInfosArray[arrIdx].InfoStruct.nMaxWaterDepth := SmallInt(value);
+      MINWATERDEPTH   : CustomUnitInfosArray[arrIdx].InfoStruct.nMinWaterDepth := SmallInt(value);
+      MAXSLOPE        : CustomUnitInfosArray[arrIdx].InfoStruct.cMaxSlope := ShortInt(value);
+      MAXWATERSLOPE   : CustomUnitInfosArray[arrIdx].InfoStruct.cMaxWaterSlope := ShortInt(value);
+      WATERLINE       : CustomUnitInfosArray[arrIdx].InfoStruct.cWaterLine := Byte(value);
 
-      TRANSPORTSIZE : CustomUnitInfosArray[arrId].InfoStruct.cTransportSize := Byte(value);
-      TRANSPORTCAP : CustomUnitInfosArray[arrId].InfoStruct.cTransportCapacity := Byte(value);
+      TRANSPORTSIZE   : CustomUnitInfosArray[arrIdx].InfoStruct.cTransportSize := Byte(value);
+      TRANSPORTCAP    : CustomUnitInfosArray[arrIdx].InfoStruct.cTransportCapacity := Byte(value);
 
-      BANKSCALE : CustomUnitInfosArray[arrId].InfoStruct.lBankScale := value;
-      KAMIKAZEDIST : CustomUnitInfosArray[arrId].InfoStruct.nKamikazeDistance := Word(value);
-      DAMAGEMODIFIER : CustomUnitInfosArray[arrId].InfoStruct.lDamageModifier := value;
+      BANKSCALE       : CustomUnitInfosArray[arrIdx].InfoStruct.lBankScale := value;
+      KAMIKAZEDIST    : CustomUnitInfosArray[arrIdx].InfoStruct.nKamikazeDistance := Word(value);
+      DAMAGEMODIFIER  : CustomUnitInfosArray[arrIdx].InfoStruct.lDamageModifier := value;
 
-      WORKERTIME : CustomUnitInfosArray[arrId].InfoStruct.nWorkerTime := Word(value);
-      BUILDDIST : CustomUnitInfosArray[arrId].InfoStruct.nBuildDistance := Word(value);
+      WORKERTIME      : CustomUnitInfosArray[arrIdx].InfoStruct.nWorkerTime := Word(value);
+      BUILDDIST       : CustomUnitInfosArray[arrIdx].InfoStruct.nBuildDistance := Word(value);
 
-      SIGHTDIST : begin CustomUnitInfosArray[arrId].InfoStruct.nSightDistance := Word(value); UpdateUnitLOS(TAMem.GetUnitStruct(Word(unitId))); end;
-      RADARDIST : CustomUnitInfosArray[arrId].InfoStruct.nRadarDistance := Word(value); // find update radar proc
-      SONARDIST : CustomUnitInfosArray[arrId].InfoStruct.nSonarDistance := Word(value);
-      MINCLOAKDIST : CustomUnitInfosArray[arrId].InfoStruct.nMinCloakDistance := Word(value);
-      RADARDISTJAM : CustomUnitInfosArray[arrId].InfoStruct.nRadarDistanceJam := Word(value);
-      SONARDISTJAM : CustomUnitInfosArray[arrId].InfoStruct.nSonarDistanceJam := Word(value);
+      SIGHTDIST       : begin
+                        CustomUnitInfosArray[arrIdx].InfoStruct.nSightDistance := Word(value);
+                        TAUnit.UpdateLos(Pointer(TAMem.GetUnitStruct(Word(unitId))));
+                        end;
+      RADARDIST       : begin
+                        CustomUnitInfosArray[arrIdx].InfoStruct.nRadarDistance := Word(value);
+                        TAUnit.UpdateLos(Pointer(TAMem.GetUnitStruct(Word(unitId))));
+                        end;
+      SONARDIST       : CustomUnitInfosArray[arrIdx].InfoStruct.nSonarDistance := Word(value);
+      MINCLOAKDIST    : CustomUnitInfosArray[arrIdx].InfoStruct.nMinCloakDistance := Word(value);
+      RADARDISTJAM    : CustomUnitInfosArray[arrIdx].InfoStruct.nRadarDistanceJam := Word(value);
+      SONARDISTJAM    : CustomUnitInfosArray[arrIdx].InfoStruct.nSonarDistanceJam := Word(value);
 
-      MAKESMETAL : CustomUnitInfosArray[arrId].InfoStruct.cMakesMetal := Byte(value);
-      FENERGYMAKE : CustomUnitInfosArray[arrId].InfoStruct.fEnergyMake := value / 100;
-      FMETALMAKE : CustomUnitInfosArray[arrId].InfoStruct.fMetalMake := value / 100;
-      FENERGYUSE : CustomUnitInfosArray[arrId].InfoStruct.fEnergyUse := value / 100;
-      FMETALUSE : CustomUnitInfosArray[arrId].InfoStruct.fMetalUse := value / 100;
-      FENERGYSTOR : CustomUnitInfosArray[arrId].InfoStruct.lEnergyStorage := value;
-      FMETALSTOR : CustomUnitInfosArray[arrId].InfoStruct.lEnergyStorage := value;
-      FWINDGENERATOR : CustomUnitInfosArray[arrId].InfoStruct.fWindGenerator := value / 100;
-      FTIDALGENERATOR : CustomUnitInfosArray[arrId].InfoStruct.fTidalGenerator := value / 100;
-      FCLOAKCOST : CustomUnitInfosArray[arrId].InfoStruct.fCloakCost := value / 100;
-      FCLOAKCOSTMOVE : CustomUnitInfosArray[arrId].InfoStruct.fCloakCostMoving := value / 100;
+      MAKESMETAL      : CustomUnitInfosArray[arrIdx].InfoStruct.cMakesMetal := Byte(value);
+      FENERGYMAKE     : CustomUnitInfosArray[arrIdx].InfoStruct.fEnergyMake := value / 100;
+      FMETALMAKE      : CustomUnitInfosArray[arrIdx].InfoStruct.fMetalMake := value / 100;
+      FENERGYUSE      : CustomUnitInfosArray[arrIdx].InfoStruct.fEnergyUse := value / 100;
+      FMETALUSE       : CustomUnitInfosArray[arrIdx].InfoStruct.fMetalUse := value / 100;
+      FENERGYSTOR     : CustomUnitInfosArray[arrIdx].InfoStruct.lEnergyStorage := value;
+      FMETALSTOR      : CustomUnitInfosArray[arrIdx].InfoStruct.lEnergyStorage := value;
+      FWINDGENERATOR  : CustomUnitInfosArray[arrIdx].InfoStruct.fWindGenerator := value / 100;
+      FTIDALGENERATOR : CustomUnitInfosArray[arrIdx].InfoStruct.fTidalGenerator := value / 100;
+      FCLOAKCOST      : CustomUnitInfosArray[arrIdx].InfoStruct.fCloakCost := value / 100;
+      FCLOAKCOSTMOVE  : CustomUnitInfosArray[arrIdx].InfoStruct.fCloakCostMoving := value / 100;
+      
+      EXPLODEAS       : CustomUnitInfosArray[arrIdx].InfoStruct.p_ExplodeAs := PLongWord(TAMem.GetWeapon(value));
+      SELFDSTRAS      : CustomUnitInfosArray[arrIdx].InfoStruct.p_SelfDestructAsAs := PLongWord(TAMem.GetWeapon(value));
     end;
-    Result:= 1;
+    Result:= True;
   end;
 end;
 

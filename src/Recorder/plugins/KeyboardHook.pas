@@ -34,11 +34,12 @@ procedure SwitchSetShareEnergy;
 
 implementation
 uses
-  TA_MemoryLocations, TA_FunctionsU, BattleRoomScroll;
+  TA_MemoryLocations, TA_FunctionsU, BattleRoomScroll,
+  COB_Extensions;
 
 Procedure OnInstallKeyboardHook;
 begin
-  keyboardHookLevel:= 0;
+  keyboardHookLevel:= 2;
   lastShareEnergyVal:= 0;
   hKeyboardHook:= SetWindowsHookEx(WH_KEYBOARD, @KeyboardHookFunction, 0, GetCurrentThreadId());
 end;
@@ -65,6 +66,9 @@ else
 end;
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
+var
+  UnitAtMouse: Pointer;
+  t: longword;
 begin
   if nCode < 1 then
   begin
@@ -107,20 +111,46 @@ begin
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-               // if FindMouseUnit <> 0 then
-               //   TAUnit.setUpgradeable( pointer(TAMem.GetUnitPtr(FindMouseUnit)), 1, nil);
+                if FindMouseUnit <> 0 then
+                    UnitAtMouse := Pointer(TAMem.GetUnitStruct(FindMouseUnit));
+                  if UnitAtMouse <> nil then
+                  begin
+                    //TAUnit.setUpgradeable( pointer(TAMem.GetUnitPtr(FindMouseUnit)), 1, nil);
+                    t:= TAUnit.GetUnitTemplateId(UnitAtMouse);
+                    SendTextLocal(inttostr(t));
+                  end;
                 end;
               end;
         $45 : begin     // left alt + shift + e
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-                  //if FindMouseUnit <> 0 then
-                  //SendTextLocal(inttostr(TAMem.getUnitTemplateId(pointer(TAMem.GetUnitPtr(FindMouseUnit)))));
-                   // TAUnit.setTemplate(pointer(TAMem.GetUnitPtr(FindMouseUnit)), 168);
-                 //  TAUnit.setMovementClass(pointer(TAMem.GetUnitPtr(FindMouseUnit)), 7);
-                    //TAUnit.setUnitY(pointer(TAMem.GetUnitPtr(FindMouseUnit)), 26);
-                  // TAUnit.Kill( pointer(), 1);
+                  if FindMouseUnit <> 0 then
+                    UnitAtMouse := Pointer(TAMem.GetUnitStruct(FindMouseUnit));
+                  if UnitAtMouse <> nil then
+                  begin
+                    //t2:= TAUnit.GetCOBDataPtr(Pointer(TAMem.GetUnitPtr(UnitAtMouse)));
+                    //sub_45A950(LongWord(TAMem.GetModelPtr(31)), t2, LongWord(TAMem.GetUnitPtr(UnitAtMouse)));
+                    //sub_45A8D0(LongWord(TAMem.GetUnitPtr(UnitAtMouse)));
+                    TAUnit.SetWeapon(UnitAtMouse, WEAPON1, 91, false);
+                    TAUnit.SetWeapon(UnitAtMouse, WEAPON3, 22, false);
+                    TAUnit.SetTemplate(UnitAtMouse, UnitName2ID(PChar('ARMCOM')), true);
+                    TAUnit.SetUpgradeable(UnitAtMouse, 1, nil);
+                    TAUnit.SetUnitInfoField(UnitAtMouse, SOUNDCTGR, 0, nil);
+                    t:= TAUnit.GetUnitInfoField(UnitAtMouse, MAXHEALTH, nil);
+                    TAUnit.SetUnitInfoField(UnitAtMouse, FENERGYMAKE, 50000, nil);
+                    TAUnit.SetUnitInfoField(UnitAtMouse, FMETALMAKE, 20000, nil);
+
+                    TAUnit.SetHealth(UnitAtMouse, t);
+
+                    TAUnit.Speech(LongWord(UnitAtMouse), 12, PChar('It''s-a me, Mario!'));
+                    PlaySound_EffectName(PChar('ItsMeMario'), LongWord(UnitAtMouse));
+                    //TAUnit.SoundEffect(LongWord(UnitAtMouse), 40);
+
+                    TAUnit.UpdateLos(UnitAtMouse);
+                    //TA_UpdateUnitLOS(LongWord(UnitAtMouse));
+                    //TA_UpdateLOS(TAUnit.GetOwnerIndex(UnitAtMouse), 1);
+                  end;
                 end;
               end;
 

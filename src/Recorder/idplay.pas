@@ -681,15 +681,16 @@ begin
           Move( arg4^, customPacket[7], SizeOf(LongWord));
           Move( arg1^, customPacket[11], SizeOf(LongWord));
         end;
-     { TANM_Rec2Rec_UnitTemplate :
+      TANM_Rec2Rec_UnitTemplate :
         begin
           SetLength( customPacket, SizeOf(TRec2Rec_UnitTemplate_Message));
           Move( unitId, customPacket[1], SizeOf(Word));
           Move( arg3^, customPacket[3], SizeOf(Word)); // new template id
-        end;    }
+          Move( arg1^, customPacket[5], SizeOf(Byte)); // recreate object
+        end;
     end;
     SendRecorderToRecorderMsg( eventType, customPacket, False );
-    {$IFNDEF Release}SendChat(Players[0].Name + ' sent COB event: #' + inttostr(eventtype));{$ENDIF}
+    {$IFNDEF Release}SendChat(Players[1].Name + ' sent COB event: #' + inttostr(eventtype));{$ENDIF}
   end;
 end;
 
@@ -2794,16 +2795,23 @@ if assigned(chatview) then
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitWeapon_Message) );
                    if TAUnit.IsOnThisComp(TAMem.GetUnitPtr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId)) <> 1 then
                    begin
-                     TAUnit.setWeapon(pointer(  TAMem.GetUnitStruct(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId) ),
-                                                PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WhichWeapon,
-                                                PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID,
-                                                PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.RequiresPatch);
+                     TAUnit.SetWeapon(Pointer(TAMem.GetUnitStruct(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId)),
+                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WhichWeapon,
+                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID,
+                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.RequiresPatch);
                    end;
+                 end;
+               TANM_Rec2Rec_UnitTemplate :
+                 begin
+                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitTemplate_Message) );
+                   TAUnit.SetTemplate(Pointer(TAMem.GetUnitStruct(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UnitId)),
+                                              PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID,
+                                              (PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.Recreate = 99));
                  end;
                TANM_Rec2Rec_UnitUpgradeable :
                  begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitUpgradeable_Message) );
-                   TAUnit.setUpgradeable( nil,
+                   TAUnit.SetUpgradeable( nil,
                                           PRec2Rec_UnitUpgradeable_Message(Rec2Rec_Data)^.NewState,
                                           Pointer(PRec2Rec_UnitUpgradeable_Message(Rec2Rec_Data)^.UnitIdRemote));
                  end;

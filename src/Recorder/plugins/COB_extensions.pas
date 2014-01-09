@@ -36,72 +36,79 @@ const
  UNIT_IS_ON_THIS_COMP = 75;
 
  { GET/SET }
- HEALTH_VAL = 76;
- CLOAKED = 77;
- UNITX = 81;
- UNITY = 82;
- UNITZ = 83;
+ HEALTH_VAL      = 76;
+ CLOAKED         = 77;
+ UNITX           = 81;
+ UNITY           = 82;
+ UNITZ           = 83;
 
  { SET }
- WEAPON1 = 78;
- WEAPON2 = 79;
- WEAPON3 = 80;
- KILLME = 85;
+ WEAPON1         = 78;
+ WEAPON2         = 79;
+ WEAPON3         = 80;
+ //KILLME          = 85;
+ SPEECH          = 90;
+ SOUND_EFFECT    = 91;
+ TEMPLATE        = 198;
+ TEMPLATE2       = 199;
 
- UPGRADEABLE = 200;
+ UPGRADEABLE     = 200;
 
- NAME = 140;        //string
- UNITNAME	= 141;    //string
- DESCRIPTION = 142; //string
- CATEGORY	= 143;    //string
- SOUNDCTGR = 144;   //string
+ //NAME            = 140; //string
+ //UNITNAME        = 141; //string
+ //DESCRIPTION     = 142; //string
+ //CATEGORY        = 143; //string
+ SOUNDCTGR       = 148;
 
- MOVEMENTCLASS = 149;
+ MOVEMENTCLASS   = 149;
 
- MAXHEALTH = 150;
- HEALTIME = 151;
+ MAXHEALTH       = 150;
+ HEALTIME        = 151;
 
- MAXSPEED = 152;
- ACCELERATION = 153;
- BRAKERATE = 154;
- TURNRATE = 155;
- CRUISEALT = 156;
- MANEUVERLEASH = 157;
- ATTACKRUNLEN = 158;
- MAXSLOPE = 159;
- MAXWATERSLOPE = 160;
- WATERLINE = 161;
+ MAXSPEED        = 152;
+ ACCELERATION    = 153;
+ BRAKERATE       = 154;
+ TURNRATE        = 155;
+ CRUISEALT       = 156;
+ MANEUVERLEASH   = 157;
+ ATTACKRUNLEN    = 158;
+ MAXWATERDEPTH   = 159;
+ MINWATERDEPTH   = 160;
+ MAXSLOPE        = 161;
+ MAXWATERSLOPE   = 162;
+ WATERLINE       = 163;
 
- TRANSPORTSIZE = 162;
- TRANSPORTCAP = 163;
+ TRANSPORTSIZE   = 164;
+ TRANSPORTCAP    = 165;
 
- BANKSCALE = 164;
- KAMIKAZEDIST = 165;
- DAMAGEMODIFIER = 166;
+ BANKSCALE       = 166;
+ KAMIKAZEDIST    = 167;
+ DAMAGEMODIFIER  = 168;
 
- WORKERTIME = 167;
- BUILDDIST = 168;
+ WORKERTIME      = 169;
+ BUILDDIST       = 170;
 
- SIGHTDIST  = 169;
- RADARDIST = 170;
- SONARDIST = 171;
- MINCLOAKDIST = 172;
- RADARDISTJAM = 173;
- SONARDISTJAM = 174;
+ SIGHTDIST       = 171;
+ RADARDIST       = 172;
+ SONARDIST       = 173;
+ MINCLOAKDIST    = 174;
+ RADARDISTJAM    = 175;
+ SONARDISTJAM    = 176;
 
- MAKESMETAL = 175;
- FENERGYMAKE = 176; 	//Multiply (when setting) or divide by 100 after getting
- FMETALMAKE = 177;
- FENERGYUSE = 178;
- FMETALUSE = 179;
- FENERGYSTOR = 180;
- FMETALSTOR = 181;
- FWINDGENERATOR = 182;
- FTIDALGENERATOR = 183;
- FCLOAKCOST = 184;
- FCLOAKCOSTMOVE = 185;  //end multiply
+ MAKESMETAL      = 177;
+ FENERGYMAKE     = 178; //Multiply (when setting) or divide by 100 after getting
+ FMETALMAKE      = 179;
+ FENERGYUSE      = 180;
+ FMETALUSE       = 181;
+ FENERGYSTOR     = 182;
+ FMETALSTOR      = 183;
+ FWINDGENERATOR  = 184;
+ FTIDALGENERATOR = 185;
+ FCLOAKCOST      = 186;
+ FCLOAKCOSTMOVE  = 187; //end multiply
 
- UNIT_TEMPLATE = 190;
+ EXPLODEAS       = 188;
+ SELFDSTRAS      = 189;
  
  CUSTOM_LOW = MIN_ID;
  CUSTOM_HIGH = UPGRADEABLE;
@@ -188,13 +195,13 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       end;
     UNIT_TEAM :
       begin
-      Unit2Ptr := TAMem.GetUnitPtr(arg1);
+      Unit2Ptr := Pointer(TAMem.GetUnitStruct(arg1));
       result := TAUnit.GetOwnerIndex(Unit2Ptr);
       end;
     UNIT_ALLIED :
       begin
       playerPtr := TAUnit.GetOwnerPtr(pointer(unitPtr));
-      Unit2Ptr := TAMem.GetUnitPtr(arg1);
+      Unit2Ptr := Pointer(TAMem.GetUnitStruct(arg1));
       playerIndex := TAUnit.GetOwnerIndex(Unit2Ptr);
       result := BoolValues[TAPlayer.GetAlliedState(playerPtr,playerIndex)]
       end;
@@ -226,7 +233,7 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result:= TAUnit.getUnitZ(pointer(unitPtr)) div 163840;
       end;
-    MOVEMENTCLASS..FCLOAKCOSTMOVE : // 149 - 185
+    MAXHEALTH..FCLOAKCOSTMOVE : // 149 - 185
       begin
       result:= TAUnit.getUnitInfoField(pointer(unitPtr), index, nil);
       end;
@@ -261,23 +268,36 @@ begin
         begin
         TAUnit.setUnitZ(pointer(unitPtr), arg1);
         end;
-      KILLME :
+      {KILLME :
         begin
-        //TAUnit.Kill(pointer(unitPtr), Byte(arg1));
+        TAUnit.Kill(pointer(unitPtr), Byte(arg1));
+        end;}
+      SPEECH :
+        begin
+        TAUnit.Speech(unitPtr, arg1, nil);
         end;
-      UNIT_TEMPLATE :
+      SOUND_EFFECT :
         begin
-       // TAUnit.setTemplate(pointer(unitPtr), arg1);
-       //   globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitPtr, nil, nil, nil);
+        TAUnit.SoundEffectId(unitPtr, arg1);
+        end;
+      TEMPLATE :
+        begin
+        if TAUnit.setTemplate(pointer(unitPtr), arg1, false) then
+          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitPtr, @index, nil, @arg1, nil);   
+        end;
+      TEMPLATE2 :
+        begin
+        if TAUnit.setTemplate(pointer(unitPtr), arg1, true) then
+          globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitPtr, @index, nil, @arg1, nil);
         end;
       UPGRADEABLE :
         begin
-        if TAUnit.setUpgradeable(pointer(unitPtr), arg1, nil) <> 0 then
+        if TAUnit.setUpgradeable(pointer(unitPtr), arg1, nil) then
           globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitUpgradeable, @unitPtr, nil, @arg1, nil, nil);
         end;
-      MOVEMENTCLASS..FCLOAKCOSTMOVE : // 149 - 185
+      SOUNDCTGR..UPGRADEABLE-3 :
         begin
-        if TAUnit.setUnitInfoField(pointer(unitPtr), index, arg1, nil) <> 0 then
+        if TAUnit.setUnitInfoField(pointer(unitPtr), index, arg1, nil) then
           globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitEditTemplate, @unitPtr, @arg1, nil, nil, @index);
         end;
     end;

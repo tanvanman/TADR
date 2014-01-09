@@ -180,15 +180,6 @@ type
     FastSpeed      : Byte;
   end;
 
-{const
-  TANM_Rec2Rec_UnitTemplate = $0A;
-type
-  PRec2Rec_UnitTemplate_Message = ^TRec2Rec_UnitTemplate_Message;
-  TRec2Rec_UnitTemplate_Message = packed record
-    UniqueUnitID  : Word;
-    NewTemplateID : Word;
-  end;  }
-
 {
 Use to notify other players that unit wants to have its own "global" template
 }
@@ -226,6 +217,16 @@ type
     UnitIdRemote  : LongWord;
     FieldType     : LongWord;
     NewValue      : LongWord;
+  end;
+
+const
+  TANM_Rec2Rec_UnitTemplate = $0D;
+type
+  PRec2Rec_UnitTemplate_Message = ^TRec2Rec_UnitTemplate_Message;
+  TRec2Rec_UnitTemplate_Message = packed record
+    UnitID        : Word;
+    NewTemplateID : Word;
+    Recreate      : Byte;
   end;
 
 {
