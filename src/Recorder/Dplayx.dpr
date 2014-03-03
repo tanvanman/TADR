@@ -43,13 +43,15 @@ uses
   LOS_AllyPlayer in 'plugins\LOS_AllyPlayer.pas',
   ErrorLog_ExtraData in 'plugins\ErrorLog_ExtraData.pas',
   Thread_marshaller in 'plugins\Thread_marshaller.pas',
-  {$IFDEF KeyboardHookPlugin}KeyboardHook in 'plugins\KeyboardHook.pas',{$ENDIF}
-  {$IFDEF KeyboardHookPlugin}BattleRoomScroll in 'plugins\BattleRoomScroll.pas',{$ENDIF}
-  INI_Options in 'plugins\INI_Options.pas',
-  {$IFDEF WarZone}WarZoneRankings in 'WarZoneRankings.pas',{$ENDIF}
+  //KeyboardHook in 'plugins\KeyboardHook.pas',
+  //BattleRoomScroll in 'plugins\BattleRoomScroll.pas',
+  IniOptions in 'plugins\IniOptions.pas',
   ModsList in 'ModsList.pas',
   statslogging in 'statslogging.pas',
-  Colors in 'plugins\Colors.pas';
+  Colors in 'plugins\Colors.pas',
+  //BuilderToMobile in 'plugins\BuilderToMobile.pas',
+  TA_MemoryStructures in 'TAMem\TA_MemoryStructures.pas',
+  TA_MemoryConstants in 'TAMem\TA_MemoryConstants.pas';
 
 {$R *.res}
 

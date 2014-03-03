@@ -24,7 +24,7 @@ uses
   TADemoConsts,
   TA_MemoryLocations,
   Plugins,
-  INI_Options;
+  IniOptions;
 
 
 
@@ -104,6 +104,7 @@ begin
 {$IFDEF release}
 CheckTADemoIntegrity;
 {$ENDIF}
+  //Integer(GetModuleHandleA(nil))
 try
 if not OnMainRun then
   begin

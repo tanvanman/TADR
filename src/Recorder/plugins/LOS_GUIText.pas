@@ -14,6 +14,7 @@ implementation
 uses
   LOS_extensions,
   TADemoConsts,
+  TA_MemoryConstants,
   TA_MemoryLocations;
 
 Procedure GetCodeInjections( PluginData : TPluginData );

@@ -32,6 +32,7 @@ Procedure PauseHandling;
 implementation
 uses
   TADemoConsts,
+  TA_MemoryConstants,
   TA_MemoryLocations;
 
 Procedure OnInstall;

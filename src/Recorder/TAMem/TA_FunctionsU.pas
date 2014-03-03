@@ -24,17 +24,147 @@ var
 type
   TA_UpdateLOSHandler = function (a1 : longword; FillFeatureMap_b: longword) : longword; stdcall;
 var
-  // a1 - player index ?
   // called to update LOS
   TA_UpdateLOS : TA_UpdateLOSHandler = TA_UpdateLOSHandler($4816A0);
 
 type
-  ObjectCOBandSomethingHandler = function (unitptr : longword) : integer; stdcall;
+  Unit_CreateHandler = function ( PlayerAryIndex : Cardinal;  // owner index
+                                  UnitInfoId: Cardinal;       // template id
+                                  PosX_: Cardinal;
+                                  PosZ_: Cardinal;
+                                  PosY_: Cardinal;
+                                  FullHp: Cardinal;           // 1 - unit with full hp, like comm spawn
+                                  UnitStateMask: Cardinal;        // 0
+                                  UnitId: Cardinal) : Cardinal; stdcall; // 0 if UnitId is unknown (?)
 var
-  ObjectCOBandSomething : ObjectCOBandSomethingHandler = ObjectCOBandSomethingHandler($485D40);
+  Unit_Create : Unit_CreateHandler = Unit_CreateHandler($485F50);
 
 type
-  sub_45A8D0Handler = function (unitptr : longword) : integer; stdcall;
+  // creates unitstatemask based on actual unitinfo template
+  // called for existing unit (!)
+  Unit_CreateUnitsInGameHandler = function (unitptr : Cardinal;
+                                            PosX_: Cardinal;
+                                            PosZ_: Cardinal;
+                                            PosY_: Cardinal;
+                                            FullHp: Cardinal) : Cardinal; stdcall;
+var
+  Unit_CreateUnitsInGame : Unit_CreateUnitsInGameHandler = Unit_CreateUnitsInGameHandler($485A40);
+
+
+type
+  Unit_CreateModelAndCobHandler = function (UnitPtr : Pointer) : integer; stdcall;
+var
+  Unit_CreateModelAndCob : Unit_CreateModelAndCobHandler = Unit_CreateModelAndCobHandler($485D40);
+
+type
+  Unit_SetSpeedHandler = procedure ( UnitPtr: Pointer ); stdcall;
+var
+  Unit_SetSpeed : Unit_SetSpeedHandler = Unit_SetSpeedHandler($437840);
+
+type
+  Unit_StartWeaponsScriptsHandler = procedure ( UnitPtr: Pointer ); stdcall;
+var
+  Unit_StartWeaponsScripts : Unit_StartWeaponsScriptsHandler = Unit_StartWeaponsScriptsHandler($49E070);
+
+type
+  Unit_FixPositionZ_HoverFloaterHandler = procedure ( UnitPtr: Pointer ); stdcall;
+var
+  Unit_FixPositionZ_HoverFloater : Unit_FixPositionZ_HoverFloaterHandler = Unit_FixPositionZ_HoverFloaterHandler($48A870);
+
+type
+  Unit_PlayerActiveType3Handler = procedure ( UnitPtr: Pointer ); stdcall;
+var
+  Unit_PlayerActiveType3 : Unit_PlayerActiveType3Handler = Unit_PlayerActiveType3Handler($47CC30);
+
+type
+  // a2 probably preserves unit in array
+  // 0 : found in unit "recreate" proc
+  // 3 : typical kill
+  // 8 : TA finalization, kill all proc etc.
+  Unit_KillHandler = procedure ( UnitPtr: Pointer; a2: Cardinal ); stdcall;
+var
+  Unit_Kill: Unit_KillHandler = Unit_KillHandler($4864B0);
+
+type
+  Unit_KillMakeDamageHandler = procedure ( UnitPtr: Pointer; destructas: Cardinal ); stdcall;
+var
+  Unit_KillMakeDamage: Unit_KillMakeDamageHandler = Unit_KillMakeDamageHandler($49B000);
+
+type
+  Unit_MakeDamage_Handler = function ( UnitPtr: Pointer;
+                                       UnitPtr2: Pointer;
+                                       a3: LongInt;
+                                       a4: Cardinal;
+                                       a5: Word ): Cardinal; stdcall;
+var
+  Unit_MakeDamage_: Unit_MakeDamage_Handler = Unit_MakeDamage_Handler($489BB0);
+
+type
+  Unit_RecreateHandler = function ( PlayerIndex: Byte; UnitPtr: Pointer): Cardinal; stdcall;
+var
+  Unit_Recreate: Unit_RecreateHandler = Unit_RecreateHandler($4861D0);
+
+// earthquakes etc.
+type
+  SendFireMapWeaponHandler = function ( WeaponTypePtr: Cardinal;
+                                        Position: Cardinal;
+                                        TargetPosition: Cardinal;
+                                        a4: Cardinal): Cardinal; stdcall;
+var
+  SendFireMapWeapon: SendFireMapWeaponHandler = SendFireMapWeaponHandler($49DF10);
+
+//Send_FireWeapon(int, int Victim_Ptr, int Attacker_Ptr, int Position_Start, int Position_Targat)
+type
+  Send_FireWeaponHandler = function ( WeaponId: Cardinal;
+                                      Victim_Ptr: Pointer;
+                                      Attacker_Ptr: Pointer;
+                                      Position_Start: Pointer;
+                                      Position_Target: Pointer): Integer; stdcall;
+var
+  Send_FireWeapon: Send_FireWeaponHandler = Send_FireWeaponHandler($499AB0);
+
+type
+  SetPrepareOrderHandler = function ( UnitPtr: Pointer; a2: Cardinal): LongInt; stdcall;
+var
+  SetPrepareOrder: SetPrepareOrderHandler = SetPrepareOrderHandler($419BE0);
+
+type
+  Order2UnitHandler = function ( ScriptIndex: Cardinal;
+                                    ShiftKey: Cardinal;
+                                    pUnitPtr: Pointer;
+                                    pTargetUnitPtr: Pointer;
+                                    pPosition: Pointer;
+                                    a6: Cardinal;   // unit type id for nanolathe order or order time in game tick (* 30)
+                                                    // selfdestructg calls it with 1
+                                    a7: Cardinal    // prob out: pointer, build orders use it
+                                    ): LongInt; stdcall;
+var
+//  NewOrder2Unit: NewOrder2UnitHandler = NewOrder2UnitHandler($43ADC0);
+  Order2Unit: Order2UnitHandler = Order2UnitHandler($43AFC0);
+
+type
+//  ScriptAction_Name2IndexHandler = function ( out a2: Cardinal; ActionName_str: PAnsiChar): Cardinal; register;
+  ScriptAction_Name2IndexHandler = function : Cardinal; stdcall;
+var
+  ScriptAction_Name2Index: ScriptAction_Name2IndexHandler = ScriptAction_Name2IndexHandler($438760);
+
+type
+  Script_RunCallBackHandler = function ( a1: Cardinal;
+                                         a2: Cardinal;
+                                         UnitScriptsData_p: Cardinal;
+                                         v4: Cardinal;
+                                         v3: Cardinal;
+                                         v2: Cardinal;
+                                         v1: Cardinal;
+                                         a8: Cardinal; // amount of out vars ?
+                                         a9: Cardinal;
+                                         a10: Cardinal;
+                                         const Name: PAnsiChar): LongInt; register;
+var
+  Script_RunCallBack: Script_RunCallBackHandler = Script_RunCallBackHandler($4B0A70);
+
+type
+  sub_45A8D0Handler = function (unitptr : Cardinal) : integer; stdcall;
 var
   sub_45A8D0 : sub_45A8D0Handler = sub_45A8D0Handler($45A8D0);
 
@@ -161,15 +291,34 @@ type //fill TAdynmem->MouseMapPosX & TAdynmem->MouseMapPosY first
 var
   TAMapClick : TAMapClickHandler = TAMapClickHandler($498F70);
 
+type
+  TestGridSpotHandler = function ( BuildUnit : Pointer;
+                                    Pos : Cardinal;
+                                    unk : Word; //unk=zero
+                                    Player : Cardinal
+                                    ): Integer; stdcall;
+var
+  TestGridSpot : TestGridSpotHandler = TestGridSpotHandler($47D2E0);
+
 type //fill TAdynmem->MouseMapPosX & TAdynmem->MouseMapPosY first
 	TestBuildSpotHandler = procedure (); stdcall;
 var
   TestBuildSpot : TestBuildSpotHandler = TestBuildSpotHandler($4197D0);
 
-type //find unit under mousepointer
-	FindMouseUnitHandler = function () : LongWord; stdcall;
+type //find unit under mouse
+	GetUnitAtMouseHandler = function () : Cardinal; stdcall;
 var
-  FindMouseUnit : FindMouseUnitHandler = FindMouseUnitHandler($48CD80);
+  GetUnitAtMouse : GetUnitAtMouseHandler = GetUnitAtMouseHandler($48CD80);
+
+type //find unit at position
+	GetUnitAtCoordsHandler = function (Position: Pointer) : Cardinal; stdcall;
+var
+  GetUnitAtCoords : GetUnitAtCoordsHandler = GetUnitAtCoordsHandler($4815F0);
+
+type //find unit at position
+	GetGridPosPLOTHandler = function (PosX, PosY: Integer) : Cardinal; stdcall;
+var
+  GetGridPosPLOT : GetGridPosPLOTHandler = GetGridPosPLOTHandler($481550);
 
 type
   PtagRECT = ^tagRECT;
@@ -198,8 +347,8 @@ var
 type
   PPosRec = ^TPosRec;
   TPosRec = packed record
-    x : Longint;
-    y : Longint;
+    x : Word;
+    y : Word;
 	end;
 
   TADrawCircleHandler = procedure ( Contect : PChar;
@@ -230,13 +379,25 @@ var
 /// Not working.
 //////////////////////////////////////////////////////////////////////////////////////////
 type
-  TestGridSpotHandler = procedure ( BuildUnit : Pointer; // BuildUnit : ^UnitStruct
-                                    Pos : PPosRec;
-                                    unk : Integer; //unk=zero
-                                    Player : pointer // Player : ^PlayerStruct
-                                    ); stdcall;
+  YardOpenHandler = function (UnitPtr: Pointer; NewState: integer): Integer; stdcall;
 var
-  TestGridSpot : TestGridSpotHandler = TestGridSpotHandler($47D2E0);
+  YardOpen: YardOpenHandler = YardOpenHandler($47DAC0);
+
+type
+  TestGridSpotAIHandler = function ( BuildUnit : Cardinal; Pos : Cardinal ): Integer; stdcall;
+var
+  TestGridSpotAI : TestGridSpotAIHandler = TestGridSpotAIHandler($47D820);
+
+type
+  TestUnitAIHandler = function ( BuildUnit : Cardinal; UnitPtr : Cardinal ): Byte; stdcall;
+var
+  TestUnitAI : TestUnitAIHandler = TestUnitAIHandler($47DDC0);
+
+
+type // should draw selected unit state on screen
+	UnitStateProbeHandler = function (OFFSCREEN_p: Cardinal) : LongInt; stdcall;
+var
+  UnitStateProbe : UnitStateProbeHandler = UnitStateProbeHandler($467E50);
 implementation
 
 procedure InterpretInternalCommand(CommandText: string);

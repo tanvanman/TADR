@@ -1,5 +1,5 @@
 unit Plugins;
-{$DEFINE KeyboardHookPlugin}
+{.$DEFINE KeyboardHookPlugin}
 interface
 
 
@@ -13,7 +13,6 @@ uses
   PluginEngine,
   ErrorLog_ExtraData,
   Thread_marshaller,
-
   InputHook,
   SpeedHack,
   PauseLock,
@@ -21,9 +20,10 @@ uses
   MultiAILimit,
   //nocd,
   {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
-  {$IFDEF KeyboardHookPlugin}BattleRoomScroll,{$ENDIF}
-  INI_Options,
+  //{.$IFDEF KeyboardHookPlugin}BattleRoomScroll,{.$ENDIF}
+  IniOptions,
   Colors,
+  //BuilderToMobile,
   COB_extensions,
   LOS_extensions;
 
@@ -36,7 +36,7 @@ if OnMainRun then
   RegisterPlugin( ErrorLog_ExtraData.GetPlugin() );
   RegisterPlugin( Thread_marshaller.GetPlugin() );
 
-  RegisterPlugin( INI_Options.GetPlugin() );
+  RegisterPlugin( IniOptions.GetPlugin() );
   RegisterPlugin( InputHook.GetPlugin() );
   RegisterPlugin( SpeedHack.GetPlugin() );
   RegisterPlugin( PauseLock.GetPlugin() );
@@ -46,8 +46,9 @@ if OnMainRun then
   RegisterPlugin( COB_extensions.GetPlugin() );
   RegisterPlugin( MultiAILimit.GetPlugin() );
   {$IFDEF KeyboardHookPlugin}RegisterPlugin( KeyboardHook.GetPlugin() );{$ENDIF}
-  {$IFDEF KeyboardHookPlugin}RegisterPlugin( BattleRoomScroll.GetPlugin() );{$ENDIF}
+  //{.$IFDEF KeyboardHookPlugin}RegisterPlugin( BattleRoomScroll.GetPlugin() );{.$ENDIF}
   RegisterPlugin( Colors.GetPlugin() );
+  //RegisterPlugin( BuilderToMobile.GetPlugin() );
 
   end;
 // Run the code injection engine

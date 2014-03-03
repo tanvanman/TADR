@@ -67,7 +67,7 @@ var
 implementation
 
 uses
-  TextData, Logging, INI_Options, sysutils;
+  TextData, Logging, IniOptions, SysUtils;
 
 {$WARNINGS OFF}
 

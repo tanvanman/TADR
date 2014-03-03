@@ -10,7 +10,7 @@ const
   MODSINI = 'mods.ini';
 
 implementation
-uses idplay, INI_Options;
+uses idplay, IniOptions;
 
 //var ReplayerPath: string;
 

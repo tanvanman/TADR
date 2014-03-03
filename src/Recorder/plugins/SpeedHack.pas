@@ -54,6 +54,7 @@ Procedure SpeedState_SetSpeed_Check;
 implementation
 uses
   TADemoConsts,
+  TA_MemoryConstants,
   TA_MemoryLocations;
 
 Procedure ResetGameSpeedLimits;

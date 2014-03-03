@@ -1,8 +1,8 @@
 unit idplay;
-{.$DEFINE Release}
+{$DEFINE Release}
 
 {.$DEFINE WarZone}
-{$DEFINE KeyboardHookPlugin}
+{.$DEFINE KeyboardHookPlugin}
 {.$DEFINE AllowStatsCreate}
 
 {.$DEFINE DebuggerHooks}
@@ -51,7 +51,7 @@ type
 
     MaxUnits     : word;
     UnitStatus : array of record
-                 LastDead : Longword;
+                 LastDead : Cardinal;
                  Health : Integer;
                  DoneStatus : word;
                  UnitAlive : Boolean;
@@ -422,7 +422,7 @@ uses
  TA_NetworkingMessages,
  TA_FunctionsU,
  InputHook,
- INI_Options,
+ IniOptions,
  {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
  {$IFDEF WarZone}WarZoneRankings,{$ENDIF}
  ModsList;
@@ -664,7 +664,7 @@ begin
           Move( unitId, customPacket[1], SizeOf(Word));
           Move( arg1^, customPacket[3], SizeOf(Byte)); // which weap
           Move( arg3^, customPacket[4], SizeOf(Word)); // new weap id
-          Move( iniSettings.weaponidpatch, customPacket[6], SizeOf(Boolean));
+          Move( IniSettings.weaponidpatch, customPacket[6], SizeOf(Boolean));
         end;
       TANM_Rec2Rec_UnitUpgradeable :
         begin
@@ -1119,7 +1119,7 @@ if protectdt then
   result:=result+'T'
 else
   result:=result+'-';
-if iniSettings.weaponidpatch then
+if IniSettings.weaponidpatch then
   result:=result+'T'
 else
   result:=result+'-';
@@ -1316,19 +1316,19 @@ if NoRecording then
 //add default searchpath
 if ExtractFilePath(filename) = '' then
 begin
-  if iniSettings.modid > 0 then
+  if IniSettings.modid > 0 then
   begin
-    if (iniSettings.Name <> '') and
-       (iniSettings.Version <> '') then
+    if (IniSettings.Name <> '') and
+       (IniSettings.Version <> '') then
     begin
       filename := IncludeTrailingPathDelimiter(demodir) +
-                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)) +
-                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.Version)) +
+                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)) +
+                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.Version)) +
                 filename;
     end else
-      if (iniSettings.Name <> '') then
+      if (IniSettings.Name <> '') then
       filename := IncludeTrailingPathDelimiter(demodir) +
-                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)) +
+                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)) +
                 filename
       else
         filename := IncludeTrailingPathDelimiter(demodir) + filename;
@@ -1381,7 +1381,7 @@ end;
   logsave.docrc := true;
   s:=#0#0;                           //empty size
   s:=s+'TA Demo'+#0;                 //magic
-  if iniSettings.modid > 0 then s:=s+#7#0 else s:=s+#5#0; //version
+  if IniSettings.modid > 0 then s:=s+#7#0 else s:=s+#5#0; //version
   s:=s+char(Players.Count);            //number of players
   s:=s+char(maxunits and $ff)+char(maxunits div 256);
   s:=s+mapname;                      //map
@@ -1391,10 +1391,10 @@ end;
 
   s:=#0#0#0#0#0#0;                           //size of extra header
   //mod id 0 = backward compat.
-  if iniSettings.modid > 0 then
-    setlongword (@s[3], 5 + Players.Count)        //number of extra sectors
+  if IniSettings.modid > 0 then
+    setLongword (@s[3], 5 + Players.Count)        //number of extra sectors
   else
-    setlongword (@s[3], 4 + Players.Count);
+    setLongword (@s[3], 4 + Players.Count);
   s[1] :=char(length(s) and $ff);          //fill in size
   s[2] :=char(length(s) shr 8);
   logsave.add(s);                            //write extra header
@@ -1410,10 +1410,10 @@ end;
 
   s := #0#0;
   s := s + #3#0#0#0;                //sectortype = version
-  if iniSettings.modid > 0 then
+  if IniSettings.modid > 0 then
   begin
-    if iniSettings.version <> '' then
-      s := s + iniSettings.version
+    if IniSettings.version <> '' then
+      s := s + IniSettings.version
     else
       s := s + 'Patch ' + GetTADemoVersion;
   end else
@@ -1455,11 +1455,11 @@ end;
 
   //----------Addition to save mod ID ----------
 
-  if iniSettings.modid > 0 then
+  if IniSettings.modid > 0 then
   begin
   s := #0#0;
   s := s + #7#0#0#0;      //sectortype = modID
-  s := s + IntToStr(iniSettings.modid);
+  s := s + IntToStr(IniSettings.modid);
   s[1] :=char(length(s) and $ff);          //fill in size
   s[2] :=char(length(s) shr 8);
   logsave.add(s);                            //write extra sector
@@ -1489,7 +1489,7 @@ end;
   //Addition to save crc - #9 will make unitsync ignoring it
 
   crc := #$1a + #$9 + '    ' + #$ff#$ff#$ff#$ff + #$01#$00#$00#$00;
-  setlongword (@crc[3], logsave.crc);
+  setLongword (@crc[3], logsave.crc);
   s := s + crc;
 
   logsave.docrc := false;
@@ -2074,7 +2074,7 @@ if assigned(chatview) then
             Players[1].ClickedIn := true;
             end;
           //Identifierar rec som klarar av enemy-chat
-          if iniSettings.weaponidpatch then tmp[182] := char(TADemoVersion_3_9_2) else tmp[182] := char(TADemoVersion_99b3_beta3); //version
+          if IniSettings.weaponidpatch then tmp[182] := char(TADemoVersion_3_9_2) else tmp[182] := char(TADemoVersion_99b3_beta3); //version
           datachanged := true;
           end
         else
@@ -2238,7 +2238,7 @@ if assigned(chatview) then
           begin
           //filename := DateToStr (now);
           filename := FormatDateTime('yyyy-mm-dd',Date);
-          if iniSettings.demosprefix <> '' then filename := filename + ' - ' + iniSettings.demosprefix + ' - ' else filename:= filename + ' - ';
+          if IniSettings.demosprefix <> '' then filename := filename + ' - ' + IniSettings.demosprefix + ' - ' else filename:= filename + ' - ';
           filename := filename + mapname;
           if RecordPlayerNames then
             begin
@@ -2254,19 +2254,19 @@ if assigned(chatview) then
           //Lägg till default sökväg
           if demodir <> '' then
           begin
-            if iniSettings.modid > 0 then
+            if IniSettings.modid > 0 then
             begin
-              if (iniSettings.Name <> '') and
-                  (iniSettings.Version <> '') then
+              if (IniSettings.Name <> '') and
+                  (IniSettings.Version <> '') then
               begin
                 filename := IncludeTrailingPathDelimiter(demodir) +
-                          IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)) +
-                          IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.Version)) +
+                          IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)) +
+                          IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.Version)) +
                           filename;
               end else
-                if (iniSettings.Name <> '') then
+                if (IniSettings.Name <> '') then
                   filename := IncludeTrailingPathDelimiter(demodir) +
-                            IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)) +
+                            IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)) +
                             filename
                 else
                   filename := IncludeTrailingPathDelimiter(demodir) + filename;
@@ -2793,20 +2793,19 @@ if assigned(chatview) then
                TANM_Rec2Rec_UnitWeapon :
                  begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitWeapon_Message) );
-                   if TAUnit.IsOnThisComp(TAMem.GetUnitPtr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId)) <> 1 then
+                   if TAUnit.IsOnThisComp(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId), True) <> 1 then
                    begin
-                     TAUnit.SetWeapon(Pointer(TAMem.GetUnitStruct(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId)),
+                     TAUnit.SetWeapon(Pointer(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId)),
                                               PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WhichWeapon,
-                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID,
-                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.RequiresPatch);
+                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID);
+                                              //PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.RequiresPatch);
                    end;
                  end;
                TANM_Rec2Rec_UnitTemplate :
                  begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitTemplate_Message) );
-                   TAUnit.SetTemplate(Pointer(TAMem.GetUnitStruct(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UnitId)),
-                                              PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID,
-                                              (PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.Recreate = 99));
+                   TAUnit.SetTemplate(Pointer(TAUnit.Id2Ptr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UnitId)),
+                                              PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID);
                  end;
                TANM_Rec2Rec_UnitUpgradeable :
                  begin
@@ -2999,7 +2998,7 @@ try
   player := Players.Add( lpName^.lpszLongName, idPlayer );
   if Players.Count = 1 then
     begin
-    if iniSettings.weaponidpatch then player.InternalVersion := TADemoVersion_3_9_2 else player.InternalVersion := TADemoVersion_99b3_beta3;
+    if IniSettings.weaponidpatch then player.InternalVersion := TADemoVersion_3_9_2 else player.InternalVersion := TADemoVersion_99b3_beta3;
     player.EnemyChat := true;
     player.RecConnect := true;
     player.Uses_Rec2Rec_Notification := True;
@@ -3637,10 +3636,10 @@ try
     
   if demodir <> '' then
   try
-    if iniSettings.modid > 0 then
+    if IniSettings.modid > 0 then
     begin
-      if iniSettings.name <> '' then
-        ForceDirectories(IncludeTrailingPathDelimiter(demodir)+IncludeTrailingPathDelimiter(fnRemoveInvalidChar(iniSettings.name)))
+      if IniSettings.name <> '' then
+        ForceDirectories(IncludeTrailingPathDelimiter(demodir)+IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)))
       else
         ForceDirectories(demodir);
     end else
@@ -3667,20 +3666,20 @@ try
     end;
 
   if not FixModsINI(serverdir) then
-    if iniSettings.modid > 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
+    if IniSettings.modid > 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
 
-  if iniSettings.name = '' then
+  if IniSettings.name = '' then
     if ReadModsIniField(serverdir, 'Name') <> #0 then
-      iniSettings.name:= ReadModsIniField(serverdir, 'Name')
+      IniSettings.name:= ReadModsIniField(serverdir, 'Name')
     else
-      if iniSettings.modid > 0 then
+      if IniSettings.modid > 0 then
       begin
         TLog.Add( 0, 'Couldn''t read mod name !' );
-        iniSettings.name:= 'Unknown';
+        IniSettings.name:= 'Unknown';
       end;
-  if iniSettings.version = '' then
+  if IniSettings.version = '' then
     if ReadModsIniField(serverdir, 'Version') <> #0 then
-      iniSettings.version:= ReadModsIniField(serverdir, 'Version');
+      IniSettings.version:= ReadModsIniField(serverdir, 'Version');
 
   crash := false;
   TADemoRecorderOff := false;
@@ -3882,4 +3881,3 @@ inherited;
 end; {Destroy}
 
 end.
-

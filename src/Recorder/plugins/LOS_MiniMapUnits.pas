@@ -12,7 +12,7 @@ implementation
 uses
   LOS_extensions,
   TADemoConsts,
-  TA_MemoryLocations;
+  TA_MemoryConstants;
 
 
 Procedure GetCodeInjections( PluginData : TPluginData );

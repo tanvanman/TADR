@@ -27,7 +27,8 @@ implementation
 uses
   LOS_extensions,
   TADemoConsts,
-  TA_MemoryLocations;
+  TA_MemoryConstants,
+  TA_MemoryStructures;
 
 Procedure GetCodeInjections( PluginData : TPluginData );
 begin

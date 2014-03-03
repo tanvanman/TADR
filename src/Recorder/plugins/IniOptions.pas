@@ -1,23 +1,54 @@
-unit INI_Options;
+unit IniOptions;
 
 interface
 uses PluginEngine, Windows, SysUtils, IniFiles;
 
 type
   TIniSettings = record
-    modid: integer;
-    demosprefix: string;
-    name: string;
-    regname: string;
-    version: string;
-    weaponidpatch: boolean;
-    RanksURL: string;
-    unitlimit: integer;
-    Colors: array [0..27] of Integer;
-    read: boolean;
-    docolors: boolean;
+    ModId          : Integer;
+    DemosPrefix    : String;
+    Name           : String;
+    RegName        : String;
+    Version        : String;
+    WeaponIdPatch  : Boolean;
+    RanksURL       : String;
+    UnitLimit      : Integer;
+    Colors         : array [0..27] of Integer;
+    Read           : Boolean;
+    DoColors       : Boolean;
+    MobileToMobile : Boolean;
   end;
-var iniSettings: TIniSettings;
+var IniSettings: TIniSettings;
+
+type
+  TIniColors = ( UNITSELECTIONBOX = 0,
+  UNITHEALTHBARGOOD,
+  UNITHEALTHBARMEDIUM,
+  UNITHEALTHBARLOW,
+  BUILDQUEUEBOXSELECTED1,
+  BUILDQUEUEBOXSELECTED2,
+  BUILDQUEUEBOXNONSELECTED1,
+  BUILDQUEUEBOXNONSELECTED2,
+  LOADBARSTEXTURESREADY,
+  LOADBARSTEXTURESLOADING,
+  LOADBARSTERRAINREADY,
+  LOADBARSTERRAINLOADING,
+  LOADBARSUNITSREADY,
+  LOADBARSUNITSLOADING,
+  LOADBARSANIMATIONSREADY,
+  LOADBARSANIMATIONSLOADING,
+  LOADBARS3DDATAREADY,
+  LOADBARS3DDATALOADING,
+  LOADBARSEXPLOSIONSREADY,
+  LOADBARSEXPLOSIONSLOADING,
+  MAINMENUDOTS,
+  NANOLATHEPARTICLEBASE,
+  NANOLATHEPARTICLECOLORS,
+  UNDERCONSTRUCTSURFACELO,
+  UNDERCONSTRUCTSURFACEHI,
+  UNDERCONSTRUCTOUTLINELO,
+  UNDERCONSTRUCTOUTLINEHI,
+  MAINMENUDOTSDISABLED);
 
 // -----------------------------------------------------------------------------
 
@@ -38,14 +69,15 @@ implementation
 uses
   TADemoConsts,
   TA_MemoryLocations,
+  TA_MemoryConstants,
   ModsList,
   logging,
-  strUtils;
+  strUtils,
+  TypInfo;
 const
-  INIFILENAME_MAXLENGTH = 12;
   INI_MEM_OFFSET = $5098A3;
 
-type TIniFileName = array [0..INIFILENAME_MAXLENGTH] of AnsiChar;
+type TIniFileName = array [0..12] of AnsiChar;
 PIniFileName = ^TIniFileName;
 
 function TaFileExists(name: string; out path: string): boolean;
@@ -221,6 +253,8 @@ var
   iniFile: TIniFile;
   WeaponType: Integer;
   MultiGameWeapon: Boolean;
+  i: integer;
+  currcolor: string;
 begin
 Result:= False;
 
@@ -244,43 +278,21 @@ if GetINIFileName <> #0 then
       iniSettings.weaponidpatch:= (weaponType > 256) and multiGameWeapon;
 
       iniSettings.unitlimit:= ReadIniValue(iniFile, 'Preferences','UnitLimit', 1500);
+      iniSettings.MobileToMobile:= ReadIniBool(iniFile, 'Preferences','MobileToMobile', False);
 
       if iniFile.SectionExists('Colors') then
       begin
-      iniSettings.docolors:= true;
-      iniSettings.Colors[0]  := ReadIniValue(iniFile, 'Colors','UnitSelectionBox', -1);
-      iniSettings.Colors[1]  := ReadIniValue(iniFile, 'Colors','UnitHealthBarGood', -1);
-      iniSettings.Colors[2]  := ReadIniValue(iniFile, 'Colors','UnitHealthBarMedium', -1);
-      iniSettings.Colors[3]  := ReadIniValue(iniFile, 'Colors','UnitHealthBarLow', -1);
-      iniSettings.Colors[4]  := ReadIniValue(iniFile, 'Colors','BuildQueueBoxSelected1', -1);
-      iniSettings.Colors[5]  := ReadIniValue(iniFile, 'Colors','BuildQueueBoxSelected2', -1);
-      iniSettings.Colors[6]  := ReadIniValue(iniFile, 'Colors','BuildQueueBoxNonSelected1', -1);
-      iniSettings.Colors[7]  := ReadIniValue(iniFile, 'Colors','BuildQueueBoxNonSelected2', -1);
-      iniSettings.Colors[8]  := ReadIniValue(iniFile, 'Colors','LoadBarsTexturesReady', -1);
-      iniSettings.Colors[9]  := ReadIniValue(iniFile, 'Colors','LoadBarsTexturesLoading', -1);
-      iniSettings.Colors[10] := ReadIniValue(iniFile, 'Colors','LoadBarsTerrainReady', -1);
-      iniSettings.Colors[11] := ReadIniValue(iniFile, 'Colors','LoadBarsTerrainLoading', -1);
-      iniSettings.Colors[12] := ReadIniValue(iniFile, 'Colors','LoadBarsUnitsReady', -1);
-      iniSettings.Colors[13] := ReadIniValue(iniFile, 'Colors','LoadBarsUnitsLoading', -1);
-      iniSettings.Colors[14] := ReadIniValue(iniFile, 'Colors','LoadBarsAnimationsReady', -1);
-      iniSettings.Colors[15] := ReadIniValue(iniFile, 'Colors','LoadBarsAnimationsLoading', -1);
-      iniSettings.Colors[16] := ReadIniValue(iniFile, 'Colors','LoadBars3DDataReady', -1);
-      iniSettings.Colors[17] := ReadIniValue(iniFile, 'Colors','LoadBars3DDataLoading', -1);
-      iniSettings.Colors[18] := ReadIniValue(iniFile, 'Colors','LoadBarsExplosionsReady', -1);
-      iniSettings.Colors[19] := ReadIniValue(iniFile, 'Colors','LoadBarsExplosionsLoading', -1);
-      iniSettings.Colors[20] := ReadIniValue(iniFile, 'Colors','MainMenuDots', -1);
-      iniSettings.Colors[21] := ReadIniValue(iniFile, 'Colors','NanolatheParticleBase', -1);
-      iniSettings.Colors[22] := ReadIniValue(iniFile, 'Colors','NanolatheParticleColors', -1);
-      iniSettings.Colors[23] := ReadIniValue(iniFile, 'Colors','UnderConstructSurfaceLo', -1);
-      iniSettings.Colors[24] := ReadIniValue(iniFile, 'Colors','UnderConstructSurfaceHi', -1);
-      iniSettings.Colors[25] := ReadIniValue(iniFile, 'Colors','UnderConstructOutlineLo', -1);
-      iniSettings.Colors[26] := ReadIniValue(iniFile, 'Colors','UnderConstructOutlineHi', -1);
-      if ReadIniBool(iniFile, 'Colors','MainMenuDotsDisabled', False) then
-        iniSettings.Colors[27]:= 1
-      else
-        iniSettings.Colors[27]:= -1;
-      end;
-
+        iniSettings.docolors:= true;
+        for i:= 0 to 26 do
+        begin
+          currcolor:= GetEnumName(TypeInfo(TIniColors), i);
+          iniSettings.Colors[i] := ReadIniValue(iniFile, 'Colors', currcolor , -1);
+        end;
+        if ReadIniBool(iniFile, 'Colors','MainMenuDotsDisabled', False) then
+          iniSettings.Colors[27]:= 1
+        else
+          iniSettings.Colors[27]:= -1;
+        end;
     finally
       Result:= True;
       iniFile.Free;

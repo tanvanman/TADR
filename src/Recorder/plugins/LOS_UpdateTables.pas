@@ -42,7 +42,8 @@ implementation
 uses
   LOS_extensions,
   TADemoConsts,
-  TA_MemoryLocations;
+  TA_MemoryConstants,
+  TA_MemoryStructures;
   
 Procedure GetCodeInjections( PluginData : TPluginData );
 begin
@@ -138,7 +139,7 @@ TryNextPlayer_Condition:
   add eax, ecx
 
   //  if (!NextPlayer.Active) continue;
-  cmp byte [eax+PlayerStruct_Active], 0
+  cmp byte [eax], 0
   jnz DoLOSStuff
 
   // skip this player because it isnt active
@@ -259,7 +260,7 @@ TryNextPlayer_Condition:
   add eax, ecx
 
   //  if (!NextPlayer.Active) continue;
-  cmp byte [eax+PlayerStruct_Active], 0
+  cmp byte [eax], 0
   jnz DoLOSStuff
 
   // skip this player because it isnt active

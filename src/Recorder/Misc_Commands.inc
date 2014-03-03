@@ -104,7 +104,7 @@ try
   for i := 1 to Players.Count do
     begin
     player := TPlayerData(playerlist.Items[i - 1]);
-    PlayerNames := PlayerNames + player.Name + '('+inttostr(TAMem.getPlayerIndex(player.ID) )+')';
+    PlayerNames := PlayerNames + player.Name + '('+inttostr(TAPlayer.GetPlayerByDPID(player.ID) )+')';
     if i <> Players.Count then
       PlayerNames := PlayerNames + ', ';
     end;

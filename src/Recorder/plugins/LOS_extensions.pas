@@ -34,6 +34,7 @@ uses
   classes,
   TADemoConsts,
   TA_MemoryLocations,
+  TA_MemoryConstants,
   TA_FunctionsU,
   InputHook,
   LOS_Radar,

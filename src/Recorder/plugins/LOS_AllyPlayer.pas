@@ -22,7 +22,7 @@ implementation
 uses
   LOS_extensions,
   TADemoConsts,
-  TA_MemoryLocations,
+  TA_MemoryConstants,
   TA_FunctionsU;
 
 

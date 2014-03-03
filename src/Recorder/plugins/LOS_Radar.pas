@@ -24,7 +24,8 @@ implementation
 uses
   LOS_extensions,
   TADemoConsts,
-  TA_MemoryLocations;
+  TA_MemoryStructures,
+  TA_MemoryConstants;
 
 {
 419090 - ShareAll
@@ -99,7 +100,7 @@ asm // uses ecx, ebx, esi
   jnz CanSeeUnitOnRadar
 
   // only chance to see units via radar if the player is watching
-  cmp dword ptr [ebp+PlayerStruct_Active], 0
+  cmp dword ptr [ebp], 0
   jz CanNotSeeUnitOnRadar
   mov ecx, [ebp+PlayerStruct_PlayerInfo]
   test [ecx+PlayerInfoStruct_IsWatching], 40h
