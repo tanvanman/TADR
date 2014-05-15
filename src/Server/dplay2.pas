@@ -227,7 +227,6 @@ var
   sesje: TDPSessionDesc2;
   playerName: TDPName;
   hr: HRESULT;
-  hrsess: HRESULT;
 begin
 
   bHost := bHostSession;

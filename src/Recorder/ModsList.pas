@@ -3,24 +3,22 @@ unit ModsList;
 interface
 uses SysUtils, Classes, INIFiles;
 
-function FixModsINI(replayerDir: string): boolean;
-function ReadModsIniField(replayerDir: string; ident: string): string;
+function FixModsINI: boolean;
+function ReadModsIniField(ident: string): string;
 
 const
   MODSINI = 'mods.ini';
 
 implementation
-uses idplay, IniOptions;
+uses idplay, IniOptions, TADemoConsts;
 
-//var ReplayerPath: string;
-
-function FixModsINI(replayerDir: string): boolean;
+function FixModsINI: boolean;
 var
   readedModID: string;
 begin
-if replayerDir <> '' then
+if GetAppData <> '' then
 begin
-  with TIniFile.Create(replayerDir + MODSINI) do
+  with TIniFile.Create(GetAppData + MODSINI) do
   try
     try
       if iniSettings.modId <> - 1 then
@@ -33,6 +31,7 @@ begin
           WriteString('MOD' + readedModID, 'Version', iniSettings.version);
         if iniSettings.RegName <> '' then
           WriteString('MOD' + readedModID, 'RegName', iniSettings.RegName);
+        // in case user moved mod directory, alwasys fix the path in mods.ini
         WriteString('MOD' + readedModID, 'Path', ParamStr(0));
         WriteBool('MOD' + readedModID, 'UseWeaponIdPatch', iniSettings.weaponidpatch);
       end;
@@ -49,18 +48,21 @@ end else
   end;
 end;
 
-function ReadModsIniField(replayerDir: string; ident: string): string;
+function ReadModsIniField(ident: string): string;
 var
   readedModID: string;
+  IniFile: TIniFile;
 begin
-if replayerDir <> '' then
+Result := #0;
+if GetAppData <> '' then
 begin
-  with TIniFile.Create(replayerDir + MODSINI) do
+  IniFile := TIniFile.Create(GetAppData + MODSINI);
+  with IniFile do
   try
       if iniSettings.modId <> - 1 then
       begin
         readedModID:= IntToStr(iniSettings.modId);
-        Result:= ReadString('MOD' + readedModID, ident, #0);
+        Result := ReadString('MOD' + readedModID, ident, #0);
       end;
     finally
       Free;

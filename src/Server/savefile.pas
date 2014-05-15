@@ -186,8 +186,8 @@ var
    packnum      :cardinal;
    cpoint       :^cardinal;
    s,ut,tmp     :string;
-   point        :pointer;
-   w            :word;
+//   point        :pointer;
+//   w            :word;
    wp           :^word;
 begin
   ut:='';
@@ -254,7 +254,7 @@ var
   stat   :PStatus;
   units  :PUnitdata;
   move   :PPacket;
-  move2  :PMove;
+//  move2  :PMove;
   eh     :PExtraHeader;
   es     :PExtraSector;
   sectors:integer;
@@ -506,9 +506,9 @@ begin
 end;
 
 destructor TSaveFile.Destroy;
-var
-  i :integer;
-  p :PMove;
+//var
+//  i :integer;
+//  p :PMove;
 begin
 {  if assigned (moves) then
   begin
@@ -533,9 +533,9 @@ var
   h      :PHeader2;
   move   :PPacket;
   eh     :PExtraHeader;
-  es     :PExtraSector;
-  sectors:integer;
-  id     :TIdent;
+//  es     :PExtraSector;
+//  sectors:integer;
+//  id     :TIdent;
 
   function ReadRec (var p) :boolean;
   type
@@ -642,10 +642,10 @@ var
   h      :PHeader2;
   move   :PPacket;
   eh     :PExtraHeader;
-  es     :PExtraSector;
-  sectors:integer;
-  id     :TIdent;
-  stemp: string;
+//  es     :PExtraSector;
+//  sectors:integer;
+//  id     :TIdent;
+//  stemp: string;
   newpath: pchar;
   path: string;
   oldpath: pchar;

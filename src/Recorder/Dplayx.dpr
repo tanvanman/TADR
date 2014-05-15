@@ -43,15 +43,23 @@ uses
   LOS_AllyPlayer in 'plugins\LOS_AllyPlayer.pas',
   ErrorLog_ExtraData in 'plugins\ErrorLog_ExtraData.pas',
   Thread_marshaller in 'plugins\Thread_marshaller.pas',
-  //KeyboardHook in 'plugins\KeyboardHook.pas',
-  //BattleRoomScroll in 'plugins\BattleRoomScroll.pas',
   IniOptions in 'plugins\IniOptions.pas',
   ModsList in 'ModsList.pas',
   statslogging in 'statslogging.pas',
   Colors in 'plugins\Colors.pas',
-  //BuilderToMobile in 'plugins\BuilderToMobile.pas',
+  Builders in 'plugins\Builders.pas',
+  KeyboardHook in 'plugins\KeyboardHook.pas',
   TA_MemoryStructures in 'TAMem\TA_MemoryStructures.pas',
-  TA_MemoryConstants in 'TAMem\TA_MemoryConstants.pas';
+  TA_MemoryConstants in 'TAMem\TA_MemoryConstants.pas',
+  ConsoleTimer in 'ConsoleTimer.pas',
+  StopWatch in 'StopWatch.pas',
+  HighTrajectory in 'plugins\HighTrajectory.pas',
+  BattleRoomScroll in 'plugins\BattleRoomScroll.pas',
+  AimPrimary in 'plugins\AimPrimary.pas',
+  RegPathFix in 'plugins\RegPathFix.pas',
+  HighTrajectory_GetWeaps in 'plugins\HighTrajectory_GetWeaps.pas',
+  HealthBarMod in 'plugins\HealthBarMod.pas',
+  ResurrectPatrol in 'plugins\ResurrectPatrol.pas';
 
 {$R *.res}
 

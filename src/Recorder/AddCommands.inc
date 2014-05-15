@@ -37,10 +37,10 @@
               [InGame],False, False, True, OnShareLos );
   Commands.AddCommand( 'ehaoff', 'Disable the interface upgrade. This will disable all new functions like the Idle Const Finder, Queue 100 units etc.',
               '',0,
-              [InGame,InBattleRoom],False, False, False, OnEhaoff );
+              [InBattleRoom], True, False, False, OnEhaoff );
   Commands.AddCommand( 'ehaon', 'Enables the interface upgrade.',
               '',0,
-              [InGame,InBattleRoom],False, False, False, OnEhaOn );
+              [InBattleRoom], True, False, False, OnEhaOn );
   Commands.AddCommand( 'tahookoff', 'This disables just the autoclick feature in every recorder in the game. ',
               '',0,
               [InGame,InBattleRoom],False, False, False, OnTaHookOff );

@@ -8,26 +8,29 @@
   resources were bound to the produced executable.
 */
 
-#define RTLConsts_SRegSetDataFailed 65408
-#define RTLConsts_SSeekNotImplemented 65409
-#define RTLConsts_SSortedListError 65410
-#define RTLConsts_SWriteError 65411
+#define RTLConsts_SRegGetDataFailed 65408
+#define RTLConsts_SRegSetDataFailed 65409
+#define RTLConsts_SSeekNotImplemented 65410
+#define RTLConsts_SSortedListError 65411
+#define RTLConsts_SWriteError 65412
+#define RTLConsts_SThreadCreateError 65413
+#define RTLConsts_SThreadError 65414
 #define SysConst_SLongDayNameSat 65424
 #define SysConst_SCannotCreateDir 65425
 #define RTLConsts_SAssignError 65426
-#define RTLConsts_SDuplicateString 65427
-#define RTLConsts_SFCreateErrorEx 65428
-#define RTLConsts_SFOpenErrorEx 65429
-#define RTLConsts_SIniFileWriteError 65430
-#define RTLConsts_SInvalidPropertyValue 65431
-#define RTLConsts_SInvalidRegType 65432
-#define RTLConsts_SListCapacityError 65433
-#define RTLConsts_SListCountError 65434
-#define RTLConsts_SListIndexError 65435
-#define RTLConsts_SMemoryStreamError 65436
-#define RTLConsts_SReadError 65437
-#define RTLConsts_SRegCreateFailed 65438
-#define RTLConsts_SRegGetDataFailed 65439
+#define RTLConsts_SCheckSynchronizeError 65427
+#define RTLConsts_SDuplicateString 65428
+#define RTLConsts_SFCreateErrorEx 65429
+#define RTLConsts_SFOpenErrorEx 65430
+#define RTLConsts_SIniFileWriteError 65431
+#define RTLConsts_SInvalidPropertyValue 65432
+#define RTLConsts_SInvalidRegType 65433
+#define RTLConsts_SListCapacityError 65434
+#define RTLConsts_SListCountError 65435
+#define RTLConsts_SListIndexError 65436
+#define RTLConsts_SMemoryStreamError 65437
+#define RTLConsts_SReadError 65438
+#define RTLConsts_SRegCreateFailed 65439
 #define SysConst_SLongMonthNameOct 65440
 #define SysConst_SLongMonthNameNov 65441
 #define SysConst_SLongMonthNameDec 65442
@@ -126,13 +129,17 @@
 #define SysConst_SInvalidInput 65535
 STRINGTABLE
 BEGIN
+	RTLConsts_SRegGetDataFailed,	"Failed to get data for '%s'"
 	RTLConsts_SRegSetDataFailed,	"Failed to set data for '%s'"
 	RTLConsts_SSeekNotImplemented,	"%s.Seek not implemented"
 	RTLConsts_SSortedListError,	"Operation not allowed on sorted list"
 	RTLConsts_SWriteError,	"Stream write error"
+	RTLConsts_SThreadCreateError,	"Thread creation error: %s"
+	RTLConsts_SThreadError,	"Thread Error: %s (%d)"
 	SysConst_SLongDayNameSat,	"Saturday"
 	SysConst_SCannotCreateDir,	"Unable to create directory"
 	RTLConsts_SAssignError,	"Cannot assign a %s to a %s"
+	RTLConsts_SCheckSynchronizeError,	"CheckSynchronize called from thread $%x, which is NOT the main thread"
 	RTLConsts_SDuplicateString,	"String list does not allow duplicates"
 	RTLConsts_SFCreateErrorEx,	"Cannot create file \"%s\". %s"
 	RTLConsts_SFOpenErrorEx,	"Cannot open file \"%s\". %s"
@@ -145,7 +152,6 @@ BEGIN
 	RTLConsts_SMemoryStreamError,	"Out of memory while expanding memory stream"
 	RTLConsts_SReadError,	"Stream read error"
 	RTLConsts_SRegCreateFailed,	"Failed to create key %s"
-	RTLConsts_SRegGetDataFailed,	"Failed to get data for '%s'"
 	SysConst_SLongMonthNameOct,	"October"
 	SysConst_SLongMonthNameNov,	"November"
 	SysConst_SLongMonthNameDec,	"December"

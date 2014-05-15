@@ -184,15 +184,16 @@ type
 Use to notify other players that unit wants to have its own "global" template
 }
 const
-  TANM_Rec2Rec_UnitUpgradeable = $0A;
+  TANM_Rec2Rec_UnitGrantUnitInfo = $0A;
 type
-  PRec2Rec_UnitUpgradeable_Message = ^TRec2Rec_UnitUpgradeable_Message;
-  TRec2Rec_UnitUpgradeable_Message = packed record
+  PRec2Rec_UnitGrantUnitInfo_Message = ^TRec2Rec_UnitGrantUnitInfo_Message;
+  TRec2Rec_UnitGrantUnitInfo_Message = packed record
     UnitId        : Word;
     UnitIdRemote  : LongWord;
     NewState      : Byte;
   end;
 
+// unit changed weapon  
 const
   TANM_Rec2Rec_UnitWeapon = $0B;
 type
@@ -204,21 +205,19 @@ type
     RequiresPatch : Boolean;
   end;
 
-{
-Used to signal that unit with custom template enabled has modified
-some of its fields
-}
+// Used to signal that unit with custom template has been modified
 const
-  TANM_Rec2Rec_UnitEditTemplate = $0C;
+  TANM_Rec2Rec_UnitInfoEdit = $0C;
 type
-  PRec2Rec_UnitEditTemplate_Message = ^TRec2Rec_UnitEditTemplate_Message;
-  TRec2Rec_UnitEditTemplate_Message = packed record
+  PRec2Rec_UnitInfoEdit_Message = ^TRec2Rec_UnitInfoEdit_Message;
+  TRec2Rec_UnitInfoEdit_Message = packed record
     UnitId        : Word;
     UnitIdRemote  : LongWord;
     FieldType     : LongWord;
     NewValue      : LongWord;
   end;
 
+// unit type ID changed
 const
   TANM_Rec2Rec_UnitTemplate = $0D;
 type

@@ -105,16 +105,12 @@ HostApplication=
 Launcher=
 UseLauncher=0
 DebugCWD=
-[Language]
-ActiveLang=
-ProjectLang=
-RootDir=
 [Version Info]
 IncludeVerInfo=0
 AutoIncBuild=0
-MajorVer=1
-MinorVer=0
-Release=0
+MajorVer=3
+MinorVer=9
+Release=2
 Build=0
 Debug=0
 PreRelease=0
@@ -126,7 +122,7 @@ CodePage=1250
 [Version Info Keys]
 CompanyName=
 FileDescription=
-FileVersion=1.0.0.0
+FileVersion=3.9.2.0
 InternalName=
 LegalCopyright=
 LegalTrademarks=
@@ -134,16 +130,6 @@ OriginalFilename=
 ProductName=
 ProductVersion=1.0.0.0
 Comments=
-[Excluded Packages]
-E:\Program Files\Borland\Delphi7\Bin\vclhie70.bpl=Internet Explorer Hosting Support Package
-e:\program files\borland\delphi7\Bin\designdgm70.bpl=Borland Module Diagram Editview
-E:\Program Files\Borland\Delphi7\Bin\clxdesigner70.bpl=CLX Form designer and property and component editors
-E:\Program Files\Borland\Delphi7\Bin\vcldesigner70.bpl=VCL Form designer and property and component editors
-E:\Program Files\Boldsoft\BfDR40D7Arch\Bin\Bold40D7UDPProp.bpl=Bold for Delphi 4.0 (UDP Based Propagation)
-e:\program files\borland\delphi7\Bin\dclmcn70.bpl=Borland DataSnap Connection Components
-E:\Program Files\Borland\Delphi7\Bin\dclmid70.bpl=Borland MyBase DataAccess Components
-e:\program files\borland\delphi7\Bin\dcldbxcds70.bpl=Borland SimpleDataset Component (DBX)
-e:\program files\borland\delphi7\Bin\dclact70.bpl=Borland ActionBar Components
 [HistoryLists\hlUnitAliases]
 Count=1
 Item0=WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;
@@ -152,7 +138,9 @@ Count=2
 Item0=dcu\
 Item1=\dcu
 [HistoryLists\hlOutputDirectorry]
-Count=3
+Count=5
 Item0=output\
-Item1=G:\CAVEDOG\TADemo
-Item2=\output
+Item1=C:\Program Files (x86)\TADemo\
+Item2=F:\tademo\
+Item3=G:\CAVEDOG\TADemo
+Item4=\output

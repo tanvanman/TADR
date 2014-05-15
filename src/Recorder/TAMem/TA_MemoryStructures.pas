@@ -25,10 +25,10 @@ type
   TPosition = packed record
     x_ : Word;
     X  : Word;
-    z_ : Word;
-    Z  : Word;
     y_ : Word;
     Y  : Word;
+    z_ : Word;
+    Z  : Word;
   end;
 
   PTurn = ^TTurn;
@@ -47,9 +47,9 @@ type
     field_C           : Word;
     field_E           : Word;
     p_Weapon1         : Pointer;
-    unknow_1          : array [0..1] of Byte;
-    field_16          : Cardinal;
-    field_1A          : Cardinal;
+    unknow_1          : Cardinal;
+    Weapon1_ReloadTime: Word;
+    Weapon1_TolerJigg : Cardinal;
     Weapon1Dotte      : Byte;
     cIsBuilder        : Byte;
     unknow_2          : Cardinal;
@@ -58,14 +58,17 @@ type
     p_Weapon2         : Pointer;
     unknow_3          : Byte;
     Weapon2Dotte      : Byte;
-    field_32          : array [0..8] of Byte;
+    //field_32          : array [0..8] of Byte;
+    field_32          : Word;
+    Weapon2_ReloadTime: Word;
+    Weapon2_TolerJigg : Cardinal;
+    field_3A          : Byte;
     field_3B          : Byte;
     field_3C          : array [0..11] of Byte;
     p_Weapon3         : Pointer;
     unknow_4          : Cardinal;
-    field_50          : Cardinal;
-    field_54          : Byte;
-    field_55          : Byte;
+    Weapon3_ReloadTime: Word;
+    field_54          : Cardinal;
     Weapon3Dotte      : Byte;
     field_57          : Byte;
     field_58          : Cardinal; //TemplatePtr.extractsmetal * UnitPtr * 0.0000152587890625;
@@ -74,9 +77,9 @@ type
     Turn              : TTurn;
     Position          : TPosition;
     nGridPosX         : SmallInt;
-    nGridPosY         : SmallInt;
+    nGridPosZ         : SmallInt;
     nLargeGridPosX    : SmallInt;
-    nLargeGridPosY    : SmallInt;
+    nLargeGridPosZ    : SmallInt;
     nFootPrintXY      : Cardinal;
     View_dw0          : Cardinal;
     lModelNotValid    : Cardinal;
@@ -95,10 +98,15 @@ type
     nKills            : Word;
     Unknown11         : Byte;      // Unknown11 and $4; when calling setter
     field_BB          : Byte;
-    field_BC          : array [0..19] of byte;
+    Unknown_BC        : array [0..3] of byte;
+    fWeapResConsume   : Single;
+    fWeapResConsume2  : Single;
+    field_BC          : array [0..7] of byte;
     field_D0          : Cardinal;
     lResourcePercent  : Cardinal;
-    field_D8          : array [0..15] of byte;
+    lBuildWeapUnk     : Single;
+    lBuildWeapUnk2    : Single;
+    field_E0          : array [0..7] of byte;
     field_E8          : Cardinal;
     p_Owner2          : Pointer;
     p_Attacker        : Pointer;
@@ -148,13 +156,13 @@ type
     lWidthZ            : Cardinal;
     lUnknown6          : Cardinal;
     Unknown7           : array [0..15] of Byte;
-    fBuildCostEnergy   : single;
-    fBuildCostMetal    : single;
+    lBuildCostEnergy   : Single;
+    lBuildCostMetal    : Single;
     pCOBScript         : Pointer;
-    lMaxSpeedRaw       : Cardinal;
+    lMaxSpeedRaw       : Single;
     lMaxSpeedSlope     : Cardinal;    // (lMaxSpeedRaw shl 16) / ((cMaxSlope + 1) shl 16)
-    lBrakeRate         : Cardinal;
-    lAcceleration      : Cardinal;
+    lBrakeRate         : Single;
+    lAcceleration      : Single;
     lBankScale         : Cardinal;
     lPitchScale        : Cardinal;
     lDamageModifier    : Cardinal;
@@ -321,13 +329,14 @@ type
     cAllyTeam            : Byte;	 //0x13F
     lUnitsCounters       : Cardinal;
     nNumUnits            : SmallInt;				// 0x144
-    cPlayerIndexZero     : Byte;		// 0x146 - zero based index of the player
+    cPlayerIndexZero     : Byte;		// 0x146 - zero based index of the player. AI 1, 2, 3 etc.
     Unknown6             : Cardinal;			// 0x147
   end;
 
   TFoundUnits = array of Cardinal;
 
   // 0x115
+  PWeaponDef = ^TWeaponDef;
   TWeaponDef = packed record
 	  szWeaponName         : array [0..31] of AnsiChar;
 	  szWeaponDescription  : array [0..63] of AnsiChar;
@@ -441,6 +450,21 @@ type
 	  lFont_File         : Cardinal;
 	end;
 
+  { relative paths to files related to loaded map in game }
+  PMapFiles = ^TMapFiles;
+  TMapFiles = packed record
+    Header          : array [0..515] of Byte; //$104 + $100
+    TNTPath         : array [0..255] of AnsiChar;
+    F2              : array [0..255] of AnsiChar;
+    F3              : array [0..255] of AnsiChar;
+    F4              : array [0..255] of AnsiChar;
+    PaletteFile     : array [0..255] of AnsiChar;
+    AIFile          : array [0..255] of AnsiChar;
+    AIprofile       : array [0..255] of AnsiChar;
+    F8              : array [0..255] of AnsiChar;
+    F9              : array [0..255] of AnsiChar;
+  end;
+
   //
   PTAdynmemStruct = ^TTAdynmemStruct;
   TTAdynmemStruct = packed record
@@ -454,7 +478,7 @@ type
 	  Unknown2               : array [0..71] of Byte;
 	  p_TAGUIObject          : Pointer;
 	  Unknown3               : array [0..107] of Byte;
-	  cAlteredUnitLimit      : Byte;
+	  cAlteredUnitLimit      : Byte;              
 	  Unkonwn4               : array [0..2126] of Byte;
 	  cPlayerCameraRectColor : Byte;
 	  Unknown5               : array [0..1300] of Byte;
@@ -665,8 +689,8 @@ type
 	  lMovieOutputRate       : Cardinal; //0x38C57
 	  Unknown50              : array [0..293] of Byte;
 	  lMaxPlayers            : Cardinal; //0x38D81 - xon's gives as "NumSkirmishPlayers"
-	  Unknown51              : array [0..1123] of Byte;
-	  p_MapFile              : Pointer; //0x391E9 - xpoy's gives as "GameSettingStruct_Ptr
+	  Unknown51              : array [0..1125] of Byte;
+	  p_MapFile              : PMapFiles; //0x391E9 - xpoy's gives as "GameSettingStruct_Ptr
 	  Unknown52              : array [0..3] of Byte; //0x391ED - there's references to [p_TAMemory + 0x391ED] in ta.exe, so this is definitely something
 	  lGUICallbackState      : Cardinal; //0x391F1
 	  lGUICallback           : Cardinal; //0x391F5
@@ -682,6 +706,33 @@ type
 	  Unknown54              : array [0..1] of Byte;
 	  nGameState             : Word; //0x3923B
 	  Unknown55              : array [0..3522] of Byte; //to get size to 0x3A000 (what xpoy's IDA db says the size of this struct is
+  end;
+
+  PUnitOrder = ^TUnitOrder;
+  TUnitOrder = packed record
+    p_PriorOrder_uosp : Pointer;
+    cOrderType        : Byte;
+    State             : Byte;
+    unknow_0          : Word;
+    field_8           : Word;
+    unknow_1____      : LongWord;
+    p_Unit            : Pointer;
+    field_12          : LongWord;
+    field_16          : LongWord;
+    p_UnitTarget      : Pointer;
+    p_ThisPTR         : Pointer;
+    Pos               : TPosition;
+    unknow_5          : LongWord;
+    field_32          : Word;
+    FootPrint         : Word;
+    lPar1             : LongWord;  // for lab build queue = unit type
+    lPar2             : LongWord;  // for lab build queue = amount of units
+    UnitOrderFlags    : LongWord;
+    Order_State       : LongWord;
+    StartTime         : LongWord;
+    p_NextOrder_uos   : Pointer;
+    mask              : LongWord;
+    p_Order_CallBack  : Pointer;
   end;
 
   TTAActionType = ( Action_Ready = 0,
@@ -706,7 +757,7 @@ type
                     Action_UnderConstruction = 19,
                     Action_Load = 20, // ARMTSHIP
                     Action_Unload = 21,
-                    Action_Unknown22,
+                    Action_ReadyMobile = 22, // ready for mobile units
                     Action_NanolatheHelp = 23, // other builder joins build
                     Action_UnitIsAvailable = 24,
                     Action_NanolatheBuilder = 25,
@@ -730,7 +781,7 @@ type
                     Action_Ack = 43,
                     Action_Ack_2 = 44,
                     Action_Stop = 45,
-                    Action_SuppresFire = 46,  // attack special ?
+                    Action_SuppresFire = 46,  //
                     Action_Teleport = 47,
                     Action_Evade = 48,
                     Action_GuardAir = 49,
@@ -753,7 +804,100 @@ type
                     Action_Wait = 66,
                     Action_WaitForAttack = 67,
                     Action_NoResult = 68 );
-                    
+
+  TCobMethods = ( Activate, Deactivate, Upgrade, Reminder, Heal, Cloak );
+
+  TUnitInfoExtensions = (
+    Ext_BUILDER = 0,
+		Ext_FLOATER = 1,
+		Ext_AMPHIBIOUS = 2,
+		Ext_STEALTH = 3,
+		Ext_ISAIRBASE = 4,
+		Ext_TARGETTINGUPGRADE = 5,
+		Ext_TELEPORTER = 6,
+		Ext_HIDEDAMAGE = 7,
+		Ext_SHOOTME = 8,
+		Ext_CANFLY = 9,
+		Ext_CANHOVER = 10,
+		Ext_IMMUNETOPARALYZER = 11,
+		Ext_HOVERATTACK = 12,
+		Ext_ANTIWEAPONS = 13,
+		Ext_DIGGER = 14,
+		Ext_ONOFFABLE = 15,
+		Ext_CANSTOP = 16,
+		Ext_CANATTACK = 17,
+		Ext_CANGUARD = 18,
+		Ext_CANPATROL = 19,
+		Ext_CANMOVE = 20,
+		Ext_CANLOAD = 21,
+		Ext_CANRECLAMATE = 22,
+		Ext_CANRESURRECT = 23,
+		Ext_CANCAPTURE = 24,
+		Ext_CANDGUN = 25,
+		Ext_KAMIKAZE = 26,
+		Ext_COMMANDER = 27,
+		Ext_SHOWPLAYERNAME = 28,
+		Ext_CANTBERANSPORTED = 29,
+		Ext_UPRIGHT = 30,
+		Ext_BMCODE = 31,
+
+		Ext_SOUNDCTGR = 32,
+
+		Ext_MOVEMENTCLASS_SAFE = 33,
+		Ext_MOVEMENTCLASS = 34,
+
+		Ext_MAXHEALTH = 35,
+		Ext_HEALTIME = 36,
+
+		Ext_MAXSPEED = 37,
+		Ext_ACCELERATION = 38,
+		Ext_BRAKERATE = 39,
+		Ext_TURNRATE = 40,
+		Ext_CRUISEALT = 41,
+		Ext_MANEUVERLEASH = 42,
+		Ext_ATTACKRUNLEN = 43,
+		Ext_MAXWATERDEPTH = 44,
+		Ext_MINWATERDEPTH = 45,
+		Ext_MAXSLOPE = 46,
+		Ext_MAXWATERSLOPE = 47,
+		Ext_WATERLINE = 48,
+
+		Ext_TRANSPORTSIZE = 49,
+		Ext_TRANSPORTCAP = 50,
+
+		Ext_BANKSCALE = 51,
+		Ext_KAMIKAZEDIST = 52,
+		Ext_DAMAGEMODIFIER = 53,
+
+		Ext_WORKERTIME = 54,
+		Ext_BUILDDIST = 55,
+
+		Ext_SIGHTDIST = 56,
+		Ext_RADARDIST = 57,
+		Ext_SONARDIST = 58,
+		Ext_MINCLOAKDIST = 59,
+		Ext_RADARDISTJAM = 60,
+		Ext_SONARDISTJAM = 61,
+
+		Ext_MAKESMETAL = 62,
+		Ext_FENERGYMAKE = 63,
+		Ext_FMETALMAKE = 64,
+		Ext_FENERGYUSE = 65,
+		Ext_FMETALUSE = 66,
+		Ext_FENERGYSTOR = 67,
+		Ext_FMETALSTOR = 68,
+		Ext_FWINDGENERATOR = 69,
+		Ext_FTIDALGENERATOR = 70,
+		Ext_FCLOAKCOST = 71,
+		Ext_FCLOAKCOSTMOVE = 72,
+
+		Ext_BUILDCOSTMETAL = 73,
+		Ext_BUILDCOSTENERGY = 74,
+
+		Ext_EXPLODEAS = 75,
+		Ext_SELFDSTRAS = 76 );
+
+
 implementation
 
 end.

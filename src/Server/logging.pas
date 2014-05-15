@@ -1,5 +1,7 @@
 unit logging;
 
+{.$DEFINE RELEASE}
+
 interface
 
 type
@@ -24,7 +26,7 @@ var
 implementation
 
 uses
-  SysUtils, TextData;
+  main, SysUtils, TextData;
 
 var
   SaveExit :pointer;
@@ -122,7 +124,8 @@ begin
 end;
 
 begin
-  Log := TLog.Create('c:\log.txt');
+  if GetAppDataPath then
+    Log := TLog.Create(options.appDataDir + 'log.txt');
 
   SaveExit := ExitProc;
   ExitProc := @LogExit;

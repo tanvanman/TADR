@@ -4,7 +4,7 @@ object fmModsAssignList: TfmModsAssignList
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsDialog
   Caption = 'Assign a mod ID to the selected demo file'
-  ClientHeight = 455
+  ClientHeight = 374
   ClientWidth = 305
   Color = clBtnFace
   Font.Charset = EASTEUROPE_CHARSET
@@ -18,19 +18,19 @@ object fmModsAssignList: TfmModsAssignList
   OnShow = FormShow
   DesignSize = (
     305
-    455)
+    374)
   PixelsPerInch = 96
   TextHeight = 13
   object Label1: TLabel
     Left = 8
-    Top = 4
+    Top = 12
     Width = 178
     Height = 13
     Caption = 'Select mod from the list and press Ok'
   end
   object btnCancelModAssign: TBitBtn
-    Left = 137
-    Top = 421
+    Left = 217
+    Top = 340
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
@@ -41,8 +41,8 @@ object fmModsAssignList: TfmModsAssignList
     NumGlyphs = 2
   end
   object btnAcceptModAssign: TBitBtn
-    Left = 217
-    Top = 421
+    Left = 137
+    Top = 340
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
@@ -55,9 +55,9 @@ object fmModsAssignList: TfmModsAssignList
   end
   object lbModsAssign: TListBox
     Left = 8
-    Top = 22
+    Top = 30
     Width = 289
-    Height = 387
+    Height = 299
     Align = alCustom
     Font.Charset = EASTEUROPE_CHARSET
     Font.Color = clWindowText

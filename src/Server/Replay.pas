@@ -101,8 +101,8 @@ begin
 end;
 
 procedure TReplay.Send;
-var
-  x :TDateTime;
+//var
+//  x :TDateTime;
 
 begin
   if Current = nil then

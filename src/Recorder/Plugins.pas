@@ -1,7 +1,7 @@
 unit Plugins;
-{.$DEFINE KeyboardHookPlugin}
+{$DEFINE KeyboardHookPlugin}
+{$DEFINE ExtraPlugins}
 interface
-
 
 // some code injects must occur before the exe's main has run
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
@@ -18,12 +18,18 @@ uses
   PauseLock,
   UnitLimit,
   MultiAILimit,
-  //nocd,
   {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
-  //{.$IFDEF KeyboardHookPlugin}BattleRoomScroll,{.$ENDIF}
   IniOptions,
   Colors,
-  //BuilderToMobile,
+  RegPathFix,
+  {$IFDEF ExtraPlugins}
+  Builders,
+  AimPrimary,
+  HighTrajectory,
+  HighTrajectory_GetWeaps,
+  ResurrectPatrol,
+  {$ENDIF}
+  HealthBarMod,
   COB_extensions,
   LOS_extensions;
 
@@ -37,18 +43,32 @@ if OnMainRun then
   RegisterPlugin( Thread_marshaller.GetPlugin() );
 
   RegisterPlugin( IniOptions.GetPlugin() );
+  RegisterPlugin( RegPathFix.GetPlugin() );
   RegisterPlugin( InputHook.GetPlugin() );
   RegisterPlugin( SpeedHack.GetPlugin() );
   RegisterPlugin( PauseLock.GetPlugin() );
   RegisterPlugin( UnitLimit.GetPlugin() );
-  
+
   RegisterPlugin( LOS_extensions.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );
   RegisterPlugin( MultiAILimit.GetPlugin() );
   {$IFDEF KeyboardHookPlugin}RegisterPlugin( KeyboardHook.GetPlugin() );{$ENDIF}
-  //{.$IFDEF KeyboardHookPlugin}RegisterPlugin( BattleRoomScroll.GetPlugin() );{.$ENDIF}
-  RegisterPlugin( Colors.GetPlugin() );
-  //RegisterPlugin( BuilderToMobile.GetPlugin() );
+  //RegisterPlugin( BattleRoomScroll.GetPlugin() );
+  if IniSettings.Plugin_Colors then
+    RegisterPlugin( Colors.GetPlugin() );
+
+  {$IFDEF ExtraPlugins}
+  RegisterPlugin( Builders.GetPlugin() );
+  RegisterPlugin( AimPrimary.GetPlugin() );
+  RegisterPlugin( HighTrajectory.GetPlugin() );
+  RegisterPlugin( HighTrajectory_GetWeaps.GetPlugin() );
+  //RegisterPlugin( ResurrectPatrol.GetPlugin() );
+  {$ENDIF}
+
+  if (IniSettings.Plugin_HBWidth <> -1) or
+     (IniSettings.Plugin_HBHeight <> -1) or
+     (IniSettings.Plugin_HBDynamicSize) then
+    RegisterPlugin( HealthBarMod.GetPlugin() );
 
   end;
 // Run the code injection engine

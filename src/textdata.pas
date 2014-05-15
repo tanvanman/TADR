@@ -19,6 +19,7 @@ function FixPath (const s :string) :string;
 function SimpleCrypt (const s :string) :string;
 function CalcCRC (curcrc :longword; data :pointer; len :longword) :longword;
 function RemoveInvalid (const st :string) :string;
+function LeftPad(S: string; Ch: Char; Len: Integer): string;
 
 function DataToHex( const s : string ) : string; overload;
 function DataToHex( const s : string; index : integer; len : integer ) : string; overload;
@@ -533,6 +534,16 @@ for i := 1 to Length (Result) do
                       ' ', '''']) then
     Result[i] := '_';
   end;
+end;
+
+function LeftPad(S: string; Ch: Char; Len: Integer): string;
+var
+  RestLen: Integer;
+begin
+  Result  := S;
+  RestLen := Len - Length(s);
+  if RestLen < 1 then Exit;
+  Result := S + StringOfChar(Ch, RestLen);
 end;
 
 end.

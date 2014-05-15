@@ -27,6 +27,7 @@ var LoadedModsList: array of TModsIniSettings;
 type
   TOptions = record
     Tadir :string;
+    appDataDir: string;
     usedir :integer;
     defdir :string;
     lastdir :string;
@@ -237,6 +238,8 @@ type
     procedure splitterMainVerticMoved(Sender: TObject);
     procedure imgSplitterVerticClick(Sender: TObject);
     procedure splitterMainHorizMoved(Sender: TObject);
+    procedure lbVersionsMouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
   private
     { Private declarations }
     StartingPoint : TPoint;
@@ -247,6 +250,9 @@ type
     function LoadModsList: boolean;
     procedure SaveOptions;
     function LoadSelectedDemo: boolean;
+    procedure UserSelectedModSubversion;
+    procedure UserSelectedMod;
+    // get TA path
     function GetPath: string;
     procedure AfterPlayButton;
   public
@@ -267,6 +273,7 @@ type
 
 function fnRemoveInvalidChar(const sString: string) : String;
 procedure GetSubDirectories(const directory : string; list : TStrings);
+function GetAppDataPath: boolean;
 
 const
  MODSINI = 'mods.ini';
@@ -280,6 +287,7 @@ implementation
 {$R *.DFM}
 
 uses
+  SHFolder,
   lobby, selip, modslist, backwardcompat, waitform;
 
 function BrowseDialog
@@ -311,11 +319,11 @@ var
   i :integer;
   l :TStringList;
   tmp :string;
-  us :TUnitSync;
-  Icon: TIcon;
-  FileInfo: SHFILEINFO;
-  pathtemp: string;
-  empty: hicon;
+//  us :TUnitSync;
+//  Icon: TIcon;
+//  FileInfo: SHFILEINFO;
+//  pathtemp: string;
+//  empty: hicon;
 begin
   //imgIcon.Picture.Icon.Handle:= empty;
   Result:= False;
@@ -861,6 +869,29 @@ begin
   save.Free;
 end;
 
+function GetAppDataPath: boolean;
+var
+  appdatapath   : array[0..MAX_PATH] of char;
+begin
+  Result:= False;
+  try
+    //SHGetFolderPath(0, CSIDL_COMMON_APPDATA, 0, 0, @appdatapath);
+    SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, @appdatapath);
+    options.appDataDir:= appdatapath;
+    options.appDataDir:= IncludeTrailingPathDelimiter(options.appDataDir) + 'TADR\';
+    if not DirectoryExists(options.appDataDir) then
+    begin
+      if not CreateDir(options.appDataDir) then
+        Exit
+      else
+        Result:= True;
+    end else
+      Result:= True;
+  except
+    Exit;
+  end;
+end;
+
 function TfmMain.GetPath: string;
 var
  r :TRegistry;
@@ -967,7 +998,7 @@ function TfmMain.getunits :TStringList;
 var
   us :TUnitSync;
   i  :integer;
-  s  :string;
+//  s  :string;
   l  :TStringList;
   u  :Tlist;
 begin
@@ -1124,13 +1155,17 @@ var
   Sections: TStringList;
   i: word;
   incorrect: word;
-  s: string;
+//  s: string;
 begin
-Result:= False;
-incorrect:= 0;
-if FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI) then
-begin
-  with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI) do
+  Result:= False;
+  incorrect:= 0;
+
+  if options.appDataDir = '' then
+    Exit;
+
+  if FileExists(options.appDataDir+MODSINI) then
+  begin
+  with TIniFile.Create(options.appDataDir+MODSINI) do
     try
       Sections := TStringList.Create;
       try
@@ -1157,12 +1192,13 @@ begin
             Inc(incorrect);
             Continue;
           end;
-        if not SectionExists('MOD0') then
-          SetMod0(False);
-        end else {sections count < 1 }
+          if not SectionExists('MOD0') then
           begin
-            SetMod0(True);
+            SetMod0(False);
+            LoadModsList;
           end;
+        end else {sections count < 1 }
+          SetMod0(True);
       finally
         Sections.Free;
       end;
@@ -1232,7 +1268,7 @@ begin
     end;
   end;
 
-  with TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI) do
+  with TIniFile.Create(options.appDataDir+MODSINI) do
     try
       //fix loadedmodslist and write new path to ini
       if FindModId(0) <> - 1 then
@@ -1408,21 +1444,25 @@ begin
     APoint.Y := Y;
     Index := FileListBox1.ItemAtPos(APoint, True);
     if Index > -1 then
-      begin
+    begin
       FileListBox1.Selected[Index] := True;
-  done:= LoadSelectedDemo;
-  if ReadedTad.Error = false then
-  begin
-    oldindex:= ExtractFileName(filelistbox1.items[filelistbox1.itemindex]);
-    if ReadedTad.modId <> '' then setItemIndex:= FindModId(StrToInt(ReadedTad.modId))
-      else if ReadedTad.version < 7 then
-        if MessageDlg('This demo file has been recorded with backward compatibility mode enabled. '+
-        #13#10+'Assigning it to mod that requires more than 256 weapon ID''s will make it unplayable'+
-        ' for older Replayers (like 1.0.0.545).', mtConfirmation, mbOKCancel, 0) = mrCancel then
-          Exit else setItemIndex:= -1;
-    end;
-    fmModsAssignList.ShowModal;
-    if fmModsAssignList.ModalResult = mrOk then
+      done:= LoadSelectedDemo;
+      if ReadedTad.Error = false then
+      begin
+        oldindex:= ExtractFileName(filelistbox1.items[filelistbox1.itemindex]);
+        if ReadedTad.modId <> '' then
+          setItemIndex:= FindModId(StrToInt(ReadedTad.modId))
+        else
+          if ReadedTad.version < 7 then
+            if MessageDlg('This demo file has been recorded with backward compatibility mode enabled. '+
+               #13#10+'Assigning it to mod that requires more than 256 weapon ID''s will make it unplayable'+
+               ' for older Replayers (like 1.0.0.545).', mtConfirmation, mbOKCancel, 0) = mrCancel then
+                 Exit
+               else
+                 setItemIndex:= -1;
+      end;
+      fmModsAssignList.ShowModal;
+      if fmModsAssignList.ModalResult = mrOk then
       begin
         fmWait.lbWait.Caption:= 'Working...';
         fmWait.Show;
@@ -1484,13 +1524,7 @@ begin
   end;
 end;
 
-procedure TfmMain.FileListBox1Change(Sender: TObject);
-begin
-  FileListBox1.Hint:= FileListBox1.FileName;
-
-end;
-
-procedure TfmMain.lbSelectModClick(Sender: TObject);
+procedure TfmMain.UserSelectedMod;
 var
   path, path2: string;
   listversions: boolean;
@@ -1575,6 +1609,17 @@ begin
       directorylistbox1.Directory:= options.defdir;  }
 end;
 
+procedure TfmMain.FileListBox1Change(Sender: TObject);
+begin
+  FileListBox1.Hint:= FileListBox1.FileName;
+
+end;
+
+procedure TfmMain.lbSelectModClick(Sender: TObject);
+begin
+  UserSelectedMod;
+end;
+
 procedure GetSubDirectories(const directory : string; list : TStrings);
  var
    sr : TSearchRec;
@@ -1621,7 +1666,7 @@ begin
   end;
 end;
 
-procedure TfmMain.lbVersionsClick(Sender: TObject);
+procedure TfmMain.UserSelectedModSubversion;
 var
   path: string;
 begin
@@ -1637,13 +1682,17 @@ begin
   directorylistbox1.Directory:= path;
 end;
 
+procedure TfmMain.lbVersionsClick(Sender: TObject);
+begin
+  UserSelectedModSubversion;
+end;
+
 procedure TfmMain.FormCreate(Sender: TObject);
 begin
-  TVistaAltFix.Create(Self);
+//  TVistaAltFix.Create(Self);
   lbSelectMod.Width:= panMainTop.Width;
   lbSelectVersion.Visible:= False;
   GameInfoCollapsed:= True;
-  ilSplitters.GetBitmap(0, imgSplitterVertic.Picture.Bitmap);
 end;
 
 procedure TfmMain.btnCancelModsOrderClick(Sender: TObject);
@@ -1687,8 +1736,8 @@ var
   IdentValues: TStringList;
   Old, New: TINIFile;
 begin
-  Old := TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI);
-  New := TIniFile.Create(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'tmp.ini');
+  Old := TIniFile.Create(options.appDataDir+MODSINI);
+  New := TIniFile.Create(options.appDataDir+'tmp.ini');
   IdentValues := TStringList.Create;
   try
     for i:= 0 to lbModsOrder.Items.Count - 1 do
@@ -1708,8 +1757,8 @@ begin
       New.Free;
   end;
 
-  DeleteFile(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI);
-  RenameFile(IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+'tmp.ini', IncludeTrailingPathDelimiter(ExtractFilePath(paramstr(0)))+MODSINI);
+  DeleteFile(options.appDataDir+MODSINI);
+  RenameFile(options.appDataDir+'tmp.ini', options.appDataDir+MODSINI);
 
   SetLength(LoadedModsList, 0);
   LoadModsList;
@@ -1757,6 +1806,35 @@ end;
 procedure TfmMain.splitterMainHorizMoved(Sender: TObject);
 begin
   options.maintop:= panMainTop.Height;
+end;
+
+procedure TfmMain.lbVersionsMouseUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+//var
+//  APoint: TPoint;
+//  Index: integer;
+begin
+{
+  if Button = mbRight then
+  begin
+    APoint.X := X;
+    APoint.Y := Y;
+    Index := lbVersions.ItemAtPos(APoint, True);
+    if Index > -1 then
+    begin
+      lbVersions.Selected[Index] := True;
+      UserSelectedModSubversion;
+      // todo: check is version that user tries to remove is current, if so - disallow changes
+      if MessageDlg('Do you want to remove all demos of selected mod and version ('+ lbSelectMod.Items[lbSelectMod.ItemIndex] + ' ' + lbVersions.Items[lbVersions.ItemIndex] +
+      ')' + #13#10 + 'Other directories will remain untouched.', mtWarning, [mbYes, mbNo], 0) = mrYes then
+      begin
+        // remove dir and files
+        UserSelectedMod;
+      end else
+        Exit;
+    end;
+  end;
+}
 end;
 
 end.

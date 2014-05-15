@@ -87,7 +87,9 @@ procedure InitThunk_Stage1;
 asm
   call InitThunk_Stage2;
   // push the return addres for the 'ret' instruction to jump to
-  push $4E6FA0;
+  // 3.1       004E6FA0
+  // Boneyards 004E0FD1
+  push $004E6FA0;
   ret;
 end;
 
@@ -97,7 +99,7 @@ initialization
 
   // To get around the loader lock problem, we inject a bunch of code into the start of the TA
   // exe entry point. This executes after all the DLL entry points have.
-  CodeInjectionData.AddyToPatch := Pointer($4E6FA0);
+  CodeInjectionData.AddyToPatch := Pointer($004E6FA0);
   CodeInjectionData.MyAddy := @InitThunk_Stage1;
   SpliceInJump( CodeInjectionData );
 

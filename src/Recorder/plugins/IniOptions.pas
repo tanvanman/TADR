@@ -5,18 +5,29 @@ uses PluginEngine, Windows, SysUtils, IniFiles;
 
 type
   TIniSettings = record
-    ModId          : Integer;
-    DemosPrefix    : String;
-    Name           : String;
-    RegName        : String;
-    Version        : String;
-    WeaponIdPatch  : Boolean;
-    RanksURL       : String;
-    UnitLimit      : Integer;
-    Colors         : array [0..27] of Integer;
-    Read           : Boolean;
-    DoColors       : Boolean;
-    MobileToMobile : Boolean;
+    ModId                : Integer;
+    DemosPrefix          : String;
+    Name                 : String;
+    RegName              : String;
+    Version              : String;
+    WeaponIdPatch        : Boolean;
+    RanksURL             : String;
+    UnitLimit            : Integer;
+    Colors               : array [0..27] of Integer;
+    Read                 : Boolean;
+    Plugin_Colors        : Boolean;
+
+    { Health bar }
+    Plugin_HBWidth       : Integer;
+    Plugin_HBHeight      : Integer;
+    Plugin_HBDynamicSize : Boolean;
+    Plugin_HBCategory1   : Cardinal;
+    Plugin_HBCategory2   : Cardinal;
+    Plugin_HBCategory3   : Cardinal;
+    Plugin_HBCategory4   : Cardinal;
+    Plugin_HBCategory5   : Cardinal;
+
+    Plugin_WeaponReloadTimeBar : Boolean;
   end;
 var IniSettings: TIniSettings;
 
@@ -162,7 +173,7 @@ function ReadINISettings: boolean;
     if iniFile.ValueExists(sect, ident) then
     begin
       temp:= iniFile.ReadString(sect, ident, '');
-      if Length(temp) > 1 then
+      if Length(temp) >= 1 then
       begin
         try
           if Pos(';', temp) <> 0 then
@@ -256,47 +267,83 @@ var
   i: integer;
   currcolor: string;
 begin
-Result:= False;
+  Result:= False;
 
-iniSettings.modid:= 0;
-iniSettings.demosprefix:= '';
-iniSettings.weaponidpatch:= False;
+  iniSettings.modid:= 0;
+  iniSettings.demosprefix:= '';
+  iniSettings.weaponidpatch:= False;
 
-if GetINIFileName <> #0 then
+  if GetINIFileName <> #0 then
   begin
     iniFile:= TIniFile.Create(GetINIFileName);
     try
-      iniSettings.modid:= ReadIniValue(iniFile, 'MOD','ID', -1);
-      iniSettings.name:= ReadIniString(iniFile, 'MOD','Name', '');
-      iniSettings.version:= ReadIniString(iniFile, 'MOD','Version', '');
-      iniSettings.demosprefix:= ReadIniString(iniFile, 'MOD','DemosFileNamePrefix', '');
+      IniSettings.modid := ReadIniValue(iniFile, 'MOD','ID', -1);
+      IniSettings.name := ReadIniString(iniFile, 'MOD','Name', '');
+      IniSettings.version := ReadIniString(iniFile, 'MOD','Version', '');
+      IniSettings.RegName := ReadIniString(iniFile, 'MOD','RegName', '');
 
-      iniSettings.RanksURL:= ReadIniString(iniFile, 'Preferences','RanksURL', '');
+      IniSettings.demosprefix := ReadIniString(iniFile, 'MOD','DemosFileNamePrefix', '');
 
-      weaponType:= ReadIniValue(iniFile, 'Preferences','WeaponType', 256);
-      multiGameWeapon:= ReadIniBool(iniFile, 'Preferences','MultiGameWeapon', False);
-      iniSettings.weaponidpatch:= (weaponType > 256) and multiGameWeapon;
+      IniSettings.RanksURL := ReadIniString(iniFile, 'Preferences','RanksURL', '');
 
-      iniSettings.unitlimit:= ReadIniValue(iniFile, 'Preferences','UnitLimit', 1500);
-      iniSettings.MobileToMobile:= ReadIniBool(iniFile, 'Preferences','MobileToMobile', False);
+      weaponType := ReadIniValue(iniFile, 'Preferences','WeaponType', 256);
+      multiGameWeapon := ReadIniBool(iniFile, 'Preferences','MultiGameWeapon', False);
+      IniSettings.WeaponIdPatch := (weaponType > 256) and multiGameWeapon;
+
+      IniSettings.unitlimit := ReadIniValue(iniFile, 'Preferences','UnitLimit', 0);
 
       if iniFile.SectionExists('Colors') then
       begin
-        iniSettings.docolors:= true;
+        IniSettings.Plugin_Colors := True;
         for i:= 0 to 26 do
         begin
-          currcolor:= GetEnumName(TypeInfo(TIniColors), i);
-          iniSettings.Colors[i] := ReadIniValue(iniFile, 'Colors', currcolor , -1);
+          currcolor := GetEnumName(TypeInfo(TIniColors), i);
+          IniSettings.Colors[i] := ReadIniValue(iniFile, 'Colors', UpperCase(currcolor), -1);
         end;
         if ReadIniBool(iniFile, 'Colors','MainMenuDotsDisabled', False) then
-          iniSettings.Colors[27]:= 1
+          IniSettings.Colors[27]:= 1
         else
-          iniSettings.Colors[27]:= -1;
-        end;
+          IniSettings.Colors[27]:= -1;
+      end;
+
+      IniSettings.Plugin_HBWidth := ReadIniValue(iniFile, 'Preferences', 'HealthBarWidth', -1);
+      IniSettings.Plugin_HBHeight := ReadIniValue(iniFile, 'Preferences', 'HealthBarHeight', -1);
+      IniSettings.Plugin_HBDynamicSize := ReadIniBool(iniFile, 'Preferences', 'HealthBarDynamicSize', False);
+
+      IniSettings.Plugin_HBCategory1 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat1', 0);
+      IniSettings.Plugin_HBCategory2 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat2', 0);
+      IniSettings.Plugin_HBCategory3 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat3', 0);
+      IniSettings.Plugin_HBCategory4 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
+      IniSettings.Plugin_HBCategory5 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
+
+      IniSettings.Plugin_WeaponReloadTimeBar := ReadIniBool(iniFile, 'Preferences', 'WeaponReloadTimeBar', False);
+
     finally
       Result:= True;
       iniFile.Free;
     end;
+
+    if FixModsINI then
+    begin
+      if IniSettings.name = '' then
+        if ReadModsIniField('Name') <> '' then
+          IniSettings.name:= ReadModsIniField('Name')
+        else
+          if IniSettings.modid > 0 then
+          begin
+         //   TLog.Add( 0, 'Couldn''t read mod name !' );
+            IniSettings.name:= 'Unknown';
+          end;
+      if IniSettings.version = '' then
+        if ReadModsIniField('Version') <> '' then
+          IniSettings.version:= ReadModsIniField('Version');
+      if IniSettings.RegName = '' then
+        if ReadModsIniField('RegName') <> '' then
+          IniSettings.RegName := ReadModsIniField('RegName')
+        else
+          IniSettings.RegName := 'TA Patch';
+    end else
+      if IniSettings.modid > 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
   end;
 end;
 
@@ -317,7 +364,7 @@ if IsTAVersion31 and State_INI_Options then
                                 State_INI_Options,
                                 @OnInstallINI_Options, @OnUnInstallINI_Options );
 
-    iniSettings.read:= ReadINISettings;
+    IniSettings.read := ReadINISettings;
     
   end else
     result := nil;

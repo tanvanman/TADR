@@ -24,6 +24,7 @@ const
   Cheat_ResourcesFreeze : TTACheats = $1000;
   //Cheat_DeveloperMode: TTACheats = $2000;
   Cheat_DoubleShot : TTACheats = $2000;
+  Cheat_ProhibitedTask : TTACheats = $4000;
 
 type
   PMKChatMem = ^MKChatMem;
@@ -120,7 +121,8 @@ if CheatEnabled(Cheat_ResourcesFreeze) then
   AddCheatDescription('developer mode');}
 if CheatEnabled(Cheat_DoubleShot) then
   AddCheatDescription('double shot');
-
+if CheatEnabled(Cheat_ProhibitedTask) then
+  AddCheatDescription('running cheat tools');
 end;
 
 function IsTAHookRunning : boolean;

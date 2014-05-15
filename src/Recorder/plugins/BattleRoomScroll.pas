@@ -45,7 +45,8 @@ procedure BattleRoomScrollBackAfterTextReceived;
 
 implementation
 uses
-  TA_MemoryLocations;
+  TA_MemoryLocations,
+  TA_MemoryConstants;
 
 Procedure OnInstallBattleRoomScroll;
 begin
@@ -113,10 +114,10 @@ end;
 
 procedure ScrollBattleRoomTextWindowUp;
 begin
-  if PLongWord(Plongword(TAdynmemStructPtr)^+OFFSET_NUM_TEXTLINES)^ > MAX_DISPLAYABLE_LINES then
+  if PCardinal(PCardinal(TAdynmemStructPtr)^+OFFSET_NUM_TEXTLINES)^ > MAX_DISPLAYABLE_LINES then
   begin
-    Dec(PLongWord(PLongWord(TAdynmemStructPtr)^+OFFSET_TEXTLINESTARTINDEX)^);
-    Dec(PLongWord(PLongWord(TAdynmemStructPtr)^+OFFSET_NUM_TEXTLINES)^);
+    Dec(PCardinal(PCardinal(TAdynmemStructPtr)^+OFFSET_TEXTLINESTARTINDEX)^);
+    Dec(PCardinal(PCardinal(TAdynmemStructPtr)^+OFFSET_NUM_TEXTLINES)^);
     Inc(nUpClicks);
   end;
 end;
@@ -125,8 +126,8 @@ procedure ScrollBattleRoomTextWindowDown;
 begin
   if nUpClicks > 0 then
   begin
-    Inc(PLongWord(PLongWord(TAdynmemStructPtr)^+OFFSET_TEXTLINESTARTINDEX)^);
-    Inc(PLongWord(PLongWord(TAdynmemStructPtr)^+OFFSET_NUM_TEXTLINES)^);
+    Inc(PCardinal(PCardinal(TAdynmemStructPtr)^+OFFSET_TEXTLINESTARTINDEX)^);
+    Inc(PCardinal(PCardinal(TAdynmemStructPtr)^+OFFSET_NUM_TEXTLINES)^);
     Dec(nUpClicks);
   end;
 end;

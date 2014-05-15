@@ -2,8 +2,8 @@ unit idplay;
 {$DEFINE Release}
 
 {.$DEFINE WarZone}
-{.$DEFINE KeyboardHookPlugin}
-{.$DEFINE AllowStatsCreate}
+{$DEFINE KeyboardHookPlugin}
+{.$DEFINE GameStatsLogging}
 
 {.$DEFINE DebuggerHooks}
 
@@ -17,9 +17,9 @@ uses
   Windows, sysutils, classes,
   DPlay, DPLobby,
   //DplayPacketU,
-  ListsU, CommandHandlerU,
+  ListsU, CommandHandlerU, ConsoleTimer,
 //  PacketHandlerU,
-  TADemoConsts,MemMappedDataStructure, PlayerDataU, 
+  TADemoConsts,  TAMemManipulations, MemMappedDataStructure, PlayerDataU,
   log2, statslogging,//SavedDemoU,
   PacketBufferU;
 
@@ -96,8 +96,6 @@ type
     OldMapX : Word;
     OldMapY : Word;
   protected
-    //this is earlier recorded game?
-    NotViewingRecording :Boolean;
     // is recording allowed?
     NoRecording     : boolean;
 //    DemoRecordingFile : TDemoRecordingFile;
@@ -233,10 +231,9 @@ type
     //procedure Handleunitdata(s : string; DPlayPacket : TDPlayPacket);
     procedure Handleunitdata(s : string; from , till :TDPID);
   protected
-    nextCheatCheck :integer;  
     MyCheats  : TTACheats;
     oldMyCheats  : TTACheats;
-    procedure checkForCheats();    
+    procedure checkForCheats(CheatType: TCheatType);
   protected  // pre-made bases, not really supported well
     initbase     : array [0..UNITSPACE div 5] of Tbuilding;
     basecount    : integer;
@@ -247,12 +244,19 @@ type
     procedure initfastbase(namn:string);
     procedure initbuilding(num,id:word;xpos,ypos:smallint;hps:word);
   public
+    //this is earlier recorded game?
+    NotViewingRecording :Boolean;
     IsInGame : Boolean;
+    trCheckMemoryCheats: TConsoleTimer;
+    trCheckProhibitedProcesses: TConsoleTimer;
+    procedure OnFinishedCheatsCheck(CheatsFound: TTACheats);
+    procedure OnMemoryCheckTick(Sender : TObject);
+    procedure OnProcessCheckTick(Sender : TObject);
     procedure Exiting();
     procedure ResetRecorder;
 
     constructor Create (realdp :IDirectPlay);
-    destructor Destroy; override;   
+    destructor Destroy; override;
  protected
     function SmartPak(c:string; const FromPlayer, ToPlayer : string) :string;
 
@@ -408,6 +412,7 @@ implementation
 
 uses
  mmsystem, registry,
+ shfolder,
  DPLobbyWrapper,
  uDebug, textdata,
  TextFileU, Logging,
@@ -417,8 +422,8 @@ uses
 {$ENDIF}
  LOS_extensions,
  SpeedHack,
- TAMemManipulations,
  TA_MemoryLocations,
+ TA_MemoryStructures,
  TA_NetworkingMessages,
  TA_FunctionsU,
  InputHook,
@@ -666,16 +671,16 @@ begin
           Move( arg3^, customPacket[4], SizeOf(Word)); // new weap id
           Move( IniSettings.weaponidpatch, customPacket[6], SizeOf(Boolean));
         end;
-      TANM_Rec2Rec_UnitUpgradeable :
+      TANM_Rec2Rec_UnitGrantUnitInfo :
         begin
-          SetLength( customPacket, SizeOf(TRec2Rec_UnitUpgradeable_Message));
+          SetLength( customPacket, SizeOf(TRec2Rec_UnitGrantUnitInfo_Message));
           Move( unitId, customPacket[1], SizeOf(Word));
           Move( unitIdSender, customPacket[3], SizeOf(LongWord));
           Move( arg2^, customPacket[7], SizeOf(Byte)); // new state
         end;
-      TANM_Rec2Rec_UnitEditTemplate :
+      TANM_Rec2Rec_UnitInfoEdit :
         begin
-          SetLength( customPacket, SizeOf(TRec2Rec_UnitEditTemplate_Message));
+          SetLength( customPacket, SizeOf(TRec2Rec_UnitInfoEdit_Message));
           Move( unitId, customPacket[1], SizeOf(Word));
           Move( unitIdSender, customPacket[3], SizeOf(LongWord));
           Move( arg4^, customPacket[7], SizeOf(LongWord));
@@ -696,16 +701,35 @@ end;
 
 // -----------------------------------------------------------------------------
 
-procedure TDPlay.CheckForCheats();
+procedure TDPlay.OnMemoryCheckTick(Sender : TObject);
+begin
+  trCheckMemoryCheats.Enabled:= False;
+  CheckForCheats(ctMemory);
+  trCheckMemoryCheats.Enabled:= True;
+end;
+
+procedure TDPlay.OnProcessCheckTick(Sender : TObject);
+begin
+  trCheckProhibitedProcesses.Enabled:= False;
+  CheckForCheats(ctProcesses);
+  trCheckProhibitedProcesses.Enabled:= True;
+end;
+
+procedure TDPlay.CheckForCheats(CheatType: TCheatType);
 begin
 {$IFDEF Release}
-MyCheats := TAMemManipulations.CheckForCheats();
+TAMemManipulations.CheckForCheats(CheatType);
 {$ELSE}
 MyCheats := 0;
 {$ENDIF}
-if chatview <> nil then
-  chatview^.myCheats := MyCheats;
 end; {CheckForCheats}
+
+procedure TDplay.OnFinishedCheatsCheck(CheatsFound: TTACheats);
+begin
+  MyCheats:= CheatsFound;
+  if chatview <> nil then
+    chatview^.myCheats := MyCheats;
+end;
 
 // -----------------------------------------------------------------------------
 
@@ -817,7 +841,7 @@ begin
   begin
     MapsList:= TStringlist.create;
     tot := CreateMultiplayerMapsList(0, 0, 0);
-    SendChat('Host total amount of maps: '+IntToStr(tot));
+    SendChat('Host maps count: '+IntToStr(tot));
     if tot > 0 then
     begin
       pos:= Plongword($5122D4)^;
@@ -1796,9 +1820,7 @@ if assigned(chatview) then
     PRec2Rec_CheatsDetected_Message(@s[1])^.CheatsDetected := oldMyCheats;
     SendRecorderToRecorderMsg( TANM_Rec2Rec_CheatDetection, s );
     if ListCheats(oldMyCheats) <> '' then
-      SendChat(Players[1].Name+' has cheats enabled: ' + ListCheats(oldMyCheats))
-     else
-      SendChat(Players[1].Name+' disabled cheats.');
+      SendChat(Players[1].Name+' has cheats enabled: ' + ListCheats(oldMyCheats));
     end;
   if (chatview^.NewData = 1) then
     SendClipboard();
@@ -1835,15 +1857,6 @@ if assigned(chatview) then
 //      s:= ;
 //      sendlocal(s,0,false,true);
 //      sendlocal(s,0,true,false);
-      end;
-    end;
-  if FromPlayer.IsSelf and (TAStatus = InGame) then
-    begin
-    nextCheatCheck:=nextCheatCheck-1;
-    if (nextCheatCheck=0) and NotViewingRecording and compatibleTA then
-      begin
-      nextCheatCheck:=20;
-      CheckForCheats();
       end;
     end;
   end;
@@ -2331,6 +2344,27 @@ if assigned(chatview) then
         begin
         IsInGame := True;
         TAStatus := InGame;
+        if NotViewingRecording and compatibleTA then
+        begin
+          if (not Assigned(trCheckMemoryCheats)) then
+          begin
+            trCheckMemoryCheats := TConsoleTimer.Create;
+            with trCheckMemoryCheats do
+            begin
+              Interval := 3000;
+              OnTimerEvent := OnMemoryCheckTick;
+              Enabled := True;
+            end;
+
+            trCheckProhibitedProcesses := TConsoleTimer.Create;
+            with trCheckProhibitedProcesses do
+            begin
+              Interval := 7000;
+              OnTimerEvent := OnProcessCheckTick;
+              Enabled := True;
+            end;
+          end;
+        end;
         {$IFDEF KeyboardHookPlugin}
         keyboardHookLevel:= 2;
         {$ENDIF}
@@ -2651,7 +2685,11 @@ if assigned(chatview) then
 
           // Fixup take status
           case TakeStatus of
-            NoOneTaking, SelfTaking : FromPlayer.CanTake := false;
+            NoOneTaking, SelfTaking :
+              begin
+              if (FromPlayer.Name = TakePlayer) then
+                FromPlayer.CanTake := False;
+              end;
             OtherPlayerTaking_OldVersion_Pre99b2 :
               begin
               // reset the take status & ref count
@@ -2769,9 +2807,7 @@ if assigned(chatview) then
                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_CheatsDetected_Message) );
                  FromPlayer.otherCheats := PRec2Rec_CheatsDetected_Message(Rec2Rec_Data)^.CheatsDetected;
                  if (date>36983) and (ListCheats(FromPlayer.otherCheats) <> '') then
-                   SendChat(FromPlayer.Name+' has cheats enabled: ' + ListCheats(FromPlayer.otherCheats))
-                  else
-                   SendChat(FromPlayer.Name+' disabled cheats.');
+                   SendChat(FromPlayer.Name+' has cheats enabled: ' + ListCheats(FromPlayer.otherCheats));
                  end;
                TANM_Rec2Rec_Sharelos :
                  begin
@@ -2793,7 +2829,7 @@ if assigned(chatview) then
                TANM_Rec2Rec_UnitWeapon :
                  begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitWeapon_Message) );
-                   if TAUnit.IsOnThisComp(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId), True) <> 1 then
+                   if not TAUnit.IsOnThisComp(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId), True) then
                    begin
                      TAUnit.SetWeapon(Pointer(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId)),
                                               PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WhichWeapon,
@@ -2807,19 +2843,19 @@ if assigned(chatview) then
                    TAUnit.SetTemplate(Pointer(TAUnit.Id2Ptr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UnitId)),
                                               PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID);
                  end;
-               TANM_Rec2Rec_UnitUpgradeable :
+               TANM_Rec2Rec_UnitGrantUnitInfo :
                  begin
-                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitUpgradeable_Message) );
-                   TAUnit.SetUpgradeable( nil,
-                                          PRec2Rec_UnitUpgradeable_Message(Rec2Rec_Data)^.NewState,
-                                          Pointer(PRec2Rec_UnitUpgradeable_Message(Rec2Rec_Data)^.UnitIdRemote));
+                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitGrantUnitInfo_Message) );
+                   TAUnit.GrantUnitInfo( nil,
+                                          PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.NewState,
+                                          Pointer(PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.UnitIdRemote));
                  end;
-               TANM_Rec2Rec_UnitEditTemplate :
+               TANM_Rec2Rec_UnitInfoEdit :
                  begin
-                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitEditTemplate_Message) );
-                   TAUnit.setUnitInfoField( nil, PRec2Rec_UnitEditTemplate_Message(Rec2Rec_Data)^.FieldType,
-                                              PRec2Rec_UnitEditTemplate_Message(Rec2Rec_Data)^.NewValue,
-                                              Pointer(PRec2Rec_UnitEditTemplate_Message(Rec2Rec_Data)^.UnitIdRemote));
+                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitInfoEdit_Message) );
+                   TAUnit.setUnitInfoField( nil, TUnitInfoExtensions(PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.FieldType),
+                                              PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.NewValue,
+                                              Pointer(PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.UnitIdRemote));
                  end;
 
                end;
@@ -3594,6 +3630,13 @@ try
     begin
     fillchar(chatview^,sizeof(MKChatMem), 0);
     chatview^.TAStatus := 1;
+    if TAStatus <> InGame then
+    begin
+      if Assigned(trCheckMemoryCheats) then
+        trCheckMemoryCheats.Enabled:= False;
+      if Assigned(trCheckProhibitedProcesses) then
+        trCheckProhibitedProcesses.Enabled:= False;
+    end;
     MyCheats := 0;
     end;
   fillchar(fBattleRoomState,sizeof(fBattleRoomState),0);
@@ -3618,7 +3661,7 @@ try
   protectdt := reg.ReadBool ('Options', 'fixall', False);
   shareMapPos := reg.ReadBool ('Options', 'sharepos', True);
   createTxtFile:= reg.ReadBool ('Options', 'createtxt', False);
-  {$IFDEF AllowStatsCreate}createStatsFile:= reg.ReadBool ('Options', 'createstats', False);
+  {$IFDEF GameStatsLogging}createStatsFile:= reg.ReadBool ('Options', 'createstats', False);
   {$ELSE}createStatsFile:= False;{$ENDIF}
 
   logpl:=false;
@@ -3665,22 +3708,6 @@ try
       end;
     end;
 
-  if not FixModsINI(serverdir) then
-    if IniSettings.modid > 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
-
-  if IniSettings.name = '' then
-    if ReadModsIniField(serverdir, 'Name') <> #0 then
-      IniSettings.name:= ReadModsIniField(serverdir, 'Name')
-    else
-      if IniSettings.modid > 0 then
-      begin
-        TLog.Add( 0, 'Couldn''t read mod name !' );
-        IniSettings.name:= 'Unknown';
-      end;
-  if IniSettings.version = '' then
-    if ReadModsIniField(serverdir, 'Version') <> #0 then
-      IniSettings.version:= ReadModsIniField(serverdir, 'Version');
-
   crash := false;
   TADemoRecorderOff := false;
   IsInGame := False;
@@ -3704,7 +3731,6 @@ try
   NotViewingRecording:=true;
   use3d := false;
   oldMyCheats:=0;
-  nextCheatCheck:=5;
   //check if version is 3.1 standard
   CompatibleTA := IsTAVersion31;
   forcego:=False;
@@ -3856,6 +3882,8 @@ end;
 
 destructor TDPlay.Destroy;
 begin
+GlobalDPlay.trCheckMemoryCheats.Free;
+GlobalDPlay.trCheckProhibitedProcesses.Free;
 GlobalDPlay:= nil;
   cs.Acquire;
   cs.Release;

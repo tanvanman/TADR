@@ -176,7 +176,7 @@ var
   tme :TTimeStamp;
   s2 : string;
 begin
-//if LogFile = nil then Exit;
+if LogFile = nil then Exit;
 if aVerboseLoggingLevel > VerboseLoggingLevel then
   Exit;
 tme := DateTimeToTimeStamp (now);

@@ -62,8 +62,9 @@ var
   kernellib : Thandle;
 
 function GetSysDir : string;
-
+Function GetAppData : string;
 Function GetMyDocs : string;
+
 implementation
 uses
   classes,
@@ -71,7 +72,7 @@ uses
   logging,
   SHFolder;
 
-Function GetMyDocs : string;
+function GetMyDocs : string;
 var
   len : longword;
   lpszPath : PChar;
@@ -81,6 +82,29 @@ SetLength( result, len );
 lpszPath := @result[1];
 SHGetFolderPath( 0, CSIDL_PERSONAL, 0,0,lpszPath );
 result := lpszPath;
+end;
+
+function GetAppData : string;
+var
+  len : longword;
+  lpszPath : PChar;
+  sAppData: String;
+begin
+  Result := '';
+  len := 2*MAX_PATH;
+  SetLength( result, len );
+  lpszPath := @result[1];
+  SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, lpszPath);
+  sAppData := IncludeTrailingPathDelimiter(lpszPath) + 'TADR\';
+  if not DirectoryExists(sAppData) then
+  begin
+    try
+      if CreateDir(sAppData) then
+        Result := sAppData;
+    except
+    end;
+  end else
+    Result := sAppData;
 end;
 
                                  

@@ -383,7 +383,7 @@ end;
 procedure TAServer.CreateSession (p :pointer; save :TSavefile);
 var
   name :TDPName;
-  id   :TIdent;
+//  id   :TIdent;
   pd   :string;
   pdtemp: string;
   i,j  :integer;
@@ -394,9 +394,9 @@ var
   cp   :integer;
   sn   :PChar;
 
-  s    :string;
-  pa   :TPacket;
-  ano  :TPlayers;
+//  s    :string;
+//  pa   :TPacket;
+//  ano  :TPlayers;
 
   service :PService;
   dp1 :IDirectPlay;
@@ -435,7 +435,7 @@ begin
     pd:= pdtemp + save.Map;
   end else
   begin
-    pd := 'TADR 3.9.3.0    ' + save.map;
+    pd := 'TADR 3.9.3.x    ' + save.map;
   end;
 
   sn := stralloc (100);
@@ -572,7 +572,7 @@ end;
 
 procedure TAServer.Leave;
 var
-  dp1 :IDirectPlay;
+//  dp1 :IDirectPlay;
   i   :integer;
 begin
   if inited then
@@ -683,11 +683,11 @@ var
   chat      :TChat;
   i         :integer;
   playr     :TPlayer;
-  r         :TReplay;
-  s,tmp,cur :string;
+//  r         :TReplay;
+  s,cur :string;
   pkt       :TUnitPkt;
   j         :integer;
-  a,b       :integer;
+//  a,b       :integer;
   point     :pointer;
   upkt      :TUnit;
   runit     :PRawUnit;
@@ -1351,10 +1351,10 @@ end;
 procedure TAServer.Filter (var s :string;a :integer);
 var
   tmp :string;
-  i,b   :integer;
+  i   :integer;
   len :integer;
-  w   :word;
-  point :^word;
+//  w   :word;
+//  point :^word;
 begin
   tmp := TPacket.Decompress (TPacket.Decrypt (s));
   s := #3#0#0 + Copy (tmp, 4, 4);

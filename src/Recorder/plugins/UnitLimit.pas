@@ -28,7 +28,8 @@ implementation
 uses
   sysutils,
   TADemoConsts,
-  TA_MemoryLocations;
+  TA_MemoryLocations,
+  IniOptions;
 
 Procedure OnInstallUnitLimit;
 begin
@@ -77,7 +78,13 @@ var
 begin
 if IsTAVersion31 and State_UnitLimit then
   begin
-  aUnitLimit := NewUnitLimit;
+  if IniSettings.UnitLimit <> 0 then
+    aUnitLimit := Word(IniSettings.UnitLimit)
+  else
+  begin
+    IniSettings.UnitLimit := NewUnitLimit;
+    aUnitLimit := NewUnitLimit;
+  end;
 
   result := TPluginData.create( true,
                                 IntToStr(NewUnitLimit)+' unit limit',

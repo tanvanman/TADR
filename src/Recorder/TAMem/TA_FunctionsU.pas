@@ -27,6 +27,12 @@ var
   // called to update LOS
   TA_UpdateLOS : TA_UpdateLOSHandler = TA_UpdateLOSHandler($4816A0);
 
+// get map ground level at given coords
+type
+  GetPosHeightHandler = function (pPosition : Pointer): Cardinal; stdcall;
+var
+  GetPosHeight : GetPosHeightHandler = GetPosHeightHandler($485070);
+
 type
   Unit_CreateHandler = function ( PlayerAryIndex : Cardinal;  // owner index
                                   UnitInfoId: Cardinal;       // template id
@@ -48,7 +54,7 @@ type
                                             PosY_: Cardinal;
                                             FullHp: Cardinal) : Cardinal; stdcall;
 var
-  Unit_CreateUnitsInGame : Unit_CreateUnitsInGameHandler = Unit_CreateUnitsInGameHandler($485A40);
+  Unit_CreateUnitsInGame : Unit_CreateUnitsInGameHandler = Unit_CreateUnitsInGameHandler($485A40);  // boneyards 45BD31
 
 
 type
@@ -67,9 +73,9 @@ var
   Unit_StartWeaponsScripts : Unit_StartWeaponsScriptsHandler = Unit_StartWeaponsScriptsHandler($49E070);
 
 type
-  Unit_FixPositionZ_HoverFloaterHandler = procedure ( UnitPtr: Pointer ); stdcall;
+  Unit_FixPositionY_HoverFloaterHandler = procedure ( UnitPtr: Pointer ); stdcall;
 var
-  Unit_FixPositionZ_HoverFloater : Unit_FixPositionZ_HoverFloaterHandler = Unit_FixPositionZ_HoverFloaterHandler($48A870);
+  Unit_FixPositionY_HoverFloater : Unit_FixPositionY_HoverFloaterHandler = Unit_FixPositionY_HoverFloaterHandler($48A870);
 
 type
   Unit_PlayerActiveType3Handler = procedure ( UnitPtr: Pointer ); stdcall;
@@ -123,6 +129,14 @@ type
 var
   Send_FireWeapon: Send_FireWeaponHandler = Send_FireWeaponHandler($499AB0);
 
+//sub_49D000(int a1, int Victim_UnitPtr, int Postion_Start)
+type
+  sub_49D000Handler = function ( Attacker_Ptr: Pointer;
+                                 Victim_UnitPtr: Pointer;
+                                 Position_Start: Pointer): Integer; stdcall;
+var
+  sub_49D000: sub_49D000Handler = sub_49D000Handler($49D000);
+
 type
   SetPrepareOrderHandler = function ( UnitPtr: Pointer; a2: Cardinal): LongInt; stdcall;
 var
@@ -135,44 +149,65 @@ type
                                     pTargetUnitPtr: Pointer;
                                     pPosition: Pointer;
                                     a6: Cardinal;   // unit type id for nanolathe order or order time in game tick (* 30)
-                                                    // selfdestructg calls it with 1
-                                    a7: Cardinal    // prob out: pointer, build orders use it
+                                                    // selfdestructh calls it with 1
+                                    a7: Cardinal    // for build orders - unit amount
                                     ): LongInt; stdcall;
 var
-//  NewOrder2Unit: NewOrder2UnitHandler = NewOrder2UnitHandler($43ADC0);
   Order2Unit: Order2UnitHandler = Order2UnitHandler($43AFC0);
+  
+type
+  Script_RunScriptHandler = function ( a1: Cardinal;
+                                       a2: Cardinal;
+                                       UnitScriptsData_p: Cardinal;
+                                       v4: Cardinal;
+                                       v3: Cardinal;
+                                       v2: Cardinal;
+                                       v1: Cardinal;
+                                       a8: Cardinal; // amount of out vars ?
+                                       a9: Cardinal;
+                                       a10: Cardinal;
+                                       const Name: PAnsiChar): LongInt; register;
+var
+  Script_RunScript: Script_RunScriptHandler = Script_RunScriptHandler($4B0A70);
 
 type
-//  ScriptAction_Name2IndexHandler = function ( out a2: Cardinal; ActionName_str: PAnsiChar): Cardinal; register;
-  ScriptAction_Name2IndexHandler = function : Cardinal; stdcall;
+  Script_ProcessCallbackHandler = function ( a1: Pointer;  // dunno
+                                             a2: Pointer;  // dunno
+                                             UnitScriptsData_p: Cardinal;
+                                             v4: Pointer;
+                                             v3: Pointer;
+                                             v2: Pointer;
+                                             v1: Pointer;
+                                             const Name: PAnsiChar): LongInt; register;
 var
-  ScriptAction_Name2Index: ScriptAction_Name2IndexHandler = ScriptAction_Name2IndexHandler($438760);
-
-type
-  Script_RunCallBackHandler = function ( a1: Cardinal;
-                                         a2: Cardinal;
-                                         UnitScriptsData_p: Cardinal;
-                                         v4: Cardinal;
-                                         v3: Cardinal;
-                                         v2: Cardinal;
-                                         v1: Cardinal;
-                                         a8: Cardinal; // amount of out vars ?
-                                         a9: Cardinal;
-                                         a10: Cardinal;
-                                         const Name: PAnsiChar): LongInt; register;
-var
-  Script_RunCallBack: Script_RunCallBackHandler = Script_RunCallBackHandler($4B0A70);
+  Script_ProcessCallback: Script_ProcessCallbackHandler = Script_ProcessCallbackHandler($4B0BC0);
 
 type
   sub_45A8D0Handler = function (unitptr : Cardinal) : integer; stdcall;
 var
   sub_45A8D0 : sub_45A8D0Handler = sub_45A8D0Handler($45A8D0);
 
+
+type
+  LoadTNTHandler = function (a1, a2 : Cardinal) : integer; register;
+var
+  LoadTNT : LoadTNTHandler = LoadTNTHandler($483610);
+
 type
   // createobject3d0
   sub_45A950Handler = function (modelptr : longword; a2: longword; unitptr: longword) : longword; stdcall;
 var
   sub_45A950 : sub_45A950Handler = sub_45A950Handler($45A950);
+
+type
+  DrawHealthBarsHandler = function (OFFSCREEN_ptr: LongWord; UnitInGame: LongWord; PosX: LongWord; PosY: LongWord) : LongInt; stdcall;
+var
+  DrawHealthBars : DrawHealthBarsHandler = DrawHealthBarsHandler($0046A430);
+
+type
+  DrawRectangleHandler = function (OFFSCREEN_ptr: LongWord; Position: Pointer; ColorOffset: LongWord) : LongInt; stdcall;
+var
+  DrawRectangle : DrawRectangleHandler = DrawRectangleHandler($004BF6F0);
 
 type
   PlaySound_UnitSpeechHandler = function (unitptr : longword; speechtype: longword; speechtext: PChar) : byte; stdcall;
@@ -315,7 +350,7 @@ type //find unit at position
 var
   GetUnitAtCoords : GetUnitAtCoordsHandler = GetUnitAtCoordsHandler($4815F0);
 
-type //find unit at position
+type
 	GetGridPosPLOTHandler = function (PosX, PosY: Integer) : Cardinal; stdcall;
 var
   GetGridPosPLOT : GetGridPosPLOTHandler = GetGridPosPLOTHandler($481550);
