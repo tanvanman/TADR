@@ -126,7 +126,7 @@ begin
                     end;
                 end;
               end;
-     {   $44 : begin     // left alt + shift + d
+    {    $44 : begin     // left alt + shift + d
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
@@ -141,8 +141,8 @@ begin
 
                   end;
                 end;
-              end;
-       $51 : begin     // left alt + shift + q
+              end;    }
+     {  $51 : begin     // left alt + shift + q
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin

@@ -58,8 +58,9 @@ uses
   AimPrimary in 'plugins\AimPrimary.pas',
   RegPathFix in 'plugins\RegPathFix.pas',
   HighTrajectory_GetWeaps in 'plugins\HighTrajectory_GetWeaps.pas',
-  HealthBarMod in 'plugins\HealthBarMod.pas',
-  ResurrectPatrol in 'plugins\ResurrectPatrol.pas';
+  ResurrectPatrol in 'plugins\ResurrectPatrol.pas',
+  ClockPosition in 'plugins\ClockPosition.pas',
+  ExtraUnitBars in 'plugins\ExtraUnitBars.pas';
 
 {$R *.res}
 

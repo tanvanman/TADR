@@ -82,8 +82,8 @@ type
     nLargeGridPosZ    : SmallInt;
     nFootPrintXY      : Cardinal;
     View_dw0          : Cardinal;
-    lModelNotValid    : Cardinal;
-    field_8A          : Cardinal;
+    TransporterUnit_p : Pointer;
+    TransportedUnit_p : Pointer;
     p_FirstUnit       : Pointer;
     p_UnitDef         : Pointer;
     p_Owner           : Pointer;
@@ -92,7 +92,7 @@ type
     Order_Unknow      : Cardinal;
     nUnitCategoryID   : Word;
     lUnitInGameIndex  : Cardinal;
-    field_AC          : Cardinal;
+    HotKeyGroup       : Cardinal;
     lFireTimePlus600  : Cardinal;
     field_B4          : Cardinal;
     nKills            : Word;
@@ -404,19 +404,35 @@ type
 	  Unknown4: array [0..1] of Byte;
 	end;
 
+  PtagRECT = ^tagRECT;
   tagRECT = packed record
-    left   : Integer;
-    top    : Integer;
-    right  : Integer;
-    bottom : Integer;
+            Left : Longint;
+            Top : Longint;
+            Right : Longint;
+            Bottom : Longint;
+            end;
+
+  PViewResBar = ^TViewResBar;
+  TViewResBar = packed record
+    PlayerAryIndex : Byte;
+    fEnergyStorage : Single;
+    fEnergyProduction : Single;
+    fEnergyExpense : Single;
+    fMetalStorage : Single;
+    fMetalProduction : Single;
+    fMetalExpense : Single;
+    fMaxEnergyStorage : Single;
+    fMaxMetalStorage : Single;
   end;
 
+
+  PRaceSideDataStruct = ^TRaceSideDataStruct;
   TRaceSideDataStruct = packed record
 	  Name               : array [0..29] of AnsiChar;
 	  NamePrefix         : array [0..3] of AnsiChar;
 	  CommanderUnitName  : array [0..31] of AnsiChar;
 	  rectLogo           : tagRECT;
-	  rectEnergy         : tagRECT;
+	  rectEnergyBar      : tagRECT;
 	  rectEnergyNum      : tagRECT;
 	  rectMetalBar       : tagRECT;
 	  rectMetalNum       : tagRECT;
@@ -663,8 +679,9 @@ type
 	  lInterfaceType         : Cardinal;
 	  lUnknown44             : Cardinal;
 	  lSingleLOSType         : Cardinal;
-	  lScreenChat            : Cardinal; //0x37F06
-	  Unknown45              : array [0..1] of Byte;
+	  GameOptionMask         : Byte; //0x37F06
+    damagebarsvalue        : Byte;
+	  Gamma                  : Cardinal;
 	  lFXVol                 : Cardinal; //0x37F0C
 	  lMusicVol              : Cardinal;
 	  nMusicMode             : Word;
@@ -694,7 +711,9 @@ type
 	  Unknown52              : array [0..3] of Byte; //0x391ED - there's references to [p_TAMemory + 0x391ED] in ta.exe, so this is definitely something
 	  lGUICallbackState      : Cardinal; //0x391F1
 	  lGUICallback           : Cardinal; //0x391F5
-	  Unknown53              : array [0..31] of Byte;
+    lengthOfCOMIXFnt       : Cardinal;
+    lengthOFsmlfontFnt     : Cardinal;
+	  Unknown53              : array [0..23] of Byte;
 	  lSingleCommanderDeath  : Cardinal; //0x39219
 	  lSingleMapping         : Cardinal;
 	  lSingleLOS             : Cardinal;

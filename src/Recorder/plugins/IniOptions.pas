@@ -19,7 +19,6 @@ type
 
     { Health bar }
     Plugin_HBWidth       : Integer;
-    Plugin_HBHeight      : Integer;
     Plugin_HBDynamicSize : Boolean;
     Plugin_HBCategory1   : Cardinal;
     Plugin_HBCategory2   : Cardinal;
@@ -27,7 +26,12 @@ type
     Plugin_HBCategory4   : Cardinal;
     Plugin_HBCategory5   : Cardinal;
 
+    Plugin_TrueIncome        : Boolean;
+    Plugin_ClockPosition : Byte;
+    Plugin_ShortClock    : Boolean;
+
     Plugin_WeaponReloadTimeBar : Boolean;
+    Plugin_GroupsBigFont : Boolean;
   end;
 var IniSettings: TIniSettings;
 
@@ -269,9 +273,9 @@ var
 begin
   Result:= False;
 
-  iniSettings.modid:= 0;
-  iniSettings.demosprefix:= '';
-  iniSettings.weaponidpatch:= False;
+  iniSettings.modid := -1;
+  iniSettings.demosprefix := '';
+  iniSettings.weaponidpatch := False;
 
   if GetINIFileName <> #0 then
   begin
@@ -306,18 +310,20 @@ begin
           IniSettings.Colors[27]:= -1;
       end;
 
-      IniSettings.Plugin_HBWidth := ReadIniValue(iniFile, 'Preferences', 'HealthBarWidth', -1);
-      IniSettings.Plugin_HBHeight := ReadIniValue(iniFile, 'Preferences', 'HealthBarHeight', -1);
+      IniSettings.Plugin_HBWidth := ReadIniValue(iniFile, 'Preferences', 'HealthBarWidth', 0);
       IniSettings.Plugin_HBDynamicSize := ReadIniBool(iniFile, 'Preferences', 'HealthBarDynamicSize', False);
-
       IniSettings.Plugin_HBCategory1 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat1', 0);
       IniSettings.Plugin_HBCategory2 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat2', 0);
       IniSettings.Plugin_HBCategory3 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat3', 0);
       IniSettings.Plugin_HBCategory4 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
       IniSettings.Plugin_HBCategory5 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
-
       IniSettings.Plugin_WeaponReloadTimeBar := ReadIniBool(iniFile, 'Preferences', 'WeaponReloadTimeBar', False);
+      IniSettings.Plugin_GroupsBigFont := ReadIniBool(iniFile, 'Preferences', 'GroupsBigFont', False);
 
+      IniSettings.Plugin_TrueIncome := ReadIniBool(iniFile, 'Preferences', 'TrueIncome', False);
+
+      IniSettings.Plugin_ClockPosition := ReadIniValue(iniFile, 'Preferences', 'ClockPosition', 0);
+      IniSettings.Plugin_ShortClock := ReadIniBool(iniFile, 'Preferences', 'ShortClock', False);
     finally
       Result:= True;
       iniFile.Free;

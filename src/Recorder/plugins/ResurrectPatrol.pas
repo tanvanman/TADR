@@ -1,5 +1,31 @@
 unit ResurrectPatrol;
 
+// to make resurrector units able to resurrect patrol
+// todo :
+// - fix resurrected unit height
+// - reorder priority (resurrect should be before repair patrol and reclaim features) 405A6B
+
+{
+it seems there's a difference in a way RESURRECT and RECLAIM orders get called.
+Resurrect order created with resurrect patrol hack (order type swap) fails in providing correct unit position
+values from stack for unit creation function (here's where position values are being read: 0x004050D5 esi+22h).
+And here some dumps for comparision:
+
+cornecro position right after resurrect is finished (start to repair):
+just to show where some of incorrect values come from
+x_    x     h_    h     z_    z
+7E 47 EF 01 00 00 80 00 55 03 C0 06
+
+correct resurrected unit pos: (manual resurrect via mouse click)
+x_    x     h_    h     z_    z
+00 00 1C 02 00 00 78 00 00 00 A0 06
+
+resurrected unit pos via resurrect patrol:
+a bit of cornecro pos and garbage
+x_    x     h_    h     z_    z
+7E 47 1E 02 F8 09 65 08 55 03 8F 06
+}
+
 interface
 uses
   PluginEngine;

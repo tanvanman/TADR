@@ -1,6 +1,8 @@
 unit TA_FunctionsU;
 
 interface
+uses
+  TA_MemoryStructures;
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Working.
@@ -71,6 +73,13 @@ type
   Unit_StartWeaponsScriptsHandler = procedure ( UnitPtr: Pointer ); stdcall;
 var
   Unit_StartWeaponsScripts : Unit_StartWeaponsScriptsHandler = Unit_StartWeaponsScriptsHandler($49E070);
+
+type
+  sub_49D910Handler = function ( a1 : LongInt; a2 : LongInt; a3 : LongInt;
+                                 a9 : LongInt; a8 : LongInt; a7 : LongInt;
+                                 a6 : LongInt; a5 : LongInt; a4 : LongInt) : LongInt; register;
+var
+  sub_49D910 : sub_49D910Handler = sub_49D910Handler($49D910);
 
 type
   Unit_FixPositionY_HoverFloaterHandler = procedure ( UnitPtr: Pointer ); stdcall;
@@ -205,9 +214,39 @@ var
   DrawHealthBars : DrawHealthBarsHandler = DrawHealthBarsHandler($0046A430);
 
 type
-  DrawRectangleHandler = function (OFFSCREEN_ptr: LongWord; Position: Pointer; ColorOffset: LongWord) : LongInt; stdcall;
+  DrawRectangleHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: LongWord) : LongInt; stdcall;
 var
   DrawRectangle : DrawRectangleHandler = DrawRectangleHandler($004BF6F0);
+
+type
+  DrawText_HeavyHandler = function (OFFSCREEN_ptr: Cardinal; const str: PAnsiChar; left: Integer; top: Integer; MaxWidth: Integer) : LongInt; stdcall;
+var
+  DrawText_Heavy : DrawText_HeavyHandler = DrawText_HeavyHandler($004C14F0);
+
+type
+  DrawTextHandler = function (OFFSCREEN_ptr: Cardinal; const str: PAnsiChar; left: Integer; top: Integer; MaxLen: Integer; Background: Integer) : LongInt; stdcall;
+var
+  DrawText : DrawTextHandler = DrawTextHandler($004A50E0);
+
+type
+  DrawText_ThinHandler = function (OFFSCREEN_ptr: Cardinal; const str: PAnsiChar; left: Integer; top: Integer; MaxLen: Integer; a6: Integer; Background: Integer) : LongInt; stdcall;
+var
+  DrawText_Thin : DrawText_ThinHandler = DrawText_ThinHandler($004A51D0);
+
+type
+  SetFONTLENGTH_ptrHandler = function (NewFontLength: Cardinal) : LongInt; stdcall;
+var
+  SetFONTLENGTH_ptr : SetFONTLENGTH_ptrHandler = SetFONTLENGTH_ptrHandler($004C1420);
+
+type
+  sub_4C13F0Handler = function : LongInt; cdecl;
+var
+  sub_4C13F0 : sub_4C13F0Handler = sub_4C13F0Handler($004C13F0);
+
+type
+  SetFontColorHandler = function(a5: LongInt; a4: LongInt) : LongInt; stdcall;
+var
+  SetFontColor : SetFontColorHandler = SetFontColorHandler($004C13A0);
 
 type
   PlaySound_UnitSpeechHandler = function (unitptr : longword; speechtype: longword; speechtext: PChar) : byte; stdcall;
@@ -354,15 +393,8 @@ type
 	GetGridPosPLOTHandler = function (PosX, PosY: Integer) : Cardinal; stdcall;
 var
   GetGridPosPLOT : GetGridPosPLOTHandler = GetGridPosPLOTHandler($481550);
-
+  
 type
-  PtagRECT = ^tagRECT;
-  tagRECT = packed record
-            Left : Longint;
-            Top : Longint;
-            Right : Longint;
-            Bottom : Longint;
-            end;
 	TADrawRectHandler = procedure ( unk : PtagRECT; rect : PtagRECT; colour : Longint); stdcall;
 var
   TADrawRect : TADrawRectHandler = TADrawRectHandler($4BF8C0);

@@ -28,7 +28,7 @@ var
 type
   ETADR = class(Exception);
 
-  TTADRState = record
+  TTADRBattleroomState = record
     AutoPauseAtStart : Boolean;
     CommanderWarp : Byte;
     F1Disable : byte;
@@ -57,9 +57,9 @@ type
                  UnitAlive : Boolean;
                  end;
 
-    fBattleRoomState : TTADRState;
+    fBattleRoomState : TTADRBattleroomState;
     fBattleRoomStateUpdated : boolean;
-    foldBattleRoomState : TTADRState;
+    foldBattleRoomState : TTADRBattleroomState;
 
     Procedure SetAutoPauseAtStart( value : Boolean);
     Procedure SetCommanderWarp( value : Byte);

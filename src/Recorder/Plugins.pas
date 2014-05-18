@@ -29,7 +29,8 @@ uses
   HighTrajectory_GetWeaps,
   ResurrectPatrol,
   {$ENDIF}
-  HealthBarMod,
+  ExtraUnitBars,
+  ClockPosition,
   COB_extensions,
   LOS_extensions;
 
@@ -65,11 +66,7 @@ if OnMainRun then
   //RegisterPlugin( ResurrectPatrol.GetPlugin() );
   {$ENDIF}
 
-  if (IniSettings.Plugin_HBWidth <> -1) or
-     (IniSettings.Plugin_HBHeight <> -1) or
-     (IniSettings.Plugin_HBDynamicSize) then
-    RegisterPlugin( HealthBarMod.GetPlugin() );
-
+  RegisterPlugin( ExtraUnitBars.GetPlugin() );
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );
