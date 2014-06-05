@@ -6,3 +6,4 @@ del -p /s *.ddp
 del -p /s *.~tlb
 del -p /s *.~dpr
 del -p /s *.~inc
+del -p /s *.~dsk

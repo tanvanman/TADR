@@ -21,6 +21,23 @@ type
     lUnknown4      : Cardinal; // always 00 00 00 00
   end;
 
+  PMoveClass = ^TMoveClass;
+  TMoveClass = packed record
+    Move_CallBack   : Pointer;
+    movementclass   : Pointer;
+    field_8         : Cardinal;
+    field_C         : Cardinal;
+    field_10        : Cardinal;
+    field_14        : Cardinal;
+    field_18        : Cardinal;
+    field_1C        : Cardinal;
+    lCurrentSpeed   : Cardinal;
+    field_24        : Word;
+    field_26        : Cardinal;
+    field_2A        : Cardinal;
+    Mask            : Byte;
+  end;
+
   PPosition = ^TPosition;
   TPosition = packed record
     x_ : Word;
@@ -33,25 +50,25 @@ type
 
   PTurn = ^TTurn;
   TTurn = packed record
-    X  : SmallInt;
-    Z  : SmallInt;
-    Y  : SmallInt;
+    X  : Word;
+    Z  : Word;
+    Y  : Word;
   end;
 
   // 0x118
   PUnitStruct = ^TUnitStruct;
   TUnitStruct = packed record
     p_MovementClass   : Pointer;
-    lUsedSpot         : Cardinal;
+    lUsedSpot         : Cardinal;  // also target unit id for attackers
     field_8           : Cardinal;
-    field_C           : Word;
+    RelatedToOject    : Word;
     field_E           : Word;
     p_Weapon1         : Pointer;
     unknow_1          : Cardinal;
     Weapon1_ReloadTime: Word;
     Weapon1_TolerJigg : Cardinal;
     Weapon1Dotte      : Byte;
-    cIsBuilder        : Byte;
+    cWeaponStateMask  : Byte;      // and 1 = aiming, nand 10 = target locked, nand 1 and nand 10 = weapon reloaded, firing again
     unknow_2          : Cardinal;
     field_24          : Cardinal;
     field_28          : Cardinal;
@@ -96,8 +113,7 @@ type
     lFireTimePlus600  : Cardinal;
     field_B4          : Cardinal;
     nKills            : Word;
-    Unknown11         : Byte;      // Unknown11 and $4; when calling setter
-    field_BB          : Byte;
+    ProjectileState   : Word;      // Unknown11 and $4; when calling setter
     Unknown_BC        : array [0..3] of byte;
     fWeapResConsume   : Single;
     fWeapResConsume2  : Single;
@@ -159,7 +175,7 @@ type
     lBuildCostEnergy   : Single;
     lBuildCostMetal    : Single;
     pCOBScript         : Pointer;
-    lMaxSpeedRaw       : Single;
+    lMaxSpeedRaw       : Cardinal;
     lMaxSpeedSlope     : Cardinal;    // (lMaxSpeedRaw shl 16) / ((cMaxSlope + 1) shl 16)
     lBrakeRate         : Single;
     lAcceleration      : Single;
@@ -387,6 +403,48 @@ type
 	  lWeaponTypeMask      : Cardinal;
   end;
 
+  // 0x100
+  PFeatureDefStruct = ^TFeatureDefStruct;
+  TFeatureDefStruct = packed record
+    Name                   : Array[0..31] of AnsiChar;
+    data1                  : Array[0..95] of AnsiChar;
+    Description            : Array[0..19] of AnsiChar;
+    footprintx             : Word;
+    footprintz             : Word;
+    objects3d              : Pointer;
+    field_9C               : Word;
+    field_9E               : Cardinal;
+    field_A2               : Array[0..5] of Byte;
+    p_anims                : Pointer;
+    p_seqname              : Pointer;
+    p_seqnameshad          : Pointer;
+    p_burnName2Sequence    : Pointer;
+    p_seqnameburnshad      : Pointer;
+    p_seqnamedie           : Pointer;
+    p_seqnamedieshad       : Pointer;
+    p_seqnamereclamate     : Pointer;
+    p_seqnamereclamateshad : Pointer;
+    field_CC               : Word;
+    field_CE               : Word;
+    equals0                : Cardinal;
+    field_D4               : Cardinal;
+    field_D8               : Word;
+    field_DA               : Word;
+    field_DC               : Cardinal;
+    field_E0               : Cardinal;
+    field_E4               : Cardinal;
+    sparktime              : Word;
+    damage                 : Word;
+    energy                 : Single;
+    metal                  : Single;
+    field_F4               : Array[0..5] of Byte;
+    height                 : Byte;
+    spreadchance           : Byte;
+    reproduce              : Byte;
+    reproducearea          : Byte;
+    FeatureMask            : Word;
+  end; {FeatureDefStruct}
+
   //0x54
   TExplosion = packed record
 	  p_Debris: Pointer;
@@ -564,27 +622,41 @@ type
 	  Weapons                : array [0..255] of TWeaponDef; //0x2CF3 size=0x11500
 	  lNumProjectiles        : Integer;
 	  p_Projectiles          : Pointer; //0x141F7
-	  MapData                : array [0..15] of Byte;  //xpoy's IDA db gives this as a struct (but the mapdatastruct defined there is more than 16 bytes... so this particular struct is undefined apparently)
-	  p_WreckageInfo         : Pointer; //0x1420B
-	  Unknown21              : array [0..27] of Byte;
-	  lRadarPictureSize      : Cardinal;
+
+    SORT_UNIT_LIST         : Pointer;
+    SORT_INDICES           : Pointer;
+    SORT_LINE_COUNT        : Pointer;
+    PathFindStruct         : Pointer;
+
+
+	  FEATURE_ANIM_DATA      : Pointer; //0x1420B all currently animated features on map, including wreckages
+    Feature_Unit           : Pointer;
+    field_18               : Cardinal;
+    field_1C               : Cardinal;
+    field_20               : Cardinal;
+    field_24               : Cardinal;
+    MapWidth               : Cardinal;
+    MapHeight              : Cardinal;
+
+	  lRadarPictureWidth     : Cardinal;
 	  lRadarPictureHeight    : Cardinal;
-	  lFeatureMapSizeX       : Integer; //0x14233 - this is the map width in units of 16 (multiply by 16 to get pixels)
-	  lFeatureMapSizeY       : Integer; //0x14237 - this is the map height in units of 16 (multiply by 16 to get pixels)
+	  lFeatureMapSizeX       : Cardinal; //0x14233 - this is the map width in units of 16 (multiply by 16 to get pixels)
+	  lFeatureMapSizeY       : Cardinal; //0x14237 - this is the map height in units of 16 (multiply by 16 to get pixels)
 	  lEyeBallMapWidth       : Cardinal;
 	  lEyeBallMapHeight      : Cardinal;
 	  Unknown22              : array [0..15] of Byte;
 	  lNumFeatureDefs        : Cardinal;
 	  Unknown23              : array [0..19] of Byte;
 	  lTEDGENERATEDPIC       : Cardinal;
-	  p_FeatureDef           : pointer; //0x1426F
+	  p_FeatureDefs          : Pointer; //0x1426F
 	  lCircular_LOS_Table    : Cardinal;
 	  lLastZPos              : Cardinal;
-	  pEyeBallMemory         : pointer; //0x1427B
-	  nLOS_Unknown1          : word; //decimal part of an encoded integer? (per xon's IDA db)
-  	nLOS_Type              : word; //xpoy's IDA db gives as "EyeBallState" with 0x0FFF7 == moving
+	  pEyeBallMemory         : Pointer; //0x1427B
+	  SeaLevel               : Byte;
+    MapDebugMode           : Byte;
+  	nLOS_Type              : Word; //xpoy's IDA db gives as "EyeBallState" with 0x0FFF7 == moving
 	  Unknown24              : array [0..3] of Byte;
-	  p_FeaturesArray        : pointer;
+	  p_FeaturesArray        : Pointer;
 	  Unknown25              : array [0..63] of Byte;
     MinimapRect            : tagRECT;//0x142CB
 	  p_RadarFinal           : Pointer; //0x142DB
@@ -668,7 +740,9 @@ type
 	  Unknown40              : array [0..27] of Byte;
 	  lInGamePos_X           : Cardinal; //0x37E37
 	  lInGamePos_Y           : Cardinal;
-	  Unknown41              : array [0..170] of Byte;
+    ViewResBar             : array [0..20] of Byte;
+    Active_BottomState     : array [0..47] of Byte;
+	  Unknown41              : array [0..101] of Byte;
 	  nPerMissionUnitLimit   : Word; //0x37EE6
 	  nUnknown42             : Word;
 	  nActualUnitLimit       : Word;
@@ -757,73 +831,74 @@ type
   TTAActionType = ( Action_Ready = 0,
                     Action_Activate = 1,
                     Action_AirStrike = 2,
-                    Action_AttackAirToAir = 3,
-                    Action_AttackAirToGroundHover = 4,
-                    Action_AttackChase = 5,
-                    Action_AttackPrimary = 6,    //ATTACK_NOMOVE
-                    Action_AttackKamikaze = 7,      // it works even for units with kamikaze=0 (except air)
-                    Action_AttackUnknown4 = 8,      // not weapon 3
-                    Action_AttackTertiary = 9,
-                    Action_AttackUnknown5 = 10,  // commander stuck
-                    Action_Transported = 11,
-                    Action_Nanolathe = 12, // labs building
-                    Action_Unknown13,
+                    Action_AirToAir = 3,
+                    Action_AirToGround = 4,
+                    Action_AirToGroundHover = 5,
+                    Action_Attack_Chase = 6,    //ATTACK_NOMOVE
+                    Action_Attack_Kamikaze = 7,      // it works even for units with kamikaze=0 (except air)
+                    Action_Attack_NoMove = 8,      // not weapon 3
+                    Action_AttackSpecial = 9,
+                    Action_AttackUType = 10,  // commander stuck
+                    Action_BeCarried = 11,
+                    Action_BuildingBuild = 12, // labs building
+                    Action_BuildWeapon = 13,
                     Action_Capture = 14,
-                    Action_Decloak = 15,
-                    Action_Cloak = 16,
+                    Action_Cloak_Off = 15,
+                    Action_Cloak_On = 16,
                     Action_Deactivate = 17,
-                    Action_Guard = 18,
-                    Action_UnderConstruction = 19,
-                    Action_Load = 20, // ARMTSHIP
-                    Action_Unload = 21,
-                    Action_ReadyMobile = 22, // ready for mobile units
-                    Action_NanolatheHelp = 23, // other builder joins build
-                    Action_UnitIsAvailable = 24,
-                    Action_NanolatheBuilder = 25,
-                    Action_Move = 26,
-                    Action_Paralyzed = 27,
+                    Action_Follow_Ground = 18,
+                    Action_GetBuilt = 19,
+                    Action_Ground_Pickup = 20, // ARMTSHIP
+                    Action_Ground_Unload = 21,
+                    Action_Guard_NoMove = 22, // ready for mobile units
+                    Action_HelpBuild = 23, // other builder joins build
+                    Action_MakeSelectable = 24,
+                    Action_MobileBuild = 25,
+                    Action_Move_Ground = 26,
+                    Action_Paralyze = 27,
                     Action_Park = 28,
                     Action_Patrol = 29,
-                    Action_ReadyWithOrders = 30,
-                    Action_ReadyWithOrders2 = 31,
+                    Action_QMove = 30,
+                    Action_QPatrol = 31,
                     Action_Reclaim = 32,
                     Action_ReclaimUnit = 33,
                     Action_RepairPatrol = 34,
-                    Action_Repair = 35,
-                    Action_Repair2 = 36,
+                    Action_RepairUnit = 35,
+                    Action_RepairUnitNoMove = 36,
                     Action_Resurrect = 37,
-                    Action_Unknown38,
-                    Action_SelfDestruct = 39, //countdown
-                    Action_Repair3 = 40,
+                    Action_SelfDestruct = 38,
+                    Action_SelfDestructFG = 39, //countdown
+                    Action_SelfRepair = 40,
                     Action_Standby = 41,
-                    Action_Unknown42,
-                    Action_Ack = 43,
-                    Action_Ack_2 = 44,
+                    Action_Standby_Mine = 42,
+                    Action_Standing_FireOrder = 43,
+                    Action_Standing_MoveOrder = 44,
                     Action_Stop = 45,
-                    Action_SuppresFire = 46,  //
+                    Action_Suppress = 46,  //
                     Action_Teleport = 47,
-                    Action_Evade = 48,
-                    Action_GuardAir = 49,
-                    Action_UnderRepair = 50,
-                    Action_NanolatheAirHelp = 51,
-                    Action_SeekToLand = 52,
-                    Action_Land = 53,
-                    Action_NanolatheAir = 54,
-                    Action_MoveAir = 55,
-                    Action_PatrolAir = 56,
-                    Action_LoadAir = 57,   // atlas -> ground unit
-                    Action_ReclaimFeatureAir = 58,
-                    Action_ReclaimUnitAir = 59,
-                    Action_RepairPatrolAir = 60,
-                    Action_Repair4 = 61,
-                    Action_SeekToAttack = 62,
-                    Action_SeekToGuard = 63,
-                    Action_StandbyAir = 64,
-                    Action_Unload2 = 65,
+                    Action_VTOL_Evade = 48,
+                    Action_VTOL_Follow = 49,
+                    Action_VTOL_GetRepaired = 50,
+                    Action_VTOL_HelpBuild = 51,
+                    Action_VTOL_LandIfCan = 52,
+                    Action_VTOL_Landing= 53,
+                    Action_VTOL_MobileBuild = 54,
+                    Action_VTOL_Move = 55,
+                    Action_VTOL_Patrol = 56,
+                    Action_VTOL_Pickup = 57,   // atlas -> ground unit
+                    Action_VTOL_Reclaim = 58,
+                    Action_VTOL_ReclaimUnit = 59,
+                    Action_VTOL_RepairPatrol = 60,
+                    Action_VTOL_RepairUnit = 61,
+                    Action_VTOL_SeekAttack = 62,
+                    Action_VTOL_SeekGuard = 63,
+                    Action_VTOL_Standby = 64,
+                    Action_VTOL_Unload = 65,
                     Action_Wait = 66,
                     Action_WaitForAttack = 67,
                     Action_NoResult = 68 );
 
+  // custom structures used by TADR
   TCobMethods = ( Activate, Deactivate, Upgrade, Reminder, Heal, Cloak );
 
   TUnitInfoExtensions = (
@@ -916,6 +991,8 @@ type
 		Ext_EXPLODEAS = 75,
 		Ext_SELFDSTRAS = 76 );
 
+var
+  ExtraAnimations : array[0..15] of Pointer;
 
 implementation
 

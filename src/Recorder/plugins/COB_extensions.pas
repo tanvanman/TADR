@@ -17,6 +17,10 @@ Procedure OnInstallCobExtensions;
 Procedure OnUninstallCobExtensions;
 
 const
+ WEAPON_AIM_ABORTED = 21;
+ WEAPON_LAUNCH_NOW = 23;
+ ORIENTATION = 27;
+ CURRENT_SPEED = 29;
  // gets kills * 100
  VETERAN_LEVEL = 32;
  { IDs, owner etc. }
@@ -39,7 +43,8 @@ const
  // does unit exist
  UNIT_EXIST = 77;
  //
- CONFIRM_LONG_ID = 78;
+ UNIT_OWNED_BY_ALLY = 78;
+ //CONFIRM_LONG_ID = 78;
  // GET/SET returns or set unit type (don't affect COB, model, weapons...)
  UNIT_TYPE = 79;
 
@@ -55,14 +60,15 @@ const
  SET_CLOAKED = 88;
  SELECTABLE = 89;
  MOBILE_PLANT = 90;
+
+ { Weapons, attack info }
  KILLS = 91;
  ATTACKER_ID = 92;
  UNDER_ATTACK = 93;
-
- { Weapons }
  WEAPON_PRIMARY = 94;
  WEAPON_SECONDARY = 95;
  WEAPON_TERTIARY = 96;
+ LOCKED_TARGET = 97;
 
  { Creating and killing }
  TEST_BUILD_SPOT = 100;
@@ -76,10 +82,11 @@ const
  UNITS_YARDMAP = 111;
  UNITS_WHOLEMAP = 112;
  UNITS_ARRAY_RESULT = 113;
- RANDOM_ARRAY_ID = 114;
- CLEAR_ARRAY_ID = 115;
- UNIT_NEAREST = 116;
- DISTANCE = 117;
+ RANDOMIZE_UNITS_ARRAY = 114;
+ FREE_ARRAY_ID = 115;
+ CLEAR_ARRAY_ID = 116;
+ UNIT_NEAREST = 117;
+ DISTANCE = 118;
 
  { Unit orders }
  CURRENT_ORDER = 120;
@@ -89,10 +96,13 @@ const
  CREATE_ORDER_SELF_POS = 124;
  CREATE_ORDER_UNIT_UNIT = 125;
  CREATE_ORDER_UNIT_POS = 126;
-
- { Sounds }
+ CREATE_ORDER_SELF_UNIT_POS = 127;
+ RESET_ORDER = 128;
+ 
+ { Sfx }
  SPEECH = 130;
  SOUND_EFFECT = 131;
+ PLAY_GAF_ANIM = 132;
 
  { Global unit template }
  GRANT_UNITINFO = 140;
@@ -104,22 +114,28 @@ const
  HIGHWORD = 151;
  MAKEDWORD = 152;
 
+ { Map }
+ MAP_SEA_LEVEL = 155;
+ MAP_HEIGHT_VAL = 156;
+
  { Other }
  CALL_COB_PROC = 160;
 
  DBG_OUTPUT = 170;
 
- CUSTOM_LOW = MIN_ID;
+ CUSTOM_LOW = WEAPON_AIM_ABORTED;
  CUSTOM_HIGH = DBG_OUTPUT;
 
 // -----------------------------------------------------------------------------
 
 var
-  CustomUnitInfosArray: TUnitInfos;
-  UnitSearchArr: TUnitSearchArr;
-  SpawnedMinionsArr: TSpawnedMinionsArr;
-  CustomUnitInfos, UnitSearchResults, SpawnedMinions: TDynArray;
-  CustomUnitInfosCount, UnitSearchCount, SpawnedMinionsCount: Integer;
+  CustomUnitInfosArray : TUnitInfos;
+  UnitSearchArr : TUnitSearchArr;
+  SpawnedMinionsArr : TSpawnedMinionsArr;
+  CustomUnitInfos, UnitSearchResults,
+  SpawnedMinions : TDynArray;
+  CustomUnitInfosCount, UnitSearchCount,
+  SpawnedMinionsCount : Integer;
 
 // -----------------------------------------------------------------------------
 
@@ -145,9 +161,9 @@ begin
   CustomUnitInfos.Init(TypeInfo(TUnitInfos),CustomUnitInfosArray, @CustomUnitInfosCount);
   UnitSearchResults.Init(TypeInfo(TUnitSearchArr), UnitSearchArr, @UnitSearchCount);
   SpawnedMinions.Init(TypeInfo(TSpawnedMinionsArr), SpawnedMinionsArr, @SpawnedMinionsCount);
-  CustomUnitInfos.Capacity:= 1500 * MAXPLAYERCOUNT;
-  UnitSearchResults.Capacity:= High(Word);
-  SpawnedMinions.Capacity:= High(Word);
+  CustomUnitInfos.Capacity := IniSettings.UnitLimit * MAXPLAYERCOUNT;
+  UnitSearchResults.Capacity := High(Word);
+  SpawnedMinions.Capacity := High(Word);
   for i := 0 to High(Word) - 1 do
   begin
     UnitSearchResults.Add(UnitRec);
@@ -173,13 +189,13 @@ if IsTAVersion31 and State_COB_extensions then
                           'COB Extensions handler',
                           @COB_Extensions_Handling,
                           $480770,
-                          $1 );
+                          1 );
 
   result.MakeRelativeJmp( State_COB_extensions,
                           'COB Extensions Setters handler',
                           @COB_ExtensionsSetters_Handling,
                           $480B20,
-                          $1 );
+                          1 );
 
   end
 else
@@ -192,10 +208,11 @@ function CustomGetters( index : longword;
 var
   pUnit : Pointer;
   Position : TPosition;
+  i : integer;
   ExtensionsNotForDemos : Boolean;
 begin
 result := 0;
-if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
+if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
   begin
 
   if Assigned(globalDplay) then
@@ -204,6 +221,10 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
     ExtensionsNotForDemos := True;
 
   case index of
+    CURRENT_SPEED :
+      begin
+      result := TAUnit.GetCurrentSpeed(pointer(unitptr));
+      end;
     VETERAN_LEVEL :
       begin
       result := TAUnit.getKills(pointer(unitptr)) * 100;
@@ -251,9 +272,13 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result := BoolValues[(PUnitStruct(TAUnit.Id2Ptr(arg1)).nUnitCategoryID <> 0)];
       end;
-    CONFIRM_LONG_ID :
+ {   CONFIRM_LONG_ID :
       begin
       result := BoolValues[(TAunit.GetLongId(TAUnit.Id2Ptr(arg1)) = arg1)];
+      end;  }
+    UNIT_OWNED_BY_ALLY :
+      begin
+      result := TAUnit.IsFromAlly(pointer(unitptr));
       end;
     UNIT_TYPE :
       begin
@@ -266,7 +291,7 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result := TAUnit.GetUnitX(pointer(unitptr));
       end;
-    UNITZ :
+    UNITZ:
       begin
       result := TAUnit.GetUnitZ(pointer(unitptr));
       end;
@@ -288,7 +313,10 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       end;
     HEALTH_VAL :
       begin
-      result := TAUnit.GetHealth(pointer(unitptr));
+      if arg1 <> 0 then
+        result := TAUnit.GetHealth(TAUnit.Id2Ptr(arg1))
+      else
+        result := TAUnit.GetHealth(pointer(unitptr));
       end;
     GET_CLOAKED :
       begin
@@ -320,6 +348,11 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result := PUnitStruct(pointer(unitptr)).ucRecentDamage;
       end;
+    LOCKED_TARGET :
+      begin
+      if Byte(PUnitStruct(pointer(unitptr)).lUsedSpot) and $80 = $80 then
+        result := LoWord(PUnitStruct(pointer(unitptr)).lUsedSpot);
+      end;
     WEAPON_PRIMARY..WEAPON_TERTIARY :
       begin
       result := TAUnit.GetWeapon(pointer(UnitPtr), index);
@@ -333,7 +366,7 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
         if ExtensionsNotForDemos then
         begin
           Position := TAUnit.CreatePositionOfCoords(arg2, arg3, 0);
-           Position.Y := GetPosHeight(@Position);
+          Position.Y := GetPosHeight(@Position);
           pUnit := TAUnit.CreateUnit(TAUnit.GetOwnerIndexBuildspotSafe(pointer(UnitPtr)), arg1, Position , nil, False, False, 1, arg4);
           if pUnit <> nil then
             result := Word(PUnitStruct(pUnit).lUnitInGameIndex);
@@ -374,13 +407,18 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
             end;
       end;
       end;
-    RANDOM_ARRAY_ID :
+    RANDOMIZE_UNITS_ARRAY :
+      begin
+      TAUnits.RandomizeSearchRec(arg1, arg2);
+      result := 1;
+      end;
+    FREE_ARRAY_ID :
       begin
       result := TAUnits.GetRandomArrayId(arg1);
       end;
     CLEAR_ARRAY_ID :
       begin
-      TAUnits.ClearArrayElem(arg2, arg1);
+      TAUnits.ClearSearchRec(arg2, arg1);
       end;
     UNIT_NEAREST :
       begin
@@ -423,6 +461,15 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
           result := TAUnit.CreateOrder(pointer(unitptr), nil, TTAActionType(arg1), @Position, arg2, LoWord(arg4), HiWord(arg4));
         end;
       end;
+    CREATE_ORDER_SELF_UNIT_POS : //
+      begin
+        if ExtensionsNotForDemos then
+        begin
+          Position := TAUnit.CreatePositionOfCoords(HiWord(arg3), LoWord(arg3), 0);
+          Position.Y := GetPosHeight(@Position);
+          result := TAUnit.CreateOrder(pointer(unitptr), TAUnit.Id2Ptr(arg2), TTAActionType(arg1), @Position, LoWord(arg4), HiWord(arg4), 0);
+        end;
+      end;
     CREATE_ORDER_UNIT_UNIT : //
       begin
       if ExtensionsNotForDemos then
@@ -436,6 +483,10 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
           Position.Y := GetPosHeight(@Position);
           result := TAUnit.CreateOrder(TAUnit.Id2Ptr(arg2), nil, TTAActionType(arg1), @Position, LoWord(arg4), HiWord(arg4), 0);
         end;
+      end;
+    RESET_ORDER :
+      begin
+      PUnitStruct(pointer(unitptr)).p_UnitOrders := nil;
       end;
     CALL_COB_PROC :
       begin
@@ -453,6 +504,19 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result := MakeLong(Word(arg1), Word(arg2));
       end;
+    MAP_SEA_LEVEL :
+      begin
+      result := PTAdynmemStruct(TAData.MainStructPtr)^.SeaLevel;
+      end;
+    MAP_HEIGHT_VAL :
+      begin
+      Position := TAUnit.CreatePositionOfCoords(HiWord(arg1), LoWord(arg1), 0);
+      i := GetPosHeight(@Position);
+      if i <> -1 then
+        result := i
+      else
+        result := High(Cardinal);
+      end; 
     DBG_OUTPUT :
       begin
       SendTextLocal(IntToStr(TAUnit.GetId(pointer(unitptr))) + ' DBG_OUTPUT: [' + IntToStr(arg1) +'] + Value: ' + IntToStr(arg2) + ', Hex: ' + IntToHex(arg2, 8));
@@ -475,6 +539,10 @@ if (index = VETERAN_LEVEL) or ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH))
       begin
       result := BoolValues[(PUnitStruct(pointer(unitptr)).lUnitStateMask and 32 = 32)];
       end;
+    PLAY_GAF_ANIM :
+      begin
+      result := TAunit.PlayGafAnim(arg1, HiWord(arg2), LoWord(arg2), arg3, arg4);
+      end;
     end;
   end;
 end;
@@ -488,6 +556,15 @@ begin
     if TAUnit.IsOnThisComp(pointer(unitptr), True) then
     begin
       case index of
+        WEAPON_AIM_ABORTED :
+          begin
+          PUnitStruct(pointer(unitptr)).cWeaponStateMask := PUnitStruct(pointer(unitptr)).cWeaponStateMask and not $11;
+          PUnitStruct(pointer(unitptr)).lUsedSpot := Cardinal(MakeLong(0, HiWord(PUnitStruct(pointer(unitptr)).lUsedSpot)));
+          end;
+        WEAPON_LAUNCH_NOW :
+          begin
+          PUnitStruct(pointer(unitptr)).cWeaponStateMask := PUnitStruct(pointer(unitptr)).cWeaponStateMask or $10;
+          end;
         SPEECH : //
           begin
           TAUnit.Speech(unitptr, arg1, nil);
@@ -539,15 +616,15 @@ begin
             end;
           TURNX:
             begin
-            TAUnit.setTurnX(pointer(unitptr), SmallInt(arg1));
+            TAUnit.setTurnX(pointer(unitptr), arg1);
             end;
           TURNY:
             begin
-            TAUnit.setTurnY(pointer(unitptr), SmallInt(arg1));
+            TAUnit.setTurnY(pointer(unitptr), arg1);
             end;
           TURNZ:
             begin
-            TAUnit.setTurnZ(pointer(unitptr), SmallInt(arg1));
+            TAUnit.setTurnZ(pointer(unitptr), arg1);
             end;
           HEALTH_VAL :
             begin

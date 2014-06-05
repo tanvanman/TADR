@@ -26,7 +26,6 @@ procedure AimPrimary_Ballistic_ExpandCall;
 
 implementation
 uses
-  IniOptions,
   TA_MemoryConstants,
   TA_MemoryLocations,
   TA_FunctionsU;
@@ -78,14 +77,12 @@ label
 asm
     push    ebx
     pushf
-    mov     ebx, eax
-    and     bx, $10                   
+    mov     bx, word [edi+$4+2]
+    test    bh, $80
     jz      ShootingGround
-    push    eax
-    mov     ebx, [esp-$56]            // Target unit pointer
-    mov     eax, [ebx+$A8]            // PUnitStruct.lUnitInGameIndex
-    mov     TargetUnit_Turret, eax
-    pop     eax
+    xor     ebx, ebx
+    mov     bx, word [edi+$4]
+    mov     TargetUnit_Turret, ebx
     jmp loc_49E2AE
 ShootingGround:
     mov     TargetUnit_Turret, 0
@@ -142,11 +139,12 @@ label
 asm
     push    ebx
     pushf
-    mov     ebx, eax
-    and     bx, $10                   // is unit targeting at other unit or ground
+    mov     bx, word [edi+$4+2]
+    test    bh, $80
     jz      GroundTarget
-    mov     ebx, [esp-$56]            // Target unit pointer
-    mov     edx, [ebx+$A8]            // PUnitStruct.lUnitInGameIndex
+    xor     ebx, ebx
+    mov     bx, word [edi+$4]
+    mov     edx, ebx
     popf
     pop     ebx
     jmp ContinueToGame

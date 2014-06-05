@@ -7,16 +7,16 @@ uses
 type
   PCustomUnitInfo = ^TCustomUnitInfo;
   TCustomUnitInfo = packed record
-    unitId        : LongWord;
-    unitIdRemote  : LongWord;  // owner's (unit upgrade packet sender) local unit id
+    unitId        : Cardinal;
+    unitIdRemote  : Cardinal;  // owner's (unit upgrade packet sender) local unit id
     //OwnerPlayer  : Longint; // Buffer.EventPlayer_DirectID = PlayerAryIndex2ID(UnitInfo.ThisPlayer_ID   )
-    InfoPtrOld   : LongWord;  // local old global template Pointer
+    InfoPtrOld   : Cardinal;  // local old global template Pointer
     InfoStruct   : TGameUnitInfo;
   end;
   TUnitInfos = array of TCustomUnitInfo;
 
   TStoreUnitsRec = packed record
-    Id : LongWord;
+    Id : Cardinal;
     UnitIds  : array of LongWord;
   end;
   TUnitSearchArr = array of TStoreUnitsRec;
@@ -37,6 +37,7 @@ type
     class function GetPlayersStructPtr : Pointer;
     class function GetModelsArrayPtr : Pointer;
     class function GetWeaponTypeDefArrayPtr : Pointer;
+    class function GetFeatureTypeDefArrayPtr : Pointer;
     class function GetUnitInfosPtr : Pointer;
     class function GetUnitInfosCount : LongWord;
     class function GetSwitchesMask : Word;
@@ -59,6 +60,7 @@ type
     Property PlayersStructPtr : Pointer read GetPlayersStructPtr;
     Property ModelsArrayPtr : Pointer read GetModelsArrayPtr;
     Property WeaponTypeDefArrayPtr : Pointer read GetWeaponTypeDefArrayPtr;
+    Property FeatureTypeDefArrayPtr : Pointer read GetFeatureTypeDefArrayPtr;
     Property UnitInfosPtr : Pointer read GetUnitInfosPtr;
     Property UnitInfosCount : LongWord read GetUnitInfosCount;
     Property SwitchesMask : Word read GetSwitchesMask write SetSwitchesMask;
@@ -66,7 +68,8 @@ type
     class function GetModelPtr(index: Word): Pointer;
     class function UnitInfoId2Ptr(index: Word): Pointer;
     class function GetMovementClassPtr(index: Word): Pointer;
-    class function GetWeapon(weaponid: Word): Pointer;
+    class function GetWeapon(ID: Word) : Pointer;
+    class function GetFeatureDef(ID : Word) : Pointer;
     class function GetMaxUnitId: LongWord;
     class function IsTAVersion31 : Boolean;
   end;
@@ -125,12 +128,12 @@ type
     class function GetUnitY(UnitPtr : Pointer): Word;
     class procedure SetUnitY(UnitPtr : Pointer; Y : Word);
 
-    class function GetTurnX(UnitPtr : Pointer): SmallInt;
-    class procedure SetTurnX(UnitPtr : Pointer; X : SmallInt);
-    class function GetTurnZ(UnitPtr : Pointer): SmallInt;
-    class procedure SetTurnZ(UnitPtr : Pointer; Z : SmallInt);
-    class function GetTurnY(UnitPtr : Pointer): SmallInt;
-    class procedure SetTurnY(UnitPtr : Pointer; Y : SmallInt);
+    class function GetTurnX(UnitPtr : Pointer): Word;
+    class procedure SetTurnX(UnitPtr : Pointer; X : Word);
+    class function GetTurnZ(UnitPtr : Pointer): Word;
+    class procedure SetTurnZ(UnitPtr : Pointer; Z : Word);
+    class function GetTurnY(UnitPtr : Pointer): Word;
+    class procedure SetTurnY(UnitPtr : Pointer; Y : Word);
 
     class function GetMovementClass(UnitPtr : Pointer): Pointer;
     class function SetTemplate(UnitPtr: Pointer; NewUnitInfoId: Word): Boolean;
@@ -140,13 +143,17 @@ type
     class function GetAttackerID(UnitPtr : Pointer): LongWord;
 
     class function UpdateLos(UnitPtr: Pointer): LongWord;
+
+    { sfx }
     class procedure Speech(UnitPtr : longword; speechtype: longword; speechtext: PChar);
     class procedure SoundEffectId(UnitPtr : longword; voiceid: longword);
+    class function PlayGafAnim(BmpType: Byte; X, Z: Word; Glow, Smoke: Byte): Integer;
 
     { position stuff }
     class function AtMouse: Pointer;
-    class function CreatePositionOfCoords(X, Z, Y: SmallInt): TPosition;
+    class function CreatePositionOfCoords(X, Z, Y: Word): TPosition;
     class function Position2Grid(Position: TPosition; UnitInfoId: Word; out GridPosX, GridPosZ: SmallInt ): Boolean;
+    class function GetCurrentSpeed(UnitPtr: Pointer): Cardinal; // percentage
 
     { creating and killing unit }
     class function TestBuildSpot(PlayerIndex: Byte; UnitInfoId: Word; nPosX, nPosZ: Word ): Boolean;
@@ -157,7 +164,8 @@ type
 
     { actions (orders, unit state) }
     class function GetCurrentOrder(UnitPtr: Pointer): TTAActionType;
-    class function GetCurrentOrderParams(UnitPtr: Pointer; Par: Byte): LongWord;
+    class function GetCurrentOrderParams(UnitPtr: Pointer; Par: Byte): Cardinal;
+    class function GetCurrentOrderState(UnitPtr: Pointer): Cardinal;
     class function EditCurrentOrderParams(UnitPtr: Pointer; Par: Byte; NewValue: LongWord): Boolean;
     class function CreateOrder(UnitPtr: Pointer; TargetUnitPtr: Pointer; ActionType: TTAActionType; Position: PPosition; ShiftKey: Byte; Par1: LongWord; Par2: LongWord): LongInt;
 
@@ -179,6 +187,7 @@ type
     class function GetUnitInfoPtr(UnitPtr: Pointer): Pointer;
     class Function IsOnThisComp(UnitPtr : Pointer; IncludeAI: Boolean) : Boolean;
     class function IsAllied(UnitPtr: Pointer; UnitId: LongWord): Byte;
+    class Function IsFromAlly(UnitPtr: Pointer): Byte;
     class Function Team(UnitId: LongWord): Integer;
     class Function IsRemoteIdLocal(UnitPtr: Pointer; remoteUnitId: PLongWord; out local: Boolean): LongWord;
 
@@ -198,7 +207,8 @@ type
     class function GetRandomArrayId(ArrayType: Byte): Word;
     class function SearchUnits(UnitPtr: Pointer; SearchId: LongWord; SearchType: Byte; MaxDistance: Integer; Filter: TUnitSearchFilterSet; UnitTypeFilter: Word ): LongWord;
     class function UnitsIntoGetterArray(UnitPtr: Pointer; ArrayType: Byte; Id: LongWord; const UnitsArray: TFoundUnits): Boolean;
-    class procedure ClearArrayElem(Id: LongWord; ArrayType: Byte);
+    class procedure ClearSearchRec(Id: LongWord; ArrayType: Byte);
+    class procedure RandomizeSearchRec(Id: LongWord; ArrayType: Byte);
   //  class function Distance(UnitPtr: Pointer; UnitId2: LongWord): LongWord; overload;
     class function Distance(UnitId1, UnitId2: LongWord): Integer;
     class function CircleCoords(CenterPosition: TPosition; Radius: Integer; Angle: integer; out x, z: LongInt): Boolean;
@@ -224,6 +234,7 @@ uses
   TA_FunctionsU,
   IniOptions,
   TAMemManipulations,
+  ExplodeBitmaps,
   COB_Extensions,
   TA_MemoryConstants;
 
@@ -355,6 +366,11 @@ begin
 result := @PTAdynmemStruct(TAData.MainStructPtr)^.Weapons[0];
 end;
 
+class function TAMem.GetFeatureTypeDefArrayPtr : Pointer;
+begin
+result := PTAdynmemStruct(TAData.MainStructPtr)^.p_FeatureDefs;
+end;
+
 class function TAMem.GetUnitInfosPtr : Pointer;
 begin
 result := PTAdynmemStruct(TAData.MainStructPtr)^.p_UnitDefs;
@@ -400,13 +416,18 @@ begin
 result := Pointer(TAMovementClassArray + SizeOf(TMoveInfoClassStruct) * index);
 end;
 
-class function TAMem.GetWeapon(weaponid: Word): Pointer;
+class function TAMem.GetWeapon(ID: Word): Pointer;
 begin
 // fix me to be compatible with xpoy id patch
   if IniSettings.WeaponIdPatch then
-    result:= @PTAdynmemStruct(TAData.MainStructPtr).Weapons[weaponid]
+    result:= @PTAdynmemStruct(TAData.MainStructPtr).Weapons[ID]
   else
-    result:= @PTAdynmemStruct(TAData.MainStructPtr).Weapons[weaponid];
+    result:= @PTAdynmemStruct(TAData.MainStructPtr).Weapons[ID];
+end;
+
+class function TAMem.GetFeatureDef(ID: Word): Pointer;
+begin
+  result := Pointer(LongWord(PTAdynmemStruct(TAData.MainStructPtr).p_FeatureDefs) + SizeOf(TFeatureDefStruct) * ID);
 end;
 
 class function TAMem.GetMaxUnitId: LongWord;
@@ -625,32 +646,32 @@ begin
 PUnitStruct(UnitPtr).Position.Y := Y;
 end;
 
-class function TAUnit.GetTurnX(UnitPtr : Pointer): SmallInt;
+class function TAUnit.GetTurnX(UnitPtr : Pointer): Word;
 begin
 result := PUnitStruct(UnitPtr).Turn.X;
 end;
 
-class procedure TAUnit.SetTurnX(UnitPtr : Pointer; X : SmallInt);
+class procedure TAUnit.SetTurnX(UnitPtr : Pointer; X : Word);
 begin
 PUnitStruct(UnitPtr).Turn.X:= X;
 end;
 
-class function TAUnit.GetTurnZ(UnitPtr : Pointer): SmallInt;
+class function TAUnit.GetTurnZ(UnitPtr : Pointer): Word;
 begin
 result := PUnitStruct(UnitPtr).Turn.Z;
 end;
 
-class procedure TAUnit.SetTurnZ(UnitPtr : Pointer; Z : SmallInt);
+class procedure TAUnit.SetTurnZ(UnitPtr : Pointer; Z : Word);
 begin
 PUnitStruct(UnitPtr).Turn.Z:= Z;
 end;
 
-class function TAUnit.GetTurnY(UnitPtr : Pointer): SmallInt;
+class function TAUnit.GetTurnY(UnitPtr : Pointer): Word;
 begin
 result := PUnitStruct(UnitPtr).Turn.Y;
 end;
 
-class procedure TAUnit.SetTurnY(UnitPtr : Pointer; Y : SmallInt);
+class procedure TAUnit.SetTurnY(UnitPtr : Pointer; Y : Word);
 begin
 PUnitStruct(UnitPtr).Turn.Y:= Y;
 end;
@@ -733,6 +754,26 @@ begin
   PlaySound_EffectId(voiceid, UnitPtr);
 end;
 
+class function TAUnit.PlayGafAnim(BmpType: Byte; X, Z: Word; Glow, Smoke: Byte): Integer;
+var
+  Position : TPosition;
+  GlowInt, SmokeInt : Integer;
+begin
+  Position := TAUnit.CreatePositionOfCoords(X, Z, 0);
+  Position.Y := GetPosHeight(@Position);
+  if Glow = 0 then
+    GlowInt := -1
+  else
+    GlowInt := Glow - 1;
+
+  if Smoke = 0 then
+    SmokeInt := -1
+  else
+    SmokeInt := Smoke - 1;
+
+  result := ShowExplodeGaf(@Position, ExtraAnimations[BmpType], GlowInt, SmokeInt);
+end;
+
 class function TAUnit.AtMouse: Pointer;
 var
   Id: LongWord;
@@ -743,7 +784,7 @@ begin
     Result:= TAUnit.Id2Ptr(Id);
 end;
 
-class function TAUnit.CreatePositionOfCoords(X, Z, Y: SmallInt): TPosition;
+class function TAUnit.CreatePositionOfCoords(X, Z, Y: Word): TPosition;
 begin
   FillChar(Result, SizeOf(Result), 0);
   Result.X := X;
@@ -764,6 +805,22 @@ begin
     Exit
   else
     Result:= True;
+end;
+
+class function TAUnit.GetCurrentSpeed(UnitPtr: Pointer): Cardinal;
+begin
+  result := 0;
+  if PUnitStruct(UnitPtr).p_MovementClass <> nil then
+  begin
+    if PUnitStruct(UnitPtr).lTerrainLevel = 4 then
+      result := Trunc(((PMoveClass(PUnitStruct(UnitPtr).p_MovementClass).lCurrentSpeed) /
+                        (PGameUnitfInfo(PUnitStruct(UnitPtr).p_UnitDef).lMaxSpeedRaw)) * 100)
+    else
+      result := Trunc(((PMoveClass(PUnitStruct(UnitPtr).p_MovementClass).lCurrentSpeed) /
+                        Trunc((PGameUnitfInfo(PUnitStruct(UnitPtr).p_UnitDef).lMaxSpeedRaw) / 2)) * 100);
+    if result > 100 then
+      result := 100;
+  end;
 end;
 
 class function TAUnit.TestBuildSpot(PlayerIndex: Byte; UnitInfoId: Word; nPosX, nPosZ: Word ): Boolean;
@@ -875,7 +932,7 @@ begin
     Result := Action_NoResult;
 end;
 
-class function TAUnit.GetCurrentOrderParams(UnitPtr: Pointer; Par: Byte): LongWord;
+class function TAUnit.GetCurrentOrderParams(UnitPtr: Pointer; Par: Byte): Cardinal;
 begin
   Result := 0;
   if PUnitStruct(UnitPtr).p_UnitOrders <> nil then
@@ -885,6 +942,13 @@ begin
     else
       Result := PUnitOrder(PUnitStruct(UnitPtr).p_UnitOrders).lPar2;
   end;
+end;
+
+class function TAUnit.GetCurrentOrderState(UnitPtr: Pointer): Cardinal;
+begin
+  Result := 0;
+  if PUnitStruct(UnitPtr).p_UnitOrders <> nil then
+    Result := PUnitOrder(PUnitStruct(UnitPtr).p_UnitOrders).Order_State;
 end;
 
 class function TAUnit.EditCurrentOrderParams(UnitPtr: Pointer; Par: Byte; NewValue: LongWord): Boolean;
@@ -1063,6 +1127,17 @@ begin
   Unit2Ptr := TAUnit.Id2Ptr(Word(UnitId));
   playerIndex := TAUnit.GetOwnerIndex(Unit2Ptr);
   result := BoolValues[TAPlayer.GetAlliedState(playerPtr,playerIndex)];
+end;
+
+class Function TAUnit.IsFromAlly(UnitPtr: Pointer): Byte;
+var
+  playerPtr: Pointer;
+  thisPlayer: Pointer;
+begin
+  // prawdziwy owner
+  playerPtr := TAUnit.GetOwnerPtr(unitptr);
+  thisPlayer := TAData.PlayersStructPtr;
+  result := BoolValues[TAPlayer.GetAlliedState(playerPtr, 0)];
 end;
 
 class Function TAUnit.Team(UnitId: LongWord): Integer;
@@ -1358,7 +1433,7 @@ begin
       Ext_MAXHEALTH       : CustomUnitInfosArray[arrIdx].InfoStruct.nMaxHP := Word(value);
       Ext_HEALTIME        : CustomUnitInfosArray[arrIdx].InfoStruct.nHealTime := Word(value);
 
-      Ext_MAXSPEED        : CustomUnitInfosArray[arrIdx].InfoStruct.lMaxSpeedRaw := value / 100;
+      Ext_MAXSPEED        : CustomUnitInfosArray[arrIdx].InfoStruct.lMaxSpeedRaw := value;
       Ext_ACCELERATION    : CustomUnitInfosArray[arrIdx].InfoStruct.lAcceleration := value / 100;
       Ext_BRAKERATE       : CustomUnitInfosArray[arrIdx].InfoStruct.lBrakeRate := value / 100;
       Ext_TURNRATE        : CustomUnitInfosArray[arrIdx].InfoStruct.nTurnRate := Word(value);
@@ -1793,16 +1868,61 @@ begin
   end;
 end;
 
-class procedure TAUnits.ClearArrayElem(Id: LongWord; ArrayType: Byte);
+class procedure TAUnits.ClearSearchRec(Id: LongWord; ArrayType: Byte);
 begin
   case ArrayType of
   1 : begin
       if Assigned(UnitSearchArr[Id].UnitIds) then
-        UnitSearchArr[Id].UnitIds:= nil;
+        UnitSearchArr[Id].UnitIds := nil;
       end;
   2 : begin
       if Assigned(SpawnedMinionsArr[Id].UnitIds) then
-        SpawnedMinionsArr[Id].UnitIds:= nil;
+        SpawnedMinionsArr[Id].UnitIds := nil;
+      end;
+  end;
+end;
+
+class procedure TAUnits.RandomizeSearchRec(Id: LongWord; ArrayType: Byte);
+var
+ i, j : word;
+ MaxElem : Integer;
+ X : Cardinal;
+begin
+  Randomize;
+  case ArrayType of
+  1 : if Assigned(UnitSearchArr[Id].UnitIds) then
+      begin
+        MaxElem := High(UnitSearchArr[Id].UnitIds);
+        if MaxElem > 0 then
+        begin
+          for i := MaxElem downto 0 do
+          begin
+            j := Random(i) + 1;
+            if not (i = j) then
+            begin
+              X := UnitSearchArr[Id].UnitIds[i];
+              UnitSearchArr[Id].UnitIds[i] := UnitSearchArr[Id].UnitIds[j];
+              UnitSearchArr[Id].UnitIds[j] := X;
+            end;
+          end;
+        end;
+      end;
+  2 : if not Assigned(SpawnedMinionsArr[Id].UnitIds) then
+      begin
+        MaxElem := High(SpawnedMinionsArr[Id].UnitIds);
+        if MaxElem > 0 then
+        begin
+          for i := MaxElem downto 0 do
+          begin
+            j := Random(i) + 1;
+            if not (i = j) then
+            begin
+              X := SpawnedMinionsArr[Id].UnitIds[i];
+              SpawnedMinionsArr[Id].UnitIds[i] := SpawnedMinionsArr[Id].UnitIds[j];
+              SpawnedMinionsArr[Id].UnitIds[j] := X;
+            end;
+          end;
+        end;
       end;
   end;
 end;

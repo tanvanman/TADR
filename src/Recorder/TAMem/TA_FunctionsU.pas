@@ -18,6 +18,16 @@ var
   Game_SetLOSState : Game_SetLOSStateHandler = Game_SetLOSStateHandler($4816A0);
 
 type
+  Name2Sequence_GafHandler = function (GafStruct: Cardinal; SequenceName : Cardinal) : LongInt; stdcall;
+var
+  Name2Sequence_Gaf : Name2Sequence_GafHandler = Name2Sequence_GafHandler($004B8D40);
+
+type
+  ShowExplodeGafHandler = function (Position: PPosition; p_GAFAnim: Pointer; AddGlow: LongInt; AddSmoke: LongInt) : Byte; stdcall;
+var
+  ShowExplodeGaf : ShowExplodeGafHandler = ShowExplodeGafHandler($00420A30);
+
+type
   TA_UpdateUnitLOSHandler = function (unitptr : longword) : longword; stdcall;
 var
   // called to update unit LOS
@@ -31,7 +41,7 @@ var
 
 // get map ground level at given coords
 type
-  GetPosHeightHandler = function (pPosition : Pointer): Cardinal; stdcall;
+  GetPosHeightHandler = function (pPosition : Pointer): Integer; stdcall;
 var
   GetPosHeight : GetPosHeightHandler = GetPosHeightHandler($485070);
 
@@ -74,6 +84,7 @@ type
 var
   Unit_StartWeaponsScripts : Unit_StartWeaponsScriptsHandler = Unit_StartWeaponsScriptsHandler($49E070);
 
+// turret weap aiming
 type
   sub_49D910Handler = function ( a1 : LongInt; a2 : LongInt; a3 : LongInt;
                                  a9 : LongInt; a8 : LongInt; a7 : LongInt;
@@ -82,14 +93,14 @@ var
   sub_49D910 : sub_49D910Handler = sub_49D910Handler($49D910);
 
 type
-  Unit_FixPositionY_HoverFloaterHandler = procedure ( UnitPtr: Pointer ); stdcall;
+  GetUnit_BuildWeaponProgressHandler = function ( UnitPtr: Cardinal ): Cardinal; stdcall;
 var
-  Unit_FixPositionY_HoverFloater : Unit_FixPositionY_HoverFloaterHandler = Unit_FixPositionY_HoverFloaterHandler($48A870);
+  GetUnit_BuildWeaponProgress : GetUnit_BuildWeaponProgressHandler = GetUnit_BuildWeaponProgressHandler($439D20);
 
 type
-  Unit_PlayerActiveType3Handler = procedure ( UnitPtr: Pointer ); stdcall;
+  GetFeatureTypeOfOrderHandler = function ( OrderPos: Pointer; Order: Pointer; Unknown: Pointer ): SmallInt; stdcall;
 var
-  Unit_PlayerActiveType3 : Unit_PlayerActiveType3Handler = Unit_PlayerActiveType3Handler($47CC30);
+  GetFeatureTypeOfOrder : GetFeatureTypeOfOrderHandler = GetFeatureTypeOfOrderHandler($421DA0);
 
 type
   // a2 probably preserves unit in array
@@ -138,14 +149,6 @@ type
 var
   Send_FireWeapon: Send_FireWeaponHandler = Send_FireWeaponHandler($499AB0);
 
-//sub_49D000(int a1, int Victim_UnitPtr, int Postion_Start)
-type
-  sub_49D000Handler = function ( Attacker_Ptr: Pointer;
-                                 Victim_UnitPtr: Pointer;
-                                 Position_Start: Pointer): Integer; stdcall;
-var
-  sub_49D000: sub_49D000Handler = sub_49D000Handler($49D000);
-
 type
   SetPrepareOrderHandler = function ( UnitPtr: Pointer; a2: Cardinal): LongInt; stdcall;
 var
@@ -164,6 +167,11 @@ type
 var
   Order2Unit: Order2UnitHandler = Order2UnitHandler($43AFC0);
   
+type
+  UnitFirstOrderTargatHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
+var
+  UnitFirstOrderTargat: UnitFirstOrderTargatHandler = UnitFirstOrderTargatHandler($439DD0);
+
 type
   Script_RunScriptHandler = function ( a1: Cardinal;
                                        a2: Cardinal;
@@ -190,23 +198,6 @@ type
                                              const Name: PAnsiChar): LongInt; register;
 var
   Script_ProcessCallback: Script_ProcessCallbackHandler = Script_ProcessCallbackHandler($4B0BC0);
-
-type
-  sub_45A8D0Handler = function (unitptr : Cardinal) : integer; stdcall;
-var
-  sub_45A8D0 : sub_45A8D0Handler = sub_45A8D0Handler($45A8D0);
-
-
-type
-  LoadTNTHandler = function (a1, a2 : Cardinal) : integer; register;
-var
-  LoadTNT : LoadTNTHandler = LoadTNTHandler($483610);
-
-type
-  // createobject3d0
-  sub_45A950Handler = function (modelptr : longword; a2: longword; unitptr: longword) : longword; stdcall;
-var
-  sub_45A950 : sub_45A950Handler = sub_45A950Handler($45A950);
 
 type
   DrawHealthBarsHandler = function (OFFSCREEN_ptr: LongWord; UnitInGame: LongWord; PosX: LongWord; PosY: LongWord) : LongInt; stdcall;
@@ -307,12 +298,6 @@ type
   SetHotGroupHandler = procedure ( unitptr: longword; a1: longint ); stdcall;
 var
   SetHotGroup : SetHotGroupHandler = SetHotGroupHandler($480250);
-
-type
-  // kills ALL units. yes, of all players
-  KillAllUnitsHandler = procedure; stdcall;
-var
-  KillAllUnits : KillAllUnitsHandler = KillAllUnitsHandler($486ED0);
 
 type
   PlaySoundEffectHandler = function ( VoiceName: AnsiChar; a2: Word ): LongInt ; stdcall;

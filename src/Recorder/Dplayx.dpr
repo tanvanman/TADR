@@ -60,7 +60,9 @@ uses
   HighTrajectory_GetWeaps in 'plugins\HighTrajectory_GetWeaps.pas',
   ResurrectPatrol in 'plugins\ResurrectPatrol.pas',
   ClockPosition in 'plugins\ClockPosition.pas',
-  ExtraUnitBars in 'plugins\ExtraUnitBars.pas';
+  ExtraUnitBars in 'plugins\ExtraUnitBars.pas',
+  ExplodeBitmaps in 'plugins\ExplodeBitmaps.pas',
+  StartBuilding in 'plugins\StartBuilding.pas';
 
 {$R *.res}
 

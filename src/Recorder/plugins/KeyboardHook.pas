@@ -126,7 +126,7 @@ begin
                     end;
                 end;
               end;
-    {    $44 : begin     // left alt + shift + d
+      {  $44 : begin     // left alt + shift + d
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
@@ -134,14 +134,23 @@ begin
                   UnitSt:= UnitAtMouse;
                   if (UnitAtMouse <> nil) then
                   begin
-                    SendTextLocal('ptr: ' + IntToHex(LongWord(UnitAtMouse), 8));
-//                    SendTextLocal(IntToHex(LongWord(PUnitStruct(UnitAtMouse).lUnitInGameIndex), 8));
-                    SendTextLocal('par1: ' + IntToStr(TaUnit.GetCurrentOrderParams(UnitAtMouse, 0)));
-                    SendTextLocal('par2: ' + IntToStr(TaUnit.GetCurrentOrderParams(UnitAtMouse, 1)));
+                    //SendTextLocal('Unit at mouse data:');
+                    SendTextLocal('unit ptr : ' + IntToHex(LongWord(UnitAtMouse), 8));
+                    SendTextLocal('unit id  : ' + IntToHex(TAUnit.GetLongId(UnitAtMouse), 8));
+                    SendTextLocal('unit pos : X:' + IntToStr(TAUnit.GetUnitX(UnitAtMouse)) + ' Z:' + IntToStr(TAUnit.GetUnitZ(UnitAtMouse)));
+                    SendTextLocal('lUsedSpot: ' + IntToHex(PUnitStruct(UnitAtMouse).lUsedSpot, 8));
+                    //SendTextLocal('target unit: ' + IntToHex(UnitFirstOrderTargat(UnitAtMouse), 8));
+                   // SendTextLocal('testing: ' + IntToHex(GetFeatureTypeOfOrder(@PUnitOrder(PUnitStruct(UnitAtMouse).p_UnitOrders).Pos, PUnitStruct(UnitAtMouse).p_UnitOrders, LongWord(@Testing)), 8));
+//                  SendTextLocal(IntToHex(LongWord(PUnitStruct(UnitAtMouse).lUnitInGameIndex), 8));
+//                    SendTextLocal('order flag : ' + IntToHex(PUnitOrder(PUnitStruct(UnitAtMouse).p_UnitOrders).UnitOrderFlags, 8));
+//                    SendTextLocal('state      : ' + IntToHex(TaUnit.GetCurrentOrderState(UnitAtMouse), 8));
+//                    SendTextLocal('par1       : ' + IntToStr(TaUnit.GetCurrentOrderParams(UnitAtMouse, 0)));
+//                    SendTextLocal('par2       : ' + IntToStr(TaUnit.GetCurrentOrderParams(UnitAtMouse, 1)));
+                    SendTextLocal('');
 
                   end;
                 end;
-              end;    }
+              end; }
      {  $51 : begin     // left alt + shift + q
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then

@@ -1,30 +1,7 @@
 unit ResurrectPatrol;
 
 // to make resurrector units able to resurrect patrol
-// todo :
-// - fix resurrected unit height
 // - reorder priority (resurrect should be before repair patrol and reclaim features) 405A6B
-
-{
-it seems there's a difference in a way RESURRECT and RECLAIM orders get called.
-Resurrect order created with resurrect patrol hack (order type swap) fails in providing correct unit position
-values from stack for unit creation function (here's where position values are being read: 0x004050D5 esi+22h).
-And here some dumps for comparision:
-
-cornecro position right after resurrect is finished (start to repair):
-just to show where some of incorrect values come from
-x_    x     h_    h     z_    z
-7E 47 EF 01 00 00 80 00 55 03 C0 06
-
-correct resurrected unit pos: (manual resurrect via mouse click)
-x_    x     h_    h     z_    z
-00 00 1C 02 00 00 78 00 00 00 A0 06
-
-resurrected unit pos via resurrect patrol:
-a bit of cornecro pos and garbage
-x_    x     h_    h     z_    z
-7E 47 1E 02 F8 09 65 08 55 03 8F 06
-}
 
 interface
 uses
@@ -45,11 +22,15 @@ Procedure OnUninstallResurrectPatrol;
 // -----------------------------------------------------------------------------
 
 procedure ResurrectPatrol_ReclaimToResurrect;
+procedure ResurrectPatrol_AvoidEnergyAndRepair;
+procedure ResurrectPatrol_AvoidMetalCheck;
 
 implementation
 uses
   TA_MemoryConstants,
-  TA_MemoryLocations;
+  TA_MemoryLocations,
+  TA_MemoryStructures,
+  TA_FunctionsU;
 
 var
   ResurrectPatrolPlugin: TPluginData;
@@ -75,11 +56,43 @@ begin
     ResurrectPatrolPlugin.MakeRelativeJmp( State_ResurrectPatrol,
                           'Swap reclaim order with resurrect',
                           @ResurrectPatrol_ReclaimToResurrect,
-                          $00405BEF, 0);
+                          $00405BE3, 1);
+
+    ResurrectPatrolPlugin.MakeRelativeJmp( State_ResurrectPatrol,
+                          'Avoid checks',
+                          @ResurrectPatrol_AvoidEnergyAndRepair,
+                          $00405A03, 0);
+
+    ResurrectPatrolPlugin.MakeRelativeJmp( State_ResurrectPatrol,
+                          'Avoid metal check',
+                          @ResurrectPatrol_AvoidMetalCheck,
+                          $00405BC6, 0);
 
     Result:= ResurrectPatrolPlugin;
   end else
     Result := nil;
+end;
+
+{
+.text:00405BE3 040 8B 4C 24 44                                                     mov     ecx, [esp+40h+a3]
+.text:00405BE7 040 53                                                              push    ebx             ; UnitOrderFlags
+.text:00405BE8 044 53                                                              push    ebx             ; lPar2
+.text:00405BE9 048 53                                                              push    ebx             ; lPar1
+.text:00405BEA 04C 51                                                              push    ecx             ; Position_DWORD_p
+.text:00405BEB 050 53                                                              push    ebx             ; TargatUnit
+.text:00405BEC 054 51                                                              push    ecx             ; Scrip_index
+.text:00405BED 058 8B CC                                                           mov     ecx, esp        ; RtnIndex_ptr
+.text:00405BEF 058 68 C4 16 50 00                                                  push    offset aReclaim ; "RECLAIM"
+.text:00405BF4 05C E8 67 2B 03 00                                                  call    ScriptAction_Name2Index
+}
+
+var
+  ResPosition : TPosition;
+function FixFeaturePosition(Unit_p: Cardinal; PosToFix: Cardinal) : Cardinal; stdcall;
+begin
+  ResPosition := PPosition(Pointer(PosToFix))^;
+  ResPosition.Y := GetPosHeight(@ResPosition);
+  Result := LongWord(@ResPosition);
 end;
 
 procedure ResurrectPatrol_ReclaimToResurrect;
@@ -91,24 +104,111 @@ asm
   pushf
   push    eax
   push    ebx
-  mov     eax, [esp+$46]  // unit
-  mov     ebx, [eax+$92] // unit info struct
+  mov     ebx, [esi+$92] // unit info struct
   mov     eax, [ebx+$245] // unit type mask #2
   and     ax, 2048       // canresurrect 0 / 1
   jz      Reclaim
 Resurrect:
+  mov     eax, esi  // unit
+  mov     ebx, [esp+40h+$E] // pos to fix
+  push    ebx
+  push    eax
+  call    FixFeaturePosition
+  mov     ecx, eax
   pop     ebx
   pop     eax
   popf
+  push    ebx             // UnitOrderFlags
+  push    ebx             // lPar2
+  push    ebx             // lPar1
+  push    ecx             // Position_DWORD_p with fixed height
+  push    ebx             // TargatUnit
+  push    ecx             // Scrip_index
+  mov     ecx, esp        // RtnIndex_ptr
   push    $005052F0   // PAnsiChar RESURRECT
   jmp     CreateOrder
 Reclaim:
   pop     ebx
   pop     eax
   popf
+  mov     ecx, [esp+40h+$4]
+  push    ebx             // UnitOrderFlags
+  push    ebx             // lPar2
+  push    ebx             // lPar1
+  push    ecx             // Position_DWORD_p
+  push    ebx             // TargatUnit
+  push    ecx             // Scrip_index
+  mov     ecx, esp        // RtnIndex_ptr
   push    $005016C4  // PAnsiChar RECLAIM
 CreateOrder:
   push $00405BF4;
+  call PatchNJump;
+end;
+
+procedure ResurrectPatrol_AvoidEnergyAndRepair;
+label
+  SearchForFeaturesResurrect,
+  GoToRepair,
+  SearchForFeatures;
+asm
+  pushf
+  push    eax
+  push    ebx
+  mov     ebx, [esi+$92] // unit info struct
+  mov     eax, [ebx+$245] // unit type mask #2
+  and     ax, 2048       // canresurrect 0 / 1
+  jnz     SearchForFeaturesResurrect
+  pop     ebx
+  pop     eax
+  popf
+  jz      GoToRepair
+  push $00405A09
+  call PatchNJump;
+SearchForFeaturesResurrect :
+  pop     ebx
+  pop     eax
+  popf
+  push $00405B5A
+  call PatchNJump;
+GoToRepair:
+  push $00405B18
+  call PatchNJump;
+end;
+
+{
+.text:00405BC6 040 F6 C4 41                                                        test    ah, 41h
+.text:00405BC9 040 75 5A                                                           jnz     short loc_405C25 ; fMaxMetalStorage * 0.2 > fCurrentMetal
+.text:00405BCB 040 53                                                              push    ebx             ; OrderCallBack_p
+}
+
+procedure ResurrectPatrol_AvoidMetalCheck;
+label
+  MakeOrder,
+  GoToIsFeatureEnergy;
+asm
+  pushf
+  push    eax
+  push    ebx
+  mov     ebx, [esi+$92] // unit info struct
+  mov     eax, [ebx+$245] // unit type mask #2
+  and     ax, 2048       // canresurrect 0 / 1
+  jnz     MakeOrder
+  pop     ebx
+  pop     eax
+  popf
+  test    ah, 41h
+  jnz     GoToIsFeatureEnergy
+  push $00405BCB
+  call PatchNJump;
+MakeOrder :
+  pop     ebx
+  pop     eax
+  popf
+  test    ah, 41h
+  push $00405BCB
+  call PatchNJump;
+GoToIsFeatureEnergy:
+  push $00405C25
   call PatchNJump;
 end;
 

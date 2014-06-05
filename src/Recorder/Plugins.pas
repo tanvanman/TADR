@@ -25,15 +25,16 @@ uses
   {$IFDEF ExtraPlugins}
   Builders,
   AimPrimary,
-  HighTrajectory,
-  HighTrajectory_GetWeaps,
-  ResurrectPatrol,
+  //StartBuilding,
+  HighTrajectory,                  //ok
+  HighTrajectory_GetWeaps,         //ok
+  //ResurrectPatrol,
+  ExplodeBitmaps,
   {$ENDIF}
-  ExtraUnitBars,
   ClockPosition,
+  ExtraUnitBars,
   COB_extensions,
   LOS_extensions;
-
 
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
 begin
@@ -60,12 +61,16 @@ if OnMainRun then
 
   {$IFDEF ExtraPlugins}
   RegisterPlugin( Builders.GetPlugin() );
-  RegisterPlugin( AimPrimary.GetPlugin() );
+  if IniSettings.Plugin_AimScriptExt then
+    RegisterPlugin( AimPrimary.GetPlugin() );
+  //RegisterPlugin( StartBuilding.GetPlugin() );
   RegisterPlugin( HighTrajectory.GetPlugin() );
   RegisterPlugin( HighTrajectory_GetWeaps.GetPlugin() );
   //RegisterPlugin( ResurrectPatrol.GetPlugin() );
+  if IniSettings.Plugin_Gaf then
+    RegisterPlugin( ExplodeBitmaps.GetPlugin() );
   {$ENDIF}
-
+  RegisterPlugin( ClockPosition.GetPlugin() );
   RegisterPlugin( ExtraUnitBars.GetPlugin() );
   end;
 // Run the code injection engine
