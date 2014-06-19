@@ -22,6 +22,7 @@ Type
     fIsSelfOnly : Boolean;
     fCommandHandler : TCommandHandlerEvent;
     fRequireCompatibleTA : Boolean;
+    fIsDevModeOnly : Boolean;
     fValidCommandIn : TTAStatuses;
   public
     constructor Create( const aName : string;
@@ -32,6 +33,7 @@ Type
                         aIsServer : Boolean;
                         aIsSelfOnly : Boolean;
                         aRequireCompatibleTA : Boolean;
+                        aIsDevModeOnly : Boolean;
                         aCommandHandler : TCommandHandlerEvent );
 
 
@@ -46,6 +48,7 @@ Type
     property IsServerOnly : Boolean read fIsServerOnly;
     property IsSelfOnly : Boolean read fIsSelfOnly;
     property RequireCompatibleTA : Boolean read fRequireCompatibleTA;
+    property IsDevModeOnly : Boolean read fIsDevModeOnly;
     property CommandHandler : TCommandHandlerEvent read fCommandHandler;
   end; {TCommandHandler}
 
@@ -71,6 +74,7 @@ Type
                           aIsServer : Boolean;
                           aIsSelfOnly : Boolean;
                           aRequireCompatibleTA : Boolean;
+                          aIsDevModeOnly : Boolean;
                           aCommandHandler : TCommandHandlerEvent );
     procedure AddCommandAlias( const aName : string;
                                const aNewAlias : string );
@@ -95,6 +99,7 @@ constructor TCommandHandler.Create( const aName : string;
                                     aIsServer : Boolean;
                                     aIsSelfOnly : Boolean;
                                     aRequireCompatibleTA : Boolean;
+                                    aIsDevModeOnly : Boolean;
                                     aCommandHandler : TCommandHandlerEvent );
 begin
 fName := aName;
@@ -105,6 +110,7 @@ fValidCommandIn := aValidCommandIn;
 fIsServerOnly := aIsServer;
 fIsSelfOnly := aIsSelfOnly;
 fRequireCompatibleTA := aRequireCompatibleTA;
+fIsDevModeOnly := aIsDevModeOnly;
 fCommandHandler := aCommandHandler;
 end; {Create}
 
@@ -201,6 +207,7 @@ if CommandHandler <> nil then
                                                    CommandHandler.IsServerOnly,
                                                    CommandHandler.IsSelfOnly,
                                                    CommandHandler.RequireCompatibleTA,
+                                                   CommandHandler.IsDevModeOnly,
                                                    CommandHandler.CommandHandler );
     try
       fCommands.AddObject( aNewAlias, AliasCommandHandler );
@@ -230,6 +237,7 @@ procedure TCommands.AddCommand( const aName : string;
                                 aIsServer : Boolean;
                                 aIsSelfOnly : Boolean;
                                 aRequireCompatibleTA : Boolean;
+                                aIsDevModeOnly : Boolean;
                                 aCommandHandler : TCommandHandlerEvent);
 
 var
@@ -241,7 +249,7 @@ if fCommands = nil then Exit;
 if not fCommands.Find(aName, i) then
   begin
   CommandHandler := TCommandHandler.Create( aName, aHelpInfo, aSyntax, aRequiredParams, aValidCommandIn,
-                                            aIsServer, aIsSelfOnly, aRequireCompatibleTA,
+                                            aIsServer, aIsSelfOnly, aRequireCompatibleTA, aIsDevModeOnly,
                                             aCommandHandler  );
   try
     fCommands.AddObject( aName, CommandHandler );

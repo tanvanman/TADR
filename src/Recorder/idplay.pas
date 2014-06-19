@@ -668,8 +668,8 @@ begin
           SetLength( customPacket, SizeOf(TRec2Rec_UnitWeapon_Message));
           Move( unitId, customPacket[1], SizeOf(Word));
           Move( arg1^, customPacket[3], SizeOf(Byte)); // which weap
-          Move( arg3^, customPacket[4], SizeOf(Word)); // new weap id
-          Move( IniSettings.weaponidpatch, customPacket[6], SizeOf(Boolean));
+          Move( arg4^, customPacket[4], SizeOf(Cardinal)); // new weap id
+          Move( IniSettings.WeaponIdPatch, customPacket[8], SizeOf(Boolean));
         end;
       TANM_Rec2Rec_UnitGrantUnitInfo :
         begin
@@ -1209,6 +1209,12 @@ if i>0 then
         begin
         if Sender.IsSelf then
           SendChatLocal( 'Sorry .'+Command+' only work with TA 3.1');
+        handled := true;
+        end;
+      if not handled and CommandHandler.IsDevModeOnly and not TAData.DevMode then
+        begin
+        if Sender.IsSelf then
+          SendChatLocal( 'Sorry .'+Command+' only work in development mode');
         handled := true;
         end;
       if not handled then

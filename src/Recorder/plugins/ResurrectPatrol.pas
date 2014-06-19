@@ -27,6 +27,7 @@ procedure ResurrectPatrol_AvoidMetalCheck;
 
 implementation
 uses
+  SysUtils,
   TA_MemoryConstants,
   TA_MemoryLocations,
   TA_MemoryStructures,
@@ -73,6 +74,15 @@ begin
     Result := nil;
 end;
 
+var
+  ResPosition : TPosition;
+function FixFeaturePosition(Unit_p: Cardinal; PosToFix: Cardinal) : Cardinal; stdcall;
+begin
+  ResPosition := PPosition(Pointer(PosToFix))^;
+  ResPosition.Y := GetPosHeight(@ResPosition);
+  Result := LongWord(@ResPosition);
+end;
+
 {
 .text:00405BE3 040 8B 4C 24 44                                                     mov     ecx, [esp+40h+a3]
 .text:00405BE7 040 53                                                              push    ebx             ; UnitOrderFlags
@@ -85,16 +95,6 @@ end;
 .text:00405BEF 058 68 C4 16 50 00                                                  push    offset aReclaim ; "RECLAIM"
 .text:00405BF4 05C E8 67 2B 03 00                                                  call    ScriptAction_Name2Index
 }
-
-var
-  ResPosition : TPosition;
-function FixFeaturePosition(Unit_p: Cardinal; PosToFix: Cardinal) : Cardinal; stdcall;
-begin
-  ResPosition := PPosition(Pointer(PosToFix))^;
-  ResPosition.Y := GetPosHeight(@ResPosition);
-  Result := LongWord(@ResPosition);
-end;
-
 procedure ResurrectPatrol_ReclaimToResurrect;
 label
   Reclaim,
@@ -176,15 +176,27 @@ GoToRepair:
 end;
 
 {
+ replace '_' in corpse name with null character
+ f.e. armguard_dead into armguard (armguard#0dead)
+ this is native TA solution to get unit type from wreck
+}
+function WreckToUnitType(WreckTypeName : PAnsiChar): PAnsiChar; stdcall;
+begin
+  Result := PAnsiChar(StringReplace(WreckTypeName, '_', #0, []));
+end;
+
+{
 .text:00405BC6 040 F6 C4 41                                                        test    ah, 41h
 .text:00405BC9 040 75 5A                                                           jnz     short loc_405C25 ; fMaxMetalStorage * 0.2 > fCurrentMetal
 .text:00405BCB 040 53                                                              push    ebx             ; OrderCallBack_p
 }
-
 procedure ResurrectPatrol_AvoidMetalCheck;
 label
-  MakeOrder,
-  GoToIsFeatureEnergy;
+  MakeOrderResurrect,
+  ContinueReclaimCheck,
+  DontCheckIsWreck,
+  GoToIsFeatureEnergy,
+  StopResurrectNonWreck;
 asm
   pushf
   push    eax
@@ -192,7 +204,8 @@ asm
   mov     ebx, [esi+$92] // unit info struct
   mov     eax, [ebx+$245] // unit type mask #2
   and     ax, 2048       // canresurrect 0 / 1
-  jnz     MakeOrder
+  jnz     MakeOrderResurrect
+ContinueReclaimCheck :
   pop     ebx
   pop     eax
   popf
@@ -200,14 +213,47 @@ asm
   jnz     GoToIsFeatureEnergy
   push $00405BCB
   call PatchNJump;
-MakeOrder :
+MakeOrderResurrect :
+// check here is feature wreck
+  lea     ebx, [esp+40h-$16]
+  push    ecx
+  push    edx
+  push    0
+  push    0
+  push    ebx
+  call    GetFeatureTypeOfOrder
+  pop     edx
+  cmp     ax, 0FFFFh
+  jz      DontCheckIsWreck           // feature isnt there anymore
+  mov     ecx, [TADynmemStructPtr]
+  mov     ebx, [ecx+1426Fh]          // PTAdynmemStruct(TAData.MainStructPtr).p_FeatureDefs
+  and     eax, $0000FFFF
+  mov     ecx, type TFeatureDefStruct // size of TFeatureDefStruct
+  push    edx
+  mul     ecx
+  add     ebx, eax // ebx := FeatureDefs[ecx*eax]
+  push    ebx
+  call    WreckToUnitType
+  push    eax
+  call    UnitName2ID
+  pop     edx
+  and     eax, 0FFFFh
+  jz      StopResurrectNonWreck
+DontCheckIsWreck :
+  pop     ecx
   pop     ebx
   pop     eax
   popf
-  test    ah, 41h
   push $00405BCB
   call PatchNJump;
 GoToIsFeatureEnergy:
+  push $00405C25
+  call PatchNJump;
+StopResurrectNonWreck :
+  pop     ecx
+  pop     ebx
+  pop     eax
+  popf
   push $00405C25
   call PatchNJump;
 end;

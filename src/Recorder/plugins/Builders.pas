@@ -82,7 +82,7 @@ begin
     BuildersPlugin.MakeRelativeJmp( State_Builders,
                           'Modify build check',
                           @Builders_MobileAddBuild,
-                          $41AB62, 3);
+                          $0041AB62, 3);
 
     BuildersPlugin.MakeRelativeJmp( State_Builders,
                           'Modify build check',
@@ -125,20 +125,32 @@ end;
 .text:0047DBD6 024 80 BD 2F 02 00 00 00                                            cmp     [ebp+UNITINFO.bmcode], 0 ; MOBILE or BUILDING
 .text:0047DBDD 024 75 15                                                           jnz     short loc_47DBF4
 }
-
 procedure Builders_PlantBuildNonMobile;
 label
-  BuildMobile;
+  BuildMobile,
+  ContinueBrakeRateCheck;
 asm
-    cmp byte [ebp+$22F], 0;
-    jnz BuildMobile;
+    cmp     byte [ebp+$22F], 0;
+    jnz     BuildMobile;
+    pushf
+    push    eax
+    mov     eax, [esp+2Ah]
+    cmp     eax, $0040289E
+    jz      ContinueBrakeRateCheck
+    pop     eax
+    popf
+    push $0047DBDF;
+    call PatchNJump;
+ContinueBrakeRateCheck :
     //bmcode=0, check for brakerate
-    cmp dword [ebp+$19A], 0;
-    jnz BuildMobile;
+    pop     eax
+    popf
+    cmp     dword [ebp+$19A], 0;
+    jnz     BuildMobile;
     push $0047DBDF;
     call PatchNJump;
 BuildMobile:
-    //bmcode=1 or bmcode=0 and brakerate<>0
+    //bmcode=1
     push $0047DBF4;
     call PatchNJump;
 end;

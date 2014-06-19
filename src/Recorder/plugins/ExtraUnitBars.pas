@@ -38,7 +38,7 @@ const
   BIGUNIT : cardinal = 3000;
   HUGEUNIT : cardinal = 5000;
   EXTRALARGEUNIT : cardinal = 10000;
-  MIN_WEAP_RELOAD = 5 * 30; // seconds
+  MIN_WEAP_RELOAD = 3 * 30; // seconds
   VETERANLEVEL_RELOADBOOST = 12; // 30 * 0.2
   OFFSCREEN_off = -$1F0;
   OFFSCREEN_off_BottomState = 4;
@@ -79,7 +79,7 @@ begin
 
     if (IniSettings.Plugin_HBWidth <> 0) or
        IniSettings.Plugin_HBDynamicSize or
-       IniSettings.Plugin_WeaponReloadTimeBar then
+       IniSettings.Plugin_WeaponReload then
       ExtraUnitBarsPlugin.MakeRelativeJmp(State_ExtraUnitBars,
                             'ExtraUnitBars_MainCall',
                             @ExtraUnitBars_MainCall,
@@ -119,9 +119,10 @@ var
 
   { health bar }
   HPBackgRectWidth, HPFillRectWidth: Smallint;
-  UnitHealth, UnitMaxHP, HealthState : Word;
-
-  UnitInfo : PGameUnitfInfo;
+  UnitHealth,  HealthState : Word;
+  UnitMaxHP : Cardinal;
+  
+  UnitInfo : PUnitfInfo;
   UnitBuildTimeLeft : Single;
   //UnitPos : TPosition;
   UnitId, MaxUnitId : Cardinal;
@@ -166,21 +167,23 @@ begin
 
     CenterPosX := PosX - PTAdynmemStruct(TAData.MainStructPtr)^.lEyeBallMapX + 128;
     CenterPosZ := PosZ - PTAdynmemStruct(TAData.MainStructPtr)^.lEyeBallMapY - PosY + 32; }
-    
+    UnitInfo := PUnitStruct(Unit_p).p_UnitDef;
+
     if ((PTAdynmemStruct(TAData.MainStructPtr)^.GameOptionMask and 1) = 1) and
        (CenterPosX <> 0) and
-       (CenterPosZ <> 0) then
+       (CenterPosZ <> 0) and
+       (UnitInfo <> nil) then
     begin
       if PPlayerStruct(PUnitStruct(Unit_p).p_Owner).cPlayerIndexZero = TAData.ViewPlayer then
       begin
         UnitHealth := PUnitStruct(Unit_p).nHealth;
         UnitBuildTimeLeft := PUnitStruct(Unit_p).lBuildTimeLeft;
-        if UnitHealth > 0 then
+
+        if (UnitHealth > 0) then
         begin
-          UnitInfo := PUnitStruct(Unit_p).p_UnitDef;
           ColorsPal := Pointer(LongWord(TAData.MainStructPtr)+$DCB);
 
-          UnitMaxHP := UnitInfo.nMaxHP;
+          UnitMaxHP := UnitInfo.lMaxHP;
           HPBackgRectWidth := 34;
           if IniSettings.Plugin_HBDynamicSize then
           begin
@@ -224,18 +227,31 @@ begin
             RectDrawPos.x2 := Round(RectDrawPos.x1 + ((HPBackgRectWidth-2) * UnitHealth) / UnitMaxHP);
             HealthState := UnitMaxHP div 3;
 
-            if UnitHealth <= (HealthState * 2) then
+            if IniSettings.Plugin_Colors then
             begin
-              if UnitHealth <= HealthState then
-                DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+12)^)
-              else
-                DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+14)^);
+              if UnitHealth <= (HealthState * 2) then
+              begin
+                if UnitHealth <= HealthState then
+                  DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(UNITHEALTHBARLOW)])^)  // low
+                else
+                  DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(UNITHEALTHBARMEDIUM)])^); // yellow
+              end else
+                DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(UNITHEALTHBARGOOD)])^); // good
             end else
-              DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+10)^);
+            begin
+              if UnitHealth <= (HealthState * 2) then
+              begin
+                if UnitHealth <= HealthState then
+                  DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+12)^)  // low
+                else
+                  DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+14)^); // medium
+              end else
+                DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+10)^); // good
+            end;
           end;
 
         // weapons reload
-        if IniSettings.Plugin_WeaponReloadTimeBar and (UnitBuildTimeLeft = 0.0) then
+        if IniSettings.Plugin_WeaponReload and (UnitBuildTimeLeft = 0.0) then
         begin
           if (PUnitStruct(Unit_p).p_Weapon1 <> nil) or
              (PUnitStruct(Unit_p).p_Weapon2 <> nil) or
@@ -252,7 +268,7 @@ begin
               if PWeaponDef(PUnitStruct(Unit_p).p_Weapon1).nReloadTime >= MIN_WEAP_RELOAD then
               begin
                 MaxReloadTime := PWeaponDef(PUnitStruct(Unit_p).p_Weapon1).nReloadTime;
-                CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).Weapon1_ReloadTime;
+                CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).nWeapon1_ReloadTime;
               end;
             end;
             if (PUnitStruct(Unit_p).p_Weapon2 <> nil) then
@@ -262,7 +278,7 @@ begin
               if PWeaponDef(PUnitStruct(Unit_p).p_Weapon2).nReloadTime >= MIN_WEAP_RELOAD then
               begin
                 MaxReloadTime := PWeaponDef(PUnitStruct(Unit_p).p_Weapon2).nReloadTime;
-                CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).Weapon2_ReloadTime;
+                CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).nWeapon2_ReloadTime;
               end;
             end;
             if (PUnitStruct(Unit_p).p_Weapon3 <> nil) then
@@ -272,7 +288,7 @@ begin
               if PWeaponDef(PUnitStruct(Unit_p).p_Weapon3).nReloadTime >= MIN_WEAP_RELOAD then
               begin
                 MaxReloadTime := PWeaponDef(PUnitStruct(Unit_p).p_Weapon3).nReloadTime;
-                CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).Weapon3_ReloadTime;
+                CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).nWeapon3_ReloadTime;
               end;
             end;
 
@@ -289,7 +305,7 @@ begin
                 CurReloadTime := 0;
 
               // stockpile weapon build progress instead of reload bar
-              if (StockPile <> 0) and IniSettings.Plugin_StockpileCount then
+              if (StockPile <> 0) and IniSettings.Plugin_Stockpile then
               begin
                 if PUnitStruct(Unit_p).p_FutureOrder <> nil then
                 begin
@@ -349,10 +365,10 @@ begin
               OrderStateCorrect := TAUnit.GetCurrentOrderState(Pointer(Unit_p)) and $100000 = $100000;
             if OrderStateCorrect then
             begin
-              FeatureDefID := GetFeatureTypeOfOrder(@PUnitOrder(PUnitStruct(Pointer(Unit_p)).p_UnitOrders).Pos, PUnitStruct(Pointer(Unit_p)).p_UnitOrders, @UnknownFeat);
+              FeatureDefID := GetFeatureTypeOfOrder(@PUnitOrder(PUnitStruct(Pointer(Unit_p)).p_UnitOrders).Pos, PUnitStruct(Pointer(Unit_p)).p_UnitOrders, LongWord(@UnknownFeat));
               if FeatureDefID <> -1 then
               begin
-                FeatureDefPtr := TAMem.GetFeatureDef(FeatureDefID);
+                FeatureDefPtr := TAMem.FeatureDefId2Ptr(FeatureDefID);
                 MaxActionVal := 0;
                 CurActionVal := 0;
                 case CurOrder of
@@ -371,8 +387,8 @@ begin
                     ResurrectedUnitType := TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 0);
                     if ResurrectedUnitType <> 0 then
                     begin
-                      ResurrectedUnitBuildTime := PGameUnitfInfo(TAMem.UnitInfoId2Ptr(ResurrectedUnitType)).lBuildTime;
-                      ResurrectorWorkTime := PGameUnitfInfo(PUnitStruct(Pointer(Unit_p)).p_UnitDef).nWorkerTime div 30;
+                      ResurrectedUnitBuildTime := PUnitfInfo(TAMem.UnitInfoId2Ptr(ResurrectedUnitType)).lBuildTime;
+                      ResurrectorWorkTime := PUnitfInfo(PUnitStruct(Pointer(Unit_p)).p_UnitDef).nWorkerTime div 30;
                       ResurrectorTime := (ResurrectedUnitBuildTime * 0.3) / ResurrectorWorkTime;
                       MaxActionVal := Trunc(ResurrectorTime);
                       CurActionVal := TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 1);
@@ -413,12 +429,12 @@ begin
         //TAMem.GetFeatureDef($5C)
 
         // built weapons counter (nukes)
-        if IniSettings.Plugin_StockpileCount then
-          if PUnitStruct(Unit_p).Weapon1Dotte > 0 then
-            DrawText_Heavy(Offscreen_p, PAnsiChar(IntToStr(PUnitStruct(Unit_p).Weapon1Dotte)), Word(CenterPosX), Word(CenterPosZ) - 13, -1);
+        if IniSettings.Plugin_Stockpile then
+          if PUnitStruct(Unit_p).Weapon1Stock > 0 then
+            DrawText_Heavy(Offscreen_p, PAnsiChar(IntToStr(PUnitStruct(Unit_p).Weapon1Stock)), Word(CenterPosX), Word(CenterPosZ) - 13, -1);
 
         // transporter count
-        if IniSettings.Plugin_TransportersCount and (UnitInfo.cTransportCap > 0) then
+        if IniSettings.Plugin_Transporters and (UnitInfo.cTransportCap > 0) then
         begin
           MaxUnitId := TAMem.GetMaxUnitId;
           TransportCount := 0;

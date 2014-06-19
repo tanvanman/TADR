@@ -26,10 +26,11 @@ uses
   Builders,
   AimPrimary,
   //StartBuilding,
-  HighTrajectory,                  //ok
-  HighTrajectory_GetWeaps,         //ok
-  //ResurrectPatrol,
+  ResurrectPatrol,
   ExplodeBitmaps,
+  WeaponsExtend,
+  WeaponAimNTrajectory,
+  KillDamage,
   {$ENDIF}
   ClockPosition,
   ExtraUnitBars,
@@ -58,20 +59,22 @@ if OnMainRun then
   //RegisterPlugin( BattleRoomScroll.GetPlugin() );
   if IniSettings.Plugin_Colors then
     RegisterPlugin( Colors.GetPlugin() );
+  RegisterPlugin( ClockPosition.GetPlugin() );
+  RegisterPlugin( ExtraUnitBars.GetPlugin() );
 
   {$IFDEF ExtraPlugins}
-  RegisterPlugin( Builders.GetPlugin() );
+  if IniSettings.Plugin_Builders then
+    RegisterPlugin( Builders.GetPlugin() );
   if IniSettings.Plugin_AimScriptExt then
     RegisterPlugin( AimPrimary.GetPlugin() );
   //RegisterPlugin( StartBuilding.GetPlugin() );
-  RegisterPlugin( HighTrajectory.GetPlugin() );
-  RegisterPlugin( HighTrajectory_GetWeaps.GetPlugin() );
-  //RegisterPlugin( ResurrectPatrol.GetPlugin() );
+  RegisterPlugin( ResurrectPatrol.GetPlugin() );
   if IniSettings.Plugin_Gaf then
     RegisterPlugin( ExplodeBitmaps.GetPlugin() );
+  //RegisterPlugin( KillDamage.GetPlugin() );
+  RegisterPlugin( WeaponsExtend.GetPlugin() );
+  RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
   {$ENDIF}
-  RegisterPlugin( ClockPosition.GetPlugin() );
-  RegisterPlugin( ExtraUnitBars.GetPlugin() );
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );

@@ -66,13 +66,10 @@ var
 begin
   for i:= Low(IniSettings.Colors) to High(IniSettings.Colors) do
   begin
-    if IniSettings.Colors[i] <> -1 then
+    if IniSettings.Colors[i] <> 0 then
     begin
       case i of
       Ord(UNITSELECTIONBOX) : begin SetColor(2, $467A70, i); end;
-      Ord(UNITHEALTHBARGOOD) : begin SetColor(1, $46A4E3, i); end;
-      Ord(UNITHEALTHBARMEDIUM) : begin SetColor(1, $46A502, i); end;
-      Ord(UNITHEALTHBARLOW) : begin SetColor(1, $46A51D, i); end;
       Ord(BUILDQUEUEBOXSELECTED1) : begin SetColor(2, $438D63, i); end;
       Ord(BUILDQUEUEBOXSELECTED2) : begin SetColor(2, $438D5D, i); end;
       Ord(BUILDQUEUEBOXNONSELECTED1) : begin SetColor(2, $438D79, i); end;

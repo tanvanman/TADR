@@ -35,7 +35,7 @@ procedure SwitchSetShareEnergy;
 implementation
 uses
   TA_MemoryLocations, TA_MemoryStructures, TA_FunctionsU, //BattleRoomScroll,
-  COB_Extensions, AimPrimary;
+  COB_Extensions, DropUnitsWeaponsList;
 
 Procedure OnInstallKeyboardHook;
 begin
@@ -126,44 +126,40 @@ begin
                     end;
                 end;
               end;
-      {  $44 : begin     // left alt + shift + d
+       $51 : begin     // left alt + shift + q
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-                  UnitAtMouse:= TAUnit.AtMouse;
-                  UnitSt:= UnitAtMouse;
-                  if (UnitAtMouse <> nil) then
+                  if TAData.DevMode then
                   begin
-                    //SendTextLocal('Unit at mouse data:');
-                    SendTextLocal('unit ptr : ' + IntToHex(LongWord(UnitAtMouse), 8));
-                    SendTextLocal('unit id  : ' + IntToHex(TAUnit.GetLongId(UnitAtMouse), 8));
-                    SendTextLocal('unit pos : X:' + IntToStr(TAUnit.GetUnitX(UnitAtMouse)) + ' Z:' + IntToStr(TAUnit.GetUnitZ(UnitAtMouse)));
-                    SendTextLocal('lUsedSpot: ' + IntToHex(PUnitStruct(UnitAtMouse).lUsedSpot, 8));
-                    //SendTextLocal('target unit: ' + IntToHex(UnitFirstOrderTargat(UnitAtMouse), 8));
-                   // SendTextLocal('testing: ' + IntToHex(GetFeatureTypeOfOrder(@PUnitOrder(PUnitStruct(UnitAtMouse).p_UnitOrders).Pos, PUnitStruct(UnitAtMouse).p_UnitOrders, LongWord(@Testing)), 8));
-//                  SendTextLocal(IntToHex(LongWord(PUnitStruct(UnitAtMouse).lUnitInGameIndex), 8));
-//                    SendTextLocal('order flag : ' + IntToHex(PUnitOrder(PUnitStruct(UnitAtMouse).p_UnitOrders).UnitOrderFlags, 8));
-//                    SendTextLocal('state      : ' + IntToHex(TaUnit.GetCurrentOrderState(UnitAtMouse), 8));
-//                    SendTextLocal('par1       : ' + IntToStr(TaUnit.GetCurrentOrderParams(UnitAtMouse, 0)));
-//                    SendTextLocal('par2       : ' + IntToStr(TaUnit.GetCurrentOrderParams(UnitAtMouse, 1)));
-                    SendTextLocal('');
-
+                    UnitAtMouse:= TAUnit.AtMouse;
+                    UnitSt:= UnitAtMouse;
+                    if (UnitAtMouse <> nil) then
+                    begin
+                      SendTextLocal('DEV: Unit at mouse data:');
+                      SendTextLocal('unit id  : ' + IntToHex(TAUnit.GetLongId(UnitAtMouse), 8));
+                      SendTextLocal('unit pos : X:' + IntToStr(TAUnit.GetUnitX(UnitAtMouse)) + ' Z:' + IntToStr(TAUnit.GetUnitZ(UnitAtMouse)) + ' H:' + IntToStr(TAUnit.GetUnitY(UnitAtMouse)));
+                      SendTextLocal('get pos height : ' + IntToStr(GetPosHeight(@PUnitStruct(UnitAtMouse).Position)));
+                      SendTextLocal('unit type id  : ' + IntToStr(PUnitStruct(UnitAtMouse).nUnitCategoryID));
+                      SendTextLocal('los id       : ' + IntToStr(TAUnit.GetOwnerIndex(UnitAtMouse)));
+                      SendTextLocal('owning player id : ' + IntToStr(PUnitStruct(UnitAtMouse).cOwningPlayerID));
+                      SendTextLocal('');
+                    end;
                   end;
-                end;
-              end; }
-     {  $51 : begin     // left alt + shift + q
-                if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
-                     ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
-                begin
                 end;
               end;
         $57 : begin     // left alt + shift + w
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
+                  if TAData.DevMode then
+                  begin
+                    SaveUnitsWeaponsListToScriptorFile;
+                    SendTextLocal('DEV: Saved current list of units and weapons to file');
+                  end;
                 end;
               end;
-        $45 : begin     // left alt + shift + e
+{        $45 : begin     // left alt + shift + e
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
@@ -204,16 +200,14 @@ Switch share energy to 0 or latest value
 }
 procedure SwitchSetShareEnergy;
 begin
+  if not PlayerInfo.ShareEnergy then
+    InterpretInternalCommand('shareenergy');
   if PlayerInfo.ShareEnergyVal > 0 then
   begin
-    if not PlayerInfo.ShareEnergy then
-      InterpretInternalCommand('shareenergy');
     lastShareEnergyVal:= PlayerInfo.ShareEnergyVal;
     InterpretInternalCommand('setshareenergy 0');
   end else
-  begin
     InterpretInternalCommand('setshareenergy '+IntToStr(Round(lastShareEnergyVal)));
-  end;
 end;
 
 end.

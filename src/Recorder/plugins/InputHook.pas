@@ -31,7 +31,7 @@ if command[1] in ['+','.'] then
 assert(PluginCommands <> nil);
 CommandHandlerObj := PluginCommands.LookUpCommand(command);
 if CommandHandlerObj = nil then
-  PluginCommands.AddCommand(command,'','',0,false,false,true,CommandHandler);
+  PluginCommands.AddCommand(command,'','',0,false,false,true,false,CommandHandler);
 end;
 
 Procedure RemoveInputHook( command: string);

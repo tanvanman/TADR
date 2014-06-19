@@ -23,7 +23,7 @@ var
   Name2Sequence_Gaf : Name2Sequence_GafHandler = Name2Sequence_GafHandler($004B8D40);
 
 type
-  ShowExplodeGafHandler = function (Position: PPosition; p_GAFAnim: Pointer; AddGlow: LongInt; AddSmoke: LongInt) : Byte; stdcall;
+  ShowExplodeGafHandler = function (Position: PPosition; p_GAFAnim: Cardinal; AddGlow: LongInt; AddSmoke: LongInt) : Byte; stdcall;
 var
   ShowExplodeGaf : ShowExplodeGafHandler = ShowExplodeGafHandler($00420A30);
 
@@ -46,6 +46,16 @@ var
   GetPosHeight : GetPosHeightHandler = GetPosHeightHandler($485070);
 
 type
+  CheckUnitInPlayerLOSHandler = function (PlayerPtr : Pointer; UnitPtr : Pointer): Integer; stdcall;
+var
+  CheckUnitInPlayerLOS : CheckUnitInPlayerLOSHandler = CheckUnitInPlayerLOSHandler($00465AC0);
+
+type
+  UnitAtPositionHandler = function (Position : PPosition): Cardinal; stdcall;
+var
+  UnitAtPosition : UnitAtPositionHandler = UnitAtPositionHandler($004815A0);
+
+type
   Unit_CreateHandler = function ( PlayerAryIndex : Cardinal;  // owner index
                                   UnitInfoId: Cardinal;       // template id
                                   PosX_: Cardinal;
@@ -56,33 +66,6 @@ type
                                   UnitId: Cardinal) : Cardinal; stdcall; // 0 if UnitId is unknown (?)
 var
   Unit_Create : Unit_CreateHandler = Unit_CreateHandler($485F50);
-
-type
-  // creates unitstatemask based on actual unitinfo template
-  // called for existing unit (!)
-  Unit_CreateUnitsInGameHandler = function (unitptr : Cardinal;
-                                            PosX_: Cardinal;
-                                            PosZ_: Cardinal;
-                                            PosY_: Cardinal;
-                                            FullHp: Cardinal) : Cardinal; stdcall;
-var
-  Unit_CreateUnitsInGame : Unit_CreateUnitsInGameHandler = Unit_CreateUnitsInGameHandler($485A40);  // boneyards 45BD31
-
-
-type
-  Unit_CreateModelAndCobHandler = function (UnitPtr : Pointer) : integer; stdcall;
-var
-  Unit_CreateModelAndCob : Unit_CreateModelAndCobHandler = Unit_CreateModelAndCobHandler($485D40);
-
-type
-  Unit_SetSpeedHandler = procedure ( UnitPtr: Pointer ); stdcall;
-var
-  Unit_SetSpeed : Unit_SetSpeedHandler = Unit_SetSpeedHandler($437840);
-
-type
-  Unit_StartWeaponsScriptsHandler = procedure ( UnitPtr: Pointer ); stdcall;
-var
-  Unit_StartWeaponsScripts : Unit_StartWeaponsScriptsHandler = Unit_StartWeaponsScriptsHandler($49E070);
 
 // turret weap aiming
 type
@@ -98,7 +81,7 @@ var
   GetUnit_BuildWeaponProgress : GetUnit_BuildWeaponProgressHandler = GetUnit_BuildWeaponProgressHandler($439D20);
 
 type
-  GetFeatureTypeOfOrderHandler = function ( OrderPos: Pointer; Order: Pointer; Unknown: Pointer ): SmallInt; stdcall;
+  GetFeatureTypeOfOrderHandler = function ( OrderPos: Pointer; Order: Pointer; Unknown: Cardinal ): SmallInt; stdcall;
 var
   GetFeatureTypeOfOrder : GetFeatureTypeOfOrderHandler = GetFeatureTypeOfOrderHandler($421DA0);
 
@@ -112,23 +95,31 @@ var
   Unit_Kill: Unit_KillHandler = Unit_KillHandler($4864B0);
 
 type
-  Unit_KillMakeDamageHandler = procedure ( UnitPtr: Pointer; destructas: Cardinal ); stdcall;
+  UnitExplosionHandler = procedure ( UnitPtr: Pointer; destructas: Cardinal ); stdcall;
 var
-  Unit_KillMakeDamage: Unit_KillMakeDamageHandler = Unit_KillMakeDamageHandler($49B000);
+  UnitExplosion: UnitExplosionHandler = UnitExplosionHandler($49B000);
 
 type
-  Unit_MakeDamage_Handler = function ( UnitPtr: Pointer;
+  MakeDamageToUnitHandler = function ( UnitPtr: Pointer;
                                        UnitPtr2: Pointer;
                                        a3: LongInt;
                                        a4: Cardinal;
                                        a5: Word ): Cardinal; stdcall;
 var
-  Unit_MakeDamage_: Unit_MakeDamage_Handler = Unit_MakeDamage_Handler($489BB0);
+  MakeDamageToUnit: MakeDamageToUnitHandler = MakeDamageToUnitHandler($489BB0);
 
 type
-  Unit_RecreateHandler = function ( PlayerIndex: Byte; UnitPtr: Pointer): Cardinal; stdcall;
+  HealUnit_Handler = function ( UnitPtr: Pointer;
+                                UnitPtr2: Pointer;
+                                Amount: Single ): Integer; stdcall;
 var
-  Unit_Recreate: Unit_RecreateHandler = Unit_RecreateHandler($4861D0);
+  HealUnit: HealUnit_Handler = HealUnit_Handler($0041BD10);
+
+type
+  TestHeal_Handler = function ( ResPercentage: Pointer;
+                                Amount: Single ): Integer; stdcall;
+var
+  TestHeal: TestHeal_Handler = TestHeal_Handler($00401180);
 
 // earthquakes etc.
 type
@@ -139,20 +130,34 @@ type
 var
   SendFireMapWeapon: SendFireMapWeaponHandler = SendFireMapWeaponHandler($49DF10);
 
-//Send_FireWeapon(int, int Victim_Ptr, int Attacker_Ptr, int Position_Start, int Position_Targat)
 type
-  Send_FireWeaponHandler = function ( WeaponId: Cardinal;
-                                      Victim_Ptr: Pointer;
-                                      Attacker_Ptr: Pointer;
-                                      Position_Start: Pointer;
-                                      Position_Target: Pointer): Integer; stdcall;
+  fire_callbackHandler = function ( Attacker_UnitPtr: Pointer;
+                                    Weapon_Target_ID: Pointer;
+                                    Victim_UnitPtr: Pointer;
+                                    Position_Target: Pointer ): Cardinal; stdcall;
 var
-  Send_FireWeapon: Send_FireWeaponHandler = Send_FireWeaponHandler($499AB0);
+  fire_callback1: fire_callbackHandler = fire_callbackHandler($0049DB70);
+  fire_callback2: fire_callbackHandler = fire_callbackHandler($0049DD60);
+  fire_callback3: fire_callbackHandler = fire_callbackHandler($0049D9C0);
+
+type
+  fire_callback0Handler = function ( Attacker_UnitPtr: Pointer;
+                                     Weapon_Target_ID: Pointer;
+                                     Victim_UnitPtr: Pointer;
+                                     Position_Target: Pointer ): Cardinal; cdecl;
+var
+  fire_callback0 : fire_callback0Handler = fire_callback0Handler($0049D580);
+
+type
+  TdfFile__GetIntHandler = function ( TagName : Pointer;
+                                      DefaultNumber : LongInt): Integer; stdcall;
+var
+  TdfFile__GetInt : TdfFile__GetIntHandler = TdfFile__GetIntHandler($004C46C0);
 
 type
   SetPrepareOrderHandler = function ( UnitPtr: Pointer; a2: Cardinal): LongInt; stdcall;
 var
-  SetPrepareOrder: SetPrepareOrderHandler = SetPrepareOrderHandler($419BE0);
+  SetPrepareOrder: SetPrepareOrderHandler = SetPrepareOrderHandler($00419BE0);
 
 type
   Order2UnitHandler = function ( ScriptIndex: Cardinal;
@@ -168,9 +173,9 @@ var
   Order2Unit: Order2UnitHandler = Order2UnitHandler($43AFC0);
   
 type
-  UnitFirstOrderTargatHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
+  GetUnitFirstOrderTargatHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
 var
-  UnitFirstOrderTargat: UnitFirstOrderTargatHandler = UnitFirstOrderTargatHandler($439DD0);
+  GetUnitFirstOrderTargat: GetUnitFirstOrderTargatHandler = GetUnitFirstOrderTargatHandler($439DD0);
 
 type
   Script_RunScriptHandler = function ( a1: Cardinal;
@@ -205,7 +210,7 @@ var
   DrawHealthBars : DrawHealthBarsHandler = DrawHealthBarsHandler($0046A430);
 
 type
-  DrawRectangleHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: LongWord) : LongInt; stdcall;
+  DrawRectangleHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: Byte) : LongInt; stdcall;
 var
   DrawRectangle : DrawRectangleHandler = DrawRectangleHandler($004BF6F0);
 
@@ -245,14 +250,14 @@ var
   PlaySound_UnitSpeech : PlaySound_UnitSpeechHandler = PlaySound_UnitSpeechHandler($47F780);
 
 type
-  PlaySound_EffectNameHandler = function (VoiceName: PChar; unitptr: LongWord) : LongWord; stdcall;
+  PlaySound_2DHandler = function (VoiceId: longword; unitptr: LongWord) : Integer; stdcall;
 var
-  PlaySound_EffectName : PlaySound_EffectNameHandler = PlaySound_EffectNameHandler($47F1A0);
+  PlaySound_2D : PlaySound_2DHandler =  PlaySound_2DHandler($47F0C0);
 
 type
-  PlaySound_EffectIdHandler = function (VoiceId: longword; unitptr: LongWord) : Integer; stdcall;
+  Receive_SoundHandler = function (EffectNum: LongWord; Position: Pointer; Broadcast : LongWord) : Integer; stdcall;
 var
-  PlaySound_EffectId : PlaySound_EffectIdHandler =  PlaySound_EffectIdHandler($47F0C0);
+  Receive_Sound : Receive_SoundHandler =  Receive_SoundHandler($47F300);
 
 type
   //Access 1 = no cheats, 3 = cheats
@@ -300,16 +305,11 @@ var
   SetHotGroup : SetHotGroupHandler = SetHotGroupHandler($480250);
 
 type
-  PlaySoundEffectHandler = function ( VoiceName: AnsiChar; a2: Word ): LongInt ; stdcall;
-var
-  PlaySoundEffect : PlaySoundEffectHandler = PlaySoundEffectHandler($48CD80);
-
-type
   // result = UNITINFO.UnitTypeID
   // 0 = unit type not found
   UnitName2IDHandler = function ( const UnitName: PAnsiChar ): Word; stdcall;
 var
-  UnitName2ID : UnitName2IDHandler = UnitName2IDHandler($488B10);
+  UnitName2ID : UnitName2IDHandler = UnitName2IDHandler($00488B10);
 
 type
   WeaponName2IDHandler = function ( const WeaponName: PAnsiChar ): LongWord; stdcall;
@@ -414,19 +414,16 @@ type
 var
   TADrawCircle : TADrawCircleHandler = TADrawCircleHandler($438EA0);
 
-
-
 type // used to replace TA deallocation of wreackagearray
   TADeleteMemHandler = procedure ( mem : Pointer ); cdecl;
 var
   TADeleteMem : TADeleteMemHandler = TADeleteMemHandler($4D85A0);
 
-
-
 Type // +los cheat
   TextCommand_LOSHandler = procedure ; stdcall;
 var  
-  TextCommand_LOS : TextCommand_LOSHandler = TextCommand_LOSHandler($416D50);  
+  TextCommand_LOS : TextCommand_LOSHandler = TextCommand_LOSHandler($416D50);
+
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not working.
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -445,11 +442,75 @@ type
 var
   TestUnitAI : TestUnitAIHandler = TestUnitAIHandler($47DDC0);
 
-
 type // should draw selected unit state on screen
 	UnitStateProbeHandler = function (OFFSCREEN_p: Cardinal) : LongInt; stdcall;
 var
   UnitStateProbe : UnitStateProbeHandler = UnitStateProbeHandler($467E50);
+
+//////////////////////////////////////////////////////////////////////////////////////////
+/// Not used.
+//////////////////////////////////////////////////////////////////////////////////////////
+type
+  // creates unitstatemask based on actual unitinfo template
+  // called for existing unit (!)
+  Unit_CreateUnitsInGameHandler = function (unitptr : Cardinal;
+                                            PosX_: Cardinal;
+                                            PosZ_: Cardinal;
+                                            PosY_: Cardinal;
+                                            FullHp: Cardinal) : Cardinal; stdcall;
+var
+  Unit_CreateUnitsInGame : Unit_CreateUnitsInGameHandler = Unit_CreateUnitsInGameHandler($485A40);  // boneyards 45BD31
+
+type
+  Unit_CreateModelAndCobHandler = function (UnitPtr : Pointer) : integer; stdcall;
+var
+  Unit_CreateModelAndCob : Unit_CreateModelAndCobHandler = Unit_CreateModelAndCobHandler($485D40);
+
+type
+  Unit_SetSpeedHandler = procedure ( UnitPtr: Pointer ); stdcall;
+var
+  Unit_SetSpeed : Unit_SetSpeedHandler = Unit_SetSpeedHandler($437840);
+  
+type
+  Unit_StartWeaponsScriptsHandler = procedure ( UnitPtr: Pointer ); stdcall;
+var
+  Unit_StartWeaponsScripts : Unit_StartWeaponsScriptsHandler = Unit_StartWeaponsScriptsHandler($49E070);
+
+type
+  Unit_RecreateHandler = function ( PlayerIndex: Byte; UnitPtr: Pointer): Cardinal; stdcall;
+var
+  Unit_Recreate: Unit_RecreateHandler = Unit_RecreateHandler($4861D0);
+  
+type
+  cmalloc_MM__Handler = function (Size : Cardinal) : Integer; cdecl;
+var
+  cmalloc_MM__ : cmalloc_MM__Handler =  cmalloc_MM__Handler($004B4F10);
+
+type
+  AirOrder_InitHandler = function (UnitOrder : Cardinal; Pos_p: Cardinal) : Cardinal; stdcall;
+var
+  AirOrder_Init : AirOrder_InitHandler = AirOrder_InitHandler($0044E2D0);
+
+type
+  AirOrder_BeginLiftHandler = function (a1 : Cardinal; a2: Cardinal; UnitOrder_p: Cardinal; a4: Cardinal) : Byte; register;
+var
+  AirOrder_BeginLift : AirOrder_BeginLiftHandler = AirOrder_BeginLiftHandler($0044E6C0);
+
+type
+  AirOrder_CallOrderHandler = function (OrderCallBack_p : Cardinal) : Cardinal; stdcall;
+var
+  AirOrder_CallOrder : AirOrder_CallOrderHandler = AirOrder_CallOrderHandler($004388D0);
+
+// prepare wings etc.
+type
+  AirOrder_SetShortMaskStateHandler = function (a1 : Cardinal;
+                                                a2 : Cardinal;
+                                                a3 : Cardinal;
+                                                a4 : Cardinal;
+                                                a5 : Cardinal) : Byte; register;
+var
+  AirOrder_SetShortMaskState : AirOrder_SetShortMaskStateHandler = AirOrder_SetShortMaskStateHandler($0043D210);
+
 implementation
 
 procedure InterpretInternalCommand(CommandText: string);
@@ -458,8 +519,6 @@ begin
 end;
 
 procedure SendTextLocal(Text: string);
-{var
-  TmpResult: LongInt; }
 begin
   SendText(PAnsiChar(Text), 0);
 end;

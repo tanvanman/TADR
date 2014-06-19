@@ -59,38 +59,42 @@ type
   PUnitStruct = ^TUnitStruct;
   TUnitStruct = packed record
     p_MovementClass   : Pointer;
-    lUsedSpot         : Cardinal;  // also target unit id for attackers
-    field_8           : Cardinal;
-    RelatedToOject    : Word;
-    field_E           : Word;
+    nWeapon1TargetID  : Word;
+    nUsedSpot1        : Word;
+    MoveInfo          : Cardinal;
+    Weapon1State      : Cardinal;
     p_Weapon1         : Pointer;
     unknow_1          : Cardinal;
-    Weapon1_ReloadTime: Word;
+    nWeapon1_ReloadTime : Word;
     Weapon1_TolerJigg : Cardinal;
-    Weapon1Dotte      : Byte;
-    cWeaponStateMask  : Byte;      // and 1 = aiming, nand 10 = target locked, nand 1 and nand 10 = weapon reloaded, firing again
-    unknow_2          : Cardinal;
-    field_24          : Cardinal;
-    field_28          : Cardinal;
+    Weapon1Stock      : Byte;
+    cWeapon1StateMask : Byte;      // and 1 = aiming, nand 10 = target locked, nand 1 and nand 10 = weapon reloaded, firing again
+    nWeapon2TargetID  : Word;
+    nUsedSpot2        : Word;
+    MoveInfo2         : Cardinal;
+    Weapon2State      : Cardinal;
     p_Weapon2         : Pointer;
-    unknow_3          : Byte;
-    Weapon2Dotte      : Byte;
-    //field_32          : array [0..8] of Byte;
+    unknow_2          : Byte;
+    Weapon2Stock      : Byte;
     field_32          : Word;
-    Weapon2_ReloadTime: Word;
+    nWeapon2_ReloadTime : Word;
     Weapon2_TolerJigg : Cardinal;
-    field_3A          : Byte;
-    field_3B          : Byte;
-    field_3C          : array [0..11] of Byte;
+    cWeapon2StateMask : Byte;
+    unknown_4         : Byte;
+    nWeapon3TargetID  : Word;
+    nUsedSpot3        : Word;
+    MoveInfo3         : Cardinal;
+    Weapon3State      : Cardinal;
     p_Weapon3         : Pointer;
-    unknow_4          : Cardinal;
-    Weapon3_ReloadTime: Word;
-    field_54          : Cardinal;
-    Weapon3Dotte      : Byte;
-    field_57          : Byte;
+    unknow_3          : Cardinal;
+    nWeapon3_ReloadTime : Word;
+    Weapon3_TolerJigg : Cardinal;
+    Weapon3Stock      : Byte;
+    cWeapon3StateMask  : Byte;
     field_58          : Cardinal; //TemplatePtr.extractsmetal * UnitPtr * 0.0000152587890625;
     p_UnitOrders      : Pointer;
     p_FutureOrder     : Pointer;
+    //unknown_5         : array[0..3] of byte;
     Turn              : TTurn;
     Position          : TPosition;
     nGridPosX         : SmallInt;
@@ -101,7 +105,7 @@ type
     View_dw0          : Cardinal;
     TransporterUnit_p : Pointer;
     TransportedUnit_p : Pointer;
-    p_FirstUnit       : Pointer;
+    p_PriorUnit       : Pointer;
     p_UnitDef         : Pointer;
     p_Owner           : Pointer;
     p_AlmostCOBStruct : Pointer;
@@ -113,13 +117,13 @@ type
     lFireTimePlus600  : Cardinal;
     field_B4          : Cardinal;
     nKills            : Word;
-    ProjectileState   : Word;      // Unknown11 and $4; when calling setter
-    Unknown_BC        : array [0..3] of byte;
+    nProjectileState  : Word;      // Unknown11 and $4; when calling setter, also projectile state
+    lResPercentEnergy : Cardinal;
     fWeapResConsume   : Single;
     fWeapResConsume2  : Single;
     field_BC          : array [0..7] of byte;
     field_D0          : Cardinal;
-    lResourcePercent  : Cardinal;
+    lResPercentMetal  : Cardinal;
     lBuildWeapUnk     : Single;
     lBuildWeapUnk2    : Single;
     field_E0          : array [0..7] of byte;
@@ -147,8 +151,8 @@ type
   end;
 
   // 0x249
-  PGameUnitfInfo = ^TGameUnitInfo;
-  TGameUnitInfo = packed record
+  PUnitfInfo = ^TUnitInfo;
+  TUnitInfo = packed record
     szName             : array [0..31] of AnsiChar;
     szUnitName         : array [0..31] of AnsiChar;
     szUnitDescription  : array [0..63] of AnsiChar;
@@ -203,8 +207,7 @@ type
     p_WeaponPrimary    : Pointer;
     p_WeaponSecondary  : Pointer;
     p_WeaponTertiary   : Pointer;
-    nMaxHP             : Word;
-    Unknown8           : array [0..1] of Byte;
+    lMaxHP             : Cardinal;
     nWorkerTime        : Word;
     nHealTime          : Word;
     nSightDistance     : Word;
@@ -356,7 +359,7 @@ type
   TWeaponDef = packed record
 	  szWeaponName         : array [0..31] of AnsiChar;
 	  szWeaponDescription  : array [0..63] of AnsiChar;
-	  lFireCallback        : Cardinal;
+	  p_FireCallback       : Pointer;
 	  p_WeaponDefUnkStruct : Pointer;
 	  lWeaponVelocity      : Cardinal;
 	  lStartVelocity       : Cardinal;
@@ -364,7 +367,11 @@ type
 	  lObjects3DFile       : Cardinal;
 	  p_LandExplodeAsGFX   : Pointer;
 	  p_WaterExplodeAsGFX  : Pointer;
-	  ModelName            : array [0..63] of AnsiChar;
+	  ModelName            : array [0..47] of AnsiChar;
+    field_B0             : Cardinal;
+    field_B4             : Cardinal;
+    field_B8             : Cardinal;
+    lWeaponIDCrack       : Cardinal;
 	  lEnergyPerShot       : Cardinal;
 	  lMetalPerShot        : Cardinal;
 	  lMinBarrelAngle      : Cardinal;
@@ -529,7 +536,7 @@ type
   TMapFiles = packed record
     Header          : array [0..515] of Byte; //$104 + $100
     TNTPath         : array [0..255] of AnsiChar;
-    F2              : array [0..255] of AnsiChar;
+    CampsUseOnly    : array [0..255] of AnsiChar;
     F3              : array [0..255] of AnsiChar;
     F4              : array [0..255] of AnsiChar;
     PaletteFile     : array [0..255] of AnsiChar;
@@ -622,13 +629,10 @@ type
 	  Weapons                : array [0..255] of TWeaponDef; //0x2CF3 size=0x11500
 	  lNumProjectiles        : Integer;
 	  p_Projectiles          : Pointer; //0x141F7
-
     SORT_UNIT_LIST         : Pointer;
     SORT_INDICES           : Pointer;
     SORT_LINE_COUNT        : Pointer;
     PathFindStruct         : Pointer;
-
-
 	  FEATURE_ANIM_DATA      : Pointer; //0x1420B all currently animated features on map, including wreckages
     Feature_Unit           : Pointer;
     field_18               : Cardinal;
@@ -805,26 +809,26 @@ type
   TUnitOrder = packed record
     p_PriorOrder_uosp : Pointer;
     cOrderType        : Byte;
-    State             : Byte;
+    cState            : Byte;
     unknow_0          : Word;
     field_8           : Word;
-    unknow_1____      : LongWord;
+    unknow_1____      : Cardinal;
     p_Unit            : Pointer;
-    field_12          : LongWord;
-    field_16          : LongWord;
+    field_12          : Cardinal;
     p_UnitTarget      : Pointer;
-    p_ThisPTR         : Pointer;
+    field_1A          : Cardinal;
+    p_ThisOrder       : Pointer;   // Just a pointer to this order.
     Pos               : TPosition;
-    unknow_5          : LongWord;
+    unknow_5          : Cardinal;
     field_32          : Word;
-    FootPrint         : Word;
-    lPar1             : LongWord;  // for lab build queue = unit type
-    lPar2             : LongWord;  // for lab build queue = amount of units
-    UnitOrderFlags    : LongWord;
-    Order_State       : LongWord;
-    StartTime         : LongWord;
+    nFootPrint        : Word;
+    lPar1             : Cardinal;  // for lab build queue = unit type
+    lPar2             : Cardinal;  // for lab build queue = amount of units
+    lUnitOrderFlags   : Cardinal;
+    lOrder_State      : Cardinal;  // reclaim - going to 00103801 / start reclaim 00503801
+    lStartTime        : Cardinal;
     p_NextOrder_uos   : Pointer;
-    mask              : LongWord;
+    lMask             : Cardinal;
     p_Order_CallBack  : Pointer;
   end;
 
@@ -899,101 +903,111 @@ type
                     Action_NoResult = 68 );
 
   // custom structures used by TADR
-  TCobMethods = ( Activate, Deactivate, Upgrade, Reminder, Heal, Cloak );
+  TCobMethods = ( Activate, Deactivate, Upgrade, Reminder, Cloak );
 
   TUnitInfoExtensions = (
-    Ext_BUILDER = 0,
-		Ext_FLOATER = 1,
-		Ext_AMPHIBIOUS = 2,
-		Ext_STEALTH = 3,
-		Ext_ISAIRBASE = 4,
-		Ext_TARGETTINGUPGRADE = 5,
-		Ext_TELEPORTER = 6,
-		Ext_HIDEDAMAGE = 7,
-		Ext_SHOOTME = 8,
-		Ext_CANFLY = 9,
-		Ext_CANHOVER = 10,
-		Ext_IMMUNETOPARALYZER = 11,
-		Ext_HOVERATTACK = 12,
-		Ext_ANTIWEAPONS = 13,
-		Ext_DIGGER = 14,
-		Ext_ONOFFABLE = 15,
-		Ext_CANSTOP = 16,
-		Ext_CANATTACK = 17,
-		Ext_CANGUARD = 18,
-		Ext_CANPATROL = 19,
-		Ext_CANMOVE = 20,
-		Ext_CANLOAD = 21,
-		Ext_CANRECLAMATE = 22,
-		Ext_CANRESURRECT = 23,
-		Ext_CANCAPTURE = 24,
-		Ext_CANDGUN = 25,
-		Ext_KAMIKAZE = 26,
-		Ext_COMMANDER = 27,
-		Ext_SHOWPLAYERNAME = 28,
-		Ext_CANTBERANSPORTED = 29,
-		Ext_UPRIGHT = 30,
-		Ext_BMCODE = 31,
+    UNITINFO_BUILDER = 0,
+		UNITINFO_FLOATER = 1,
+		UNITINFO_AMPHIBIOUS = 2,
+		UNITINFO_STEALTH = 3,
+		UNITINFO_ISAIRBASE = 4,
+		UNITINFO_TARGETTINGUPGRADE = 5,
+		UNITINFO_TELEPORTER = 6,
+		UNITINFO_HIDEDAMAGE = 7,
+		UNITINFO_SHOOTME = 8,
+    UNITINFO_HASWEAPONS = 9,
+		UNITINFO_CANFLY = 10,
+		UNITINFO_CANHOVER = 11,
+		UNITINFO_IMMUNETOPARALYZER = 12,
+		UNITINFO_HOVERATTACK = 13,
+		UNITINFO_ANTIWEAPONS = 14,
+		UNITINFO_DIGGER = 15,
+		UNITINFO_ONOFFABLE = 16,
+		UNITINFO_CANSTOP = 17,
+		UNITINFO_CANATTACK = 18,
+		UNITINFO_CANGUARD = 19,
+		UNITINFO_CANPATROL = 20,
+		UNITINFO_CANMOVE = 21,
+		UNITINFO_CANLOAD = 22,
+		UNITINFO_CANRECLAMATE = 23,
+		UNITINFO_CANRESURRECT = 24,
+		UNITINFO_CANCAPTURE = 25,
+		UNITINFO_CANDGUN = 26,
+		UNITINFO_KAMIKAZE = 27,
+		UNITINFO_COMMANDER = 28,
+		UNITINFO_SHOWPLAYERNAME = 29,
+		UNITINFO_CANTBERANSPORTED = 30,
+		UNITINFO_UPRIGHT = 31,
+		UNITINFO_BMCODE = 32,
 
-		Ext_SOUNDCTGR = 32,
+		UNITINFO_SOUNDCTGR = 33,
 
-		Ext_MOVEMENTCLASS_SAFE = 33,
-		Ext_MOVEMENTCLASS = 34,
+		UNITINFO_MOVEMENTCLASS_SAFE = 34,
+		UNITINFO_MOVEMENTCLASS = 35,
 
-		Ext_MAXHEALTH = 35,
-		Ext_HEALTIME = 36,
+		UNITINFO_MAXHEALTH = 36,
+		UNITINFO_HEALTIME = 37,
 
-		Ext_MAXSPEED = 37,
-		Ext_ACCELERATION = 38,
-		Ext_BRAKERATE = 39,
-		Ext_TURNRATE = 40,
-		Ext_CRUISEALT = 41,
-		Ext_MANEUVERLEASH = 42,
-		Ext_ATTACKRUNLEN = 43,
-		Ext_MAXWATERDEPTH = 44,
-		Ext_MINWATERDEPTH = 45,
-		Ext_MAXSLOPE = 46,
-		Ext_MAXWATERSLOPE = 47,
-		Ext_WATERLINE = 48,
+		UNITINFO_MAXSPEED = 38,
+		UNITINFO_ACCELERATION = 39,
+		UNITINFO_BRAKERATE = 40,
+		UNITINFO_TURNRATE = 41,
+		UNITINFO_CRUISEALT = 42,
+		UNITINFO_MANEUVERLEASH = 43,
+		UNITINFO_ATTACKRUNLEN = 44,
+		UNITINFO_MAXWATERDEPTH = 45,
+		UNITINFO_MINWATERDEPTH = 46,
+		UNITINFO_MAXSLOPE = 47,
+		UNITINFO_MAXWATERSLOPE = 48,
+		UNITINFO_WATERLINE = 49,
 
-		Ext_TRANSPORTSIZE = 49,
-		Ext_TRANSPORTCAP = 50,
+		UNITINFO_TRANSPORTSIZE = 50,
+		UNITINFO_TRANSPORTCAP = 51,
 
-		Ext_BANKSCALE = 51,
-		Ext_KAMIKAZEDIST = 52,
-		Ext_DAMAGEMODIFIER = 53,
+		UNITINFO_BANKSCALE = 52,
+		UNITINFO_KAMIKAZEDIST = 53,
+		UNITINFO_DAMAGEMODIFIER = 54,
 
-		Ext_WORKERTIME = 54,
-		Ext_BUILDDIST = 55,
+		UNITINFO_WORKERTIME = 55,
+		UNITINFO_BUILDDIST = 56,
 
-		Ext_SIGHTDIST = 56,
-		Ext_RADARDIST = 57,
-		Ext_SONARDIST = 58,
-		Ext_MINCLOAKDIST = 59,
-		Ext_RADARDISTJAM = 60,
-		Ext_SONARDISTJAM = 61,
+		UNITINFO_SIGHTDIST = 57,
+		UNITINFO_RADARDIST = 58,
+		UNITINFO_SONARDIST = 59,
+		UNITINFO_MINCLOAKDIST = 60,
+		UNITINFO_RADARDISTJAM = 61,
+		UNITINFO_SONARDISTJAM = 62,
 
-		Ext_MAKESMETAL = 62,
-		Ext_FENERGYMAKE = 63,
-		Ext_FMETALMAKE = 64,
-		Ext_FENERGYUSE = 65,
-		Ext_FMETALUSE = 66,
-		Ext_FENERGYSTOR = 67,
-		Ext_FMETALSTOR = 68,
-		Ext_FWINDGENERATOR = 69,
-		Ext_FTIDALGENERATOR = 70,
-		Ext_FCLOAKCOST = 71,
-		Ext_FCLOAKCOSTMOVE = 72,
+		UNITINFO_MAKESMETAL = 63,
+		UNITINFO_FENERGYMAKE = 64,
+		UNITINFO_FMETALMAKE = 65,
+		UNITINFO_FENERGYUSE = 66,
+		UNITINFO_FMETALUSE = 67,
+		UNITINFO_FENERGYSTOR = 68,
+		UNITINFO_FMETALSTOR = 69,
+		UNITINFO_FWINDGENERATOR = 70,
+		UNITINFO_FTIDALGENERATOR = 71,
+		UNITINFO_FCLOAKCOST = 72,
+		UNITINFO_FCLOAKCOSTMOVE = 73,
 
-		Ext_BUILDCOSTMETAL = 73,
-		Ext_BUILDCOSTENERGY = 74,
+		UNITINFO_BUILDCOSTMETAL = 74,
+		UNITINFO_BUILDCOSTENERGY = 75,
+    UNITINFO_BUILDTIME = 76,
 
-		Ext_EXPLODEAS = 75,
-		Ext_SELFDSTRAS = 76 );
+		UNITINFO_EXPLODEAS = 77,
+		UNITINFO_SELFDSTRAS = 78 );
 
+  TExtraWeaponTagsRec = packed record
+    HighTrajectory : Integer;
+    WaterToGround  : Integer;
+    NoAirWeapon    : Integer;
+  end;
+  
 var
   ExtraAnimations : array[0..15] of Pointer;
-
+  ExtraWeaponTags : array of TExtraWeaponTagsRec;
+  WeaponLimitPatchArr : Pointer;
+  
 implementation
 
 end.

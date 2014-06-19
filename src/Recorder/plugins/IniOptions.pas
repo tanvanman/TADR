@@ -10,16 +10,19 @@ type
     Name                 : String;
     RegName              : String;
     Version              : String;
+    UnitType             : Integer;
+    WeaponType           : Integer;
     WeaponIdPatch        : Boolean;
     RanksURL             : String;
     UnitLimit            : Integer;
     Read                 : Boolean;
 
     Plugin_AimScriptExt  : Boolean;
+    Plugin_Builders      : Boolean;
 
     { GUI Plugins }
     Plugin_Colors        : Boolean;
-    Colors               : array [0..27] of Integer;
+    Colors               : array [0..27] of Cardinal;
     Plugin_HBWidth       : Integer;
     Plugin_HBDynamicSize : Boolean;
     Plugin_HBCategory1   : Cardinal;
@@ -30,11 +33,10 @@ type
 
     Plugin_TrueIncome    : Boolean;
     Plugin_ClockPosition : Byte;
-    Plugin_ShortClock    : Boolean;
 
-    Plugin_WeaponReloadTimeBar : Boolean;
-    Plugin_TransportersCount : Boolean;
-    Plugin_StockpileCount : Boolean;
+    Plugin_WeaponReload  : Boolean;
+    Plugin_Transporters  : Boolean;
+    Plugin_Stockpile     : Boolean;
     
     Plugin_MinReclaimTime : Integer;
     Plugin_Gaf : Boolean;
@@ -42,34 +44,34 @@ type
 var IniSettings: TIniSettings;
 
 type
-  TIniColors = ( UNITSELECTIONBOX = 0,
-  UNITHEALTHBARGOOD,
-  UNITHEALTHBARMEDIUM,
-  UNITHEALTHBARLOW,
-  BUILDQUEUEBOXSELECTED1,
-  BUILDQUEUEBOXSELECTED2,
-  BUILDQUEUEBOXNONSELECTED1,
-  BUILDQUEUEBOXNONSELECTED2,
-  LOADBARSTEXTURESREADY,
-  LOADBARSTEXTURESLOADING,
-  LOADBARSTERRAINREADY,
-  LOADBARSTERRAINLOADING,
-  LOADBARSUNITSREADY,
-  LOADBARSUNITSLOADING,
-  LOADBARSANIMATIONSREADY,
-  LOADBARSANIMATIONSLOADING,
-  LOADBARS3DDATAREADY,
-  LOADBARS3DDATALOADING,
-  LOADBARSEXPLOSIONSREADY,
-  LOADBARSEXPLOSIONSLOADING,
-  MAINMENUDOTS,
-  NANOLATHEPARTICLEBASE,
-  NANOLATHEPARTICLECOLORS,
-  UNDERCONSTRUCTSURFACELO,
-  UNDERCONSTRUCTSURFACEHI,
-  UNDERCONSTRUCTOUTLINELO,
-  UNDERCONSTRUCTOUTLINEHI,
-  MAINMENUDOTSDISABLED);
+  TIniColors = (UNITSELECTIONBOX = 0,
+                UNITHEALTHBARGOOD,
+                UNITHEALTHBARMEDIUM,
+                UNITHEALTHBARLOW,
+                BUILDQUEUEBOXSELECTED1,
+                BUILDQUEUEBOXSELECTED2,
+                BUILDQUEUEBOXNONSELECTED1,
+                BUILDQUEUEBOXNONSELECTED2,
+                LOADBARSTEXTURESREADY,
+                LOADBARSTEXTURESLOADING,
+                LOADBARSTERRAINREADY,
+                LOADBARSTERRAINLOADING,
+                LOADBARSUNITSREADY,
+                LOADBARSUNITSLOADING,
+                LOADBARSANIMATIONSREADY,
+                LOADBARSANIMATIONSLOADING,
+                LOADBARS3DDATAREADY,
+                LOADBARS3DDATALOADING,
+                LOADBARSEXPLOSIONSREADY,
+                LOADBARSEXPLOSIONSLOADING,
+                MAINMENUDOTS,
+                NANOLATHEPARTICLEBASE,
+                NANOLATHEPARTICLECOLORS,
+                UNDERCONSTRUCTSURFACELO,
+                UNDERCONSTRUCTSURFACEHI,
+                UNDERCONSTRUCTOUTLINELO,
+                UNDERCONSTRUCTOUTLINEHI,
+                MAINMENUDOTSDISABLED);
 
 // -----------------------------------------------------------------------------
 
@@ -272,7 +274,6 @@ function ReadIniPath(var iniFile: TIniFile; sect: string; ident: string; out pat
 
 var
   iniFile: TIniFile;
-  WeaponType: Integer;
   MultiGameWeapon: Boolean;
   i: integer;
   currcolor: string;
@@ -297,13 +298,15 @@ begin
 
       IniSettings.RanksURL := ReadIniString(iniFile, 'Preferences','RanksURL', '');
 
-      weaponType := ReadIniValue(iniFile, 'Preferences','WeaponType', 256);
+      IniSettings.UnitType := ReadIniValue(iniFile, 'Preferences', 'UnitType', 16000);
+      IniSettings.WeaponType := ReadIniValue(iniFile, 'Preferences', 'WeaponType', 16000);
       multiGameWeapon := ReadIniBool(iniFile, 'Preferences','MultiGameWeapon', False);
-      IniSettings.WeaponIdPatch := (weaponType > 256) and multiGameWeapon;
+      IniSettings.WeaponIdPatch := (IniSettings.WeaponType > 256) and multiGameWeapon;
 
       IniSettings.UnitLimit := ReadIniValue(iniFile, 'Preferences','UnitLimit', 0);
 
-      IniSettings.Plugin_AimScriptExt := ReadIniBool(iniFile, 'Preferences', 'AimScriptExt', False);
+      IniSettings.Plugin_AimScriptExt := ReadIniBool(iniFile, 'Preferences', 'AimScripts', False);
+      IniSettings.Plugin_Builders := ReadIniBool(iniFile, 'Preferences', 'Builders', False);
 
       if iniFile.SectionExists('Colors') then
       begin
@@ -311,12 +314,12 @@ begin
         for i:= 0 to 26 do
         begin
           currcolor := GetEnumName(TypeInfo(TIniColors), i);
-          IniSettings.Colors[i] := ReadIniValue(iniFile, 'Colors', UpperCase(currcolor), -1);
+          IniSettings.Colors[i] := ReadIniValue(iniFile, 'Colors', UpperCase(currcolor), 0);
         end;
         if ReadIniBool(iniFile, 'Colors','MainMenuDotsDisabled', False) then
           IniSettings.Colors[27]:= 1
         else
-          IniSettings.Colors[27]:= -1;
+          IniSettings.Colors[27]:= 0;
       end;
 
       IniSettings.Plugin_HBWidth := ReadIniValue(iniFile, 'Preferences', 'HealthBarWidth', 0);
@@ -326,15 +329,14 @@ begin
       IniSettings.Plugin_HBCategory3 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat3', 0);
       IniSettings.Plugin_HBCategory4 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
       IniSettings.Plugin_HBCategory5 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
-      IniSettings.Plugin_WeaponReloadTimeBar := ReadIniBool(iniFile, 'Preferences', 'WeaponReloadTimeBar', False);
-      IniSettings.Plugin_TransportersCount := ReadIniBool(iniFile, 'Preferences', 'TransportersCount', False);
-      IniSettings.Plugin_StockpileCount := ReadIniBool(iniFile, 'Preferences', 'StockpileCount', False);
+      IniSettings.Plugin_WeaponReload := ReadIniBool(iniFile, 'Preferences', 'WeaponReloadTimeBar', False);
+      IniSettings.Plugin_Transporters := ReadIniBool(iniFile, 'Preferences', 'TransportersCount', False);
+      IniSettings.Plugin_Stockpile := ReadIniBool(iniFile, 'Preferences', 'StockpileCount', False);
 
       IniSettings.Plugin_TrueIncome := ReadIniBool(iniFile, 'Preferences', 'TrueIncome', False);
 
       IniSettings.Plugin_ClockPosition := ReadIniValue(iniFile, 'Preferences', 'ClockPosition', 0);
       IniSettings.Plugin_MinReclaimTime := ReadIniValue(iniFile, 'Preferences', 'MinReclaimTime', 0);
-      IniSettings.Plugin_ShortClock := ReadIniBool(iniFile, 'Preferences', 'ShortClock', False);
 
       IniSettings.Plugin_Gaf := ReadIniBool(iniFile, 'Preferences', 'GAFExt', False);
     finally

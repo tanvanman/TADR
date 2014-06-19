@@ -201,7 +201,7 @@ type
   TRec2Rec_UnitWeapon_Message = packed record
     UnitId        : Word;
     WhichWeapon   : Byte;
-    NewWeaponID   : Word;
+    NewWeaponID   : Cardinal;
     RequiresPatch : Boolean;
   end;
 

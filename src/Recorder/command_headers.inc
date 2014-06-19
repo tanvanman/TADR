@@ -55,6 +55,8 @@ function OnForceCd( const Command : string; Sender : TPlayerData; params : TStri
 {$IFDEF WarZone}
 function OnRank( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 {$ENDIF}
+
+//function OnRank( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 // Debug functions!
 function OnReportFilter( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnDisableFilter( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
