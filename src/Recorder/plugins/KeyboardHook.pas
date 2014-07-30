@@ -24,6 +24,7 @@ var
   lastShareEnergyVal: single;
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
+procedure CtrlFDontSelectNotLabs;
 
 // -----------------------------------------------------------------------------
 // actions for keys
@@ -35,7 +36,7 @@ procedure SwitchSetShareEnergy;
 implementation
 uses
   TA_MemoryLocations, TA_MemoryStructures, TA_FunctionsU, //BattleRoomScroll,
-  COB_Extensions, DropUnitsWeaponsList;
+  COB_Extensions, TAMemManipulations, DropUnitsWeaponsList;
 
 Procedure OnInstallKeyboardHook;
 begin
@@ -52,17 +53,19 @@ end;
 
 function GetPlugin : TPluginData;
 begin
-if IsTAVersion31 and State_KeyboardHook then
+  if IsTAVersion31 and State_KeyboardHook then
   begin
-
-  result := TPluginData.create( true,
+    Result := TPluginData.create( true,
                                 'Keyboard Hook',
                                 State_KeyboardHook,
                                 @OnInstallKeyboardHook, @OnUnInstallKeyboardHook );
 
-end
-else
-  result := nil;
+    Result.MakeRelativeJmp( State_KeyboardHook,
+                          '',
+                          @CtrlFDontSelectNotLabs,
+                          $0048DB72, 1);
+  end else
+    result := nil;
 end;
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
@@ -75,6 +78,7 @@ var
 //  tadynm: PTAdynmemStruct;
  // res: integer;
   //ResultUnit: Pointer;
+//  ScreenshotCreate: TScreenshotCreate;
 begin
   if nCode < 1 then
     CallNextHookEx(hKeyboardHook, nCode, wParam, lParam)
@@ -89,17 +93,29 @@ begin
         $5A : begin     // left alt + shift + z
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
+                begin
                   SwitchSetShareEnergy;
+                  Result := 1;
+                  Exit;
+                end;
               end;
         $58 : begin     // left alt + shift + x
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
-                 InterpretInternalCommand(PChar('shareenergy'));
+                begin
+                  InterpretInternalCommand(PChar('shareenergy'));
+                  Result := 1;
+                  Exit;
+                end;
               end;
         $43 : begin     // left alt + shift + c
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
+                begin
                   InterpretInternalCommand(PChar('sharemetal'));
+                  Result := 1;
+                  Exit;
+                end;
               end;
         $41 : begin     // left alt + shift + a
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
@@ -110,6 +126,8 @@ begin
                     SendTextLocal('Toggled ShootAll to: ON')
                   else
                     SendTextLocal('Toggled ShootAll to: OFF');
+                  Result := 1;
+                  Exit;
                 end;
               end;
         $53 : begin     // left alt + shift + s
@@ -123,6 +141,8 @@ begin
                     begin
                       PUnitOrder(UnitSt.p_UnitOrders).p_NextOrder_uos := nil;
                       PUnitStruct(UnitSt).p_FutureOrder := nil;
+                      Result := 1;
+                      Exit;
                     end;
                 end;
               end;
@@ -132,17 +152,34 @@ begin
                 begin
                   if TAData.DevMode then
                   begin
-                    UnitAtMouse:= TAUnit.AtMouse;
-                    UnitSt:= UnitAtMouse;
+                    UnitAtMouse := TAUnit.AtMouse;
                     if (UnitAtMouse <> nil) then
                     begin
-                      SendTextLocal('DEV: Unit at mouse data:');
-                      SendTextLocal('unit id  : ' + IntToHex(TAUnit.GetLongId(UnitAtMouse), 8));
-                      SendTextLocal('unit pos : X:' + IntToStr(TAUnit.GetUnitX(UnitAtMouse)) + ' Z:' + IntToStr(TAUnit.GetUnitZ(UnitAtMouse)) + ' H:' + IntToStr(TAUnit.GetUnitY(UnitAtMouse)));
-                      SendTextLocal('get pos height : ' + IntToStr(GetPosHeight(@PUnitStruct(UnitAtMouse).Position)));
-                      SendTextLocal('unit type id  : ' + IntToStr(PUnitStruct(UnitAtMouse).nUnitCategoryID));
-                      SendTextLocal('los id       : ' + IntToStr(TAUnit.GetOwnerIndex(UnitAtMouse)));
-                      SendTextLocal('owning player id : ' + IntToStr(PUnitStruct(UnitAtMouse).cOwningPlayerID));
+                      ClearChat;
+//                      PCardinal(Cardinal(TAData.MainStructPtr) + $391B9)^ := 1;
+//                      PWord(Cardinal(TAData.MainStructPtr) + $391BD)^ := Word(PUnitStruct(UnitAtMouse).lUnitInGameIndex);
+//                      Offscreen := PCardinal(Cardinal(TAData.MainStructPtr) + $37E1B)^;
+//                      SendTextLocal(IntToStr(UnitBuilderProbe(Offscreen)));
+//                      TAUnit.MakeDamage(UnitAtMouse, UnitAtMouse, dtUnknown1, 200);
+                      SendTextLocal('ptr  : ' + IntToHex(Cardinal(UnitAtMouse), 8));
+                      SendTextLocal('id  : ' + IntToHex(TAUnit.GetLongId(UnitAtMouse), 8));
+                      SendTextLocal('pos : X:' + IntToStr(TAUnit.GetUnitX(UnitAtMouse)) + ' Z:' + IntToStr(TAUnit.GetUnitZ(UnitAtMouse)) + ' H:' + IntToStr(TAUnit.GetUnitY(UnitAtMouse)));
+                      SendTextLocal('turn Z: ' + IntToStr(TAUnit.GetTurnZ(UnitAtMouse)));
+                      SendTextLocal('unit type id  : ' + IntToStr(PUnitStruct(UnitAtMouse).nUnitInfoID));
+                      SendTextLocal('transported by : ' + IntToStr(TAUnit.GetID(PUnitStruct(UnitAtMouse).p_TransporterUnit)));
+                      SendTextLocal('transporting : ' + IntToStr(TAUnit.GetID(PUnitStruct(UnitAtMouse).p_TransportedUnit)));
+                      SendTextLocal('prior unit : ' + IntToStr(TAUnit.GetID(PUnitStruct(UnitAtMouse).p_PriorUnit)));
+                      SendTextLocal('unitstate  : ' + IntToHex(PUnitStruct(UnitAtMouse).lUnitStateMask, 8));
+                      SendTextLocal('unitstatebas : ' + IntToHex(PUnitStruct(UnitAtMouse).nUnitStateMaskBas, 8));
+
+                      SendTextLocal('sfx occupy  : ' + IntToHex(PUnitStruct(UnitAtMouse).lSfxOccupy, 8));
+                      SendTextLocal('owner id       : ' + IntToStr(TAUnit.GetOwnerIndex(UnitAtMouse)));
+                      if PUnitStruct(UnitAtMouse).UnitWeapons[0].p_Weapon <> nil then
+                        if PWeaponDef(PUnitStruct(UnitAtMouse).UnitWeapons[0].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28 then
+                        begin
+                          PUnitStruct(UnitAtMouse).UnitWeapons[0].cStock := PUnitStruct(UnitAtMouse).UnitWeapons[0].cStock + 1;
+                          SendTextLocal('Increased stockpile');
+                        end;
                       SendTextLocal('');
                     end;
                   end;
@@ -155,17 +192,52 @@ begin
                   if TAData.DevMode then
                   begin
                     SaveUnitsWeaponsListToScriptorFile;
-                    SendTextLocal('DEV: Saved current list of units and weapons to file');
+                    SendTextLocal('Saved current list of units and weapons to file');
                   end;
                 end;
               end;
+      {  $70 : begin     // mouse button 4
+                if TAData.DevMode then
+                begin
+                  if ((GetAsyncKeyState($5) and $8000) > 0) then
+                  begin
+                    UnitAtMouse := TAUnit.AtMouse;
+                    if (UnitAtMouse <> nil) then
+                    begin
+                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B3 := 1;
+                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B7 := PTAdynmemStruct(TAData.MainStructPtr)^.unMouseOverUnit;
+                    end else
+                    begin
+                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B3 := 0;
+                    end;
+                    Result := 1;
+                    Exit;
+                  end;
+                  if ((GetAsyncKeyState($6) and $8000) > 0) then
+                  begin
+                    UnitAtMouse := TAUnit.AtMouse;
+                    if (UnitAtMouse <> nil) then
+                    begin
+                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B9 := 1;
+                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391BD := PTAdynmemStruct(TAData.MainStructPtr)^.unMouseOverUnit;
+                    end else
+                    begin
+                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B9 := 0;
+                    end;
+                    Result := 1;
+                    Exit;
+                  end;
+                end;
+              end; }
 {        $45 : begin     // left alt + shift + e
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
+                  ScreenshotCreate:= TScreenshotCreate.Create(False);
+                  ScreenshotCreate.FreeOnTerminate:= True;
                 end;
-              end;
-        $46 : begin     // left alt + shift + f
+              end;   }
+{        $46 : begin     // left alt + shift + f
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
@@ -192,6 +264,19 @@ begin
   end; { ncode }
   // don't block key
   Result:= 0;
+end;
+
+{
+.text:0048DB6E 020 8B 4C 24 24                           mov     ecx, [esp+20h+arg_0]
+.text:0048DB72 020 8B 86 AC 00 00 00                     mov     eax, [esi+0ACh]
+.text:0048DB78 020 3B C1                                 cmp     eax, ecx
+.text:0048DB7A 020 75 44                                 jnz     short loc_48DBC0
+}
+procedure CtrlFDontSelectNotLabs;
+asm
+    mov     eax, [esi+0ACh]
+    push $0048DB78;
+    call PatchNJump;
 end;
 
 {

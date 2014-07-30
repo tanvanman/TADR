@@ -7,3 +7,5 @@ del -p /s *.~tlb
 del -p /s *.~dpr
 del -p /s *.~inc
 del -p /s *.~dsk
+del -p /s *.local
+del -p /s *.identcache

@@ -8,29 +8,140 @@
   resources were bound to the produced executable.
 */
 
-#define RTLConsts_SRegGetDataFailed 65408
-#define RTLConsts_SRegSetDataFailed 65409
-#define RTLConsts_SSeekNotImplemented 65410
-#define RTLConsts_SSortedListError 65411
-#define RTLConsts_SWriteError 65412
-#define RTLConsts_SThreadCreateError 65413
-#define RTLConsts_SThreadError 65414
+#define IdResourceStrings_RSOSSLStatusString 65296
+#define IdResourceStrings_RSUnevenSizeInDecodeStream 65297
+#define IdResourceStrings_RSUnevenSizeInEncodeStream 65298
+#define IdResourceStrings_RSMFDIvalidObjectType 65299
+#define IdResourceStrings_RSURINoProto 65300
+#define IdResourceStrings_RSURINoHost 65301
+#define IdResourceStrings_RSSocksServerHostUnreachableError 65312
+#define IdResourceStrings_RSSocksServerConnectionRefusedError 65313
+#define IdResourceStrings_RSSocksServerTTLExpiredError 65314
+#define IdResourceStrings_RSSocksServerCommandError 65315
+#define IdResourceStrings_RSSocksServerAddressError 65316
+#define IdResourceStrings_RSSSLAcceptError 65317
+#define IdResourceStrings_RSSSLConnectError 65318
+#define IdResourceStrings_RSSSLSettingCipherError 65319
+#define IdResourceStrings_RSSSLCreatingContextError 65320
+#define IdResourceStrings_RSSSLLoadingRootCertError 65321
+#define IdResourceStrings_RSSSLLoadingCertError 65322
+#define IdResourceStrings_RSSSLLoadingKeyError 65323
+#define IdResourceStrings_RSSSLGetMethodError 65324
+#define IdResourceStrings_RSSSLDataBindingError 65325
+#define IdResourceStrings_RSOSSLModeNotSet 65326
+#define IdResourceStrings_RSOSSLCouldNotLoadSSLLibrary 65327
+#define IdResourceStrings_RSStackELOOP 65328
+#define IdResourceStrings_RSStackENAMETOOLONG 65329
+#define IdResourceStrings_RSStackEHOSTDOWN 65330
+#define IdResourceStrings_RSStackEHOSTUNREACH 65331
+#define IdResourceStrings_RSStackENOTEMPTY 65332
+#define IdResourceStrings_RSStackHOST_NOT_FOUND 65333
+#define IdResourceStrings_RSSocksRequestFailed 65334
+#define IdResourceStrings_RSSocksRequestServerFailed 65335
+#define IdResourceStrings_RSSocksRequestIdentFailed 65336
+#define IdResourceStrings_RSSocksUnknownError 65337
+#define IdResourceStrings_RSSocksServerRespondError 65338
+#define IdResourceStrings_RSSocksAuthMethodError 65339
+#define IdResourceStrings_RSSocksAuthError 65340
+#define IdResourceStrings_RSSocksServerGeneralError 65341
+#define IdResourceStrings_RSSocksServerPermissionError 65342
+#define IdResourceStrings_RSSocksServerNetUnreachableError 65343
+#define IdResourceStrings_RSStackEPFNOSUPPORT 65344
+#define IdResourceStrings_RSStackEAFNOSUPPORT 65345
+#define IdResourceStrings_RSStackEADDRINUSE 65346
+#define IdResourceStrings_RSStackEADDRNOTAVAIL 65347
+#define IdResourceStrings_RSStackENETDOWN 65348
+#define IdResourceStrings_RSStackENETUNREACH 65349
+#define IdResourceStrings_RSStackENETRESET 65350
+#define IdResourceStrings_RSStackECONNABORTED 65351
+#define IdResourceStrings_RSStackECONNRESET 65352
+#define IdResourceStrings_RSStackENOBUFS 65353
+#define IdResourceStrings_RSStackEISCONN 65354
+#define IdResourceStrings_RSStackENOTCONN 65355
+#define IdResourceStrings_RSStackESHUTDOWN 65356
+#define IdResourceStrings_RSStackETOOMANYREFS 65357
+#define IdResourceStrings_RSStackETIMEDOUT 65358
+#define IdResourceStrings_RSStackECONNREFUSED 65359
+#define IdResourceStrings_RSStackEBADF 65360
+#define IdResourceStrings_RSStackEACCES 65361
+#define IdResourceStrings_RSStackEFAULT 65362
+#define IdResourceStrings_RSStackEINVAL 65363
+#define IdResourceStrings_RSStackEMFILE 65364
+#define IdResourceStrings_RSStackEWOULDBLOCK 65365
+#define IdResourceStrings_RSStackEINPROGRESS 65366
+#define IdResourceStrings_RSStackEALREADY 65367
+#define IdResourceStrings_RSStackENOTSOCK 65368
+#define IdResourceStrings_RSStackEDESTADDRREQ 65369
+#define IdResourceStrings_RSStackEMSGSIZE 65370
+#define IdResourceStrings_RSStackEPROTOTYPE 65371
+#define IdResourceStrings_RSStackENOPROTOOPT 65372
+#define IdResourceStrings_RSStackEPROTONOSUPPORT 65373
+#define IdResourceStrings_RSStackESOCKTNOSUPPORT 65374
+#define IdResourceStrings_RSStackEOPNOTSUPP 65375
+#define IdResourceStrings_RSReadTimeout 65376
+#define IdResourceStrings_RSReadLnMaxLineLengthExceeded 65377
+#define IdResourceStrings_RSWS2CallError 65378
+#define IdResourceStrings_RSWS2LoadError 65379
+#define IdResourceStrings_RSStatusResolving 65380
+#define IdResourceStrings_RSStatusConnecting 65381
+#define IdResourceStrings_RSStatusConnected 65382
+#define IdResourceStrings_RSStatusDisconnecting 65383
+#define IdResourceStrings_RSStatusDisconnected 65384
+#define IdResourceStrings_RSStatusText 65385
+#define IdResourceStrings_RSConnectTimeout 65386
+#define IdResourceStrings_RSHTTPChunkStarted 65387
+#define IdResourceStrings_RSHTTPAuthAlreadyRegistered 65388
+#define IdResourceStrings_RSInvalidServiceName 65389
+#define IdResourceStrings_RSStackError 65390
+#define IdResourceStrings_RSStackEINTR 65391
+#define RTLConsts_SThreadError 65392
+#define IdResourceStrings_RSAlreadyConnected 65393
+#define IdResourceStrings_RSCannotAllocateSocket 65394
+#define IdResourceStrings_RSConnectionClosedGracefully 65395
+#define IdResourceStrings_RSCouldNotBindSocket 65396
+#define IdResourceStrings_RSFailedTimeZoneInfo 65397
+#define IdResourceStrings_RSNotEnoughDataInBuffer 65398
+#define IdResourceStrings_RSWinsockInitializationError 65399
+#define IdResourceStrings_RSSetSizeExceeded 65400
+#define IdResourceStrings_RSFileNotFound 65401
+#define IdResourceStrings_RSOnlyOneAntiFreeze 65402
+#define IdResourceStrings_RSIOHandlerPropInvalid 65403
+#define IdResourceStrings_RSNotConnected 65404
+#define IdResourceStrings_RSIdNoDataToRead 65405
+#define IdResourceStrings_RSCanNotBindRange 65406
+#define IdResourceStrings_RSInvalidPortRange 65407
+#define RTLConsts_SInvalidRegType 65408
+#define RTLConsts_SListCapacityError 65409
+#define RTLConsts_SListCountError 65410
+#define RTLConsts_SListIndexError 65411
+#define RTLConsts_SMemoryStreamError 65412
+#define RTLConsts_SPropertyException 65413
+#define RTLConsts_SReadError 65414
+#define RTLConsts_SReadOnlyProperty 65415
+#define RTLConsts_SRegCreateFailed 65416
+#define RTLConsts_SRegGetDataFailed 65417
+#define RTLConsts_SRegSetDataFailed 65418
+#define RTLConsts_SSeekNotImplemented 65419
+#define RTLConsts_SSortedListError 65420
+#define RTLConsts_SUnknownProperty 65421
+#define RTLConsts_SWriteError 65422
+#define RTLConsts_SThreadCreateError 65423
 #define SysConst_SLongDayNameSat 65424
 #define SysConst_SCannotCreateDir 65425
-#define RTLConsts_SAssignError 65426
-#define RTLConsts_SCheckSynchronizeError 65427
-#define RTLConsts_SDuplicateString 65428
-#define RTLConsts_SFCreateErrorEx 65429
-#define RTLConsts_SFOpenErrorEx 65430
-#define RTLConsts_SIniFileWriteError 65431
-#define RTLConsts_SInvalidPropertyValue 65432
-#define RTLConsts_SInvalidRegType 65433
-#define RTLConsts_SListCapacityError 65434
-#define RTLConsts_SListCountError 65435
-#define RTLConsts_SListIndexError 65436
-#define RTLConsts_SMemoryStreamError 65437
-#define RTLConsts_SReadError 65438
-#define RTLConsts_SRegCreateFailed 65439
+#define RTLConsts_SAncestorNotFound 65426
+#define RTLConsts_SAssignError 65427
+#define RTLConsts_SCheckSynchronizeError 65428
+#define RTLConsts_SClassNotFound 65429
+#define RTLConsts_SDuplicateItem 65430
+#define RTLConsts_SDuplicateName 65431
+#define RTLConsts_SDuplicateString 65432
+#define RTLConsts_SFCreateErrorEx 65433
+#define RTLConsts_SFOpenErrorEx 65434
+#define RTLConsts_SIniFileWriteError 65435
+#define RTLConsts_SInvalidName 65436
+#define RTLConsts_SInvalidProperty 65437
+#define RTLConsts_SInvalidPropertyPath 65438
+#define RTLConsts_SInvalidPropertyValue 65439
 #define SysConst_SLongMonthNameOct 65440
 #define SysConst_SLongMonthNameNov 65441
 #define SysConst_SLongMonthNameDec 65442
@@ -129,29 +240,140 @@
 #define SysConst_SInvalidInput 65535
 STRINGTABLE
 BEGIN
-	RTLConsts_SRegGetDataFailed,	"Failed to get data for '%s'"
-	RTLConsts_SRegSetDataFailed,	"Failed to set data for '%s'"
-	RTLConsts_SSeekNotImplemented,	"%s.Seek not implemented"
-	RTLConsts_SSortedListError,	"Operation not allowed on sorted list"
-	RTLConsts_SWriteError,	"Stream write error"
-	RTLConsts_SThreadCreateError,	"Thread creation error: %s"
+	IdResourceStrings_RSOSSLStatusString,	"SSL status: \"%s\""
+	IdResourceStrings_RSUnevenSizeInDecodeStream,	"Uneven size in DecodeToStream."
+	IdResourceStrings_RSUnevenSizeInEncodeStream,	"Uneven size in Encode."
+	IdResourceStrings_RSMFDIvalidObjectType,	"Unsupported object type. You can assign only one of the following types or thir descendants: TStrings, TStream."
+	IdResourceStrings_RSURINoProto,	"Protocol field is empty"
+	IdResourceStrings_RSURINoHost,	"Host field is empty"
+	IdResourceStrings_RSSocksServerHostUnreachableError,	"Host unreachable."
+	IdResourceStrings_RSSocksServerConnectionRefusedError,	"Connection refused."
+	IdResourceStrings_RSSocksServerTTLExpiredError,	"TTL expired."
+	IdResourceStrings_RSSocksServerCommandError,	"Command not supported."
+	IdResourceStrings_RSSocksServerAddressError,	"Address type not supported."
+	IdResourceStrings_RSSSLAcceptError,	"Error accepting connection with SSL."
+	IdResourceStrings_RSSSLConnectError,	"Error connecting with SSL."
+	IdResourceStrings_RSSSLSettingCipherError,	"SetCipher failed."
+	IdResourceStrings_RSSSLCreatingContextError,	"Error creating SSL context."
+	IdResourceStrings_RSSSLLoadingRootCertError,	"Could not load root certificate."
+	IdResourceStrings_RSSSLLoadingCertError,	"Could not load certificate."
+	IdResourceStrings_RSSSLLoadingKeyError,	"Could not load key, check password."
+	IdResourceStrings_RSSSLGetMethodError,	"Error geting SSL method."
+	IdResourceStrings_RSSSLDataBindingError,	"Error binding data to SSL socket."
+	IdResourceStrings_RSOSSLModeNotSet,	"Mode has not been set."
+	IdResourceStrings_RSOSSLCouldNotLoadSSLLibrary,	"Could not load SSL library."
+	IdResourceStrings_RSStackELOOP,	"Too many levels of symbolic links."
+	IdResourceStrings_RSStackENAMETOOLONG,	"File name too long."
+	IdResourceStrings_RSStackEHOSTDOWN,	"Host is down."
+	IdResourceStrings_RSStackEHOSTUNREACH,	"No route to host."
+	IdResourceStrings_RSStackENOTEMPTY,	"Directory not empty"
+	IdResourceStrings_RSStackHOST_NOT_FOUND,	"Host not found."
+	IdResourceStrings_RSSocksRequestFailed,	"Request rejected or failed."
+	IdResourceStrings_RSSocksRequestServerFailed,	"Request rejected because SOCKS server cannot connect."
+	IdResourceStrings_RSSocksRequestIdentFailed,	"Request rejected because the client program and identd report different user-ids."
+	IdResourceStrings_RSSocksUnknownError,	"Unknown socks error."
+	IdResourceStrings_RSSocksServerRespondError,	"Socks server did not respond."
+	IdResourceStrings_RSSocksAuthMethodError,	"Invalid socks authentication method."
+	IdResourceStrings_RSSocksAuthError,	"Authentication error to socks server."
+	IdResourceStrings_RSSocksServerGeneralError,	"General SOCKS server failure."
+	IdResourceStrings_RSSocksServerPermissionError,	"Connection not allowed by ruleset."
+	IdResourceStrings_RSSocksServerNetUnreachableError,	"Network unreachable."
+	IdResourceStrings_RSStackEPFNOSUPPORT,	"Protocol family not supported."
+	IdResourceStrings_RSStackEAFNOSUPPORT,	"Address family not supported by protocol family."
+	IdResourceStrings_RSStackEADDRINUSE,	"Address already in use."
+	IdResourceStrings_RSStackEADDRNOTAVAIL,	"Cannot assign requested address."
+	IdResourceStrings_RSStackENETDOWN,	"Network is down."
+	IdResourceStrings_RSStackENETUNREACH,	"Network is unreachable."
+	IdResourceStrings_RSStackENETRESET,	"Net dropped connection or reset."
+	IdResourceStrings_RSStackECONNABORTED,	"Software caused connection abort."
+	IdResourceStrings_RSStackECONNRESET,	"Connection reset by peer."
+	IdResourceStrings_RSStackENOBUFS,	"No buffer space available."
+	IdResourceStrings_RSStackEISCONN,	"Socket is already connected."
+	IdResourceStrings_RSStackENOTCONN,	"Socket is not connected."
+	IdResourceStrings_RSStackESHUTDOWN,	"Cannot send or receive after socket is closed."
+	IdResourceStrings_RSStackETOOMANYREFS,	"Too many references, cannot splice."
+	IdResourceStrings_RSStackETIMEDOUT,	"Connection timed out."
+	IdResourceStrings_RSStackECONNREFUSED,	"Connection refused."
+	IdResourceStrings_RSStackEBADF,	"Bad file number."
+	IdResourceStrings_RSStackEACCES,	"Access denied."
+	IdResourceStrings_RSStackEFAULT,	"Bad address."
+	IdResourceStrings_RSStackEINVAL,	"Invalid argument."
+	IdResourceStrings_RSStackEMFILE,	"Too many open files."
+	IdResourceStrings_RSStackEWOULDBLOCK,	"Operation would block. "
+	IdResourceStrings_RSStackEINPROGRESS,	"Operation now in progress."
+	IdResourceStrings_RSStackEALREADY,	"Operation already in progress."
+	IdResourceStrings_RSStackENOTSOCK,	"Socket operation on non-socket."
+	IdResourceStrings_RSStackEDESTADDRREQ,	"Destination address required."
+	IdResourceStrings_RSStackEMSGSIZE,	"Message too long."
+	IdResourceStrings_RSStackEPROTOTYPE,	"Protocol wrong type for socket."
+	IdResourceStrings_RSStackENOPROTOOPT,	"Bad protocol option."
+	IdResourceStrings_RSStackEPROTONOSUPPORT,	"Protocol not supported."
+	IdResourceStrings_RSStackESOCKTNOSUPPORT,	"Socket type not supported."
+	IdResourceStrings_RSStackEOPNOTSUPP,	"Operation not supported on socket."
+	IdResourceStrings_RSReadTimeout,	"Read Timeout"
+	IdResourceStrings_RSReadLnMaxLineLengthExceeded,	"Max line length exceeded."
+	IdResourceStrings_RSWS2CallError,	"Error on call Winsock2 library function %s"
+	IdResourceStrings_RSWS2LoadError,	"Error on loading Winsock2 library (%s)"
+	IdResourceStrings_RSStatusResolving,	"Resolving hostname %s."
+	IdResourceStrings_RSStatusConnecting,	"Connecting to %s."
+	IdResourceStrings_RSStatusConnected,	"Connected."
+	IdResourceStrings_RSStatusDisconnecting,	"Disconnecting."
+	IdResourceStrings_RSStatusDisconnected,	"Disconnected."
+	IdResourceStrings_RSStatusText,	"%s"
+	IdResourceStrings_RSConnectTimeout,	"Connect timed out."
+	IdResourceStrings_RSHTTPChunkStarted,	"Chunk Started"
+	IdResourceStrings_RSHTTPAuthAlreadyRegistered,	"This authentication method is already registered with class name %s."
+	IdResourceStrings_RSInvalidServiceName,	"%s is not a valid service."
+	IdResourceStrings_RSStackError,	"Socket Error # %d\r\n%s"
+	IdResourceStrings_RSStackEINTR,	"Interrupted system call."
 	RTLConsts_SThreadError,	"Thread Error: %s (%d)"
-	SysConst_SLongDayNameSat,	"Saturday"
-	SysConst_SCannotCreateDir,	"Unable to create directory"
-	RTLConsts_SAssignError,	"Cannot assign a %s to a %s"
-	RTLConsts_SCheckSynchronizeError,	"CheckSynchronize called from thread $%x, which is NOT the main thread"
-	RTLConsts_SDuplicateString,	"String list does not allow duplicates"
-	RTLConsts_SFCreateErrorEx,	"Cannot create file \"%s\". %s"
-	RTLConsts_SFOpenErrorEx,	"Cannot open file \"%s\". %s"
-	RTLConsts_SIniFileWriteError,	"Unable to write to %s"
-	RTLConsts_SInvalidPropertyValue,	"Invalid property value"
+	IdResourceStrings_RSAlreadyConnected,	"Already connected."
+	IdResourceStrings_RSCannotAllocateSocket,	"Cannot allocate socket."
+	IdResourceStrings_RSConnectionClosedGracefully,	"Connection Closed Gracefully."
+	IdResourceStrings_RSCouldNotBindSocket,	"Could not bind socket. Address and port are already in use."
+	IdResourceStrings_RSFailedTimeZoneInfo,	"Failed attempting to retrieve time zone information."
+	IdResourceStrings_RSNotEnoughDataInBuffer,	"Not enough data in buffer."
+	IdResourceStrings_RSWinsockInitializationError,	"Winsock Initialization Error."
+	IdResourceStrings_RSSetSizeExceeded,	"Set Size Exceeded."
+	IdResourceStrings_RSFileNotFound,	"File \"%s\" not found"
+	IdResourceStrings_RSOnlyOneAntiFreeze,	"Only one TIdAntiFreeze can exist per application."
+	IdResourceStrings_RSIOHandlerPropInvalid,	"IOHandler value is not valid"
+	IdResourceStrings_RSNotConnected,	"Not Connected"
+	IdResourceStrings_RSIdNoDataToRead,	"No data to read."
+	IdResourceStrings_RSCanNotBindRange,	"Can not bind in port range (%d - %d)"
+	IdResourceStrings_RSInvalidPortRange,	"Invalid Port Range (%d - %d)"
 	RTLConsts_SInvalidRegType,	"Invalid data type for '%s'"
 	RTLConsts_SListCapacityError,	"List capacity out of bounds (%d)"
 	RTLConsts_SListCountError,	"List count out of bounds (%d)"
 	RTLConsts_SListIndexError,	"List index out of bounds (%d)"
 	RTLConsts_SMemoryStreamError,	"Out of memory while expanding memory stream"
+	RTLConsts_SPropertyException,	"Error reading %s%s%s: %s"
 	RTLConsts_SReadError,	"Stream read error"
+	RTLConsts_SReadOnlyProperty,	"Property is read-only"
 	RTLConsts_SRegCreateFailed,	"Failed to create key %s"
+	RTLConsts_SRegGetDataFailed,	"Failed to get data for '%s'"
+	RTLConsts_SRegSetDataFailed,	"Failed to set data for '%s'"
+	RTLConsts_SSeekNotImplemented,	"%s.Seek not implemented"
+	RTLConsts_SSortedListError,	"Operation not allowed on sorted list"
+	RTLConsts_SUnknownProperty,	"Property %s does not exist"
+	RTLConsts_SWriteError,	"Stream write error"
+	RTLConsts_SThreadCreateError,	"Thread creation error: %s"
+	SysConst_SLongDayNameSat,	"Saturday"
+	SysConst_SCannotCreateDir,	"Unable to create directory"
+	RTLConsts_SAncestorNotFound,	"Ancestor for '%s' not found"
+	RTLConsts_SAssignError,	"Cannot assign a %s to a %s"
+	RTLConsts_SCheckSynchronizeError,	"CheckSynchronize called from thread $%x, which is NOT the main thread"
+	RTLConsts_SClassNotFound,	"Class %s not found"
+	RTLConsts_SDuplicateItem,	"List does not allow duplicates ($0%x)"
+	RTLConsts_SDuplicateName,	"A component named %s already exists"
+	RTLConsts_SDuplicateString,	"String list does not allow duplicates"
+	RTLConsts_SFCreateErrorEx,	"Cannot create file \"%s\". %s"
+	RTLConsts_SFOpenErrorEx,	"Cannot open file \"%s\". %s"
+	RTLConsts_SIniFileWriteError,	"Unable to write to %s"
+	RTLConsts_SInvalidName,	"''%s'' is not a valid component name"
+	RTLConsts_SInvalidProperty,	"Invalid property value"
+	RTLConsts_SInvalidPropertyPath,	"Invalid property path"
+	RTLConsts_SInvalidPropertyValue,	"Invalid property value"
 	SysConst_SLongMonthNameOct,	"October"
 	SysConst_SLongMonthNameNov,	"November"
 	SysConst_SLongMonthNameDec,	"December"

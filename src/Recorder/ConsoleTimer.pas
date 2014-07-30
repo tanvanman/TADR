@@ -12,6 +12,7 @@ type
     FTimerEnabledFlag: TSimpleEvent;
     FTimerProc: TNotifyEvent; // method to call
     FInterval: integer;
+    FFirstTick : Boolean;
     procedure SetEnabled(doEnable: boolean);
     function GetEnabled: boolean;
     procedure SetInterval(interval: integer);
@@ -21,6 +22,8 @@ type
     procedure Execute; override;
     property Enabled : boolean read GetEnabled write SetEnabled;
     property Interval: integer read FInterval write SetInterval;
+    property FirstTick: Boolean read FFirstTick write FFirstTick;
+
     // Note: OnTimerEvent is executed in TConsoleTimer thread
     property OnTimerEvent: TNotifyEvent read FTimerProc write FTimerProc;
   end;

@@ -11,199 +11,125 @@ File_8=SourceModule,'C:\Documents and Settings\Marcus\Desktop\TA Development Dir
 File_9=SourceModule,'C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\packet.pas',0,1,453,4,456,0,0
 
 [Modules]
-Module0=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\dplay.pas
-Module1=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\Unitsync.pas
-Module2=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\unitid.pas
-Module3=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\tasv.pas
-Module4=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\selip.pas
-Module5=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\savefile.pas
-Module6=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\Replay.pas
-Module7=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\main.pas
-Module8=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\lobby.pas
-Module9=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\LOADING.PAS
-Module10=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\dplobby.pas
-Count=11
+Module0=F:\TA\TADR\SVN\trunk\src\Server\main.pas
+Module1=F:\TA\TADR\SVN\trunk\src\Server\unitid.pas
+Module2=F:\TA\TADR\SVN\trunk\src\Server\tasv.pas
+Module3=F:\TA\TADR\SVN\trunk\src\Server\savefile.pas
+Module4=F:\TA\TADR\SVN\trunk\src\Server\Server.dpr
+Count=5
 EditWindowCount=1
 
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\dplay.pas]
-ModuleType=SourceModule
-FormState=0
-FormOnTop=0
-
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\Unitsync.pas]
-ModuleType=SourceModule
-FormState=0
-FormOnTop=0
-
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\unitid.pas]
-ModuleType=SourceModule
-FormState=0
-FormOnTop=0
-
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\tasv.pas]
-ModuleType=SourceModule
-FormState=0
-FormOnTop=0
-
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\selip.pas]
+[F:\TA\TADR\SVN\trunk\src\Server\main.pas]
 ModuleType=SourceModule
 FormState=1
 FormOnTop=1
 
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\savefile.pas]
+[F:\TA\TADR\SVN\trunk\src\Server\unitid.pas]
 ModuleType=SourceModule
 FormState=0
 FormOnTop=0
 
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\Replay.pas]
+[F:\TA\TADR\SVN\trunk\src\Server\tasv.pas]
 ModuleType=SourceModule
 FormState=0
 FormOnTop=0
 
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\main.pas]
-ModuleType=SourceModule
-FormState=1
-FormOnTop=1
-
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\lobby.pas]
+[F:\TA\TADR\SVN\trunk\src\Server\savefile.pas]
 ModuleType=SourceModule
 FormState=0
 FormOnTop=0
 
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\LOADING.PAS]
+[F:\TA\TADR\SVN\trunk\src\Server\Server.dpr]
 ModuleType=SourceModule
 FormState=0
 FormOnTop=0
 
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\dplobby.pas]
-ModuleType=SourceModule
-FormState=0
-FormOnTop=0
-
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Recorder\ProjectGroup1.bpg]
-FormState=0
-FormOnTop=0
-
-[C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\Server.dpr]
+[C:\Program Files (x86)\Borland\Delphi7\Projects\ProjectGroup1.bpg]
 FormState=0
 FormOnTop=0
 
 [EditWindow0]
-ViewCount=11
-CurrentView=7
+ViewCount=5
+CurrentView=3
 View0=0
 View1=1
 View2=2
 View3=3
 View4=4
-View5=5
-View6=6
-View7=7
-View8=8
-View9=9
-View10=10
 CodeExplorer=CodeExplorer@EditWindow0
 MessageView=MessageView@EditWindow0
 Create=1
 Visible=1
-State=2
-Left=96
-Top=83
-Width=857
-Height=651
+State=0
+Left=1126
+Top=130
+Width=779
+Height=871
 MaxLeft=-4
-MaxTop=100
-MaxWidth=1032
-MaxHeight=672
-ClientWidth=1024
-ClientHeight=645
-LeftPanelSize=0
-LeftPanelClients=CodeExplorer@EditWindow0
-LeftPanelData=00000400010000000C000000436F64654578706C6F7265720000000000000000000000000000000000FFFFFFFF
+MaxTop=75
+ClientWidth=771
+ClientHeight=844
+LeftPanelSize=15
 RightPanelSize=0
-BottomPanelSize=152
-BottomPanelClients=DockSite0
-BottomPanelData=0000040000000000000000000000000000000000000000000001000000000000000009000000446F636B5369746530FFFFFFFF
+BottomPanelSize=189
+BottomPanelClients=MessageView@EditWindow0
+BottomPanelData=0000040000000000330200000000000000BA000000000000000100000000330200000B0000004D65737361676556696577FFFFFFFF
 
 [View0]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\main.pas
-CursorX=1
-CursorY=1
+Module=F:\TA\TADR\SVN\trunk\src\Server\Server.dpr
+CursorX=52
+CursorY=24
 TopLine=1
 LeftCol=1
 
 [View1]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\Replay.pas
-CursorX=1
-CursorY=1
+Module=F:\TA\TADR\SVN\trunk\src\Server\savefile.pas
+CursorX=52
+CursorY=17
 TopLine=1
 LeftCol=1
 
 [View2]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\savefile.pas
-CursorX=1
-CursorY=1
-TopLine=1
+Module=F:\TA\TADR\SVN\trunk\src\Server\unitid.pas
+CursorX=20
+CursorY=136
+TopLine=122
 LeftCol=1
 
 [View3]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\selip.pas
-CursorX=1
-CursorY=1
+Module=F:\TA\TADR\SVN\trunk\src\Server\main.pas
+CursorX=24
+CursorY=23
 TopLine=1
 LeftCol=1
 
 [View4]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\tasv.pas
-CursorX=1
-CursorY=1
-TopLine=1
-LeftCol=1
-
-[View5]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\unitid.pas
-CursorX=1
-CursorY=1
-TopLine=1
-LeftCol=1
-
-[View6]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\Unitsync.pas
-CursorX=1
-CursorY=1
-TopLine=1
-LeftCol=1
-
-[View7]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\dplay.pas
-CursorX=67
-CursorY=12
-TopLine=1
-LeftCol=1
-
-[View8]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\dplobby.pas
-CursorX=1
-CursorY=1
-TopLine=1
-LeftCol=1
-
-[View9]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\LOADING.PAS
-CursorX=1
-CursorY=1
-TopLine=1
-LeftCol=1
-
-[View10]
-Module=C:\Documents and Settings\Marcus\Desktop\TA Development Dir\ta demo & apps\tademo99b3-src\Server\lobby.pas
-CursorX=1
-CursorY=1
-TopLine=1
+Module=F:\TA\TADR\SVN\trunk\src\Server\tasv.pas
+CursorX=59
+CursorY=1565
+TopLine=1559
 LeftCol=1
 
 [Watches]
 Count=0
+
+[WatchWindow]
+WatchColumnWidth=100
+WatchShowColumnHeaders=1
+Create=1
+Visible=0
+State=0
+Left=8
+Top=887
+Width=1908
+Height=181
+MaxLeft=-1
+MaxTop=-1
+ClientWidth=1900
+ClientHeight=157
+TBDockHeight=157
+LRDockWidth=426
+Dockable=1
 
 [Breakpoints]
 Count=0
@@ -214,16 +140,14 @@ Count=0
 [Main Window]
 Create=1
 Visible=1
-State=2
+State=0
 Left=0
-Top=91
-Width=1024
+Top=0
+Width=1920
 Height=105
 MaxLeft=-1
 MaxTop=-1
-MaxWidth=1032
-MaxHeight=105
-ClientWidth=1024
+ClientWidth=1912
 ClientHeight=78
 
 [ProjectManager]
@@ -246,14 +170,14 @@ Dockable=1
 Create=1
 Visible=0
 State=0
-Left=245
-Top=207
-Width=533
-Height=353
+Left=85
+Top=101
+Width=853
+Height=565
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=525
-ClientHeight=326
+ClientWidth=845
+ClientHeight=538
 DumpPane=79
 DisassemblyPane=187
 RegisterPane=231
@@ -264,7 +188,7 @@ Create=1
 Visible=0
 State=0
 Left=200
-Top=107
+Top=81
 Width=156
 Height=82
 MaxLeft=-1
@@ -274,54 +198,37 @@ ClientHeight=60
 
 [PropertyInspector]
 Create=1
-Visible=0
-State=0
-Left=0
-Top=98
-Width=187
-Height=494
-MaxLeft=-1
-MaxTop=-1
-ClientWidth=177
-ClientHeight=468
-TBDockHeight=494
-LRDockWidth=187
-Dockable=1
-SplitPos=94
-ArrangeBy=Name
-SelectedItem=Caption
-ExpandedItems=BorderIcons
-HiddenCategories=Legacy
-ShowStatusBar=1
-
-[WatchWindow]
-Create=1
 Visible=1
 State=0
 Left=0
-Top=0
-Width=1004
-Height=123
+Top=459
+Width=190
+Height=573
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=1004
-ClientHeight=123
-TBDockHeight=149
-LRDockWidth=421
+ClientWidth=182
+ClientHeight=549
+TBDockHeight=573
+LRDockWidth=190
 Dockable=1
+SplitPos=85
+ArrangeBy=Name
+SelectedItem=Glyph
+ExpandedItems=
+HiddenCategories=
 
 [BreakpointWindow]
 Create=1
-Visible=1
+Visible=0
 State=0
-Left=0
-Top=0
-Width=1004
-Height=123
+Left=8
+Top=887
+Width=1908
+Height=181
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=1004
-ClientHeight=123
+ClientWidth=1900
+ClientHeight=157
 TBDockHeight=197
 LRDockWidth=737
 Dockable=1
@@ -334,32 +241,32 @@ Column5Width=75
 
 [CallStackWindow]
 Create=1
-Visible=1
+Visible=0
 State=0
-Left=0
-Top=0
-Width=1004
-Height=123
+Left=8
+Top=887
+Width=1908
+Height=181
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=1004
-ClientHeight=123
+ClientWidth=1900
+ClientHeight=157
 TBDockHeight=161
 LRDockWidth=294
 Dockable=1
 
 [ThreadStatusWindow]
 Create=1
-Visible=1
+Visible=0
 State=0
-Left=0
-Top=0
-Width=1004
-Height=123
+Left=8
+Top=887
+Width=1908
+Height=181
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=1004
-ClientHeight=123
+ClientWidth=1900
+ClientHeight=157
 TBDockHeight=152
 LRDockWidth=624
 Dockable=1
@@ -368,114 +275,86 @@ Column1Width=100
 Column2Width=115
 Column3Width=250
 
-[LocalVarsWindow]
+[ObjectTree]
 Create=1
 Visible=1
 State=0
 Left=0
-Top=0
-Width=1004
-Height=123
+Top=106
+Width=190
+Height=351
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=1004
-ClientHeight=123
-TBDockHeight=159
-LRDockWidth=421
+ClientWidth=182
+ClientHeight=327
+TBDockHeight=378
+LRDockWidth=190
 Dockable=1
-
-[ToDo List]
-Create=1
-Visible=1
-State=0
-Left=0
-Top=0
-Width=1004
-Height=123
-MaxLeft=-1
-MaxTop=-1
-ClientWidth=1004
-ClientHeight=123
-TBDockHeight=250
-LRDockWidth=470
-Dockable=1
-Column0Width=200
-Column1Width=30
-Column2Width=100
-Column3Width=70
-Column4Width=70
-SortOrder=4
-ShowHints=1
-ShowChecked=1
 
 [fmGrepResults]
 Create=1
 Visible=0
 State=0
-Left=256
-Top=169
-Width=511
-Height=430
+Left=686
+Top=228
+Width=548
+Height=572
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=503
-ClientHeight=406
-TBDockHeight=430
-LRDockWidth=511
+ClientWidth=540
+ClientHeight=548
+TBDockHeight=572
+LRDockWidth=548
+Dockable=1
+
+[fmMacroLibrary]
+Create=1
+Visible=0
+State=0
+Left=790
+Top=313
+Width=339
+Height=401
+MaxLeft=-1
+MaxTop=-1
+ClientWidth=331
+ClientHeight=377
+TBDockHeight=401
+LRDockWidth=339
 Dockable=1
 
 [CodeExplorer@EditWindow0]
 Create=1
-Visible=0
+Visible=1
 State=0
-Left=0
-Top=12
+Left=1052
+Top=173
 Width=140
-Height=553
+Height=305
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=140
-ClientHeight=553
+ClientWidth=132
+ClientHeight=281
 TBDockHeight=305
 LRDockWidth=140
 Dockable=1
 
 [MessageView@EditWindow0]
 Create=1
-Visible=0
-State=0
-Left=0
-Top=0
-Width=1004
-Height=123
-MaxLeft=-1
-MaxTop=-1
-ClientWidth=1004
-ClientHeight=123
-TBDockHeight=123
-LRDockWidth=443
-Dockable=1
-
-[DockHosts]
-DockHostCount=1
-
-[DockSite0]
-DockSiteType=1
-Create=1
 Visible=1
 State=0
 Left=12
 Top=0
-Width=1012
-Height=152
+Width=759
+Height=189
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=1012
-ClientHeight=152
-TBDockHeight=152
-LRDockWidth=283
+ClientWidth=759
+ClientHeight=189
+TBDockHeight=189
+LRDockWidth=443
 Dockable=1
-TabPosition=0
-ActiveTab=Thread Status
-TabDockClients=MessageView@EditWindow0,ThreadStatusWindow,CallStackWindow,WatchWindow,LocalVarsWindow,BreakpointWindow,ToDo List
+
+[DockHosts]
+DockHostCount=0
 

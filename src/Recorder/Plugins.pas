@@ -13,29 +13,32 @@ uses
   PluginEngine,
   ErrorLog_ExtraData,
   Thread_marshaller,
+  IniOptions,
+  RegPathFix,
   InputHook,
   SpeedHack,
   PauseLock,
   UnitLimit,
+  LOS_extensions,
   MultiAILimit,
   {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
-  IniOptions,
-  Colors,
-  RegPathFix,
+  WeaponsExtend,
+  UnitsExtend,
   {$IFDEF ExtraPlugins}
   Builders,
-  AimPrimary,
-  //StartBuilding,
+  ScriptCallsExtend,
   ResurrectPatrol,
-  ExplodeBitmaps,
-  WeaponsExtend,
+  UnitActions,
   WeaponAimNTrajectory,
-  KillDamage,
+  //KillDamage,
+  ExplodeBitmaps,
+  TAExceptionsLog,
   {$ENDIF}
+  Colors,
   ClockPosition,
-  ExtraUnitBars,
-  COB_extensions,
-  LOS_extensions;
+  GUIEnhancements,
+  BattlerRoomMemFix,
+  COB_extensions;
 
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
 begin
@@ -46,35 +49,37 @@ if OnMainRun then
   RegisterPlugin( Thread_marshaller.GetPlugin() );
 
   RegisterPlugin( IniOptions.GetPlugin() );
-  RegisterPlugin( RegPathFix.GetPlugin() );
   RegisterPlugin( InputHook.GetPlugin() );
   RegisterPlugin( SpeedHack.GetPlugin() );
   RegisterPlugin( PauseLock.GetPlugin() );
   RegisterPlugin( UnitLimit.GetPlugin() );
 
   RegisterPlugin( LOS_extensions.GetPlugin() );
-  RegisterPlugin( COB_extensions.GetPlugin() );
   RegisterPlugin( MultiAILimit.GetPlugin() );
   {$IFDEF KeyboardHookPlugin}RegisterPlugin( KeyboardHook.GetPlugin() );{$ENDIF}
   //RegisterPlugin( BattleRoomScroll.GetPlugin() );
-  if IniSettings.Plugin_Colors then
-    RegisterPlugin( Colors.GetPlugin() );
-  RegisterPlugin( ClockPosition.GetPlugin() );
-  RegisterPlugin( ExtraUnitBars.GetPlugin() );
 
+  RegisterPlugin( WeaponsExtend.GetPlugin() );
+  RegisterPlugin( UnitsExtend.GetPlugin() );
+  RegisterPlugin( RegPathFix.GetPlugin() );
   {$IFDEF ExtraPlugins}
   if IniSettings.Plugin_Builders then
     RegisterPlugin( Builders.GetPlugin() );
-  if IniSettings.Plugin_AimScriptExt then
-    RegisterPlugin( AimPrimary.GetPlugin() );
-  //RegisterPlugin( StartBuilding.GetPlugin() );
+  RegisterPlugin( ScriptCallsExtend.GetPlugin() );
   RegisterPlugin( ResurrectPatrol.GetPlugin() );
+  RegisterPlugin( UnitActions.GetPlugin() );
+  RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
+  //RegisterPlugin( KillDamage.GetPlugin() );
   if IniSettings.Plugin_Gaf then
     RegisterPlugin( ExplodeBitmaps.GetPlugin() );
-  //RegisterPlugin( KillDamage.GetPlugin() );
-  RegisterPlugin( WeaponsExtend.GetPlugin() );
-  RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
+  RegisterPlugin( TAExceptionsLog.GetPlugin() );
   {$ENDIF}
+  if IniSettings.Plugin_Colors then
+    RegisterPlugin( Colors.GetPlugin() );
+  RegisterPlugin( ClockPosition.GetPlugin() );
+  RegisterPlugin( GUIEnhancements.GetPlugin() );
+  RegisterPlugin( BattlerRoomMemFix.GetPlugin() );
+  RegisterPlugin( COB_extensions.GetPlugin() );
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );

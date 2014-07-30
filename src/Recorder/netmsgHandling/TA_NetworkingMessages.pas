@@ -2,7 +2,7 @@ unit TA_NetworkingMessages;
 
 interface
 uses
-  Dplay, TA_MemoryLocations;
+  Dplay, TA_MemoryStructures, TA_MemoryLocations;
   
 {
 Sent whenever a pause or speed change occurs
@@ -80,6 +80,37 @@ type
     Marker   : byte; // TANM_UnitStatAndMove_Message
     Size     : Word; // the size of the bit encoded structure
     Timstamp : Longword; // the timestamp for the player
+  end;
+
+Const
+  TANM_WeaponProjectile_Message = $0D;
+type
+  PWeaponProjectileMessage = ^TWeaponProjectileMessage;
+  TWeaponProjectileMessage = packed record
+    PacketType : Byte;
+    Position_Start : TPosition;
+    Position_Target : TPosition;
+    WeaponID : Byte;
+    field_1A : Byte;
+    field_1B : Word;
+    field_1D : Word;
+    Attacker_ID : Word;
+    Victim_ID : Word;
+    field_23 : Byte;
+  end;
+
+  PWeaponProjectileMessagePatched = ^TWeaponProjectileMessagePatched;
+  TWeaponProjectileMessagePatched = packed record
+    PacketType : Byte;
+    Position_Start : TPosition;
+    Position_Target : TPosition;
+    WeaponID : Cardinal;
+    field_1A : Byte;
+    field_1B : Word;
+    field_1D : Word;
+    Attacker_ID : Word;
+    Victim_ID : Word;
+    field_23 : Byte;
   end;
 
 {
@@ -223,9 +254,9 @@ const
 type
   PRec2Rec_UnitTemplate_Message = ^TRec2Rec_UnitTemplate_Message;
   TRec2Rec_UnitTemplate_Message = packed record
-    UnitID        : Word;
-    NewTemplateID : Word;
-    Recreate      : Byte;
+    UnitID         : Word;
+    NewTemplateCrc : Cardinal;
+    Recreate       : Byte;
   end;
 
 {

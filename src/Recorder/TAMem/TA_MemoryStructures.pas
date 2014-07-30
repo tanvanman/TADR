@@ -38,6 +38,12 @@ type
     Mask            : Byte;
   end;
 
+  PShortPosition = ^TShortPosition;
+  TShortPosition = packed record
+    X : Word;
+    Z : Word;
+  end;
+
   PPosition = ^TPosition;
   TPosition = packed record
     x_ : Word;
@@ -55,63 +61,75 @@ type
     Y  : Word;
   end;
 
+  PBaseObject = ^TBaseObject;
+  TBaseObject = packed record
+    BaseObjectInfo_p : Pointer;
+    Position         : TPosition;
+    Turn             : TTurn;
+    data3            : array[0..17] of Byte;
+    Visible          : Word;
+    data2            : Byte;
+    data4            : Byte;
+    SiblingObject    : Pointer;
+    ChildObject      : Pointer;
+    ParrentObject    : Pointer;
+  end;
+
+  PObject3do = ^TObject3do;
+  TObject3do = packed record
+    nNumParts        : Word;                   //ByteAry, the Object3do's data save after struct
+    ndata1           : Word;
+    lTimeVisible     : Cardinal;
+    lBackground      : Cardinal;
+    pThisUnit        : Pointer;
+    pCompositeBuffer : Pointer;
+    nObject_States   : Word;
+    nXWidth          : Word;
+    Turn             : TTurn;
+    pBaseObject      : PBaseObject;
+  end;
+
+  PUnitWeapon = ^TUnitWeapon;
+  TUnitWeapon = packed record
+    nTargetID         : Word;
+    nUsedSpot         : Word;
+    p_AutoAimCallback : Pointer;   //$4FD6F0
+    lState            : Cardinal;  //1 if can shoot
+    p_Weapon          : Pointer;
+    unknow            : Cardinal;
+    nReloadTime       : Word;
+    nAngle            : Word;
+    nTrajectoryResult : Word;
+    cStock            : Byte;
+    cStateMask        : Byte;      // and 1 = aiming, nand 10 = target locked, nand 1 and nand 10 = weapon reloaded, firing again
+  end;
+
   // 0x118
   PUnitStruct = ^TUnitStruct;
   TUnitStruct = packed record
     p_MovementClass   : Pointer;
-    nWeapon1TargetID  : Word;
-    nUsedSpot1        : Word;
-    MoveInfo          : Cardinal;
-    Weapon1State      : Cardinal;
-    p_Weapon1         : Pointer;
-    unknow_1          : Cardinal;
-    nWeapon1_ReloadTime : Word;
-    Weapon1_TolerJigg : Cardinal;
-    Weapon1Stock      : Byte;
-    cWeapon1StateMask : Byte;      // and 1 = aiming, nand 10 = target locked, nand 1 and nand 10 = weapon reloaded, firing again
-    nWeapon2TargetID  : Word;
-    nUsedSpot2        : Word;
-    MoveInfo2         : Cardinal;
-    Weapon2State      : Cardinal;
-    p_Weapon2         : Pointer;
-    unknow_2          : Byte;
-    Weapon2Stock      : Byte;
-    field_32          : Word;
-    nWeapon2_ReloadTime : Word;
-    Weapon2_TolerJigg : Cardinal;
-    cWeapon2StateMask : Byte;
-    unknown_4         : Byte;
-    nWeapon3TargetID  : Word;
-    nUsedSpot3        : Word;
-    MoveInfo3         : Cardinal;
-    Weapon3State      : Cardinal;
-    p_Weapon3         : Pointer;
-    unknow_3          : Cardinal;
-    nWeapon3_ReloadTime : Word;
-    Weapon3_TolerJigg : Cardinal;
-    Weapon3Stock      : Byte;
-    cWeapon3StateMask  : Byte;
+    UnitWeapons       : array[0..2] of TUnitWeapon;
     field_58          : Cardinal; //TemplatePtr.extractsmetal * UnitPtr * 0.0000152587890625;
     p_UnitOrders      : Pointer;
     p_FutureOrder     : Pointer;
-    //unknown_5         : array[0..3] of byte;
     Turn              : TTurn;
     Position          : TPosition;
     nGridPosX         : SmallInt;
     nGridPosZ         : SmallInt;
     nLargeGridPosX    : SmallInt;
     nLargeGridPosZ    : SmallInt;
-    nFootPrintXY      : Cardinal;
+    nFootPrintX       : Word;
+    nFootPrintZ       : Word;
     View_dw0          : Cardinal;
-    TransporterUnit_p : Pointer;
-    TransportedUnit_p : Pointer;
+    p_TransporterUnit : Pointer;
+    p_TransportedUnit : Pointer;
     p_PriorUnit       : Pointer;
     p_UnitDef         : Pointer;
     p_Owner           : Pointer;
-    p_AlmostCOBStruct : Pointer;
-    p_Object3DO       : Pointer;
+    p_UnitScriptsData : Pointer;
+    p_Object3DO       : PObject3do;
     Order_Unknow      : Cardinal;
-    nUnitCategoryID   : Word;
+    nUnitInfoID       : Word;
     lUnitInGameIndex  : Cardinal;
     HotKeyGroup       : Cardinal;
     lFireTimePlus600  : Cardinal;
@@ -135,7 +153,7 @@ type
     cHealthPercentA   : Byte;
     cHealthPercentB   : Byte;
     unKnow_13         : Byte;
-    field_F9          : Byte;
+    ucAttachedToPiece : Byte;      // index number of piece unit is attached to when its transported
     ucRecentDamage    : Byte;
     ucHeight          : Byte;
     nOwnerIndex       : Word;
@@ -144,14 +162,14 @@ type
     unknow_14         : Cardinal;
     lBuildTimeLeft    : Single;
     nHealth           : Word;
-    lTerrainLevel     : Cardinal;
+    lSfxOccupy        : Cardinal;
     nUnitStateMaskBas : Word;      // cloak, activate, armored state
     lUnitStateMask    : Cardinal;
     Unknown_16        : Cardinal; //((TemplatePtr.UnitTypeMask_0 shr 7) and 1) or  $FE;
   end;
 
   // 0x249
-  PUnitfInfo = ^TUnitInfo;
+  PUnitInfo = ^TUnitInfo;
   TUnitInfo = packed record
     szName             : array [0..31] of AnsiChar;
     szUnitName         : array [0..31] of AnsiChar;
@@ -162,20 +180,25 @@ type
     Unknown1           : array [0..19] of Byte;
     AIWeight           : array [0..63] of Byte;
     AILimit            : array [0..63] of Byte;
-    p_field_13E        : Pointer;
-    p_field_142        : Pointer;
+    CRC_FBI            : Cardinal;
+    CRC_allfiles       : Cardinal;
     p_field_146        : Pointer;
     nFootPrintX        : Word;
     nFootPrintZ        : Word;
     pYardMap           : Pointer;
-    Unknown3           : array [0..11] of Byte;
+    lAICanBuildCount   : Cardinal;
+    pAICanBuildList    : Pointer;
+    field_15A          : Cardinal;
     lWidthX            : Cardinal;
     lUnknown4          : Cardinal;
-    lWidthY            : Cardinal;
-    lUnknown5          : Cardinal;
     lWidthZ            : Cardinal;
-    lUnknown6          : Cardinal;
-    Unknown7           : array [0..15] of Byte;
+    lFootPrintX        : Cardinal;
+    lWidthY            : Cardinal;
+    lFootPrintZ        : Cardinal;
+    lRelatedUnitXWidth : Cardinal;
+    lRelatedUnitYWidth : Cardinal;
+    lRelatedUnitZWidth : Cardinal;
+    lWidthHypot        : Cardinal;
     lBuildCostEnergy   : Single;
     lBuildCostMetal    : Single;
     pCOBScript         : Pointer;
@@ -223,7 +246,7 @@ type
     nAttackRunLength   : Word;
     nKamikazeDistance  : Word;
     nSortBias          : Word;
-    nCruiseAlt         : Word;
+    nCruiseAlt         : SmallInt;
     nCategory          : Word;
     p_ExplodeAs        : Pointer;
     p_SelfDestructAsAs : Pointer;
@@ -314,7 +337,7 @@ type
   TPlayerStruct = packed record
     lPlayerActive        : Cardinal;			// 0x00 - is this a char?
     lDirectPlayID        : Cardinal;			// 0x04 - player localness? I think this is the 0 based player index...
-    Unknown1             : Cardinal;			// 0x08
+    Unknown1             : Cardinal;
     cPlayerOwnerIndexOne : Byte;	// 0x0C - The 1 based player index for who owns the player. 0 means it is an unused slot... is this accurate? looks like always zero?
     Unknown2             : array [0..25] of Byte;		// 0x0D
     PlayerInfo           : PPlayerInfoStruct;			// 0x27
@@ -390,9 +413,9 @@ type
 	  nSprayAngle          : Word;
 	  nDuration            : Word;
 	  nRandomDecay         : Word;
-	  nSoundStartEffectID  : Word;
-	  nSoundHitEffectID    : Word;
-	  nSoundWaterEffectID  : Word;
+	  nSoundStartEffectID  : SmallInt;
+	  nSoundHitEffectID    : SmallInt;
+	  nSoundWaterEffectID  : SmallInt;
 	  nSmokeDelay          : Word;
 	  nFlightTime          : Word;
 	  nHoldTime            : Word;
@@ -622,7 +645,8 @@ type
 	  nMouseMapPosY          : SmallInt; //0x2CB4
 	  Unknown18              : array [0..3] of Byte;
 	  unMouseOverUnit        : Word; //0x2CBA
-	  Unknown19              : array [0..7] of Byte;
+	  Unknown19              : array [0..6] of Byte;
+    ucPrepareOrderType     : Byte;
 	  nBuildNum              : Word; //0x2CC4, unitindex for selected unit to build
 	  cBuildSpotState        : Byte; //0x40=notoktobuild
 	  Unknown20              : array [0..43] of Byte;
@@ -741,7 +765,8 @@ type
 	  Unknown39              : array [0..16379] of Byte;
 	  pSoundClassAry         : Pointer; //0x37E13
 	  lSoundClassNumber      : Cardinal; //0x37E17
-	  Unknown40              : array [0..27] of Byte;
+    ScreenOFFSCREEN        : Cardinal;
+	  Unknown40              : array [0..23] of Byte;
 	  lInGamePos_X           : Cardinal; //0x37E37
 	  lInGamePos_Y           : Cardinal;
     ViewResBar             : array [0..20] of Byte;
@@ -775,16 +800,57 @@ type
 	  nSwitchesMask          : Word;
 	  Unknown46              : array [0..11] of Byte;
     RaceSideData           : array [0..4] of TRaceSideDataStruct;
-	  Unknown47              : array [0..15] of Byte;
+    RandNum_               : Cardinal;
+    field_38A3B            : Cardinal;
+    scrollLen_buf          : Cardinal;
+    field_38A43            : Cardinal;
 	  lGameTime              : Integer; //0x38A47
 	  nTAGameSpeed           : Word; //0x38A4B
-	  Unknown48              : Word;
+	  nTAGameSpeed_Init      : Word;
+    field_38A4F            : Word;
   	cIsGamePaused          : Byte; //0x38A51
-	  Unknown49              : array [0..516] of Byte;
+    field_38A52            : Byte;
+    Image_Output_Dir       : array [0..255] of Byte;
+    Movie_Shot_Output_Dir  : array [0..255] of Byte;
+    field_38C53            : Cardinal;
 	  lMovieOutputRate       : Cardinal; //0x38C57
 	  Unknown50              : array [0..293] of Byte;
 	  lMaxPlayers            : Cardinal; //0x38D81 - xon's gives as "NumSkirmishPlayers"
-	  Unknown51              : array [0..1125] of Byte;
+    CurrenttTick           : Cardinal;
+    field_38D89            : Cardinal;
+    ProfileAry             : array[0..31] of Byte;
+    field_38DAD            : Cardinal;
+    field_38DB1            : Cardinal;
+    field_38DB5            : array[0..31] of Byte;
+    IsDrawProfile_b        : Cardinal;
+    field_38DD9            : array[0..637] of Byte;
+    field_39057            : Cardinal;
+    field_3905B            : Cardinal;
+    field_3905F            : Cardinal;
+    field_39063            : Cardinal;
+    field_39067            : Cardinal;
+    field_3906B            : Cardinal;
+    field_3906F            : Cardinal;
+    field_39073            : Cardinal;
+    field_39077            : Cardinal;
+    field_3907B            : Cardinal;
+    Palette                : Pointer;
+    currentPalette         : Pointer;
+    desiredPalette         : Pointer;
+    FadeTable              : Pointer;
+    field_3908F            : Byte;
+    field_39090            : array[0..282] of Byte;
+    field_391AB            : Cardinal;
+    field_391AF            : Cardinal;
+    field_391B3            : Cardinal;
+    field_391B7            : Word;
+    field_391B9            : Cardinal;
+    field_391BD            : Word;
+    Showranges             : Cardinal;
+    bps                    : Cardinal;
+    field_391C7            : Cardinal;
+    field_391CB            : Cardinal;
+    field_391CF            : array[0..25] of Byte;
 	  p_MapFile              : PMapFiles; //0x391E9 - xpoy's gives as "GameSettingStruct_Ptr
 	  Unknown52              : array [0..3] of Byte; //0x391ED - there's references to [p_TAMemory + 0x391ED] in ta.exe, so this is definitely something
 	  lGUICallbackState      : Cardinal; //0x391F1
@@ -830,6 +896,34 @@ type
     p_NextOrder_uos   : Pointer;
     lMask             : Cardinal;
     p_Order_CallBack  : Pointer;
+  end;
+
+  PWeaponProjectile = ^TWeaponProjectile;
+  TWeaponProjectile = packed record
+    Weapon          : Pointer;
+    Position_Curnt  : TPosition;
+    Position_Start  : TPosition;
+    Position_Target : TPosition;
+    Position_Target2: TPosition;
+    field_34        : Word;
+    Turn            : TTurn;
+    data2           : Word;
+    field_3E        : Integer;
+    CreateTime      : Integer;
+    TimeToDeath     : Integer;
+    CreatingTime    : Integer;
+    p_TargetUnit    : Pointer;
+    p_AttackerUnit  : Pointer;
+    lInterceptor    : Integer;     // enemy units nukes counter
+    field_5A        : Integer;
+    field_5E        : Word;
+    nBurst          : Word;
+    nObjectPiece    : Word;
+    nPropellerSpeed : Word;
+    cMyLos_PlayerID : Byte;
+    field_67        : Word;
+    Mask            : Byte;
+    data3           : Byte;
   end;
 
   TTAActionType = ( Action_Ready = 0,
@@ -904,6 +998,29 @@ type
 
   // custom structures used by TADR
   TCobMethods = ( Activate, Deactivate, Upgrade, Reminder, Cloak );
+
+  TDmgType = ( dtWeapon = 1,
+               dtParalyze = 2,
+               dtSelfDestruct = 3,// 30000 self, self
+               dtGiveUnit = 4,    // 30000 nil, target
+               dtReclaim = 5,
+               dtUnitDeath = 6,   // or 3 (differs if unit died because of enemy unit or aoe of owner weapon) dmg 30000
+               dtDieInLab = 9,    // 30000 builder, builded unit or self, self
+               dtHeal = 10,       // one, two or self,self
+               dtUnknown1 = 11 ); // maybe net packet unit health confirm
+
+  TUnitSearchFilter = ( usfNone,
+                        usfOwner,
+                        usfAllied,
+                        usfEnemy,
+                        usfAI,
+                        usfExcludeAir,
+                        usfExcludeSea,
+                        usfExcludeBuildings,
+                        usfExcludeNonWeaponed,
+                        usfIncludeInBuildState );
+
+  TUnitSearchFilterSet = set of TUnitSearchFilter;
 
   TUnitInfoExtensions = (
     UNITINFO_BUILDER = 0,
@@ -996,17 +1113,59 @@ type
 
 		UNITINFO_EXPLODEAS = 77,
 		UNITINFO_SELFDSTRAS = 78 );
+    
+  PCustomUnitInfo = ^TCustomUnitInfo;
+  TCustomUnitInfo = packed record
+    unitId        : Cardinal;
+    unitIdRemote  : Cardinal;  // owner's (unit upgrade packet sender) local unit id
+    //OwnerPlayer  : Longint; // Buffer.EventPlayer_DirectID = PlayerAryIndex2ID(UnitInfo.ThisPlayer_ID   )
+    InfoPtrOld   : Cardinal;  // local old global template Pointer
+    InfoStruct   : TUnitInfo;
+  end;
+  TUnitInfos = array of TCustomUnitInfo;
 
-  TExtraWeaponTagsRec = packed record
-    HighTrajectory : Integer;
-    WaterToGround  : Integer;
-    NoAirWeapon    : Integer;
+  TStoreUnitsRec = packed record
+    Id : Cardinal;
+    UnitIds  : array of LongWord;
+  end;
+  TUnitSearchArr = array of TStoreUnitsRec;
+  TSpawnedMinionsArr = array of TStoreUnitsRec;
+
+  TCustomUnitFieldsRec = packed record
+    LongID               : Cardinal;
+    { GUI }
+    CustomWeapReload     : Boolean;
+    CustomWeapReloadMax  : Integer;
+    CustomWeapReloadCur  : Integer;
+    CircleSelectProgress : Cardinal;
+    CircleSelectRadJig   : Byte;
+  end;
+  TCustomUnitFieldsArr = array of TCustomUnitFieldsRec;
+
+  TExtraWeaponDefTagsRec = packed record
+    HighTrajectory   : Integer;
+    PreserveAccuracy : Integer;
+    NotAirWeapon     : Integer;
+    WeaponType2      : String[64];
+  end;
+
+  TExtraUnitDefTagsRec = packed record
+    MultiAirTransport : Integer;
+    ExtraVTOLOrders : Integer;
+    TransportWeightCapacity : Integer;
+    HideHPBar : Boolean;
+    NotLab : Boolean;
+    DrawBuildSpotNanoFrame : Boolean;
   end;
   
 var
   ExtraAnimations : array[0..15] of Pointer;
-  ExtraWeaponTags : array of TExtraWeaponTagsRec;
+  ExtraWeaponDefTags : array of TExtraWeaponDefTagsRec;
+  ExtraUnitDefTags : array of TExtraUnitDefTagsRec;
   WeaponLimitPatchArr : Pointer;
+  NanoSpotUnitSt, NanoSpotQueueUnitSt : TUnitStruct;
+  NanoSpotUnitInfoSt, NanoSpotQueueUnitInfoSt : TUnitInfo;
+  UnitsSharedData : array[0..1024] of Integer;
   
 implementation
 

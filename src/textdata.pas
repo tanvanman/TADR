@@ -19,6 +19,7 @@ function FixPath (const s :string) :string;
 function SimpleCrypt (const s :string) :string;
 function CalcCRC (curcrc :longword; data :pointer; len :longword) :longword;
 function RemoveInvalid (const st :string) :string;
+function RemoveInvalidIncSpace (const st :string) :string;
 function LeftPad(S: string; Ch: Char; Len: Integer): string;
 
 function DataToHex( const s : string ) : string; overload;
@@ -532,6 +533,20 @@ for i := 1 to Length (Result) do
   if not (Result[i] in ['A'..'Z', 'a'..'z', '.', '-', '+', '|', '_', '0'..'9', '@',
                       '!', '#', '"', '%', '(', ')', '=', '[', ']', ',', ';',
                       ' ', '''']) then
+    Result[i] := '_';
+  end;
+end;
+
+function RemoveInvalidIncSpace(const st :string) :string;
+var
+  i :integer;
+begin
+Result := st;
+for i := 1 to Length (Result) do
+  begin
+  if not (Result[i] in ['A'..'Z', 'a'..'z', '-', '+', '|', '_', '0'..'9', '@',
+                      '!', '"', '(', ')',
+                      '''']) then
     Result[i] := '_';
   end;
 end;

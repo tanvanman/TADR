@@ -12,6 +12,26 @@ const
   access = 1;
 
 type
+  GetTAProgramStructHandler = function : Pointer; register;
+var
+  GetTAProgramStruct : GetTAProgramStructHandler = GetTAProgramStructHandler($004B6220);
+
+type
+  GameRunSecHandler = function : Cardinal; cdecl;
+var
+  GameRunSec : GameRunSecHandler = GameRunSecHandler($004B6340);
+
+type
+  TakeScreenshotHandler = function (FileName : PAnsiChar; OffscreenPtr: Pointer) : Integer; stdcall;
+var
+  TakeScreenshot : TakeScreenshotHandler = TakeScreenshotHandler($004CAEC0);
+
+type
+  TakeScreenshotOrgHandler = function (DirName : PAnsiChar; FileName : PAnsiChar) : Integer; stdcall;
+var
+  TakeScreenshotOrg : TakeScreenshotOrgHandler = TakeScreenshotOrgHandler($004CB170);
+
+type
   Game_SetLOSStateHandler = function (flags : integer) : integer; stdcall;
 var
   // called by to setup the LOS tables
@@ -28,16 +48,16 @@ var
   ShowExplodeGaf : ShowExplodeGafHandler = ShowExplodeGafHandler($00420A30);
 
 type
-  TA_UpdateUnitLOSHandler = function (unitptr : longword) : longword; stdcall;
+  TA_UpdateUnitLOSHandler = function (UnitPtr: Pointer): LongWord; stdcall;
 var
   // called to update unit LOS
-  TA_UpdateUnitLOS : TA_UpdateUnitLOSHandler = TA_UpdateUnitLOSHandler($482AC0);
+  TA_UpdateUnitLOS : TA_UpdateUnitLOSHandler = TA_UpdateUnitLOSHandler($00482AC0);
 
 type
-  TA_UpdateLOSHandler = function (a1 : longword; FillFeatureMap_b: longword) : longword; stdcall;
+  TA_UpdateLOSHandler = function (PlayerIndex: Integer; FillFeatureMap_b: LongWord): LongWord; stdcall;
 var
   // called to update LOS
-  TA_UpdateLOS : TA_UpdateLOSHandler = TA_UpdateLOSHandler($4816A0);
+  TA_UpdateLOS : TA_UpdateLOSHandler = TA_UpdateLOSHandler($004816A0);
 
 // get map ground level at given coords
 type
@@ -63,9 +83,39 @@ type
                                   PosY_: Cardinal;
                                   FullHp: Cardinal;           // 1 - unit with full hp, like comm spawn
                                   UnitStateMask: Cardinal;        // 0
-                                  UnitId: Cardinal) : Cardinal; stdcall; // 0 if UnitId is unknown (?)
+                                  UnitId: Cardinal) : Pointer; stdcall; // 0 if UnitId is unknown (?)
 var
-  Unit_Create : Unit_CreateHandler = Unit_CreateHandler($485F50);
+  Unit_Create : Unit_CreateHandler = Unit_CreateHandler($00485F50);
+
+type
+  Send_UnitBuildFinishedHandler = function ( UnitPtr: Pointer; Unit2Ptr: Pointer ): Integer; stdcall;
+var
+  Send_UnitBuildFinished : Send_UnitBuildFinishedHandler = Send_UnitBuildFinishedHandler($004560C0);
+
+type
+  Send_UnitDeathHandler = function ( UnitPtr: Pointer; a2: Integer ): Integer; stdcall;
+var
+  Send_UnitDeath : Send_UnitDeathHandler = Send_UnitDeathHandler($004864B0);
+
+type
+  FreeUnitOrdersHandler = procedure ( UnitPtr: Pointer ); stdcall;
+var
+  FreeUnitOrders : FreeUnitOrdersHandler = FreeUnitOrdersHandler($00489740);
+
+type
+  FreeObjectStateHandler = function ( ObjectState: Pointer ): Integer; stdcall;
+var
+  FreeObjectState : FreeObjectStateHandler = FreeObjectStateHandler($0045AAA0);
+
+type
+  FreeMoveClassHandler = function ( MoveClass: Pointer ): Integer; register;
+var
+  FreeMoveClass : FreeMoveClassHandler = FreeMoveClassHandler($0043DD10);
+
+type
+  free_MMwapper__Handler = procedure ( Memory: Pointer ); cdecl;
+var
+  free_MMwapper__ : free_MMwapper__Handler = free_MMwapper__Handler($004B4F20);
 
 // turret weap aiming
 type
@@ -76,7 +126,7 @@ var
   sub_49D910 : sub_49D910Handler = sub_49D910Handler($49D910);
 
 type
-  GetUnit_BuildWeaponProgressHandler = function ( UnitPtr: Cardinal ): Cardinal; stdcall;
+  GetUnit_BuildWeaponProgressHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
 var
   GetUnit_BuildWeaponProgress : GetUnit_BuildWeaponProgressHandler = GetUnit_BuildWeaponProgressHandler($439D20);
 
@@ -104,7 +154,7 @@ type
                                        UnitPtr2: Pointer;
                                        a3: LongInt;
                                        a4: Cardinal;
-                                       a5: Word ): Cardinal; stdcall;
+                                       a5: Word ): Pointer; stdcall;
 var
   MakeDamageToUnit: MakeDamageToUnitHandler = MakeDamageToUnitHandler($489BB0);
 
@@ -149,10 +199,60 @@ var
   fire_callback0 : fire_callback0Handler = fire_callback0Handler($0049D580);
 
 type
+  CreateProjectile_0_3Handler = function ( UnitWeapon: Pointer;
+                                           Attacker_UnitPtr: Pointer;
+                                           Position_Start: PPosition;
+                                           Position_Target: PPosition ): LongBool; stdcall;
+var
+  CreateProjectile_0_3 : CreateProjectile_0_3Handler = CreateProjectile_0_3Handler($0049C9C0);
+
+type
+  CreateProjectile_1Handler = function ( UnitWeapon: Pointer;
+                                         Attacker_UnitPtr: Pointer;
+                                         Position_Start: PPosition;
+                                         Position_Target: PPosition;
+                                         TargetUnitPtr: Pointer;
+                                         Interceptor: Integer ): LongBool; stdcall;
+var
+  CreateProjectile_1 : CreateProjectile_1Handler = CreateProjectile_1Handler($0049CC20);
+
+type
+  CreateProjectile_0Handler = function ( UnitWeapon: Pointer;
+                                         Attacker_UnitPtr: Pointer;
+                                         Position_Start: PPosition;
+                                         Position_Target: PPosition;
+                                         TargetUnitPtr: Pointer ): LongBool; stdcall;
+var
+  CreateProjectile_0 : CreateProjectile_0Handler = CreateProjectile_0Handler($0049CDE0);
+
+type
   TdfFile__GetIntHandler = function ( TagName : Pointer;
                                       DefaultNumber : LongInt): Integer; stdcall;
 var
   TdfFile__GetInt : TdfFile__GetIntHandler = TdfFile__GetIntHandler($004C46C0);
+
+type
+  TdfFile__GetStrHandler = function ( ReceiveBuf : Pointer;
+                                      Name : Pointer;
+                                      BufLen : Cardinal;
+                                      Default : Pointer): Integer; stdcall;
+var
+  TdfFile__GetStr : TdfFile__GetStrHandler = TdfFile__GetStrHandler($004C48C0);
+
+type
+  TA_GiveUnitHandler = procedure ( UnitPtr : Pointer;
+                               PlayerStruct : PPlayerStruct;
+                               UnitPtr2 : Pointer); stdcall;
+var
+  TA_GiveUnit : TA_GiveUnitHandler = TA_GiveUnitHandler($00488570);
+
+type
+  TA_AttachDetachUnitHandler = procedure (TransportedUnitPtr : Pointer;
+                                          TransporterUnitPtr : Pointer;
+                                          Piece : ShortInt;
+                                          Unknown : Byte); stdcall;
+var
+  TA_AttachDetachUnit : TA_AttachDetachUnitHandler = TA_AttachDetachUnitHandler($0048AAC0);
 
 type
   SetPrepareOrderHandler = function ( UnitPtr: Pointer; a2: Cardinal): LongInt; stdcall;
@@ -209,10 +309,51 @@ type
 var
   DrawHealthBars : DrawHealthBarsHandler = DrawHealthBarsHandler($0046A430);
 
+// draw filled box  
 type
-  DrawRectangleHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: Byte) : LongInt; stdcall;
+  DrawBarHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: Byte) : LongInt; stdcall;
 var
-  DrawRectangle : DrawRectangleHandler = DrawRectangleHandler($004BF6F0);
+  DrawBar : DrawBarHandler = DrawBarHandler($004BF6F0);
+
+type
+  DrawTranspRectangleHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: Byte) : LongInt; stdcall;
+var
+  DrawTranspRectangle : DrawTranspRectangleHandler = DrawTranspRectangleHandler($004BF8C0);
+
+type
+  DrawPointHandler = function (OFFSCREEN_ptr: Cardinal; X, Y : Integer; ColorOffset: Byte) : LongInt; stdcall;
+var
+  DrawPoint : DrawPointHandler = DrawPointHandler($004BEE60);
+
+type
+  DrawUnk1Handler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: Byte) : LongInt; stdcall;
+var
+  DrawUnk1 : DrawUnk1Handler = DrawUnk1Handler($004BFD60);
+
+type
+  DrawLineHandler = function (OFFSCREEN_ptr: Cardinal; X, Y, X2, Y2 : Integer; ColorOffset: Byte) : LongInt; stdcall;
+var
+  DrawLine : DrawLineHandler = DrawLineHandler($004BE950);
+
+type
+  DrawCircleHandler = function (OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer; ColorOffset: Byte) : LongInt; stdcall;
+var
+  DrawCircle : DrawCircleHandler = DrawCircleHandler($004C0070);
+
+type
+  DrawDotteCircleHandler = function (OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer; ColorOffset: Integer; Spacing: Word; Dotte_b : Integer) : LongInt; stdcall;
+var
+  DrawDotteCircle : DrawDotteCircleHandler = DrawDotteCircleHandler($004C01A0);
+
+type
+  DrawProgressBarHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; BarPosition: Integer) : LongInt; stdcall;
+var
+  DrawProgressBar : DrawProgressBarHandler = DrawProgressBarHandler($00468310);
+
+type
+  DrawTransparentBoxHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; Transp: Integer) : LongInt; stdcall;
+var
+  DrawTransparentBox : DrawTransparentBoxHandler = DrawTransparentBoxHandler($004BF4D0);
 
 type
   DrawText_HeavyHandler = function (OFFSCREEN_ptr: Cardinal; const str: PAnsiChar; left: Integer; top: Integer; MaxWidth: Integer) : LongInt; stdcall;
@@ -243,6 +384,11 @@ type
   SetFontColorHandler = function(a5: LongInt; a4: LongInt) : LongInt; stdcall;
 var
   SetFontColor : SetFontColorHandler = SetFontColorHandler($004C13A0);
+
+type
+  Msg_ReminderHandler = function(Msg_Str: PAnsiChar; Msg_Type: Word) : Integer; stdcall;
+var
+  Msg_Reminder : Msg_ReminderHandler = Msg_ReminderHandler($046BC70);
 
 type
   PlaySound_UnitSpeechHandler = function (unitptr : longword; speechtype: longword; speechtext: PChar) : byte; stdcall;
@@ -312,9 +458,9 @@ var
   UnitName2ID : UnitName2IDHandler = UnitName2IDHandler($00488B10);
 
 type
-  WeaponName2IDHandler = function ( const WeaponName: PAnsiChar ): LongWord; stdcall;
+  WeaponName2PtrHandler = function ( const WeaponName: PAnsiChar ): Pointer; stdcall;
 var
-  WeaponName2ID : WeaponName2IDHandler = WeaponName2IDHandler($49E5B0);
+  WeaponName2Ptr : WeaponName2PtrHandler = WeaponName2PtrHandler($0049E5B0);
 
 // Displays text to the screen (no parsing for commands)
 type //TextType - 0 = chat, 1 = popup
@@ -335,7 +481,10 @@ type
 var
   ShowText : ShowTextHandler = ShowTextHandler($463E50);
 
-
+type
+  ClearChatHandler = function : Integer; cdecl;
+var
+  ClearChat : ClearChatHandler = ClearChatHandler($00463C80);
 
 type
   PMsgStruct = ^TMsgStruct;
@@ -350,45 +499,66 @@ type //fill TAdynmem->MouseMapPosX & TAdynmem->MouseMapPosY first
 var
   TAMapClick : TAMapClickHandler = TAMapClickHandler($498F70);
 
+// providing Player will also check is grid spot in player LOS
+// just like unmapped terrain build spot check works
 type
   TestGridSpotHandler = function ( BuildUnit : Pointer;
                                     Pos : Cardinal;
                                     unk : Word; //unk=zero
-                                    Player : Cardinal
+                                    Player : Pointer
                                     ): Integer; stdcall;
 var
-  TestGridSpot : TestGridSpotHandler = TestGridSpotHandler($47D2E0);
+  TestGridSpot : TestGridSpotHandler = TestGridSpotHandler($0047D2E0);
+
+type
+  TestGridSpotAIHandler = function ( UnitInfo : Pointer;
+                                    GridPos : Cardinal
+                                    ): Integer; stdcall;
+var
+  TestGridSpotAI : TestGridSpotAIHandler = TestGridSpotAIHandler($0047D820);
 
 type //fill TAdynmem->MouseMapPosX & TAdynmem->MouseMapPosY first
 	TestBuildSpotHandler = procedure (); stdcall;
 var
-  TestBuildSpot : TestBuildSpotHandler = TestBuildSpotHandler($4197D0);
+  TestBuildSpot : TestBuildSpotHandler = TestBuildSpotHandler($004197D0);
+
+type
+  CanAttachAtGridSpotHandler = function ( UnitInfo : Pointer;
+                                          UnitIndex : Word;
+                                          GridPos : Cardinal;
+                                          a4 : Integer): Boolean; stdcall;
+var
+  CanAttachAtGridSpot : CanAttachAtGridSpotHandler = CanAttachAtGridSpotHandler($0047DB70);
 
 type //find unit under mouse
 	GetUnitAtMouseHandler = function () : Cardinal; stdcall;
 var
-  GetUnitAtMouse : GetUnitAtMouseHandler = GetUnitAtMouseHandler($48CD80);
+  GetUnitAtMouse : GetUnitAtMouseHandler = GetUnitAtMouseHandler($0048CD80);
 
 type //find unit at position
 	GetUnitAtCoordsHandler = function (Position: Pointer) : Cardinal; stdcall;
 var
-  GetUnitAtCoords : GetUnitAtCoordsHandler = GetUnitAtCoordsHandler($4815F0);
+  GetUnitAtCoords : GetUnitAtCoordsHandler = GetUnitAtCoordsHandler($004815F0);
+
+type
+  GetTPositionHandler = function (X, Z : Integer; out Position : TPosition): Pointer; stdcall;
+var
+  GetTPosition : GetTPositionHandler = GetTPositionHandler($00484B50);
 
 type
 	GetGridPosPLOTHandler = function (PosX, PosY: Integer) : Cardinal; stdcall;
 var
-  GetGridPosPLOT : GetGridPosPLOTHandler = GetGridPosPLOTHandler($481550);
-  
+  GetGridPosPLOT : GetGridPosPLOTHandler = GetGridPosPLOTHandler($00481550);
+
 type
 	TADrawRectHandler = procedure ( unk : PtagRECT; rect : PtagRECT; colour : Longint); stdcall;
 var
-  TADrawRect : TADrawRectHandler = TADrawRectHandler($4BF8C0);
-
+  TADrawRect : TADrawRectHandler = TADrawRectHandler($004BF8C0);
 
 type
   TADrawLineHandler = procedure ( Context : PChar; x1,y1,x2,y2 : Longint; Colour : Longint ) cdecl;
 var
-  TADrawLine : TADrawLineHandler = TADrawLineHandler($4CC7AB);
+  TADrawLine : TADrawLineHandler = TADrawLineHandler($004CC7AB);
 
 type // buffer should be at least 50 characters long 
   GetContextHandler = function ( ptr : PChar ) : Longint; Stdcall;
@@ -421,8 +591,33 @@ var
 
 Type // +los cheat
   TextCommand_LOSHandler = procedure ; stdcall;
-var  
+var
   TextCommand_LOS : TextCommand_LOSHandler = TextCommand_LOSHandler($416D50);
+
+Type
+  AllowMemReadWriteHandler = function(Address : Cardinal): Integer; cdecl;
+var
+  AllowMemReadWrite : AllowMemReadWriteHandler = AllowMemReadWriteHandler($004D8780);
+
+Type
+  SetMemReadOnlyHandler = function(Address : Cardinal): Integer; cdecl;
+var
+  SetMemReadOnly : SetMemReadOnlyHandler = SetMemReadOnlyHandler($004D8710);
+
+Type
+  rand_Handler = function(Range : Integer): Integer; cdecl;
+var
+  rand_ : rand_Handler = rand_Handler($004B6C30);
+
+Type
+  TA_Atan2Handler = function(y, x : Integer): Integer; cdecl;
+var
+  TA_Atan2 : TA_Atan2Handler = TA_Atan2Handler($004B715A);
+
+Type
+  HAPI_BroadcastMessageHandler = function(FromPID: Integer; Buffer: Pointer; BufferSize: Integer): Integer; stdcall;
+var
+  HAPI_BroadcastMessage : HAPI_BroadcastMessageHandler = HAPI_BroadcastMessageHandler($00451DF0);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not working.
@@ -433,19 +628,19 @@ var
   YardOpen: YardOpenHandler = YardOpenHandler($47DAC0);
 
 type
-  TestGridSpotAIHandler = function ( BuildUnit : Cardinal; Pos : Cardinal ): Integer; stdcall;
+  UnitStateProbeHandler = function (OffscreenPtr: Cardinal): Integer; stdcall;
 var
-  TestGridSpotAI : TestGridSpotAIHandler = TestGridSpotAIHandler($47D820);
+  UnitStateProbe: UnitStateProbeHandler = UnitStateProbeHandler($00467E50);
+
+type
+  UnitBuilderProbeHandler = function (OffscreenPtr: Cardinal): Integer; stdcall;
+var
+  UnitBuilderProbe: UnitBuilderProbeHandler = UnitBuilderProbeHandler($004685A0);
 
 type
   TestUnitAIHandler = function ( BuildUnit : Cardinal; UnitPtr : Cardinal ): Byte; stdcall;
 var
   TestUnitAI : TestUnitAIHandler = TestUnitAIHandler($47DDC0);
-
-type // should draw selected unit state on screen
-	UnitStateProbeHandler = function (OFFSCREEN_p: Cardinal) : LongInt; stdcall;
-var
-  UnitStateProbe : UnitStateProbeHandler = UnitStateProbeHandler($467E50);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not used.
@@ -453,18 +648,28 @@ var
 type
   // creates unitstatemask based on actual unitinfo template
   // called for existing unit (!)
-  Unit_CreateUnitsInGameHandler = function (unitptr : Cardinal;
-                                            PosX_: Cardinal;
-                                            PosZ_: Cardinal;
-                                            PosY_: Cardinal;
-                                            FullHp: Cardinal) : Cardinal; stdcall;
+  Unit_CreateUnitsInGameHandler = function (unitptr : Pointer;
+                                            PosX: Integer;
+                                            PosY: Integer;
+                                            PosZ: Integer;
+                                            FullHp: Integer) : LongBool; stdcall;
 var
   Unit_CreateUnitsInGame : Unit_CreateUnitsInGameHandler = Unit_CreateUnitsInGameHandler($485A40);  // boneyards 45BD31
 
 type
-  Unit_CreateModelAndCobHandler = function (UnitPtr : Pointer) : integer; stdcall;
+  Unit_CreateModelAndCobHandler = function (UnitPtr : Pointer) : Pointer; stdcall;
 var
-  Unit_CreateModelAndCob : Unit_CreateModelAndCobHandler = Unit_CreateModelAndCobHandler($485D40);
+  Unit_CreateModelAndCob : Unit_CreateModelAndCobHandler = Unit_CreateModelAndCobHandler($00485D40);
+  
+type
+  Unit_FixPosY_SeaHandler = function (UnitPtr : Pointer) : LongInt; stdcall;
+var
+  Unit_FixPosY_Sea : Unit_FixPosY_SeaHandler = Unit_FixPosY_SeaHandler($0048A870);
+
+type
+  DrawUnitHandler = function (OFFSCREEN_ptr: Cardinal; UnitPtr : Pointer) : LongInt; stdcall;
+var
+  DrawUnit : DrawUnitHandler = DrawUnitHandler($0045AC20);
 
 type
   Unit_SetSpeedHandler = procedure ( UnitPtr: Pointer ); stdcall;

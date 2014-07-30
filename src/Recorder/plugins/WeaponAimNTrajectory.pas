@@ -2,10 +2,7 @@ unit WeaponAimNTrajectory;
 
 interface
 uses
-  PluginEngine;
-
-var
-  MinWeap, MaxWeap: Cardinal;
+  PluginEngine, SysUtils;
 
 // -----------------------------------------------------------------------------
 
@@ -22,17 +19,26 @@ Procedure OnUninstallWeaponAimNTrajectory;
 // -----------------------------------------------------------------------------
 
 procedure WeaponAimNTrajectory_HighTrajectory;
-//procedure WeaponAimNTrajectory_WaterToGroundCheck_GrantFire;
-//procedure WeaponAimNTrajectory_WaterToGroundCheck_Trajectory;
+procedure WeaponAimNTrajectory_PreserveAccuracy;
+procedure WeaponAimNTrajectory_WeaponType2;
+
 //procedure WeaponAimNTrajectory_NoAirWeapon;
 //procedure WeaponAimNTrajectory_NoAirWeapon_Cursor;
+
+//procedure WeaponAimNTrajectory_SecondPhaseSpray;
+//procedure WeaponAimNTrajectory_WaterToGroundCheck_GrantFire;
+//procedure WeaponAimNTrajectory_WaterToGroundCheck_Trajectory;
+
 
 implementation
 uses
   IniOptions,
+  Windows,
+  Math,
   TA_MemoryConstants,
   TA_MemoryStructures,
-  TA_MemoryLocations;
+  TA_MemoryLocations,
+  TA_FunctionsU, logging;
 
 var
   WeaponAimNTrajectoryPlugin: TPluginData;
@@ -56,10 +62,26 @@ begin
                             @OnUnInstallWeaponAimNTrajectory );
 
     WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'ShellWeapon Check',
+                          'High Trajectory',
                           @WeaponAimNTrajectory_HighTrajectory,
                           $0049AA50, 0);
 
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'Preserve accuracy of weapon, to be independet of unit kills counter',
+                          @WeaponAimNTrajectory_PreserveAccuracy,
+                          $0049D702, 0);
+
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'twophase weapontype2',
+                          @WeaponAimNTrajectory_WeaponType2,
+                          $0049BB29, 1);
+
+{
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'Sprayangle for twophase weapons',
+                          @WeaponAimNTrajectory_SecondPhaseSpray,
+                          $0049BAF9, 0);
+}
 {    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
                           'WaterToGroundCheck 1',
                           @WeaponAimNTrajectory_WaterToGroundCheck_GrantFire,
@@ -74,12 +96,12 @@ begin
 {    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
                           'WeaponAimNTrajectory_NoAirWeapon',
                           @WeaponAimNTrajectory_NoAirWeapon,
-                          $0049AD07, 0);
+                          $0049AD07, 0);   }
 
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+{    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
                           'WeaponAimNTrajectory_NoAirWeapon_Cursor',
                           @WeaponAimNTrajectory_NoAirWeapon_Cursor,
-                          $0043E585, 0);      }
+                          $0043E592, 1);      }
 
     Result:= WeaponAimNTrajectoryPlugin;
   end else
@@ -97,12 +119,12 @@ begin
       WeapID := PWeaponDef(WeaponPtr).ucID
     else
       WeapID := PWeaponDef(WeaponPtr).lWeaponIDCrack;
-    if High(ExtraWeaponTags) >= WeapID then
+    if High(ExtraWeaponDefTags) >= WeapID then
     begin
       case PropertyType of
-        1 : Result := ExtraWeaponTags[WeapID].HighTrajectory;
-        2 : Result := ExtraWeaponTags[WeapID].WaterToGround;
-        3 : Result := ExtraWeaponTags[WeapID].NoAirWeapon;
+        1 : Result := ExtraWeaponDefTags[WeapID].HighTrajectory;
+        2 : Result := ExtraWeaponDefTags[WeapID].PreserveAccuracy;
+        3 : Result := ExtraWeaponDefTags[WeapID].NotAirWeapon;
       end;
     end;
   end;
@@ -118,32 +140,35 @@ label
   Context_FiringContinue,
   DontAllowShoot;
 asm
+  // eax for testing return address
+  // ebx for weapon ptr
   pushf
   push    eax
-  mov     eax, [esp+$36]
+  push    ebx
+  mov     eax, [esp+$3A]
   cmp     eax, $0049AD6C
   jz      Context_Firing2
-  mov     eax, [esp+$36]
+  mov     eax, [esp+$3A]
   cmp     eax, $0049D619
   jz      Context_Firing
-  mov     eax, [esp+$36]
+  mov     eax, [esp+$3A]
   cmp     eax, $0049E293
   jz      Context_Aiming
-  mov     eax, [esp+$36]
+  mov     eax, [esp+$3A]
   cmp     eax, $0049AB8C
   jz      Context_Aiming
 Context_Firing:
-  mov     ebx, [esp+$8E]
+  mov     ebx, [esp+$92]
   jmp     Context_FiringContinue
 Context_Firing2:
-  mov     ebx, [esp-$46]
+  mov     ebx, edi
 Context_FiringContinue :
   push    ecx
   push    edx
   push    1
   push    ebx
   call    GetWeaponExtProperty
-  test    eax, 1
+  test    eax, eax
   jnz     HighTrajectoryOn
   jmp     HighTrajectoryOff
 Context_Aiming:
@@ -152,11 +177,12 @@ Context_Aiming:
   push    1
   push    ebx
   call    GetWeaponExtProperty
-  test    eax, 1
+  test    eax, eax
   jnz     HighTrajectoryOn
 HighTrajectoryOff:
   pop     edx
   pop     ecx
+  pop     ebx
   pop     eax
   popf
   test    ah, 41h
@@ -167,6 +193,7 @@ HighTrajectoryOff:
 HighTrajectoryOn:
   pop     edx
   pop     ecx
+  pop     ebx
   pop     eax
   popf
   test    ah, 41h
@@ -179,6 +206,209 @@ DontAllowShoot:
   call PatchNJump;
 end;
 
+{
+.text:0049D702 054 83 FB 01        cmp     ebx, 1
+.text:0049D705 054 7E 0C           jle     short loc_49D713 ; if kills / 12 > 1
+.text:0049D707 054 8B C1           mov     eax, ecx
+}
+procedure WeaponAimNTrajectory_PreserveAccuracy;
+label
+  PreserveAcc,
+  DontApplyKillsAdv;
+asm
+  push    ecx
+  push    edx
+  push    2
+  mov     ecx, [esi+TUnitWeapon.p_Weapon]
+  push    ecx
+  call    GetWeaponExtProperty
+  test    eax, eax
+  jnz     PreserveAcc
+  pop     edx
+  pop     ecx
+  cmp     ebx, 1
+  jle     DontApplyKillsAdv
+  push $0049D707;
+  call PatchNJump;
+PreserveAcc :
+  pop     edx
+  pop     ecx
+DontApplyKillsAdv :
+  push $0049D713;
+  call PatchNJump;
+end;
+
+procedure TwoPhaseExtension(WeaponPtr: Pointer; Projectile: Pointer); stdcall;
+var
+  CurrentProjectile : PWeaponProjectile;
+  WeaponID : Integer;
+  WeaponType2 : String;
+begin
+  if WeaponPtr <> nil then
+  begin
+    if IniSettings.WeaponType <= 256 then
+      WeaponID := PWeaponDef(WeaponPtr)^.ucID
+    else
+      WeaponID := PWeaponDef(WeaponPtr)^.lWeaponIDCrack;
+
+    WeaponType2 := ExtraWeaponDefTags[WeaponID].WeaponType2;
+    if WeaponType2 <> '' then
+    begin
+      CurrentProjectile := PWeaponProjectile(Projectile);
+      CurrentProjectile.Weapon := WeaponName2Ptr(PAnsiChar(WeaponType2));
+    end;
+  end;
+end;
+
+{
+.text:0049BB32 024 75 06                                                           jnz     short loc_49BB3A
+.text:0049BB34 024 89 7D 56                                                        mov     [ebp+56h], edi
+.text:0049BB37 024 89 7D 4E                                                        mov     [ebp+4Eh], edi
+.text:0049BB3A
+.text:0049BB3A                                                     loc_49BB3A:
+}
+procedure WeaponAimNTrajectory_WeaponType2;
+asm
+  pushAD
+  push    ebp
+  push    ecx
+  call TwoPhaseExtension
+  popAD
+  mov     eax, [ecx+111h]
+  push $0049BB2F
+  call PatchNJump
+end;
+
+{
+procedure TwoPhaseExtension(WeaponPtr: Pointer; Projectile: Pointer); stdcall;
+var
+  NewAngle: Extended;
+  SprayAngle, SprayAngleOrg : Word;
+  i, SprayRate : Integer;
+  //Angle : Single;
+  Angle : Word;
+  //fAngle : Extended;
+  Atany, Atanx : Integer;
+  NewTarget_x, NewTarget_z : Integer;
+  Distance, NewDistance : Extended;
+
+  HypotX, HypotZ : Extended;
+  MapWidth : Integer;
+  MapHeight : Integer;
+
+  AttackerUnit : PUnitStruct;
+  VictimUnit : PUnitStruct;
+  CurrentProjectile : PWeaponProjectile;
+  NewPosition : TPosition;
+  NewUnitWeapon : TUnitWeapon;
+begin
+  //v10 := PWeaponProjectile(Projectile).XTurn - (SprayAngle shr 1) + rand_(SprayAngle);
+  //v11 := sub_4B7123(PWeaponProjectile(Projectile).ZTurn, PWeaponDef(WeaponPtr).lWeaponVelocity);
+  SprayAngleOrg := 2000;//GetWeaponExtProperty(WeaponPtr, 4);
+  SprayRate := 3;//GetWeaponExtProperty(WeaponPtr, 5);
+  CurrentProjectile := PWeaponProjectile(Projectile);
+  // angle
+  SprayAngle := SprayAngleOrg;
+  Atany := CurrentProjectile.Position_Start.z - CurrentProjectile.Position_Target2.z;
+  Atanx := CurrentProjectile.Position_Start.x - CurrentProjectile.Position_Target2.x;
+  Angle := Word(TA_Atan2(Atany, Atanx));
+  NewAngle := Angle - (SprayAngle div 2) + rand_(SprayAngle);
+
+  //NewAngle := (SprayAngle / High(Word) * 360);
+  //fAngle := (ArcTan2(AtanY, AtanX) * 180 / pi) - (NewAngle / 2) + rand_(Round(NewAngle));
+
+  // distance
+  HypotX := CurrentProjectile.Position_Start.x - CurrentProjectile.Position_Target2.x;
+  HypotZ := CurrentProjectile.Position_Start.z - CurrentProjectile.Position_Target2.z;
+  Distance := Hypot(HypotX, HypotZ);
+  //SprayAngle := SprayAngleOrg div 64;
+  //Randomize;
+  //NewDistance := Round(Distance - (SprayAngle div 2) + rand_(SprayAngle));
+
+  //NewAngle := NewAngle / High(Word) * 360;
+  //NewAngle := Angle / High(Word) * 360;
+  //Distance := DistanceOrg;
+
+  MapWidth := PTAdynmemStruct(TAData.MainStructPtr)^.MapWidth;
+  MapHeight := PTAdynmemStruct(TAData.MainStructPtr)^.MapHeight;
+  AttackerUnit := CurrentProjectile.p_AttackerUnit;
+
+  for i := 1 to SprayRate do
+  begin
+    SprayAngle := SprayAngleOrg div 16;
+    NewTarget_x := CurrentProjectile.Position_Target2.x - (SprayAngle div 2) + rand_(SprayAngle);
+    SprayAngle := SprayAngleOrg div 16;
+    NewTarget_z := CurrentProjectile.Position_Target2.z - (SprayAngle div 2) + rand_(SprayAngle);
+
+    if (NewTarget_x > 0) and (NewTarget_z > 0) and (NewTarget_x < MapWidth) and (NewTarget_z < MapHeight) then
+    begin
+      NewPosition := CurrentProjectile.Position_Target2;
+      NewPosition.x := NewTarget_x;
+      NewPosition.z := NewTarget_z;
+
+      NewUnitWeapon := AttackerUnit.UnitWeapons[0];
+      NewUnitWeapon.p_Weapon := WeaponName2Ptr(PAnsiChar('ARMTRUCK_MISSILE'));
+
+      CurrentProjectile.Weapon := WeaponName2Ptr(PAnsiChar('CRBLMSSL'));
+
+      CreateProjectile_0(@NewUnitWeapon,
+                         AttackerUnit,
+                         @CurrentProjectile.Position_Curnt,
+                         @NewPosition,
+                         CurrentProjectile.p_TargetUnit);
+
+      if CreateProjectile_1(@NewUnitWeapon,
+                            AttackerUnit,
+                            @CurrentProjectile.Position_Curnt,
+                            @NewPosition,
+                            CurrentProjectile.p_TargetUnit,
+                            0) then
+    end;
+  end;
+end;
+}
+{
+.text:0049BB32 024 75 06                                                           jnz     short loc_49BB3A
+.text:0049BB34 024 89 7D 56                                                        mov     [ebp+56h], edi
+.text:0049BB37 024 89 7D 4E                                                        mov     [ebp+4Eh], edi
+.text:0049BB3A
+.text:0049BB3A                                                     loc_49BB3A:
+}
+{
+procedure WeaponAimNTrajectory_SecondPhaseSpray;
+label
+//  loc_49BB3A,
+  ApplySprayAngle;
+asm
+  push    edx
+  push    ecx
+  push    eax
+  push    4                      //twophase sprayangle
+  push    ecx
+  call    GetWeaponExtProperty
+  cmp     eax, 0
+  //jnz     ApplySprayAngle
+  jmp     ApplySprayAngle
+  pop     eax
+  pop     ecx
+  pop     edx
+  mov     ebx, [TADynmemStructPtr]
+  push $0049BAFF
+  call PatchNJump
+ApplySprayAngle :
+  pop     eax
+  pop     ecx
+  pop     edx
+  pushAD
+  push    ebp
+  push    ecx
+  call TwoPhaseExtension
+  popAD
+  mov     ebx, [TADynmemStructPtr]
+  push $0049BAFF
+  call PatchNJump
+end;
+}
 {
 .text:0049AB47 020 8A 95 7F 42 01 00                                               mov     dl, [ebp+TAMainStruct.TNTMemStruct.SeaLevel]  1427Fh
 .text:0049AB4D 020 3B CA                                                           cmp     ecx, edx
@@ -277,8 +507,7 @@ end;        }
 .text:0049AD21 010 5B                                                              pop     ebx
 .text:0049AD22 00C 83 C4 0C                                                        add     esp, 0Ch
 .text:0049AD25 000 C2 0C 00                                                        retn    0Ch
-}
-{
+}      {
 procedure WeaponAimNTrajectory_NoAirWeapon;
 label
   ToAirWeapon,
@@ -289,11 +518,11 @@ asm
     push    edx
     push    ecx
     push    eax
-    push    2
+    push    3
     push    edi
     call    GetWeaponExtProperty
-    test    eax, 1
-    jz      NoAirWeaponCheckUnit
+    test    eax, eax
+    jnz      NoAirWeaponCheckUnit
     pop     eax
     pop     ecx
     pop     edx
@@ -305,7 +534,7 @@ NoAirWeaponCheckUnit :
     mov     ecx, [ebx+110h]
     and     ecx, 3
     cmp     cl, 2
-    jnz     DontShoot  // if unit is ground
+    jz     DontShoot  // if unit is ground
 ToAirWeapon :
     test    eax, 20000h
     jz      BallisticCheck   //loc_49AD28
@@ -317,8 +546,7 @@ DontShoot :
 BallisticCheck :
     push $0049AD28
     call PatchNJump
-end;
-}
+end; }
 {
 .text:0043E578 014 8B 44 24 1C                                                     mov     eax, [esp+14h+a1]
 .text:0043E57C 014 8B 08                                                           mov     ecx, [eax]
@@ -332,10 +560,11 @@ end;
 // weapon in esi
 
 {
-.text:0043E5CF 014 F7 86 11 01 00 00 00 00 02 00                                   test    dword ptr [esi+111h], 20000h ; toairweapon cursor check
-.text:0043E5D9 014 E9 B4 02 00 00                                                  jmp     loc_43E892
-}
-{
+.text:0043E592 014 85 FF                                                           test    edi, edi
+.text:0043E594 014 6A 00                                                           push    0               ; a3
+.text:0043E596 018 74 1C                                                           jz      short loc_43E5B4 //not UnitAtMouse
+.text:0043E598 018 8B 54 24 20                                                     mov     edx, [esp+18h+a1]
+}   {
 procedure WeaponAimNTrajectory_NoAirWeapon_Cursor;
 label
   Result1,
@@ -345,7 +574,7 @@ asm
     push    edx
     push    ecx
     push    eax
-    push    2
+    push    3
     push    esi
     call    GetWeaponExtProperty
     test    eax, 1
@@ -373,7 +602,7 @@ SetResult :
     pop     edx
     push $0043E892                // it will set then cursor depending on ZF
     call PatchNJump
-end;          }
+end;    }
 
 end.
 

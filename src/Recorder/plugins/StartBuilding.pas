@@ -45,12 +45,12 @@ begin
                             State_StartBuilding,
                             @OnInstallStartBuilding,
                             @OnUninstallStartBuilding );
-
+{
     StartBuildingPlugin.MakeRelativeJmp( State_StartBuilding,
                           'StartBuilding_ExpandCall',
                           @StartBuilding_ExpandCall,
-                          $004385A7, 0);
-
+                          $004385A7, 0);    
+}
     Result:= StartBuildingPlugin;
   end else
     Result := nil;

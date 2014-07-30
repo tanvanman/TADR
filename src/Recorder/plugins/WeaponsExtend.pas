@@ -1,12 +1,10 @@
 unit WeaponsExtend;
 {
  extend weapons TDF fields
- finished :
- hightrajectory   - enables high trajectory for ballistic weapons
 
- not finished :
- watertoground    - from sub water level to air/ground weapons. (requires cursor fix)
- noairweapon      - dont shoot air units (only cursor fixed, need to revise units auto aim proc) 
+ hightrajectory   - enables high trajectory for ballistic weapons
+ preserveaccuracy - disables accuracy advantage for units with more than 12 kills,
+                    usefull for vulcan etc. so it still shoots in "spray mode"
 }
 
 interface
@@ -35,13 +33,15 @@ uses
   TA_MemoryConstants,
   TA_MemoryStructures,
   TA_FunctionsU,
-  TA_MemoryLocations;
+  TA_MemoryLocations,
+  logging;
 
 const
   WeapInfo_HighTrajectory : AnsiString = 'hightrajectory';
-  WeapInfo_WaterToGround : AnsiString = 'watertoground';
-  WeapInfo_NoAirWeapon : AnsiString = 'noairweapon';
-  
+  WeapInfo_PreserveAccuracy : AnsiString = 'preserveaccuracy';
+  WeapInfo_NotAirWeapon : AnsiString = 'notairweapon';
+  WeapInfo_WeaponType2 : AnsiString = 'weapontype2';
+
 var
   WeaponsExtendPlugin: TPluginData;
 
@@ -49,7 +49,7 @@ Procedure OnInstallWeaponsExtend;
 begin
   if IniSettings.WeaponType > 256 then
     WeaponLimitPatchArr := Pointer(PCardinal(PCardinal($0042CDCE)^)^);  // get ptr to ddraw's weapon id patch array
-  SetLength(ExtraWeaponTags, IniSettings.WeaponType);
+  SetLength(ExtraWeaponDefTags, IniSettings.WeaponType);
 end;
 
 Procedure OnUninstallWeaponsExtend;
@@ -76,17 +76,23 @@ begin
     Result := nil;
 end;
 
-function WeaponPropertyPutIntoArray(PropertyType : Integer; WeaponID : Cardinal; AValue : Integer): Integer; stdcall;
+var
+  TempString : array[0..63] of AnsiChar;
+function WeaponPropertyPutIntoArray(PropertyType : Integer; WeapID : Cardinal; AValue : Cardinal): Integer; stdcall;
 begin
-  Result := WeaponID;
+  Result := WeapID;
   case PropertyType of
-    1 : ExtraWeaponTags[WeaponID].HighTrajectory := AValue;
-    2 : ExtraWeaponTags[WeaponID].WaterToGround := AValue;
-    3 : ExtraWeaponTags[WeaponID].NoAirWeapon := AValue;
+    1 : ExtraWeaponDefTags[WeapID].HighTrajectory := AValue;
+    2 : ExtraWeaponDefTags[WeapID].PreserveAccuracy := AValue;
+    3 : ExtraWeaponDefTags[WeapID].NotAirWeapon := AValue;
+    4 : ExtraWeaponDefTags[WeapID].WeaponType2 := TempString;
   end;
+  TempString := '';
 end;
 
 procedure WeaponsExtend_NewPropertiesLoadHook;
+label
+  NoWeaponType2;
 asm
     //mov     edx, [TADynmemStructPtr]
     pushAD
@@ -102,14 +108,14 @@ asm
     push    eax
     push    ecx
     push    1
-    call    WeaponPropertyPutIntoArray        // i dint know how to access records array :c
+    call    WeaponPropertyPutIntoArray
     pop     edx
     mov     ecx, ebx
 
     push    edx
     push    eax
     push    0
-    push    WeapInfo_WaterToGround
+    push    WeapInfo_PreserveAccuracy
     call    TdfFile__GetInt
     pop     ecx
     push    eax
@@ -122,7 +128,7 @@ asm
     push    edx
     push    eax
     push    0
-    push    WeapInfo_NoAirWeapon
+    push    WeapInfo_NotAirWeapon
     call    TdfFile__GetInt
     pop     ecx
     push    eax
@@ -130,6 +136,27 @@ asm
     push    3
     call    WeaponPropertyPutIntoArray
     pop     edx
+    mov     ecx, ebx
+
+    push    ebx
+    push    edx
+    push    eax
+    push    $005119B8                // null str
+    push    $40                      // buff len
+    push    WeapInfo_WeaponType2
+    lea     ebx, TempString
+    push    ebx
+    call    TdfFile__GetStr
+    test    eax, eax
+    pop     eax
+    jz      NoWeaponType2
+    push    ebx
+    push    eax
+    push    4
+    call    WeaponPropertyPutIntoArray
+NoWeaponType2 :
+    pop     edx
+    pop     ebx
     mov     ecx, ebx
 
     popAD
@@ -140,4 +167,4 @@ asm
 end;
 
 end.
- 
+

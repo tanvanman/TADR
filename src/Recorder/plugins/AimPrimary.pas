@@ -1,4 +1,4 @@
-unit AimPrimary;
+unit ScriptCallsExtend;
 
 // to extend aimprimary call by including target unit ID
 // along with heading and pitch in parameters list
@@ -10,19 +10,19 @@ uses
 // -----------------------------------------------------------------------------
 
 const
-  State_AimPrimary : boolean = true;
+  State_ScriptCallsExtend : boolean = true;
 
 function GetPlugin : TPluginData;
 
 // -----------------------------------------------------------------------------
 
-Procedure OnInstallAimPrimary;
-Procedure OnUninstallAimPrimary;
+Procedure OnInstallScriptCallsExtend;
+Procedure OnUninstallScriptCallsExtend;
 
 // -----------------------------------------------------------------------------
 
-procedure AimPrimary_Turret_ExpandCall;
-procedure AimPrimary_Ballistic_ExpandCall;
+procedure ScriptCallsExtend_AimPrimaryTurret;
+procedure ScriptCallsExtend_AimPrimaryBallistic;
 
 implementation
 uses
@@ -31,43 +31,44 @@ uses
   TA_FunctionsU;
 
 var
-  AimPrimaryPlugin: TPluginData;
-  TargetUnit_Turret: Cardinal;
+  ScriptCallsExtendPlugin: TPluginData;
 
-Procedure OnInstallAimPrimary;
+Procedure OnInstallScriptCallsExtend;
 begin
 end;
 
-Procedure OnUninstallAimPrimary;
+Procedure OnUninstallScriptCallsExtend;
 begin
 end;
 
 function GetPlugin : TPluginData;
 begin
-  if IsTAVersion31 and State_AimPrimary then
+  if IsTAVersion31 and State_ScriptCallsExtend then
   begin
-    AimPrimaryPlugin := TPluginData.create( false,
-                            'AimPrimary Plugin',
-                            State_AimPrimary,
-                            @OnInstallAimPrimary,
-                            @OnUninstallAimPrimary );
+    ScriptCallsExtendPlugin := TPluginData.create( false,
+                            'ScriptCallsExtend Plugin',
+                            State_ScriptCallsExtend,
+                            @OnInstallScriptCallsExtend,
+                            @OnUninstallScriptCallsExtend );
 
-    AimPrimaryPlugin.MakeRelativeJmp( State_AimPrimary,
-                          'AimPrimary_Turret_ExpandCall',
-                          @AimPrimary_Turret_ExpandCall,
+    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
+                          'ScriptCallsExtend_AimPrimaryTurret',
+                          @ScriptCallsExtend_AimPrimaryTurret,
                           $0049E2A5, 0);
 
-    AimPrimaryPlugin.MakeRelativeJmp( State_AimPrimary,
-                          'AimPrimary Ballistic_ExtendCall',
-                          @AimPrimary_Ballistic_ExpandCall,
+    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
+                          'ScriptCallsExtend_AimPrimaryBallistic',
+                          @ScriptCallsExtend_AimPrimaryBallistic,
                           $0049E35D, 0);  
 
-    Result:= AimPrimaryPlugin;
+    Result:= ScriptCallsExtendPlugin;
   end else
     Result := nil;
 end;
 
-procedure AimPrimary_Turret_ExpandCall;
+var
+  TargetUnit_Turret: Cardinal;
+procedure ScriptCallsExtend_AimPrimaryTurret;
 label
   ShootingGround,
   loc_49E2AE,
@@ -123,7 +124,7 @@ ContinueToCall:
     and     edx, 3
     push    eax
     mov     dword ptr [esi-13h], 0
-    mov     eax, $509688[edx*4]    // AimPrimary / AimSecondary / AimTertiary
+    mov     eax, $509688[edx*4]    // ScriptCallsExtend / AimSecondary / AimTertiary
     push    3                      // par count
     push $0049E30F
     call PatchNJump
@@ -132,7 +133,7 @@ loc_49E3AE:
     call PatchNJump;
 end;
 
-procedure AimPrimary_Ballistic_ExpandCall;
+procedure ScriptCallsExtend_AimPrimaryBallistic;
 label
    GroundTarget,
    ContinueToGame;

@@ -1,7 +1,6 @@
 unit ResurrectPatrol;
 
 // to make resurrector units able to resurrect patrol
-// - reorder priority (resurrect should be before repair patrol and reclaim features) 405A6B
 
 interface
 uses
@@ -84,16 +83,16 @@ begin
 end;
 
 {
-.text:00405BE3 040 8B 4C 24 44                                                     mov     ecx, [esp+40h+a3]
-.text:00405BE7 040 53                                                              push    ebx             ; UnitOrderFlags
-.text:00405BE8 044 53                                                              push    ebx             ; lPar2
-.text:00405BE9 048 53                                                              push    ebx             ; lPar1
-.text:00405BEA 04C 51                                                              push    ecx             ; Position_DWORD_p
-.text:00405BEB 050 53                                                              push    ebx             ; TargatUnit
-.text:00405BEC 054 51                                                              push    ecx             ; Scrip_index
-.text:00405BED 058 8B CC                                                           mov     ecx, esp        ; RtnIndex_ptr
-.text:00405BEF 058 68 C4 16 50 00                                                  push    offset aReclaim ; "RECLAIM"
-.text:00405BF4 05C E8 67 2B 03 00                                                  call    ScriptAction_Name2Index
+.text:00405BE3 040 8B 4C 24 44                                mov     ecx, [esp+40h+a3]
+.text:00405BE7 040 53                                         push    ebx             ; UnitOrderFlags
+.text:00405BE8 044 53                                         push    ebx             ; lPar2
+.text:00405BE9 048 53                                         push    ebx             ; lPar1
+.text:00405BEA 04C 51                                         push    ecx             ; Position_DWORD_p
+.text:00405BEB 050 53                                         push    ebx             ; TargatUnit
+.text:00405BEC 054 51                                         push    ecx             ; Scrip_index
+.text:00405BED 058 8B CC                                      mov     ecx, esp        ; RtnIndex_ptr
+.text:00405BEF 058 68 C4 16 50 00                             push    offset aReclaim ; "RECLAIM"
+.text:00405BF4 05C E8 67 2B 03 00                             call    ScriptAction_Name2Index
 }
 procedure ResurrectPatrol_ReclaimToResurrect;
 label
@@ -186,9 +185,9 @@ begin
 end;
 
 {
-.text:00405BC6 040 F6 C4 41                                                        test    ah, 41h
-.text:00405BC9 040 75 5A                                                           jnz     short loc_405C25 ; fMaxMetalStorage * 0.2 > fCurrentMetal
-.text:00405BCB 040 53                                                              push    ebx             ; OrderCallBack_p
+.text:00405BC6 040 F6 C4 41                   test    ah, 41h
+.text:00405BC9 040 75 5A                      jnz     short loc_405C25 ; fMaxMetalStorage * 0.2 > fCurrentMetal
+.text:00405BCB 040 53                         push    ebx             ; OrderCallBack_p
 }
 procedure ResurrectPatrol_AvoidMetalCheck;
 label

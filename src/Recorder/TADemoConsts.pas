@@ -25,7 +25,8 @@ const
   TADemoVersion_Current = TADemoVersion_99b3_beta3;
 
   // every 30 seconds flush the logs
-  FlushDeltaTime = 30*1000;
+//  FlushDeltaTime = 30*1000;
+  FlushDeltaTime = 1*1000;
 const
   NumDeities = 13;
   Deities :array[1..NumDeities] of string = ('Allah', 'Shiva', 'Odin', 'Zeus', 'Jehova', 'Buddha', 'Zarathustra', 'Thor', 'Mammon', 'Uncle Sam', 'Ra', 'Bill Gates', 'Sugar the Snow Fairy');

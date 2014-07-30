@@ -2,13 +2,14 @@ unit TAMemManipulations;
 
 interface
 uses
-  sysutils,
-  windows, Messages,
+  windows, sysutils,
+  Messages,
   Classes,
+  ZLibEx,
   MemMappedDataStructure;
 
 type
-  TCheatType = (ctMemory, ctProcesses);
+  TCheatType = (ctMemory, ctProcesses, ctScreenshot);
 
 type
   TEnumWindowsThread = class(TThread)
@@ -18,6 +19,12 @@ type
 
 type
   TCheckMemoryCheats = class(TThread)
+  protected
+    procedure Execute; override;
+  end;
+
+type
+  TScreenshotCreate = class(TThread)
   protected
     procedure Execute; override;
   end;
@@ -40,7 +47,16 @@ procedure CheckForCheats(CheatType: TCheatType);
 
 implementation
 uses
-  idplay;
+  idplay,
+  textdata,
+  TA_FunctionsU,
+  TA_MemoryLocations,
+  TA_MemoryStructures,
+  TADemoConsts,
+  IdMultipartFormData, IdHTTP;
+
+const
+  Xorkey: array [0..3] of Byte = ($91, $64, $66, $56);
 
 var
   ProhibitedFound: Boolean;
@@ -236,11 +252,269 @@ begin
     GlobalDPlay.OnFinishedCheatsCheck(Cheats);
 end;
 
+procedure SendScreenShot;
+var
+  ScreenshotCreate: TScreenshotCreate;
+begin
+  ScreenshotCreate:= TScreenshotCreate.Create(False);
+  ScreenshotCreate.FreeOnTerminate:= True;
+end;
+
+function FindVolumeSerial(const Drive : PChar) : string;
+var
+   VolumeSerialNumber : DWORD;
+   MaximumComponentLength : DWORD;
+   FileSystemFlags : DWORD;
+   SerialNumber : string;
+begin
+   Result:='';
+
+   GetVolumeInformation(
+        Drive,
+        nil,
+        0,
+        @VolumeSerialNumber,
+        MaximumComponentLength,
+        FileSystemFlags,
+        nil,
+        0) ;
+   SerialNumber :=
+         IntToHex(HiWord(VolumeSerialNumber), 4) +
+         IntToHex(LoWord(VolumeSerialNumber), 4) ;
+
+   Result := SerialNumber;
+end;
+
+procedure DecompressFile(const SourceFile, DestFile: string);
+var
+  SourceStream: TStream;
+  ZLibStream: TStream;
+  DestStream: TStream;
+  DecSize: Cardinal;
+  Ms: TStream;
+  i: Integer;
+  Data: array of Byte;
+  MsOut: TStream;
+begin
+  SourceStream := TFileStream.Create(SourceFile, fmOpenRead);
+  Ms := TMemoryStream.Create;
+  MsOut := TMemoryStream.Create;
+
+  Ms.CopyFrom(SourceStream, SourceStream.Size);
+  Ms.Position := 0;
+
+  SetLength(Data, Ms.Size);
+  Ms.Read(Data[0], Ms.Size);
+  DecSize := PDword(@Data[0])^;
+
+  for i := 0 to 3 do
+   Data[i + 4] := Data[i + 4] xor Xorkey[i mod 4];
+
+  MsOut.Size := Length(Data);
+  MsOut.Write(Data[0], Length(Data));
+  MsOut.Position := 4;
+  try
+    ZLibStream := TZDecompressionStream.Create(MsOut, -15);
+    try
+      DestStream := TFileStream.Create(DestFile, fmCreate or fmShareExclusive);
+      try
+        ZLibStream.Read(Data[0], SizeOf(DecSize));
+        DestStream.Write(Data[0],SizeOf(DecSize));
+        DestStream.CopyFrom(ZLibStream, DecSize -4);
+      finally
+        DestStream.Free;
+      end;
+    finally
+      ZLibStream.Free;
+    end;
+  finally
+    SourceStream.Free;
+    Ms.Free;
+    MsOut.Free;
+  end;
+end;
+
+procedure CompressFile(const SourceFile, DestFile: string);
+var
+  SourceStream: TStream;
+  ZLibStream: TStream;
+  DestStream: TStream;
+  DecSize, FixShit: Integer;
+  i: Integer;
+  Data: array of Byte;
+begin
+  SourceStream := TFileStream.Create(SourceFile, fmOpenRead);
+  try
+    DecSize := SourceStream.Size;
+    DestStream := TFileStream.Create(DestFile, fmCreate or fmShareExclusive);
+
+    DestStream.Write(DecSize,SizeOf(DecSize));
+    try
+      ZLibStream := TZCompressionStream.Create(DestStream, zcMax , -15, 8, zsDefault);
+      try
+       repeat
+        FixShit := SourceStream.Read(DecSize, SizeOf(DecSize));
+        ZLibStream.Write(DecSize, FixShit);
+       until FixShit = 0;
+      finally
+        ZLibStream.Free;
+      end;
+
+      SetLength(Data, DestStream.Size);
+      DestStream.Position := 0;
+      DestStream.Read(Data[0],Length(Data));
+      DestStream.Position := 0;
+
+       for i := 0 to 3 do
+        Data[i + 4] := Data[i + 4] xor Xorkey[i mod 4];
+
+      DestStream.Write(Data[0],Length(Data));
+    finally
+      DestStream.Free;
+    end;
+  finally
+    SourceStream.Free;
+  end;
+end;
+
+procedure SendSS(FileName: String);
+var
+  Stream: TStringStream;
+  ZipFileName : String;
+  Params: TIdMultipartFormDataStream;
+  HTTP : TIdHTTP;
+begin
+  ZipFileName := Copy(FileName, 1, Length(FileName) - 9);
+  ZipFileName := ChangeFileExt(ZipFileName, '.ac');
+  CompressFile(FileName, ZipFileName);
+  try
+    DeleteFile(FileName);
+  except
+  end;
+  Stream := TStringStream.Create('');
+  HTTP := TIdHTTP.Create(nil);
+  try
+    Params := TIdMultipartFormDataStream.Create;
+    try
+      Params.AddFile('ssfile', ZipFileName, 'application/octet-stream');
+      try
+        HTTP.Post('http://plobex.pl/anticheat/up.php', Params, Stream);
+      except
+        Exit;
+      end;
+    finally
+      Params.Free;
+    end;
+  finally
+    Stream.Free;
+    try
+      DeleteFile(ZipFileName);
+    except
+    end;
+  end;
+end;
+
+function FileSearch(const PathName, FileName, MaskName : string; Delete: Boolean): String ;
+var
+  Rec : TSearchRec;
+  Path : string;
+begin
+  Path := IncludeTrailingPathDelimiter(PathName) ;
+  if FindFirst(Path + FileName, faAnyFile - faDirectory, Rec) = 0 then
+  try
+    repeat
+      if not Delete then
+      begin
+        if Pos(MaskName, Rec.Name) <> 0 then
+        begin
+          Result := Rec.Name;
+          Break;
+        end;
+      end else
+      begin
+        DeleteFile(PathName + Rec.Name);
+      end;
+    until FindNext(Rec) <> 0;
+  finally
+    FindClose(Rec);
+  end;
+end;
+
+procedure TScreenshotCreate.Execute;
+var
+  TAProgramStruct : Pointer;
+  FileName, DirName, FinalFileName, Date, PlayerName : String;
+  BuffLen : Cardinal;
+  UserName : String;
+  DriveSerial : String;
+  sGameRunSec : String;
+  UID : String;
+
+  MakeSS : Boolean;
+
+  HTTP : TIdHTTP;
+  Response: String;
+begin
+  TAProgramStruct := GetTAProgramStruct;
+  if TAProgramStruct <> nil then
+  begin
+    BuffLen := 255;
+    SetLength(UserName, BuffLen);
+    GetUserName(PChar(UserName), BuffLen);
+    UserName := Copy(UserName, 1, BuffLen - 1);
+    DriveSerial := RemoveInvalidIncSpace(FindVolumeSerial('c:\'));
+    PlayerName := PPlayerStruct(TAPlayer.GetPlayerByIndex(TAData.ViewPlayer)).szName;
+    UID := DriveSerial + '_' + RemoveInvalidIncSpace(UserName);
+
+    Date := FormatDateTime('dd_mm_yyyy_hh_nn', Now);
+    MakeSS := True;
+
+    HTTP := TIdHTTP.Create(nil);
+    try
+      Response := HTTP.Get('http://plobex.pl/anticheat/check.php?uid=' + UID);
+      if Response = 'w' then
+        MakeSS := False;
+    except
+      MakeSS := False;
+    end;
+
+    if MakeSS then
+    begin
+      DirName := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation)) + 'log\';
+      sGameRunSec := IntToStr(PTAdynmemStruct(TAData.MainStructPtr)^.lGameTime);
+      FileName := RemoveInvalidIncSpace(PlayerName) +
+                  '#' + RemoveInvalidIncSpace(UserName) +
+                  '#' + RemoveInvalidIncSpace(Date) +
+                  '#' + DriveSerial +
+                  '#' + sGameRunSec + '#';
+
+      FileSearch(DirName, '*.pcx', '', True);
+
+      //if TakeScreenshot(PAnsiChar(FileName), Pointer(PLongWord(LongWord(TAProgramStruct) + $BC)^)) = 1 then
+      if TakeScreenshotOrg(PAnsiChar(DirName), PAnsiChar(FileName)) = 1 then
+      begin
+        PTAdynmemStruct(TAData.MainStructPtr)^.RandNum_ := GameRunSec;
+        Sleep(5000);
+        FinalFileName := FileSearch(DirName, '*.pcx', FileName, False);
+        if (FinalFileName <> '') then
+        begin
+          FinalFileName := DirName + FinalFileName;
+          if FileExists(FinalFileName) then
+          begin
+            SendSS(FinalFileName);
+          end;
+        end;
+      end;
+    end;
+  end;
+end;
+
 procedure CheckForCheats(CheatType: TCheatType);
 begin
   case CheatType of
     ctMemory: FindMemoryCheats;
     ctProcesses : FindProhibitedProcesses;
+    ctScreenshot : SendScreenShot;
   end;
 end; {CheckForCheats}
 

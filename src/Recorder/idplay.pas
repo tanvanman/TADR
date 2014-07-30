@@ -249,9 +249,11 @@ type
     IsInGame : Boolean;
     trCheckMemoryCheats: TConsoleTimer;
     trCheckProhibitedProcesses: TConsoleTimer;
+    trTakeScreenshot : TConsoleTimer;
     procedure OnFinishedCheatsCheck(CheatsFound: TTACheats);
     procedure OnMemoryCheckTick(Sender : TObject);
     procedure OnProcessCheckTick(Sender : TObject);
+    procedure OnScreenshotTakeTick(Sender : TObject);
     procedure Exiting();
     procedure ResetRecorder;
 
@@ -690,8 +692,8 @@ begin
         begin
           SetLength( customPacket, SizeOf(TRec2Rec_UnitTemplate_Message));
           Move( unitId, customPacket[1], SizeOf(Word));
-          Move( arg3^, customPacket[3], SizeOf(Word)); // new template id
-          Move( arg1^, customPacket[5], SizeOf(Byte)); // recreate object
+          Move( arg3^, customPacket[3], SizeOf(Cardinal)); // new template crc
+          Move( arg1^, customPacket[7], SizeOf(Byte)); // recreate object
         end;
     end;
     SendRecorderToRecorderMsg( eventType, customPacket, False );
@@ -710,9 +712,25 @@ end;
 
 procedure TDPlay.OnProcessCheckTick(Sender : TObject);
 begin
+  if not trCheckProhibitedProcesses.FirstTick then
+  begin
+    trCheckProhibitedProcesses.FirstTick := True;
+    Exit;
+  end;
   trCheckProhibitedProcesses.Enabled:= False;
   CheckForCheats(ctProcesses);
   trCheckProhibitedProcesses.Enabled:= True;
+end;
+
+procedure TDPlay.OnScreenshotTakeTick(Sender : TObject);
+begin
+  if not trTakeScreenshot.FirstTick then
+  begin
+    trTakeScreenshot.FirstTick := True;
+    Exit;
+  end;
+  trTakeScreenshot.Enabled:= False;
+  CheckForCheats(ctScreenshot);
 end;
 
 procedure TDPlay.CheckForCheats(CheatType: TCheatType);
@@ -2350,7 +2368,9 @@ if assigned(chatview) then
         begin
         IsInGame := True;
         TAStatus := InGame;
-        if NotViewingRecording and compatibleTA then
+        if NotViewingRecording and
+           compatibleTA and
+           not TAPlayer.GetIsWatcher(TAPlayer.GetPlayerByIndex(TAData.ViewPlayer)) then
         begin
           if (not Assigned(trCheckMemoryCheats)) then
           begin
@@ -2365,8 +2385,17 @@ if assigned(chatview) then
             trCheckProhibitedProcesses := TConsoleTimer.Create;
             with trCheckProhibitedProcesses do
             begin
-              Interval := 7000;
+              Interval := 14000;
               OnTimerEvent := OnProcessCheckTick;
+              Enabled := True;
+            end;
+
+            trTakeScreenshot := TConsoleTimer.Create;
+            Randomize;
+            with trTakeScreenshot do
+            begin
+              Interval := (Random(350) + 900) * 1000;
+              OnTimerEvent := OnScreenshotTakeTick;
               Enabled := True;
             end;
           end;
@@ -2847,7 +2876,7 @@ if assigned(chatview) then
                  begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitTemplate_Message) );
                    TAUnit.SetTemplate(Pointer(TAUnit.Id2Ptr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UnitId)),
-                                              PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID);
+                                              TAMem.UnitInfoCrc2Ptr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateCrc));
                  end;
                TANM_Rec2Rec_UnitGrantUnitInfo :
                  begin
@@ -3890,6 +3919,7 @@ destructor TDPlay.Destroy;
 begin
 GlobalDPlay.trCheckMemoryCheats.Free;
 GlobalDPlay.trCheckProhibitedProcesses.Free;
+GlobalDPlay.trTakeScreenshot.Free;
 GlobalDPlay:= nil;
   cs.Acquire;
   cs.Release;

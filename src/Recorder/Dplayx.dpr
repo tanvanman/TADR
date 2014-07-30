@@ -53,17 +53,21 @@ uses
   TA_MemoryConstants in 'TAMem\TA_MemoryConstants.pas',
   ConsoleTimer in 'ConsoleTimer.pas',
   StopWatch in 'StopWatch.pas',
-  AimPrimary in 'plugins\AimPrimary.pas',
   RegPathFix in 'plugins\RegPathFix.pas',
   ResurrectPatrol in 'plugins\ResurrectPatrol.pas',
   ClockPosition in 'plugins\ClockPosition.pas',
-  ExtraUnitBars in 'plugins\ExtraUnitBars.pas',
   ExplodeBitmaps in 'plugins\ExplodeBitmaps.pas',
   StartBuilding in 'plugins\StartBuilding.pas',
   WeaponsExtend in 'plugins\WeaponsExtend.pas',
   WeaponAimNTrajectory in 'plugins\WeaponAimNTrajectory.pas',
   KillDamage in 'plugins\KillDamage.pas',
-  DropUnitsWeaponsList in 'plugins\DropUnitsWeaponsList.pas';
+  DropUnitsWeaponsList in 'plugins\DropUnitsWeaponsList.pas',
+  BattlerRoomMemFix in 'plugins\BattlerRoomMemFix.pas',
+  UnitsExtend in 'plugins\UnitsExtend.pas',
+  ScriptCallsExtend in 'plugins\ScriptCallsExtend.pas',
+  UnitActions in 'plugins\UnitActions.pas',
+  TAExceptionsLog in 'plugins\TAExceptionsLog.pas',
+  GUIEnhancements in 'plugins\GUIEnhancements.pas';
 
 {$R *.res}
 

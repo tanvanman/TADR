@@ -11,7 +11,7 @@ type
     fStream : TStringList;
   public
     constructor Create(aPath : String);
-    procedure WriteDefinition(sName : String; aIndex : Integer);
+    procedure WriteDefinition(sName : String; aIndex : Cardinal);
     procedure WriteComment(sText : String);
     procedure WriteNewLine;
 
@@ -29,11 +29,11 @@ uses
 
 constructor TScriptorFile.Create(aPath : String);
 begin
-  fPath := aPath;
+  Self.fPath := aPath;
   fStream := TStringList.Create;
 end;
 
-procedure TScriptorFile.WriteDefinition(sName : String; aIndex : Integer);
+procedure TScriptorFile.WriteDefinition(sName : String; aIndex : Cardinal);
 begin
   fStream.Add('#define ' + sName + #32 + IntToStr(aIndex));
 end;
@@ -61,13 +61,16 @@ var
   UnitsMax : Integer;
   WeapsMax : Integer;
 
-  UnitInfo : PUnitfInfo;
+  UnitInfo : PUnitInfo;
   WeapInfo : PWeaponDef;
-
 
   i : Integer;
 begin
-  sPath := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation)) + 'unitsweaps.h';
+  if IniSettings.ScriptorPath <> '' then
+    sPath := IncludeTrailingPathDelimiter(IniSettings.ScriptorPath) + 'unitsweaps.h'
+  else
+    sPath := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation)) + 'unitsweaps.h';
+
   ScriptorFile := TScriptorFile.Create(sPath);
   try
     ScriptorFile.WriteComment('Units and weapons list of mod ' + IniSettings.Name + #32 + IniSettings.Version);
@@ -83,7 +86,7 @@ begin
         if UnitInfo.szUnitName <> 'None' then
         begin
           ScriptorFile.WriteComment(UnitInfo.szName + ' - ' + UnitInfo.szUnitDescription);
-          ScriptorFile.WriteDefinition(UnitInfo.szUnitName, i);
+          ScriptorFile.WriteDefinition(UpperCase(UnitInfo.szUnitName), TAMem.Crc32ToCrc24(UnitInfo.CRC_FBI));
         end;
       end;
     end;
@@ -100,9 +103,9 @@ begin
         begin
           ScriptorFile.WriteComment(WeapInfo.szWeaponDescription);
           if IniSettings.WeaponType <= 256 then
-            ScriptorFile.WriteDefinition(WeapInfo.szWeaponName, WeapInfo.ucID)
+            ScriptorFile.WriteDefinition('WEAP_' + UpperCase(WeapInfo.szWeaponName), WeapInfo.ucID)
           else
-            ScriptorFile.WriteDefinition(WeapInfo.szWeaponName, WeapInfo.lWeaponIDCrack);
+            ScriptorFile.WriteDefinition('WEAP_' + UpperCase(WeapInfo.szWeaponName), WeapInfo.lWeaponIDCrack);
         end;
       end;
     end;

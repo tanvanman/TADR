@@ -190,7 +190,7 @@ begin
   begin
     if iniSettings.Version <> '' then
       sVersion:= ' ' + iniSettings.Version;
-    Msg:= '*** '+Players[1].Name+' uses ' + iniSettings.Name + sVersion +  ' (ID: '+ IntToStr(iniSettings.modId) +')';
+    Msg:= '*** '+Players[1].Name+' uses ' + iniSettings.Name + sVersion +  ' [ID:'+ IntToStr(iniSettings.modId) +']'+' U:'+IntToStr(TAData.UnitInfosCount);
   end else
   begin
     Msg:= '*** '+Players[1].Name+': OTA or backward compatibility mode';

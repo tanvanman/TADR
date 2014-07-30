@@ -58,12 +58,13 @@ begin
                             @OnInstallBuilders,
                             @OnUnInstallBuilders );
 
-    Replacement:= 0;
+    Replacement := 0;
     //Allow registration of yardmap data for any unit, including mobile, into memory
-    BuildersPlugin.MakeReplacement( State_Builders, 'Yardmap for mobiles', $42CF3A, Replacement, 2); //35 01 -> 00 00
+    if IniSettings.Plugin_Builders_Yard then
+      BuildersPlugin.MakeReplacement( State_Builders, 'Yardmap for mobiles', $0042CF3A, Replacement, 2); //35 01 -> 00 00
 
     //Have mobile units (those being built from mobile) use the typical nano colors while under construction
-    BuildersPlugin.MakeReplacement( State_Builders, 'Nano colors for mobiles', $45961B, Replacement, 1); //13 -> 00
+    BuildersPlugin.MakeReplacement( State_Builders, 'Nano colors for mobiles', $0045961B, Replacement, 1); //13 -> 00
 
     // extraSize is how much data should be written out to ensure the patch site is nice & neat. Extra data is NOPs
     // jump is 5 bytes (instruction + 4 byte address)

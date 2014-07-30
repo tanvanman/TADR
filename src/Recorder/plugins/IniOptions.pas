@@ -17,12 +17,15 @@ type
     UnitLimit            : Integer;
     Read                 : Boolean;
 
-    Plugin_AimScriptExt  : Boolean;
+    ScriptorPath         : String;
+
     Plugin_Builders      : Boolean;
+    Plugin_Builders_Yard : Boolean;
+    Plugin_AiNukes       : Boolean;
 
     { GUI Plugins }
     Plugin_Colors        : Boolean;
-    Colors               : array [0..27] of Cardinal;
+    Colors               : array [0..30] of Cardinal;
     Plugin_HBWidth       : Integer;
     Plugin_HBDynamicSize : Boolean;
     Plugin_HBCategory1   : Cardinal;
@@ -34,9 +37,13 @@ type
     Plugin_TrueIncome    : Boolean;
     Plugin_ClockPosition : Byte;
 
-    Plugin_WeaponReload  : Boolean;
+    Plugin_MinWeaponReload  : Integer;
     Plugin_Transporters  : Boolean;
     Plugin_Stockpile     : Boolean;
+
+    Plugin_CircleUnitSelect : Boolean;
+    Plugin_ForceDrawBuildSpotNano : Boolean;
+    Plugin_BuildSpotNanoShimmer : Boolean;
     
     Plugin_MinReclaimTime : Integer;
     Plugin_Gaf : Boolean;
@@ -48,6 +55,9 @@ type
                 UNITHEALTHBARGOOD,
                 UNITHEALTHBARMEDIUM,
                 UNITHEALTHBARLOW,
+                WEAPONRELOADBAR,
+                RECLAIMBAR,
+                STOCKPILEBAR,
                 BUILDQUEUEBOXSELECTED1,
                 BUILDQUEUEBOXSELECTED2,
                 BUILDQUEUEBOXNONSELECTED1,
@@ -298,28 +308,31 @@ begin
 
       IniSettings.RanksURL := ReadIniString(iniFile, 'Preferences','RanksURL', '');
 
-      IniSettings.UnitType := ReadIniValue(iniFile, 'Preferences', 'UnitType', 16000);
-      IniSettings.WeaponType := ReadIniValue(iniFile, 'Preferences', 'WeaponType', 16000);
+      IniSettings.UnitType := ReadIniValue(iniFile, 'Preferences', 'UnitType', 512);
+      IniSettings.WeaponType := ReadIniValue(iniFile, 'Preferences', 'WeaponType', 256);
       multiGameWeapon := ReadIniBool(iniFile, 'Preferences','MultiGameWeapon', False);
       IniSettings.WeaponIdPatch := (IniSettings.WeaponType > 256) and multiGameWeapon;
 
-      IniSettings.UnitLimit := ReadIniValue(iniFile, 'Preferences','UnitLimit', 0);
+      IniSettings.UnitLimit := ReadIniValue(iniFile, 'Preferences', 'UnitLimit', 0);
 
-      IniSettings.Plugin_AimScriptExt := ReadIniBool(iniFile, 'Preferences', 'AimScripts', False);
+      IniSettings.ScriptorPath := ReadIniString(iniFile, 'Preferences', 'ScriptorIncludePath', '');
+
       IniSettings.Plugin_Builders := ReadIniBool(iniFile, 'Preferences', 'Builders', False);
+      IniSettings.Plugin_Builders_Yard := ReadIniBool(iniFile, 'Preferences', 'MobileYardmap', False);
+      IniSettings.Plugin_AiNukes := ReadIniBool(iniFile, 'Preferences', 'AiNukes', False);
 
       if iniFile.SectionExists('Colors') then
       begin
         IniSettings.Plugin_Colors := True;
-        for i:= 0 to 26 do
+        for i:= 0 to 29 do
         begin
           currcolor := GetEnumName(TypeInfo(TIniColors), i);
           IniSettings.Colors[i] := ReadIniValue(iniFile, 'Colors', UpperCase(currcolor), 0);
         end;
         if ReadIniBool(iniFile, 'Colors','MainMenuDotsDisabled', False) then
-          IniSettings.Colors[27]:= 1
+          IniSettings.Colors[30]:= 1
         else
-          IniSettings.Colors[27]:= 0;
+          IniSettings.Colors[30]:= 0;
       end;
 
       IniSettings.Plugin_HBWidth := ReadIniValue(iniFile, 'Preferences', 'HealthBarWidth', 0);
@@ -329,9 +342,12 @@ begin
       IniSettings.Plugin_HBCategory3 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat3', 0);
       IniSettings.Plugin_HBCategory4 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
       IniSettings.Plugin_HBCategory5 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
-      IniSettings.Plugin_WeaponReload := ReadIniBool(iniFile, 'Preferences', 'WeaponReloadTimeBar', False);
+      IniSettings.Plugin_MinWeaponReload := ReadIniValue(iniFile, 'Preferences', 'MinWeaponReloadTime', 0);
       IniSettings.Plugin_Transporters := ReadIniBool(iniFile, 'Preferences', 'TransportersCount', False);
       IniSettings.Plugin_Stockpile := ReadIniBool(iniFile, 'Preferences', 'StockpileCount', False);
+      IniSettings.Plugin_CircleUnitSelect := ReadIniBool(iniFile, 'Preferences', 'CircleUnitSelect', False);
+      IniSettings.Plugin_ForceDrawBuildSpotNano := ReadIniBool(iniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
+      IniSettings.Plugin_BuildSpotNanoShimmer := ReadIniBool(iniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
 
       IniSettings.Plugin_TrueIncome := ReadIniBool(iniFile, 'Preferences', 'TrueIncome', False);
 
