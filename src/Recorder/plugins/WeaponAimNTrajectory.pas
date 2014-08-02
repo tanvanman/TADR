@@ -21,9 +21,8 @@ Procedure OnUninstallWeaponAimNTrajectory;
 procedure WeaponAimNTrajectory_HighTrajectory;
 procedure WeaponAimNTrajectory_PreserveAccuracy;
 procedure WeaponAimNTrajectory_WeaponType2;
-
-//procedure WeaponAimNTrajectory_NoAirWeapon;
-//procedure WeaponAimNTrajectory_NoAirWeapon_Cursor;
+procedure WeaponAimNTrajectory_NoAirWeapon;
+procedure WeaponAimNTrajectory_NoAirWeapon_Cursor;
 
 //procedure WeaponAimNTrajectory_SecondPhaseSpray;
 //procedure WeaponAimNTrajectory_WaterToGroundCheck_GrantFire;
@@ -76,6 +75,16 @@ begin
                           @WeaponAimNTrajectory_WeaponType2,
                           $0049BB29, 1);
 
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'WeaponAimNTrajectory_NoAirWeapon',
+                          @WeaponAimNTrajectory_NoAirWeapon,
+                          $0049AD07, 0);
+
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'WeaponAimNTrajectory_NoAirWeapon_Cursor',
+                          @WeaponAimNTrajectory_NoAirWeapon_Cursor,
+                          $0043E578, 0);
+
 {
     WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
                           'Sprayangle for twophase weapons',
@@ -91,17 +100,6 @@ begin
                           'WaterToGroundCheck 1',
                           @WeaponAimNTrajectory_WaterToGroundCheck_Trajectory,
                           $0049B9EB, 0);        }
-
-// not finished, setting cursor wrkin                        
-{    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'WeaponAimNTrajectory_NoAirWeapon',
-                          @WeaponAimNTrajectory_NoAirWeapon,
-                          $0049AD07, 0);   }
-
-{    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'WeaponAimNTrajectory_NoAirWeapon_Cursor',
-                          @WeaponAimNTrajectory_NoAirWeapon_Cursor,
-                          $0043E592, 1);      }
 
     Result:= WeaponAimNTrajectoryPlugin;
   end else
@@ -507,7 +505,7 @@ end;        }
 .text:0049AD21 010 5B                                                              pop     ebx
 .text:0049AD22 00C 83 C4 0C                                                        add     esp, 0Ch
 .text:0049AD25 000 C2 0C 00                                                        retn    0Ch
-}      {
+}
 procedure WeaponAimNTrajectory_NoAirWeapon;
 label
   ToAirWeapon,
@@ -522,7 +520,7 @@ asm
     push    edi
     call    GetWeaponExtProperty
     test    eax, eax
-    jnz      NoAirWeaponCheckUnit
+    jnz     NoAirWeaponCheckUnit
     pop     eax
     pop     ecx
     pop     edx
@@ -534,7 +532,7 @@ NoAirWeaponCheckUnit :
     mov     ecx, [ebx+110h]
     and     ecx, 3
     cmp     cl, 2
-    jz     DontShoot  // if unit is ground
+    jz      DontShoot  // if unit is ground
 ToAirWeapon :
     test    eax, 20000h
     jz      BallisticCheck   //loc_49AD28
@@ -546,63 +544,58 @@ DontShoot :
 BallisticCheck :
     push $0049AD28
     call PatchNJump
-end; }
+end; 
+
 {
-.text:0043E578 014 8B 44 24 1C                                                     mov     eax, [esp+14h+a1]
-.text:0043E57C 014 8B 08                                                           mov     ecx, [eax]
-.text:0043E57E 014 8B 70 10                                                        mov     esi, [eax+10h]
-.text:0043E581 014 85 C9                                                           test    ecx, ecx
-.text:0043E583 014 74 0D                                                           jz      short loc_43E592
-.text:0043E585 014 B8 01 00 00 00                                                  mov     eax, 1
-.text:0043E58A 014 5F                                                              pop     edi
+.text:0043E578 014 8B 44 24 1C        mov     eax, [esp+14h+AttackerUnit]
+.text:0043E57C 014 8B 08              mov     ecx, [eax]
+.text:0043E57E 014 8B 70 10           mov     esi, [eax+10h]
+.text:0043E581 014 85 C9              test    ecx, ecx
+.text:0043E583 014 74 0D              jz      short loc_43E592 // unit dont have move class
 }
-
-// weapon in esi
-
-{
-.text:0043E592 014 85 FF                                                           test    edi, edi
-.text:0043E594 014 6A 00                                                           push    0               ; a3
-.text:0043E596 018 74 1C                                                           jz      short loc_43E5B4 //not UnitAtMouse
-.text:0043E598 018 8B 54 24 20                                                     mov     edx, [esp+18h+a1]
-}   {
 procedure WeaponAimNTrajectory_NoAirWeapon_Cursor;
 label
-  Result1,
+  StandardWeaponContinue,
   NoAirWeaponCheckUnit,
-  SetResult;
+  DontShoot;
 asm
+    mov     eax, [esp+14h+$8] // attacker unit
+    mov     ecx, [eax]
+    mov     esi, [eax+10h]    // weapon
     push    edx
     push    ecx
     push    eax
     push    3
     push    esi
     call    GetWeaponExtProperty
-    test    eax, 1
-    jnz     NoAirWeaponCheckUnit
-    jmp     Result1
+    test    eax, eax
+    jz      StandardWeaponContinue
+    test    edi, edi                // if unit at mouse
+    jz      StandardWeaponContinue
 NoAirWeaponCheckUnit :
-    test    ebp, 1
-    jz      Result1               // are we shooting ground ?
-    mov     ecx, [edi+110h]       // unitptr.unit type mask
+    pop     eax
+    mov     ecx, [edi+110h]
     and     ecx, 3
     cmp     cl, 2
-    jnz     Result1               // unit is air or not
-    test    ecx, ecx              // set ZF
-    jmp     SetResult
-Result1 :
-    pop     eax
+    jz      DontShoot
     pop     ecx
     pop     edx
     mov     eax, 1
     push $0043E58A
     call PatchNJump
-SetResult :
+DontShoot :
+    pop     ecx
+    pop     edx
+    mov     eax, 19
+    push $0043E58A
+    call PatchNJump
+StandardWeaponContinue :
     pop     eax
     pop     ecx
     pop     edx
-    push $0043E892                // it will set then cursor depending on ZF
+    push $0043E581
     call PatchNJump
-end;    }
+end;    
 
 end.
 

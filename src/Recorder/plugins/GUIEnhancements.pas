@@ -122,10 +122,11 @@ begin
                             @DrawBuildSpot_NanoframeHook,
                             $00469F23, 1);
 
-    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                            'DrawBuildSpot_QueueNanoframeHook',
-                            @DrawBuildSpot_QueueNanoframeHook,
-                            $00438C38, 0);
+    if IniSettings.Plugin_DrawBuildSpotQueueNano then
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              'DrawBuildSpot_QueueNanoframeHook',
+                              @DrawBuildSpot_QueueNanoframeHook,
+                              $00438C38, 0);
 
     if not IniSettings.Plugin_BuildSpotNanoShimmer then
       GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,

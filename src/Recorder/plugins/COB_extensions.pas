@@ -162,6 +162,7 @@ var
 
 Procedure COB_Extensions_Handling;
 Procedure COB_ExtensionsSetters_Handling;
+Procedure COB_Extensions_FreeMemory;
 
 implementation
 uses
@@ -222,6 +223,11 @@ if IsTAVersion31 and State_COB_extensions then
                           @COB_ExtensionsSetters_Handling,
                           $480B20,
                           1 );
+
+  result.MakeRelativeJmp( State_COB_extensions,
+                          'COB_Extensions_FreeMemory',
+                          @COB_Extensions_FreeMemory,
+                          $00496B15, 0 ); 
 
   end
 else
@@ -969,6 +975,34 @@ GeneralCaseSetter:
 DoReturn:
   pop esi;
   ret 8h;
+end;
+
+procedure FreeExtensionsMemory; stdcall;
+begin
+  if not CustomUnitInfos.IsVoid then
+    CustomUnitInfos.Clear;
+  if not CustomUnitFields.IsVoid then
+    CustomUnitFields.Clear;
+  if not UnitSearchResults.IsVoid then
+    UnitSearchResults.Clear;
+  if not SpawnedMinions.IsVoid then
+    SpawnedMinions.Clear;
+
+  ZeroMemory(@NanoSpotUnitSt, SizeOf(TUnitStruct));
+  ZeroMemory(@NanoSpotQueueUnitSt, SizeOf(TUnitStruct));
+  ZeroMemory(@NanoSpotUnitInfoSt, SizeOf(TUnitInfo));
+  ZeroMemory(@NanoSpotQueueUnitInfoSt, SizeOf(TUnitInfo));
+  ZeroMemory(@UnitsSharedData, SizeOf(UnitsSharedData));
+end;
+
+procedure COB_Extensions_FreeMemory;
+asm
+  pushAD
+  call    FreeExtensionsMemory
+  popAD
+  mov     eax, [TAdynMemStructPtr]
+  push    $00496B1A
+  call    PatchNJump;
 end;
 
 end.

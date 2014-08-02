@@ -20,6 +20,7 @@ Procedure OnUninstallTAExceptionsLog;
 
 procedure TAExceptionsLog_COBCallbackEmptyCOB;
 procedure TAExceptionsLog_COBRunScriptEmptyCOB;
+procedure TAExceptionsLog_AIBuildUnitInfoTooHigh;
 //procedure TAExceptionsLog_MissingObjectState;
 
 implementation
@@ -28,6 +29,7 @@ uses
   TA_MemoryStructures,
   TA_FunctionsU,
   TA_MemoryLocations,
+  IniOptions,
   PauseLock,
   SysUtils,
   logging;
@@ -62,6 +64,12 @@ begin
                           'prevent crash when pointer to COB is nil',
                           @TAExceptionsLog_COBRunScriptEmptyCOB,
                           $004B0A70, 0);
+
+    if IniSettings.Plugin_AiNukes then
+      TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
+                            'AI build probability unit type too high',
+                            @TAExceptionsLog_AIBuildUnitInfoTooHigh,
+                            $0040BDE1, 0);
 
  {   TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
                           'prevent crash when pointer to COB is nil',
@@ -176,6 +184,38 @@ asm
   mov     [eax+10h], ebp
 end;
 }
+
+procedure LogAITooHighUnitInfo(CallerUnitInfo: PUnitInfo; UnitTypeID : Cardinal); stdcall;
+begin
+  TLog.Add(0, 'Error in AI build probability list test. Fault unit type: ' + CallerUnitInfo.szUnitName + '. Tried to build: ' + IntToStr(UnitTypeID));
+end;
+
+procedure TAExceptionsLog_AIBuildUnitInfoTooHigh;
+label
+  UnitInfoTooHigh;
+asm
+    mov     di, [ecx+ebx*2]
+    push    eax
+    push    edx
+    mov     eax, [TAdynMemStructPtr]
+    mov     edx, [eax+TTAdynmemStruct.lNumUnitTypeDefs]
+    cmp     di, dx
+    jg      UnitInfoTooHigh
+    pop     edx
+    pop     eax
+    push    edi
+    push $0040BDE6;
+    call PatchNJump;
+UnitInfoTooHigh :
+    pop     edx
+    pop     eax
+    push    edi
+    push    eax
+    call    LogAITooHighUnitInfo
+    xor     edi, edi
+    push $0040BE9A;
+    call PatchNJump;
+end;
 
 end.
 

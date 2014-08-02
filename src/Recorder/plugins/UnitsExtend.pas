@@ -35,6 +35,7 @@ const
   UnitInfo_HideHPBar : AnsiString = 'hidehpbar';
   UnitInfo_NotLab : AnsiString = 'notlab';
   UnitInfo_DrawBuildSpotNanoFrame : AnsiString = 'drawbuildspotnano';
+  UnitInfo_AISquadNr : AnsiString = 'aisquadnr';
 
 var
   UnitsExtendPlugin: TPluginData;
@@ -77,6 +78,7 @@ begin
     4 : ExtraUnitDefTags[UnitTypeID].HideHPBar := (AValue = 1);
     5 : ExtraUnitDefTags[UnitTypeID].NotLab := (AValue = 1);
     6 : ExtraUnitDefTags[UnitTypeID].DrawBuildSpotNanoFrame := (AValue = 1);
+    7 : ExtraUnitDefTags[UnitTypeID].AiSquadNr := AValue;
   end;
 end;
 
@@ -94,6 +96,7 @@ begin
         4 : Result := BoolValues[ExtraUnitDefTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].HideHPBar];
         5 : Result := BoolValues[ExtraUnitDefTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].NotLab];
         6 : Result := BoolValues[ExtraUnitDefTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].DrawBuildSpotNanoFrame];
+        7 : Result := ExtraUnitDefTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].AiSquadNr;
       end;
     end;
   end;
@@ -188,6 +191,20 @@ asm
     push    eax
     push    ebx
     push    6
+    call    UnitPropertyPutIntoArray
+    pop     esi
+    pop     edx
+    pop     ecx
+
+    push    ecx
+    push    edx
+    push    eax
+    push    0
+    push    UnitInfo_AISquadNr
+    call    TdfFile__GetInt
+    push    eax
+    push    ebx
+    push    7
     call    UnitPropertyPutIntoArray
     pop     esi
     pop     edx

@@ -18,6 +18,8 @@ Procedure OnUninstallUnitActions;
 
 // -----------------------------------------------------------------------------
 
+procedure UnitActions_UnitBuildWeapons;
+procedure UnitActions_AssignAISquad;
 procedure UnitActions_TransportOverloadFix;
 procedure UnitActions_VTOLTransportCapacityCanLoadTest; // order init capacity
 procedure UnitActions_VTOLTransportSize;          // load unit cursor test
@@ -83,9 +85,20 @@ begin
                           $00489B0B, 3);
 }
     Result.MakeRelativeJmp( State_UnitActions,
-                          'Enable resurrect and capture orders fot VTOLs',
-                          @UnitActions_ExtraVTOLOrders,
-                          $00438AE3, 0);
+                            'Enable resurrect and capture orders fot VTOLs',
+                            @UnitActions_ExtraVTOLOrders,
+                            $00438AE3, 0);
+
+     Result.MakeRelativeJmp( State_UnitActions,
+                            'UnitActions_UnitBuildWeapons',
+                            @UnitActions_UnitBuildWeapons,
+                            $00419B59, 0);
+
+     Result.MakeRelativeJmp( State_UnitActions,
+                            'UnitActions_AssignAISquad',
+                            @UnitActions_AssignAISquad,
+                            $00408846, 0);
+
   end else
     Result := nil;
 end;
@@ -300,6 +313,46 @@ AirUnitChase :
   call PatchNJump;
 GroundMovementChase :
   push $00438AE8;
+  call PatchNJump;
+end;
+
+procedure UnitActions_UnitBuildWeapons;
+label
+  BuildWeapon;
+asm
+  add     esp, 8
+  test    eax, eax
+  jnz     BuildWeapon
+  push $00419B60;
+  call PatchNJump;
+BuildWeapon:
+  push $00419B97;
+  call PatchNJump;
+end;
+
+var
+  squadnr : Integer;
+procedure UnitActions_AssignAISquad;
+label
+  ForceSquad;
+asm
+  // esi unit
+  pushAD
+  push    7
+  push    esi
+  xor     eax, eax
+  call    GetUnitExtProperty
+  test    ax, ax
+  jnz     ForceSquad
+  popAD
+  mov     eax, [esi+110h]
+  push $0040884C;
+  call PatchNJump;
+ForceSquad:
+  mov     squadnr, eax
+  popAD
+  push    squadnr
+  push $004088F9;
   call PatchNJump;
 end;
 

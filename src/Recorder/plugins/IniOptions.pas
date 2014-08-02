@@ -44,6 +44,8 @@ type
     Plugin_CircleUnitSelect : Boolean;
     Plugin_ForceDrawBuildSpotNano : Boolean;
     Plugin_BuildSpotNanoShimmer : Boolean;
+    Plugin_DrawBuildSpotQueueNano : Boolean;
+
     
     Plugin_MinReclaimTime : Integer;
     Plugin_Gaf : Boolean;
@@ -347,6 +349,7 @@ begin
       IniSettings.Plugin_Stockpile := ReadIniBool(iniFile, 'Preferences', 'StockpileCount', False);
       IniSettings.Plugin_CircleUnitSelect := ReadIniBool(iniFile, 'Preferences', 'CircleUnitSelect', False);
       IniSettings.Plugin_ForceDrawBuildSpotNano := ReadIniBool(iniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
+      IniSettings.Plugin_DrawBuildSpotQueueNano := ReadIniBool(iniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);
       IniSettings.Plugin_BuildSpotNanoShimmer := ReadIniBool(iniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
 
       IniSettings.Plugin_TrueIncome := ReadIniBool(iniFile, 'Preferences', 'TrueIncome', False);

@@ -1156,6 +1156,7 @@ type
     HideHPBar : Boolean;
     NotLab : Boolean;
     DrawBuildSpotNanoFrame : Boolean;
+    AISquadNr : Integer;
   end;
   
 var
