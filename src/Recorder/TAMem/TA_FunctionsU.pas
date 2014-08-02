@@ -305,6 +305,11 @@ var
   Script_ProcessCallback: Script_ProcessCallbackHandler = Script_ProcessCallbackHandler($4B0BC0);
 
 type
+  DrawGameScreenHandler = procedure (DrawUnits: Integer; BlitScreen: Integer); stdcall;
+var
+  DrawGameScreen : DrawGameScreenHandler = DrawGameScreenHandler($00468CF0);
+
+type
   DrawHealthBarsHandler = function (OFFSCREEN_ptr: LongWord; UnitInGame: LongWord; PosX: LongWord; PosY: LongWord) : LongInt; stdcall;
 var
   DrawHealthBars : DrawHealthBarsHandler = DrawHealthBarsHandler($0046A430);

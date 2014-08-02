@@ -249,11 +249,11 @@ type
     IsInGame : Boolean;
     trCheckMemoryCheats: TConsoleTimer;
     trCheckProhibitedProcesses: TConsoleTimer;
-    trTakeScreenshot : TConsoleTimer;
+    //trTakeScreenshot : TConsoleTimer;
     procedure OnFinishedCheatsCheck(CheatsFound: TTACheats);
     procedure OnMemoryCheckTick(Sender : TObject);
     procedure OnProcessCheckTick(Sender : TObject);
-    procedure OnScreenshotTakeTick(Sender : TObject);
+    //procedure OnScreenshotTakeTick(Sender : TObject);
     procedure Exiting();
     procedure ResetRecorder;
 
@@ -721,7 +721,7 @@ begin
   CheckForCheats(ctProcesses);
   trCheckProhibitedProcesses.Enabled:= True;
 end;
-
+{
 procedure TDPlay.OnScreenshotTakeTick(Sender : TObject);
 begin
   if not trTakeScreenshot.FirstTick then
@@ -732,7 +732,7 @@ begin
   trTakeScreenshot.Enabled:= False;
   CheckForCheats(ctScreenshot);
 end;
-
+}
 procedure TDPlay.CheckForCheats(CheatType: TCheatType);
 begin
 {$IFDEF Release}
@@ -2390,14 +2390,14 @@ if assigned(chatview) then
               Enabled := True;
             end;
 
-            trTakeScreenshot := TConsoleTimer.Create;
+           { trTakeScreenshot := TConsoleTimer.Create;
             Randomize;
             with trTakeScreenshot do
             begin
               Interval := (Random(350) + 900) * 1000;
               OnTimerEvent := OnScreenshotTakeTick;
               Enabled := True;
-            end;
+            end; }
           end;
         end;
         {$IFDEF KeyboardHookPlugin}
@@ -3919,7 +3919,7 @@ destructor TDPlay.Destroy;
 begin
 GlobalDPlay.trCheckMemoryCheats.Free;
 GlobalDPlay.trCheckProhibitedProcesses.Free;
-GlobalDPlay.trTakeScreenshot.Free;
+//GlobalDPlay.trTakeScreenshot.Free;
 GlobalDPlay:= nil;
   cs.Acquire;
   cs.Release;

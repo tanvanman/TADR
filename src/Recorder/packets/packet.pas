@@ -85,7 +85,7 @@ var
 implementation
 
 uses
-  TextData, Logging, INI_Options, SysUtils;
+  TextData, Logging, IniOptions, SysUtils;
 
 
 // -----------------------------------------------------------------------------
@@ -124,7 +124,9 @@ case value of
                 dec(result, 5 );
               end;
             end;
+  $24       :Result := 6;
   $26       :Result := 41; // byte('&')
+  $2e       :Result := 9;
   $22       :Result := 6;  // byte('"')
   $2a       :Result := 2;  // byte('*')
   $1e       :Result := 2;
@@ -149,14 +151,14 @@ case value of
   // Eliminates bullet scraps/rests of bullets
   $0b       :result := 9;
   // Makes the Commander's upperbody/torso to turn correctly when he's building, among other things (or perhaps: etc).
-  $0f       :Result := 6;
+  $0f       :if iniSettings.weaponidpatch then Result:= 8 else Result := 6;
   // Hmm. Seems to give/do/create explosions too/with
   $0c       :result := 11;      
 
   $1f       :result := 5;
   $23       :result := 14;
   $16       :result := 17;
-  $1b       :if iniSettings.weaponidpatch then Result:= 8 else result := 6;
+  $1b       :result := 6;
   $29       :result := 3;
   $14       :result := 24;
 

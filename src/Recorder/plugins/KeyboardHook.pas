@@ -78,7 +78,7 @@ var
 //  tadynm: PTAdynmemStruct;
  // res: integer;
   //ResultUnit: Pointer;
-//  ScreenshotCreate: TScreenshotCreate;
+  //ScreenshotCreate: TScreenshotCreate;
 begin
   if nCode < 1 then
     CallNextHookEx(hKeyboardHook, nCode, wParam, lParam)
@@ -236,7 +236,7 @@ begin
                   ScreenshotCreate:= TScreenshotCreate.Create(False);
                   ScreenshotCreate.FreeOnTerminate:= True;
                 end;
-              end;   }
+              end;     }
 {        $46 : begin     // left alt + shift + f
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then

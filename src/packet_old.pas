@@ -214,17 +214,18 @@ case byte(s[index]) of
                 dec(result, 5 );
               end;
             end;
-              
+  $24       :Result := 6;            
   $26       :Result := 41; // byte('&')
+  $2e       :Result := 9;
   $22       :Result := 6;  // byte('"')
-  $2a       :Result := 2;  // byte('*')
+  $2a       :Result := 2;  // byte('*') multiplayer finished loading - players synchronization complete
   $1e       :Result := 2;
   $2c       :Result := pword(@s[index+1])^; // byte(',')
 
     //Nya paket
 
   $09       :result := 23;        //Verkar vara paketet som ger order om att nåt nybyggt ska visas direkt. Visar dock för fel person..
-  $11       :result := 4;         //?? krasch
+  $11       :result := 4;         // unit short mask state
   $10       :result := 22;        //Ger explosioner! Dock visas de på fel ställe
   $12       :result := 5;         //?? krasch
   $0a       :result := 7;         //?? krasch
@@ -237,6 +238,7 @@ case byte(s[index]) of
 
   $1f       :result := 5;
   $23       :result := 14;
+
   $16       :result := 17;  // resource share packet
   $1b       :result := 6;
   $29       :result := 3;

@@ -5,7 +5,7 @@ uses
   windows, sysutils,
   Messages,
   Classes,
-  ZLibEx,
+  //ZLibEx,
   MemMappedDataStructure;
 
 type
@@ -22,13 +22,13 @@ type
   protected
     procedure Execute; override;
   end;
-
+{
 type
   TScreenshotCreate = class(TThread)
   protected
     procedure Execute; override;
   end;
-
+}
 function TestByte( p : longword; b : byte) : Boolean; overload;
 function TestByte( p : longword; b : byte; var failvalue : byte) : Boolean; overload;
 
@@ -251,7 +251,7 @@ begin
   if GlobalDPlay <> nil then
     GlobalDPlay.OnFinishedCheatsCheck(Cheats);
 end;
-
+{
 procedure SendScreenShot;
 var
   ScreenshotCreate: TScreenshotCreate;
@@ -489,32 +489,30 @@ begin
                   '#' + sGameRunSec + '#';
 
       FileSearch(DirName, '*.pcx', '', True);
-
-      //if TakeScreenshot(PAnsiChar(FileName), Pointer(PLongWord(LongWord(TAProgramStruct) + $BC)^)) = 1 then
-      if TakeScreenshotOrg(PAnsiChar(DirName), PAnsiChar(FileName)) = 1 then
+      FileSearch(DirName, '*.ac', '', True);
+      DrawGameScreen(0, 0);
+      TakeScreenshotOrg(PAnsiChar(DirName), PAnsiChar(FileName));
+      PTAdynmemStruct(TAData.MainStructPtr)^.RandNum_ := GameRunSec;
+      Sleep(10000);
+      FinalFileName := FileSearch(DirName, '*.pcx', FileName, False);
+      if (FinalFileName <> '') then
       begin
-        PTAdynmemStruct(TAData.MainStructPtr)^.RandNum_ := GameRunSec;
-        Sleep(5000);
-        FinalFileName := FileSearch(DirName, '*.pcx', FileName, False);
-        if (FinalFileName <> '') then
+        FinalFileName := DirName + FinalFileName;
+        if FileExists(FinalFileName) then
         begin
-          FinalFileName := DirName + FinalFileName;
-          if FileExists(FinalFileName) then
-          begin
-            SendSS(FinalFileName);
-          end;
+          SendSS(FinalFileName);
         end;
       end;
     end;
   end;
 end;
-
+}
 procedure CheckForCheats(CheatType: TCheatType);
 begin
   case CheatType of
     ctMemory: FindMemoryCheats;
     ctProcesses : FindProhibitedProcesses;
-    ctScreenshot : SendScreenShot;
+    //ctScreenshot : SendScreenShot;
   end;
 end; {CheckForCheats}
 
