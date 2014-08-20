@@ -23,7 +23,6 @@ type
     SharedMapsPath       : String;
 
     Plugin_Builders      : Boolean;
-    Plugin_Builders_Yard : Boolean;
     Plugin_AiNukes       : Boolean;
     Plugin_AiBuildList   : Boolean;
 
@@ -332,7 +331,6 @@ begin
         IniSettings.SharedMapsPath := IncludeTrailingPathDelimiter(IniSettings.SharedMapsPath);
 
       IniSettings.Plugin_Builders := ReadIniBool(iniFile, 'Preferences', 'Builders', False);
-      IniSettings.Plugin_Builders_Yard := ReadIniBool(iniFile, 'Preferences', 'MobileYardmap', False);
       IniSettings.Plugin_AiNukes := ReadIniBool(iniFile, 'Preferences', 'AiNukes', False);
       IniSettings.Plugin_AiBuildList := ReadIniBool(iniFile, 'Preferences', 'AiBuildListExpand', False);
 

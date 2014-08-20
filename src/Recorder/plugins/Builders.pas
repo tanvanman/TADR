@@ -27,11 +27,13 @@ Procedure OnUninstallBuilders;
 // -----------------------------------------------------------------------------
 
 procedure Builders_MobileAddBuild;
+procedure Builders_YardmapForMobile;
 procedure Builders_PlantBuildNonMobile;
 
 implementation
 uses
   IniOptions,
+  TA_FunctionsU,
   TA_MemoryConstants,
   TA_MemoryLocations;
 
@@ -61,24 +63,12 @@ begin
 
     Replacement := 0;
     //Allow registration of yardmap data for any unit, including mobile, into memory
-    if IniSettings.Plugin_Builders_Yard then
-      BuildersPlugin.MakeReplacement( State_Builders, 'Yardmap for mobiles', $0042CF3A, Replacement, 2); //35 01 -> 00 00
+    BuildersPlugin.MakeRelativeJmp( State_Builders, '',
+                                    @Builders_YardmapForMobile,
+                                    $0042CF38, 1);
 
     //Have mobile units (those being built from mobile) use the typical nano colors while under construction
     BuildersPlugin.MakeReplacement( State_Builders, 'Nano colors for mobiles', $0045961B, Replacement, 1); //13 -> 00
-
-    // extraSize is how much data should be written out to ensure the patch site is nice & neat. Extra data is NOPs
-    // jump is 5 bytes (instruction + 4 byte address)
-    // Very handy for debugging, as well as being able to jump back to just after the injection site
-
-    // the patch site before patching:
-// .text:0041AB62 144 8B CB                              mov     ecx, ebx
-// .text:0041AB64 144 81 E1 FF FF 00 00                  and     ecx, 0FFFFh                          
-    // the patch site before patching:
-// .text:0041AB62 144 8B XX XX XX XX                    jmp     xxxxxh
-// .text:0041AB67 144 90                                NOP
-// .text:0041AB68 144 90                                NOP
-// .text:0041AB69 144 90                                NOP
 
     //Allow mobile units to build mobile units
     BuildersPlugin.MakeRelativeJmp( State_Builders,
@@ -170,6 +160,33 @@ ContinueBrakeRateCheck :
 BuildMobile:
     //bmcode=1
     push $0047DBF4;
+    call PatchNJump;
+end;
+
+var
+  TempString : array[0..63] of AnsiChar;
+procedure Builders_YardmapForMobile;
+label
+  ReadYardmap,
+  NoYardmap;
+asm
+    pushAD
+    mov     ecx, [esp+34h]
+    push    $005119B8                // null str
+    push    $40                      // buff len
+    push    $00503988  // "YardMap"
+    lea     ebx, TempString
+    push    ebx
+    call    TdfFile__GetStr
+    test    eax, eax
+    jz      NoYardmap
+    popAD
+ReadYardmap : //bmcode 0 or bmcode 1 with yardmap
+    push $0042CF3E;
+    call PatchNJump;
+NoYardmap : //bmcode 1 without yardmap
+    popAD
+    push $0042D073;
     call PatchNJump;
 end;
 
