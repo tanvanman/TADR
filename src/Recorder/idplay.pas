@@ -3,7 +3,6 @@ unit idplay;
 
 {.$DEFINE WarZone}
 {$DEFINE KeyboardHookPlugin}
-{.$DEFINE GameStatsLogging}
 
 {.$DEFINE DebuggerHooks}
 
@@ -105,8 +104,6 @@ type
     AutoRecording : boolean;
     // should the .txt file which contains the chatlog be created with the .tad file?
     CreateTxtFile: boolean;
-    // should the .csv file which contains statistics log be created with the .tad file?
-    CreateStatsFile: boolean;
     // Is recording currently occuring
     IsRecording    : Boolean;
 
@@ -406,7 +403,6 @@ type
 var
   chatview  : PMKChatMem;
   logsave   : TLog2 = nil;
-  statslog  : TStatsLogging = nil;
   GlobalDPlay: TDPlay;
 
   
@@ -1406,9 +1402,9 @@ except
     end;
 end;
 
-  if CreateStatsFile then
+  if IniSettings.CreateStatsFile then
   begin
-    StatsFileName:= ChangeFileExt(FileName, '.csv');
+    StatsFileName:= ChangeFileExt(FileName, '.egs');
     if statslog <> nil then
       FreeAndNil( statslog );
     try
@@ -1416,8 +1412,7 @@ end;
     except
       on e : Exception do
       begin
-        SendChat( 'Unable to create stats file with filename: ');
-        SendChat( StatsFileName );
+        SendChat( 'Unable to prepare stats. ');
         LogException(e);
         exit;
       end;
@@ -1766,24 +1761,25 @@ var
   Rec2Rec_Data : Pointer;
 
   amaxunits : word;
-  i,a,b             :integer;
-  s,tmp,s2        :string;
-  packet               :TPacket;
-  c               :string;
-  w,w2,w3,dtfix         :word;
-  pw              :^word;
-  plw             :^LongWord;
-  pf              :^single;
-  lw              :LongWord;
-  f,f2,f3,f4      :single;
-  ip              :^integer;
-  InternalVersion : Integer;
-   tmp2 : Longword;
-   currnr       :^longword;
-   ally         :^byte;
-  playerlist    :TList;
-  tmps          :string;
-  BattleRoomRecorderOptions  :string;
+  i,a,b             : integer;
+  s,tmp,s2          : string;
+  packet            : TPacket;
+  c                 : string;
+  uc                : byte;
+  w,w2,w3,dtfix     : word;
+  pw                : ^word;
+  plw               : ^LongWord;
+  pf                : ^single;
+  lw, lw2           : LongWord;
+  f,f2,f3,f4        : single;
+  ip                : ^integer;
+  InternalVersion   : Integer;
+  tmp2              : Longword;
+  currnr            : ^longword;
+  ally              : ^byte;
+  playerlist        : TList;
+  tmps              : string;
+  BattleRoomRecorderOptions  : string;
 
   player : TPlayerData;
   FromPlayer : TPlayerData;
@@ -1893,8 +1889,6 @@ if assigned(chatview) then
     TLog.Flush;
     If logsave <> nil then
       logsave.Flush;
-    If statslog <> nil then
-      statslog.Flush;
   end;
 
   result:=input;
@@ -2341,6 +2335,19 @@ if assigned(chatview) then
           player.IsFirstPlayerWithb3 := (a = 1) and (player.InternalVersion >= TADemoVersion_99b3_beta2);
           Inc( b, MaxUnits );
           end;
+
+        if statslog <> nil then
+        begin
+          statslog.Init_StatEvent;
+          for a := 1 to Players.Count do
+          begin
+            statslog.AddPlayer_StatEvent(Players[a].PlayerIndex,
+                                         Players[a].Side,
+                                         Players[a].Name,
+                                         Players[a].StartInfo.ID);
+          end;
+        end;
+
         finally
           playerlist.Free;
         end;
@@ -2363,9 +2370,12 @@ if assigned(chatview) then
           s[2] :=char(100-byte(s[2]));
           datachanged:=true;
         end;}
-      // first unit move or orders to new units indicate that we are done loading  
-      if (s[1]=',') or (s[1]=#9) then
-        begin
+      {if s[1]=#21 then
+        if CreateStatsFile then
+          statslog.PlayerLoaded_StatEvent(FromPlayer.PlayerIndex);}
+      // first unit move or orders to new units indicate that we are done loading
+      if (s[1]=',') or (s[1]=#9) and not IsInGame then
+      begin
         IsInGame := True;
         TAStatus := InGame;
         if NotViewingRecording and
@@ -2493,8 +2503,8 @@ if assigned(chatview) then
                 Assert( (Integer(w) >= Low(UnitStatus)) and ( w <= High(UnitStatus) ) );
                 pw:=@tmp[4];
                 w:=pw^;
-                if CreateStatsFile then begin
-                  statslog.NewUnit_StatEvent(FromPlayer.PlayerIndex,w,w2,Players[1].LastTimeStamp);
+                if statslog <> nil then begin
+                  statslog.NewUnit_StatEvent(FromPlayer.PlayerIndex,w,w2,TAData.GameTime);
                 end;
 // kefft sätt att sätta StartInfo.ID.. damnusj
 
@@ -2674,8 +2684,8 @@ if assigned(chatview) then
         #$12 :begin //unit build done
                 pw:=@tmp[2];
                 w:=pw^;
-                if CreateStatsFile then
-                  statslog.UnitFinished_StatEvent(w,Players[1].LastTimeStamp);
+                if statslog <> nil then
+                  statslog.UnitFinished_StatEvent(FromPlayer.PlayerIndex,w,TAData.GameTime);
                 UnitStatus[w - 1].DoneStatus := 0;
 //                SendChat (Players.Name[FromPlayerID] + ' unit ' + inttostr (w - (StartInfo.ID [FromPlayerID] + 1)) + ' is done');
               end;
@@ -2683,11 +2693,11 @@ if assigned(chatview) then
           begin //unit is dead
             pw:=@tmp[2];
             w:=pw^;
-            if CreateStatsFile then
+            if statslog <> nil then
             begin
               pw:=@tmp[8];
               w2:=pw^;
-              statslog.Kill_StatEvent(w,w2,Players[1].LastTimeStamp);
+              statslog.Kill_StatEvent(w,w2,TAData.GameTime);
             end;
             UnitStatus[w - 1].DoneStatus := 1000;
             if UnitStatus[w - 1].unitalive then
@@ -2698,7 +2708,7 @@ if assigned(chatview) then
           end;
         #$0b :
           begin //unit damage
-          if CreateStatsFile then
+          if statslog <> nil then
             begin
             pw:=@tmp[2];
             w:=pw^;
@@ -2706,7 +2716,20 @@ if assigned(chatview) then
             w2:=pw^;
             pw:=@tmp[6];
             w3:=pw^;
-            statslog.Damage_StatEvent(w,w2,w3,Players[1].LastTimeStamp);
+            statslog.Damage_StatEvent(w,w2,w3,Byte(tmp[9]),TAData.GameTime);
+            end;
+          end;
+        #$0F :
+          begin //feature destroyed
+          if (statslog <> nil) and
+             not IniSettings.WeaponIdPatch and
+             not FromPlayer.IsSelf then
+            begin
+            pw:=@tmp[3];
+            w:=pw^;
+            pw:=@tmp[5];
+            w2:=pw^;
+            statslog.FeatureDestroyed_StatEvent(FromPlayer.PlayerIndex,Byte(tmp[2]),w,w2,nil,TAData.GameTime);
             end;
           end;
         #$1b :
@@ -2794,11 +2817,13 @@ if assigned(chatview) then
                  chatview^.storageM[FromPlayer.PlayerIndex] :=f3;
                  chatview^.storageE[FromPlayer.PlayerIndex] :=f4;
                  end;
-               if CreateStatsFile then
+               if statslog <> nil then
                  statslog.Stats_StatEvent( FromPlayer.PlayerIndex,f,f2,f3,f4,
                            FromPlayer.Economy.IncomeMetal,
                            FromPlayer.Economy.IncomeEnergy,
-                           FromPlayer.LastTimeStamp); 
+                           PPlayerStruct(TAPlayer.GetPlayerByIndex(FromPlayer.PlayerIndex-1)).nKills,
+                           PPlayerStruct(TAPlayer.GetPlayerByIndex(FromPlayer.PlayerIndex-1)).nLosses,
+                           TAData.GameTime);
               end;
         #$16 :begin //share packet
                ResourcesSent:=true;
@@ -2811,6 +2836,16 @@ if assigned(chatview) then
                end else begin
                  FromPlayer.Economy.SharedEnergy := FromPlayer.Economy.SharedEnergy+f;
                  FromPlayer.Economy.TotalSharedEnergy := FromPlayer.Economy.TotalSharedEnergy+f;
+               end;
+               if statslog <> nil then
+               begin
+                 plw:=@tmp[6];
+                 lw:=plw^;
+                 plw:=@tmp[10];
+                 lw2:=plw^;
+                 statslog.ResourcesShare_StatEvent( TAPlayer.GetPlayerByDPID(lw),
+                                                    TAPlayer.GetPlayerByDPID(lw2), f, Byte(tmp[2]),
+                                                    TAData.GameTime);
                end;
                if FromPlayer.IsSelf then
                  begin // make sure everyone gets told about this share packet
@@ -3233,8 +3268,6 @@ except
       TLog.Flush;
       if logsave <> nil then
         logsave.Flush;
-      if statslog <> nil then
-        statslog.Flush;
 
 //      if DemoRecordingFile <> nil then
 //        DemoRecordingFile.Flush;
@@ -3445,8 +3478,6 @@ except
       TLog.Flush;
       if logsave <> nil then
         logsave.Flush;
-      if statslog <> nil then
-        statslog.Flush;
 //      if DemoRecordingFile <> nil then
 //        DemoRecordingFile.Flush;
     end;
@@ -3696,8 +3727,6 @@ try
   protectdt := reg.ReadBool ('Options', 'fixall', False);
   shareMapPos := reg.ReadBool ('Options', 'sharepos', True);
   createTxtFile:= reg.ReadBool ('Options', 'createtxt', False);
-  {$IFDEF GameStatsLogging}createStatsFile:= reg.ReadBool ('Options', 'createstats', False);
-  {$ELSE}createStatsFile:= False;{$ENDIF}
 
   logpl:=false;
   EmitBuggyVersionWarnings := reg.ReadBool( 'Options', 'EmitBuggyVersionWarnings', False );
@@ -3809,6 +3838,7 @@ try
     end;
   if assigned ( statslog ) then
     begin
+    statslog.GameFinished_StatEvent(TAData.GameTime);
     TLog.Add (1,'flushing stats');
     FreeAndNil( statslog );
     end;

@@ -18,6 +18,7 @@ Procedure OnUninstallTAExceptionsLog;
 
 // -----------------------------------------------------------------------------
 
+//procedure TAExceptionsLog_LogHAPINET;
 procedure TAExceptionsLog_COBCallbackEmptyCOB;
 procedure TAExceptionsLog_COBRunScriptEmptyCOB;
 procedure TAExceptionsLog_AIBuildUnitInfoTooHigh;
@@ -54,7 +55,12 @@ begin
                             State_TAExceptionsLog,
                             @OnInstallTAExceptionsLog,
                             @OnUnInstallTAExceptionsLog );
-
+    {
+    TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
+                          'log HAPINET',
+                          @TAExceptionsLog_LogHAPINET,
+                          $004C9740, 0);
+    }
     TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
                           'prevent crash when pointer to COB is nil',
                           @TAExceptionsLog_COBCallbackEmptyCOB,
@@ -96,7 +102,22 @@ begin
          'script: '+ ScriptName;
   Msg_Reminder(PAnsiChar(msg), 1);
 end;
+{
+procedure HAPINET_Log(LogMessage: PAnsiChar); stdcall;
+begin
+  TLog.Add(0, 'HAPINET log: ' + LogMessage);
+end;
 
+procedure TAExceptionsLog_LogHAPINET;
+asm
+  push ecx
+  mov  ecx, [esp+$8]
+  push ecx
+  call HAPINET_Log
+  pop  ecx
+  retn
+end;
+}
 procedure TAExceptionsLog_COBCallbackEmptyCOB;
 label
   CorrectCOBCall;

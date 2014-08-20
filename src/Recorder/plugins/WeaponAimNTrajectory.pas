@@ -557,7 +557,8 @@ procedure WeaponAimNTrajectory_NoAirWeapon_Cursor;
 label
   StandardWeaponContinue,
   NoAirWeaponCheckUnit,
-  DontShoot;
+  DontShoot,
+  DontShoot_NoRange;
 asm
     mov     eax, [esp+14h+$8] // attacker unit
     mov     ecx, [eax]
@@ -574,19 +575,39 @@ asm
     jz      StandardWeaponContinue
 NoAirWeaponCheckUnit :
     pop     eax
+    pop     ecx
+    pop     edx
+    push    0                           // weap idx
+    mov     eax, [esp+18h+$10]
+    push    eax                         // pos trgt
+    mov     eax, [esp+1Ch+8]
+    lea     ecx, [eax+6Ah]
+    push    ecx                         // pos start
+    push    eax                         // attacker ptr
+    call    Trajectory3
+    test    eax, eax
+    jz      DontShoot_NoRange
+    push    0                           // weap idx
+    mov     edx, [esp+18h+8]
+    push    edi                         // TargetUnitPtr
+    push    edx                         // AttackerUnitPtr
+    call    UnitAutoAim_CheckUnitWeapon
+    test    eax, eax
+    jz      DontShoot
     mov     ecx, [edi+110h]
     and     ecx, 3
     cmp     cl, 2
     jz      DontShoot
-    pop     ecx
-    pop     edx
-    mov     eax, 1
-    push $0043E58A
+    //mov     eax, 1
+    push $0043E585
+    //push $0043E592;
     call PatchNJump
 DontShoot :
-    pop     ecx
-    pop     edx
     mov     eax, 19
+    push $0043E58A
+    call PatchNJump
+DontShoot_NoRange :
+    mov     eax, 3
     push $0043E58A
     call PatchNJump
 StandardWeaponContinue :

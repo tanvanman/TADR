@@ -1,6 +1,7 @@
 unit TA_MemoryStructures;
 
 interface
+uses Classes;
 
 type
   // 0x20
@@ -268,6 +269,7 @@ type
   end;
 
   TTAPlayerType = (Player_LocalHuman = 1, Player_LocalAI = 2, Player_RemotePlayer = 3);
+  TTAPlayerSide = (psUnknown, psCore, psArm, psWatch);
 
   PAlliedState = ^TAlliedState;
   TAlliedState = array [ 0..9 ] of Byte;
@@ -361,8 +363,8 @@ type
     lUpdateTime          : Cardinal;
     lWinLoseTime         : Cardinal;
     lDisplayTimer        : Cardinal;
-    nKills               : SmallInt;
-    nLosses              : SmallInt;
+    nKills               : Word;
+    nLosses              : Word;
     lUnknown4            : Cardinal;
     nKills2              : SmallInt;
     nLosses2             : SmallInt;
@@ -814,7 +816,20 @@ type
     Movie_Shot_Output_Dir  : array [0..255] of Byte;
     field_38C53            : Cardinal;
 	  lMovieOutputRate       : Cardinal; //0x38C57
-	  Unknown50              : array [0..293] of Byte;
+    lMovieNextFrameTick    : Cardinal;
+    field_38C5F            : Cardinal;
+    Movie                  : Cardinal;
+    field_38C67            : array [0..259] of Byte;
+    field_38D6B            : Cardinal;
+    bLoadProgTextures      : Byte;
+    bLoadProgTerrain       : Byte;
+    bLoadProgUnits         : Byte;
+    bLoadProgAnims         : Byte;
+    bLoadProg3DData        : Word;
+    nPlayersSynchMask      : Word;
+    SfxVectorArray_ptr     : Pointer;
+    SmackMovie_ptr         : Pointer;
+    field_38D7F            : Word;
 	  lMaxPlayers            : Cardinal; //0x38D81 - xon's gives as "NumSkirmishPlayers"
     CurrenttTick           : Cardinal;
     field_38D89            : Cardinal;
@@ -998,6 +1013,8 @@ type
 
   // custom structures used by TADR
   TCobMethods = ( Activate, Deactivate, Upgrade, Reminder, Cloak );
+
+  TUnitCategories = ( ucsNoChase, ucsPriBadTarget, ucsSecBadTarget, ucsTerBadTarget );
 
   TDmgType = ( dtWeapon = 1,
                dtParalyze = 2,

@@ -220,7 +220,7 @@ MakeOrderResurrect :
   push    0
   push    0
   push    ebx
-  call    GetFeatureTypeOfOrder
+  call    GetFeatureTypeOfPos
   pop     edx
   cmp     ax, 0FFFFh
   jz      DontCheckIsWreck           // feature isnt there anymore

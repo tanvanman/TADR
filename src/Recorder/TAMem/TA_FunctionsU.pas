@@ -22,6 +22,11 @@ var
   GameRunSec : GameRunSecHandler = GameRunSecHandler($004B6340);
 
 type
+  GetGameingTypeHandler = function(a1, a2, a3: Cardinal): Cardinal; register;
+var
+  GetGameingType : GetGameingTypeHandler = GetGameingTypeHandler($00435100);
+
+type
   TakeScreenshotHandler = function (FileName : PAnsiChar; OffscreenPtr: Pointer) : Integer; stdcall;
 var
   TakeScreenshot : TakeScreenshotHandler = TakeScreenshotHandler($004CAEC0);
@@ -66,12 +71,17 @@ var
   GetPosHeight : GetPosHeightHandler = GetPosHeightHandler($485070);
 
 type
-  CheckUnitInPlayerLOSHandler = function (PlayerPtr : Pointer; UnitPtr : Pointer): Integer; stdcall;
+  UnitInPlayerLOSHandler = function (PlayerPtr : Pointer; UnitPtr : Pointer): Integer; stdcall;
 var
-  CheckUnitInPlayerLOS : CheckUnitInPlayerLOSHandler = CheckUnitInPlayerLOSHandler($00465AC0);
+  UnitInPlayerLOS : UnitInPlayerLOSHandler = UnitInPlayerLOSHandler($00465AC0);
 
 type
-  UnitAtPositionHandler = function (Position : PPosition): Cardinal; stdcall;
+  PositionInPlayerLOSHandler = function (PlayerPtr : Pointer; Position : TPosition): LongBool; stdcall;
+var
+  PositionInPlayerLOS : PositionInPlayerLOSHandler = PositionInPlayerLOSHandler($00408090);
+
+type
+  UnitAtPositionHandler = function (Position : PPosition): Pointer; stdcall;
 var
   UnitAtPosition : UnitAtPositionHandler = UnitAtPositionHandler($004815A0);
 
@@ -108,7 +118,7 @@ var
   FreeObjectState : FreeObjectStateHandler = FreeObjectStateHandler($0045AAA0);
 
 type
-  FreeMoveClassHandler = function ( MoveClass: Pointer ): Integer; register;
+  FreeMoveClassHandler = function ( a1: pointer; a2: pointer; MoveClass: Pointer ): Integer; register;
 var
   FreeMoveClass : FreeMoveClassHandler = FreeMoveClassHandler($0043DD10);
 
@@ -131,9 +141,14 @@ var
   GetUnit_BuildWeaponProgress : GetUnit_BuildWeaponProgressHandler = GetUnit_BuildWeaponProgressHandler($439D20);
 
 type
-  GetFeatureTypeOfOrderHandler = function ( OrderPos: Pointer; Order: Pointer; Unknown: Cardinal ): SmallInt; stdcall;
+  GetFeatureTypeOfPosHandler = function ( OrderPos: Pointer; Order: Pointer; Unknown: Pointer ): SmallInt; stdcall;
 var
-  GetFeatureTypeOfOrder : GetFeatureTypeOfOrderHandler = GetFeatureTypeOfOrderHandler($421DA0);
+  GetFeatureTypeOfPos : GetFeatureTypeOfPosHandler = GetFeatureTypeOfPosHandler($00421DA0);
+
+type
+  Feature_DestroyHandler = function ( X: Integer; Z: Integer; DesMethod: Integer ): Integer; stdcall;
+var
+  Feature_Destroy : Feature_DestroyHandler = Feature_DestroyHandler($00423550);
 
 type
   // a2 probably preserves unit in array
@@ -226,6 +241,21 @@ var
   CreateProjectile_0 : CreateProjectile_0Handler = CreateProjectile_0Handler($0049CDE0);
 
 type
+  Trajectory3Handler = function ( AttackerUnitPtr: Pointer;
+                                  Position1: PPosition;
+                                  Position2: PPosition;
+                                  WhichWeapon: Word ): Integer; stdcall;
+var
+  Trajectory3 : Trajectory3Handler = Trajectory3Handler($0049AA80);
+
+type
+  UnitAutoAim_CheckUnitWeaponHandler = function ( AttackerUnitPtr: Pointer;
+                                                  TargetUnitPtr: Pointer;
+                                                  WhichWeapon: Word ): Byte; stdcall;
+var
+  UnitAutoAim_CheckUnitWeapon : UnitAutoAim_CheckUnitWeaponHandler = UnitAutoAim_CheckUnitWeaponHandler($0049ABB0);
+
+type
   TdfFile__GetIntHandler = function ( TagName : Pointer;
                                       DefaultNumber : LongInt): Integer; stdcall;
 var
@@ -241,8 +271,8 @@ var
 
 type
   TA_GiveUnitHandler = procedure ( UnitPtr : Pointer;
-                               PlayerStruct : PPlayerStruct;
-                               UnitPtr2 : Pointer); stdcall;
+                                   PlayerStruct : PPlayerStruct;
+                                   Packet : Pointer); stdcall;
 var
   TA_GiveUnit : TA_GiveUnitHandler = TA_GiveUnitHandler($00488570);
 
@@ -261,23 +291,34 @@ var
 
 type
   Order2UnitHandler = function ( ScriptIndex: Cardinal;
+                                 ShiftKey: Cardinal;
+                                 pUnitPtr: Pointer;
+                                 pTargetUnitPtr: Pointer;
+                                 pPosition: Pointer;
+                                 lPar1: Cardinal;
+                                 lPar2: Cardinal ): Cardinal; stdcall;
+var
+  Order2Unit: Order2UnitHandler = Order2UnitHandler($0043AFC0);
+
+type
+  SubOrder2UnitHandler = function ( ScriptIndex: Cardinal;
                                     ShiftKey: Cardinal;
                                     pUnitPtr: Pointer;
                                     pTargetUnitPtr: Pointer;
                                     pPosition: Pointer;
-                                    a6: Cardinal;   // unit type id for nanolathe order or order time in game tick (* 30)
-                                                    // selfdestructh calls it with 1
-                                    a7: Cardinal    // for build orders - unit amount
-                                    ): LongInt; stdcall;
+                                    lPar1: Cardinal;
+                                    lPar2: Cardinal ): Cardinal; stdcall;
 var
-  Order2Unit: Order2UnitHandler = Order2UnitHandler($43AFC0);
-  
+  SubOrder2Unit: SubOrder2UnitHandler = SubOrder2UnitHandler($0043ADC0);
+
+
 type
   GetUnitFirstOrderTargatHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
 var
   GetUnitFirstOrderTargat: GetUnitFirstOrderTargatHandler = GetUnitFirstOrderTargatHandler($439DD0);
 
 type
+  // not guaranteed to be called
   Script_RunScriptHandler = function ( a1: Cardinal;
                                        a2: Cardinal;
                                        UnitScriptsData_p: Cardinal;
@@ -290,9 +331,10 @@ type
                                        a10: Cardinal;
                                        const Name: PAnsiChar): LongInt; register;
 var
-  Script_RunScript: Script_RunScriptHandler = Script_RunScriptHandler($4B0A70);
+  Script_RunScript: Script_RunScriptHandler = Script_RunScriptHandler($004B0A70);
 
 type
+  // guaranteed query call
   Script_ProcessCallbackHandler = function ( a1: Pointer;  // dunno
                                              a2: Pointer;  // dunno
                                              UnitScriptsData_p: Cardinal;
@@ -302,7 +344,22 @@ type
                                              v1: Pointer;
                                              const Name: PAnsiChar): LongInt; register;
 var
-  Script_ProcessCallback: Script_ProcessCallbackHandler = Script_ProcessCallbackHandler($4B0BC0);
+  Script_ProcessCallback: Script_ProcessCallbackHandler = Script_ProcessCallbackHandler($004B0BC0);
+{
+type
+  // guaranteed call
+  // create, startbuilding etc.
+  Script_CallScriptHandler = function ( a1: Pointer;
+                                        a2: Pointer;
+                                        UnitScriptsData_p: Cardinal;
+                                        v4: Pointer;
+                                        v3: Pointer;
+                                        v2: Pointer;
+                                        v1: Pointer;
+                                        const Name: PAnsiChar): LongInt; register;
+var
+  Script_CallScript: Script_CallScriptHandler = Script_CallScriptHandler($004B0940);
+}
 
 type
   DrawGameScreenHandler = procedure (DrawUnits: Integer; BlitScreen: Integer); stdcall;
@@ -341,6 +398,11 @@ var
   DrawLine : DrawLineHandler = DrawLineHandler($004BE950);
 
 type
+  DrawLine2Handler = function (OFFSCREEN_ptr: Cardinal; x1, y1, x2, y2 : Integer; Color: Byte) : LongInt; cdecl;
+var
+  DrawLine2 : DrawLine2Handler = DrawLine2Handler($004CC7AB);
+
+type
   DrawCircleHandler = function (OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer; ColorOffset: Byte) : LongInt; stdcall;
 var
   DrawCircle : DrawCircleHandler = DrawCircleHandler($004C0070);
@@ -349,6 +411,25 @@ type
   DrawDotteCircleHandler = function (OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer; ColorOffset: Integer; Spacing: Word; Dotte_b : Integer) : LongInt; stdcall;
 var
   DrawDotteCircle : DrawDotteCircleHandler = DrawDotteCircleHandler($004C01A0);
+
+type
+  sub_4B7123Handler = function(a1: Word; a2: LongInt) : LongInt; cdecl;
+var
+  sub_4B7123 : sub_4B7123Handler = sub_4B7123Handler($004B7123);
+
+type
+  sub_4B70EFHandler = function(a1: Word; a2: LongInt) : LongInt; cdecl;
+var
+  sub_4B70EF : sub_4B70EFHandler = sub_4B70EFHandler($004B70EF);
+
+type
+  CorrecLinetPositionHandler = function(OFFSCREEN_ptr: Cardinal;
+                                        x1: Pointer;
+                                        y1: Pointer;
+                                        x2: Pointer;
+                                        y2: Pointer) : LongInt; stdcall;
+var
+  CorrecLinetPosition : CorrecLinetPositionHandler = CorrecLinetPositionHandler($004BEA20);
 
 type
   DrawProgressBarHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; BarPosition: Integer) : LongInt; stdcall;
@@ -467,6 +548,11 @@ type
 var
   WeaponName2Ptr : WeaponName2PtrHandler = WeaponName2PtrHandler($0049E5B0);
 
+type
+  FindSpot_CategorysAryHandler = function ( const CategoryName: String ): Integer; stdcall;
+var
+  FindSpot_CategorysAry : FindSpot_CategorysAryHandler = FindSpot_CategorysAryHandler($00488C50);
+
 // Displays text to the screen (no parsing for commands)
 type //TextType - 0 = chat, 1 = popup
   SendTextHandler = function ( Text : PChar;
@@ -528,12 +614,24 @@ var
   TestBuildSpot : TestBuildSpotHandler = TestBuildSpotHandler($004197D0);
 
 type
-  CanAttachAtGridSpotHandler = function ( UnitInfo : Pointer;
-                                          UnitIndex : Word;
+  CanAttachAtGridSpotHandler = function ( UnitInfo : PUnitInfo;
+                                          UnitID : Word;
                                           GridPos : Cardinal;
-                                          a4 : Integer): Boolean; stdcall;
+                                          State : Integer): Boolean; stdcall;
 var
   CanAttachAtGridSpot : CanAttachAtGridSpotHandler = CanAttachAtGridSpotHandler($0047DB70);
+
+type
+  CanCloseOrOpenYardHandler = function ( UnitPtr: Pointer; NewState: Integer): Boolean; stdcall;
+var
+  CanCloseOrOpenYard : CanCloseOrOpenYardHandler = CanCloseOrOpenYardHandler($0047D970);
+
+type
+	GetPiecePositionHandler = function(PositionOut: PPosition;
+                                     UnitPtr: PUnitStruct;
+                                     PieceIdx: Integer): PPosition; stdcall;
+var
+  GetPiecePosition : GetPiecePositionHandler = GetPiecePositionHandler($0043E060);
 
 type //find unit under mouse
 	GetUnitAtMouseHandler = function () : Cardinal; stdcall;
@@ -551,7 +649,7 @@ var
   GetTPosition : GetTPositionHandler = GetTPositionHandler($00484B50);
 
 type
-	GetGridPosPLOTHandler = function (PosX, PosY: Integer) : Cardinal; stdcall;
+	GetGridPosPLOTHandler = function (PosX, PosY: Integer) : Pointer; stdcall;
 var
   GetGridPosPLOT : GetGridPosPLOTHandler = GetGridPosPLOTHandler($00481550);
 
@@ -560,12 +658,7 @@ type
 var
   TADrawRect : TADrawRectHandler = TADrawRectHandler($004BF8C0);
 
-type
-  TADrawLineHandler = procedure ( Context : PChar; x1,y1,x2,y2 : Longint; Colour : Longint ) cdecl;
-var
-  TADrawLine : TADrawLineHandler = TADrawLineHandler($004CC7AB);
-
-type // buffer should be at least 50 characters long 
+type // buffer should be at least 50 characters long
   GetContextHandler = function ( ptr : PChar ) : Longint; Stdcall;
 var
   GetContext : GetContextHandler = GetContextHandler($4C5E70);
@@ -620,9 +713,37 @@ var
   TA_Atan2 : TA_Atan2Handler = TA_Atan2Handler($004B715A);
 
 Type
+  InsertToHPIAryHandler = function(Filename: PAnsiChar; Priority: Integer): Integer; stdcall;
+var
+  InsertToHPIAry : InsertToHPIAryHandler = InsertToHPIAryHandler($004BE0B0);
+
+Type
+  SetCurrentDirectoryToTAPathHandler = function(): Boolean; cdecl;
+var
+  SetCurrentDirectoryToTAPath : SetCurrentDirectoryToTAPathHandler = SetCurrentDirectoryToTAPathHandler($0049F540);
+
+Type
+  findfirst_HPIHandler = function(lpFileName: PAnsiChar; finddata_ptr: Pointer; SearchType: Integer; TryNext: Integer): Integer; stdcall;
+var
+  findfirst_HPI : findfirst_HPIHandler = findfirst_HPIHandler($004BC4B0);
+
+Type
+  findnext_HPIHandler = function(SearchHandle: Integer; finddata_ptr: Pointer): Integer; stdcall;
+var
+  findnext_HPI : findnext_HPIHandler = findnext_HPIHandler($004BC640);
+
+Type
+  findclose_HPIHandler = function(SearchHandle: Integer): Integer; stdcall;
+var
+  findclose_HPI : findclose_HPIHandler = findclose_HPIHandler($004BC8D0);
+
+Type
   HAPI_BroadcastMessageHandler = function(FromPID: Integer; Buffer: Pointer; BufferSize: Integer): Integer; stdcall;
 var
   HAPI_BroadcastMessage : HAPI_BroadcastMessageHandler = HAPI_BroadcastMessageHandler($00451DF0);
+
+//int __stdcall FindUnitsInCategorysAry(const char *CategoryName)
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not working.
@@ -690,6 +811,11 @@ type
   Unit_RecreateHandler = function ( PlayerIndex: Byte; UnitPtr: Pointer): Cardinal; stdcall;
 var
   Unit_Recreate: Unit_RecreateHandler = Unit_RecreateHandler($4861D0);
+
+type
+  UNITS_AllocateMovementClassHandler = function ( UnitPtr: Pointer): Pointer; stdcall;
+var
+  UNITS_AllocateMovementClass: UNITS_AllocateMovementClassHandler = UNITS_AllocateMovementClassHandler($00485E50);
   
 type
   cmalloc_MM__Handler = function (Size : Cardinal) : Integer; cdecl;

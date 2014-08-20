@@ -49,6 +49,7 @@ end;
 function GetPlugin : TPluginData;
 var
   Replacement: Word;
+  bReplacement : Byte;
 begin
   if IsTAVersion31 and State_Builders then
   begin
@@ -89,6 +90,22 @@ begin
                           'Modify build check',
                           @Builders_PlantBuildNonMobile,
                           $0047DBD6, 0);
+
+    if IniSettings.Plugin_AiBuildList then
+    begin
+      bReplacement := 120;
+      BuildersPlugin.MakeReplacement( State_Builders,
+                                      'AI probability build list extend #1',
+                                      $0042D972,
+                                      bReplacement,
+                                      1);
+
+      BuildersPlugin.MakeReplacement( State_Builders,
+                                      'AI probability build list extend #2',
+                                      $0042DAC8,
+                                      bReplacement,
+                                      1);
+    end;
 
     Result:= BuildersPlugin;
   end else

@@ -1,5 +1,7 @@
 unit IniOptions;
 
+{$DEFINE GameStatsLogging}
+
 interface
 uses PluginEngine, Windows, SysUtils, IniFiles;
 
@@ -18,10 +20,14 @@ type
     Read                 : Boolean;
 
     ScriptorPath         : String;
+    SharedMapsPath       : String;
 
     Plugin_Builders      : Boolean;
     Plugin_Builders_Yard : Boolean;
     Plugin_AiNukes       : Boolean;
+    Plugin_AiBuildList   : Boolean;
+
+    CreateStatsFile      : Boolean;
 
     { GUI Plugins }
     Plugin_Colors        : Boolean;
@@ -318,10 +324,19 @@ begin
       IniSettings.UnitLimit := ReadIniValue(iniFile, 'Preferences', 'UnitLimit', 0);
 
       IniSettings.ScriptorPath := ReadIniString(iniFile, 'Preferences', 'ScriptorIncludePath', '');
+      if IniSettings.ScriptorPath <> '' then
+        IniSettings.ScriptorPath := IncludeTrailingPathDelimiter(IniSettings.ScriptorPath);
+
+      IniSettings.SharedMapsPath := ReadIniString(iniFile, 'Preferences', 'SharedMapsPath', '');
+      if IniSettings.SharedMapsPath <> '' then
+        IniSettings.SharedMapsPath := IncludeTrailingPathDelimiter(IniSettings.SharedMapsPath);
 
       IniSettings.Plugin_Builders := ReadIniBool(iniFile, 'Preferences', 'Builders', False);
       IniSettings.Plugin_Builders_Yard := ReadIniBool(iniFile, 'Preferences', 'MobileYardmap', False);
       IniSettings.Plugin_AiNukes := ReadIniBool(iniFile, 'Preferences', 'AiNukes', False);
+      IniSettings.Plugin_AiBuildList := ReadIniBool(iniFile, 'Preferences', 'AiBuildListExpand', False);
+
+      IniSettings.CreateStatsFile := ReadIniBool(iniFile, 'Preferences', 'CreateStats', False);
 
       if iniFile.SectionExists('Colors') then
       begin

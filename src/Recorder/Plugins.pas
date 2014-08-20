@@ -38,7 +38,8 @@ uses
   ClockPosition,
   GUIEnhancements,
   BattlerRoomMemFix,
-  COB_extensions;
+  COB_extensions,
+  StatsLogging;
 
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
 begin
@@ -80,6 +81,8 @@ if OnMainRun then
   RegisterPlugin( GUIEnhancements.GetPlugin() );
   RegisterPlugin( BattlerRoomMemFix.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );
+  if IniSettings.CreateStatsFile then
+    RegisterPlugin( StatsLogging.GetPlugin() );
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );

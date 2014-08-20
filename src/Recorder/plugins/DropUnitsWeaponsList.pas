@@ -67,7 +67,7 @@ var
   i : Integer;
 begin
   if IniSettings.ScriptorPath <> '' then
-    sPath := IncludeTrailingPathDelimiter(IniSettings.ScriptorPath) + 'unitsweaps.h'
+    sPath := IniSettings.ScriptorPath + 'unitsweaps.h'
   else
     sPath := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation)) + 'unitsweaps.h';
 

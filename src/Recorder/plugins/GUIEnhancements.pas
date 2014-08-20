@@ -28,6 +28,10 @@ procedure DrawBuildSpot_NanoframeHook;
 procedure DrawBuildSpot_QueueNanoframeHook;
 procedure DrawBuildSpot_NanoframeShimmerHook;
 
+function DrawDotteCircleNew(OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer;
+                            ColorOffset: Integer; Spacing: Word; Dotte_b : Integer;
+                            Angle: Word) : LongInt; stdcall;
+
 implementation
 uses
   IniOptions,
@@ -134,7 +138,6 @@ begin
                               @DrawBuildSpot_NanoframeShimmerHook,
                               $00458E18, 2);
 
-
    { GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'SelectedUnitsCounter',
                             @SelectedUnitsCounter,
@@ -189,7 +192,7 @@ var
   CurOrder : TTAActionType;
   OrderStateCorrect : Boolean;
   FeatureDefPtr : Pointer;
-  FeatureDefID : Integer;
+  FeatureDefID : SmallInt;
   ActionUnitType : Word;
   ActionUnitBuildTime : Cardinal;
   ActionUnitBuildCost1, ActionUnitBuildCost2 : Single;
@@ -198,7 +201,6 @@ var
   MaxActionVal : Cardinal;
   CurActionVal : Cardinal;
   ReclaimColor : Byte;
-  UnknownFeat : Pointer;
 begin
   Result := 0;
   BottomZ := 0;
@@ -437,7 +439,7 @@ begin
               if CurOrder = Action_Capture then
                 FeatureDefID := 0
               else
-                FeatureDefID := GetFeatureTypeOfOrder(@PUnitOrder(PUnitStruct(Pointer(Unit_p)).p_UnitOrders).Pos, PUnitStruct(Pointer(Unit_p)).p_UnitOrders, LongWord(@UnknownFeat));
+                FeatureDefID := GetFeatureTypeOfPos(@PUnitOrder(PUnitStruct(Pointer(Unit_p)).p_UnitOrders).Pos, PUnitStruct(Pointer(Unit_p)).p_UnitOrders, nil);
               if FeatureDefID <> -1 then
               begin
                 MaxActionVal := 0;
@@ -801,7 +803,6 @@ begin
                               PByte(LongWord(ColorsPal)+10)^,
                               Round(Radius / 2),
                               lSpacing div 200);
-
   end else
   begin
     nRadiusJig := CustomUnitFieldsArr[TAUnit.GetId(UnitPtr)].CircleSelectRadJig;
@@ -962,6 +963,7 @@ var
   CobScript : Pointer;
  // ObjectStateFreeRes : Integer;
 begin
+  PUnitStruct(UnitPtr).nKills := 0;
   FreeUnitOrders(UnitPtr);
   CobScript := UnitPtr.p_UnitScriptsData;
   if CobScript <> nil then
@@ -976,7 +978,7 @@ begin
   end;
   if UnitPtr.p_MovementClass <> nil then
   begin
-    FreeMoveClass(UnitPtr.p_MovementClass);
+    FreeMoveClass(UnitPtr.p_Object3DO, nil, UnitPtr.p_MovementClass);
     free_MMwapper__(UnitPtr.p_MovementClass);
     UnitPtr.p_MovementClass := nil;
   end;
@@ -1015,6 +1017,11 @@ begin
         NanoSpotUnitSt.Position.x_ := 0;
         NanoSpotUnitSt.Position.Z := NanoSpotUnitSt.Position.z_ + NanoSpotUnitSt.nFootPrintZ * 8;
         NanoSpotUnitSt.Position.z_ := 0;
+
+        if NanoSpotUnitInfoSt.cBMCode = 1 then
+        begin
+          UNITS_AllocateMovementClass(@NanoSpotUnitSt);
+        end;
 
         NanoSpotUnitSt.Turn.Z := 32768;
         NanoSpotUnitSt.Position.y_ := 0;
@@ -1074,6 +1081,11 @@ begin
       NanoSpotQueueUnitSt.Position.x_ := 0;
       NanoSpotQueueUnitSt.Position.Z := NanoSpotQueueUnitSt.Position.z_;
       NanoSpotQueueUnitSt.Position.z_ := 0;
+
+      if NanoSpotQueueUnitInfoSt.cBMCode = 1 then
+      begin
+        UNITS_AllocateMovementClass(@NanoSpotQueueUnitSt);
+      end;
 
       NanoSpotQueueUnitSt.Turn.Z := 32768;
       NanoSpotQueueUnitSt.Position.Y := Position.Y;
@@ -1204,6 +1216,54 @@ asm
   mov     ecx, [esp+24Ch-$214]
   push $0046ABE6;
   call PatchNJump;
+end;
+
+function DrawDotteCircleNew(OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer;
+                            ColorOffset: Integer; Spacing: Word; Dotte_b : Integer;
+                            Angle: Word) : LongInt; stdcall;
+var
+  lRadius : Integer;
+  nAngle: Integer;
+  x1, y1, x2, y2: Integer;
+  v8, v18, v12, v14 : Integer;
+  AllowDraw : Integer;
+begin
+  lRadius := Radius;
+  x1 := CenterY;
+  v8 := Radius + CenterX;
+  Result := 65536 div Spacing;
+  nAngle := 65536 div Angle;
+  v18 := 65536 div Spacing;
+  if ( 65536 div Spacing <= 65536 ) then
+  begin
+    AllowDraw := Dotte_b;
+    while True do
+    begin
+      x2 := CenterX + sub_4B7123(nAngle, lRadius);
+      result := sub_4B70EF(nAngle, lRadius);
+      v12 := result;
+      Result := Byte(AllowDraw);
+      y2 := CenterY + v12;
+      if (AllowDraw and 1 = 1) then
+      begin
+        v14 := x1;
+        x1 := v8;
+        Spacing := y2;
+        Dotte_b := x2;
+        y1 := v14;
+        result := CorrecLinetPosition(OFFSCREEN_ptr, @x1, @y1, @Dotte_b, @Spacing);
+        if ( result <> 0 ) then
+          result := DrawLine2(OFFSCREEN_ptr, x1, y1, Dotte_b, Spacing, ColorOffset);
+      end;
+      nAngle := nAngle + v18;
+      v8 := x2;
+      x1 := y2;
+      Inc(AllowDraw);
+      if ( nAngle > 65536 ) then
+        Break;
+      lRadius := Radius;
+    end;
+  end;
 end;
 
 end.

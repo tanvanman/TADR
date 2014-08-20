@@ -45,7 +45,6 @@ uses
   Thread_marshaller in 'plugins\Thread_marshaller.pas',
   IniOptions in 'plugins\IniOptions.pas',
   ModsList in 'ModsList.pas',
-  statslogging in 'statslogging.pas',
   Colors in 'plugins\Colors.pas',
   Builders in 'plugins\Builders.pas',
   KeyboardHook in 'plugins\KeyboardHook.pas',
@@ -67,7 +66,8 @@ uses
   ScriptCallsExtend in 'plugins\ScriptCallsExtend.pas',
   UnitActions in 'plugins\UnitActions.pas',
   TAExceptionsLog in 'plugins\TAExceptionsLog.pas',
-  GUIEnhancements in 'plugins\GUIEnhancements.pas';
+  GUIEnhancements in 'plugins\GUIEnhancements.pas',
+  statslogging in 'plugins\StatsLogging.pas';
 
 {$R *.res}
 

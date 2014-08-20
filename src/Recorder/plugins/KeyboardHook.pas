@@ -35,7 +35,7 @@ procedure SwitchSetShareEnergy;
 
 implementation
 uses
-  TA_MemoryLocations, TA_MemoryStructures, TA_FunctionsU, //BattleRoomScroll,
+  idplay, TA_MemoryLocations, TA_MemoryStructures,TA_MemoryConstants, TA_FunctionsU, //BattleRoomScroll,
   COB_Extensions, TAMemManipulations, DropUnitsWeaponsList;
 
 Procedure OnInstallKeyboardHook;
@@ -73,10 +73,10 @@ var
   UnitAtMouse: Pointer;
   UnitSt: PUnitStruct;
   //PlayerSt: PPlayerStruct;
-//  FoundArray: TFoundUnits;
-//  i, FoundCount: Integer;
-//  tadynm: PTAdynmemStruct;
- // res: integer;
+  //  FoundArray: TFoundUnits;
+  //  i, FoundCount: Integer;
+  //  tadynm: PTAdynmemStruct;
+  //res: integer;
   //ResultUnit: Pointer;
   //ScreenshotCreate: TScreenshotCreate;
 begin
@@ -229,14 +229,31 @@ begin
                   end;
                 end;
               end; }
-{        $45 : begin     // left alt + shift + e
+        $13 : begin     // pause button
+                if Assigned(globalDPlay) then
+                  if globalDPlay.AutopauseAtStart and not globalDPlay.Players[TAData.ViewPlayer+1].IsServer then
+                  begin
+                    Msg_Reminder(PAnsiChar('Only the host can unpause.' +#13#10+ 'You can also vote to go with .ready command'), 1);
+                    Result := 1;
+                    Exit;
+                  end;
+              end;
+     {   $45 : begin     // left alt + shift + e
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-                  ScreenshotCreate:= TScreenshotCreate.Create(False);
-                  ScreenshotCreate.FreeOnTerminate:= True;
+                  if ((PTAdynmemStruct(TAData.MainStructPtr)^.nPlayersSynchMask shr 3) and 1 = 1) then
+                  begin
+                  end;
+                  
+                  UnitAtMouse := TAUnit.AtMouse;
+                  if (UnitAtMouse <> nil) then
+                  begin
+                    SendTextLocal(BoolToStr(TAUnit.IsPlantReadyToBuild(UnitAtMouse, 0)));
+                    //Order2Unit(Ord(Action_BuildingBuild), 1, UnitAtMouse, nil, nil, UnitName2ID('ARMHAWK'), 1);
+                  end;
                 end;
-              end;     }
+              end; }
 {        $46 : begin     // left alt + shift + f
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then

@@ -24,11 +24,17 @@ Procedure OnUninstallScriptCallsExtend;
 // -----------------------------------------------------------------------------
 
 // AimPrimary / AimSecondary / AimTertiary
-procedure ScriptCallsExtend_AimPrimaryTurret;
+procedure ScriptCallsExtend_AimPrimaryTurret_GetUnit;
+procedure ScriptCallsExtend_AimPrimaryTurret_ExpCall;
 procedure ScriptCallsExtend_AimPrimaryBallistic;
 
 // WeaponHit
 procedure ScriptCallsExtend_WeaponHitTest;
+
+// HitByWeapon
+procedure ScriptCallsExtend_HitByWeaponExpand;
+procedure ScriptCallsExtend_ConfirmedKill;
+procedure ScriptCallsExtend_TookDamage;
 
 // ConfirmVTOLTransport
 procedure ScriptCallsExtend_CallAirLoadScript;
@@ -64,19 +70,39 @@ begin
                             @OnUninstallScriptCallsExtend );
 
     ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'ScriptCallsExtend_AimPrimaryTurret',
-                          @ScriptCallsExtend_AimPrimaryTurret,
-                          $0049E2A5, 0);
+                          'ScriptCallsExtend_AimPrimaryTurret_GetUnit',
+                          @ScriptCallsExtend_AimPrimaryTurret_GetUnit,
+                          $0049E21E, 1);
+
+    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
+                          'ScriptCallsExtend_AimPrimaryTurret_ExpCall',
+                          @ScriptCallsExtend_AimPrimaryTurret_ExpCall,
+                          $0049E2E8, 3);
 
     ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
                           'ScriptCallsExtend_AimPrimaryBallistic',
                           @ScriptCallsExtend_AimPrimaryBallistic,
                           $0049E35D, 0);
-    
+
     ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
                           'Did weapon hit the target ?',
                           @ScriptCallsExtend_WeaponHitTest,
                           $00406F5B, 2);
+ {
+    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
+                          'Include damage value for HitByWeapon',
+                          @ScriptCallsExtend_HitByWeaponExpand,
+                          $00489F32, 0);     }
+
+    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
+                          'Unit took damage call',
+                          @ScriptCallsExtend_TookDamage,
+                          $00489D3F, 1);
+
+    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
+                          'Confirmed unit kill',
+                          @ScriptCallsExtend_ConfirmedKill,
+                          $004864B6, 0);
 
     ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
                           'call air load',
@@ -95,52 +121,30 @@ end;
 
 var
   TargetUnit_Turret: Cardinal;
-procedure ScriptCallsExtend_AimPrimaryTurret;
+procedure ScriptCallsExtend_AimPrimaryTurret_GetUnit;
 label
   ShootingGround,
-  loc_49E2AE,
-  loc_49E2CC,
-  ContinueToCall,
-  loc_49E3AE;
+  GoBack;
 asm
     push    ebx
     pushf
     mov     bx, word [edi+$4+2]
     test    bh, $80
-    jz      ShootingGround
     movzx   ebx, word [edi+$4]
     mov     TargetUnit_Turret, ebx
-    jmp loc_49E2AE
+    jnz     GoBack
 ShootingGround:
     mov     TargetUnit_Turret, 0
-loc_49E2AE:
+GoBack:
     popf
     pop     ebx
-    test    byte ptr [ebp+111h], 1
-    jz      loc_49E2CC
-    shr     al, 2
-    lea     ecx, [esp+40h-$18]
-    and     al, 3
-    push    ecx
-    push    eax
-    lea     edx, [esp+48h+4]
-    lea     eax, [esp+48h-$2C]
-    push    edx
-    push    eax
-    push    ebp
-    push    edi
-    call    sub_49D910
-    jmp     ContinueToCall
-loc_49E2CC:
-    xor     eax, eax;
-ContinueToCall:
-    mov     ecx, [esp+40h+4]
-    test    eax, eax
-    jz      loc_49E3AE
-    mov     eax, [esp+40h-$2C]
-    mov     dl, [esi]
-    mov     [esi-3], cx
-    mov     [esi-5], ax
+    mov     ecx, [ebp+111h]
+    push $0049E224
+    call PatchNJump
+end;
+
+procedure ScriptCallsExtend_AimPrimaryTurret_ExpCall;
+asm
     push    0 // par4
     and     ecx, 0FFFFh
     shr     edx, 2
@@ -154,13 +158,8 @@ ContinueToCall:
     push    3                      // par count
     lea     ecx, [esi-17h]
     push    0
-
-    //push $0049E30F
     push $0049E314
     call PatchNJump
-loc_49E3AE:
-    push $0049E3AE;
-    call PatchNJump;
 end;
 
 procedure ScriptCallsExtend_AimPrimaryBallistic;
@@ -208,10 +207,16 @@ begin
       else
         WeapID := PWeaponDef(PWeaponProjectile(Projectile).Weapon).lWeaponIDCrack;
 
-      Script_ProcessCallback( nil,
+      Script_RunScript ( 0, 0, LongWord(PUnitStruct(PWeaponProjectile(Projectile).p_AttackerUnit).p_UnitScriptsData),
+                         0, 0, Hit, WeapID,
+                         2,
+                         0, 0,
+                         PAnsiChar('WeaponHit') );
+
+  {    Script_ProcessCallback( nil,
                               nil,
                               LongWord(PUnitStruct(PWeaponProjectile(Projectile).p_AttackerUnit).p_UnitScriptsData),
-                              nil, nil, @Hit, @WeapID, PAnsiChar('WeaponHit') );
+                              nil, nil, @Hit, @WeapID, PAnsiChar('WeaponHit') );   }
 
     end;
   end;
@@ -248,14 +253,119 @@ DidntHit :
   call PatchNJump;
 end;
 
+{
+.text:00489F32 00C 6A 00                               push    0                           ; a10
+.text:00489F34 010 6A 00                               push    0                           ; a9
+.text:00489F36 014 50                                  push    eax                         ; a8
+.text:00489F37 018 53                                  push    ebx                         ; a7
+.text:00489F38 01C 6A 02                               push    2                           ; a6
+.text:00489F3A 020 6A 00                               push    0                           ; a5
+.text:00489F3C 024 6A 00                               push    0                           ; a4
+.text:00489F3E 028 68 74 8D 50 00                      push    offset aHitbyweapon         ; "HitByWeapon"
+.text:00489F43 02C E8 28 6B 02 00                      call    Script_RunCallBack
+}
+
+procedure HitByWeaponNew(UnitPtr : Cardinal; anglex, anglez, damage : Cardinal); stdcall;
+begin
+  if PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData <> nil then
+  begin
+  Script_ProcessCallback( nil, nil, LongWord(PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData),
+                          nil, @damage, @anglez, @anglex,
+                          PAnsiChar('HitByWeapon') );
+  end;
+end;
+
+procedure ScriptCallsExtend_HitByWeaponExpand;
+asm
+  pushAD
+  movzx   edx, word ptr [edi+5]
+  push    edx
+  push    eax
+  push    ebx
+  push    esi
+  call    HitByWeaponNew
+  popAD
+  push $00489F48;
+  call PatchNJump;
+end;
+
+procedure TookDamage(UnitPtr: Pointer; DmgType: Cardinal; DmgAmount: Cardinal; AttackerID: Cardinal); stdcall;
+begin
+  if PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData <> nil then
+  begin
+    Script_ProcessCallback( nil, nil, LongWord(PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData),
+                            nil, @AttackerID, @DmgAmount, @DmgType,
+                            PAnsiChar('TookDamage') );
+  end;  
+end;
+
+procedure ScriptCallsExtend_TookDamage;
+label
+  DontMakeDmg;
+asm
+  mov     eax, [esi+TUnitStruct.lUnitStateMask]
+  test    eax, 10000000h
+  jz      DontMakeDmg
+  test    ah, 40h
+  jnz     DontMakeDmg
+  pushAD
+  movzx   edx, word ptr [edi+3]
+  push    edx
+  movzx   edx, word ptr [edi+5]
+  push    edx
+  movzx   edx, byte ptr [edi+8]
+  push    edx
+  push    esi
+  call    TookDamage
+  popAD
+  // edi+5 dmg amount   word
+  // edi+8 dmg type     byte
+  // edi+3 attacker id  word
+  push $00489D59;
+  call PatchNJump;
+DontMakeDmg :
+  push $00489F93;
+  call PatchNJump;
+end;
+
+procedure ConfirmedKill(UnitPtr: Pointer; DeathType : Cardinal); stdcall;
+begin
+  if PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData <> nil then
+  begin
+    Script_ProcessCallback( nil,
+                            nil,
+                            LongWord(PUnitStruct(UnitPtr).p_UnitScriptsData),
+                            nil, nil, nil, @DeathType, PAnsiChar('ConfirmedKill') );
+  end;
+end;
+
+procedure ScriptCallsExtend_ConfirmedKill;
+asm
+  // ebx deathtype
+  // esi target unit
+  mov     esi, [esp+1Ch+4]
+  mov     ebx, [esp+1Ch+8]
+  pushAD
+  push    ebx
+  push    esi
+  call ConfirmedKill
+  popAD
+  push    edi
+  push $004864BB;
+  call PatchNJump;
+end;
+
 procedure VTOLLoadUnload(UnitPtr: Pointer; TransportedUnit: Pointer; Piece: Cardinal; Loading: Cardinal); stdcall;
+var
+  UnitID : Word;
 begin
   if PUnitStruct(UnitPtr).p_UnitScriptsData <> nil then
   begin
-    Script_RunScript( 0, 0, LongWord(PUnitStruct(UnitPtr).p_UnitScriptsData),
-                      0, TAUnit.GetId(TransportedUnit), Piece, Loading,
-                      3, 0, 0,
-                      PAnsiChar('ConfirmVTOLTransport') );
+    UnitID := TAUnit.GetId(TransportedUnit);
+    Script_ProcessCallback( nil,
+                            nil,
+                            LongWord(PUnitStruct(UnitPtr).p_UnitScriptsData),
+                            nil, @UnitID, @Piece, @Loading, PAnsiChar('ConfirmVTOLTransport') );
   end;
 end;
 

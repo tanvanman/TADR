@@ -194,7 +194,6 @@ case byte(s[index]) of
   $02       :Result := 13;
   $06       :Result := 1;
   $07       :Result := 1;
-  $20       :Result := 192;
   $1a       :Result := 14;
   $17       :Result := 2;
   $18       :Result := 2;
@@ -214,8 +213,11 @@ case byte(s[index]) of
                 dec(result, 5 );
               end;
             end;
-  $24       :Result := 6;            
+  // making teams in battle room
+  $20       :Result := 192;
+  $24       :Result := 6;
   $26       :Result := 41; // byte('&')
+
   $2e       :Result := 9;
   $22       :Result := 6;  // byte('"')
   $2a       :Result := 2;  // byte('*') multiplayer finished loading - players synchronization complete

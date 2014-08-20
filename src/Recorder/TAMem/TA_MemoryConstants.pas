@@ -7,6 +7,7 @@ const
 
   TAdynmemStructPtr = $511DE8;  //Boneyards 00525BE8
   TAMovementClassArray = $512358;
+  TAunitsCategory = $51E6B0;
 
   TAdynmemStruct_SharedBits = $2A42; //asm
   TAdynmemStruct_LOS_Sight = $2A43; // Byte;  //asm
