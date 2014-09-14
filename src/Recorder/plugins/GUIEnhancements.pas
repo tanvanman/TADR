@@ -2,7 +2,7 @@ unit GUIEnhancements;
 
 interface
 uses
-  PluginEngine;
+  PluginEngine, TA_MemoryStructures;
 
 // -----------------------------------------------------------------------------
 
@@ -21,29 +21,46 @@ Procedure OnUninstallGUIEnhancements;
 procedure ExtraUnitBars_MainCall;
 procedure GUIEnhancements_DevUnitProbes;
 procedure TrueIncomeHook;
+procedure HealthPercentage;
 procedure SelectedUnitsCounter;
 procedure DrawCircleUnitSelectHook;
 procedure DrawBuildSpot_InitScript;
 procedure DrawBuildSpot_NanoframeHook;
 procedure DrawBuildSpot_QueueNanoframeHook;
 procedure DrawBuildSpot_NanoframeShimmerHook;
+{
+procedure BroadcastNanolatheParticles_BuildingBuild;
+procedure BroadcastNanolatheParticles_MobileBuild;
+procedure BroadcastNanolatheParticles_HelpBuild;
+procedure BroadcastNanolatheParticles_VTOL_MobileBuild;
+}
+procedure IncludeWatchersOnList;
 
 function DrawDotteCircleNew(OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer;
                             ColorOffset: Integer; Spacing: Word; Dotte_b : Integer;
                             Angle: Word) : LongInt; stdcall;
 
+{
+function AddNanoUnit(x, y, color: Integer): LongBool; stdcall;
+function InitNanoUnit: LongBool; stdcall;
+
+exports
+   AddNanoUnit index 12,
+   InitNanoUnit index 13;
+}
 implementation
 uses
   IniOptions,
   SysUtils,
-  Windows,
   TA_MemoryConstants,
-  TA_MemoryStructures,
   TA_MemoryLocations,
   COB_Extensions,
   UnitsExtend,
   Math,
-  TA_FunctionsU;
+  TA_FunctionsU,
+  logging,
+  idplay,
+  TA_NetworkingMessages;
 
 const
   STANDARDUNIT : cardinal = 250;
@@ -52,7 +69,6 @@ const
   HUGEUNIT : cardinal = 5000;
   EXTRALARGEUNIT : cardinal = 10000;
   VETERANLEVEL_RELOADBOOST = 12; // 30 * 0.2
-  OFFSCREEN_off = -$1F0;
 
 const
   NanoUnitCreateInit : AnsiString = 'NanoFrameInit';
@@ -112,6 +128,11 @@ begin
                             $004695EE, 0);
 
     GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                            'HealthPercentage',
+                            @HealthPercentage,
+                            $0046B088, 1);
+
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'DrawCircleUnitSelectHook',
                             @DrawCircleUnitSelectHook,
                             $00467AF1, 0);
@@ -137,6 +158,37 @@ begin
                               'DrawBuildSpot_NanoframeShimmerHook',
                               @DrawBuildSpot_NanoframeShimmerHook,
                               $00458E18, 2);
+   {
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                            '',
+                            @BroadcastNanolatheParticles_BuildingBuild,
+                            $00403EC4, 3);
+
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                            '',
+                            @BroadcastNanolatheParticles_MobileBuild,
+                            $00402AB3, 5);
+
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                            '',
+                            @BroadcastNanolatheParticles_HelpBuild,
+                            $004041BA, 3);
+
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                            '',
+                            @BroadcastNanolatheParticles_VTOL_MobileBuild,
+                            $004142B0, 1);
+   }
+
+  {  GUIEnhancementsPlugin.MakeNOPReplacement(State_GUIEnhancements,
+                              'IncludeWatchersOnPlayersList',
+                              $00494BF0,
+                              12);
+
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              'IncludeWatchersOnPlayersList - ',
+                              @IncludeWatchersOnList,
+                              $00494C6D, 0); }
 
    { GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'SelectedUnitsCounter',
@@ -271,16 +323,16 @@ begin
             RectDrawPos.Right := Round(RectDrawPos.Left + ((HPBackgRectWidth-2) * UnitHealth) / UnitMaxHP);
             HealthState := UnitMaxHP div 3;
 
-            if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(UNITHEALTHBARGOOD)] <> 0) then
+            if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(TAData.RaceSide)][Ord(UNITHEALTHBARGOOD)] <> 0) then
             begin
               if UnitHealth <= (HealthState * 2) then
               begin
                 if UnitHealth <= HealthState then
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(UNITHEALTHBARLOW)])^)  // low
+                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(TAData.RaceSide)][Ord(UNITHEALTHBARLOW)])^)  // low
                 else
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(UNITHEALTHBARMEDIUM)])^); // yellow
+                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(TAData.RaceSide)][Ord(UNITHEALTHBARMEDIUM)])^); // yellow
               end else
-                DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(UNITHEALTHBARGOOD)])^); // good
+                DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(TAData.RaceSide)][Ord(UNITHEALTHBARGOOD)])^); // good
             end else
             begin
               if UnitHealth <= (HealthState * 2) then
@@ -392,15 +444,15 @@ begin
 
                 if StockPile <> 0 then
                 begin
-                  if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(STOCKPILEBAR)] <> 0) then
-                    DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(STOCKPILEBAR)])^)
+                  if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(TAData.RaceSide)][Ord(STOCKPILEBAR)] <> 0) then
+                    DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(TAData.RaceSide)][Ord(STOCKPILEBAR)])^)
                   else
                     DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+14)^);
                 end else
                 begin
                   BarProgress := Round((CurReloadTime / MaxReloadTime) * 100);
-                  if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(WEAPONRELOADBAR)] <> 0) then
-                    WeapReloadColor := IniSettings.Colors[Ord(WEAPONRELOADBAR)]
+                  if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(TAData.RaceSide)][Ord(WEAPONRELOADBAR)] <> 0) then
+                    WeapReloadColor := IniSettings.Colors[Ord(TAData.RaceSide)][Ord(WEAPONRELOADBAR)]
                   else
                     WeapReloadColor := 143;
                   case BarProgress of
@@ -503,8 +555,8 @@ begin
                   RectDrawPos.Right := Round(RectDrawPos.Left + (32 * CurActionVal) / MaxActionVal);
 
                   BarProgress := Round((CurActionVal / MaxActionVal) * 100);
-                  if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(RECLAIMBAR)] <> 0) then
-                    ReclaimColor := IniSettings.Colors[Ord(RECLAIMBAR)]
+                  if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(TAData.RaceSide)][Ord(RECLAIMBAR)] <> 0) then
+                    ReclaimColor := IniSettings.Colors[Ord(TAData.RaceSide)][Ord(RECLAIMBAR)]
                   else
                     ReclaimColor := 17;
                   case BarProgress of
@@ -738,6 +790,44 @@ asm
   call PatchNJump;
 end;
 
+procedure DrawHealthPercentage(top, curr, left, max: Cardinal; offscreen_p: Cardinal); register;
+var
+  HealthPercent : Single;
+  HealthPercentStr : PAnsiChar;
+  v65 : LongInt;
+  FormatSettings: TFormatSettings;
+begin
+  if (Max = 0) or (Curr > Max) then
+    Exit;
+
+  FormatSettings.DecimalSeparator := '.';
+  v65 := sub_4C13F0;
+  HealthPercentStr := '';
+
+  HealthPercent := (Curr / Max) * 100;
+  if HealthPercent > 0.0 then
+  begin
+    SetFontColor(83, v65);
+    HealthPercentStr := PAnsiChar(Format('%.1f%%', [HealthPercent], FormatSettings))
+  end;
+  DrawText_Heavy(offscreen_p, HealthPercentStr, Left - 38, Top - 5, -1);
+end;
+
+procedure HealthPercentage;
+asm
+  add     eax, ebx
+  mov     [esp+18h], ecx
+  pushAD
+  mov     ebx, [esp+30h]
+  mov     ecx, [esp+34h]
+  push    ebx
+  push    edi
+  call    DrawHealthPercentage
+  popAD
+  push $0046B08E;
+  call PatchNJump;
+end;
+
 function DrawCircleUnitSelect(Unitunk: PPosition; Offscreen_p : Cardinal; Botx1, Boty1, Rx2, Ry2 : Integer; UnitVolume: Cardinal): Integer; stdcall;
 var
   UnitPtr : PUnitStruct;
@@ -907,24 +997,6 @@ Return:
   call PatchNJump;
 end;
 
-procedure DrawBuildSpot_InitScript;
-label
-  CallInitScript;
-asm
-  push    ebx
-  movzx   ebx, word ptr [esi+TUnitStruct.nKills]
-  test    bx, bx
-  pop     ebx
-  jnz     CallInitScript
-  push    $00508BE0 //"Create"
-  push $00485DE6;
-  call PatchNJump;
-CallInitScript:
-  push    NanoUnitCreateInit //"NanoFrameInit"
-  push $00485DE6;
-  call PatchNJump;
-end;
-
 procedure PrepareNanoUnit(UnitPtr: PUnitStruct);
 var
   UnitInfo : PUnitInfo;
@@ -950,40 +1022,22 @@ begin
   end;
 end;
 
-procedure FreeUnitMem(UnitPtr: PUnitStruct);
-  procedure FreeCob(pUnit: PUnitStruct);
-  asm
-    mov     esi, pUnit
-    mov     ecx, [esi+TUnitStruct.p_UnitScriptsData]
-    mov     eax, [ecx]
-    push    1
-    call    dword ptr [eax+50h] // release units script
-  end;
-var
-  CobScript : Pointer;
- // ObjectStateFreeRes : Integer;
-begin
-  PUnitStruct(UnitPtr).nKills := 0;
-  FreeUnitOrders(UnitPtr);
-  CobScript := UnitPtr.p_UnitScriptsData;
-  if CobScript <> nil then
-  begin
-    FreeCob(UnitPtr);
-    UnitPtr.p_UnitScriptsData := nil;
-  end;
-  if UnitPtr.p_Object3DO <> nil then
-  begin
-    FreeObjectState(UnitPtr.p_Object3DO);
-    UnitPtr.p_Object3DO := nil;
-  end;
-  if UnitPtr.p_MovementClass <> nil then
-  begin
-    FreeMoveClass(UnitPtr.p_Object3DO, nil, UnitPtr.p_MovementClass);
-    free_MMwapper__(UnitPtr.p_MovementClass);
-    UnitPtr.p_MovementClass := nil;
-  end;
-  UnitPtr.nUnitInfoID := 0;
-  ZeroMemory(UnitPtr, SizeOf(TUnitStruct));
+procedure DrawBuildSpot_InitScript;
+label
+  CallInitScript;
+asm
+  push    ebx
+  movzx   ebx, word ptr [esi+TUnitStruct.nKills]
+  test    bx, bx
+  pop     ebx
+  jnz     CallInitScript
+  push    $00508BE0 //"Create"
+  push $00485DE6;
+  call PatchNJump;
+CallInitScript:
+  push    NanoUnitCreateInit //"NanoFrameInit"
+  push $00485DE6;
+  call PatchNJump;
 end;
 
 procedure DrawBuildSpotNanoframe(pOffscreen: Cardinal); stdcall;
@@ -991,6 +1045,9 @@ var
   X, Z : Integer;
   Position : TPosition;
 begin
+  if PByte($004BF8C0)^ = $C2 then
+    Exit;
+
   if NanoSpotUnitSt.nUnitInfoID <> 0 then
     FreeUnitMem(@NanoSpotUnitSt);
 
@@ -1008,7 +1065,7 @@ begin
         Exit;
       GetTPosition(X, Z, Position);
       NanoSpotUnitSt.p_Owner := TAPlayer.GetPlayerByIndex(TAData.ViewPlayer);
-      if Unit_CreateUnitsInGame(@NanoSpotUnitSt, X, Position.Y, Z, 0) then
+      if UNITS_AllocateUnit(@NanoSpotUnitSt, X, Position.Y, Z, 0) then
       begin
         NanoSpotUnitInfoSt := PUnitInfo(TAMem.UnitInfoId2Ptr(NanoSpotUnitSt.nUnitInfoID))^;
         NanoSpotUnitSt.p_UnitDef := @NanoSpotUnitInfoSt;
@@ -1025,7 +1082,7 @@ begin
 
         NanoSpotUnitSt.Turn.Z := 32768;
         NanoSpotUnitSt.Position.y_ := 0;
-        Unit_FixPosY_Sea(@NanoSpotUnitSt);
+        UNITS_FixYPos(@NanoSpotUnitSt);
         NanoSpotUnitSt.Position.Y := Position.Y;
 
         if (PTAdynmemStruct(TAData.MainStructPtr)^.cBuildSpotState and $40 = $40) then
@@ -1033,7 +1090,7 @@ begin
         else
           NanoSpotUnitSt.nKills := 2;
 
-        if Unit_CreateModelAndCob(@NanoSpotUnitSt) <> nil then
+        if UNITS_CreateModelScripts(@NanoSpotUnitSt) <> nil then
         begin
           PrepareNanoUnit(@NanoSpotUnitSt);
           DrawUnit(pOffscreen, @NanoSpotUnitSt);
@@ -1052,7 +1109,67 @@ asm
   push $00469F29;
   call PatchNJump;
 end;
+{
+function AddNanoUnit(x, y, color: Integer): LongBool; stdcall;
+var
+  Position : TPosition;
+  i : Integer;
+begin
+  Result := False;
 
+  if (X < 0) or (Y < 0) then
+    Exit;
+
+  SetLength(LineNanoSpotUnitSt, High(LineNanoSpotUnitSt) + 2);
+  i := High(LineNanoSpotUnitSt);
+
+  LineNanoSpotUnitSt[i].nUnitInfoID := PTAdynmemStruct(TAData.MainStructPtr)^.nBuildNum;
+  LineNanoSpotUnitSt[i].p_UnitDef := TAMem.UnitInfoId2Ptr(LineNanoSpotUnitSt[i].nUnitInfoID);
+  LineNanoSpotUnitInfoSt := PUnitInfo(LineNanoSpotUnitSt[i].p_UnitDef)^;
+  
+  GetTPosition(X, Y, Position);
+  LineNanoSpotUnitSt[i].p_Owner := TAPlayer.GetPlayerByIndex(TAData.ViewPlayer);
+
+  if UNITS_AllocateUnit(@LineNanoSpotUnitSt[i], X, Position.Y, Y, 0) then
+  begin
+    LineNanoSpotUnitSt[i].p_UnitDef := @LineNanoSpotUnitInfoSt;
+    PrepareNanoUnit(@LineNanoSpotUnitSt[0]);
+
+    LineNanoSpotUnitSt[i].Position.X := LineNanoSpotUnitSt[i].Position.x_ + LineNanoSpotUnitSt[i].nFootPrintX * 8;
+    LineNanoSpotUnitSt[i].Position.x_ := 0;
+    LineNanoSpotUnitSt[i].Position.Z := LineNanoSpotUnitSt[i].Position.z_ + LineNanoSpotUnitSt[i].nFootPrintZ * 8;
+    LineNanoSpotUnitSt[i].Position.z_ := 0;
+    UNITS_FixYPos(@LineNanoSpotUnitSt[i]);
+
+    if LineNanoSpotUnitInfoSt.cBMCode = 1 then
+    begin
+      UNITS_AllocateMovementClass(@LineNanoSpotUnitSt[i]);
+    end;
+
+    LineNanoSpotUnitSt[i].Turn.Z := 32768;
+    LineNanoSpotUnitSt[i].Position.y_ := 0;
+
+    if (PTAdynmemStruct(TAData.MainStructPtr)^.cBuildSpotState and $40 = $40) then
+      LineNanoSpotUnitSt[i].nKills := 1
+    else
+      LineNanoSpotUnitSt[i].nKills := 2;
+
+    if UNITS_CreateModelScripts(@LineNanoSpotUnitSt[i]) <> nil then
+    begin
+      DrawUnit(0, @LineNanoSpotUnitSt[i]);
+      FreeUnitMem(@LineNanoSpotUnitSt[i]);
+    end;
+  end;
+  Result := True;
+end;
+
+function InitNanoUnit: LongBool; stdcall;
+begin
+  FillChar(LineNanoSpotUnitInfoSt, SizeOf(TUnitInfo), 0);
+  SetLength(LineNanoSpotUnitSt, 0);
+  Result := True;
+end;
+}
 procedure DrawBuildSpotQueueNanoframe(pOffscreen: Cardinal; UnitInfo: PUnitInfo; UnitOrder: PUnitOrder); stdcall;
 var
   X, Z : Integer;
@@ -1072,7 +1189,7 @@ begin
     GetTPosition(X, Z, Position);
 
     NanoSpotQueueUnitSt.p_Owner := TAPlayer.GetPlayerByIndex(TAData.ViewPlayer);
-    if Unit_CreateUnitsInGame(@NanoSpotQueueUnitSt, X, Position.Y, Z, 0) then
+    if UNITS_AllocateUnit(@NanoSpotQueueUnitSt, X, Position.Y, Z, 0) then
     begin
       NanoSpotQueueUnitInfoSt := PUnitInfo(TAMem.UnitInfoId2Ptr(NanoSpotQueueUnitSt.nUnitInfoID))^;
       NanoSpotQueueUnitSt.p_UnitDef := @NanoSpotQueueUnitInfoSt;
@@ -1095,7 +1212,7 @@ begin
       else
         NanoSpotQueueUnitSt.nKills := 2;
 
-      if Unit_CreateModelAndCob(@NanoSpotQueueUnitSt) <> nil then
+      if UNITS_CreateModelScripts(@NanoSpotQueueUnitSt) <> nil then
       begin
         PrepareNanoUnit(@NanoSpotQueueUnitSt);
         DrawUnit(pOffscreen, @NanoSpotQueueUnitSt);
@@ -1170,6 +1287,83 @@ ComeBack:
   call PatchNJump;
 end;
 
+procedure IncludeWatchersOnList;
+label
+  DrawLogo,
+  DontDrawLogo;
+asm
+  mov     ecx, [esi+TPlayerStruct.PlayerInfo]
+  mov     al, [ecx+TPlayerInfoStruct.PropertyMask]
+  test    al, $40
+  jnz     DontDrawLogo
+DrawLogo:
+  xor     eax, eax
+  push $00494C72;
+  call PatchNJump;
+DontDrawLogo:
+  push $00494CC0;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles(PosStart, PosTarget: PPosition); stdcall;
+begin
+  if TAData.NetworkLayerEnabled then
+    GlobalDplay.SendCobEventMessage(TANM_Rec2Rec_SetNanolatheParticles, nil, @PosStart, nil, nil, @PosTarget);
+end;
+
+procedure BroadcastNanolatheParticles_BuildingBuild;
+asm
+  mov     [esp+34h], edx
+  mov     [esp+38h], edi
+  pushAD
+  push    eax
+  push    ecx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $00403ECC;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_MobileBuild;
+asm
+  add     edi, [eax+TUnitInfo.lWidthY]
+  mov     [esp+44h], edi
+  pushAD
+  push    ecx
+  push    edx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $00402ABD;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_HelpBuild;
+asm
+  mov     [esp+34h], edx
+  mov     [esp+38h], esi
+  pushAD
+  push    eax
+  push    ecx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $004041C2;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_VTOL_MobileBuild;
+asm
+  mov     [esp+38h], edi
+  pushAD
+  push    ecx
+  push    edx
+  call    BroadcastNanolatheParticles
+  popAD
+  push    ecx
+  push    edx
+  push $004142B6;
+  call PatchNJump;
+end;
+
 procedure DrawSelectedUnitsCounter(OFFSCREEN_ptr: Cardinal); stdcall;
 var
   UnitId, MaxUnitId : Cardinal;
@@ -1179,7 +1373,7 @@ var
   ColorsPal : Pointer;
 begin
   SelectedCounter := 0;
-  MaxUnitId := TAMem.GetMaxUnitId;
+  MaxUnitId := TAData.MaxUnitsID;
   for UnitId := 1 to MaxUnitId do
   begin
     if PUnitStruct(TAUnit.Id2Ptr(UnitId)).lUnitStateMask and $50 = $50 then

@@ -215,8 +215,8 @@ type
 
     procedure SendAlliedChat();
     procedure SendClipboard();
-    procedure SendCobEventMessage(EventType: Byte; UnitPtr: Pointer; arg1: PLongWord; arg2: PByte; arg3: PWord; arg4: PLongWord);
-    
+    procedure SendCobEventMessage(EventType: Byte; UnitPtr: Pointer; arg1: PLongWord; arg2: PByte; arg3: PWord; arg4: PCardinal);
+
     procedure ExceptMessage;
     function OnException(E: Exception) : boolean;     
   protected
@@ -428,7 +428,7 @@ uses
  IniOptions,
  {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
  {$IFDEF WarZone}WarZoneRankings,{$ENDIF}
- ModsList;
+ ModsList, GUIEnhancements;
 
 {$WARNINGS ON}
 {$HINTS ON}
@@ -650,7 +650,7 @@ SendChatLocal2(s);
 chatview^.NewData := 0;
 end;
 
-procedure TDPlay.SendCobEventMessage(EventType: Byte; UnitPtr: Pointer; arg1: PLongWord; arg2: PByte; arg3: PWord; arg4: PLongWord);
+procedure TDPlay.SendCobEventMessage(EventType: Byte; UnitPtr: Pointer; arg1: PLongWord; arg2: PByte; arg3: PWord; arg4: PCardinal);
 var
   customPacket: string;
   unitId: Word;
@@ -658,7 +658,8 @@ var
 begin
   if Self <> nil then
   begin
-    unitIdSender:= TAUnit.GetLongId(Pointer(unitPtr^));
+    if UnitPtr <> nil then
+      unitIdSender:= TAUnit.GetLongId(Pointer(unitPtr^));
     unitId:= Word(unitIdSender);
     case eventType of
       TANM_Rec2Rec_UnitWeapon :
@@ -690,6 +691,12 @@ begin
           Move( unitId, customPacket[1], SizeOf(Word));
           Move( arg3^, customPacket[3], SizeOf(Cardinal)); // new template crc
           Move( arg1^, customPacket[7], SizeOf(Byte)); // recreate object
+        end;
+      TANM_Rec2Rec_SetNanolatheParticles :
+        begin
+          SetLength( customPacket, SizeOf(TRec2Rec_SetNanolatheParticles_Message));
+          Move( PPosition(arg1^)^, customPacket[1], SizeOf(TPosition)); // start position
+          Move( PPosition(arg4^)^, customPacket[13], SizeOf(TPosition)); // target position
         end;
     end;
     SendRecorderToRecorderMsg( eventType, customPacket, False );
@@ -854,7 +861,7 @@ begin
   if (not Assigned(MapsList)) then
   begin
     MapsList:= TStringlist.create;
-    tot := CreateMultiplayerMapsList(0, 0, 0);
+    tot := IterateMaps(0, 0, 0);
     SendChat('Host maps count: '+IntToStr(tot));
     if tot > 0 then
     begin
@@ -886,7 +893,7 @@ begin
 
   end else
   begin
-    tot := CreateMultiplayerMapsList(0, 0, 0);
+    tot := IterateMaps(0, 0, 0);
   end;
 
   if MapsList.count = 0 then
@@ -2926,6 +2933,13 @@ if assigned(chatview) then
                    TAUnit.setUnitInfoField( nil, TUnitInfoExtensions(PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.FieldType),
                                               PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.NewValue,
                                               Pointer(PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.UnitIdRemote));
+                 end;
+               TANM_Rec2Rec_SetNanolatheParticles :
+                 begin
+                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_SetNanolatheParticles_Message) );
+                   if not FromPlayer.IsSelf then
+                     TASfx.NanoParticles(PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosFrom,
+                                         PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosTo);
                  end;
 
                end;

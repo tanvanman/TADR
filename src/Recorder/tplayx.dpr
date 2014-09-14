@@ -1,4 +1,4 @@
-library dplayx;
+library tplayx;
 
 uses
   ListsU in '..\ListsU.pas',
@@ -67,7 +67,9 @@ uses
   UnitActions in 'plugins\UnitActions.pas',
   TAExceptionsLog in 'plugins\TAExceptionsLog.pas',
   GUIEnhancements in 'plugins\GUIEnhancements.pas',
-  statslogging in 'plugins\StatsLogging.pas';
+  statslogging in 'plugins\StatsLogging.pas',
+  DynamicMap in 'TAMem\DynamicMap.pas',
+  CampaignExtensions in 'plugins\CampaignExtensions.pas';
 
 {$R *.res}
 

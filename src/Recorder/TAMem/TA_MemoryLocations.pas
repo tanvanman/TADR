@@ -11,12 +11,14 @@ type
     class function GetGameTime : Cardinal;
     class Function GetGameSpeed : Byte;
     class function GetDevMode : Boolean;
+    class function GetIsNetworkLayerEnabled : Boolean;
 
     class Function GetMaxUnitLimit : Word;
     class Function GetActualUnitLimit : Word;
     class Function GetIsAlteredUnitLimit : Boolean;
     class function GetUnitsPtr : Pointer;
     class function GetUnits_EndMarkerPtr : Pointer;
+    class function GetMaxUnitId: LongWord;
     class function GetMainStructPtr : Pointer;
     class function GetProgramStructPtr : Pointer;
     class function GetPlayersStructPtr : Pointer;
@@ -27,6 +29,11 @@ type
     class function GetUnitInfosCount : LongWord;
     class function GetSwitchesMask : Word;
     class procedure SetSwitchesMask(Mask: Word);
+    class function GetGameingType : TGameingType;
+    class function GetAIDifficulty : TAIDifficulty;
+    class procedure SetCameraToUnit(UnitPtr : Pointer);
+    class procedure SetCameraFadeLevel(FadePercent : Integer);
+    class function GetViewPlayerRaceSide: TTAPlayerSide;
 
     class Function GetPausedState : Boolean;
     class Procedure SetPausedState( value : Boolean);
@@ -37,11 +44,13 @@ type
     property GameTime : Cardinal read GetGameTime;
     Property GameSpeed : Byte read GetGameSpeed;
     Property DevMode : Boolean read GetDevMode;
+    Property NetworkLayerEnabled : Boolean read GetIsNetworkLayerEnabled;
     Property MaxUnitLimit : Word read GetMaxUnitLimit;
     Property ActualUnitLimit : Word read GetActualUnitLimit;
     Property IsAlteredUnitLimit : Boolean read GetIsAlteredUnitLimit;
     Property UnitsPtr : Pointer read GetUnitsPtr;
     Property Units_EndMarkerPtr : Pointer read GetUnits_EndMarkerPtr;
+    Property MaxUnitsID : Cardinal read GetMaxUnitId;
     Property MainStructPtr : Pointer read GetMainStructPtr;
     Property ProgramStructPtr : Pointer read GetProgramStructPtr;
     Property PlayersStructPtr : Pointer read GetPlayersStructPtr;
@@ -51,6 +60,11 @@ type
     Property UnitInfosPtr : Pointer read GetUnitInfosPtr;
     Property UnitInfosCount : LongWord read GetUnitInfosCount;
     Property SwitchesMask : Word read GetSwitchesMask write SetSwitchesMask;
+    Property GameingType : TGameingType read GetGameingType;
+    Property AIDifficulty : TAIDifficulty read GetAIDifficulty;
+    Property RaceSide : TTAPlayerSide read GetViewPlayerRaceSide;
+    Property CameraToUnit : Pointer write SetCameraToUnit;
+    class procedure ShakeCam(X, Y, Duration : Cardinal);
 
     class function GetModelPtr(index: Word): Pointer;
     class function UnitInfoId2Ptr(index: Word): Pointer;
@@ -59,7 +73,8 @@ type
     class function MovementClassId2Ptr(index: Word): Pointer;
     class function WeaponId2Ptr(ID: Cardinal) : Pointer;
     class function FeatureDefId2Ptr(ID : Word) : Pointer;
-    class function GetMaxUnitId: LongWord;
+    class function PlaceFeatureOnMap(FeatureName: String; Position: TPosition; Turn: TTurn): Boolean;
+    class function RemoveMapFeature(X, Z : Integer; Method: Boolean): Boolean;
     class function ProtectMemoryRegion(Address : Cardinal; Writable: Boolean): Integer;
     class function IsTAVersion31 : Boolean;
   end;
@@ -84,6 +99,7 @@ type
     class Function GetPlayerPtrByDPID(playerPID : TDPID) : Pointer;
     class Function GetPlayerByDPID(playerPID : TDPID) : LongWord;
 
+    class Function IsPlayerActive(player : Pointer) : Boolean;
     class Function PlayerType(player : Pointer) : TTAPlayerType;
     class Function PlayerSide(player : Pointer) : TTAPlayerSide;
 
@@ -137,13 +153,8 @@ type
     class function GetLoadCurAmount(UnitPtr: Pointer): Integer;
 
     class function UpdateLos(UnitPtr: Pointer): LongWord;
-
-    { sfx }
-    class procedure Speech(UnitPtr : longword; speechtype: longword; speechtext: PChar);
-    class function Play3DSound(EffectID: Cardinal; Position: TPosition; NetBroadcast: Boolean): Integer;
-    class function PlayGafAnim(BmpType: Byte; X, Z: Word; Glow, Smoke: Byte): Integer;
     class function FireWeapon(AttackerPtr : Pointer; WhichWeap : Byte; TargetUnitPtr : Pointer; TargetShortPosition : TShortPosition) : Integer;
-
+    
     { position stuff }
     class function AtMouse: Pointer;
     class function AtPosition(Position: PPosition): Cardinal;
@@ -156,7 +167,7 @@ type
     class function TestBuildSpot(PlayerIndex: Byte; UnitInfo: Pointer; nPosX, nPosZ: Word ): Boolean;
     class function IsPlantYardOccupied(BuilderPtr: PUnitStruct; State: Integer): Boolean;
     class function TestAttachAtGridSpot(UnitInfo : Pointer; nPosX, nPosZ : Word): Boolean;
-    class function CreateUnit(OwnerIndex: LongWord; UnitInfo: PUnitInfo; Position: TPosition; Turn: PTurn; TurnZOnly, RandomTurnZ: Boolean; UnitState: LongWord; FullHp: LongWord): Pointer;
+    class function CreateUnit(OwnerIndex: LongWord; UnitInfo: PUnitInfo; Position: TPosition; Turn: PTurn; TurnZOnly, RandomTurnZ: Boolean; UnitState: LongWord): Pointer;
     class Function GetBuildPercentLeft(UnitPtr : Pointer) : Cardinal;
     class Function GetMissingHealth(UnitPtr : Pointer) : Cardinal;
     class procedure Kill(UnitPtr : Pointer; deathtype: byte);
@@ -214,6 +225,14 @@ type
     class procedure RandomizeSearchRec(Id: LongWord; ArrayType: Byte);
     class function Distance(Unit1, Unit2 : Pointer): Integer;
     class function CircleCoords(CenterPosition: TPosition; Radius: Integer; Angle: Integer; out x, z: Integer): Boolean;
+  end;
+
+  TASfx = class
+  public
+    class procedure Speech(UnitPtr: Pointer; SpeechType: Cardinal; Text: PAnsiChar);
+    class function Play3DSound(EffectID: Cardinal; Position: TPosition; NetBroadcast: Boolean): Integer;
+    class function PlayGafAnim(BmpType: Byte; X, Z: Word; Glow, Smoke: Byte): Integer;
+    class function NanoParticles(StartPos, TargetPos : TPosition): Cardinal;
   end;
 
 const
@@ -303,6 +322,11 @@ begin
 result := (PTAdynmemStruct(TAData.MainStructPtr)^.nGameState and 2) = 2;
 end;
 
+class function TAMem.GetIsNetworkLayerEnabled: Boolean;
+begin
+result := (PTAdynmemStruct(TAData.MainStructPtr)^.cNetworkLayerEnabled and 1) = 1;
+end;
+
 class function TAMem.GetMaxUnitLimit : Word;
 begin
 result := PTAdynmemStruct(TAData.MainStructPtr)^.nMaxUnitLimitPerPlayer;
@@ -310,7 +334,7 @@ end;
 
 class function TAMem.GetActualUnitLimit : Word;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.nActualUnitLimit;
+result := PTAdynmemStruct(TAData.MainStructPtr)^.nPerMissionUnitLimit;
 end;
 
 class function TAMem.GetIsAlteredUnitLimit : Boolean;
@@ -359,7 +383,7 @@ end;
 
 class function TAMem.GetFeatureTypeDefArrayPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.p_FeatureDefs;
+result := PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.p_FeatureDefs;
 end;
 
 class function TAMem.GetUnitInfosPtr : Pointer;
@@ -445,15 +469,88 @@ end;
 
 class function TAMem.FeatureDefId2Ptr(ID: Word): Pointer;
 begin
-  result := Pointer(LongWord(PTAdynmemStruct(TAData.MainStructPtr).p_FeatureDefs) + SizeOf(TFeatureDefStruct) * ID);
+  result := Pointer(LongWord(PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.p_FeatureDefs) + SizeOf(TFeatureDefStruct) * ID);
+end;
+
+class function TAMem.PlaceFeatureOnMap(FeatureName: String; Position: TPosition; Turn: TTurn): Boolean;
+var
+  FeatureId : SmallInt;
+  GridPlot : PPlotGrid;
+  x, z : Integer;
+  //FeatureDef : PFeatureDefStruct;
+begin
+  Result := False;
+  FeatureId := FeatureName2ID(PAnsiChar(FeatureName));
+
+  if FeatureId = -1 then
+    FeatureId := LoadFeature(PAnsiChar(FeatureName));
+
+  if FeatureId <> -1 then
+  begin
+    //FeatureDef := TAmem.FeatureDefId2Ptr(FeatureId);
+    z := Position.Z div 16;
+    x := Position.X div 16;
+    GridPlot := GetGridPosPLOT(x, z);
+    Result := (SpawnFeatureOnMap(GridPlot, FeatureId, @Position, @Turn, 10) <> nil);
+  end;
+end;
+
+class function TAMem.RemoveMapFeature(X, Z: Integer; Method: Boolean): Boolean;
+var
+  GridPlot : PPlotGrid;
+begin
+  GridPlot := GetGridPosPLOT(X div 16, Z div 16);
+  Result := FEATURES_Destroy(GridPlot, Method);
 end;
 
 class function TAMem.GetMaxUnitId: LongWord;
 begin
-  if TAData.IsAlteredUnitLimit then
-    result := TAData.ActualUnitLimit * MAXPLAYERCOUNT
+  if TAData.GameingType = gtMenu then
+    result := TAData.MaxUnitLimit * MAXPLAYERCOUNT
   else
-    result := TAData.MaxUnitLimit * MAXPLAYERCOUNT;
+    result := TAData.ActualUnitLimit * MAXPLAYERCOUNT;
+end;
+
+class function TAMem.GetGameingType: TGameingType;
+begin
+  Result := gtMenu;
+  if PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile <> nil then
+    Result := TGameingType(PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).MissionType);
+end;
+
+class function TAMem.GetAIDifficulty: TAIDifficulty;
+begin
+  Result := TAIDifficulty(PTAdynmemStruct(TAData.MainStructPtr)^.lCurrenTAIProfile);
+end;
+
+class function TAMem.GetViewPlayerRaceSide: TTAPlayerSide;
+begin
+  Result := TTAPlayerSide(PPlayerInfoStruct(PPlayerStruct(TAPlayer.GetPlayerByIndex(TAData.ViewPlayer)).PlayerInfo).Raceside);
+end;
+
+class procedure TAMem.SetCameraToUnit(UnitPtr: Pointer);
+begin
+  PTAdynmemStruct(TAData.MainStructPtr)^.pCameraToUnit := UnitPtr;
+end;
+
+class procedure TAMem.SetCameraFadeLevel(FadePercent : Integer);
+begin
+
+end;
+
+class procedure TAMem.ShakeCam(X, Y, Duration: Cardinal);
+begin
+  PTAdynmemStruct(TAData.MainStructPtr)^.field_1432F :=
+    (PTAdynmemStruct(TAData.MainStructPtr)^.field_1432F + Duration) div 2;
+  PTAdynmemStruct(TAData.MainStructPtr)^.field_14333 := Duration;
+  if ( X <> 0 ) then
+    PTAdynmemStruct(TAData.MainStructPtr)^.ShakeMagnitude_1 :=
+      PTAdynmemStruct(TAData.MainStructPtr)^.ShakeMagnitude_1 + X;
+  if ( Y <> 0 ) then
+    PTAdynmemStruct(TAData.MainStructPtr)^.ShakeMagnitude_2 :=
+      PTAdynmemStruct(TAData.MainStructPtr)^.ShakeMagnitude_2 + Y;
+  if ( PTAdynmemStruct(TAData.MainStructPtr)^.field_1432F > 0 ) then
+    PTAdynmemStruct(TAData.MainStructPtr)^.cShake := PTAdynmemStruct(TAData.MainStructPtr)^.cShake or 1;
 end;
 
 class function TAMem.ProtectMemoryRegion(Address : Cardinal; Writable: Boolean): Integer;
@@ -553,16 +650,19 @@ while i < MAXPLAYERCOUNT do
   end;
 end;
 
+class Function TAPlayer.IsPlayerActive(player : Pointer) : Boolean;
+begin
+  Result := PPlayerStruct(player).lPlayerActive <> 0;
+end;
+
 class Function TAPlayer.PlayerType(player : Pointer) : TTAPlayerType;
 begin
-result := PPlayerStruct(player).en_cPlayerType;
+  Result := PPlayerStruct(player).en_cPlayerType;
 end;
 
 class Function TAPlayer.PlayerSide(player : Pointer) : TTAPlayerSide;
 begin
-  Result := psUnknown;
-  if player <> nil then
-    Result := TTAPlayerSide(PPlayerStruct(player).PlayerInfo.Raceside + 1);
+  Result := TTAPlayerSide(PPlayerStruct(player).PlayerInfo.Raceside + 1);
 end;
 
 Class function TAPlayer.GetShareRadar(player : Pointer) : Boolean;
@@ -633,15 +733,15 @@ begin
         AtanY := PUnitStruct(TakerUnitPtr).Position.z - PUnitStruct(MakerUnitPtr).Position.z;
         AtanX := PUnitStruct(TakerUnitPtr).Position.x - PUnitStruct(MakerUnitPtr).Position.x;
         Angle := Word(TA_Atan2(AtanY, AtanX));
-        MakeDamageToUnit(MakerUnitPtr, TakerUnitPtr, Amount, Ord(DamageType), Angle);
+        UNITS_MakeDamage(MakerUnitPtr, TakerUnitPtr, Amount, Ord(DamageType), Angle);
       end;
     dtHeal :
       begin
         if PUnitStruct(TakerUnitPtr).nHealth < UnitInfoSt.lMaxHP then
-          MakeDamageToUnit(MakerUnitPtr, TakerUnitPtr, Amount, 10, 0);
+          UNITS_MakeDamage(MakerUnitPtr, TakerUnitPtr, Amount, 10, 0);
       end;
     else
-      MakeDamageToUnit(MakerUnitPtr, TakerUnitPtr, Amount, Ord(DamageType), 0);
+      UNITS_MakeDamage(MakerUnitPtr, TakerUnitPtr, Amount, Ord(DamageType), 0);
   end;
   Result := TAUnit.GetHealth(TakerUnitPtr);
 end;
@@ -910,7 +1010,7 @@ var
 begin
   Result := nil;
 
-  MaxUnitId := TAMem.GetMaxUnitId;
+  MaxUnitId := TAData.MaxUnitsID;
   for UnitId := 1 to MaxUnitId do
   begin
     TestedUnit := TAUnit.Id2Ptr(UnitId);
@@ -964,47 +1064,9 @@ end;
 
 class function TAUnit.UpdateLos(UnitPtr: Pointer): LongWord;
 begin
-  TA_UpdateUnitLOS(UnitPtr);
-  Result := TA_UpdateLOS(TAUnit.GetOwnerIndex(UnitPtr), 0);
-end;
-
-class procedure TAUnit.Speech(UnitPtr : longword; speechtype: longword; speechtext: PChar);
-begin
-  PlaySound_UnitSpeech(UnitPtr, speechtype, speechtext);
-end;
-
-class function TAUnit.Play3DSound(EffectID: Cardinal; Position: TPosition; NetBroadcast: Boolean): Integer;
-begin
-  Result := Receive_Sound(EffectID, @Position, BoolValues[NetBroadcast]);
-end;
-
-class function TAUnit.PlayGafAnim(BmpType: Byte; X, Z: Word; Glow, Smoke: Byte): Integer;
-var
-  Position : TPosition;
-  GlowInt, SmokeInt : Integer;
-begin
-  result := 0;
-  GetTPosition(X, Z, Position);
-
-  if Glow = 0 then
-    GlowInt := -1
-  else
-    GlowInt := Glow - 1;
-
-  if Smoke = 0 then
-    SmokeInt := -1
-  else
-    SmokeInt := Smoke - 1;
-
-  case BmpType of
-    0 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147F7)^, GlowInt, SmokeInt); //explosion
-    1 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FB)^, GlowInt, SmokeInt); //explode2
-    2 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FF)^, GlowInt, SmokeInt); //explode3
-    3 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14803)^, GlowInt, SmokeInt); //explode4
-    4 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14807)^, GlowInt, SmokeInt); //explode5
-    5 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $1480B)^, GlowInt, SmokeInt); //nuke1
-    6..20 : result := ShowExplodeGaf(@Position, LongWord(ExtraAnimations[BmpType - 6]), GlowInt, SmokeInt); // explode6,7,8... custanim1,2,3...
-  end;
+  UNITS_RebuildLOS(UnitPtr);
+  //Result := TA_UpdateLOS(TAUnit.GetOwnerIndex(UnitPtr), 0);
+  Result := TA_UpdateLOS(0);
 end;
 
 class function TAUnit.FireWeapon(AttackerPtr : Pointer; WhichWeap : Byte; TargetUnitPtr : Pointer; TargetShortPosition : TShortPosition) : Integer;
@@ -1207,19 +1269,23 @@ class function TAUnit.CreateUnit( OwnerIndex: LongWord;
                                   Turn: PTurn;
                                   TurnZOnly: Boolean;
                                   RandomTurnZ: Boolean;
-                                  UnitState: LongWord;
-                                  FullHp: LongWord ): Pointer;
+                                  UnitState: LongWord ): Pointer;
 var
   UnitSt: PUnitStruct;
 begin
-  Result := Unit_Create( OwnerIndex,
-                         UnitInfo.nCategory,
-                         MakeLong(0, Position.X),
-                         MakeLong(0, Position.Y),
-                         MakeLong(0, Position.Z),
-                         FullHp,
-                         UnitState,
-                         0 );
+  if OwnerIndex = 10 then
+    OwnerIndex := TAData.ViewPlayer;
+    
+  Result := UNITS_Create( OwnerIndex,
+                          UnitInfo.nCategory,
+                          MakeLong(0, Position.X),
+                          MakeLong(0, Position.Y),
+                          MakeLong(0, Position.Z),
+                          1,
+                          UnitState,
+                          0 );
+
+
 
   if (Result <> nil) then
   begin
@@ -1275,15 +1341,15 @@ begin
   if UnitPtr <> nil then
   begin
     case deathtype of
-      0 : MakeDamageToUnit(nil, UnitPtr, 30000, 3, 0);
+      0 : UNITS_MakeDamage(nil, UnitPtr, 30000, 3, 0);
       1 : UnitExplosion(UnitPtr, 0);
       2 : UnitExplosion(UnitPtr, 1);
-      3 : MakeDamageToUnit(nil, UnitPtr, 30000, 4, 0);
+      3 : UNITS_MakeDamage(nil, UnitPtr, 30000, 4, 0);
       4 : TAUnit.CreateMainOrder(UnitPtr, nil, Action_SelfDestruct, nil, 1, 0, 0);
       5 : PUnitStruct(UnitPtr).lUnitStateMask:= PUnitStruct(UnitPtr).lUnitStateMask or $4000;
     end;
     if (deathtype = 1) or (deathtype = 2) then
-      MakeDamageToUnit(nil, UnitPtr, 30000, 4, 0);
+      UNITS_MakeDamage(nil, UnitPtr, 30000, 4, 0);
   end;
 end;
 
@@ -1299,7 +1365,7 @@ begin
     UnitSt := UnitPtr;
     Position := UnitSt.Position;
     Turn := UnitSt.Turn;
-    if TAUnit.CreateUnit(TAUnit.GetOwnerIndex(UnitPtr), newUnitInfo, Position, @Turn, True, False, 1, 1) <> nil then
+    if TAUnit.CreateUnit(TAUnit.GetOwnerIndex(UnitPtr), newUnitInfo, Position, @Turn, True, False, 1) <> nil then
       TAUnit.Kill(UnitPtr, 3);
   end;
 end;
@@ -1450,7 +1516,7 @@ end;
 
 class Function TAUnit.GetOwnerIndex(UnitPtr : Pointer) : Integer;
 begin
-Result := -1;
+Result := 0;
 if UnitPtr <> nil then
 //Result := PPlayerStruct(PUnitStruct(UnitPtr).p_Owner).cPlayerIndexZero;
   Result := PUnitStruct(UnitPtr).cMyLOSPlayerID;
@@ -1470,10 +1536,17 @@ end;
 
 class Function TAUnit.Id2Ptr(LongUnitId : LongWord) : Pointer;
 begin
-Result:= nil;
-if LongUnitId = 0 then Exit;
-if (Word(LongUnitId) > TAData.MaxUnitLimit * MAXPLAYERCOUNT) then exit;
-result := Pointer(LongWord(TAData.UnitsPtr) + SizeOf(TUnitStruct)*Word(LongUnitId));
+  Result := nil;
+  if LongUnitId <> 0 then
+  begin
+    if (Word(LongUnitId) <= TAData.MaxUnitsID) then
+      result := Pointer(LongWord(TAData.UnitsPtr) + SizeOf(TUnitStruct)*Word(LongUnitId));
+    if Cardinal(result) > Cardinal(TAData.Units_EndMarkerPtr) then
+    begin
+      TLog.Add(0, 'Error : Tried to access unit ID too high');
+      Result := nil;
+    end;
+  end;
 end;
 
 class Function TAUnit.Id2LongId(UnitId: Word) : LongWord;
@@ -1740,8 +1813,8 @@ begin
     UNITINFO_MAKESMETAL      : Result := UseTemplate.cMakesMetal;
     UNITINFO_FENERGYMAKE     : Result := Trunc(UseTemplate.fEnergyMake * 100);
     UNITINFO_FMETALMAKE      : Result := Trunc(UseTemplate.fMetalMake * 100);
-    UNITINFO_FENERGYUSE      : Result := Trunc(UseTemplate.fEnergyUse * 100);
-    UNITINFO_FMETALUSE       : Result := Trunc(UseTemplate.fMetalUse * 100);
+    UNITINFO_FENERGYUSE      : Result := Abs(Trunc(UseTemplate.fEnergyUse * 100));
+    UNITINFO_FMETALUSE       : Result := Abs(Trunc(UseTemplate.fMetalUse * 100));
     UNITINFO_FENERGYSTOR     : Result := UseTemplate.lEnergyStorage;
     UNITINFO_FMETALSTOR      : Result := UseTemplate.lMetalStorage;
     UNITINFO_FWINDGENERATOR  : Result := Trunc(UseTemplate.fWindGenerator * 100);
@@ -1777,8 +1850,8 @@ begin
     UNITINFO_BMCODE          : Result := UseTemplate.cBMCode;
     UNITINFO_AMPHIBIOUS      : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 21)) > 0 );
 // 22 ?
-// 23 internal command reload -> sub_42D1F0. probably reloads cob script 
-// 24 isfeature
+// 23 internal command reload -> sub_42D1F0. probably reloads cob script
+    UNITINFO_ISFEATURE       : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 24)) > 0 );
 // 25 noshadow
     UNITINFO_IMMUNETOPARALYZER  : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 26)) > 0 );
     UNITINFO_HOVERATTACK     : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 27)) > 0 );
@@ -2035,15 +2108,15 @@ begin
               end else
               begin
                 if GetPosHeight(@ToBeSpawned[High(ToBeSpawned)]) <> - 1 then
-                  ToBeSpawned[High(ToBeSpawned)].Y := GetPosHeight(@ToBeSpawned[High(ToBeSpawned)]);  
+                  ToBeSpawned[High(ToBeSpawned)].Y := GetPosHeight(@ToBeSpawned[High(ToBeSpawned)]);
                 UnitState := 1;
               end;
 
-              ResultUnit := TAUnit.CreateUnit(PlayerIndex, UnitInfo, ToBeSpawned[High(ToBeSpawned)], nil, False, False, UnitState, 1);
+              ResultUnit := TAUnit.CreateUnit(PlayerIndex, UnitInfo, ToBeSpawned[High(ToBeSpawned)], nil, False, False, UnitState);
               if ResultUnit <> nil then
               begin
-                if PUnitInfo(PUnitStruct(ResultUnit).p_UnitDef).cBMCode = 1 then
-                  Send_UnitBuildFinished(ResultUnit, ResultUnit);
+                if TAData.NetworkLayerEnabled then
+                  Send_UnitBuildFinished(UnitPtr, ResultUnit);
                 SetLength(UnitsArray, High(UnitsArray) + 2);
                 UnitsArray[High(UnitsArray)] := PUnitStruct(ResultUnit).lUnitInGameIndex;
                 if Action <> Action_Ready then
@@ -2085,7 +2158,7 @@ begin
   if ExistingUnitPtr <> nil then
   begin
     PlayerStruct := TAPlayer.GetPlayerByIndex(PlayerIdx);
-    TA_GiveUnit(ExistingUnitPtr, PlayerStruct, nil);
+    UNITS_GiveUnit(ExistingUnitPtr, PlayerStruct, nil);
   end;
 end;
 
@@ -2157,11 +2230,14 @@ begin
   //if (SearchType = 2) and (MaxDistance = 0) then Exit;
   UnitSt:= UnitPtr;
   UnitInfoSt:= UnitSt.p_UnitDef;
-  MaxUnitId:= TAMem.GetMaxUnitId;
+  MaxUnitId:= TAData.MaxUnitsID;
 
   for UnitId := 1 to MaxUnitId do
   begin
     CheckedUnitSt:= TAUnit.Id2Ptr(UnitId);
+    if (CheckedUnitSt = nil) or
+       (CheckedUnitSt = UnitPtr) then
+      Continue;
     if CheckedUnitSt.nUnitInfoID = 0 then
       Continue;
     if (UnitTypeFilter <> nil) then
@@ -2205,7 +2281,7 @@ begin
         Continue
       else
         //subs or pels/hovers currently in sea
-        if not (GetPosHeight(@CheckedUnitSt.Position) > PTAdynmemStruct(TAData.MainStructPtr)^.SeaLevel) then
+        if not (GetPosHeight(@CheckedUnitSt.Position) > PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.SeaLevel) then
         begin
           Continue;
         end;
@@ -2398,12 +2474,56 @@ var
 begin
   x := Round(CenterPosition.X + cos(Angle) * Radius);
   z := Round(CenterPosition.Z + sin(Angle) * Radius);
-  MapWidth := PTAdynmemStruct(TAData.MainStructPtr)^.MapWidth;
-  MapHeight := PTAdynmemStruct(TAData.MainStructPtr)^.MapHeight;
+  MapWidth := PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.lMapWidth;
+  MapHeight := PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.lMapHeight;
   if (x > 0) and (z > 0) and (x < MapWidth) and (z < MapHeight) then
     Result:= True
   else
     Result:= False;
+end;
+
+class procedure TASfx.Speech(UnitPtr: Pointer; SpeechType: Cardinal; Text: PAnsiChar);
+begin
+  PlaySound_UnitSpeech(UnitPtr, SpeechType, Text);
+end;
+
+class function TASfx.Play3DSound(EffectID: Cardinal; Position: TPosition; NetBroadcast: Boolean): Integer;
+begin
+  Result := PlaySound_3D_ID(EffectID, @Position, BoolValues[NetBroadcast]);
+end;
+
+class function TASfx.PlayGafAnim(BmpType: Byte; X, Z: Word; Glow, Smoke: Byte): Integer;
+var
+  Position : TPosition;
+  GlowInt, SmokeInt : Integer;
+begin
+  result := 0;
+  GetTPosition(X, Z, Position);
+
+  if Glow = 0 then
+    GlowInt := -1
+  else
+    GlowInt := Glow - 1;
+
+  if Smoke = 0 then
+    SmokeInt := -1
+  else
+    SmokeInt := Smoke - 1;
+
+  case BmpType of
+    0 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147F7)^, GlowInt, SmokeInt); //explosion
+    1 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FB)^, GlowInt, SmokeInt); //explode2
+    2 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FF)^, GlowInt, SmokeInt); //explode3
+    3 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14803)^, GlowInt, SmokeInt); //explode4
+    4 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14807)^, GlowInt, SmokeInt); //explode5
+    5 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $1480B)^, GlowInt, SmokeInt); //nuke1
+    6..20 : result := ShowExplodeGaf(@Position, LongWord(ExtraAnimations[BmpType - 6]), GlowInt, SmokeInt); // explode6,7,8... custanim1,2,3...
+  end;
+end;
+
+class function TASfx.NanoParticles(StartPos, TargetPos : TPosition): Cardinal;
+begin
+  Result := EmitSfx_NanoParticles(@StartPos, @TargetPos, 6);
 end;
 
 end.

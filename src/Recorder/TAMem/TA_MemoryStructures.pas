@@ -4,7 +4,11 @@ interface
 uses Classes;
 
 type
-  // 0x20
+
+  TGameingType = ( gtMenu, gtCampaign, gtSkirmish, gtMultiplayer );
+
+  TAIDifficulty = ( adEasy, adMedium, adHard );
+
   PMoveInfoClassStruct = ^TMoveInfoClassStruct;
   TMoveInfoClassStruct = packed record
     pName          : Pointer;
@@ -33,10 +37,54 @@ type
     field_18        : Cardinal;
     field_1C        : Cardinal;
     lCurrentSpeed   : Cardinal;
-    field_24        : Word;
+    field_24        : Word;               
     field_26        : Cardinal;
     field_2A        : Cardinal;
     Mask            : Byte;
+  end;
+
+  PTNTHeaderStruct = ^TTNTHeaderStruct;
+  TTNTHeaderStruct = packed record
+    IDversion   : Cardinal;
+    Width       : Cardinal;
+    Height      : Cardinal;
+    p_TileMap   : Cardinal;
+    p_HeightMap : Cardinal;
+    p_TileSet   : Cardinal;
+    lTilesCount : Cardinal;
+    lAnimTiles  : Cardinal;
+    PTRtileanim : Cardinal;
+    sealevel    : Cardinal;
+    p_Minimap   : Cardinal;
+    unknown1    : Cardinal;
+    pad         : array[0..3] of Cardinal;
+  end;
+
+  PPlotGrid = ^TPlotGrid;
+  TPlotGrid = packed record
+    nYard_color        : Word;
+    field_3            : Word;
+    bHeight            : Byte;
+    bHeightAvg1        : Byte;
+    bHeightAvg2        : Byte;
+    bMetalExtract      : Byte;
+    nFeatureDefIndex   : Word;
+    nWreckageInfoIndex : Word;
+    bYard_type         : Byte;
+  end;
+
+  TGAFFrame = packed record
+    Width : Word;
+    Height : Word;
+    Left : Word;
+    Top : Word;
+    Background : Byte;
+    Compressed : Byte;
+    SubFrames : Byte;
+    IsCompressed : Byte;
+    PtrFrameData : Pointer;
+    PtrFrameBits : Pointer;
+    Bits2_Ptr : Pointer;
   end;
 
   PShortPosition = ^TShortPosition;
@@ -110,15 +158,15 @@ type
   TUnitStruct = packed record
     p_MovementClass   : Pointer;
     UnitWeapons       : array[0..2] of TUnitWeapon;
-    field_58          : Cardinal; //TemplatePtr.extractsmetal * UnitPtr * 0.0000152587890625;
+    fMetalExtrRatio   : Single; //UnitInfo.extractsmetal * ExtractRatio * 0.0000152587890625;
     p_UnitOrders      : Pointer;
     p_FutureOrder     : Pointer;
     Turn              : TTurn;
     Position          : TPosition;
-    nGridPosX         : SmallInt;
-    nGridPosZ         : SmallInt;
-    nLargeGridPosX    : SmallInt;
-    nLargeGridPosZ    : SmallInt;
+    nGridPosX         : Word;
+    nGridPosZ         : Word;
+    nLargeGridPosX    : Word;
+    nLargeGridPosZ    : Word;
     nFootPrintX       : Word;
     nFootPrintZ       : Word;
     View_dw0          : Cardinal;
@@ -269,7 +317,7 @@ type
   end;
 
   TTAPlayerType = (Player_LocalHuman = 1, Player_LocalAI = 2, Player_RemotePlayer = 3);
-  TTAPlayerSide = (psUnknown, psCore, psArm, psWatch);
+  TTAPlayerSide = (psUnknown, psArm, psCore, psWatch);
 
   PAlliedState = ^TAlliedState;
   TAlliedState = array [ 0..9 ] of Byte;
@@ -515,7 +563,6 @@ type
     fMaxMetalStorage : Single;
   end;
 
-
   PRaceSideDataStruct = ^TRaceSideDataStruct;
   TRaceSideDataStruct = packed record
 	  Name               : array [0..29] of AnsiChar;
@@ -556,22 +603,103 @@ type
 	  lFont_File         : Cardinal;
 	end;
 
-  { relative paths to files related to loaded map in game }
-  PMapFiles = ^TMapFiles;
-  TMapFiles = packed record
-    Header          : array [0..515] of Byte; //$104 + $100
-    TNTPath         : array [0..255] of AnsiChar;
-    CampsUseOnly    : array [0..255] of AnsiChar;
-    F3              : array [0..255] of AnsiChar;
-    F4              : array [0..255] of AnsiChar;
-    PaletteFile     : array [0..255] of AnsiChar;
-    AIFile          : array [0..255] of AnsiChar;
-    AIprofile       : array [0..255] of AnsiChar;
-    F8              : array [0..255] of AnsiChar;
-    F9              : array [0..255] of AnsiChar;
+  PMapOTAFile = ^TMapOTAFile;
+  TMapOTAFile = packed record
+    MissionType        : Cardinal;          // 1 campaign
+    sMissionName       : array [0..255] of AnsiChar;
+    sMissionTDF        : array [0..255] of AnsiChar;
+    sTNTFile           : array [0..255] of AnsiChar;
+    sMissionBriefTXT   : array [0..255] of AnsiChar;
+    sMissionBriefWav   : array [0..255] of AnsiChar;
+    sMissionHintsTXT   : array [0..255] of AnsiChar;
+    sMissionPCX        : array [0..255] of AnsiChar;
+    sMissionUseOnlyTDF : array [0..255] of AnsiChar;
+    sAIProfile         : array [0..255] of AnsiChar;
+    F9                 : array [0..255] of AnsiChar;
+    field_A04          : Pointer;
+    FileHandle         : Pointer;
+    field_A0C          : Pointer;
+    field_A10          : Pointer;
+    sOTAFile           : Pointer;
+    field_A18          : Pointer;
+    field_A1C          : array [0..247] of Byte;
+    field_B14          : Pointer;
+    field_B18          : array [0..251] of Byte;
+    p_Briefing         : Pointer;
+    field_C18          : Pointer;
+    field_C1C          : array [0..263] of Byte;
+    field_D24          : Pointer;
+    field_D28          : Pointer;
+    field_D2C          : Pointer;
+    lSurfaceMetal      : Integer;
+    lMinWindSpeed      : Single;
+    lMaxWindSpeed      : Single;
+    lGravity           : Single;
+    lTidalStrength     : Single;
+    lIsLavaMap         : Cardinal;
+    lNoSeaLevelTrigger : Integer;
+    lWaterDoesDamage   : Integer;
+    lWaterDamage       : Integer;
+    fKillMul           : Single;
+    fTimeMul           : Single;
+    lHumanMetal        : Integer;
+    lComputerMetal     : Integer;
+    SchemaInfo         : array [0..31] of Byte;
+    lHumanEnergy       : Integer;
+    lComputerEnergy    : Integer;
+    SchemaInfo2        : array [0..31] of Byte;
+    field_DAC          : Cardinal;
+    field_DB0          : Cardinal;
+    p_PlayersStartPos  : Pointer;
+    PlayersStartPosNr  : Cardinal;
+    field_DBC          : Cardinal;
+    field_DC0          : Cardinal;
+    sMemory            : array [0..255] of AnsiChar;  //0-127 memory, 128-255 - numplayers
   end;
 
-  //
+  PTNTMemStruct = ^TTNTMemStruct;
+  TTNTMemStruct = packed record
+    p_SortUnitList         : Pointer;
+    p_SortIndices          : Pointer;
+    p_SortLineCount        : Pointer;
+    p_PathFindStruct       : Pointer;
+	  p_FeatureAnimData      : Pointer; //0x1420B all currently animated features on map, including wreckages
+    Feature_Unit           : Pointer;
+    field_18               : Cardinal;
+    field_1C               : Cardinal;
+    field_20               : Cardinal;
+    field_24               : Cardinal;
+    lMapWidth              : Cardinal;
+    lMapHeight             : Cardinal;
+	  lRadarPictureWidth     : Cardinal;
+	  lRadarPictureHeight    : Cardinal;
+	  lTilesetMapSizeX       : Cardinal; //0x14233 - this is the map width in units of 16 (multiply by 16 to get pixels)
+	  lTilesetMapSizeY       : Cardinal; //0x14237 - this is the map height in units of 16 (multiply by 16 to get pixels)
+	  lEyeballWidth          : Cardinal;
+	  lEyeballHeight         : Cardinal;
+    lEyeballBoxWidth       : Cardinal;
+    lEyeballBoxHeight      : Cardinal;
+    field_50               : Cardinal;
+    field_54               : Cardinal;
+	  lNumFeatureDefs        : Cardinal;
+	  field_5C               : Cardinal;
+    lMinWindSpeed          : Single;
+    lMaxWindSpeed          : Single;
+    lGravity               : Single;
+    lTidalStrength         : Single;
+	  p_TedGeneratedPic      : Pointer;
+	  p_FeatureDefs          : Pointer; //0x1426F
+	  p_MappedMemory         : Pointer; // Circular LOS table
+	  lLastZPos              : Cardinal;
+	  p_EyeBallMemory        : Pointer; //0x1427B
+	  SeaLevel               : Byte;
+    MapDebugMode           : Byte;
+  	nLOS_Type              : Word; //xpoy's IDA db gives as "EyeBallState" with 0x0FFF7 == moving
+	  p_TileSet              : Pointer;
+	  p_PlotMemory           : Pointer; // features
+    p_TileMap              : Pointer;
+  end;
+
   PTAdynmemStruct = ^TTAdynmemStruct;
   TTAdynmemStruct = packed record
 	  sTAVersionStr          : array [0..11] of AnsiChar;
@@ -588,14 +716,14 @@ type
 	  Unkonwn4               : array [0..2126] of Byte;
 	  cPlayerCameraRectColor : Byte;
 	  Unknown5               : array [0..1300] of Byte;
-	  lChatTextBegin         : Cardinal;
+	  p_ChatTextBegin        : Pointer;
 	  Unknown6               : array [0..58] of Byte;
 	  lUnknown7              : Cardinal;
 	  cUnknown8              : array [0..1781] of Byte;
 	  lUnknown9              : Cardinal;
 	  Unknown10              : array [0..310] of Byte;
 	  Players                : array [0..9] of TPlayerStruct; //starts at 0x1B63 and each player is 0x14B (331) bytes long
-	  Unknown11              : array [0..330] of Byte;   //extra player
+	  ExtraPlayer            : TPlayerStruct;   //extra player
 	  lUnknown12             : Cardinal;
 	  p_AllyData             : Pointer; //xon's IDA database gives as SkirmishCommanderDeath dd ?
 	  Unknown13              : array [0..143] of Byte;
@@ -606,34 +734,7 @@ type
 	  cSharedBits            : Byte; //player info! - xpoy's IDA db gives as "HumanPlayer_PlayerID"
 	  cLOS_Sight_PlayerID    : Byte; //the player id to use for los calcs
 	  cNetworkLayerEnabled   : Byte;
-    {00002A45 unknow_2____    db ?
-00002A46 field_2A46      db ?
-00002A47 field_2A47      db 80 dup(?)
-00002A97 field_2A97      dd ?
-00002A9B field_2A9B      dd ?
-00002A9F field_2A9F      dd ?
-00002AA3 field_2AA3      dd ?
-00002AA7 field_2AA7      db 165 dup(?)
-00002B4C field_2B4C      dd ?
-00002B50 field_2B50      db 110 dup(?)
-00002BBE SubMenu_Index   db ?
-00002BBF Button_Index    db ?
-00002BC0 MenuFrame_Index db ?
-00002BC1 RoomName        db 16 dup(?)
-00002BD1 PlayerName      db 18 dup(?)
-00002BE3 field_2BE3      db 11 dup(?)
-00002BEE State_NewChatText dw ?
-00002BF0 field_2BF0      db ?
-00002BF1 field_2BF1      db 55 dup(?)
-00002C28 field_2C28      db 44 dup(?)
-00002C54 field_2C54      db 32 dup(?)
-00002C74 field_2C74      db ?
-00002C75 field_2C75      db ?
-00002C76 CurtMousePostion POINT ?
-00002C7E field_2C7E      db 16 dup(?)
-}
 	  cUnknown14             : array [0..584] of Byte;
-
 	  nBuildPosX             : SmallInt; //0x2C8E
 	  nBuildPosY             : SmallInt;
 	  lBuildPosRealX         : Integer; //0x2C92
@@ -655,39 +756,8 @@ type
 	  Weapons                : array [0..255] of TWeaponDef; //0x2CF3 size=0x11500
 	  lNumProjectiles        : Integer;
 	  p_Projectiles          : Pointer; //0x141F7
-    SORT_UNIT_LIST         : Pointer;
-    SORT_INDICES           : Pointer;
-    SORT_LINE_COUNT        : Pointer;
-    PathFindStruct         : Pointer;
-	  FEATURE_ANIM_DATA      : Pointer; //0x1420B all currently animated features on map, including wreckages
-    Feature_Unit           : Pointer;
-    field_18               : Cardinal;
-    field_1C               : Cardinal;
-    field_20               : Cardinal;
-    field_24               : Cardinal;
-    MapWidth               : Cardinal;
-    MapHeight              : Cardinal;
-
-	  lRadarPictureWidth     : Cardinal;
-	  lRadarPictureHeight    : Cardinal;
-	  lFeatureMapSizeX       : Cardinal; //0x14233 - this is the map width in units of 16 (multiply by 16 to get pixels)
-	  lFeatureMapSizeY       : Cardinal; //0x14237 - this is the map height in units of 16 (multiply by 16 to get pixels)
-	  lEyeBallMapWidth       : Cardinal;
-	  lEyeBallMapHeight      : Cardinal;
-	  Unknown22              : array [0..15] of Byte;
-	  lNumFeatureDefs        : Cardinal;
-	  Unknown23              : array [0..19] of Byte;
-	  lTEDGENERATEDPIC       : Cardinal;
-	  p_FeatureDefs          : Pointer; //0x1426F
-	  lCircular_LOS_Table    : Cardinal;
-	  lLastZPos              : Cardinal;
-	  pEyeBallMemory         : Pointer; //0x1427B
-	  SeaLevel               : Byte;
-    MapDebugMode           : Byte;
-  	nLOS_Type              : Word; //xpoy's IDA db gives as "EyeBallState" with 0x0FFF7 == moving
-	  Unknown24              : array [0..3] of Byte;
-	  p_FeaturesArray        : Pointer;
-	  Unknown25              : array [0..63] of Byte;
+    TNTMemStruct           : TTNTMemStruct;
+	  Unknown25              : array [0..59] of Byte;
     MinimapRect            : tagRECT;//0x142CB
 	  p_RadarFinal           : Pointer; //0x142DB
 	  p_RadarMapped          : Pointer; //0x142DF
@@ -698,14 +768,22 @@ type
 	  nRadarMinimap_SizeY    : SmallInt;
 	  nUnknown26             : Word;
 	  nUnknown27             : Word;
-	  lCirclePointer         : Integer; //0x142F3 //used in drawcircle funktion
+	  pCameraToUnit          : Pointer; //0x142F3
 	  Unknown28              : array [0..39] of Byte;
 	  lEyeBallMapX           : Integer; //0x1431F
 	  lEyeBallMapY           : Integer; //0x14323
 	  lEyeBallMapXScrollTo   : Integer; //0x14327
 	  lEyeBallMapYScrollTo   : Integer; //0x1432B
-	  Unknown29              : array [0..29] of Byte;
-	  nScrollSpeed           : Word;
+    field_1432F            : Cardinal;
+    field_14333            : Cardinal;
+    ShakeMagnitude_1       : Cardinal;
+    ShakeMagnitude_2       : Cardinal;
+    field_1433F            : Cardinal;
+    field_14343            : Cardinal;
+    field_14347            : Cardinal;
+    lastWeaponHoldTime     : Word;
+	  bScrollSpeed           : Byte;
+    cShake                 : Byte;
 	  nEveryPlayerUnitsNr    : Word;
 	  Unknown30              : array [0..1] of Byte;
 	  lNumTotalGameUnits     : Cardinal;
@@ -767,7 +845,7 @@ type
 	  Unknown39              : array [0..16379] of Byte;
 	  pSoundClassAry         : Pointer; //0x37E13
 	  lSoundClassNumber      : Cardinal; //0x37E17
-    ScreenOFFSCREEN        : Cardinal;
+    ScreenOFFSCREEN        : Pointer;
 	  Unknown40              : array [0..23] of Byte;
 	  lInGamePos_X           : Cardinal; //0x37E37
 	  lInGamePos_Y           : Cardinal;
@@ -866,7 +944,7 @@ type
     field_391C7            : Cardinal;
     field_391CB            : Cardinal;
     field_391CF            : array[0..25] of Byte;
-	  p_MapFile              : PMapFiles; //0x391E9 - xpoy's gives as "GameSettingStruct_Ptr
+	  p_MapOTAFile           : PMapOTAFile; //0x391E9
 	  Unknown52              : array [0..3] of Byte; //0x391ED - there's references to [p_TAMemory + 0x391ED] in ta.exe, so this is definitely something
 	  lGUICallbackState      : Cardinal; //0x391F1
 	  lGUICallback           : Cardinal; //0x391F5
@@ -884,6 +962,13 @@ type
 	  Unknown54              : array [0..1] of Byte;
 	  nGameState             : Word; //0x3923B
 	  Unknown55              : array [0..3522] of Byte; //to get size to 0x3A000 (what xpoy's IDA db says the size of this struct is
+  end;
+
+  TPacketUnitRecreate = packed record
+    f0 : Byte;
+    UTypeID : Word;
+    UnitID : Word;
+    Position : TPosition;
   end;
 
   PUnitOrder = ^TUnitOrder;
@@ -1129,7 +1214,8 @@ type
     UNITINFO_BUILDTIME = 76,
 
 		UNITINFO_EXPLODEAS = 77,
-		UNITINFO_SELFDSTRAS = 78 );
+		UNITINFO_SELFDSTRAS = 78,
+    UNITINFO_ISFEATURE = 79 );
     
   PCustomUnitInfo = ^TCustomUnitInfo;
   TCustomUnitInfo = packed record
@@ -1175,14 +1261,33 @@ type
     DrawBuildSpotNanoFrame : Boolean;
     AISquadNr : Integer;
   end;
-  
+
 var
+  // additional GAF animations
   ExtraAnimations : array[0..15] of Pointer;
+
   ExtraWeaponDefTags : array of TExtraWeaponDefTagsRec;
   ExtraUnitDefTags : array of TExtraUnitDefTagsRec;
+
+  // pointer to ddraw's weapon array
   WeaponLimitPatchArr : Pointer;
+
   NanoSpotUnitSt, NanoSpotQueueUnitSt : TUnitStruct;
   NanoSpotUnitInfoSt, NanoSpotQueueUnitInfoSt : TUnitInfo;
+
+  LineNanoSpotUnitSt : array of TUnitStruct;
+  LineNanoSpotUnitInfoSt : TUnitInfo;
+
+  // map missions
+  MapMissionsUnit : TUnitStruct;
+  MapMissionsUnitInfo : TUnitInfo;
+  MapMissionsCOB : Pointer;
+  MapMissionsSounds : TStringList;
+  MapMissionsFeatures : TStringList;
+  MouseLock : LongBool;
+  CameraFadeLevel : Integer;
+
+  // data that can be shared globally between units
   UnitsSharedData : array[0..1024] of Integer;
   
 implementation

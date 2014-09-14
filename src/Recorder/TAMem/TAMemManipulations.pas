@@ -52,11 +52,10 @@ uses
   TA_FunctionsU,
   TA_MemoryLocations,
   TA_MemoryStructures,
-  TADemoConsts,
-  IdMultipartFormData, IdHTTP;
+  TADemoConsts;
 
-const
-  Xorkey: array [0..3] of Byte = ($91, $64, $66, $56);
+//const
+//  Xorkey: array [0..3] of Byte = ($91, $64, $66, $56);
 
 var
   ProhibitedFound: Boolean;

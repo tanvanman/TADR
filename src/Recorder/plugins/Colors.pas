@@ -36,20 +36,20 @@ uses
 var
   ColorsPlugin: TPluginData;
 
-procedure SetColor(swaptype: byte; address: Integer; i: integer; colorbyte: PByte = nil; colorword: PWord = nil);
+procedure SetColor(swaptype: byte; address: Integer; i: integer; arridx: byte; colorbyte: PByte = nil; colorword: PWord = nil);
 begin
   case swaptype of
     { just a color number }
     1: begin
         if i <> -1 then
-          colorByte:= PByte(iniSettings.Colors[i]);
+          colorByte:= PByte(iniSettings.Colors[arridx][i]);
         if colorByte <> nil then
           ColorsPlugin.MakeReplacement( State_Colors, IntToStr(address), Address, colorByte, 1);
        end;
     { color number as offset from first guipal color }
     2: begin
         if i <> -1 then
-          colorWord:= PWord(FIRST_GUIPAL_COLOR + iniSettings.Colors[i]);
+          colorWord:= PWord(FIRST_GUIPAL_COLOR + iniSettings.Colors[arridx][i]);
         if colorWord <> nil then
           ColorsPlugin.MakeReplacement( State_Colors, IntToStr(address), Address, colorWord, 2);
        end;
@@ -66,34 +66,34 @@ var
 begin
   for i:= Low(IniSettings.Colors) to High(IniSettings.Colors) do
   begin
-    if IniSettings.Colors[i] <> 0 then
+    if IniSettings.Colors[0][i] <> 0 then
     begin
       case i of
-      Ord(UNITSELECTIONBOX) : begin SetColor(2, $467A70, i); end;
-      Ord(BUILDQUEUEBOXSELECTED1) : begin SetColor(2, $438D63, i); end;
-      Ord(BUILDQUEUEBOXSELECTED2) : begin SetColor(2, $438D5D, i); end;
-      Ord(BUILDQUEUEBOXNONSELECTED1) : begin SetColor(2, $438D79, i); end;
-      Ord(BUILDQUEUEBOXNONSELECTED2) : begin SetColor(2, $438D73, i); end;
-      Ord(LOADBARSTEXTURESREADY) : begin SetColor(1, $49876B, i); end;
-      Ord(LOADBARSTEXTURESLOADING) : begin SetColor(1, $498768, i); end;
-      Ord(LOADBARSTERRAINREADY): begin SetColor(1, $498848, i); end;
-      Ord(LOADBARSTERRAINLOADING): begin SetColor(1, $498845, i); end;
-      Ord(LOADBARSUNITSREADY): begin SetColor(1, $49891C, i); end;
-      Ord(LOADBARSUNITSLOADING): begin SetColor(1, $498919, i); end;
-      Ord(LOADBARSANIMATIONSREADY): begin SetColor(1, $4989F0, i); end;
-      Ord(LOADBARSANIMATIONSLOADING): begin SetColor(1, $4989ED, i); end;
-      Ord(LOADBARS3DDATAREADY): begin SetColor(1, $498AC4, i); end;
-      Ord(LOADBARS3DDATALOADING): begin SetColor(1, $498AC1, i); end;
-      Ord(LOADBARSEXPLOSIONSREADY): begin SetColor(1, $498BBD, i); end;
-      Ord(LOADBARSEXPLOSIONSLOADING): begin SetColor(1, $498BBA, i); end;
-      Ord(MAINMENUDOTS): begin SetColor(1, $425C56, i); end;
-      Ord(NANOLATHEPARTICLEBASE): begin SetColor(1, $473F3D, i); end;
-      Ord(NANOLATHEPARTICLECOLORS): begin SetColor(1, $4739D6, i); end;
-      Ord(UNDERCONSTRUCTSURFACELO): begin SetColor(1, $458E6C, i); end;
-      Ord(UNDERCONSTRUCTSURFACEHI): begin SetColor(1, $458E5F, i); end;
-      Ord(UNDERCONSTRUCTOUTLINELO): begin SetColor(1, $458E88, i); end;
-      Ord(UNDERCONSTRUCTOUTLINEHI): begin SetColor(1, $458E7B, i); end;
-      Ord(MAINMENUDOTSDISABLED): begin SetColor(3, $426440, 7); end;
+      Ord(UNITSELECTIONBOX) : begin SetColor(2, $467A70, i, 0); end;
+      Ord(BUILDQUEUEBOXSELECTED1) : begin SetColor(2, $438D63, i, 0); end;
+      Ord(BUILDQUEUEBOXSELECTED2) : begin SetColor(2, $438D5D, i, 0); end;
+      Ord(BUILDQUEUEBOXNONSELECTED1) : begin SetColor(2, $438D79, i, 0); end;
+      Ord(BUILDQUEUEBOXNONSELECTED2) : begin SetColor(2, $438D73, i, 0); end;
+      Ord(LOADBARSTEXTURESREADY) : begin SetColor(1, $49876B, i, 0); end;
+      Ord(LOADBARSTEXTURESLOADING) : begin SetColor(1, $498768, i, 0); end;
+      Ord(LOADBARSTERRAINREADY): begin SetColor(1, $498848, i, 0); end;
+      Ord(LOADBARSTERRAINLOADING): begin SetColor(1, $498845, i , 0); end;
+      Ord(LOADBARSUNITSREADY): begin SetColor(1, $49891C, i,0 ); end;
+      Ord(LOADBARSUNITSLOADING): begin SetColor(1, $498919, i,0); end;
+      Ord(LOADBARSANIMATIONSREADY): begin SetColor(1, $4989F0, i,0); end;
+      Ord(LOADBARSANIMATIONSLOADING): begin SetColor(1, $4989ED, i,0); end;
+      Ord(LOADBARS3DDATAREADY): begin SetColor(1, $498AC4, i,0); end;
+      Ord(LOADBARS3DDATALOADING): begin SetColor(1, $498AC1, i,0); end;
+      Ord(LOADBARSEXPLOSIONSREADY): begin SetColor(1, $498BBD, i,0); end;
+      Ord(LOADBARSEXPLOSIONSLOADING): begin SetColor(1, $498BBA, i,0); end;
+      Ord(MAINMENUDOTS): begin SetColor(1, $425C56, i,0); end;
+      Ord(NANOLATHEPARTICLEBASE): begin SetColor(1, $473F3D, i,0); end;
+      Ord(NANOLATHEPARTICLECOLORS): begin SetColor(1, $4739D6, i,0); end;
+      Ord(UNDERCONSTRUCTSURFACELO): begin SetColor(1, $458E6C, i,0); end;
+      Ord(UNDERCONSTRUCTSURFACEHI): begin SetColor(1, $458E5F, i,0); end;
+      Ord(UNDERCONSTRUCTOUTLINELO): begin SetColor(1, $458E88, i,0); end;
+      Ord(UNDERCONSTRUCTOUTLINEHI): begin SetColor(1, $458E7B, i,0); end;
+      Ord(MAINMENUDOTSDISABLED): begin SetColor(3, $426440, 7,0); end;
       end;
     end;
   end;

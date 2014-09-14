@@ -141,7 +141,7 @@ asm
     push    ebx
     push    edx
     push    eax
-    push    $005119B8                // null str
+    push    Null_str                 // null str
     push    $40                      // buff len
     push    WeapInfo_WeaponType2
     lea     ebx, TempString

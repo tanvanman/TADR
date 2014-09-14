@@ -42,7 +42,8 @@ uses
   textdata,
   Sysutils,
   TA_FunctionsU,
-  TA_MemoryLocations;
+  TA_MemoryLocations,
+  TADemoConsts;
 
 var
   RegPathFixPlugin: TPluginData;
@@ -89,7 +90,7 @@ begin
     RegPathFixPlugin.MakeRelativeJmp( State_RegPathFix,
                           'Load shared maps files',
                           @LoadSharedMapsHook,
-                          $0041D5F3, 0);
+                          $0041D4DB, 0);
 
     Result:= RegPathFixPlugin;
   end else
@@ -100,8 +101,76 @@ procedure LoadSharedMaps;
 var
   FindHandle: Integer;
   SearchRec: TAFindData;
+  SharedMaps, SharedBasicGameData : Boolean;
+  TAPath : String;
 begin
-  if IniSettings.SharedMapsPath <> '' then
+  SharedMaps := IniSettings.SharedMapsPath <> '';
+  SharedBasicGameData := IniSettings.SharedBasicGameData <> '';
+
+  SetCurrentDirectoryToTAPath;
+  TAPath := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation));
+
+  FindHandle := findfirst_HPI('rev31.GP3', @SearchRec, -1, 1);
+  if FindHandle >= 0 then
+  begin
+    repeat
+      InsertToHPIAry(PAnsiChar(TAPath + SearchRec.FileName), 1);
+    until
+      (findnext_HPI(FindHandle, @SearchRec) < 0);
+    findclose_HPI(FindHandle);
+  end;
+
+  FindHandle := findfirst_HPI('*.CCX', @SearchRec, -1, 1);
+  if FindHandle >= 0 then
+  begin
+    repeat
+      InsertToHPIAry(PAnsiChar(TAPath + SearchRec.FileName), 1);
+    until
+      (findnext_HPI(FindHandle, @SearchRec) < 0);
+    findclose_HPI(FindHandle);
+  end;
+
+  if SharedBasicGameData then
+  begin
+    SetCurrentDir(IniSettings.SharedBasicGameData);
+    FindHandle := findfirst_HPI('*.CCX', @SearchRec, -1, 1);
+    if FindHandle >= 0 then
+    begin
+      repeat
+        InsertToHPIAry(PAnsiChar(IniSettings.SharedBasicGameData + SearchRec.FileName), 1);
+      until
+        (findnext_HPI(FindHandle, @SearchRec) < 0);
+      findclose_HPI(FindHandle);
+    end;
+    SetCurrentDirectoryToTAPath;
+  end;
+
+  if SharedMaps then
+  begin
+    SetCurrentDir(IniSettings.SharedMapsPath);
+    FindHandle := findfirst_HPI('*.CCX', @SearchRec, -1, 1);
+    if FindHandle >= 0 then
+    begin
+      repeat
+        InsertToHPIAry(PAnsiChar(IniSettings.SharedMapsPath + SearchRec.FileName), 1);
+      until
+        (findnext_HPI(FindHandle, @SearchRec) < 0);
+      findclose_HPI(FindHandle);
+    end;
+    SetCurrentDirectoryToTAPath;
+  end;
+
+  FindHandle := findfirst_HPI('*.UFO', @SearchRec, -1, 1);
+  if FindHandle >= 0 then
+  begin
+    repeat
+      InsertToHPIAry(PAnsiChar(TAPath + SearchRec.FileName), 0);
+    until
+      (findnext_HPI(FindHandle, @SearchRec) < 0);
+    findclose_HPI(FindHandle);
+  end;
+
+  if SharedMaps then
   begin
     SetCurrentDir(IniSettings.SharedMapsPath);
     FindHandle := findfirst_HPI('*.UFO', @SearchRec, -1, 1);
@@ -111,9 +180,50 @@ begin
         InsertToHPIAry(PAnsiChar(IniSettings.SharedMapsPath + SearchRec.FileName), 0);
       until
         (findnext_HPI(FindHandle, @SearchRec) < 0);
+      findclose_HPI(FindHandle);
     end;
     SetCurrentDirectoryToTAPath;
   end;
+
+  FindHandle := findfirst_HPI('*.HPI', @SearchRec, -1, 1);
+  if FindHandle >= 0 then
+  begin
+    repeat
+      InsertToHPIAry(PAnsiChar(TAPath + SearchRec.FileName), 0);
+    until
+      (findnext_HPI(FindHandle, @SearchRec) < 0);
+    findclose_HPI(FindHandle);
+  end;
+
+  if SharedBasicGameData then
+  begin
+    SetCurrentDir(IniSettings.SharedBasicGameData);
+    FindHandle := findfirst_HPI('*.HPI', @SearchRec, -1, 1);
+    if FindHandle >= 0 then
+    begin
+      repeat
+        InsertToHPIAry(PAnsiChar(IniSettings.SharedBasicGameData + SearchRec.FileName), 0);
+      until
+        (findnext_HPI(FindHandle, @SearchRec) < 0);
+      findclose_HPI(FindHandle);
+    end;
+  end;
+
+  if SharedMaps then
+  begin
+    SetCurrentDir(IniSettings.SharedMapsPath);
+    FindHandle := findfirst_HPI('*.HPI', @SearchRec, -1, 1);
+    if FindHandle >= 0 then
+    begin
+      repeat
+        InsertToHPIAry(PAnsiChar(IniSettings.SharedMapsPath + SearchRec.FileName), 0);
+      until
+        (findnext_HPI(FindHandle, @SearchRec) < 0);
+      findclose_HPI(FindHandle);
+    end;
+  end;
+
+  SetCurrentDirectoryToTAPath;
 end;
 
 procedure LoadSharedMapsHook;
@@ -121,8 +231,10 @@ asm
     pushAD
     call LoadSharedMaps
     popAD
-    mov     [esp+268h-$25C], 0
-    push $0041D5F8;
+    // before rev31
+    //push $0041D4E0;
+    // after ta hpi readings
+    push $0041D5F3;
     call PatchNJump;
 end;
 

@@ -113,9 +113,9 @@ asm
   push    1
   push    ebp
   push    edi
-  call    Feature_Destroy
+  call    FEATURES_Destroy_3D
   mov     eax, [TADynMemStructPtr]
-  mov     ecx, [eax+TTAdynmemStruct.p_MapFile]
+  mov     ecx, [eax+TTAdynmemStruct.p_MapOTAFile]
   call    GetGameingType
   cmp     eax, 3
   jnz     SkirmishGame

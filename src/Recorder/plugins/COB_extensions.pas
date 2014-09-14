@@ -48,6 +48,7 @@ const
  TRANSPORTING	= 83;
 
  { Players }
+ PLAYER_ACTIVE = 84;
  PLAYER_TYPE = 85;
  PLAYER_SIDE = 86;
  PLAYER_KILLS = 87;
@@ -66,13 +67,14 @@ const
  MAKE_DAMAGE = 99;
  GET_CLOAKED = 100;
  SET_CLOAKED = 101;
- STATE_MASK = 102;
+ STATE_UNIT = 102;
  SFX_OCCUPY_STATE = 103;
  SELECTABLE = 104;
  ATTACH_UNIT = 105;
  RANDOM_FREE_PIECE = 106;
  MOBILE_PLANT = 107;
  CUSTOM_BAR_PROGRESS = 108;
+ MEX_RATIO = 109;
 
  { Weapons, attack info }
  WEAPON_PRIMARY = 110;
@@ -135,17 +137,35 @@ const
  { Map }
  MAP_SEA_LEVEL = 162;
  IS_LAVA_MAP = 163;
- UNIT_AT_POSITION = 164;
- TEST_UNLOAD_POS = 165;
- TEST_BUILD_SPOT = 166;
- PLANT_YARD_OCCUPIED = 167;
+ SURFACE_METAL = 164;
+ UNIT_AT_POSITION = 165;
+ TEST_UNLOAD_POS = 166;
+ TEST_BUILD_SPOT = 167;
+ PLANT_YARD_OCCUPIED = 168;
+ UNIT_REBUILD_YARD = 169;
+
+ MS_MOVE_CAM_POS = 175;
+ MS_MOVE_CAM_UNIT = 176;
+ MS_SHAKE = 177;
+ MS_SCREEN_GAMMA = 178;
+ MS_SCREEN_FADE = 179;
+ MS_DRAW_MOUSE = 180;
+ MS_DESELECT_UNITS = 181;
+ MS_PLAY_SOUND_2D = 182;
+ MS_PLAY_SOUND_3D = 183;
+ MS_EMIT_SMOKE = 184;
+ MS_PLACE_FEATURE = 185;
+ MS_REMOVE_FEATURE = 186;
+ MS_SWAP_TERRAIN = 187;
+ MS_VIEW_PLAYER_ID = 188;
+ MS_GAME_TIME = 189;
 
  { Math }
- LOWWORD = 169;
- HIGHWORD = 170;
- MAKEDWORD = 171;
+ LOWWORD = 200;
+ HIGHWORD = 201;
+ MAKEDWORD = 202;
 
- DBG_OUTPUT = 180;
+ DBG_OUTPUT = 300;
 
  CUSTOM_LOW = WEAPON_AIM_ABORTED;
  CUSTOM_HIGH = DBG_OUTPUT;
@@ -179,6 +199,7 @@ uses
   TA_MemoryConstants,
   TA_FunctionsU,
   SysUtils,
+  DynamicMap,
   IniOptions;
 
 Procedure OnInstallCobExtensions;
@@ -241,12 +262,13 @@ else
 end;
 
 function CustomGetters( index : LongWord;
-                        unitPtr : LongWord;
+                        unitPtr : PUnitStruct;
                         arg1, arg2, arg3, arg4 : LongWord) : LongWord; stdcall;
 var
   pUnit : Pointer;
   UnitInfoSt : PUnitInfo;
   Position : TPosition;
+  Turn: TTurn;
   nPosX, nPosZ : Word;
   b : Byte;
   ExtensionsNotForDemos : Boolean;
@@ -255,7 +277,7 @@ result := 0;
 if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
   begin
 
-  if Assigned(globalDplay) then
+  if TAData.NetworkLayerEnabled then
     ExtensionsNotForDemos := globalDplay.NotViewingRecording
   else
     ExtensionsNotForDemos := True;
@@ -278,7 +300,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     MAX_ID :
       begin
-      result := TAMem.GetMaxUnitId;
+      result := TAData.MaxUnitsID;
       end;
     MY_ID :
       begin
@@ -331,6 +353,10 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     UNIT_TYPE_CRC_TO_ID :
       begin
       result := PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory;
+      end;
+    PLAYER_ACTIVE :
+      begin
+      result := BoolValues[TAPlayer.IsPlayerActive(TAPlayer.GetPlayerByIndex(arg1))];
       end;
     PLAYER_TYPE :
       begin
@@ -425,12 +451,9 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       else
         TAUnit.SetCloak(pointer(unitptr), arg1);
       end;
-    STATE_MASK :
+    STATE_UNIT :
       begin
-        if arg2 = 0 then
-          result := PUnitStruct(TAUnit.Id2Ptr(arg1)).nUnitStateMaskBas
-        else
-          PUnitStruct(TAUnit.Id2Ptr(arg1)).nUnitStateMaskBas := arg2;
+      Unit_ShortMaskState(nil, nil, TAUnit.Id2Ptr(arg1), arg3, arg2);
       end;
     SFX_OCCUPY_STATE :
       begin
@@ -453,6 +476,10 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
           CustomUnitFieldsArr[TAUnit.GetId(pointer(unitptr))].CustomWeapReloadCur := 0;
           CustomUnitFieldsArr[TAUnit.GetId(pointer(unitptr))].CustomWeapReloadMax := 0;
         end;
+      end;
+    MEX_RATIO :
+      begin
+      result := Trunc(PUnitStruct(pointer(unitptr)).fMetalExtrRatio * 100);
       end;
     ATTACH_UNIT :
       begin
@@ -524,10 +551,16 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
           begin
             UnitinfoSt := TAMem.UnitInfoCrc2Ptr(arg1);
             if (UnitInfoSt.nCruiseAlt <> 0) and (arg4 = 6) then
-              Position.Y := GetPosHeight(@Position) + UnitInfoSt.nCruiseAlt - PTAdynmemStruct(TAData.MainStructPtr)^.SeaLevel;
-            pUnit := TAUnit.CreateUnit(TAUnit.GetOwnerIndex(pointer(UnitPtr)), UnitinfoSt, Position, nil, False, False, arg4, arg3);
+              Position.Y := GetPosHeight(@Position) + UnitInfoSt.nCruiseAlt - PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.SeaLevel;
+            if arg3 = 10 then
+              arg3 := TAUnit.GetOwnerIndex(pointer(unitptr));
+            pUnit := TAUnit.CreateUnit(arg3, UnitinfoSt, Position, nil, False, False, arg4);
             if pUnit <> nil then
+            begin
               result := Word(PUnitStruct(pUnit).lUnitInGameIndex);
+              if TAData.NetworkLayerEnabled then
+                Send_UnitBuildFinished(pointer(unitptr), pUnit);
+            end;
           end;
         end;
       end;
@@ -689,13 +722,23 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       begin
       result := BoolValues[TAUnit.IsPlantYardOccupied(pointer(unitptr), arg1)];
       end;
+    UNIT_REBUILD_YARD :
+      begin
+      result := UNITS_RebuildFootPrint(pointer(unitptr));
+      end;
     MAP_SEA_LEVEL :
       begin
-      result := PTAdynmemStruct(TAData.MainStructPtr)^.SeaLevel;
+      result := PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.SeaLevel;
       end;
     IS_LAVA_MAP :
       begin
-      result := PLongWord(LongWord(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapFile) + $0D44)^;
+      result := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).lIsLavaMap;
+      end;
+    SURFACE_METAL :
+      begin
+      if arg1 <> 0 then
+        PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).lSurfaceMetal := arg1;
+      result := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).lSurfaceMetal;
       end;
     UNIT_IN_PLAYER_LOS :
       begin
@@ -722,7 +765,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     SET_UNITINFO : //
       begin
         if TAUnit.setUnitInfoField(pointer(unitptr), TUnitInfoExtensions(arg1), arg2, nil) then
-          if Assigned(globalDplay) then
+          if TAData.NetworkLayerEnabled then
             globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitInfoEdit, @unitptr, @arg1, nil, nil, @index);
       end;
     ENABLEDISABLE_UNIT :
@@ -735,9 +778,11 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
             Exit;
           TAMem.ProtectMemoryRegion(Cardinal(TAData.UnitInfosPtr), True);
           if arg2 = 0 then
-            PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory := 0
-          else
-            PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory := arg1;
+          begin
+            Result := PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory;
+            PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory := 0;
+          end else
+            PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory := arg3;
           TAMem.ProtectMemoryRegion(Cardinal(TAData.UnitInfosPtr), False);
         end;
       end;
@@ -762,12 +807,80 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       if ExtensionsNotForDemos then
       begin
         if GetTPosition(HiWord(arg2), LoWord(arg2), Position) <> nil then
-          result := TAUnit.Play3DSound(arg1, Position, arg3 = 1);
+          result := TASfx.Play3DSound(arg1, Position, arg3 = 1);
       end;
       end;
     PLAY_GAF_ANIM :
       begin
-      result := TAunit.PlayGafAnim(arg1, HiWord(arg2), LoWord(arg2), arg3, arg4);
+      result := TASfx.PlayGafAnim(arg1, HiWord(arg2), LoWord(arg2), arg3, arg4);
+      end;
+    MS_MOVE_CAM_POS :
+      begin
+      ScrollView(arg1, arg2, Boolean(arg3));
+      end;
+    MS_MOVE_CAM_UNIT :
+      begin
+      if arg1 <> 0 then
+        TAData.CameraToUnit := TAUnit.Id2Ptr(arg1)
+      else
+        TAData.CameraToUnit := pointer(unitptr);
+      end;
+    MS_SHAKE :
+      begin
+      TAMem.ShakeCam(arg1, arg2, arg3);
+      end;
+    MS_SCREEN_GAMMA :
+      begin
+      result := PTAdynmemStruct(TAData.MainStructPtr)^.Gamma;
+      end;
+    MS_DESELECT_UNITS :
+      begin
+      DeselectAllUnits;
+      UpdateIngameGUI(1);
+      end;
+    MS_PLAY_SOUND_2D :
+      begin
+      if Assigned(MapMissionsSounds) then
+      begin
+        PlaySound_2D_Name(PAnsiChar(MapMissionsSounds[arg1]), arg2);
+      end;
+      end;
+    MS_PLAY_SOUND_3D :
+      begin
+      if Assigned(MapMissionsSounds) then
+      begin
+        PlaySound_3D_Name(PAnsiChar(MapMissionsSounds[arg1]), @arg3, arg2);
+      end;
+      end;
+    MS_EMIT_SMOKE :
+      begin
+        GetTPosition(arg2, arg3, Position);
+        case arg1 of
+          0 : EmitSfx_SmokeInfinite(@Position, 4);
+          1 : EmitSfx_GraySmoke(@Position, 9);
+          2 : EmitSfx_BlackSmoke(@Position, 9);
+          3 : ;
+          4 : ;
+          5 : ;
+        end;
+      end;
+    MS_VIEW_PLAYER_ID :
+      begin
+      result := TAData.ViewPlayer;
+      end;
+    MS_GAME_TIME :
+      begin
+      result := TAData.GameTime;
+      end;
+    MS_PLACE_FEATURE :
+      begin
+      GetTPosition(HiWord(arg2), LoWord(arg2), Position);
+      Turn.Z := arg3;
+      Result := BoolValues[TAMem.PlaceFeatureOnMap(MapMissionsFeatures[arg1], Position, Turn)];
+      end;
+    MS_REMOVE_FEATURE :
+      begin
+      Result := BoolValues[TAMem.RemoveMapFeature(arg1, arg2, (arg3 = 1))];
       end;
     end;
   end;
@@ -779,12 +892,33 @@ var
 begin
   if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
   begin
+    case index of
+      MS_SCREEN_GAMMA :
+        begin
+        SetGamma(arg1 * 0.1);
+        PTAdynmemStruct(TAData.MainStructPtr)^.Gamma := arg1;
+        end;
+      MS_SCREEN_FADE :
+        begin
+        CameraFadeLevel := arg1;
+        end;
+      MS_DRAW_MOUSE :
+        begin
+        Mouse_SetDrawMouse(Boolean(arg1));
+        if arg1 = 0 then
+          MouseLock := True
+        else
+          MouseLock := False;
+        end;
+      MS_SWAP_TERRAIN :
+        SwapTNT(arg1);
+    end;
     if TAUnit.IsOnThisComp(pointer(unitptr), True) then
     begin
       case index of
         UNIT_SPEECH : //
           begin
-          TAUnit.Speech(unitptr, arg1, nil);
+          TASfx.Speech(Pointer(unitptr), arg1, nil);
           end;
         MOBILE_PLANT : //
           begin
@@ -798,9 +932,13 @@ begin
             PUnitStruct(pointer(unitptr)).nUnitStateMaskBas := PUnitStruct(pointer(unitptr)).nUnitStateMaskBas or 1;
           end;
           end;
+        MEX_RATIO :
+          begin
+          PUnitStruct(pointer(unitptr)).fMetalExtrRatio := arg1 / 100;
+          end;
       end;
 
-      if Assigned(globalDplay) then
+      if TAData.NetworkLayerEnabled then
         ExtensionsNotForDemos := globalDplay.NotViewingRecording
       else
         ExtensionsNotForDemos := True;
@@ -862,7 +1000,7 @@ begin
           WEAPON_PRIMARY..WEAPON_TERTIARY :
             begin
             if TAUnit.setWeapon(pointer(unitptr), index, arg1) then
-              if Assigned(globalDplay) then
+              if TAData.NetworkLayerEnabled then
                 globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitWeapon, @unitptr, @index, nil, nil, @arg1);
             end;
           KILL_THIS_UNIT :
@@ -872,13 +1010,13 @@ begin
           GRANT_UNITINFO :
             begin
             if TAUnit.GrantUnitInfo(pointer(unitptr), arg1, nil) then
-              if Assigned(globalDplay) then
+              if TAData.NetworkLayerEnabled then
                 globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitGrantUnitInfo, @unitptr, nil, @arg1, nil, nil);
             end;
           UNIT_TYPE_CRC :
             begin
             if TAUnit.setTemplate(pointer(unitptr), TAMem.UnitInfoCrc2Ptr(arg1)) then
-              if Assigned(globalDplay) then
+              if TAData.NetworkLayerEnabled then
                 globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitptr, @index, nil, @arg1, nil);
             end;
         end;
@@ -1015,6 +1153,10 @@ end;
 
 procedure FreeExtensionsMemory; stdcall;
 begin
+  MouseLock := False;
+
+  //ReleaseFeature_TdfVector;
+
   if not CustomUnitInfos.IsVoid then
     CustomUnitInfos.Clear;
   if not CustomUnitFields.IsVoid then
@@ -1024,6 +1166,18 @@ begin
   if not SpawnedMinions.IsVoid then
     SpawnedMinions.Clear;
 
+  if MapMissionsUnit.lUnitInGameIndex <> 0 then
+  begin
+    UNITS_KillUnit(@MapMissionsUnit, 8);
+    FreeUnitMem(@MapMissionsUnit);
+  end;
+
+  if Assigned(MapMissionsSounds) then
+    MapMissionsSounds.Free;
+  if Assigned(MapMissionsFeatures) then
+    MapMissionsFeatures.Free;
+
+  ZeroMemory(@MapMissionsUnit, SizeOf(TUnitStruct));
   ZeroMemory(@NanoSpotUnitSt, SizeOf(TUnitStruct));
   ZeroMemory(@NanoSpotQueueUnitSt, SizeOf(TUnitStruct));
   ZeroMemory(@NanoSpotUnitInfoSt, SizeOf(TUnitInfo));

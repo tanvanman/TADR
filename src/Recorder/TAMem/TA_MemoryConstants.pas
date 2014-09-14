@@ -28,6 +28,8 @@ const
   PlayerInfoStruct_IsWatching = $9B; //asm
   UnitStruct_OwnerPtr = $96; //asm
   UnitStructSize = $118; //asm
+  Null_str = $005119B8;
+  OFFSCREEN_off = -$1F0;
 
 implementation
 

@@ -27,16 +27,6 @@ var
   GetGameingType : GetGameingTypeHandler = GetGameingTypeHandler($00435100);
 
 type
-  TakeScreenshotHandler = function (FileName : PAnsiChar; OffscreenPtr: Pointer) : Integer; stdcall;
-var
-  TakeScreenshot : TakeScreenshotHandler = TakeScreenshotHandler($004CAEC0);
-
-type
-  TakeScreenshotOrgHandler = function (DirName : PAnsiChar; FileName : PAnsiChar) : Integer; stdcall;
-var
-  TakeScreenshotOrg : TakeScreenshotOrgHandler = TakeScreenshotOrgHandler($004CB170);
-
-type
   Game_SetLOSStateHandler = function (flags : integer) : integer; stdcall;
 var
   // called by to setup the LOS tables
@@ -53,16 +43,55 @@ var
   ShowExplodeGaf : ShowExplodeGafHandler = ShowExplodeGafHandler($00420A30);
 
 type
-  TA_UpdateUnitLOSHandler = function (UnitPtr: Pointer): LongWord; stdcall;
+  EmitSfx_SmokeInfiniteHandler = function (Position: PPosition; SmokeIdx: Integer) : Byte; stdcall;
 var
-  // called to update unit LOS
-  TA_UpdateUnitLOS : TA_UpdateUnitLOSHandler = TA_UpdateUnitLOSHandler($00482AC0);
+  EmitSfx_SmokeInfinite : EmitSfx_SmokeInfiniteHandler = EmitSfx_SmokeInfiniteHandler($00472C50);
 
 type
-  TA_UpdateLOSHandler = function (PlayerIndex: Integer; FillFeatureMap_b: LongWord): LongWord; stdcall;
+  EmitSfx_BlackSmokeHandler = function (Position: PPosition; SmokeIdx: Integer) : Byte; stdcall;
+var
+  EmitSfx_BlackSmoke : EmitSfx_BlackSmokeHandler = EmitSfx_BlackSmokeHandler($004728F0);
+
+type
+  EmitSfx_GraySmokeHandler = function (Position: PPosition; SmokeIdx: Integer) : Byte; stdcall;
+var
+  EmitSfx_GraySmoke : EmitSfx_GraySmokeHandler = EmitSfx_GraySmokeHandler($00472810);
+
+type
+  EmitSfx_NanoParticlesHandler = function (p_PosStart, p_PosTarget: PPosition; nSize: Word) : Cardinal; stdcall;
+var
+  EmitSfx_NanoParticles : EmitSfx_NanoParticlesHandler = EmitSfx_NanoParticlesHandler($004720D0);
+
+type
+  EmitSfx_NanoParticlesReverseHandler = function (p_PosStart, p_PosTarget: PPosition; nSize: Word) : Cardinal; stdcall;
+var
+  EmitSfx_NanoParticlesReverse : EmitSfx_NanoParticlesReverseHandler = EmitSfx_NanoParticlesReverseHandler($00472200);
+
+type
+  TA_UpdateLOSHandler = function (FillFeatureMap_b: LongWord): LongWord; stdcall;
 var
   // called to update LOS
   TA_UpdateLOS : TA_UpdateLOSHandler = TA_UpdateLOSHandler($004816A0);
+
+type
+  ScrollViewHandler = function (X, Y: Cardinal; Smooth: Boolean): Cardinal; stdcall;
+var
+  ScrollView : ScrollViewHandler = ScrollViewHandler($0041C4C0);
+
+type
+  Mouse_SetDrawMouseHandler = function (Draw: Boolean): Integer; stdcall;
+var
+  Mouse_SetDrawMouse : Mouse_SetDrawMouseHandler = Mouse_SetDrawMouseHandler($004C22D0);
+
+type
+  DrawOptionsTabHandler = function (Offscreenp: Cardinal): Cardinal; stdcall;
+var
+  DrawOptionsTab : DrawOptionsTabHandler = DrawOptionsTabHandler($0045FFB0);
+
+type
+  SetGammaHandler = function (fGamma: Single): Integer; stdcall;
+var
+  SetGamma : SetGammaHandler = SetGammaHandler($004BA590);
 
 // get map ground level at given coords
 type
@@ -76,7 +105,7 @@ var
   UnitInPlayerLOS : UnitInPlayerLOSHandler = UnitInPlayerLOSHandler($00465AC0);
 
 type
-  PositionInPlayerLOSHandler = function (PlayerPtr : Pointer; Position : TPosition): LongBool; stdcall;
+  PositionInPlayerLOSHandler = function (PlayerPtr : Pointer; Position : PPosition): LongBool; stdcall;
 var
   PositionInPlayerLOS : PositionInPlayerLOSHandler = PositionInPlayerLOSHandler($00408090);
 
@@ -86,16 +115,111 @@ var
   UnitAtPosition : UnitAtPositionHandler = UnitAtPositionHandler($004815A0);
 
 type
-  Unit_CreateHandler = function ( PlayerAryIndex : Cardinal;  // owner index
-                                  UnitInfoId: Cardinal;       // template id
-                                  PosX_: Cardinal;
-                                  PosZ_: Cardinal;
-                                  PosY_: Cardinal;
-                                  FullHp: Cardinal;           // 1 - unit with full hp, like comm spawn
-                                  UnitStateMask: Cardinal;        // 0
-                                  UnitId: Cardinal) : Pointer; stdcall; // 0 if UnitId is unknown (?)
+  UNITS_CreateHandler = function ( OwnerIndex : Cardinal;
+                                   UnitInfoId: Cardinal;
+                                   PosX_: Cardinal;
+                                   PosZ_: Cardinal;
+                                   PosY_: Cardinal;
+                                   FullHp: Cardinal;
+                                   UnitStateMask: Cardinal;
+                                   UnitId: Cardinal) : Pointer; stdcall; // 0 if UnitId is unknown (?)
 var
-  Unit_Create : Unit_CreateHandler = Unit_CreateHandler($00485F50);
+  UNITS_Create : UNITS_CreateHandler = UNITS_CreateHandler($00485F50);
+
+type
+  UNITS_CreateModelScriptsHandler = function (UnitPtr : Pointer) : Pointer; stdcall;
+var
+  UNITS_CreateModelScripts : UNITS_CreateModelScriptsHandler = UNITS_CreateModelScriptsHandler($00485D40);
+
+type
+  COBEngine_LoadScriptFromFileHandler = function (FilePath : PAnsiChar) : Pointer; stdcall;
+var
+  COBEngine_LoadScriptFromFile : COBEngine_LoadScriptFromFileHandler = COBEngine_LoadScriptFromFileHandler($004B2450);
+
+type
+  UNITS_FixYPosHandler = function (UnitPtr : Pointer) : LongInt; stdcall;
+var
+  UNITS_FixYPos : UNITS_FixYPosHandler = UNITS_FixYPosHandler($0048A870);
+
+type
+  UNITS_SetMetalExtractionRatioHandler = procedure ( UnitPtr: Pointer ); stdcall;
+var
+  UNITS_SetMetalExtractionRatio : UNITS_SetMetalExtractionRatioHandler = UNITS_SetMetalExtractionRatioHandler($00437840);
+
+type
+  UNITS_StartWeaponsScriptsHandler = procedure ( UnitPtr: Pointer ); stdcall;
+var
+  UNITS_StartWeaponsScripts : UNITS_StartWeaponsScriptsHandler = UNITS_StartWeaponsScriptsHandler($0049E070);
+
+type
+  UNITS_RecreateHandler = function ( PlayerIndex: Byte; UnitPtr: Pointer): Cardinal; stdcall;
+var
+  UNITS_Recreate: UNITS_RecreateHandler = UNITS_RecreateHandler($004861D0);
+
+type
+  UNITS_AllocateUnitHandler = function ( UnitPtr : Pointer;
+                                         PosX: Cardinal;
+                                         PosY: Cardinal;
+                                         PosZ: Cardinal;
+                                         FullHp: Integer ): LongBool; stdcall;
+var
+  UNITS_AllocateUnit: UNITS_AllocateUnitHandler = UNITS_AllocateUnitHandler($00485A40);
+
+type
+  UNITS_AllocateMovementClassHandler = function ( UnitPtr: Pointer): Pointer; stdcall;
+var
+  UNITS_AllocateMovementClass: UNITS_AllocateMovementClassHandler = UNITS_AllocateMovementClassHandler($00485E50);
+
+type
+  UNITS_RebuildLOSHandler = function (UnitPtr: Pointer): Byte; stdcall;
+var
+  UNITS_RebuildLOS : UNITS_RebuildLOSHandler = UNITS_RebuildLOSHandler($00482AC0);
+
+type
+  UNITS_RebuildFootPrintHandler = function (UnitPtr: Pointer): Cardinal; stdcall;
+var
+  UNITS_RebuildFootPrint : UNITS_RebuildFootPrintHandler = UNITS_RebuildFootPrintHandler($0047CC30);
+
+type
+  UNITS_GiveUnitHandler = procedure ( UnitPtr : Pointer;
+                                      PlayerStruct : PPlayerStruct;
+                                      Packet : Pointer); stdcall;
+var
+  UNITS_GiveUnit : UNITS_GiveUnitHandler = UNITS_GiveUnitHandler($00488570);
+
+type
+  // 0 : found in unit "recreate" proc
+  // 3 : typical kill
+  // 8 : TA finalization, kill all proc etc.
+  UNITS_KillUnitHandler = procedure ( UnitPtr: Pointer; a2: Cardinal ); stdcall;
+var
+  UNITS_KillUnit : UNITS_KillUnitHandler = UNITS_KillUnitHandler($004864B0);
+
+type
+  UNITS_MakeDamageHandler = function ( AttackerUnitPtr: Pointer;
+                                       TargetUnitPtr: Pointer;
+                                       Amount: LongInt;
+                                       DamageType: Cardinal;
+                                       a5: Word ): Pointer; stdcall;
+var
+  UNITS_MakeDamage: UNITS_MakeDamageHandler = UNITS_MakeDamageHandler($00489BB0);
+
+type
+  UNITS_HealUnitHandler = function ( HealerUnitPtr: Pointer;
+                                     HealedUnitPtr: Pointer;
+                                     Amount: Single ): Integer; stdcall;
+var
+  UNITS_HealUnit: UNITS_HealUnitHandler = UNITS_HealUnitHandler($0041BD10);
+
+type
+  UnitStateProbeHandler = function (OffscreenPtr: Cardinal): Integer; stdcall;
+var
+  UnitStateProbe: UnitStateProbeHandler = UnitStateProbeHandler($00467E50);
+
+type
+  UnitBuilderProbeHandler = function (OffscreenPtr: Cardinal): Integer; stdcall;
+var
+  UnitBuilderProbe: UnitBuilderProbeHandler = UnitBuilderProbeHandler($004685A0);
 
 type
   Send_UnitBuildFinishedHandler = function ( UnitPtr: Pointer; Unit2Ptr: Pointer ): Integer; stdcall;
@@ -146,18 +270,44 @@ var
   GetFeatureTypeOfPos : GetFeatureTypeOfPosHandler = GetFeatureTypeOfPosHandler($00421DA0);
 
 type
-  Feature_DestroyHandler = function ( X: Integer; Z: Integer; DesMethod: Integer ): Integer; stdcall;
+  FeatureName2IDHandler = function ( FeatureName: PAnsiChar ): SmallInt; stdcall;
 var
-  Feature_Destroy : Feature_DestroyHandler = Feature_DestroyHandler($00423550);
+  FeatureName2ID : FeatureName2IDHandler = FeatureName2IDHandler($00422DD0);
+
+// get feature type ID from name and load into definitions if not listed yet
+type
+  FeatureNameNotListed2IDHandler = function ( FeatureName: PAnsiChar ): SmallInt; stdcall;
+var
+  FeatureNameNotListed2ID : FeatureNameNotListed2IDHandler = FeatureNameNotListed2IDHandler($00422E40);
 
 type
-  // a2 probably preserves unit in array
-  // 0 : found in unit "recreate" proc
-  // 3 : typical kill
-  // 8 : TA finalization, kill all proc etc.
-  Unit_KillHandler = procedure ( UnitPtr: Pointer; a2: Cardinal ); stdcall;
+  LoadFeatureHandler = function ( FeatureName: PAnsiChar ): SmallInt; stdcall;
 var
-  Unit_Kill: Unit_KillHandler = Unit_KillHandler($4864B0);
+  LoadFeature : LoadFeatureHandler = LoadFeatureHandler($004224B0);
+
+type
+  ReleaseFeature_TdfVectorHandler = procedure(); register;
+var
+  ReleaseFeature_TdfVector : ReleaseFeature_TdfVectorHandler = ReleaseFeature_TdfVectorHandler($4223E0);
+
+type
+  SpawnFeatureOnMapHandler = function ( GridPosPLOT: PPlotGrid;
+                                        CorpseIdx: SmallInt;
+                                        Position: PPosition;
+                                        Volume: PTurn;
+                                        PlayerId: Byte ): Pointer; stdcall;
+var
+  SpawnFeatureOnMap : SpawnFeatureOnMapHandler = SpawnFeatureOnMapHandler($00423C50);
+
+type
+  FEATURES_Destroy_3DHandler = function ( X: Integer; Z: Integer; bReclamateOrDie: LongBool ): Cardinal; stdcall;
+var
+  FEATURES_Destroy_3D : FEATURES_Destroy_3DHandler = FEATURES_Destroy_3DHandler($00423550);
+
+type
+  FEATURES_DestroyHandler = function ( GridPlot: PPlotGrid; bMethod: Boolean ): Boolean; stdcall;
+var
+  FEATURES_Destroy : FEATURES_DestroyHandler = FEATURES_DestroyHandler($004246B0);
 
 type
   UnitExplosionHandler = procedure ( UnitPtr: Pointer; destructas: Cardinal ); stdcall;
@@ -165,33 +315,25 @@ var
   UnitExplosion: UnitExplosionHandler = UnitExplosionHandler($49B000);
 
 type
-  MakeDamageToUnitHandler = function ( UnitPtr: Pointer;
-                                       UnitPtr2: Pointer;
-                                       a3: LongInt;
-                                       a4: Cardinal;
-                                       a5: Word ): Pointer; stdcall;
-var
-  MakeDamageToUnit: MakeDamageToUnitHandler = MakeDamageToUnitHandler($489BB0);
-
-type
-  HealUnit_Handler = function ( UnitPtr: Pointer;
-                                UnitPtr2: Pointer;
-                                Amount: Single ): Integer; stdcall;
-var
-  HealUnit: HealUnit_Handler = HealUnit_Handler($0041BD10);
-
-type
   TestHeal_Handler = function ( ResPercentage: Pointer;
                                 Amount: Single ): Integer; stdcall;
 var
   TestHeal: TestHeal_Handler = TestHeal_Handler($00401180);
 
+type
+  Unit_ShortMaskStateHandler = function ( uneax, unedx: Pointer;
+                                          UnitPtr: Pointer;
+                                          ScriptIdx: Integer;
+                                          NewState: Integer ): Cardinal; register;
+var
+  Unit_ShortMaskState: Unit_ShortMaskStateHandler = Unit_ShortMaskStateHandler($0048B090);
+
 // earthquakes etc.
 type
-  SendFireMapWeaponHandler = function ( WeaponTypePtr: Cardinal;
-                                        Position: Cardinal;
-                                        TargetPosition: Cardinal;
-                                        a4: Cardinal): Cardinal; stdcall;
+  SendFireMapWeaponHandler = function ( WeaponTypePtr: Pointer;
+                                        Position: PPosition;
+                                        TargetPosition: PPosition;
+                                        bBroadcast: LongBool): LongBool; stdcall;
 var
   SendFireMapWeapon: SendFireMapWeaponHandler = SendFireMapWeaponHandler($49DF10);
 
@@ -254,7 +396,7 @@ type
                                                   WhichWeapon: Word ): Byte; stdcall;
 var
   UnitAutoAim_CheckUnitWeapon : UnitAutoAim_CheckUnitWeaponHandler = UnitAutoAim_CheckUnitWeaponHandler($0049ABB0);
-
+  
 type
   TdfFile__GetIntHandler = function ( TagName : Pointer;
                                       DefaultNumber : LongInt): Integer; stdcall;
@@ -268,13 +410,6 @@ type
                                       Default : Pointer): Integer; stdcall;
 var
   TdfFile__GetStr : TdfFile__GetStrHandler = TdfFile__GetStrHandler($004C48C0);
-
-type
-  TA_GiveUnitHandler = procedure ( UnitPtr : Pointer;
-                                   PlayerStruct : PPlayerStruct;
-                                   Packet : Pointer); stdcall;
-var
-  TA_GiveUnit : TA_GiveUnitHandler = TA_GiveUnitHandler($00488570);
 
 type
   TA_AttachDetachUnitHandler = procedure (TransportedUnitPtr : Pointer;
@@ -313,6 +448,13 @@ var
 
 
 type
+  OrderSubBuildHandler = function ( UnitInfoName: PAnsiChar;
+                                    BuilderPtr: PUnitStruct;
+                                    QueueAmount: Integer): Word; stdcall;
+var
+  OrderSubBuild: OrderSubBuildHandler = OrderSubBuildHandler($00419B00);
+
+type
   GetUnitFirstOrderTargatHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
 var
   GetUnitFirstOrderTargat: GetUnitFirstOrderTargatHandler = GetUnitFirstOrderTargatHandler($439DD0);
@@ -345,21 +487,28 @@ type
                                              const Name: PAnsiChar): LongInt; register;
 var
   Script_ProcessCallback: Script_ProcessCallbackHandler = Script_ProcessCallbackHandler($004B0BC0);
-{
+
 type
-  // guaranteed call
-  // create, startbuilding etc.
-  Script_CallScriptHandler = function ( a1: Pointer;
-                                        a2: Pointer;
-                                        UnitScriptsData_p: Cardinal;
-                                        v4: Pointer;
-                                        v3: Pointer;
-                                        v2: Pointer;
-                                        v1: Pointer;
-                                        const Name: PAnsiChar): LongInt; register;
+  COBEngine_InitScriptHandler = function (n1eax, n2edx : Pointer; ScriptInstance: Cardinal; COBData_p: Pointer): Integer; register;
 var
-  Script_CallScript: Script_CallScriptHandler = Script_CallScriptHandler($004B0940);
-}
+  COBEngine_InitScript : COBEngine_InitScriptHandler = COBEngine_InitScriptHandler($004B0720);
+
+type
+  COBEngine_DoScriptsNowHandler = function(COBData_p: Pointer): Integer; stdcall;
+var
+  COBEngine_DoScriptsNow : COBEngine_DoScriptsNowHandler = COBEngine_DoScriptsNowHandler($004B0D60);
+
+type
+  _filelength_HPIHandler = function (FilePath: PAnsiChar): Integer; stdcall;
+var
+  _filelength_HPI : _filelength_HPIHandler = _filelength_HPIHandler($004BBC40);
+
+// used by TA to load terrain TNT file (sets also terrain load progress)
+// but can be also used to allocate, load HPI file into memory and retrieve pointer to it
+type
+  LoadHPITerainFileHandler = function (FilePath: PAnsiChar): Pointer; stdcall;
+var
+  LoadHPITerainFile : LoadHPITerainFileHandler = LoadHPITerainFileHandler($00429660);
 
 type
   DrawGameScreenHandler = procedure (DrawUnits: Integer; BlitScreen: Integer); stdcall;
@@ -370,6 +519,11 @@ type
   DrawHealthBarsHandler = function (OFFSCREEN_ptr: LongWord; UnitInGame: LongWord; PosX: LongWord; PosY: LongWord) : LongInt; stdcall;
 var
   DrawHealthBars : DrawHealthBarsHandler = DrawHealthBarsHandler($0046A430);
+
+type
+  DrawUnitHandler = function (OFFSCREEN_ptr: Cardinal; UnitPtr : Pointer) : LongInt; stdcall;
+var
+  DrawUnit : DrawUnitHandler = DrawUnitHandler($0045AC20);
 
 // draw filled box  
 type
@@ -477,19 +631,29 @@ var
   Msg_Reminder : Msg_ReminderHandler = Msg_ReminderHandler($046BC70);
 
 type
-  PlaySound_UnitSpeechHandler = function (unitptr : longword; speechtype: longword; speechtext: PChar) : byte; stdcall;
+  PlaySound_UnitSpeechHandler = function (unitptr : Pointer; speechtype: Cardinal; speechtext: PAnsiChar) : byte; stdcall;
 var
-  PlaySound_UnitSpeech : PlaySound_UnitSpeechHandler = PlaySound_UnitSpeechHandler($47F780);
+  PlaySound_UnitSpeech : PlaySound_UnitSpeechHandler = PlaySound_UnitSpeechHandler($0047F780);
 
 type
-  PlaySound_2DHandler = function (VoiceId: longword; unitptr: LongWord) : Integer; stdcall;
+  PlaySound_2D_NameHandler = function (SoundName: PAnsiChar; Broadcast: Integer) : Integer; stdcall;
 var
-  PlaySound_2D : PlaySound_2DHandler =  PlaySound_2DHandler($47F0C0);
+  PlaySound_2D_Name : PlaySound_2D_NameHandler =  PlaySound_2D_NameHandler($0047F1A0);
 
 type
-  Receive_SoundHandler = function (EffectNum: LongWord; Position: Pointer; Broadcast : LongWord) : Integer; stdcall;
+  PlaySound_2D_IDHandler = function (SoundNum: Cardinal; Broadcast: Integer) : Integer; stdcall;
 var
-  Receive_Sound : Receive_SoundHandler =  Receive_SoundHandler($47F300);
+  PlaySound_2D_ID : PlaySound_2D_IDHandler =  PlaySound_2D_IDHandler($0047F0C0);
+
+type
+  PlaySound_3D_NameHandler = function (SoundName: PAnsiChar; GridPosition: Pointer; Broadcast: Integer) : Integer; stdcall;
+var
+  PlaySound_3D_Name : PlaySound_3D_NameHandler =  PlaySound_3D_NameHandler($0047F610);
+
+type
+  PlaySound_3D_IDHandler = function (SoundNum: Cardinal; Position: Pointer; Broadcast: Integer) : Integer; stdcall;
+var
+  PlaySound_3D_ID : PlaySound_3D_IDHandler =  PlaySound_3D_IDHandler($0047F300);
 
 type
   //Access 1 = no cheats, 3 = cheats
@@ -509,9 +673,14 @@ var
 type
   // a1 = 0, a2 = 0, a3 = 0
   // result = current amount of maps
-  CreateMultiplayerMapsListHandler = function ( a1: Longint; a2: Longint; a3: Longint): Longint; stdcall;
+  IterateMapsHandler = function ( a1: Longint; a2: Longint; a3: Longint): Longint; stdcall;
 var
-  CreateMultiplayerMapsList : CreateMultiplayerMapsListHandler = CreateMultiplayerMapsListHandler($434BF0);
+  IterateMaps : IterateMapsHandler = IterateMapsHandler($434BF0);
+
+type
+  LoadCampaign_UniqueUnitsHandler = procedure(); cdecl;
+var
+  LoadCampaign_UniqueUnits : LoadCampaign_UniqueUnitsHandler = LoadCampaign_UniqueUnitsHandler($00488310);
 
 type
   CreateMovementClassHandler = function ( a1: Longint ): Longint; stdcall;
@@ -638,6 +807,11 @@ type //find unit under mouse
 var
   GetUnitAtMouse : GetUnitAtMouseHandler = GetUnitAtMouseHandler($0048CD80);
 
+type
+	VerifyMousePositionHandler = function (Rect: PtagRECT; x, y : Integer) : LongBool; cdecl;
+var
+  VerifyMousePosition : VerifyMousePositionHandler = VerifyMousePositionHandler($004B6720);
+
 type //find unit at position
 	GetUnitAtCoordsHandler = function (Position: Pointer) : Cardinal; stdcall;
 var
@@ -738,31 +912,63 @@ var
   findclose_HPI : findclose_HPIHandler = findclose_HPIHandler($004BC8D0);
 
 Type
+  LoadTNTFileHandler = function(lpFileName: PAnsiChar): PTNTHeaderStruct; stdcall;
+var
+  LoadTNTFile : LoadTNTFileHandler = LoadTNTFileHandler($00429660);
+
+Type
   HAPI_BroadcastMessageHandler = function(FromPID: Integer; Buffer: Pointer; BufferSize: Integer): Integer; stdcall;
 var
   HAPI_BroadcastMessage : HAPI_BroadcastMessageHandler = HAPI_BroadcastMessageHandler($00451DF0);
 
-//int __stdcall FindUnitsInCategorysAry(const char *CategoryName)
+type
+  CopyGafToContextHandler = function(OFFSCREEN_ptr: Pointer; GafFrame: Pointer; Off_X, Off_Y: Integer): Pointer; stdcall;
+var
+  CopyGafToContext : CopyGafToContextHandler = CopyGafToContextHandler($4B7F90);
 
+type
+  cmalloc_MM__Handler = function (Size : Cardinal) : Pointer; cdecl;
+var
+  cmalloc_MM__ : cmalloc_MM__Handler =  cmalloc_MM__Handler($004B4F10);
+
+type
+  LoadMap_AverageHeightMapHandler = function() : Word; cdecl;
+var
+  LoadMap_AverageHeightMap : LoadMap_AverageHeightMapHandler = LoadMap_AverageHeightMapHandler($483370);
+
+type
+  LoadMap_PLOT3Handler = function(): Pointer; cdecl;
+var
+  LoadMap_PLOT3 : LoadMap_PLOT3Handler = LoadMap_PLOT3Handler($4833B0);
+
+type
+  InitRadarHandler = function(): Integer; cdecl;
+var
+  InitRadar : InitRadarHandler = InitRadarHandler($4669B0);
+
+type
+  CompositeBufferHandler = function(Description: PAnsiChar; Width: Integer; Height: Integer): Pointer; stdcall;
+var
+  CompositeBuffer : CompositeBufferHandler = CompositeBufferHandler($4B8DA0);
+
+type
+  CompositeBuf2_OFFSCREENHandler = function(OFFSCREEN_ptr: Pointer; CompositeBuf_ptr : Pointer): Pointer; stdcall;
+var
+  CompositeBuf2_OFFSCREEN : CompositeBuf2_OFFSCREENHandler = CompositeBuf2_OFFSCREENHandler($004B8A80);
+
+type
+  DeselectAllUnitsHandler = function: LongBool; cdecl;
+var
+  DeselectAllUnits : DeselectAllUnitsHandler = DeselectAllUnitsHandler($0048BD00);
+
+type
+  UpdateIngameGUIHandler = function(unk : Integer): Integer; stdcall;
+var
+  UpdateIngameGUI : UpdateIngameGUIHandler = UpdateIngameGUIHandler($00491D70);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not working.
 //////////////////////////////////////////////////////////////////////////////////////////
-type
-  YardOpenHandler = function (UnitPtr: Pointer; NewState: integer): Integer; stdcall;
-var
-  YardOpen: YardOpenHandler = YardOpenHandler($47DAC0);
-
-type
-  UnitStateProbeHandler = function (OffscreenPtr: Cardinal): Integer; stdcall;
-var
-  UnitStateProbe: UnitStateProbeHandler = UnitStateProbeHandler($00467E50);
-
-type
-  UnitBuilderProbeHandler = function (OffscreenPtr: Cardinal): Integer; stdcall;
-var
-  UnitBuilderProbe: UnitBuilderProbeHandler = UnitBuilderProbeHandler($004685A0);
-
 type
   TestUnitAIHandler = function ( BuildUnit : Cardinal; UnitPtr : Cardinal ): Byte; stdcall;
 var
@@ -771,56 +977,21 @@ var
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not used.
 //////////////////////////////////////////////////////////////////////////////////////////
-type
-  // creates unitstatemask based on actual unitinfo template
-  // called for existing unit (!)
-  Unit_CreateUnitsInGameHandler = function (unitptr : Pointer;
-                                            PosX: Integer;
-                                            PosY: Integer;
-                                            PosZ: Integer;
-                                            FullHp: Integer) : LongBool; stdcall;
-var
-  Unit_CreateUnitsInGame : Unit_CreateUnitsInGameHandler = Unit_CreateUnitsInGameHandler($485A40);  // boneyards 45BD31
 
 type
-  Unit_CreateModelAndCobHandler = function (UnitPtr : Pointer) : Pointer; stdcall;
+  UNITS_BroadcastUnitBuildFinishedHandler = procedure (BuilderUnitPtr, UnitPtr : Pointer); stdcall;
 var
-  Unit_CreateModelAndCob : Unit_CreateModelAndCobHandler = Unit_CreateModelAndCobHandler($00485D40);
-  
-type
-  Unit_FixPosY_SeaHandler = function (UnitPtr : Pointer) : LongInt; stdcall;
-var
-  Unit_FixPosY_Sea : Unit_FixPosY_SeaHandler = Unit_FixPosY_SeaHandler($0048A870);
+  UNITS_BroadcastUnitBuildFinished : UNITS_BroadcastUnitBuildFinishedHandler = UNITS_BroadcastUnitBuildFinishedHandler($0041B8D0);
 
 type
-  DrawUnitHandler = function (OFFSCREEN_ptr: Cardinal; UnitPtr : Pointer) : LongInt; stdcall;
+  TakeScreenshotHandler = function (FileName : PAnsiChar; OffscreenPtr: Pointer) : Integer; stdcall;
 var
-  DrawUnit : DrawUnitHandler = DrawUnitHandler($0045AC20);
+  TakeScreenshot : TakeScreenshotHandler = TakeScreenshotHandler($004CAEC0);
 
 type
-  Unit_SetSpeedHandler = procedure ( UnitPtr: Pointer ); stdcall;
+  TakeScreenshotOrgHandler = function (DirName : PAnsiChar; FileName : PAnsiChar) : Integer; stdcall;
 var
-  Unit_SetSpeed : Unit_SetSpeedHandler = Unit_SetSpeedHandler($437840);
-  
-type
-  Unit_StartWeaponsScriptsHandler = procedure ( UnitPtr: Pointer ); stdcall;
-var
-  Unit_StartWeaponsScripts : Unit_StartWeaponsScriptsHandler = Unit_StartWeaponsScriptsHandler($49E070);
-
-type
-  Unit_RecreateHandler = function ( PlayerIndex: Byte; UnitPtr: Pointer): Cardinal; stdcall;
-var
-  Unit_Recreate: Unit_RecreateHandler = Unit_RecreateHandler($4861D0);
-
-type
-  UNITS_AllocateMovementClassHandler = function ( UnitPtr: Pointer): Pointer; stdcall;
-var
-  UNITS_AllocateMovementClass: UNITS_AllocateMovementClassHandler = UNITS_AllocateMovementClassHandler($00485E50);
-  
-type
-  cmalloc_MM__Handler = function (Size : Cardinal) : Integer; cdecl;
-var
-  cmalloc_MM__ : cmalloc_MM__Handler =  cmalloc_MM__Handler($004B4F10);
+  TakeScreenshotOrg : TakeScreenshotOrgHandler = TakeScreenshotOrgHandler($004CB170);
 
 type
   AirOrder_InitHandler = function (UnitOrder : Cardinal; Pos_p: Cardinal) : Cardinal; stdcall;
@@ -847,7 +1018,78 @@ type
 var
   AirOrder_SetShortMaskState : AirOrder_SetShortMaskStateHandler = AirOrder_SetShortMaskStateHandler($0043D210);
 
+type
+  LoadTNTHandler = function: Integer; register;
+var
+  LoadTNT : LoadTNTHandler = LoadTNTHandler($00483610);
+
+type
+  LoadHeightMapHandler = function() : Integer; cdecl;
+var
+  LoadHeightMap : LoadHeightMapHandler = LoadHeightMapHandler($00440940);
+
+type
+  LoadMap_PLOT2Handler = function(): Integer; cdecl;
+var
+  LoadMap_PLOT2 : LoadMap_PLOT2Handler = LoadMap_PLOT2Handler($482C20);
+
+type
+  LoadFeatureAnimDataHandler = function(TNTHandle : Pointer): Pointer; stdcall;
+var
+  LoadFeatureAnimData : LoadFeatureAnimDataHandler = LoadFeatureAnimDataHandler($421F20);
+
+type
+  ResetEyeballMemoryHandler = function(): Pointer; cdecl;
+var
+  ResetEyeballMemory : ResetEyeballMemoryHandler = ResetEyeballMemoryHandler($481500);
+
+type
+  InitRadarPictureHandler = function(): Integer; cdecl;
+var
+  InitRadarPicture : InitRadarPictureHandler = InitRadarPictureHandler($466780);
+
+type
+  FreeRadarPictureHandler = function(): Integer; cdecl;
+var
+  FreeRadarPicture : FreeRadarPictureHandler = FreeRadarPictureHandler($466AA0);
+
+type
+  LoadFeaturesHandler = function() : Integer; cdecl;
+var
+  LoadFeatures : LoadFeaturesHandler = LoadFeaturesHandler($422EA0);
+
+type
+  LoadMetalSpotsHandler = function() : Integer; cdecl;
+var
+  LoadMetalSpots : LoadMetalSpotsHandler = LoadMetalSpotsHandler($422040);
+
+type
+  LoadFeatureTdfHandler = procedure(); cdecl;
+var
+  LoadFeatureTdf : LoadFeatureTdfHandler = LoadFeatureTdfHandler($4222E0);
+
+type
+  FreeTerrainDataHandler = procedure(); cdecl;
+var
+  FreeTerrainData : FreeTerrainDataHandler = FreeTerrainDataHandler($483DD0);
+
+type
+  InitScroolPropertyHandler = procedure(); cdecl;
+var
+  InitScroolProperty : InitScroolPropertyHandler = InitScroolPropertyHandler($41C2B0);
+
+type
+  SetShadingAnglesHandler = procedure(a1, a2, a3: single); stdcall;
+var
+  SetShadingAngles : SetShadingAnglesHandler = SetShadingAnglesHandler($004597F0);
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+procedure FreeUnitMem(UnitPtr: PUnitStruct);
+
 implementation
+uses
+  Windows;
 
 procedure InterpretInternalCommand(CommandText: string);
 begin
@@ -857,6 +1099,42 @@ end;
 procedure SendTextLocal(Text: string);
 begin
   SendText(PAnsiChar(Text), 0);
+end;
+
+procedure FreeUnitMem(UnitPtr: PUnitStruct);
+  procedure FreeCob(pUnit: PUnitStruct);
+  asm
+    mov     esi, pUnit
+    mov     ecx, [esi+TUnitStruct.p_UnitScriptsData]
+    mov     eax, [ecx]
+    push    1
+    call    dword ptr [eax+50h] // release units script
+  end;
+var
+  CobScript : Pointer;
+ // ObjectStateFreeRes : Integer;
+begin
+  PUnitStruct(UnitPtr).nKills := 0;
+  FreeUnitOrders(UnitPtr);
+  CobScript := UnitPtr.p_UnitScriptsData;
+  if CobScript <> nil then
+  begin
+    FreeCob(UnitPtr);
+    UnitPtr.p_UnitScriptsData := nil;
+  end;
+  if UnitPtr.p_Object3DO <> nil then
+  begin
+    FreeObjectState(UnitPtr.p_Object3DO);
+    UnitPtr.p_Object3DO := nil;
+  end;
+  if UnitPtr.p_MovementClass <> nil then
+  begin
+    FreeMoveClass(UnitPtr.p_Object3DO, nil, UnitPtr.p_MovementClass);
+    free_MMwapper__(UnitPtr.p_MovementClass);
+    UnitPtr.p_MovementClass := nil;
+  end;
+  UnitPtr.nUnitInfoID := 0;
+  ZeroMemory(UnitPtr, SizeOf(TUnitStruct));
 end;
 
 end.

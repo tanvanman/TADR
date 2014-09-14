@@ -21,6 +21,7 @@ Procedure OnUninstallTAExceptionsLog;
 //procedure TAExceptionsLog_LogHAPINET;
 procedure TAExceptionsLog_COBCallbackEmptyCOB;
 procedure TAExceptionsLog_COBRunScriptEmptyCOB;
+procedure TAExceptionsLog_COBRunScriptEmptyCOB2;
 procedure TAExceptionsLog_AIBuildUnitInfoTooHigh;
 //procedure TAExceptionsLog_MissingObjectState;
 
@@ -71,6 +72,11 @@ begin
                           @TAExceptionsLog_COBRunScriptEmptyCOB,
                           $004B0A70, 0);
 
+    TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
+                          'prevent crash when pointer to COB is nil2',
+                          @TAExceptionsLog_COBRunScriptEmptyCOB2,
+                          $004B094D, 0);
+
     if IniSettings.Plugin_AiNukes then
       TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
                             'AI build probability unit type too high',
@@ -91,7 +97,7 @@ procedure COBCallbackEmptyCOB_Message(a4, a5, a6, a7: Cardinal; ScriptName: PAns
 var
   msg :string;
 begin
-  SetPausedState(True, True);
+  //SetPausedState(True, True);
   msg := 'Error in processing callback of unit script' +#10#13+
          'a1: ' + IntToHex(a1, 8) +#10#13+
          'a2: ' + IntToHex(a2, 8) +#10#13+
@@ -164,7 +170,19 @@ begin
     UnitPtr := Pointer(a2 - $73);
     if PUnitStruct(UnitPtr).p_UnitDef <> nil then
       UnitInfo := PUnitStruct(UnitPtr).p_UnitDef;
-  end;
+  end else
+    if (ActionName = 'Create') or
+       (ActionName = 'Activate') or
+       (ActionName = 'Deactivate') or
+       (ActionName = 'StartBuilding') or
+       (ActionName = 'EndTransport') or
+       (ActionName = 'StopBuilding') then
+    begin
+      //UnitPtr := Pointer(a2 - $73);
+      //if PUnitStruct(UnitPtr).p_UnitDef <> nil then
+      //  UnitInfo := PUnitStruct(UnitPtr).p_UnitDef;
+    end;
+
   if UnitPtr <> nil then
   begin
     if UnitInfo <> nil then
@@ -195,6 +213,31 @@ CorrectCOBCall :
     mov     eax, [ecx+8]
     push    ebx
     push $004B0A75;
+    call PatchNJump;
+end;
+
+procedure TAExceptionsLog_COBRunScriptEmptyCOB2;
+label
+  CorrectCOBCall;
+asm
+    push    ecx
+    pushf
+    test    ecx, ecx
+    jnz CorrectCOBCall
+    popf
+    pop     ecx
+    mov     ecx, [esp+18h]
+    push    esi
+    push    ecx
+    call LogMissingCob
+    push $004B09AA;
+    call PatchNJump;
+CorrectCOBCall :
+    popf
+    pop     ecx
+    mov     eax, [edi+8]
+    mov     edx, [eax+4]
+    push $004B0953;
     call PatchNJump;
 end;
 

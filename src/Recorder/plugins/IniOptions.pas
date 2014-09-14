@@ -21,8 +21,8 @@ type
 
     ScriptorPath         : String;
     SharedMapsPath       : String;
+    SharedBasicGameData  : String;
 
-    Plugin_Builders      : Boolean;
     Plugin_AiNukes       : Boolean;
     Plugin_AiBuildList   : Boolean;
 
@@ -30,7 +30,7 @@ type
 
     { GUI Plugins }
     Plugin_Colors        : Boolean;
-    Colors               : array [0..30] of Cardinal;
+    Colors               : array[0..3] of array[0..30] of Cardinal;
     Plugin_HBWidth       : Integer;
     Plugin_HBDynamicSize : Boolean;
     Plugin_HBCategory1   : Cardinal;
@@ -172,14 +172,14 @@ end;
 
 function ReadINISettings: boolean;
 
-  function ReadIniBool(var iniFile: TIniFile; sect: string; ident: string; default: boolean): Boolean;
+  function ReadIniBool(var IniFile: TIniFile; sect: string; ident: string; default: boolean): Boolean;
   var
     temp: string;
   begin
     Result:= Default;
-    if iniFile.ValueExists(sect, ident) then
+    if IniFile.ValueExists(sect, ident) then
     begin
-      temp:= iniFile.ReadString(sect, ident, '');
+      temp:= IniFile.ReadString(sect, ident, '');
       if Length(temp) > 1 then
       begin
         if Pos('FALSE', temp) <> 0 then
@@ -194,14 +194,14 @@ function ReadINISettings: boolean;
     end;
   end;
 
-  function ReadIniValue(var iniFile: TIniFile; sect: string; ident: string; default: integer): Integer;
+  function ReadIniValue(var IniFile: TIniFile; sect: string; ident: string; default: integer): Integer;
   var
     temp: string;
   begin
     Result:= default;
-    if iniFile.ValueExists(sect, ident) then
+    if IniFile.ValueExists(sect, ident) then
     begin
-      temp:= iniFile.ReadString(sect, ident, '');
+      temp:= IniFile.ReadString(sect, ident, '');
       if Length(temp) >= 1 then
       begin
         try
@@ -218,14 +218,14 @@ function ReadINISettings: boolean;
     end;
   end;
 
-  function ReadIniString(var iniFile: TIniFile; sect: string; ident: string; default: string): String;
+  function ReadIniString(var IniFile: TIniFile; sect: string; ident: string; default: string): String;
   var
     temp: string;
   begin
     Result:= default;
-    if iniFile.ValueExists(sect, ident) then
+    if IniFile.ValueExists(sect, ident) then
     begin
-      temp:= iniFile.ReadString(sect, ident, '');
+      temp:= IniFile.ReadString(sect, ident, '');
       if Length(temp) > 1 then
       begin
         try
@@ -242,14 +242,14 @@ function ReadINISettings: boolean;
     end;
   end;
 
-function ReadIniPath(var iniFile: TIniFile; sect: string; ident: string; out path: string): boolean;
+function ReadIniPath(var IniFile: TIniFile; sect: string; ident: string; out path: string): boolean;
   var
     temp: string;
   begin
     Result:= false;
-    if iniFile.ValueExists(sect, ident) then
+    if IniFile.ValueExists(sect, ident) then
     begin
-      temp:= iniFile.ReadString(sect, ident, '');
+      temp:= IniFile.ReadString(sect, ident, '');
       if Length(temp) > 1 then
       begin
         try
@@ -266,14 +266,14 @@ function ReadIniPath(var iniFile: TIniFile; sect: string; ident: string; out pat
     end;
   end;
 
-  function ReadIniDword(var iniFile: TIniFile; sect: string; ident: string; default: dword): Integer;
+  function ReadIniDword(var IniFile: TIniFile; sect: string; ident: string; default: dword): Integer;
   var
     temp: string;
   begin
     Result:= default;
-    if iniFile.ValueExists(sect, ident) then
+    if IniFile.ValueExists(sect, ident) then
     begin
-      temp:= iniFile.ReadString(sect, ident, '');
+      temp:= IniFile.ReadString(sect, ident, '');
       if Length(temp) > 1 then
       begin
         try
@@ -290,7 +290,7 @@ function ReadIniPath(var iniFile: TIniFile; sect: string; ident: string; out pat
   end;
 
 var
-  iniFile: TIniFile;
+  IniFile: TIniFile;
   MultiGameWeapon: Boolean;
   i: integer;
   currcolor: string;
@@ -304,76 +304,100 @@ begin
 
   if GetINIFileName <> #0 then
   begin
-    iniFile:= TIniFile.Create(GetINIFileName);
+    IniFile:= TIniFile.Create(GetINIFileName);
     try
-      IniSettings.ModId := ReadIniValue(iniFile, 'MOD','ID', -1);
-      IniSettings.Name := ReadIniString(iniFile, 'MOD','Name', '');
-      IniSettings.Version := ReadIniString(iniFile, 'MOD','Version', '');
-      IniSettings.RegName := ReadIniString(iniFile, 'MOD','RegName', '');
+      IniSettings.ModId := ReadIniValue(IniFile, 'MOD','ID', -1);
+      IniSettings.Name := ReadIniString(IniFile, 'MOD','Name', '');
+      IniSettings.Version := ReadIniString(IniFile, 'MOD','Version', '');
+      IniSettings.RegName := ReadIniString(IniFile, 'MOD','RegName', '');
 
-      IniSettings.DemosPrefix := ReadIniString(iniFile, 'MOD','DemosFileNamePrefix', '');
+      IniSettings.DemosPrefix := ReadIniString(IniFile, 'MOD','DemosFileNamePrefix', '');
 
-      IniSettings.RanksURL := ReadIniString(iniFile, 'Preferences','RanksURL', '');
+      IniSettings.RanksURL := ReadIniString(IniFile, 'Preferences','RanksURL', '');
 
-      IniSettings.UnitType := ReadIniValue(iniFile, 'Preferences', 'UnitType', 512);
-      IniSettings.WeaponType := ReadIniValue(iniFile, 'Preferences', 'WeaponType', 256);
-      multiGameWeapon := ReadIniBool(iniFile, 'Preferences','MultiGameWeapon', False);
+      IniSettings.UnitType := ReadIniValue(IniFile, 'Preferences', 'UnitType', 512);
+      IniSettings.WeaponType := ReadIniValue(IniFile, 'Preferences', 'WeaponType', 256);
+      multiGameWeapon := ReadIniBool(IniFile, 'Preferences','MultiGameWeapon', False);
       IniSettings.WeaponIdPatch := (IniSettings.WeaponType > 256) and multiGameWeapon;
 
-      IniSettings.UnitLimit := ReadIniValue(iniFile, 'Preferences', 'UnitLimit', 0);
+      IniSettings.UnitLimit := ReadIniValue(IniFile, 'Preferences', 'UnitLimit', 0);
 
-      IniSettings.ScriptorPath := ReadIniString(iniFile, 'Preferences', 'ScriptorIncludePath', '');
+      IniSettings.ScriptorPath := ReadIniString(IniFile, 'Preferences', 'ScriptorIncludePath', '');
       if IniSettings.ScriptorPath <> '' then
         IniSettings.ScriptorPath := IncludeTrailingPathDelimiter(IniSettings.ScriptorPath);
 
-      IniSettings.SharedMapsPath := ReadIniString(iniFile, 'Preferences', 'SharedMapsPath', '');
+      IniSettings.SharedMapsPath := ReadIniString(IniFile, 'Preferences', 'SharedMapsPath', '');
       if IniSettings.SharedMapsPath <> '' then
         IniSettings.SharedMapsPath := IncludeTrailingPathDelimiter(IniSettings.SharedMapsPath);
 
-      IniSettings.Plugin_Builders := ReadIniBool(iniFile, 'Preferences', 'Builders', False);
-      IniSettings.Plugin_AiNukes := ReadIniBool(iniFile, 'Preferences', 'AiNukes', False);
-      IniSettings.Plugin_AiBuildList := ReadIniBool(iniFile, 'Preferences', 'AiBuildListExpand', False);
+      IniSettings.SharedBasicGameData := ReadIniString(IniFile, 'Preferences', 'SharedBasicGameData', '');
+      if IniSettings.SharedBasicGameData <> '' then
+        IniSettings.SharedBasicGameData := IncludeTrailingPathDelimiter(IniSettings.SharedBasicGameData);
 
-      IniSettings.CreateStatsFile := ReadIniBool(iniFile, 'Preferences', 'CreateStats', False);
+      IniSettings.Plugin_AiNukes := ReadIniBool(IniFile, 'Preferences', 'AiNukes', False);
+      IniSettings.Plugin_AiBuildList := ReadIniBool(IniFile, 'Preferences', 'AiBuildListExpand', False);
 
-      if iniFile.SectionExists('Colors') then
+      IniSettings.CreateStatsFile := ReadIniBool(IniFile, 'Preferences', 'CreateStats', False);
+
+      if IniFile.SectionExists('Colors') or
+         IniFile.SectionExists('ColorsArm') or
+         IniFile.SectionExists('ColorsCore') or
+         IniFile.SectionExists('ColorsWatch') then
       begin
         IniSettings.Plugin_Colors := True;
-        for i:= 0 to 29 do
+        for i := 0 to 29 do
         begin
-          currcolor := GetEnumName(TypeInfo(TIniColors), i);
-          IniSettings.Colors[i] := ReadIniValue(iniFile, 'Colors', UpperCase(currcolor), 0);
+          if IniFile.SectionExists('Colors') then
+          begin
+            currcolor := GetEnumName(TypeInfo(TIniColors), i);
+            IniSettings.Colors[0][i] := ReadIniValue(IniFile, 'Colors', UpperCase(currcolor), 0);
+          end;
+          if IniFile.SectionExists('ColorsArm') then
+          begin
+            currcolor := GetEnumName(TypeInfo(TIniColors), i);
+            IniSettings.Colors[1][i] := ReadIniValue(IniFile, 'ColorsArm', UpperCase(currcolor), 0);
+          end;
+          if IniFile.SectionExists('ColorsCore') then
+          begin
+            currcolor := GetEnumName(TypeInfo(TIniColors), i);
+            IniSettings.Colors[2][i] := ReadIniValue(IniFile, 'ColorsCore', UpperCase(currcolor), 0);
+          end;
+          if IniFile.SectionExists('ColorsWatch') then
+          begin
+            currcolor := GetEnumName(TypeInfo(TIniColors), i);
+            IniSettings.Colors[3][i] := ReadIniValue(IniFile, 'ColorsWatch', UpperCase(currcolor), 0);
+          end;
         end;
-        if ReadIniBool(iniFile, 'Colors','MainMenuDotsDisabled', False) then
-          IniSettings.Colors[30]:= 1
+        if ReadIniBool(IniFile, 'Colors', 'MainMenuDotsDisabled', False) then
+          IniSettings.Colors[0][30] := 1
         else
-          IniSettings.Colors[30]:= 0;
+          IniSettings.Colors[0][30] := 0;
       end;
 
-      IniSettings.Plugin_HBWidth := ReadIniValue(iniFile, 'Preferences', 'HealthBarWidth', 0);
-      IniSettings.Plugin_HBDynamicSize := ReadIniBool(iniFile, 'Preferences', 'HealthBarDynamicSize', False);
-      IniSettings.Plugin_HBCategory1 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat1', 0);
-      IniSettings.Plugin_HBCategory2 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat2', 0);
-      IniSettings.Plugin_HBCategory3 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat3', 0);
-      IniSettings.Plugin_HBCategory4 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
-      IniSettings.Plugin_HBCategory5 := ReadIniValue(iniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
-      IniSettings.Plugin_MinWeaponReload := ReadIniValue(iniFile, 'Preferences', 'MinWeaponReloadTime', 0);
-      IniSettings.Plugin_Transporters := ReadIniBool(iniFile, 'Preferences', 'TransportersCount', False);
-      IniSettings.Plugin_Stockpile := ReadIniBool(iniFile, 'Preferences', 'StockpileCount', False);
-      IniSettings.Plugin_CircleUnitSelect := ReadIniBool(iniFile, 'Preferences', 'CircleUnitSelect', False);
-      IniSettings.Plugin_ForceDrawBuildSpotNano := ReadIniBool(iniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
-      IniSettings.Plugin_DrawBuildSpotQueueNano := ReadIniBool(iniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);
-      IniSettings.Plugin_BuildSpotNanoShimmer := ReadIniBool(iniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
+      IniSettings.Plugin_HBWidth := ReadIniValue(IniFile, 'Preferences', 'HealthBarWidth', 0);
+      IniSettings.Plugin_HBDynamicSize := ReadIniBool(IniFile, 'Preferences', 'HealthBarDynamicSize', False);
+      IniSettings.Plugin_HBCategory1 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat1', 0);
+      IniSettings.Plugin_HBCategory2 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat2', 0);
+      IniSettings.Plugin_HBCategory3 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat3', 0);
+      IniSettings.Plugin_HBCategory4 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
+      IniSettings.Plugin_HBCategory5 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
+      IniSettings.Plugin_MinWeaponReload := ReadIniValue(IniFile, 'Preferences', 'MinWeaponReloadTime', 0);
+      IniSettings.Plugin_Transporters := ReadIniBool(IniFile, 'Preferences', 'TransportersCount', False);
+      IniSettings.Plugin_Stockpile := ReadIniBool(IniFile, 'Preferences', 'StockpileCount', False);
+      IniSettings.Plugin_CircleUnitSelect := ReadIniBool(IniFile, 'Preferences', 'CircleUnitSelect', False);
+      IniSettings.Plugin_ForceDrawBuildSpotNano := ReadIniBool(IniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
+      IniSettings.Plugin_DrawBuildSpotQueueNano := ReadIniBool(IniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);
+      IniSettings.Plugin_BuildSpotNanoShimmer := ReadIniBool(IniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
 
-      IniSettings.Plugin_TrueIncome := ReadIniBool(iniFile, 'Preferences', 'TrueIncome', False);
+      IniSettings.Plugin_TrueIncome := ReadIniBool(IniFile, 'Preferences', 'TrueIncome', False);
 
-      IniSettings.Plugin_ClockPosition := ReadIniValue(iniFile, 'Preferences', 'ClockPosition', 0);
-      IniSettings.Plugin_MinReclaimTime := ReadIniValue(iniFile, 'Preferences', 'MinReclaimTime', 0);
+      IniSettings.Plugin_ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
+      IniSettings.Plugin_MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
 
-      IniSettings.Plugin_Gaf := ReadIniBool(iniFile, 'Preferences', 'GAFExt', False);
+      IniSettings.Plugin_Gaf := ReadIniBool(IniFile, 'Preferences', 'GAFExt', False);
     finally
       Result:= True;
-      iniFile.Free;
+      IniFile.Free;
     end;
 
     if FixModsINI then

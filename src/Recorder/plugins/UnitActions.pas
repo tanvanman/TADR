@@ -44,8 +44,6 @@ begin
 end;
 
 function GetPlugin : TPluginData;
-var
-  Replacement : Word;
 begin
   if IsTAVersion31 and State_UnitActions then
   begin
@@ -54,15 +52,6 @@ begin
                             State_UnitActions,
                             @OnInstallUnitActions,
                             @OnUninstallUnitActions );
-
-    if IniSettings.Plugin_AiNukes then
-    begin
-      Replacement := $86D0;
-      Result.MakeReplacement(State_UnitActions,
-                            'nukes for AI',
-                            $004FC980,
-                            Replacement, SizeOf(Word));
-    end;
 
     Result.MakeRelativeJmp( State_UnitActions,
                           'Ground transporter overload fix',
@@ -88,12 +77,12 @@ begin
                             'Enable resurrect and capture orders fot VTOLs',
                             @UnitActions_ExtraVTOLOrders,
                             $00438AE3, 0);
-
+{
      Result.MakeRelativeJmp( State_UnitActions,
                             'UnitActions_UnitBuildWeapons',
                             @UnitActions_UnitBuildWeapons,
                             $00419B59, 0);
-
+}
      Result.MakeRelativeJmp( State_UnitActions,
                             'UnitActions_AssignAISquad',
                             @UnitActions_AssignAISquad,

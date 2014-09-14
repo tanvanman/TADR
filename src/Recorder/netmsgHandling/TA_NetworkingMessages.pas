@@ -259,6 +259,15 @@ type
     Recreate       : Byte;
   end;
 
+const
+  TANM_Rec2Rec_SetNanolatheParticles = $0E;
+type
+  PRec2Rec_SetNanolatheParticles_Message = ^TRec2Rec_SetNanolatheParticles_Message;
+  TRec2Rec_SetNanolatheParticles_Message = packed record
+    PosFrom        : TPosition;
+    PosTo          : TPosition;
+  end;
+
 {
 After interpreting vote command by host, launches voting. Host -> players
 }

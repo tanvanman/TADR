@@ -29,11 +29,13 @@ Procedure OnUninstallBuilders;
 procedure Builders_MobileAddBuild;
 procedure Builders_YardmapForMobile;
 procedure Builders_PlantBuildNonMobile;
+procedure Builders_AI_MobileBuildStockpile;
 
 implementation
 uses
   IniOptions,
   TA_FunctionsU,
+  TA_MemoryStructures,
   TA_MemoryConstants,
   TA_MemoryLocations;
 
@@ -61,7 +63,7 @@ begin
                             @OnInstallBuilders,
                             @OnUnInstallBuilders );
 
-    Replacement := 0;
+    Replacement := 0; 
     //Allow registration of yardmap data for any unit, including mobile, into memory
     BuildersPlugin.MakeRelativeJmp( State_Builders, '',
                                     @Builders_YardmapForMobile,
@@ -80,6 +82,21 @@ begin
                           'Modify build check',
                           @Builders_PlantBuildNonMobile,
                           $0047DBD6, 0);
+
+    if IniSettings.Plugin_AiNukes then
+    begin
+      Replacement := $86D0;
+      BuildersPlugin.MakeReplacement(State_Builders,
+                            'nukes for AI',
+                            $004FC980,
+                            Replacement, SizeOf(Word));
+
+      BuildersPlugin.MakeRelativeJmp( State_Builders,
+                              '',
+                              @Builders_AI_MobileBuildStockpile,
+                              $004081AC, 4);
+
+    end;
 
     if IniSettings.Plugin_AiBuildList then
     begin
@@ -102,13 +119,26 @@ begin
     Result := nil;
 end;
 
+function IsUnitWeaponNuke(UnitInfoId : Cardinal): LongBool; stdcall;
+var
+  UnitInfo : PUnitInfo;
+  UnitInfoName : String;
+begin
+  Result := False;
+  UnitInfo := TAMem.UnitInfoId2Ptr(Word(UnitInfoId));
+  UnitInfoName := UnitInfo.szUnitName;
+  if (Pos('MAKENUKE', UnitInfoName) <> 0) or
+     (Pos('MAKEANTI', UnitInfoName) <> 0) then Result := True;
+end;
+
 procedure Builders_MobileAddBuild;
 label
-  PreventBuilding;
+  AddToQueue;
 asm
     mov     eax, dword ptr [TAdynmemStructPtr]
     test    bx, bx
-    jz      PreventBuilding
+    // unitinfo id of clicked type = 0
+    jz      AddToQueue
     mov     eax, dword ptr [TAdynmemStructPtr]
     mov     ecx, [eax+37E9Eh]
     and     ecx, 0FFFFh
@@ -117,16 +147,69 @@ asm
     add     edx, ecx
     lea     ecx, [edx+edx*8]
     mov     edx, [eax+1439Bh]
-    cmp     byte ptr [ecx+edx+22Fh], 0
-    jz      PreventBuilding
-    mov     byte ptr [eax+2CC3h], 0Eh   
-    // jump to the "push 0" at the end of the original TA code when handling adding items to the build queue
+    cmp     byte ptr [ecx+edx+TUnitInfo.cBMCode], 0
+    // is builder - plant or mobile constructor
+    jz      AddToQueue
+    push    ecx
+    push    ebx
+    call    IsUnitWeaponNuke
+    test    eax, eax
+    mov     eax, dword ptr [TAdynmemStructPtr]
+    mov     edx, [eax+1439Bh]
+    pop     ecx
+    jnz     AddToQueue
+    mov     byte ptr [eax+2CC3h], 0Eh
     push $0041AB95;
-    call PatchNJump; 
-    // jump to the location for preventing adding items to the TA build queue
-PreventBuilding:
+    call PatchNJump;
+AddToQueue:
     push $0041ABBB;
     call PatchNJump;
+end;
+
+function QueueIfStockpile(UnitPtr: PunitStruct; UnitInfoId: Cardinal): LongBool; stdcall
+var
+  UnitInfo : PUnitInfo;
+  bIsUnitWeaponNuke : Boolean;
+begin
+  bIsUnitWeaponNuke := IsUnitWeaponNuke(UnitInfoId);
+  if bIsUnitWeaponNuke then
+  begin
+    UnitInfo := TAMem.UnitInfoId2Ptr(Word(UnitInfoId));
+    OrderSubBuild(UnitInfo.szUnitName, UnitPtr, 1);
+  end;
+
+  Result := bIsUnitWeaponNuke;
+end;
+
+procedure Builders_AI_MobileBuildStockpile;
+label
+  NoTypeFromProbabilityList,
+  BuildAsUnit;
+asm
+  test    ax, ax
+  jz      NoTypeFromProbabilityList
+  push    edx
+  push    eax
+  push    ebx
+  movzx   ebx, ax
+  push    ecx
+  push    ebx
+  push    ebp
+  call    QueueIfStockpile
+  test    eax, eax
+  pop     ecx
+  pop     ebx
+  pop     eax
+  pop     edx
+  jz      BuildAsUnit
+  push $004082B5;
+  call PatchNJump;
+BuildAsUnit :
+  push $004081B5;
+  call PatchNJump;
+NoTypeFromProbabilityList :
+  push $004082B9;
+  call PatchNJump;
 end;
 
 {
@@ -172,7 +255,7 @@ label
 asm
     pushAD
     mov     ecx, [esp+34h]
-    push    $005119B8                // null str
+    push    Null_str                 // null str
     push    $40                      // buff len
     push    $00503988  // "YardMap"
     lea     ebx, TempString

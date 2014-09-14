@@ -36,7 +36,7 @@ procedure SwitchSetShareEnergy;
 implementation
 uses
   idplay, TA_MemoryLocations, TA_MemoryStructures,TA_MemoryConstants, TA_FunctionsU, //BattleRoomScroll,
-  COB_Extensions, TAMemManipulations, DropUnitsWeaponsList;
+  COB_Extensions, TAMemManipulations, DropUnitsWeaponsList, DynamicMap, GUIEnhancements, CampaignExtensions;
 
 Procedure OnInstallKeyboardHook;
 begin
@@ -70,15 +70,7 @@ end;
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
 var
-  UnitAtMouse: Pointer;
-  UnitSt: PUnitStruct;
-  //PlayerSt: PPlayerStruct;
-  //  FoundArray: TFoundUnits;
-  //  i, FoundCount: Integer;
-  //  tadynm: PTAdynmemStruct;
-  //res: integer;
-  //ResultUnit: Pointer;
-  //ScreenshotCreate: TScreenshotCreate;
+  UnitAtMouse: PUnitStruct;
 begin
   if nCode < 1 then
     CallNextHookEx(hKeyboardHook, nCode, wParam, lParam)
@@ -135,12 +127,11 @@ begin
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
                   UnitAtMouse:= TAUnit.AtMouse;
-                  UnitSt:= UnitAtMouse;
                   if (UnitAtMouse <> nil) then
                     if TAUnit.IsOnThisComp(UnitAtMouse, False) then
                     begin
-                      PUnitOrder(UnitSt.p_UnitOrders).p_NextOrder_uos := nil;
-                      PUnitStruct(UnitSt).p_FutureOrder := nil;
+                      PUnitOrder(UnitAtMouse.p_UnitOrders).p_NextOrder_uos := nil;
+                      PUnitStruct(UnitAtMouse).p_FutureOrder := nil;
                       Result := 1;
                       Exit;
                     end;
@@ -230,7 +221,7 @@ begin
                 end;
               end; }
         $13 : begin     // pause button
-                if Assigned(globalDPlay) then
+                if TAData.NetworkLayerEnabled then
                   if globalDPlay.AutopauseAtStart and not globalDPlay.Players[TAData.ViewPlayer+1].IsServer then
                   begin
                     Msg_Reminder(PAnsiChar('Only the host can unpause.' +#13#10+ 'You can also vote to go with .ready command'), 1);
@@ -238,22 +229,16 @@ begin
                     Exit;
                   end;
               end;
-     {   $45 : begin     // left alt + shift + e
+{        $45 : begin     // left alt + shift + e
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-                  if ((PTAdynmemStruct(TAData.MainStructPtr)^.nPlayersSynchMask shr 3) and 1 = 1) then
-                  begin
-                  end;
-                  
                   UnitAtMouse := TAUnit.AtMouse;
                   if (UnitAtMouse <> nil) then
                   begin
-                    SendTextLocal(BoolToStr(TAUnit.IsPlantReadyToBuild(UnitAtMouse, 0)));
-                    //Order2Unit(Ord(Action_BuildingBuild), 1, UnitAtMouse, nil, nil, UnitName2ID('ARMHAWK'), 1);
                   end;
                 end;
-              end; }
+              end;   }
 {        $46 : begin     // left alt + shift + f
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then

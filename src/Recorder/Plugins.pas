@@ -33,6 +33,7 @@ uses
   //KillDamage,
   ExplodeBitmaps,
   TAExceptionsLog,
+  CampaignExtensions,
   {$ENDIF}
   Colors,
   ClockPosition,
@@ -64,8 +65,7 @@ if OnMainRun then
   RegisterPlugin( UnitsExtend.GetPlugin() );
   RegisterPlugin( RegPathFix.GetPlugin() );
   {$IFDEF ExtraPlugins}
-  if IniSettings.Plugin_Builders then
-    RegisterPlugin( Builders.GetPlugin() );
+  RegisterPlugin( Builders.GetPlugin() );
   RegisterPlugin( ScriptCallsExtend.GetPlugin() );
   RegisterPlugin( ResurrectPatrol.GetPlugin() );
   RegisterPlugin( UnitActions.GetPlugin() );
@@ -74,6 +74,7 @@ if OnMainRun then
   if IniSettings.Plugin_Gaf then
     RegisterPlugin( ExplodeBitmaps.GetPlugin() );
   RegisterPlugin( TAExceptionsLog.GetPlugin() );
+  RegisterPlugin( CampaignExtensions.GetPlugin() );
   {$ENDIF}
   if IniSettings.Plugin_Colors then
     RegisterPlugin( Colors.GetPlugin() );
