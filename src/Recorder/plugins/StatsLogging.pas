@@ -142,7 +142,7 @@ end;
 procedure PlayerDied;
 asm
   pushAD
-  mov     dl, [esi+TPlayerStruct.cPlayerIndexZero]
+  mov     dl, [esi+TPlayerStruct.cPlayerIndex]
   push    edx
   call StatLog_PlayerDied
   popAD

@@ -15,6 +15,7 @@ uses
   LOS_extensions,
   TADemoConsts,
   TA_MemoryConstants,
+  TA_MemoryStructures,
   TA_MemoryLocations;
 
 Procedure GetCodeInjections( PluginData : TPluginData );
@@ -70,7 +71,7 @@ asm
   // check if the player is allied
   xor eax, eax  
   mov al, [edx+TAdynmemStruct_LOS_Sight]
-  mov ecx, [esi+UnitStruct_OwnerPtr]
+  mov ecx, [esi+TUnitStruct.p_Owner]
   cmp byte [eax+ecx+PlayerStruct_AlliedPlayers], 0
   jnz CanSeeUnit
 
@@ -112,7 +113,7 @@ asm
   // check if the player is allied
   xor edx, edx  
   mov dl, [eax+TAdynmemStruct_LOS_Sight]
-  mov ecx, [esi+UnitStruct_OwnerPtr]
+  mov ecx, [esi+TUnitStruct.p_Owner]
   cmp byte [edx+ecx+PlayerStruct_AlliedPlayers], 0
   jnz CanSeeUnit
     
@@ -153,7 +154,7 @@ asm
   // check if the player is allied
   xor edx, edx
   mov dl, [eax+TAdynmemStruct_LOS_Sight]
-  mov ecx, [esi+UnitStruct_OwnerPtr]
+  mov ecx, [esi+TUnitStruct.p_Owner]
   cmp byte [edx+ecx+PlayerStruct_AlliedPlayers], 0   
   jnz CanSeeUnit
     

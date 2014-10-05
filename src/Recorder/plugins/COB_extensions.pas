@@ -38,8 +38,8 @@ const
  // indicates if the 1st parameter(a unit ID) is local to this computer
  UNIT_IS_ON_THIS_COMP = 75;
  // returns local long id of unit
- ID_TO_LONGID = 76;
- CONFIRM_LONGID = 77;
+ UNIT_STAMP = 76;
+ CONFIRM_STAMP = 77;
  UNIT_TYPE_CRC = 78;
  UNIT_TYPE_CRC_TO_ID = 79;
  UNIT_TYPE_IN_CATEGORY = 80;
@@ -55,6 +55,7 @@ const
  UNIT_IN_PLAYER_LOS = 88;
  POSITION_IN_PLAYER_LOS = 89;
  OWNED_BY_ALLY = 90;
+ RESOURCES = 91;
 
  { Some specific }
  UNITX = 92;
@@ -65,14 +66,14 @@ const
  TURNY = 97;
  HEALTH_VAL = 98;
  MAKE_DAMAGE = 99;
- GET_CLOAKED = 100;
- SET_CLOAKED = 101;
- STATE_UNIT = 102;
- SFX_OCCUPY_STATE = 103;
- SELECTABLE = 104;
- ATTACH_UNIT = 105;
- RANDOM_FREE_PIECE = 106;
- MOBILE_PLANT = 107;
+ HEAL_UNIT = 100;
+ GET_CLOAKED = 101;
+ SET_CLOAKED = 102;
+ STATE_UNIT = 103;
+ SFX_OCCUPY_STATE = 104;
+ SELECTABLE = 105;
+ ATTACH_UNIT = 106;
+ RANDOM_FREE_PIECE = 107;
  CUSTOM_BAR_PROGRESS = 108;
  MEX_RATIO = 109;
 
@@ -124,11 +125,13 @@ const
  GET_UNITINFO = 150;
  SET_UNITINFO = 151;
  ENABLEDISABLE_UNIT = 152;
+ MOBILE_PLANT = 153;
 
  { Sfx }
  UNIT_SPEECH = 154;
  PLAY_3D_SOUND = 155;
  PLAY_GAF_ANIM = 156;
+ EMIT_SFX = 157;
 
  { Other }
  CALL_COB_PROC = 158;
@@ -328,20 +331,31 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       else
         result := BoolValues[TAUnit.IsOnThisComp(pointer(unitptr), True)];
       end;
-    ID_TO_LONGID :
+    UNIT_STAMP :
       begin
       if arg1 <> 0 then
-        result := TAUnit.Id2LongId(arg1)
+        result := HiWord(TAUnit.Id2LongId(arg1))
       else
-        result := TAUnit.GetLongId(pointer(unitptr));
+        result := HiWord(TAUnit.GetLongId(pointer(unitptr)));
       end;
     OWNED_BY_ALLY :
       begin
-      result := BoolValues[TAPlayer.GetAlliedState(TAUnit.GetOwnerPtr(TAUnit.Id2Ptr(arg1)), TAData.ViewPlayer)];
+      result := BoolValues[TAPlayer.GetAlliedState(TAUnit.GetOwnerPtr(TAUnit.Id2Ptr(arg1)), TAData.LocalPlayerID)];
       end;
-    CONFIRM_LONGID :
+    RESOURCES :
       begin
-      result := BoolValues[(TAunit.GetLongId(TAUnit.Id2Ptr(arg1)) = arg1)];
+      case arg2 of
+        1 : Result := Round(PPlayerStruct(TAPlayer.GetPlayerByIndex(arg1)).PlayerResources.fCurrentEnergy);
+        2 : Result := Round(PPlayerStruct(TAPlayer.GetPlayerByIndex(arg1)).PlayerResources.fCurrentMetal);
+        3 : Result := Round(PPlayerStruct(TAPlayer.GetPlayerByIndex(arg1)).PlayerResources.fEnergyProduction);
+        4 : Result := Round(PPlayerStruct(TAPlayer.GetPlayerByIndex(arg1)).PlayerResources.fMetalProduction);
+        5 : Result := Round(PPlayerStruct(TAPlayer.GetPlayerByIndex(arg1)).PlayerResources.fEnergyStorageMax);
+        6 : Result := Round(PPlayerStruct(TAPlayer.GetPlayerByIndex(arg1)).PlayerResources.fMetalStorageMax);
+      end;
+      end;
+    CONFIRM_STAMP :
+      begin
+      result := BoolValues[(HiWord(TAunit.GetLongId(TAUnit.Id2Ptr(arg1))) = arg2)];
       end;
     UNIT_TYPE_CRC :
       begin
@@ -356,7 +370,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     PLAYER_ACTIVE :
       begin
-      result := BoolValues[TAPlayer.IsPlayerActive(TAPlayer.GetPlayerByIndex(arg1))];
+      result := BoolValues[TAPlayer.IsActive(TAPlayer.GetPlayerByIndex(arg1))];
       end;
     PLAYER_TYPE :
       begin
@@ -436,6 +450,10 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       if ExtensionsNotForDemos then
         TAUnit.MakeDamage(TAUnit.Id2Ptr(arg3), TAUnit.Id2Ptr(arg4), TDmgType(arg1), arg2);
       end;
+    HEAL_UNIT :
+      begin
+        result := UNITS_HealUnit(TAUnit.Id2Ptr(arg1), TAUnit.Id2Ptr(arg2), PUnitInfo(TAUnit.Id2Ptr(arg1).p_UnitDef).nWorkerTime / 30 );
+      end;
     GET_CLOAKED :
       begin
       if arg1 <> 0 then
@@ -450,6 +468,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
         TAUnit.SetCloak(TAUnit.Id2Ptr(arg2), arg1)
       else
         TAUnit.SetCloak(pointer(unitptr), arg1);
+      UpdateIngameGUI(0);
       end;
     STATE_UNIT :
       begin
@@ -551,7 +570,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
           begin
             UnitinfoSt := TAMem.UnitInfoCrc2Ptr(arg1);
             if (UnitInfoSt.nCruiseAlt <> 0) and (arg4 = 6) then
-              Position.Y := GetPosHeight(@Position) + UnitInfoSt.nCruiseAlt - PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.SeaLevel;
+              Position.Y := GetPosHeight(@Position) + UnitInfoSt.nCruiseAlt - PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.SeaLevel;
             if arg3 = 10 then
               arg3 := TAUnit.GetOwnerIndex(pointer(unitptr));
             pUnit := TAUnit.CreateUnit(arg3, UnitinfoSt, Position, nil, False, False, arg4);
@@ -591,11 +610,11 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       case arg3 of
         1 : begin
             if Assigned(UnitSearchArr[arg1].UnitIds) then
-              result:= UnitSearchArr[arg1].UnitIds[arg2 - 1];
+              result:= Word(UnitSearchArr[arg1].UnitIds[arg2 - 1]);
             end;
         2 : begin
             if Assigned(SpawnedMinionsArr[arg1].UnitIds) then
-              result := SpawnedMinionsArr[arg1].UnitIds[arg2 - 1];
+              result := Word(SpawnedMinionsArr[arg1].UnitIds[arg2 - 1]);
             end;
       end;
       end;
@@ -619,9 +638,9 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     DISTANCE :
       begin
       if arg2 <> 0 then
-        result := LongWord(TAUnits.Distance(TAUnit.Id2Ptr(arg1), TAUnit.Id2Ptr(arg2)))
+        result := LongWord(TAUnits.Distance(@TAUnit.Id2Ptr(arg1).Position, @TAUnit.Id2Ptr(arg2).Position))
       else
-        result := LongWord(TAUnits.Distance(Pointer(UnitPtr), TAUnit.Id2Ptr(arg2)));
+        result := LongWord(TAUnits.Distance(@PUnitStruct(Pointer(UnitPtr)).Position, @TAUnit.Id2Ptr(arg2).Position));
       end;
     CURRENT_ORDER_TYPE :
       begin
@@ -728,23 +747,28 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     MAP_SEA_LEVEL :
       begin
-      result := PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.SeaLevel;
+      result := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.SeaLevel;
       end;
     IS_LAVA_MAP :
       begin
-      result := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).lIsLavaMap;
+      result := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).lIsLavaMap;
       end;
     SURFACE_METAL :
       begin
       if arg1 <> 0 then
-        PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).lSurfaceMetal := arg1;
-      result := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).lSurfaceMetal;
+        PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).lSurfaceMetal := arg1;
+      result := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).lSurfaceMetal;
       end;
     UNIT_IN_PLAYER_LOS :
       begin
       if arg1 <> 0 then
         if PUnitStruct(TAUnit.Id2Ptr(arg1)).p_Owner <> nil then
-          result := UnitInPlayerLOS(TAPlayer.GetPlayerByIndex(TAData.ViewPlayer), TAUnit.Id2Ptr(arg1));
+          result := UnitInPlayerLOS(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID), TAUnit.Id2Ptr(arg1));
+      end;
+    POSITION_IN_PLAYER_LOS :
+      begin
+      if GetTPosition(HiWord(arg2), LoWord(arg2), Position) <> nil then
+        result := BoolValues[TAPlayer.PositionInLOS(TAPlayer.GetPlayerByIndex(arg1), @Position)];
       end;
     UNIT_AT_POSITION :
       begin
@@ -766,7 +790,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       begin
         if TAUnit.setUnitInfoField(pointer(unitptr), TUnitInfoExtensions(arg1), arg2, nil) then
           if TAData.NetworkLayerEnabled then
-            globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitInfoEdit, @unitptr, @arg1, nil, nil, @index);
+            globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitInfoEdit, 0, @unitptr, @arg1, nil, nil, @index, nil);
       end;
     ENABLEDISABLE_UNIT :
       begin
@@ -814,6 +838,10 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       begin
       result := TASfx.PlayGafAnim(arg1, HiWord(arg2), LoWord(arg2), arg3, arg4);
       end;
+    EMIT_SFX :
+      begin
+      Result := BoolValues[TASfx.EmitSfxFromPiece(pointer(unitptr), TAUnit.Id2Ptr(arg3), arg1, arg2) <> 0];
+      end;
     MS_MOVE_CAM_POS :
       begin
       ScrollView(arg1, arg2, Boolean(arg3));
@@ -831,7 +859,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     MS_SCREEN_GAMMA :
       begin
-      result := PTAdynmemStruct(TAData.MainStructPtr)^.Gamma;
+      result := PTAdynmemStruct(TAData.MainStructPtr).Gamma;
       end;
     MS_DESELECT_UNITS :
       begin
@@ -866,7 +894,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     MS_VIEW_PLAYER_ID :
       begin
-      result := TAData.ViewPlayer;
+      result := TAData.LocalPlayerID;
       end;
     MS_GAME_TIME :
       begin
@@ -896,7 +924,7 @@ begin
       MS_SCREEN_GAMMA :
         begin
         SetGamma(arg1 * 0.1);
-        PTAdynmemStruct(TAData.MainStructPtr)^.Gamma := arg1;
+        PTAdynmemStruct(TAData.MainStructPtr).Gamma := arg1;
         end;
       MS_SCREEN_FADE :
         begin
@@ -1001,7 +1029,7 @@ begin
             begin
             if TAUnit.setWeapon(pointer(unitptr), index, arg1) then
               if TAData.NetworkLayerEnabled then
-                globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitWeapon, @unitptr, @index, nil, nil, @arg1);
+                globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitWeapon, 0, @unitptr, @index, nil, nil, @arg1, nil);
             end;
           KILL_THIS_UNIT :
             begin
@@ -1011,13 +1039,13 @@ begin
             begin
             if TAUnit.GrantUnitInfo(pointer(unitptr), arg1, nil) then
               if TAData.NetworkLayerEnabled then
-                globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitGrantUnitInfo, @unitptr, nil, @arg1, nil, nil);
+                globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitGrantUnitInfo, 0, @unitptr, nil, @arg1, nil, nil, nil);
             end;
           UNIT_TYPE_CRC :
             begin
             if TAUnit.setTemplate(pointer(unitptr), TAMem.UnitInfoCrc2Ptr(arg1)) then
               if TAData.NetworkLayerEnabled then
-                globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, @unitptr, @index, nil, @arg1, nil);
+                globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitTemplate, 0, @unitptr, @index, nil, @arg1, nil, nil);
             end;
         end;
       end;

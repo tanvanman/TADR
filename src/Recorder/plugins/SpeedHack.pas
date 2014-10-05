@@ -55,6 +55,7 @@ implementation
 uses
   TADemoConsts,
   TA_MemoryConstants,
+  TA_MemoryStructures,
   TA_MemoryLocations;
 
 Procedure ResetGameSpeedLimits;
@@ -157,7 +158,7 @@ asm
   mov  cx, LowerLimit
   inc  cx
   // check to see if decreasing the gamespeed hit the minium
-  mov  ax, [edx+TAdynmemStruct_GameSpeed]
+  mov  ax, [edx+TTADynMemStruct.nTAGameSpeed]
   cmp  ax, LowerLimit
   jbe  DontSetSpeed
   // decrease the gamespeed count & call the set speed function
@@ -187,7 +188,7 @@ asm
   xor  eax, eax
   mov  cx, UpperLimit
   // check to see if increasing the gamespeed hit the minium  
-  mov  ax, [edx+TAdynmemStruct_GameSpeed]
+  mov  ax, [edx+TTADynMemStruct.nTAGameSpeed]
   cmp  ax, cx
   jnb  DontSetSpeed
   // increase the gamespeed count & call the set speed function

@@ -369,7 +369,7 @@ end;
 
 initialization
 {$IFDEF NoDplayExports}
-    DPlayDLL := LoadLibrary('DPlayX.dll');
+    DPlayDLL := LoadLibrary('tplayx.dll');
 
     DirectPlayEnumerateA := GetProcAddress(DPlayDLL,'DirectPlayEnumerateA');
     DirectPlayEnumerateW := GetProcAddress(DPlayDLL,'DirectPlayEnumerateW');

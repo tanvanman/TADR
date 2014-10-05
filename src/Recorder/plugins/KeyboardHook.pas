@@ -4,7 +4,7 @@ unit KeyboardHook;
 }
 interface
 uses
-  PluginEngine, Windows, SysUtils;
+  PluginEngine, Windows, Messages, SysUtils;
 
 // -----------------------------------------------------------------------------
 
@@ -21,32 +21,45 @@ procedure OnUninstallKeyboardHook;
 var
   hKeyboardHook: HHook;
   keyboardHookLevel: byte;
-  lastShareEnergyVal: single;
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
+procedure SetInGameHotkeysLevel;
 procedure CtrlFDontSelectNotLabs;
 
 // -----------------------------------------------------------------------------
 // actions for keys
 
 procedure SwitchSetShareEnergy;
+procedure UpdateSelectUnitEffect;
+procedure ApplySelectUnitMenu_Wrapper;
+function FindIdleFactory : Boolean;
 
 // -----------------------------------------------------------------------------
 
 implementation
 uses
   idplay, TA_MemoryLocations, TA_MemoryStructures,TA_MemoryConstants, TA_FunctionsU, //BattleRoomScroll,
-  COB_Extensions, TAMemManipulations, DropUnitsWeaponsList, DynamicMap, GUIEnhancements, CampaignExtensions;
+  COB_Extensions, TAMemManipulations, DropUnitsWeaponsList, DynamicMap, GUIEnhancements,
+  UnitInfoExtend;
+
+const
+  LastNum : Cardinal = 0;
+
+var
+  lastShareEnergyVal: single;
+  Semaphore_IdleFactory : THandle;
 
 Procedure OnInstallKeyboardHook;
 begin
-  keyboardHookLevel:= 2;
-  lastShareEnergyVal:= 0;
-  hKeyboardHook:= SetWindowsHookEx(WH_KEYBOARD, @KeyboardHookFunction, 0, GetCurrentThreadId());
+  keyboardHookLevel := 2;
+  lastShareEnergyVal := 0;
+  hKeyboardHook:= SetWindowsHookEx(WH_KEYBOARD, @KeyboardHookFunction, 0, GetCurrentThreadId);
+  Semaphore_IdleFactory := CreateSemaphore(nil, 1, 1, '');
 end;
 
 Procedure OnUninstallKeyboardHook;
 begin
+  CloseHandle(Semaphore_IdleFactory);
   if (hKeyboardHook <> 0) then
     UnhookWindowsHookEx(hKeyboardHook);
 end;
@@ -61,11 +74,24 @@ begin
                                 @OnInstallKeyboardHook, @OnUnInstallKeyboardHook );
 
     Result.MakeRelativeJmp( State_KeyboardHook,
-                          '',
-                          @CtrlFDontSelectNotLabs,
-                          $0048DB72, 1);
+                            '',
+                            @CtrlFDontSelectNotLabs,
+                            $0048DB72, 1);
+
+    Result.MakeRelativeJmp( State_KeyboardHook,
+                            'set ingame hotkeys level',
+                            @SetInGameHotkeysLevel,
+                            $00498362, 1);
   end else
     result := nil;
+end;
+
+procedure SetInGameHotkeysLevel;
+asm
+  mov     keyboardHookLevel, 2
+  mov     ecx, [TADynMemStructPtr]
+  push $0049836D;
+  call PatchNJump;
 end;
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
@@ -76,8 +102,7 @@ begin
     CallNextHookEx(hKeyboardHook, nCode, wParam, lParam)
   else
   begin
-    // dont continue if key isn't pressed (i.e. don't continue on repeat, keyup, etc)
-    if (lParam and $C0000000) = 0 then
+    if ((lParam and $80000000) = 0) then
     begin
       if keyboardHookLevel > 1 then
       begin
@@ -187,64 +212,43 @@ begin
                   end;
                 end;
               end;
-      {  $70 : begin     // mouse button 4
-                if TAData.DevMode then
-                begin
-                  if ((GetAsyncKeyState($5) and $8000) > 0) then
-                  begin
-                    UnitAtMouse := TAUnit.AtMouse;
-                    if (UnitAtMouse <> nil) then
-                    begin
-                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B3 := 1;
-                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B7 := PTAdynmemStruct(TAData.MainStructPtr)^.unMouseOverUnit;
-                    end else
-                    begin
-                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B3 := 0;
-                    end;
-                    Result := 1;
-                    Exit;
-                  end;
-                  if ((GetAsyncKeyState($6) and $8000) > 0) then
-                  begin
-                    UnitAtMouse := TAUnit.AtMouse;
-                    if (UnitAtMouse <> nil) then
-                    begin
-                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B9 := 1;
-                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391BD := PTAdynmemStruct(TAData.MainStructPtr)^.unMouseOverUnit;
-                    end else
-                    begin
-                      PTAdynmemStruct(TAData.MainStructPtr)^.field_391B9 := 0;
-                    end;
-                    Result := 1;
-                    Exit;
-                  end;
-                end;
-              end; }
         $13 : begin     // pause button
                 if TAData.NetworkLayerEnabled then
-                  if globalDPlay.AutopauseAtStart and not globalDPlay.Players[TAData.ViewPlayer+1].IsServer then
+                  if globalDPlay.AutopauseAtStart and not globalDPlay.Players[TAData.LocalPlayerID+1].IsServer then
                   begin
                     Msg_Reminder(PAnsiChar('Only the host can unpause.' +#13#10+ 'You can also vote to go with .ready command'), 1);
                     Result := 1;
                     Exit;
                   end;
               end;
-{        $45 : begin     // left alt + shift + e
+        $5D : begin     // MENU KEY
+                InterpretCommand('showranges', 1);
+              end;
+        $45 : begin     // left alt + shift + e
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
                   UnitAtMouse := TAUnit.AtMouse;
                   if (UnitAtMouse <> nil) then
                   begin
+                    ORDERS_RemoveAllBuildQueues(UnitAtMouse, True);
+                    UpdateIngameGUI(0);
                   end;
                 end;
-              end;   }
-{        $46 : begin     // left alt + shift + f
-                if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
-                     ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
-                begin
-                end;
               end;
+        $46 : begin     // ctrl + f
+                if ( ((GetAsyncKeyState(VK_CONTROL) and $8000) > 0) and
+                     ((GetAsyncKeyState(VK_SHIFT) and $8000) = 0) ) then
+                begin
+                  if FindIdleFactory then
+                  begin
+                    UpdateSelectUnitEffect;
+                    ApplySelectUnitMenu_Wrapper;
+                  end;
+                  Result := 1;
+                  Exit;
+                end;
+              end; {
         $47 : begin     // left alt + shift + g
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
@@ -295,6 +299,127 @@ begin
     InterpretInternalCommand('setshareenergy 0');
   end else
     InterpretInternalCommand('setshareenergy '+IntToStr(Round(lastShareEnergyVal)));
+end;
+
+procedure UpdateSelectUnitEffect;
+begin
+	PTAdynmemStruct(TAData.MainStructPtr).DesktopGUIState := PTAdynmemStruct(TAData.MainStructPtr).DesktopGUIState or $10;
+	PTAdynmemStruct(TAData.MainStructPtr).ShowRangeUnitIndex := 0;
+end;
+
+procedure ApplySelectUnitMenu_Wrapper;
+var
+  old : Byte;
+begin
+	old := PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType;
+  ApplySelectUnitMenu;
+  PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := old;
+end;
+
+procedure ScrollCenterView(X, Z : Integer; Smooth: Boolean);
+var
+  MaxX, MaxZ : Integer;
+begin
+	X := X - (PTAdynmemStruct(TAData.MainStructPtr).ScreenWidth-128) div 2;
+	Z := Z - (PTAdynmemStruct(TAData.MainStructPtr).ScreenHeight-64) div 2;
+
+	if X < 0 then
+		X := 0
+  else begin
+    MaxX := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lRadarPictureWidth - ((PTAdynmemStruct(TAData.MainStructPtr).ScreenWidth-128));
+    if (X > MaxX) then
+      X := MaxX;
+  end;
+
+	if Z < 0 then
+		Z := 0
+  else begin
+    MaxZ := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lRadarPictureHeight - ((PTAdynmemStruct(TAData.MainStructPtr).ScreenHeight-64));
+    if (Z > MaxZ) then
+      Z := MaxZ;
+  end;
+
+  ScrollView(X, Z, Smooth);
+end;
+
+function FindIdleFactory : Boolean;
+label
+  Retry;
+var
+  WaitResult : Cardinal;
+  j : Cardinal;
+  PlayerMaxUnitID : Cardinal;
+  CurrentUnit : PUnitStruct;
+  Player : PPlayerStruct;
+begin
+  Result := False;
+  WaitResult := WaitForSingleObject(Semaphore_IdleFactory, INFINITE);
+  if WaitResult = WAIT_FAILED then
+    Exit;
+  if WaitResult = WAIT_TIMEOUT then
+  begin
+    ReleaseSemaphore(Semaphore_IdleFactory, 1, nil);
+    Exit;
+  end;
+
+Retry:
+  j := LastNum;
+  Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
+  PlayerMaxUnitID := Player.nNumUnits;
+  CurrentUnit := TAData.UnitsPtr;
+  
+  while (j<=PlayerMaxUnitID) do
+  begin
+    CurrentUnit := Pointer(Cardinal(Player.p_UnitsArray) + j * SizeOf(TUnitStruct));
+    if ((CurrentUnit.lUnitStateMask and UnitSelectState[UnitValid2_State]) = UnitSelectState[UnitValid2_State]) then
+    begin
+      if CurrentUnit.lBuildTimeLeft = 0.0 then
+        if CurrentUnit.p_Owner <> nil then
+        begin
+          if CurrentUnit.p_UnitDef <> nil then
+          begin
+            if PUnitInfo(CurrentUnit.p_UnitDef).cBMCode = 0 then
+              if TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER, nil) <> 0 then
+              begin
+                if GetUnitInfoProperty(CurrentUnit, 5) <> 0 then
+                begin
+                  Inc(j);
+                  Continue;
+                end else
+                begin
+                  if CurrentUnit.p_UnitOrders <> nil then
+                    if PUnitOrder(CurrentUnit.p_UnitOrders).cOrderType = $C then
+                    begin
+                      Inc(j);
+                      Continue;
+                    end;
+                end;
+                if (LastNum<j) then
+                begin
+   					      LastNum := j;
+                  Break;
+                end;
+              end;
+          end;
+        end;
+    end;
+    Inc(j);
+  end;
+	if (j<=PlayerMaxUnitID) then
+  begin
+    DeselectAllUnits;
+		CurrentUnit.lUnitStateMask := CurrentUnit.lUnitStateMask or UnitSelectState[UnitSelected_State];
+    ScrollCenterView(CurrentUnit.Position.X, CurrentUnit.Position.Z, True);
+    Result := True;
+	end else
+  begin
+		if (LastNum<>0) then
+		begin
+			LastNum := 0;
+			goto Retry;
+		end;
+  end;
+  ReleaseSemaphore(Semaphore_IdleFactory, 1, nil);
 end;
 
 end.

@@ -327,8 +327,8 @@ begin
   //NewAngle := Angle / High(Word) * 360;
   //Distance := DistanceOrg;
 
-  MapWidth := PTAdynmemStruct(TAData.MainStructPtr)^.MapWidth;
-  MapHeight := PTAdynmemStruct(TAData.MainStructPtr)^.MapHeight;
+  MapWidth := PTAdynmemStruct(TAData.MainStructPtr).MapWidth;
+  MapHeight := PTAdynmemStruct(TAData.MainStructPtr).MapHeight;
   AttackerUnit := CurrentProjectile.p_AttackerUnit;
 
   for i := 1 to SprayRate do

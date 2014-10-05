@@ -91,7 +91,7 @@ begin
             LoadedModsList[i].Path := ReadString(Sections[i], 'Path', '');
             LoadedModsList[i].UnitsLimit := ReadString(Sections[i], 'UnitLimitLock', '0');
             LoadedModsList[i].SFXLock := ReadString(Sections[i], 'SFXLock', '0');
-            LoadedModsList[i].RegName := ReadString(Sections[i], 'RegName', 'Cavedog Entertainment');
+            LoadedModsList[i].RegName := ReadString(Sections[i], 'RegName', 'TA Patch');
             end else
               // dont fill backward compatibility
               zeromod:= i;

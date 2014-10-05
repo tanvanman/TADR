@@ -123,7 +123,7 @@ asm  // uses eax, ecx
   // check if the player is allied
   xor eax, eax  
   mov al, [esi+PlayerStruct_Index]
-  mov ecx, [ebx+UnitStruct_OwnerPtr]
+  mov ecx, [ebx+TUnitStruct.p_Owner]
   cmp byte [eax+ecx+PlayerStruct_AlliedPlayers], 0   // check if the unit's player is allied
   jnz CanSeeUnit
 
@@ -181,7 +181,7 @@ asm // uses ecx, eax, edi, ebp
   // if ( UnitStruct.Owner.AlliedPlayers[ViewPlayer] != 0) goto CanSeeUnit; else goto TryNextPlayer;
   
   mov edi, ViewPlayerPlSeeU
-  mov ecx, [ebx+UnitStruct_OwnerPtr]
+  mov ecx, [ebx+TUnitStruct.p_Owner]
   cmp byte [edi+ecx+PlayerStruct_AlliedPlayers], 0
   jnz CanSeeUnit
 

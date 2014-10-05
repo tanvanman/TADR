@@ -11,6 +11,7 @@ uses
 
 const
   State_RegPathFix : boolean = true;
+  KEY_WOW64_64KEY = $0100;
 
 type
   TAFindData = record
@@ -36,6 +37,7 @@ procedure LoadSharedMapsHook;
 implementation
 uses
   Windows,
+  Registry,
   IniOptions,
   TA_MemoryConstants,
   ModsList,
@@ -60,6 +62,7 @@ function GetPlugin : TPluginData;
 var
   sRegName : AnsiString;
   baRegName: TByteArray;
+  Registry : TRegistry;
 begin
   if IsTAVersion31 and State_RegPathFix then
   begin
@@ -87,6 +90,25 @@ begin
                           baRegName, Length(sRegName));
     end;
 
+    Registry := TRegistry.Create(KEY_READ or KEY_WOW64_64KEY);
+    try
+      Registry.RootKey := HKEY_CURRENT_USER;
+      if Registry.KeyExists('Software\TA Patch\') then
+        if Registry.OpenKey('Software\TA Patch\', False) then
+        begin
+          IniSettings.CommonMapsPath := Registry.ReadString('CommonMapsPath');
+          if IniSettings.CommonMapsPath <> '' then
+            IniSettings.CommonMapsPath := IncludeTrailingPathDelimiter(IniSettings.CommonMapsPath);
+
+          IniSettings.CommonGameDataPath := Registry.ReadString('CommonGameDataPath');
+          if IniSettings.CommonGameDataPath <> '' then
+            IniSettings.CommonGameDataPath := IncludeTrailingPathDelimiter(IniSettings.CommonGameDataPath);
+        end;
+    finally
+      Registry.CloseKey;
+      Registry.Free;
+    end;
+    
     RegPathFixPlugin.MakeRelativeJmp( State_RegPathFix,
                           'Load shared maps files',
                           @LoadSharedMapsHook,
@@ -104,8 +126,8 @@ var
   SharedMaps, SharedBasicGameData : Boolean;
   TAPath : String;
 begin
-  SharedMaps := IniSettings.SharedMapsPath <> '';
-  SharedBasicGameData := IniSettings.SharedBasicGameData <> '';
+  SharedMaps := IniSettings.CommonMapsPath <> '';
+  SharedBasicGameData := IniSettings.CommonGameDataPath <> '';
 
   SetCurrentDirectoryToTAPath;
   TAPath := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation));
@@ -132,12 +154,12 @@ begin
 
   if SharedBasicGameData then
   begin
-    SetCurrentDir(IniSettings.SharedBasicGameData);
+    SetCurrentDir(IniSettings.CommonGameDataPath);
     FindHandle := findfirst_HPI('*.CCX', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.SharedBasicGameData + SearchRec.FileName), 1);
+        InsertToHPIAry(PAnsiChar(IniSettings.CommonGameDataPath + SearchRec.FileName), 1);
       until
         (findnext_HPI(FindHandle, @SearchRec) < 0);
       findclose_HPI(FindHandle);
@@ -147,12 +169,12 @@ begin
 
   if SharedMaps then
   begin
-    SetCurrentDir(IniSettings.SharedMapsPath);
+    SetCurrentDir(IniSettings.CommonMapsPath);
     FindHandle := findfirst_HPI('*.CCX', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.SharedMapsPath + SearchRec.FileName), 1);
+        InsertToHPIAry(PAnsiChar(IniSettings.CommonMapsPath + SearchRec.FileName), 1);
       until
         (findnext_HPI(FindHandle, @SearchRec) < 0);
       findclose_HPI(FindHandle);
@@ -172,12 +194,12 @@ begin
 
   if SharedMaps then
   begin
-    SetCurrentDir(IniSettings.SharedMapsPath);
+    SetCurrentDir(IniSettings.CommonMapsPath);
     FindHandle := findfirst_HPI('*.UFO', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.SharedMapsPath + SearchRec.FileName), 0);
+        InsertToHPIAry(PAnsiChar(IniSettings.CommonMapsPath + SearchRec.FileName), 0);
       until
         (findnext_HPI(FindHandle, @SearchRec) < 0);
       findclose_HPI(FindHandle);
@@ -197,12 +219,12 @@ begin
 
   if SharedBasicGameData then
   begin
-    SetCurrentDir(IniSettings.SharedBasicGameData);
+    SetCurrentDir(IniSettings.CommonGameDataPath);
     FindHandle := findfirst_HPI('*.HPI', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.SharedBasicGameData + SearchRec.FileName), 0);
+        InsertToHPIAry(PAnsiChar(IniSettings.CommonGameDataPath + SearchRec.FileName), 0);
       until
         (findnext_HPI(FindHandle, @SearchRec) < 0);
       findclose_HPI(FindHandle);
@@ -211,12 +233,12 @@ begin
 
   if SharedMaps then
   begin
-    SetCurrentDir(IniSettings.SharedMapsPath);
+    SetCurrentDir(IniSettings.CommonMapsPath);
     FindHandle := findfirst_HPI('*.HPI', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.SharedMapsPath + SearchRec.FileName), 0);
+        InsertToHPIAry(PAnsiChar(IniSettings.CommonMapsPath + SearchRec.FileName), 0);
       until
         (findnext_HPI(FindHandle, @SearchRec) < 0);
       findclose_HPI(FindHandle);

@@ -1,6 +1,5 @@
 unit Plugins;
 {$DEFINE KeyboardHookPlugin}
-{$DEFINE ExtraPlugins}
 interface
 
 // some code injects must occur before the exe's main has run
@@ -23,8 +22,7 @@ uses
   MultiAILimit,
   {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
   WeaponsExtend,
-  UnitsExtend,
-  {$IFDEF ExtraPlugins}
+  UnitInfoExtend,
   Builders,
   ScriptCallsExtend,
   ResurrectPatrol,
@@ -34,7 +32,7 @@ uses
   ExplodeBitmaps,
   TAExceptionsLog,
   CampaignExtensions,
-  {$ENDIF}
+  //MinimapExpand,
   Colors,
   ClockPosition,
   GUIEnhancements,
@@ -49,9 +47,8 @@ if OnMainRun then
   begin
   RegisterPlugin( ErrorLog_ExtraData.GetPlugin() );
   RegisterPlugin( Thread_marshaller.GetPlugin() );
-
-  RegisterPlugin( IniOptions.GetPlugin() );
   RegisterPlugin( InputHook.GetPlugin() );
+  RegisterPlugin( IniOptions.GetPlugin() );
   RegisterPlugin( SpeedHack.GetPlugin() );
   RegisterPlugin( PauseLock.GetPlugin() );
   RegisterPlugin( UnitLimit.GetPlugin() );
@@ -62,20 +59,23 @@ if OnMainRun then
   //RegisterPlugin( BattleRoomScroll.GetPlugin() );
 
   RegisterPlugin( WeaponsExtend.GetPlugin() );
-  RegisterPlugin( UnitsExtend.GetPlugin() );
+  RegisterPlugin( UnitInfoExtend.GetPlugin() );
   RegisterPlugin( RegPathFix.GetPlugin() );
-  {$IFDEF ExtraPlugins}
-  RegisterPlugin( Builders.GetPlugin() );
-  RegisterPlugin( ScriptCallsExtend.GetPlugin() );
-  RegisterPlugin( ResurrectPatrol.GetPlugin() );
-  RegisterPlugin( UnitActions.GetPlugin() );
-  RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
-  //RegisterPlugin( KillDamage.GetPlugin() );
-  if IniSettings.Plugin_Gaf then
-    RegisterPlugin( ExplodeBitmaps.GetPlugin() );
-  RegisterPlugin( TAExceptionsLog.GetPlugin() );
-  RegisterPlugin( CampaignExtensions.GetPlugin() );
-  {$ENDIF}
+  if IniSettings.ModId > 1 then
+  begin
+    RegisterPlugin( Builders.GetPlugin() );
+    RegisterPlugin( ScriptCallsExtend.GetPlugin() );
+    RegisterPlugin( ResurrectPatrol.GetPlugin() );
+    RegisterPlugin( UnitActions.GetPlugin() );
+    RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
+    //RegisterPlugin( KillDamage.GetPlugin() );
+    if IniSettings.Plugin_Gaf then
+      RegisterPlugin( ExplodeBitmaps.GetPlugin() );
+    RegisterPlugin( TAExceptionsLog.GetPlugin() );
+    RegisterPlugin( CampaignExtensions.GetPlugin() );
+//    if IniSettings.ExpandMinimap then
+//      RegisterPlugin( MinimapExpand.GetPlugin() );
+  end;
   if IniSettings.Plugin_Colors then
     RegisterPlugin( Colors.GetPlugin() );
   RegisterPlugin( ClockPosition.GetPlugin() );

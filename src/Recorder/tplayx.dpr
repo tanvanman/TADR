@@ -56,20 +56,20 @@ uses
   ResurrectPatrol in 'plugins\ResurrectPatrol.pas',
   ClockPosition in 'plugins\ClockPosition.pas',
   ExplodeBitmaps in 'plugins\ExplodeBitmaps.pas',
-  StartBuilding in 'plugins\StartBuilding.pas',
   WeaponsExtend in 'plugins\WeaponsExtend.pas',
   WeaponAimNTrajectory in 'plugins\WeaponAimNTrajectory.pas',
   KillDamage in 'plugins\KillDamage.pas',
   DropUnitsWeaponsList in 'plugins\DropUnitsWeaponsList.pas',
   BattlerRoomMemFix in 'plugins\BattlerRoomMemFix.pas',
-  UnitsExtend in 'plugins\UnitsExtend.pas',
   ScriptCallsExtend in 'plugins\ScriptCallsExtend.pas',
   UnitActions in 'plugins\UnitActions.pas',
   TAExceptionsLog in 'plugins\TAExceptionsLog.pas',
   GUIEnhancements in 'plugins\GUIEnhancements.pas',
   statslogging in 'plugins\StatsLogging.pas',
   DynamicMap in 'TAMem\DynamicMap.pas',
-  CampaignExtensions in 'plugins\CampaignExtensions.pas';
+  CampaignExtensions in 'plugins\CampaignExtensions.pas',
+  UnitInfoExtend in 'plugins\UnitInfoExtend.pas',
+  MinimapExpand in 'plugins\MinimapExpand.pas';
 
 {$R *.res}
 

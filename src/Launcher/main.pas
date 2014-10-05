@@ -91,7 +91,7 @@ begin
     try
       subKey:= 'Software\TA Patch\Launcher';
       reg.Access := KEY_READ;
-      if reg.OpenKey(subKey, false) then
+      if reg.OpenKey(subKey, True) then
       begin
         LauncherSettings.LastMod:= reg.ReadInteger('LastMod');
         LauncherSettings.Icons:= reg.ReadBool('UseIcons');
@@ -150,11 +150,11 @@ begin
     reg.RootKey := HKEY_CURRENT_USER;
     subKey:= 'Software\TA Patch\Launcher';
     reg.Access := KEY_WRITE;
-    if reg.OpenKey(subKey, true) then
+    if reg.OpenKey(subKey, True) then
     begin
       reg.WriteInteger('LastMod', LauncherSettings.LastMod);
       if not reg.KeyExists('UseIcons') then
-        reg.WriteBool('UseIcons', LauncherSettings.Icons);
+        reg.WriteBool('UseIcons', True);
     end;
     Reg.CloseKey;
   finally
@@ -239,6 +239,7 @@ var
 begin
   TVistaAltFix.Create(Self);
   runningDir:= IncludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0)));
+  SaveOptions;
   if not LoadOptions(errNr) then
   begin
     ShowMessage('Couldn''t load settings file. Exiting. (' + IntToStr(errNr)+')');
@@ -509,7 +510,7 @@ begin
     end else
     begin
       reg.Access := KEY_READ;
-      if reg.OpenKey(subKey, false) then
+      if reg.OpenKey(subKey, False) then
       begin
         case progid of
           1: path:= reg.ReadString('ExecutablePath');

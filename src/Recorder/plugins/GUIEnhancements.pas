@@ -22,23 +22,30 @@ procedure ExtraUnitBars_MainCall;
 procedure GUIEnhancements_DevUnitProbes;
 procedure TrueIncomeHook;
 procedure HealthPercentage;
-procedure SelectedUnitsCounter;
 procedure DrawCircleUnitSelectHook;
 procedure DrawBuildSpot_InitScript;
 procedure DrawBuildSpot_NanoframeHook;
 procedure DrawBuildSpot_QueueNanoframeHook;
 procedure DrawBuildSpot_NanoframeShimmerHook;
-{
+procedure DrawUnitRanges_ShowrangesOnHook;
+procedure DrawUnitRanges_CustomRanges;
+procedure LoadArmCore32ltGafSequences;
+procedure DrawScoreboard;
+
 procedure BroadcastNanolatheParticles_BuildingBuild;
 procedure BroadcastNanolatheParticles_MobileBuild;
 procedure BroadcastNanolatheParticles_HelpBuild;
+procedure BroadcastNanolatheParticles_Resurrect;
+procedure BroadcastNanolatheParticles_RepairResurrect;
+//procedure BroadcastNanolatheParticles_RepairUnk2;       // what is this
 procedure BroadcastNanolatheParticles_VTOL_MobileBuild;
-}
-procedure IncludeWatchersOnList;
-
-function DrawDotteCircleNew(OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer;
-                            ColorOffset: Integer; Spacing: Word; Dotte_b : Integer;
-                            Angle: Word) : LongInt; stdcall;
+procedure BroadcastNanolatheParticles_VTOL_HelpBuild;
+procedure BroadcastNanolatheParticles_VTOL_Repair;
+procedure BroadcastNanolatheParticles_Capture;
+procedure BroadcastNanolatheParticles_ReclaimUnit;
+procedure BroadcastNanolatheParticles_ReclaimFeature;
+procedure BroadcastNanolatheParticles_VTOLReclaimUnit;
+procedure BroadcastNanolatheParticles_VTOLReclaimFeature; 
 
 {
 function AddNanoUnit(x, y, color: Integer): LongBool; stdcall;
@@ -50,12 +57,13 @@ exports
 }
 implementation
 uses
+  Windows,
   IniOptions,
   SysUtils,
   TA_MemoryConstants,
   TA_MemoryLocations,
   COB_Extensions,
-  UnitsExtend,
+  UnitInfoExtend,
   Math,
   TA_FunctionsU,
   logging,
@@ -72,6 +80,10 @@ const
 
 const
   NanoUnitCreateInit : AnsiString = 'NanoFrameInit';
+  Core32Lt : AnsiString = 'Core32Dk';
+  Arm32Lt : AnsiString = 'Arm32Dk';
+  RaceLogo : AnsiString = 'RaceLogo';
+  SCOREBOARD_WIDTH : Byte = 180;
 
 var
   GUIEnhancementsPlugin: TPluginData;
@@ -98,7 +110,6 @@ begin
 end;
 
 function GetPlugin : TPluginData;
-
 begin
   if IsTAVersion31 and State_GUIEnhancements then
   begin
@@ -108,10 +119,7 @@ begin
                             @OnInstallGUIEnhancements,
                             @OnUninstallGUIEnhancements );
 
-    if (IniSettings.Plugin_HBWidth <> 0) or
-       IniSettings.Plugin_HBDynamicSize or
-       (IniSettings.Plugin_MinWeaponReload <> 0) then
-      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'ExtraUnitBars_MainCall',
                             @ExtraUnitBars_MainCall,
                             $00469CB1, 1);
@@ -132,10 +140,15 @@ begin
                             @HealthPercentage,
                             $0046B088, 1);
 
-    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+    if IniSettings.Plugin_CircleUnitSelect then
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'DrawCircleUnitSelectHook',
                             @DrawCircleUnitSelectHook,
                             $00467AF1, 0);
+
+    // ---------------------------------
+    // nanoframe units
+    // ---------------------------------
 
     GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'DrawBuildSpot_InitScript',
@@ -158,42 +171,127 @@ begin
                               'DrawBuildSpot_NanoframeShimmerHook',
                               @DrawBuildSpot_NanoframeShimmerHook,
                               $00458E18, 2);
-   {
-    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                            '',
-                            @BroadcastNanolatheParticles_BuildingBuild,
-                            $00403EC4, 3);
 
     GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                            '',
-                            @BroadcastNanolatheParticles_MobileBuild,
-                            $00402AB3, 5);
+                            'Draw new unit ranges for +showranges mode',
+                            @DrawUnitRanges_ShowrangesOnHook,
+                            $0043924A, 2);
 
     GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                            '',
-                            @BroadcastNanolatheParticles_HelpBuild,
-                            $004041BA, 3);
+                            'Draw new unit ranges, showranges disabled',
+                            @DrawUnitRanges_CustomRanges,
+                            $00439C9B, 1);
+
+
+    // ---------------------------------
+    // new score board
+    // ---------------------------------
+    {
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                            'load core and arm logos colored',
+                            @LoadArmCore32ltGafSequences,
+                            $0043190B, 1);
 
     GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                            '',
-                            @BroadcastNanolatheParticles_VTOL_MobileBuild,
-                            $004142B0, 1);
-   }
+                            'new scoreboard :)',
+                            @DrawScoreboard,
+                            $00494A61, 2);
 
-  {  GUIEnhancementsPlugin.MakeNOPReplacement(State_GUIEnhancements,
-                              'IncludeWatchersOnPlayersList',
-                              $00494BF0,
-                              12);
+    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
+                            '', $00494996, SCOREBOARD_WIDTH, 1);
 
-    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                              'IncludeWatchersOnPlayersList - ',
-                              @IncludeWatchersOnList,
-                              $00494C6D, 0); }
+    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
+                            '', $004949ED, SCOREBOARD_WIDTH, 1);
 
-   { GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                            'SelectedUnitsCounter',
-                            @SelectedUnitsCounter,
-                            $0046ABE2, 1); }
+    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
+                            '', $00494A06, SCOREBOARD_WIDTH, 1);
+
+    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
+                            '', $00494A23, SCOREBOARD_WIDTH, 1);
+
+    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
+                            '', $00494A39, SCOREBOARD_WIDTH, 1);
+
+    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
+                            '', $00494A67, SCOREBOARD_WIDTH, 1);
+    }
+
+    // ---------------------------------
+    // nanolathe particles broadcast
+    // ---------------------------------
+
+    if IniSettings.Plugin_BroadcastNanolathe then
+    begin
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_BuildingBuild,
+                              $00403EC4, 3);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_MobileBuild,
+                              $00402AB3, 5);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_HelpBuild,
+                              $004041BA, 3);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_Resurrect,
+                              $00405097, 1);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_RepairResurrect,
+                              $004056C7, 1);
+{
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_RepairUnk2,
+                              $004058EC, 1);
+}
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_VTOL_MobileBuild,
+                              $004142B0, 1);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_VTOL_HelpBuild,
+                              $004146D2, 0);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_VTOL_Repair,
+                              $004151E6, 1);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_Capture,
+                              $00404670, 1);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_ReclaimUnit,
+                              $00404A48, 1);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_ReclaimFeature,
+                              $00404D35, 1);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_VTOLReclaimUnit,
+                              $00414C3D, 1);
+
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @BroadcastNanolatheParticles_VTOLReclaimFeature,
+                              $00414A1A, 1);
+    end;
 
     Result:= GUIEnhancementsPlugin;
   end else
@@ -257,19 +355,19 @@ begin
   Result := 0;
   BottomZ := 0;
   // is drawing health bars enabled and any of local player units are actually on screen
-  if ((PTAdynmemStruct(TAData.MainStructPtr)^.GameOptionMask and 1) = 1) or
+  if ((PTAdynmemStruct(TAData.MainStructPtr).GameOptionMask and 1) = 1) or
      (PUnitStruct(Unit_p).HotKeyGroup <> 0) then
   begin
     UnitInfo := PUnitStruct(Unit_p).p_UnitDef;
     ColorsPal := Pointer(LongWord(TAData.MainStructPtr)+$DCB);
     
-    if ((PTAdynmemStruct(TAData.MainStructPtr)^.GameOptionMask and 1) = 1) and
+    if ((PTAdynmemStruct(TAData.MainStructPtr).GameOptionMask and 1) = 1) and
        (CenterPosX <> 0) and
        (CenterPosZ <> 0) and
        (UnitInfo <> nil) then
     begin
       //AlliedUnit := TAPlayer.GetAlliedState(TAUnit.GetOwnerPtr(Unit_p), TAData.ViewPlayer);
-      LocalUnit := (PPlayerStruct(PUnitStruct(Unit_p).p_Owner).cPlayerIndexZero = TAData.ViewPlayer);
+      LocalUnit := (PPlayerStruct(PUnitStruct(Unit_p).p_Owner).cPlayerIndex = TAData.LocalPlayerID);
 //      DrawTransparentBox(Offscreen_p, @Rect, -24);
       if LocalUnit then
       begin
@@ -306,7 +404,7 @@ begin
           end;
 
           if (UnitHealth <= UnitMaxHP) and
-             not ExtraUnitDefTags[UnitInfo.nCategory].HideHPBar then
+             not ExtraUnitInfoTags[UnitInfo.nCategory].HideHPBar then
           begin
             HPFillRectWidth := (HPBackgRectWidth div 2);
 
@@ -392,6 +490,7 @@ begin
             // custom weapon reload bar progress
             CustomReloadBar := False;
             if Assigned(CustomUnitInfosArray) then
+            begin
               if CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].LongID = TAUnit.GetLongId(Pointer(Unit_p)) then
                 if CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].CustomWeapReload then
                 begin
@@ -399,6 +498,13 @@ begin
                   CurReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].CustomWeapReloadCur;
                   CustomReloadBar := True;
                 end;
+              if CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].TeleportReloadMax <> 0 then
+              begin
+                MaxReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].TeleportReloadMax;
+                CurReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].TeleportReloadCur;
+                CustomReloadBar := True;
+              end;
+            end;
 
             if MaxReloadTime <> 0 then
             begin
@@ -519,7 +625,8 @@ begin
                       ActionTime := (ActionUnitBuildCost1 - ActionUnitBuildCost2) + 150;
 
                       MaxActionVal := Round(ActionTime);
-                      CurActionVal := MaxActionVal - TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 1);
+                      if MaxActionVal - TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 1) > 0 then
+                        CurActionVal := MaxActionVal - TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 1);
                     end;
                   end;
                   Action_Resurrect :
@@ -583,10 +690,10 @@ begin
         begin
           if (UnitInfo.UnitTypeMask and 2048 = 2048) then   // unit is air
           begin
-            if (ExtraUnitDefTags[UnitInfo.nCategory].MultiAirTransport = 0) then
+            if (ExtraUnitInfoTags[UnitInfo.nCategory].MultiAirTransport = 0) then
               TransportCap := 0
             else
-              if (ExtraUnitDefTags[UnitInfo.nCategory].TransportWeightCapacity = 0) then
+              if (ExtraUnitInfoTags[UnitInfo.nCategory].TransportWeightCapacity = 0) then
               begin
                 TransportCap := UnitInfo.cTransportCap;
               end else
@@ -611,7 +718,7 @@ begin
               DrawText_Heavy(Offscreen_p, PAnsiChar(IntToStr(TransportCount) + '/' + IntToStr(TransportCap)), Word(CenterPosX) - 10, Word(CenterPosZ) - 70, -1);
           end else
           begin
-            WeightTransportMax := ExtraUnitDefTags[UnitInfo.nCategory].TransportWeightCapacity;
+            WeightTransportMax := ExtraUnitInfoTags[UnitInfo.nCategory].TransportWeightCapacity;
             if WeightTransportMax > 0 then
             begin
               WeightTransportCur := TAUnit.GetLoadWeight(Unit_p);
@@ -645,7 +752,7 @@ begin
         end;
       end;
 
-      if (PPlayerStruct(PUnitStruct(Unit_p).p_Owner).cPlayerIndexZero = TAData.ViewPlayer) and
+      if (PPlayerStruct(PUnitStruct(Unit_p).p_Owner).cPlayerIndex = TAData.LocalPlayerID) and
          (PUnitStruct(Unit_p).HotKeyGroup <> 0) then
       begin
         AllowHotkeyDraw := False;
@@ -733,9 +840,9 @@ begin
   //DrawTranspRectangle(Offscreen_p, @Rect, PByte(LongWord(ColorsPal)+10)^);
   if TAData.DevMode then
   begin
-    if PTAdynmemStruct(TAData.MainStructPtr)^.field_391B3 <> 0 then
+    if PTAdynmemStruct(TAData.MainStructPtr).field_391B3 <> 0 then
       UnitStateProbe(Offscreen_p);
-    if PTAdynmemStruct(TAData.MainStructPtr)^.field_391B9 <> 0 then
+    if PTAdynmemStruct(TAData.MainStructPtr).field_391B9 <> 0 then
       UnitBuilderProbe(Offscreen_p);
   end;
 end;
@@ -810,7 +917,7 @@ begin
     SetFontColor(83, v65);
     HealthPercentStr := PAnsiChar(Format('%.1f%%', [HealthPercent], FormatSettings))
   end;
-  DrawText_Heavy(offscreen_p, HealthPercentStr, Left - 38, Top - 5, -1);
+  DrawText_Heavy(offscreen_p, HealthPercentStr, Left - 38, Top - 4, -1);
 end;
 
 procedure HealthPercentage;
@@ -1051,20 +1158,20 @@ begin
   if NanoSpotUnitSt.nUnitInfoID <> 0 then
     FreeUnitMem(@NanoSpotUnitSt);
 
-  if (PTAdynmemStruct(TAData.MainStructPtr)^.nBuildNum <> 0) and
-     (PTAdynmemStruct(TAData.MainStructPtr)^.ucPrepareOrderType = $E) then
+  if (PTAdynmemStruct(TAData.MainStructPtr).nBuildNum <> 0) and
+     (PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType = $E) then
   begin
-    NanoSpotUnitSt.nUnitInfoID := PTAdynmemStruct(TAData.MainStructPtr)^.nBuildNum;
+    NanoSpotUnitSt.nUnitInfoID := PTAdynmemStruct(TAData.MainStructPtr).nBuildNum;
     NanoSpotUnitSt.p_UnitDef := TAMem.UnitInfoId2Ptr(NanoSpotUnitSt.nUnitInfoID);
-    if (GetUnitExtProperty(@NanoSpotUnitSt, 6) <> 0) or
+    if (ExtraUnitInfoTags[PUnitInfo(NanoSpotUnitSt.p_UnitDef).nCategory].DrawBuildSpotNanoFrame = True) or
        IniSettings.Plugin_ForceDrawBuildSpotNano then
     begin
-      X := PTAdynmemStruct(TAData.MainStructPtr)^.lBuildPosRealX;
-      Z := PTAdynmemStruct(TAData.MainStructPtr)^.lBuildPosRealY;
+      X := PTAdynmemStruct(TAData.MainStructPtr).lBuildPosRealX;
+      Z := PTAdynmemStruct(TAData.MainStructPtr).lBuildPosRealY;
       if (X < 0) or (Z < 0) then
         Exit;
       GetTPosition(X, Z, Position);
-      NanoSpotUnitSt.p_Owner := TAPlayer.GetPlayerByIndex(TAData.ViewPlayer);
+      NanoSpotUnitSt.p_Owner := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
       if UNITS_AllocateUnit(@NanoSpotUnitSt, X, Position.Y, Z, 0) then
       begin
         NanoSpotUnitInfoSt := PUnitInfo(TAMem.UnitInfoId2Ptr(NanoSpotUnitSt.nUnitInfoID))^;
@@ -1084,8 +1191,11 @@ begin
         NanoSpotUnitSt.Position.y_ := 0;
         UNITS_FixYPos(@NanoSpotUnitSt);
         NanoSpotUnitSt.Position.Y := Position.Y;
+        if NanoSpotUnitInfoSt.nMinWaterDepth <> -10000 then
+          if NanoSpotUnitInfoSt.cWaterLine = 0 then
+            NanoSpotUnitSt.Position.Y := 0;
 
-        if (PTAdynmemStruct(TAData.MainStructPtr)^.cBuildSpotState and $40 = $40) then
+        if (PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $40 = $40) then
           NanoSpotUnitSt.nKills := 1
         else
           NanoSpotUnitSt.nKills := 2;
@@ -1123,7 +1233,7 @@ begin
   SetLength(LineNanoSpotUnitSt, High(LineNanoSpotUnitSt) + 2);
   i := High(LineNanoSpotUnitSt);
 
-  LineNanoSpotUnitSt[i].nUnitInfoID := PTAdynmemStruct(TAData.MainStructPtr)^.nBuildNum;
+  LineNanoSpotUnitSt[i].nUnitInfoID := PTAdynmemStruct(TAData.MainStructPtr).nBuildNum;
   LineNanoSpotUnitSt[i].p_UnitDef := TAMem.UnitInfoId2Ptr(LineNanoSpotUnitSt[i].nUnitInfoID);
   LineNanoSpotUnitInfoSt := PUnitInfo(LineNanoSpotUnitSt[i].p_UnitDef)^;
   
@@ -1149,7 +1259,7 @@ begin
     LineNanoSpotUnitSt[i].Turn.Z := 32768;
     LineNanoSpotUnitSt[i].Position.y_ := 0;
 
-    if (PTAdynmemStruct(TAData.MainStructPtr)^.cBuildSpotState and $40 = $40) then
+    if (PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $40 = $40) then
       LineNanoSpotUnitSt[i].nKills := 1
     else
       LineNanoSpotUnitSt[i].nKills := 2;
@@ -1188,7 +1298,7 @@ begin
     Z := Position.Z;
     GetTPosition(X, Z, Position);
 
-    NanoSpotQueueUnitSt.p_Owner := TAPlayer.GetPlayerByIndex(TAData.ViewPlayer);
+    NanoSpotQueueUnitSt.p_Owner := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
     if UNITS_AllocateUnit(@NanoSpotQueueUnitSt, X, Position.Y, Z, 0) then
     begin
       NanoSpotQueueUnitInfoSt := PUnitInfo(TAMem.UnitInfoId2Ptr(NanoSpotQueueUnitSt.nUnitInfoID))^;
@@ -1206,6 +1316,9 @@ begin
 
       NanoSpotQueueUnitSt.Turn.Z := 32768;
       NanoSpotQueueUnitSt.Position.Y := Position.Y;
+        if NanoSpotQueueUnitInfoSt.nMinWaterDepth <> -10000 then
+          if NanoSpotQueueUnitInfoSt.cWaterLine = 0 then
+            NanoSpotQueueUnitSt.Position.Y := 0;
 
       if ((PUnitStruct(UnitOrder.p_Unit).lUnitStateMask shr 4) and 1 = 1) then
         NanoSpotQueueUnitSt.nKills := 1
@@ -1287,28 +1400,366 @@ ComeBack:
   call PatchNJump;
 end;
 
-procedure IncludeWatchersOnList;
-label
-  DrawLogo,
-  DontDrawLogo;
+function DrawUnitRangesShowrangesOn(OFFSCREEN_Ptr: Cardinal; CirclePointer: Cardinal; UnitInfo: PUnitInfo;
+  UnitOrder: PUnitOrder; ReturnVal: Integer): Integer; stdcall;
+begin
+  // as a result give amount of circles that were drawn
+  if ( ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].TeleportMinDistance <> 0 ) then
+  begin
+    Inc(ReturnVal);
+    DrawRangeCircle(
+        OFFSCREEN_ptr,
+        CirclePointer,
+        @PUnitStruct(UnitOrder.p_Unit).Position,
+        ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].TeleportMinDistance,
+        138,
+        PAnsiChar('minteleport'),
+        ReturnVal);
+  end;
+  if ( ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].TeleportMaxDistance <> 0 ) then
+  begin
+    Inc(ReturnVal);
+    DrawRangeCircle(
+        OFFSCREEN_ptr,
+        CirclePointer,
+        @PUnitStruct(UnitOrder.p_Unit).Position,
+        ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].TeleportMaxDistance,
+        140,
+        PAnsiChar('maxteleport'),
+        ReturnVal);
+  end;
+  Result := ReturnVal;
+end;
+
+procedure DrawUnitRanges_ShowrangesOnHook;
 asm
-  mov     ecx, [esi+TPlayerStruct.PlayerInfo]
-  mov     al, [ecx+TPlayerInfoStruct.PropertyMask]
-  test    al, $40
-  jnz     DontDrawLogo
-DrawLogo:
-  xor     eax, eax
-  push $00494C72;
-  call PatchNJump;
-DontDrawLogo:
-  push $00494CC0;
+  push    edi
+  push    edx
+  push    ecx
+  push    ebx
+  push    eax
+
+  push    esi
+  push    ebx
+  push    eax // unitinfo
+  push    edi // circle point
+  push    ebp
+  call    DrawUnitRangesShowrangesOn
+  mov     esi, eax
+
+  pop     eax
+  pop     ebx
+  pop     ecx
+  pop     edx
+  pop     edi
+
+  mov     dx, [eax+TUnitInfo.nSightDistance]
+  push $00439251;
   call PatchNJump;
 end;
 
-procedure BroadcastNanolatheParticles(PosStart, PosTarget: PPosition); stdcall;
+procedure DrawUnitRangesShowrangesOff(OFFSCREEN_Ptr: Cardinal; CirclePointer: Cardinal;
+  UnitOrder: PUnitOrder); stdcall;
+var
+  CustomRange : Integer;
+  Radius : Integer;
+  GameTime : Integer;
+  UnitInfo : PUnitInfo;
 begin
+  UnitInfo := UnitOrder.p_Unit.p_UnitDef;
+  if UnitInfo = nil then
+    Exit;
+    
+  if ( ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].CustomRange1Distance <> 0 ) then
+  begin
+    DrawRangeCircle(
+        OFFSCREEN_ptr,
+        CirclePointer,
+        @PUnitStruct(UnitOrder.p_Unit).Position,
+        ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].CustomRange1Distance,
+        ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].CustomRange1Color,
+        nil,
+        0); 
+  end;
+  if ( ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].CustomRange2Distance <> 0 ) then
+  begin
+    if ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].CustomRange2Animate then
+    begin
+      CustomRange := ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].CustomRange2Distance;
+      Radius := 8;
+      GameTime := TAData.GameTime mod 60;
+      if ((2 * CustomRange * GameTime div 60) >= 8 ) then
+        Radius := 2 * CustomRange * GameTime div 60;
+      if ( Radius >= CustomRange ) then
+        Radius := ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].CustomRange2Distance;
+    end else
+      Radius := ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].CustomRange2Distance;
+
+    DrawRangeCircle(
+        OFFSCREEN_ptr,
+        CirclePointer,
+        @PUnitStruct(UnitOrder.p_Unit).Position,
+        Radius,
+        ExtraUnitInfoTags[PUnitInfo(UnitInfo).nCategory].CustomRange2Color,
+        nil,
+        0);
+  end;
+end;
+
+procedure DrawUnitRanges_CustomRanges;
+label
+  loc_439CC8;
+asm
+  push    edx
+  mov     edx, [esp+30h]
+  push    ecx
+  push    ebx
+  push    eax
+  mov     eax, [esp+38h]
+
+  push    esi // unit order
+  push    edx // circle point
+  push    eax
+  call    DrawUnitRangesShowrangesOff
+
+  pop     eax
+  pop     ebx
+  pop     ecx
+  pop     edx
+
+  and     eax, edx;
+  test    al, 10h;
+  jz      loc_439CC8
+  push $00439CA1;
+  call PatchNJump;
+loc_439CC8 :
+  push $00439CC8;
+  call PatchNJump;
+end;
+
+procedure LoadArmCore32ltGafSequences;
+asm
+  push    eax
+
+  mov     eax, [TADynMemStructPtr]
+  mov     ecx, [eax+TTAdynmemStruct.p_LogosGaf]
+  push    Arm32Lt
+  push    ecx
+  call    GAF_Name2Sequence
+  mov     GafSequence_Arm32lt, eax
+
+  mov     eax, [TADynMemStructPtr]
+  mov     ecx, [eax+TTAdynmemStruct.p_LogosGaf]
+  push    Core32Lt
+  push    ecx
+  call    GAF_Name2Sequence
+  mov     GafSequence_Core32lt, eax
+
+  pop     eax
+  mov     edx, [TADynMemStructPtr]
+  push $00431911;
+  call PatchNJump;
+end;
+
+function DrawNewScoreboard(OFFSCREEN_Ptr: Cardinal): Cardinal; stdcall;
+var
+  ScoreBoardPos : tagRect;
+  PlayersDrawListTop : Integer;
+  Player, PlayerSort : PPlayerStruct;
+  cCurActivePlayer, IteratePlayerIdx : Byte;
+  cCurActiveSortPlayer : Byte;
+  cIterateSort : Byte;
+  PlayerType, PlayerSortType: TTAPlayerType;
+  PlayerSide : TTAPlayerSide;
+  LocalPlayerBox : tagRect;
+  p_ColorLogo : PGAFFrame;
+  Counter : Integer;
+  PlayerLogoRect, PlayerLogoTransform : TGAFFrameTransform;
+  TextLeftOff : Integer;
+label
+  SortPlayers;
+  //IterateWatcher;
+begin
+  Result := 0;
+  ScoreBoardPos.Left := GetTA_ScreenWidth - SCOREBOARD_WIDTH;//PInteger($0051F2D8)^;
+  ScoreBoardPos.Right := ScoreBoardPos.Left + SCOREBOARD_WIDTH;
+  ScoreBoardPos.Top := 32;
+  ScoreBoardPos.Bottom := 40 * TAData.ActivePlayersCount + 46;
+
+  DrawTransparentBox(OFFSCREEN_Ptr, @ScoreBoardPos, -23);
+
+  DrawText(OFFSCREEN_Ptr, TranslateString(PAnsiChar('Player')), ScoreBoardPos.Left + 5, ScoreBoardPos.Top, 119, 0);
+  DrawText(OFFSCREEN_Ptr, TranslateString(PAnsiChar('K/D')),
+           ScoreBoardPos.Right - GetStrExtent(TranslateString(PAnsiChar('K/D'))) - 2,
+           ScoreBoardPos.Top, 119, 0);
+
+  PlayersDrawListTop := ScoreBoardPos.Top + 15;
+  cCurActivePlayer := 0;
+  if TAData.ActivePlayersCount <> 0 then
+  begin
+    repeat
+      IteratePlayerIdx := 0;
+      Player := TAPlayer.GetPlayerByIndex(IteratePlayerIdx);
+      while True do
+      begin
+        if TAPlayer.IsActive(Player) then
+        begin
+          PlayerType := TAPlayer.PlayerType(Player);
+          if ( PlayerType = Player_LocalHuman ) or
+             ( PlayerType = Player_LocalAI ) or
+             ( PlayerType = Player_RemotePlayer ) then
+          begin
+            if ( TAPlayer.PlayerIndex(Player) <> 10 ) then
+              if ( (Player.nNumUnits <> 0) or (Player.lUnitsCounter = 0) ) then
+                if ( Player.PlayerInfo.PropertyMask and $40 <> $40 ) then
+                  if ( Player.cPlayerScoreboard = cCurActivePlayer ) then
+                    Break;
+          end;
+        end;
+        Inc(IteratePlayerIdx);
+        Player := Pointer(Cardinal(Player) + SizeOf(TPlayerStruct));
+        //TAPlayer.GetPlayerByIndex(IteratePlayerIdx);
+        if ( IteratePlayerIdx >= 10 ) then
+          goto SortPlayers;
+      end;
+      LocalPlayerBox.Left := ScoreBoardPos.Left + 4;
+      LocalPlayerBox.Right := ScoreBoardPos.Right - 4;
+      LocalPlayerBox.Top := PlayersDrawListTop - 1;
+      LocalPlayerBox.Bottom := PlayersDrawListTop + 37;
+      if ( IteratePlayerIdx = TAData.LocalPlayerID ) then
+        DrawTransparentBox(OFFSCREEN_Ptr, @LocalPlayerBox, -19)
+      else
+        DrawTransparentBox(OFFSCREEN_Ptr, @LocalPlayerBox, -24);
+
+      PlayerSide := TAPlayer.PlayerSide(Player);
+
+      case PlayerSide of
+        psArm :
+          p_ColorLogo := GAF_SequenceIndex2Frame(GafSequence_Arm32lt, TAPlayer.PlayerLogoIndex(Player));
+        psCore :
+          p_ColorLogo := GAF_SequenceIndex2Frame(GafSequence_Core32lt, TAPlayer.PlayerLogoIndex(Player));
+        else p_ColorLogo := nil;
+      end;
+
+      if p_ColorLogo <> nil then
+      begin
+        TextLeftOff := ScoreBoardPos.Left + 39 + 3;
+        PlayerLogoRect.Rect1.Left := ScoreBoardPos.Left + 7;
+        PlayerLogoRect.Rect1.Top := PlayersDrawListTop + 2;       // top
+        PlayerLogoRect.Rect1.Right := ScoreBoardPos.Left + 39;    // width raw + 7
+        PlayerLogoRect.Rect1.Bottom := PlayersDrawListTop + 2;
+
+        PlayerLogoRect.Rect2.Left := ScoreBoardPos.Left + 39;     // width raw + 7
+        PlayerLogoRect.Rect2.Top := PlayersDrawListTop + 34;      // height raw
+        PlayerLogoRect.Rect2.Right := ScoreBoardPos.Left + 7;
+        PlayerLogoRect.Rect2.Bottom := PlayersDrawListTop + 34;   // height raw
+
+        PlayerLogoTransform.Rect1.Left := 0;
+        PlayerLogoTransform.Rect1.Top := 0;
+        PlayerLogoTransform.Rect1.Right := p_ColorLogo.Width - 1;
+        PlayerLogoTransform.Rect1.Bottom := 0;
+
+        PlayerLogoTransform.Rect2.Left := p_ColorLogo.Width - 1;
+        PlayerLogoTransform.Rect2.Top := p_ColorLogo.Height - 1;
+        PlayerLogoTransform.Rect2.Right := 0;
+        PlayerLogoTransform.Rect2.Bottom := p_ColorLogo.Height - 1;
+
+        GAF_DrawTransformed(OFFSCREEN_Ptr, p_ColorLogo, @PlayerLogoRect, @PlayerLogoTransform);
+      end else
+      begin
+        TextLeftOff := ScoreBoardPos.Left + 7 + 3;
+      end;
+
+      DrawText(OFFSCREEN_Ptr, Player.szName, TextLeftOff, PlayersDrawListTop + 1, SCOREBOARD_WIDTH-6, 0);
+
+      if ( PTAdynmemStruct(TAData.MainStructPtr).bAlterKills = 2 ) then
+        Counter := Player.nKills_Last
+      else
+        Counter := Player.nKills;
+      DrawText(OFFSCREEN_Ptr, PAnsiChar(IntToStr(Counter)), TextLeftOff, PlayersDrawListTop + 22, 119, PByte($51F2C8 + IteratePlayerIdx)^);
+
+      if ( PTAdynmemStruct(TAData.MainStructPtr).bAlterKills = 2 ) then
+        Counter := Player.nLosses_Last
+      else
+        Counter := Player.nLosses;
+      DrawText(OFFSCREEN_Ptr, PAnsiChar(IntToStr(Counter)), ScoreBoardPos.Left + SCOREBOARD_WIDTH-6 - GetStrExtent(PAnsiChar(IntToStr(Counter))) - 2, PlayersDrawListTop + 22, 119, PByte($51E810 + IteratePlayerIdx)^);
+
+      PlayersDrawListTop := PlayersDrawListTop + 40;
+// drawings
+     { if (PlayerSide <> psArm) and
+         (PlayerSide <> psCore) then
+      goto IterateWatcher; }
+// end drawings
+SortPlayers:
+      if ( IteratePlayerIdx = 10 ) then
+      begin
+        cCurActiveSortPlayer := 0;
+        PlayerSort := TAPlayer.GetPlayerByIndex(cCurActiveSortPlayer);
+        cIterateSort := 10;
+        repeat
+          if ( TAPlayer.IsActive(PlayerSort) ) then
+          begin
+            PlayerSortType := TAPlayer.PlayerType(PlayerSort);
+            if ( PlayerSortType = Player_LocalHuman ) or
+               ( PlayerSortType = Player_LocalAI ) or
+               ( PlayerSortType = Player_RemotePlayer ) then
+            begin
+              if ( PlayerSort.cPlayerIndex <> 10 ) and
+                 ( (PlayerSort.nNumUnits <> 0) or (PlayerSort.lUnitsCounter = 0) ) then
+                if ( PlayerSort.PlayerInfo.PropertyMask and $40 <> $40 ) then
+                  if ( PlayerSort.cPlayerScoreboard > cCurActivePlayer ) then
+                    PlayerSort.cPlayerScoreboard := PlayerSort.cPlayerScoreboard - 1;
+            end;
+          end;
+          Inc(cCurActiveSortPlayer);
+          PlayerSort := TAPlayer.GetPlayerByIndex(cCurActiveSortPlayer);
+          Dec(cIterateSort);
+        until ( cIterateSort = 0 );
+      end;
+      Inc(cCurActivePlayer);
+      Result := cCurActivePlayer;
+    until (cCurActivePlayer >= TAData.ActivePlayersCount);
+
+    // now draw watchers
+ {   for IteratePlayerIdx := 0 to 9 do
+    begin
+      Player := TAPlayer.GetPlayerByIndex(IteratePlayerIdx);
+      if TAPlayer.IsActive(Player) then
+//        if ( TAPlayer.IsWatcher(Player) ) then
+//        begin
+          Result := Result + 1;
+//          goto DrawPlayerScoreBoard;
+        end;
+IterateWatcher :
+      Continue;
+    end; }
+  end;
+end;
+
+procedure DrawScoreboard;
+asm
+  push    ebp
+  call    DrawNewScoreboard
+  push $00494E5D;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles(PosStart: PPosition;
+  PosTarget: PNanolathePos; bReverse: Integer); stdcall;
+//var
+//  c1, c2, f: Int64;
+//  e: Extended;
+begin
+//if TAData.GameTime mod 4 = 0 then
+//  begin
+//  QueryPerformanceFrequency(f);
+//  QueryPerformanceCounter(c1);
   if TAData.NetworkLayerEnabled then
-    GlobalDplay.SendCobEventMessage(TANM_Rec2Rec_SetNanolatheParticles, nil, @PosStart, nil, nil, @PosTarget);
+    GlobalDplay.SendCobEventMessage(TANM_Rec2Rec_SetNanolatheParticles, 0, nil, @PosStart, @bReverse, nil, @PosTarget, nil);
+//  QueryPerformanceCounter(c2);
+//  e := (c2-c1)/f;
+ // Log_.Add(0, 'took: ' +FloatToStr(e));
+//  end;
 end;
 
 procedure BroadcastNanolatheParticles_BuildingBuild;
@@ -1316,6 +1767,7 @@ asm
   mov     [esp+34h], edx
   mov     [esp+38h], edi
   pushAD
+  push    0
   push    eax
   push    ecx
   call    BroadcastNanolatheParticles
@@ -1326,9 +1778,10 @@ end;
 
 procedure BroadcastNanolatheParticles_MobileBuild;
 asm
-  add     edi, [eax+TUnitInfo.lWidthY]
+  add     edi, [eax+TUnitInfo.lFootPrintY_]
   mov     [esp+44h], edi
   pushAD
+  push    0
   push    ecx
   push    edx
   call    BroadcastNanolatheParticles
@@ -1342,6 +1795,7 @@ asm
   mov     [esp+34h], edx
   mov     [esp+38h], esi
   pushAD
+  push    0
   push    eax
   push    ecx
   call    BroadcastNanolatheParticles
@@ -1350,114 +1804,190 @@ asm
   call PatchNJump;
 end;
 
-procedure BroadcastNanolatheParticles_VTOL_MobileBuild;
+procedure BroadcastNanolatheParticles_Resurrect;
 asm
+  push    eax
+  push    ecx
+  mov     [esp+38h], ebp
+  pushAD
+  push    0
+  push    eax
+  push    ecx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $0040509D;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_RepairResurrect;
+asm
+  add     edi, [eax+16Eh]
   mov     [esp+38h], edi
   pushAD
+  push    0
   push    ecx
   push    edx
   call    BroadcastNanolatheParticles
   popAD
+  push $004056D1;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_RepairUnk2;
+asm
+  add     edi, [eax+16Eh]
+  mov     [esp+38h], edi
+  pushAD
+  push    0
   push    ecx
   push    edx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $004058F6;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_VTOL_MobileBuild;
+asm
+  push    ecx
+  push    edx
+  mov     [esp+38h], edi
+  pushAD
+  push    0
+  push    ecx
+  push    edx
+  call    BroadcastNanolatheParticles
+  popAD
   push $004142B6;
   call PatchNJump;
 end;
 
-procedure DrawSelectedUnitsCounter(OFFSCREEN_ptr: Cardinal); stdcall;
-var
-  UnitId, MaxUnitId : Cardinal;
-  SelectedCounter : Cardinal;
-  SelectedCountStr : String;
-  v65 : LongInt;
-  ColorsPal : Pointer;
-begin
-  SelectedCounter := 0;
-  MaxUnitId := TAData.MaxUnitsID;
-  for UnitId := 1 to MaxUnitId do
-  begin
-    if PUnitStruct(TAUnit.Id2Ptr(UnitId)).lUnitStateMask and $50 = $50 then
-      Inc(SelectedCounter);
-  end;
-
-  if SelectedCounter > 1 then
-  begin
-    SelectedCountStr := 'Selected ' + IntToStr(SelectedCounter) + ' units';
-    ColorsPal := Pointer(LongWord(TAData.MainStructPtr)+$DCB);
-    v65 := sub_4C13F0;
-    SetFontColor(PByte(LongWord(ColorsPal)+15)^, v65);
-    SetFONTLENGTH_ptr(PTAdynmemStruct(TAData.MainStructPtr)^.lengthOFsmlfontFnt);
-    DrawText_Heavy(OFFSCREEN_ptr,
-                   PAnsiChar(SelectedCountStr),
-                   PTAdynmemStruct(TAData.MainStructPtr)^.lDisplayModeWidth - 105,
-                   PTAdynmemStruct(TAData.MainStructPtr)^.lDisplayModeHeight - 20, -1);
-  end;
-end;
-
-procedure SelectedUnitsCounter;
+procedure BroadcastNanolatheParticles_VTOL_HelpBuild;
 asm
-  pushf
-  push    edx
   push    ecx
+  mov     [esp+38h], edi
+  pushAD
+  push    0
   push    eax
-  lea     eax, [esp+24Ch+$4A]
-  push    eax
-  call    DrawSelectedUnitsCounter
-  pop     eax
-  pop     ecx
-  pop     edx
-  popf
-  mov     ecx, [esp+24Ch-$214]
-  push $0046ABE6;
+  push    ecx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $004146D7;
   call PatchNJump;
 end;
 
-function DrawDotteCircleNew(OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer;
-                            ColorOffset: Integer; Spacing: Word; Dotte_b : Integer;
-                            Angle: Word) : LongInt; stdcall;
-var
-  lRadius : Integer;
-  nAngle: Integer;
-  x1, y1, x2, y2: Integer;
-  v8, v18, v12, v14 : Integer;
-  AllowDraw : Integer;
-begin
-  lRadius := Radius;
-  x1 := CenterY;
-  v8 := Radius + CenterX;
-  Result := 65536 div Spacing;
-  nAngle := 65536 div Angle;
-  v18 := 65536 div Spacing;
-  if ( 65536 div Spacing <= 65536 ) then
-  begin
-    AllowDraw := Dotte_b;
-    while True do
-    begin
-      x2 := CenterX + sub_4B7123(nAngle, lRadius);
-      result := sub_4B70EF(nAngle, lRadius);
-      v12 := result;
-      Result := Byte(AllowDraw);
-      y2 := CenterY + v12;
-      if (AllowDraw and 1 = 1) then
-      begin
-        v14 := x1;
-        x1 := v8;
-        Spacing := y2;
-        Dotte_b := x2;
-        y1 := v14;
-        result := CorrecLinetPosition(OFFSCREEN_ptr, @x1, @y1, @Dotte_b, @Spacing);
-        if ( result <> 0 ) then
-          result := DrawLine2(OFFSCREEN_ptr, x1, y1, Dotte_b, Spacing, ColorOffset);
-      end;
-      nAngle := nAngle + v18;
-      v8 := x2;
-      x1 := y2;
-      Inc(AllowDraw);
-      if ( nAngle > 65536 ) then
-        Break;
-      lRadius := Radius;
-    end;
-  end;
+procedure BroadcastNanolatheParticles_VTOL_Repair;
+asm
+  push    ecx
+  push    edx
+  mov     [esp+38h], edi
+  pushAD
+  push    0
+  push    ecx
+  push    edx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $004151EC;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_Capture;
+asm
+  push    ecx
+  push    edx
+  mov     [esp+38h], edi
+  pushAD
+  push    1
+  push    edx 
+  push    ecx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $00404676;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_ReclaimUnit;
+asm
+  push    ecx
+  push    edx
+  mov     [esp+40h], edi
+  pushAD
+  push    1
+  push    edx
+  push    ecx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $00404A4E;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_ReclaimFeature;
+asm
+  push    eax
+  push    ecx
+  mov     [esp+38h], edi
+  pushAD
+  push    1
+  push    ecx
+  push    eax
+  call    BroadcastNanolatheParticles
+  popAD
+  call    EmitSfx_NanoParticlesReverse
+  lea     edx, [esp+14h]
+  push    6
+  lea     eax, [esp+24h]
+  push    edx
+  push    eax
+  pushAD
+  push    1
+  push    eax
+  push    edx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $00404D4C;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_VTOLReclaimUnit;
+asm
+  push    ecx
+  push    edx
+  mov     [esp+40h], edi
+  pushAD
+  push    1
+  push    edx
+  push    ecx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $00414C43;
+  call PatchNJump;
+end;
+
+procedure BroadcastNanolatheParticles_VTOLReclaimFeature;
+asm
+  push    eax
+  push    ecx
+  mov     [esp+34h], edi
+  pushAD
+  push    1
+  push    ecx
+  push    eax
+  call    BroadcastNanolatheParticles
+  popAD
+  call    EmitSfx_NanoParticlesReverse
+  lea     edx, [esp+10h]
+  push    6
+  lea     eax, [esp+20h]
+  push    edx
+  push    eax
+  pushAD
+  push    1
+  push    eax
+  push    edx
+  call    BroadcastNanolatheParticles
+  popAD
+  push $00414A31;
+  call PatchNJump;
 end;
 
 end.

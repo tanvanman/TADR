@@ -20,11 +20,12 @@ type
     Read                 : Boolean;
 
     ScriptorPath         : String;
-    SharedMapsPath       : String;
-    SharedBasicGameData  : String;
+    CommonMapsPath       : String;
+    CommonGameDataPath   : String;
 
     Plugin_AiNukes       : Boolean;
     Plugin_AiBuildList   : Boolean;
+    ExpandMinimap        : Boolean;
 
     CreateStatsFile      : Boolean;
 
@@ -40,6 +41,7 @@ type
     Plugin_HBCategory5   : Cardinal;
 
     Plugin_TrueIncome    : Boolean;
+    Plugin_BroadcastNanolathe : Boolean;
     Plugin_ClockPosition : Byte;
 
     Plugin_MinWeaponReload  : Integer;
@@ -309,7 +311,7 @@ begin
       IniSettings.ModId := ReadIniValue(IniFile, 'MOD','ID', -1);
       IniSettings.Name := ReadIniString(IniFile, 'MOD','Name', '');
       IniSettings.Version := ReadIniString(IniFile, 'MOD','Version', '');
-      IniSettings.RegName := ReadIniString(IniFile, 'MOD','RegName', '');
+      IniSettings.RegName := ReadIniString(IniFile, 'Preferences','RegistryName', '');
 
       IniSettings.DemosPrefix := ReadIniString(IniFile, 'MOD','DemosFileNamePrefix', '');
 
@@ -326,16 +328,10 @@ begin
       if IniSettings.ScriptorPath <> '' then
         IniSettings.ScriptorPath := IncludeTrailingPathDelimiter(IniSettings.ScriptorPath);
 
-      IniSettings.SharedMapsPath := ReadIniString(IniFile, 'Preferences', 'SharedMapsPath', '');
-      if IniSettings.SharedMapsPath <> '' then
-        IniSettings.SharedMapsPath := IncludeTrailingPathDelimiter(IniSettings.SharedMapsPath);
-
-      IniSettings.SharedBasicGameData := ReadIniString(IniFile, 'Preferences', 'SharedBasicGameData', '');
-      if IniSettings.SharedBasicGameData <> '' then
-        IniSettings.SharedBasicGameData := IncludeTrailingPathDelimiter(IniSettings.SharedBasicGameData);
-
       IniSettings.Plugin_AiNukes := ReadIniBool(IniFile, 'Preferences', 'AiNukes', False);
       IniSettings.Plugin_AiBuildList := ReadIniBool(IniFile, 'Preferences', 'AiBuildListExpand', False);
+
+      IniSettings.ExpandMinimap := ReadIniBool(IniFile, 'Preferences', 'ExpandMinimap', False);
 
       IniSettings.CreateStatsFile := ReadIniBool(IniFile, 'Preferences', 'CreateStats', False);
 
@@ -390,6 +386,7 @@ begin
       IniSettings.Plugin_BuildSpotNanoShimmer := ReadIniBool(IniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
 
       IniSettings.Plugin_TrueIncome := ReadIniBool(IniFile, 'Preferences', 'TrueIncome', False);
+      IniSettings.Plugin_BroadcastNanolathe := ReadIniBool(IniFile, 'Preferences', 'BroadcastNanolathe', False);
 
       IniSettings.Plugin_ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
       IniSettings.Plugin_MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);

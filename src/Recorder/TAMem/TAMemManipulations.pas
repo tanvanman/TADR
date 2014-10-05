@@ -480,7 +480,7 @@ begin
     if MakeSS then
     begin
       DirName := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation)) + 'log\';
-      sGameRunSec := IntToStr(PTAdynmemStruct(TAData.MainStructPtr)^.lGameTime);
+      sGameRunSec := IntToStr(PTAdynmemStruct(TAData.MainStructPtr).lGameTime);
       FileName := RemoveInvalidIncSpace(PlayerName) +
                   '#' + RemoveInvalidIncSpace(UserName) +
                   '#' + RemoveInvalidIncSpace(Date) +
@@ -491,7 +491,7 @@ begin
       FileSearch(DirName, '*.ac', '', True);
       DrawGameScreen(0, 0);
       TakeScreenshotOrg(PAnsiChar(DirName), PAnsiChar(FileName));
-      PTAdynmemStruct(TAData.MainStructPtr)^.RandNum_ := GameRunSec;
+      PTAdynmemStruct(TAData.MainStructPtr).RandNum_ := GameRunSec;
       Sleep(10000);
       FinalFileName := FileSearch(DirName, '*.pcx', FileName, False);
       if (FinalFileName <> '') then

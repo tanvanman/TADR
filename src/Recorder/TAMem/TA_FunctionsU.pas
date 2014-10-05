@@ -33,9 +33,19 @@ var
   Game_SetLOSState : Game_SetLOSStateHandler = Game_SetLOSStateHandler($4816A0);
 
 type
-  Name2Sequence_GafHandler = function (GafStruct: Cardinal; SequenceName : Cardinal) : LongInt; stdcall;
+  GAF_Name2SequenceHandler = function (GafStruct: Pointer; SequenceName : PAnsiChar) : Pointer; stdcall;
 var
-  Name2Sequence_Gaf : Name2Sequence_GafHandler = Name2Sequence_GafHandler($004B8D40);
+  GAF_Name2Sequence : GAF_Name2SequenceHandler = GAF_Name2SequenceHandler($004B8D40);
+
+type
+  GAF_SequenceIndex2FrameHandler = function (ParsedGaf: Pointer; Index : Integer) : Pointer; stdcall;
+var
+  GAF_SequenceIndex2Frame : GAF_SequenceIndex2FrameHandler = GAF_SequenceIndex2FrameHandler($004B7F30);
+
+type
+  GAF_DrawTransformedHandler = function (OFFSCREEN_Ptr: Cardinal; GafSequence: Pointer; Position: PGAFFrameTransform; Pos2: PGAFFrameTransform) : Pointer; stdcall;
+var
+  GAF_DrawTransformed : GAF_DrawTransformedHandler = GAF_DrawTransformedHandler($004C7580);
 
 type
   ShowExplodeGafHandler = function (Position: PPosition; p_GAFAnim: Cardinal; AddGlow: LongInt; AddSmoke: LongInt) : Byte; stdcall;
@@ -43,29 +53,44 @@ var
   ShowExplodeGaf : ShowExplodeGafHandler = ShowExplodeGafHandler($00420A30);
 
 type
-  EmitSfx_SmokeInfiniteHandler = function (Position: PPosition; SmokeIdx: Integer) : Byte; stdcall;
+  EmitSfx_SmokeInfiniteHandler = function (Position: PPosition; nPrior: Integer) : Byte; stdcall;
 var
   EmitSfx_SmokeInfinite : EmitSfx_SmokeInfiniteHandler = EmitSfx_SmokeInfiniteHandler($00472C50);
 
 type
-  EmitSfx_BlackSmokeHandler = function (Position: PPosition; SmokeIdx: Integer) : Byte; stdcall;
+  EmitSfx_BlackSmokeHandler = function (Position: PPosition; nPrior: Integer) : Byte; stdcall;
 var
   EmitSfx_BlackSmoke : EmitSfx_BlackSmokeHandler = EmitSfx_BlackSmokeHandler($004728F0);
 
 type
-  EmitSfx_GraySmokeHandler = function (Position: PPosition; SmokeIdx: Integer) : Byte; stdcall;
+  EmitSfx_GraySmokeHandler = function (Position: PPosition; nPrior: Integer) : Byte; stdcall;
 var
   EmitSfx_GraySmoke : EmitSfx_GraySmokeHandler = EmitSfx_GraySmokeHandler($00472810);
 
 type
-  EmitSfx_NanoParticlesHandler = function (p_PosStart, p_PosTarget: PPosition; nSize: Word) : Cardinal; stdcall;
+  EmitSfx_NanoParticlesHandler = function (p_PosStart: PPosition; p_PosTarget: PNanolathePos; nPrior: Word) : Cardinal; stdcall;
 var
   EmitSfx_NanoParticles : EmitSfx_NanoParticlesHandler = EmitSfx_NanoParticlesHandler($004720D0);
 
 type
-  EmitSfx_NanoParticlesReverseHandler = function (p_PosStart, p_PosTarget: PPosition; nSize: Word) : Cardinal; stdcall;
+  EmitSfx_NanoParticlesReverseHandler = function (p_PosTarget: PNanolathePos; p_PosStart: PPosition; nPrior: Word) : Cardinal; stdcall;
 var
   EmitSfx_NanoParticlesReverse : EmitSfx_NanoParticlesReverseHandler = EmitSfx_NanoParticlesReverseHandler($00472200);
+
+type
+  EmitSfx_TeleportHandler = function (p_PosStart, p_PosTarget: PPosition; lSize: Integer; nPrior: Word) : Cardinal; stdcall;
+var
+  EmitSfx_Teleport : EmitSfx_TeleportHandler = EmitSfx_TeleportHandler($00471FD0);
+
+type
+  EmitSfx_BubblesHandler = function (p_PosStart, p_PosTarget: PPosition; lSize: Integer; nPrior: Word) : Cardinal; stdcall;
+var
+  EmitSfx_Bubbles : EmitSfx_BubblesHandler = EmitSfx_BubblesHandler($00472530);
+
+type
+  EmitSfx_Unk5Handler = function (p_PosStart: PPosition; nPrior: Word) : Cardinal; stdcall;
+var
+  EmitSfx_Unk5 : EmitSfx_Unk5Handler = EmitSfx_Unk5Handler($00472AB0);
 
 type
   TA_UpdateLOSHandler = function (FillFeatureMap_b: LongWord): LongWord; stdcall;
@@ -74,7 +99,7 @@ var
   TA_UpdateLOS : TA_UpdateLOSHandler = TA_UpdateLOSHandler($004816A0);
 
 type
-  ScrollViewHandler = function (X, Y: Cardinal; Smooth: Boolean): Cardinal; stdcall;
+  ScrollViewHandler = function (X, Y: Cardinal; Smooth: LongBool): Cardinal; stdcall;
 var
   ScrollView : ScrollViewHandler = ScrollViewHandler($0041C4C0);
 
@@ -105,9 +130,9 @@ var
   UnitInPlayerLOS : UnitInPlayerLOSHandler = UnitInPlayerLOSHandler($00465AC0);
 
 type
-  PositionInPlayerLOSHandler = function (PlayerPtr : Pointer; Position : PPosition): LongBool; stdcall;
+  PositionInPlayerMappedHandler = function (PlayerPtr : Pointer; Position : PPosition): LongBool; stdcall;
 var
-  PositionInPlayerLOS : PositionInPlayerLOSHandler = PositionInPlayerLOSHandler($00408090);
+  PositionInPlayerMapped : PositionInPlayerMappedHandler = PositionInPlayerMappedHandler($00408090);
 
 type
   UnitAtPositionHandler = function (Position : PPosition): Pointer; stdcall;
@@ -140,6 +165,11 @@ type
   UNITS_FixYPosHandler = function (UnitPtr : Pointer) : LongInt; stdcall;
 var
   UNITS_FixYPos : UNITS_FixYPosHandler = UNITS_FixYPosHandler($0048A870);
+
+type
+  UNITS_NewUnitPositionHandler = function (UnitPtr : Pointer; NewX, NewY, NewZ: Cardinal; State: Cardinal) : Cardinal; stdcall;
+var
+  UNITS_NewUnitPosition : UNITS_NewUnitPositionHandler = UNITS_NewUnitPositionHandler($0048A9F0);
 
 type
   UNITS_SetMetalExtractionRatioHandler = procedure ( UnitPtr: Pointer ); stdcall;
@@ -312,7 +342,7 @@ var
 type
   UnitExplosionHandler = procedure ( UnitPtr: Pointer; destructas: Cardinal ); stdcall;
 var
-  UnitExplosion: UnitExplosionHandler = UnitExplosionHandler($49B000);
+  UnitExplosion: UnitExplosionHandler = UnitExplosionHandler($0049B000);
 
 type
   TestHeal_Handler = function ( ResPercentage: Pointer;
@@ -412,6 +442,16 @@ var
   TdfFile__GetStr : TdfFile__GetStrHandler = TdfFile__GetStrHandler($004C48C0);
 
 type
+  GetStrExtentHandler = function ( Str : PAnsiChar): Integer; stdcall;
+var
+  GetStrExtent : GetStrExtentHandler = GetStrExtentHandler($004A5030);
+
+type
+  TranslateStringHandler = function ( const Str : PAnsiChar): PAnsiChar; stdcall;
+var
+  TranslateString : TranslateStringHandler = TranslateStringHandler($004C5740);
+  
+type
   TA_AttachDetachUnitHandler = procedure (TransportedUnitPtr : Pointer;
                                           TransporterUnitPtr : Pointer;
                                           Piece : ShortInt;
@@ -420,9 +460,16 @@ var
   TA_AttachDetachUnit : TA_AttachDetachUnitHandler = TA_AttachDetachUnitHandler($0048AAC0);
 
 type
-  SetPrepareOrderHandler = function ( UnitPtr: Pointer; a2: Cardinal): LongInt; stdcall;
+  GetPrepareOrderNameHandler = function ( a1: Cardinal; DestStr: Pointer; UnitOrder: Cardinal): PAnsiChar; stdcall;
 var
-  SetPrepareOrder: SetPrepareOrderHandler = SetPrepareOrderHandler($00419BE0);
+  GetPrepareOrderName: GetPrepareOrderNameHandler = GetPrepareOrderNameHandler($0049FED0);
+  
+type
+  MOUSE_EVENT_2UnitOrderHandler = function ( CurtMouseEvent_ptr: Pointer; ActionType: Cardinal;
+                                             ActionIndex: Cardinal; Position_DWORD_p: Cardinal;
+                                             lPar1: Cardinal; lPar2: Cardinal): Cardinal; stdcall;
+var
+  MOUSE_EVENT_2UnitOrder: MOUSE_EVENT_2UnitOrderHandler = MOUSE_EVENT_2UnitOrderHandler($0048CF30);
 
 type
   Order2UnitHandler = function ( ScriptIndex: Cardinal;
@@ -453,6 +500,11 @@ type
                                     QueueAmount: Integer): Word; stdcall;
 var
   OrderSubBuild: OrderSubBuildHandler = OrderSubBuildHandler($00419B00);
+
+type
+  ORDERS_RemoveAllBuildQueuesHandler = procedure ( UnitPtr: PUnitStruct; Unk: LongBool); stdcall;
+var
+  ORDERS_RemoveAllBuildQueues: ORDERS_RemoveAllBuildQueuesHandler = ORDERS_RemoveAllBuildQueuesHandler($00439EB0);
 
 type
   GetUnitFirstOrderTargatHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
@@ -511,6 +563,11 @@ var
   LoadHPITerainFile : LoadHPITerainFileHandler = LoadHPITerainFileHandler($00429660);
 
 type
+  GetTA_ScreenWidthHandler = function : Integer; cdecl;
+var
+  GetTA_ScreenWidth : GetTA_ScreenWidthHandler = GetTA_ScreenWidthHandler($004B6700);
+
+type
   DrawGameScreenHandler = procedure (DrawUnits: Integer; BlitScreen: Integer); stdcall;
 var
   DrawGameScreen : DrawGameScreenHandler = DrawGameScreenHandler($00468CF0);
@@ -565,6 +622,12 @@ type
   DrawDotteCircleHandler = function (OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer; ColorOffset: Integer; Spacing: Word; Dotte_b : Integer) : LongInt; stdcall;
 var
   DrawDotteCircle : DrawDotteCircleHandler = DrawDotteCircleHandler($004C01A0);
+
+type
+  DrawRangeCircleHandler = function (OFFSCREEN_ptr: Cardinal; CirclePointer: Cardinal; Position: PPosition;
+    Radius : Integer; ColorOffset: Integer; Text: PAnsiChar; Priority: Integer) : Cardinal; stdcall;
+var
+  DrawRangeCircle : DrawRangeCircleHandler = DrawRangeCircleHandler($00438EA0);
 
 type
   sub_4B7123Handler = function(a1: Word; a2: LongInt) : LongInt; cdecl;
@@ -796,7 +859,7 @@ var
   CanCloseOrOpenYard : CanCloseOrOpenYardHandler = CanCloseOrOpenYardHandler($0047D970);
 
 type
-	GetPiecePositionHandler = function(PositionOut: PPosition;
+	GetPiecePositionHandler = function(out PositionOut: TPosition;
                                      UnitPtr: PUnitStruct;
                                      PieceIdx: Integer): PPosition; stdcall;
 var
@@ -917,9 +980,9 @@ var
   LoadTNTFile : LoadTNTFileHandler = LoadTNTFileHandler($00429660);
 
 Type
-  HAPI_BroadcastMessageHandler = function(FromPID: Integer; Buffer: Pointer; BufferSize: Integer): Integer; stdcall;
+  HAPINET_guaranteepacketsHandler = function(NewState: Integer): Integer; stdcall;
 var
-  HAPI_BroadcastMessage : HAPI_BroadcastMessageHandler = HAPI_BroadcastMessageHandler($00451DF0);
+  HAPINET_guaranteepackets : HAPINET_guaranteepacketsHandler = HAPINET_guaranteepacketsHandler($004C9790);
 
 type
   CopyGafToContextHandler = function(OFFSCREEN_ptr: Pointer; GafFrame: Pointer; Off_X, Off_Y: Integer): Pointer; stdcall;
@@ -966,6 +1029,13 @@ type
 var
   UpdateIngameGUI : UpdateIngameGUIHandler = UpdateIngameGUIHandler($00491D70);
 
+  //4A81E0
+
+type
+  ApplySelectUnitMenuHandler = function(): Integer; cdecl;
+var
+  ApplySelectUnitMenu : ApplySelectUnitMenuHandler = ApplySelectUnitMenuHandler($00495860);
+
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not working.
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -977,6 +1047,11 @@ var
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not used.
 //////////////////////////////////////////////////////////////////////////////////////////
+
+Type
+  HAPINET_BroadcastMessageHandler = function(FromPID: Integer; Buffer: Pointer; BufferSize: Integer): Integer; stdcall;
+var
+  HAPINET_BroadcastMessage : HAPINET_BroadcastMessageHandler = HAPINET_BroadcastMessageHandler($00451DF0);
 
 type
   UNITS_BroadcastUnitBuildFinishedHandler = procedure (BuilderUnitPtr, UnitPtr : Pointer); stdcall;

@@ -7,8 +7,9 @@ uses
 type
   TAMem = class
   protected
-    class Function GetViewPlayer : Byte;
-    class function GetGameTime : Cardinal;
+    class Function GetLocalPlayerID : Byte;
+    class function GetActivePlayersCount : Byte;
+    class function GetGameTime : Integer;
     class Function GetGameSpeed : Byte;
     class function GetDevMode : Boolean;
     class function GetIsNetworkLayerEnabled : Boolean;
@@ -40,8 +41,9 @@ type
   public
     Property Paused : Boolean read GetPausedState write SetPausedState;
 
-    property ViewPlayer : Byte read GetViewPlayer;
-    property GameTime : Cardinal read GetGameTime;
+    property LocalPlayerID : Byte read GetLocalPlayerId;
+    property ActivePlayersCount : Byte read GetActivePlayersCount;
+    property GameTime : Integer read GetGameTime;
     Property GameSpeed : Byte read GetGameSpeed;
     Property DevMode : Boolean read GetDevMode;
     Property NetworkLayerEnabled : Boolean read GetIsNetworkLayerEnabled;
@@ -66,6 +68,7 @@ type
     Property CameraToUnit : Pointer write SetCameraToUnit;
     class procedure ShakeCam(X, Y, Duration : Cardinal);
 
+    class function ScriptActionName2Index(ActionName: PAnsiChar): Integer;
     class function GetModelPtr(index: Word): Pointer;
     class function UnitInfoId2Ptr(index: Word): Pointer;
     class function UnitInfoCrc2Ptr(CRC: Cardinal): Pointer;
@@ -99,15 +102,17 @@ type
     class Function GetPlayerPtrByDPID(playerPID : TDPID) : Pointer;
     class Function GetPlayerByDPID(playerPID : TDPID) : LongWord;
 
-    class Function IsPlayerActive(player : Pointer) : Boolean;
-    class Function PlayerType(player : Pointer) : TTAPlayerType;
-    class Function PlayerSide(player : Pointer) : TTAPlayerSide;
+    class function PlayerIndex(player : PPlayerStruct) : Byte;
+    class Function PlayerType(player : PPlayerStruct) : TTAPlayerType;
+    class Function PlayerSide(player : PPlayerStruct) : TTAPlayerSide;
+    class function PlayerLogoIndex(player : PPlayerStruct) : Byte;
 
     class function GetShareRadar(player : Pointer) : Boolean;
     class Procedure SetShareRadar(player : Pointer; value : Boolean);
+    class function PositionInLOS(Player: PPlayerStruct; Position: PPosition): Boolean;
 
-    class function GetIsWatcher(player : Pointer) : Boolean;
-    class function GetIsActive(player : Pointer) : Boolean;
+    class function IsKilled(player : Pointer) : Boolean;
+    class function IsActive(player : Pointer) : Boolean;
 
     class function GetAlliedState(Player1 : Pointer; Player2 : Integer) : Boolean;
     class Procedure SetAlliedState(Player1 : Pointer; Player2 : Integer; value : Boolean);
@@ -154,7 +159,7 @@ type
 
     class function UpdateLos(UnitPtr: Pointer): LongWord;
     class function FireWeapon(AttackerPtr : Pointer; WhichWeap : Byte; TargetUnitPtr : Pointer; TargetShortPosition : TShortPosition) : Integer;
-    
+
     { position stuff }
     class function AtMouse: Pointer;
     class function AtPosition(Position: PPosition): Cardinal;
@@ -194,7 +199,7 @@ type
     class Function GetOwnerIndex(UnitPtr : Pointer) : Integer;
     class Function GetId(UnitPtr : Pointer) : Word;
     class Function GetLongId(UnitPtr : Pointer) : LongWord;
-    class Function Id2Ptr(LongUnitId : LongWord) : Pointer;
+    class Function Id2Ptr(LongUnitId : LongWord) : PUnitStruct;
     class Function Id2LongId(UnitId: Word) : LongWord;
     class function GetUnitInfoId(UnitPtr: Pointer): Word;
     class function GetUnitInfoCrc(UnitPtr: Pointer): Cardinal;
@@ -223,7 +228,7 @@ type
     class function UnitsIntoGetterArray(UnitPtr: Pointer; ArrayType: Byte; Id: LongWord; const UnitsArray: TFoundUnits): Boolean;
     class procedure ClearSearchRec(Id: LongWord; ArrayType: Byte);
     class procedure RandomizeSearchRec(Id: LongWord; ArrayType: Byte);
-    class function Distance(Unit1, Unit2 : Pointer): Integer;
+    class function Distance(Pos1, Pos2 : PPosition): Cardinal;
     class function CircleCoords(CenterPosition: TPosition; Radius: Integer; Angle: Integer; out x, z: Integer): Boolean;
   end;
 
@@ -232,7 +237,9 @@ type
     class procedure Speech(UnitPtr: Pointer; SpeechType: Cardinal; Text: PAnsiChar);
     class function Play3DSound(EffectID: Cardinal; Position: TPosition; NetBroadcast: Boolean): Integer;
     class function PlayGafAnim(BmpType: Byte; X, Z: Word; Glow, Smoke: Byte): Integer;
-    class function NanoParticles(StartPos, TargetPos : TPosition): Cardinal;
+    class function EmitSfxFromPiece(UnitPtr: PUnitStruct; TargetUnitPtr: PUnitStruct; PieceIdx: Integer; SfxType: Byte): Cardinal; 
+    class function NanoParticles(StartPos: TPosition; TargetPos : TNanolathePos): Cardinal;
+    class function NanoReverseParticles(StartPos: TPosition; TargetPos : TNanolathePos): Cardinal;
   end;
 
 const
@@ -302,54 +309,59 @@ if not CacheUsed then
 result := IsTAVersion31_Cache;
 end;
 
-class Function TAMem.GetViewPLayer : Byte;
+class Function TAMem.GetLocalPlayerId : Byte;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.cLOS_Sight_PlayerID;
+result := PTAdynmemStruct(TAData.MainStructPtr).cControlPlayerID;
 end;
 
-class Function TAMem.GetGameTime : Cardinal;
+class Function TAMem.GetActivePlayersCount : Byte;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.lGameTime;
+result := Byte(PTAdynmemStruct(TAData.MainStructPtr).nActivePlayersCount);
+end;
+
+class Function TAMem.GetGameTime : Integer;
+begin
+result := PTAdynmemStruct(TAData.MainStructPtr).lGameTime;
 end;
 
 class Function TAMem.GetGameSpeed : Byte;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.nTAGameSpeed;
+result := PTAdynmemStruct(TAData.MainStructPtr).nTAGameSpeed;
 end;
 
 class Function TAMem.GetDevMode : Boolean;
 begin
-result := (PTAdynmemStruct(TAData.MainStructPtr)^.nGameState and 2) = 2;
+result := (PTAdynmemStruct(TAData.MainStructPtr).nGameState and 2) = 2;
 end;
 
 class function TAMem.GetIsNetworkLayerEnabled: Boolean;
 begin
-result := (PTAdynmemStruct(TAData.MainStructPtr)^.cNetworkLayerEnabled and 1) = 1;
+result := (PTAdynmemStruct(TAData.MainStructPtr).cNetworkLayerEnabled and 1) = 1;
 end;
 
 class function TAMem.GetMaxUnitLimit : Word;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.nMaxUnitLimitPerPlayer;
+result := PTAdynmemStruct(TAData.MainStructPtr).nMaxUnitLimitPerPlayer;
 end;
 
 class function TAMem.GetActualUnitLimit : Word;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.nPerMissionUnitLimit;
+result := PTAdynmemStruct(TAData.MainStructPtr).nPerMissionUnitLimit;
 end;
 
 class function TAMem.GetIsAlteredUnitLimit : Boolean;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.cAlteredUnitLimit <> 0;
+result := PTAdynmemStruct(TAData.MainStructPtr).cAlteredUnitLimit <> 0;
 end;
 
 class function TAMem.GetUnitsPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.p_Units;
+result := PTAdynmemStruct(TAData.MainStructPtr).p_Units;
 end;
 
 class function TAMem.GetUnits_EndMarkerPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.p_LastUnitInArray;
+result := PTAdynmemStruct(TAData.MainStructPtr).p_LastUnitInArray;
 end;
 
 class function TAMem.GetMainStructPtr : Pointer;
@@ -360,60 +372,60 @@ end;
 class function TAMem.GetProgramStructPtr : Pointer;
 begin
 
-result := PTAdynmemStruct(TAData.MainStructPtr)^.p_TAProgram;
+result := PTAdynmemStruct(TAData.MainStructPtr).p_TAProgram;
 end;
 
 class function TAMem.GetPlayersStructPtr: Pointer;
 begin
-result := @PTAdynmemStruct(TAData.MainStructPtr)^.Players[0];
+result := @PTAdynmemStruct(TAData.MainStructPtr).Players[0];
 end;
 
 class function TAMem.GetModelsArrayPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.p_MODEL_PTRS;
+result := PTAdynmemStruct(TAData.MainStructPtr).p_MODEL_PTRS;
 end;
 
 class function TAMem.GetWeaponTypeDefArrayPtr : Pointer;
 begin
   if IniSettings.WeaponType <= 256 then
-    result := @PTAdynmemStruct(TAData.MainStructPtr)^.Weapons[0]
+    result := @PTAdynmemStruct(TAData.MainStructPtr).Weapons[0]
   else
     result := @PTAdynmemStruct(WeaponLimitPatchArr)^.Weapons[0];
 end;
 
 class function TAMem.GetFeatureTypeDefArrayPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.p_FeatureDefs;
+result := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.p_FeatureDefs;
 end;
 
 class function TAMem.GetUnitInfosPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.p_UnitDefs;
+result := PTAdynmemStruct(TAData.MainStructPtr).p_UnitDefs;
 end;
 
 class function TAMem.GetUnitInfosCount : LongWord;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.lNumUnitTypeDefs;
+result := PTAdynmemStruct(TAData.MainStructPtr).lNumUnitTypeDefs;
 end;
 
 class function TAMem.GetSwitchesMask : Word;
 begin
-Result:= PTAdynmemStruct(TAData.MainStructPtr)^.nSwitchesMask;
+Result:= PTAdynmemStruct(TAData.MainStructPtr).nSwitchesMask;
 end;
 
 class procedure TAMem.SetSwitchesMask(Mask: Word);
 begin
-PTAdynmemStruct(TAData.MainStructPtr)^.nSwitchesMask:= Mask;
+PTAdynmemStruct(TAData.MainStructPtr).nSwitchesMask:= Mask;
 end;
 
 class Function TAMem.GetPausedState : Boolean;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr)^.cIsGamePaused <> 0;
+result := PTAdynmemStruct(TAData.MainStructPtr).cIsGamePaused <> 0;
 end;
 
 class Procedure TAMem.SetPausedState( value : Boolean);
 begin
-PTAdynmemStruct(TAData.MainStructPtr)^.cIsGamePaused := BoolValues[value];
+PTAdynmemStruct(TAData.MainStructPtr).cIsGamePaused := BoolValues[value];
 end;
 
 class function TAMem.GetModelPtr(index: Word): Pointer;
@@ -511,26 +523,55 @@ begin
     result := TAData.ActualUnitLimit * MAXPLAYERCOUNT;
 end;
 
+class function TAMem.ScriptActionName2Index(ActionName: PAnsiChar): Integer;
+var
+  CurrCobScript : Cardinal;
+  CurrCobScript_Int : Cardinal;
+  CurrCobScript_Int2 : Cardinal;
+begin
+  CurrCobScript := PCardinal(COBScriptHandler_Begin)^;
+  CurrCobScript_Int := (PCardinal(COBScriptHandler_End)^ - PCardinal(COBScriptHandler_Begin)^) div 25;
+  if ( CurrCobScript_Int > 0 ) then
+  begin
+    repeat
+      CurrCobScript_Int2 := CurrCobScript + 20 * (CurrCobScript_Int div 2) + 5 * (CurrCobScript_Int div 2);
+      if ( AnsiCompareStr(UpperCase(PAnsiChar(PCardinal(CurrCobScript_Int2 + 21)^)), ActionName) < 0 ) then
+      begin
+        CurrCobScript := CurrCobScript_Int2 + 25;
+        CurrCobScript_Int := CurrCobScript_Int - 1 - CurrCobScript_Int div 2;
+      end else
+        CurrCobScript_Int := CurrCobScript_Int div 2;
+
+    until ( CurrCobScript_Int = 0 );
+  end;
+  if ( CurrCobScript = COBScriptHandler_End ) or
+     ( AnsiCompareStr(UpperCase(PAnsiChar(PCardinal(CurrCobScript + 21)^)), ActionName) > 0 ) then
+  begin
+    Result := 0;
+  end else
+    Result := (CurrCobScript - PCardinal(COBScriptHandler_Begin)^) div 25;
+end;
+
 class function TAMem.GetGameingType: TGameingType;
 begin
   Result := gtMenu;
-  if PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile <> nil then
-    Result := TGameingType(PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).MissionType);
+  if PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile <> nil then
+    Result := TGameingType(PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).MissionType);
 end;
 
 class function TAMem.GetAIDifficulty: TAIDifficulty;
 begin
-  Result := TAIDifficulty(PTAdynmemStruct(TAData.MainStructPtr)^.lCurrenTAIProfile);
+  Result := TAIDifficulty(PTAdynmemStruct(TAData.MainStructPtr).lCurrenTAIProfile);
 end;
 
 class function TAMem.GetViewPlayerRaceSide: TTAPlayerSide;
 begin
-  Result := TTAPlayerSide(PPlayerInfoStruct(PPlayerStruct(TAPlayer.GetPlayerByIndex(TAData.ViewPlayer)).PlayerInfo).Raceside);
+  Result := TTAPlayerSide(PPlayerInfoStruct(PPlayerStruct(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID)).PlayerInfo).Raceside);
 end;
 
 class procedure TAMem.SetCameraToUnit(UnitPtr: Pointer);
 begin
-  PTAdynmemStruct(TAData.MainStructPtr)^.pCameraToUnit := UnitPtr;
+  PTAdynmemStruct(TAData.MainStructPtr).pCameraToUnit := UnitPtr;
 end;
 
 class procedure TAMem.SetCameraFadeLevel(FadePercent : Integer);
@@ -540,17 +581,17 @@ end;
 
 class procedure TAMem.ShakeCam(X, Y, Duration: Cardinal);
 begin
-  PTAdynmemStruct(TAData.MainStructPtr)^.field_1432F :=
-    (PTAdynmemStruct(TAData.MainStructPtr)^.field_1432F + Duration) div 2;
-  PTAdynmemStruct(TAData.MainStructPtr)^.field_14333 := Duration;
+  PTAdynmemStruct(TAData.MainStructPtr).field_1432F :=
+    (PTAdynmemStruct(TAData.MainStructPtr).field_1432F + Duration) div 2;
+  PTAdynmemStruct(TAData.MainStructPtr).field_14333 := Duration;
   if ( X <> 0 ) then
-    PTAdynmemStruct(TAData.MainStructPtr)^.ShakeMagnitude_1 :=
-      PTAdynmemStruct(TAData.MainStructPtr)^.ShakeMagnitude_1 + X;
+    PTAdynmemStruct(TAData.MainStructPtr).ShakeMagnitude_1 :=
+      PTAdynmemStruct(TAData.MainStructPtr).ShakeMagnitude_1 + X;
   if ( Y <> 0 ) then
-    PTAdynmemStruct(TAData.MainStructPtr)^.ShakeMagnitude_2 :=
-      PTAdynmemStruct(TAData.MainStructPtr)^.ShakeMagnitude_2 + Y;
-  if ( PTAdynmemStruct(TAData.MainStructPtr)^.field_1432F > 0 ) then
-    PTAdynmemStruct(TAData.MainStructPtr)^.cShake := PTAdynmemStruct(TAData.MainStructPtr)^.cShake or 1;
+    PTAdynmemStruct(TAData.MainStructPtr).ShakeMagnitude_2 :=
+      PTAdynmemStruct(TAData.MainStructPtr).ShakeMagnitude_2 + Y;
+  if ( PTAdynmemStruct(TAData.MainStructPtr).field_1432F > 0 ) then
+    PTAdynmemStruct(TAData.MainStructPtr).cShake := PTAdynmemStruct(TAData.MainStructPtr).cShake or 1;
 end;
 
 class function TAMem.ProtectMemoryRegion(Address : Cardinal; Writable: Boolean): Integer;
@@ -606,8 +647,8 @@ end;
 class Function TAPlayer.GetPlayerByIndex(playerIndex : LongWord) : Pointer;
 begin
 result := nil;
-if playerindex < 10 then
-  result:= @PTAdynmemStruct(TAData.MainStructPtr)^.Players[playerIndex];
+if playerindex < MAXPLAYERCOUNT then
+  result:= @PTAdynmemStruct(TAData.MainStructPtr).Players[playerIndex];
 //result := Pointer(TAData.PlayersStructPtr+(playerIndex*SizeOf(TPlayerStruct)) );
 end;
 
@@ -650,19 +691,24 @@ while i < MAXPLAYERCOUNT do
   end;
 end;
 
-class Function TAPlayer.IsPlayerActive(player : Pointer) : Boolean;
+class Function TAPlayer.PlayerIndex(player : PPlayerStruct) : Byte;
 begin
-  Result := PPlayerStruct(player).lPlayerActive <> 0;
+  Result := Player.cPlayerIndex;
 end;
 
-class Function TAPlayer.PlayerType(player : Pointer) : TTAPlayerType;
+class Function TAPlayer.PlayerType(player : PPlayerStruct) : TTAPlayerType;
 begin
-  Result := PPlayerStruct(player).en_cPlayerType;
+  Result := Player.en_cPlayerType;
 end;
 
-class Function TAPlayer.PlayerSide(player : Pointer) : TTAPlayerSide;
+class Function TAPlayer.PlayerSide(player : PPlayerStruct) : TTAPlayerSide;
 begin
-  Result := TTAPlayerSide(PPlayerStruct(player).PlayerInfo.Raceside + 1);
+  Result := TTAPlayerSide(Player.PlayerInfo.Raceside + 1);
+end;
+
+class Function TAPlayer.PlayerLogoIndex(player : PPlayerStruct) : Byte;
+begin
+  Result := Player.PlayerInfo.PlayerLogoColor;
 end;
 
 Class function TAPlayer.GetShareRadar(player : Pointer) : Boolean;
@@ -678,14 +724,34 @@ else
   Exclude(PPlayerStruct(Player).PlayerInfo.SharedBits, SharedState_SharedRadar);
 end;
 
-Class function TAPlayer.GetIsWatcher(player : Pointer) : Boolean;
+class function TAPlayer.PositionInLOS(Player: PPlayerStruct;
+  Position: PPosition): Boolean;
+var
+  X, Z : Integer;
+  Pos : Cardinal;
 begin
-result := PropertyMask_Watcher in PPlayerStruct(Player).PlayerInfo.PropertyMask;
+  Result := False;
+  if PositionInPlayerMapped(Player, Position) then
+  begin
+    X := Position.X div 32;
+    Z := (Position.Z - (Position.Y div 2)) div 32;
+    if (X < Player.lLOS_Width) and
+       (Z < Player.lLOS_Height) then
+    begin
+      Pos := Z * Player.lLOS_Width + X;
+      Result := PByte(Cardinal(Player.LOS_MEMORY) + Pos)^ <> 0;
+    end;
+  end;
 end;
 
-Class function TAPlayer.GetIsActive(player : Pointer) : Boolean;
+Class function TAPlayer.IsKilled(player : Pointer) : Boolean;
 begin
-result := PPlayerStruct(Player).lPlayerActive <> $0;
+result := PPlayerStruct(Player).PlayerInfo.PropertyMask and $40 = $40;
+end;
+
+Class function TAPlayer.IsActive(player : Pointer) : Boolean;
+begin
+result := PPlayerStruct(Player).lPlayerActive <> 0;
 end;
 
 class function TAPlayer.GetAlliedState(Player1 : Pointer; Player2 : Integer) : Boolean;
@@ -1274,7 +1340,7 @@ var
   UnitSt: PUnitStruct;
 begin
   if OwnerIndex = 10 then
-    OwnerIndex := TAData.ViewPlayer;
+    OwnerIndex := TAData.LocalPlayerID;
     
   Result := UNITS_Create( OwnerIndex,
                           UnitInfo.nCategory,
@@ -1534,7 +1600,7 @@ begin
 result := PUnitStruct(UnitPtr).lUnitInGameIndex;
 end;
 
-class Function TAUnit.Id2Ptr(LongUnitId : LongWord) : Pointer;
+class Function TAUnit.Id2Ptr(LongUnitId : LongWord) : PUnitStruct;
 begin
   Result := nil;
   if LongUnitId <> 0 then
@@ -2281,7 +2347,7 @@ begin
         Continue
       else
         //subs or pels/hovers currently in sea
-        if not (GetPosHeight(@CheckedUnitSt.Position) > PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.SeaLevel) then
+        if not (GetPosHeight(@CheckedUnitSt.Position) > PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.SeaLevel) then
         begin
           Continue;
         end;
@@ -2322,7 +2388,7 @@ begin
      2..3 : begin
               if MaxDistance > 0 then
               begin
-                Distance:= TAUnits.Distance(UnitSt, CheckedUnitSt);
+                Distance:= TAUnits.Distance(@UnitSt.Position, @CheckedUnitSt.Position);
                 if (Distance <> -1) and (Distance <= MaxDistance) then goto AddFound;
               end else
                 goto AddFound;
@@ -2349,7 +2415,7 @@ begin
     if High(FoundArray) + 1 > 0 then
       for i:= Low(FoundArray) to High(FoundArray) do
       begin
-        NearestUnitDistance := TAUnits.Distance(UnitSt, TAUnit.Id2Ptr(FoundArray[i]));
+        NearestUnitDistance := TAUnits.Distance(@UnitSt.Position, @PUnitStruct(TAUnit.Id2Ptr(FoundArray[i])).Position);
         if i = Low(FoundArray) then
         begin
           if NearestUnitDistance <> -1 then
@@ -2450,17 +2516,18 @@ begin
   end;
 end;
 
-class function TAUnits.Distance(Unit1, Unit2 : Pointer): Integer;
+class function TAUnits.Distance(Pos1, Pos2 : PPosition): Cardinal;
 var
   Distance : Extended;
 begin
-  Result := -1;
-  if (Unit1 <> nil) and (Unit2 <> nil) then
+  Result := 0;
+  if (Pos1 <> nil) and (Pos2 <> nil) then
   begin
-    if Unit1 <> Unit2 then
+    if ((PPosition(Pos1)^.X - PPosition(Pos2)^.X) <> 0) and
+       ((PPosition(Pos1)^.Z - PPosition(Pos2)^.Z) <> 0) then
     begin
-      Distance := Hypot(PUnitStruct(Unit1).Position.X - PUnitStruct(Unit2).Position.X,
-                        PUnitStruct(Unit1).Position.Z - PUnitStruct(Unit2).Position.Z);
+      Distance := Hypot(PPosition(Pos1)^.X - PPosition(Pos2)^.X,
+                        PPosition(Pos1)^.Z - PPosition(Pos2)^.Z);
       Result := Round(Distance);
     end else
       Result := 0;
@@ -2474,8 +2541,8 @@ var
 begin
   x := Round(CenterPosition.X + cos(Angle) * Radius);
   z := Round(CenterPosition.Z + sin(Angle) * Radius);
-  MapWidth := PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.lMapWidth;
-  MapHeight := PTAdynmemStruct(TAData.MainStructPtr)^.TNTMemStruct.lMapHeight;
+  MapWidth := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lMapWidth;
+  MapHeight := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lMapHeight;
   if (x > 0) and (z > 0) and (x < MapWidth) and (z < MapHeight) then
     Result:= True
   else
@@ -2521,9 +2588,81 @@ begin
   end;
 end;
 
-class function TASfx.NanoParticles(StartPos, TargetPos : TPosition): Cardinal;
+procedure UnitPosition2NanoTarget(UnitPtr: PUnitStruct; var NanolatPos: TNanolathePos);
+asm
+    mov     eax, UnitPtr
+    mov     ecx, [eax+TUnitStruct.p_UnitDef]
+    mov     edx, [eax+TUnitStruct.Position.X_]
+    mov     ebx, [eax+TUnitStruct.Position.Y_]
+    add     ecx, 15Eh
+    mov     esi, [ecx]
+    mov     edi, [ecx+4]
+    mov     ecx, [ecx+8]
+    add     edx, esi
+    mov     esi, [eax+TUnitStruct.Position.Z_]
+    add     edi, ebx
+    add     ecx, esi
+    mov     NanolatPos.Pos1.X, edx
+    mov     NanolatPos.Pos1.Y, edi
+    mov     NanolatPos.Pos1.Z, ecx
+    mov     ecx, [eax+TUnitStruct.p_UnitDef]
+    mov     edx, [eax+TUnitStruct.Position.X_]
+    mov     ebx, [eax+TUnitStruct.Position.Z_]
+    add     ecx, 16Ah
+    mov     esi, [eax+TUnitStruct.Position.Z_]
+    mov     edi, [ecx]
+    add     edx, edi
+    mov     edi, [ecx+4]
+    mov     ecx, [ecx+8]
+    mov     NanolatPos.Pos2.X, edx
+    add     ecx, ebx
+    mov     NanolatPos.Pos2.Z, ecx
+    add     edi, esi
+    mov     NanolatPos.Pos2.Y, edi
+end;
+
+class function TASfx.EmitSfxFromPiece(UnitPtr: PUnitStruct; TargetUnitPtr: PUnitStruct;
+  PieceIdx: Integer; SfxType: Byte): Cardinal;
+var
+  PiecePos : TPosition;
+  TargetBase : TPosition;
+  TargetNanoBase : TNanolathePos;
+  UnitPos : TPositionCard;
+  BuildingUnitInfo : PUnitInfo;
+begin
+  Result := 0;
+  BuildingUnitInfo := TargetUnitPtr.p_UnitDef;
+  GetPiecePosition(PiecePos, UnitPtr, PieceIdx);
+  GetPiecePosition(TargetBase, TargetUnitPtr, 0);
+
+  UnitPos.X := MakeLong(0, TargetUnitPtr.Position.X);
+  UnitPos.Y := MakeLong(0, TargetUnitPtr.Position.Y);
+  UnitPos.Z := MakeLong(0, TargetUnitPtr.Position.Z);
+
+  TargetNanoBase.Pos1.X := UnitPos.X + BuildingUnitInfo.lWidthX_;
+  TargetNanoBase.Pos1.Y := UnitPos.Y + BuildingUnitInfo.lWidthY_;
+  TargetNanoBase.Pos1.Z := UnitPos.Z + BuildingUnitInfo.lWidthZ_;
+
+  TargetNanoBase.Pos2.X := UnitPos.X + BuildingUnitInfo.lFootPrintX_;
+  TargetNanoBase.Pos2.Y := UnitPos.Y + BuildingUnitInfo.lFootPrintY_;
+  TargetNanoBase.Pos2.Z := UnitPos.Z + BuildingUnitInfo.lFootPrintZ_;
+
+  case SfxType of
+    6 : Result := EmitSfx_NanoParticles(@PiecePos, @TargetNanoBase, 6);
+    7 : Result := EmitSfx_NanoParticlesReverse(@TargetNanoBase, @PiecePos, 6);
+    8 : Result := EmitSfx_Teleport(@PiecePos, @TargetBase, 30, 5);
+  end;
+end;
+
+class function TASfx.NanoParticles(StartPos: TPosition; TargetPos : TNanolathePos): Cardinal;
 begin
   Result := EmitSfx_NanoParticles(@StartPos, @TargetPos, 6);
+end;
+
+class function TASfx.NanoReverseParticles(StartPos: TPosition;
+  TargetPos: TNanolathePos): Cardinal;
+begin
+  Result := EmitSfx_NanoParticlesReverse(@TargetPos, @StartPos, 6);
 end;
 
 end.

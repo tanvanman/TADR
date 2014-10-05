@@ -133,7 +133,7 @@ type
 
     Property Name : string read fName;
     Property Enabled : boolean read fEnabled write fEnabled;
-    Property Installed : boolean read fInstalled;
+    Property Installed : boolean read fInstalled write fInstalled;
     Property RequireOnMainRun : boolean read fRequireOnMainRun;
 
 
@@ -582,7 +582,10 @@ for i := 0 to high(Plugins) do
      ( Plugins[i].RequireOnMainRun = OnMainRun) then
     begin
     if assigned(Plugins[i].OnInstall) then
+    begin
       Plugins[i].OnInstall();
+      Plugins[i].Installed := True;
+    end;
     CodeInjections := Plugins[i].CodeInjections;
     for i2 := 0 to high(CodeInjections) do
       if CodeInjections[i2].Enabled and not CodeInjections[i2].Installed then

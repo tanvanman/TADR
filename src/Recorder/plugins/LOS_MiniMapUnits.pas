@@ -12,6 +12,7 @@ implementation
 uses
   LOS_extensions,
   TADemoConsts,
+  TA_MemoryStructures,
   TA_MemoryConstants;
 
 
@@ -43,7 +44,7 @@ asm
   // if (UnitStruct.OwnerPtr.AlliedPlayers[TAdynmemStruct.LOS_Sight])
   xor eax, eax
   mov al, [esi+TAdynmemStruct_LOS_Sight]
-  mov edx, [ebx+UnitStruct_OwnerPtr]
+  mov edx, [ebx+TUnitStruct.p_Owner]
   cmp byte [eax+edx+PlayerStruct_AlliedPlayers], 0
   jnz IsOwnerAlly
 

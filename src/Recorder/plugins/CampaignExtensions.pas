@@ -146,7 +146,7 @@ begin
     MapMissionsUnit.nUnitInfoID := 1;
     //MapMissionsUnit.p_UnitDef := TAMem.UnitInfoId2Ptr(0);
 
-    MapMissionsUnit.p_Owner := TAPlayer.GetPlayerByIndex(TAData.ViewPlayer);
+    MapMissionsUnit.p_Owner := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
     //if UNITS_AllocateUnit(@MapMissionsUnit, 0, 0, 0, 1) then
     //begin
       MapMissionsUnitInfo := PUnitInfo(TAMem.UnitInfoId2Ptr(MapMissionsUnit.nUnitInfoID))^;

@@ -91,7 +91,7 @@ sub_4B7F30
 
 Procedure ResetShareLosState;
 begin
-ViewPlayer := TAData.ViewPlayer;
+ViewPlayer := TAData.LocalPlayerID;
 end; {ResetShareLosState}
 
 Procedure OnInstallShareLOS;

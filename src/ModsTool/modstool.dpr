@@ -231,7 +231,11 @@ begin
           TotalaIni := TIniFile.Create(TotalaIniName);
           case Parameters.Func of
             maAdd..maUpdate :
+            begin
               TotalaIni.WriteString('MOD', 'ID', Parameters.ID);
+              if Parameters.RegName <> '' then
+                TotalaIni.WriteString('Preferences', 'RegistryName', Parameters.RegName +';');
+            end;
             maRemove :
               TotalaIni.EraseSection('MOD');
           end;

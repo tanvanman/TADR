@@ -1,10 +1,26 @@
 unit TA_MemoryStructures;
 
 interface
-uses Classes;
+uses Classes, Types;
 
+const
+  BUTTON_ORDER_STOP = 1;
+  BUTTON_ORDER_MOVE = 2;
+  BUTTON_ORDER_ATTACK = 3;
+  BUTTON_ORDER_BLAST = 4;
+  BUTTON_ORDER_UNLOAD = 5;
+  BUTTON_ORDER_LOAD = 6;
+  BUTTON_ORDER_DEFEND = 7;
+  BUTTON_ORDER_REPAIR = 8;
+  BUTTON_ORDER_PATROL = 9;
+  BUTTON_ORDER_STOP2 = 10;
+  BUTTON_ORDER_TELEPORT = 11;
+  BUTTON_ORDER_RECLAIM = 12;
+  BUTTON_ORDER_CAPTURE = 13;
+  BUTTON_ORDER_MOBILEBUILD = 14;
+  BUTTON_ORDER_TELEPORTNEW = 15;
+  
 type
-
   TGameingType = ( gtMenu, gtCampaign, gtSkirmish, gtMultiplayer );
 
   TAIDifficulty = ( adEasy, adMedium, adHard );
@@ -73,20 +89,6 @@ type
     bYard_type         : Byte;
   end;
 
-  TGAFFrame = packed record
-    Width : Word;
-    Height : Word;
-    Left : Word;
-    Top : Word;
-    Background : Byte;
-    Compressed : Byte;
-    SubFrames : Byte;
-    IsCompressed : Byte;
-    PtrFrameData : Pointer;
-    PtrFrameBits : Pointer;
-    Bits2_Ptr : Pointer;
-  end;
-
   PShortPosition = ^TShortPosition;
   TShortPosition = packed record
     X : Word;
@@ -108,6 +110,18 @@ type
     X  : Word;
     Z  : Word;
     Y  : Word;
+  end;
+
+  TPositionCard = packed record
+    X  : Integer;
+    Y  : Integer;
+    Z  : Integer;
+  end;
+
+  PNanolathePos = ^TNanolathePos;
+  TNanolathePos = packed record
+    Pos1 : TPositionCard;
+    Pos2 : TPositionCard;
   end;
 
   PBaseObject = ^TBaseObject;
@@ -237,13 +251,13 @@ type
     pYardMap           : Pointer;
     lAICanBuildCount   : Cardinal;
     pAICanBuildList    : Pointer;
-    field_15A          : Cardinal;
-    lWidthX            : Cardinal;
-    lUnknown4          : Cardinal;
-    lWidthZ            : Cardinal;
-    lFootPrintX        : Cardinal;
-    lWidthY            : Cardinal;
-    lFootPrintZ        : Cardinal;
+    lBuildLimit        : Cardinal;
+    lWidthX_           : Integer;
+    lWidthY_           : Integer;
+    lWidthZ_           : Integer;
+    lFootPrintX_       : Integer;
+    lFootPrintY_       : Integer;
+    lFootPrintZ_       : Integer;
     lRelatedUnitXWidth : Cardinal;
     lRelatedUnitYWidth : Cardinal;
     lRelatedUnitZWidth : Cardinal;
@@ -349,10 +363,6 @@ type
                           SharedState_SharedRadar = $40 );
   TPlayerSharedStatesSet = set of TPlayerSharedStates;
 
-  TPlayerPropertyMask = ( PropertyMask_Watcher = $40,
-                          PropertyMask_Human = $80 );
-  TPlayerPropertyMaskSet = set of TPlayerPropertyMask;
-
   TSwitchesMask = ( SwitchesMask_Drop,
                     SwitchesMask_DevMode,
                     SwitchesMask_SelBoxes,
@@ -363,10 +373,15 @@ type
                     SwitchesMask_HalfShot,
                     SwitchesMask_Radar,
                     SwitchesMask_ShootAll );
-  TSwitchesMaskSet = set of TSwitchesMask;
 
+  TUnitSelectState = ( UnitValid_State,
+	                     UnitSelected_State,
+	                     UnitValid2_State,
+	                     UnitInSight_State );
+                       
 const
   SwitchesMasks : array [TSwitchesMask] of Word = ($1, $2, $4, $8, $10, $40, $80, $100, $200, $400);
+  UnitSelectState : array [TUnitSelectState] of Byte = ($4, $10, $20, $40);
 
 type
   //0xB9
@@ -378,10 +393,10 @@ type
     PlayerLogoColor : Byte;
     SharedBits      : TPlayerSharedStatesSet;
     field_98        : array [0..2] of Byte;
-    PropertyMask    : TPlayerPropertyMaskSet;
+    PropertyMask    : Byte;
     field_9C        : array [0..28] of Byte;
   end;
-
+  
   //0x14B
   PPlayerStruct = ^TPlayerStruct;
   TPlayerStruct = packed record
@@ -394,19 +409,19 @@ type
     szName               : array [0..29] of AnsiChar;				// 0x2B
     szSecondName         : array [0..29] of AnsiChar;		// 0x49
     p_UnitsArray         : Pointer;			// 0x67
-    p_LastUnit           : Pointer;			// 0x6B the last unit in the array
-    nUnitsIndexBegin     : SmallInt;
-    nUnitsIndexEnd       : SmallInt;
+    p_LastUnit           : PUnitStruct;			// 0x6B the last unit in the array
+    nUnitsIndexBegin     : Word;
+    nUnitsIndexEnd       : Word;
     en_cPlayerType       : TTAPlayerType;			// 0x73
     p_AIConfig           : Cardinal;
-    p_Unknown3           : Cardinal;			// 0x78
-    p_LOSStruturePtr     : Pointer;		// 0x7C - LOS related
-    lLOSOffsetX          : Cardinal;			// 0x80 - LOS related
-    lLOSOffsetY          : Cardinal;			// 0x84 - LOS related
-    lLOSStructLength     : Cardinal;		// 0x88 - LOS related
+    SQUADS_p             : Pointer;			// 0x78
+    LOS_MEMORY           : Pointer;		// 0x7C
+    lLOS_Width           : Integer;			// 0x80
+    lLOS_Height          : Integer;			// 0x84
+    lLOSLength           : Integer;		// 0x88
     PlayerResources      : TPlayerResourcesStruct;		// 0x8C
-    fShareLimitMetal     : single;		// 0xE4 //are these in the right order (metal/energy)?
-    fShareLimitEnergy    : single;		// 0xE8
+    fShareLimitMetal     : Single;		// 0xE4 //are these in the right order (metal/energy)?
+    fShareLimitEnergy    : Single;		// 0xE8
     p_Unknown4           : Cardinal;			// 0xEC
     lUpdateTime          : Cardinal;
     lWinLoseTime         : Cardinal;
@@ -414,15 +429,17 @@ type
     nKills               : Word;
     nLosses              : Word;
     lUnknown4            : Cardinal;
-    nKills2              : SmallInt;
-    nLosses2             : SmallInt;
+    nKills_Last          : Word;
+    nLosses_Last         : Word;
     cAllyFlagArray       : TAlliedState;
     Unknown5             : array [0..44] of Byte;
     cAllyTeam            : Byte;	 //0x13F
-    lUnitsCounters       : Cardinal;
-    nNumUnits            : SmallInt;				// 0x144
-    cPlayerIndexZero     : Byte;		// 0x146 - zero based index of the player. AI 1, 2, 3 etc.
-    Unknown6             : Cardinal;			// 0x147
+    lUnitsCounter        : Cardinal;
+    nNumUnits            : Word;				// 0x144
+    cPlayerIndex         : Byte;		// 0x146 - zero based index of the player. AI 1, 2, 3 etc.
+    Unknown6             : Byte;			// 0x147
+    cPlayerScoreboard    : Byte;
+    AddPlayerStorage     : Word;
   end;
 
   TFoundUnits = array of Cardinal;
@@ -550,6 +567,27 @@ type
             Bottom : Longint;
             end;
 
+  PGAFFrameTransform = ^TGAFFrameTransform;
+  TGAFFrameTransform = packed record
+    Rect1 : tagRect;   // this one prob cuts area
+    Rect2 : tagRect;
+  end;
+
+  PGAFFrame = ^TGAFFrame;
+  TGAFFrame = packed record
+    Width : Word;
+    Height : Word;
+    Left : Word;
+    Top : Word;
+    Background : Byte;
+    Compressed : Byte;
+    SubFrames : Byte;
+    IsCompressed : Byte;
+    PtrFrameData : Pointer;
+    PtrFrameBits : Pointer;
+    Bits2_Ptr : Pointer;
+  end;  
+
   PViewResBar = ^TViewResBar;
   TViewResBar = packed record
     PlayerAryIndex : Byte;
@@ -671,8 +709,8 @@ type
     field_24               : Cardinal;
     lMapWidth              : Cardinal;
     lMapHeight             : Cardinal;
-	  lRadarPictureWidth     : Cardinal;
-	  lRadarPictureHeight    : Cardinal;
+	  lRadarPictureWidth     : Integer;
+	  lRadarPictureHeight    : Integer;
 	  lTilesetMapSizeX       : Cardinal; //0x14233 - this is the map width in units of 16 (multiply by 16 to get pixels)
 	  lTilesetMapSizeY       : Cardinal; //0x14237 - this is the map height in units of 16 (multiply by 16 to get pixels)
 	  lEyeballWidth          : Cardinal;
@@ -729,12 +767,14 @@ type
 	  Unknown13              : array [0..143] of Byte;
 	  lPacketBufferSize      : Cardinal;
 	  p_BacketBuffer         : Pointer;
-	  nLOS_Radar             : Word; //xpoy's IDA db gives as "CurrentPlayerNumbers"
+	  nActivePlayersCount    : Word;
     lChatTextIndex         : Cardinal;
-	  cSharedBits            : Byte; //player info! - xpoy's IDA db gives as "HumanPlayer_PlayerID"
-	  cLOS_Sight_PlayerID    : Byte; //the player id to use for los calcs
+	  cControlPlayerID       : Byte;
+	  cViewPlayerID          : Byte; //the player id to use for los calcs
 	  cNetworkLayerEnabled   : Byte;
-	  cUnknown14             : array [0..584] of Byte;
+	  cUnknown14             : array [0..560] of Byte;
+    CurtMousePosition      : TPoint;
+    field_2C7E             : array [0..15] of Byte;
 	  nBuildPosX             : SmallInt; //0x2C8E
 	  nBuildPosY             : SmallInt;
 	  lBuildPosRealX         : Integer; //0x2C92
@@ -762,10 +802,10 @@ type
 	  p_RadarFinal           : Pointer; //0x142DB
 	  p_RadarMapped          : Pointer; //0x142DF
 	  p_RadarPicture         : Pointer; //0x142E3
-	  nXOffset_RadarMap      : SmallInt;
-	  nYOffset_RadarMap      : SmallInt;
-	  nRadarMinimap_SizeX    : SmallInt;
-	  nRadarMinimap_SizeY    : SmallInt;
+	  RadarPicRect_left      : Word;
+	  RadarPicRect_top       : Word;
+	  RadarPicRect_right     : Word;
+	  RadarPicRect_bottom    : Word;
 	  nUnknown26             : Word;
 	  nUnknown27             : Word;
 	  pCameraToUnit          : Pointer; //0x142F3
@@ -806,34 +846,76 @@ type
     lNumUnitTypeDefs_Sqrt  : Cardinal;
     LoadedUNITINFO         : Cardinal;
 	  p_UnitDefs             : Pointer; //0x1439B
-	  Unknown33              : array [0..1083] of Byte;
-	  l_0_FontValidCharNr    : Cardinal;
-	  l_1_FontValidCharNr    : Cardinal;
-	  Unknown34              : array [0..115] of Byte;
-	  p_FogOfWar             : Pointer; //0x1485B
-	  Unknown35              : array [0..35] of Byte;
-	  lCursor_Attack         : Cardinal; //0x14883
-	  lCursor_AirStrike      : Cardinal;
-	  lCursor_TooFar         : Cardinal;
-	  lCursor_Capture        : Cardinal;
-	  lCursor_Defend         : Cardinal;
-	  lCursor_Repair         : Cardinal;
-	  lCursor_Patrol         : Cardinal;
-	  lCursor_Pickup         : Cardinal;
-	  lCursor_Teleport       : Cardinal;
-	  lCursor_Revive         : Cardinal;
-	  lCursor_Reclaim        : Cardinal;
-	  lCursor_Load           : Cardinal;
-	  lCursor_Unload         : Cardinal;
-	  lCursor_Move           : Cardinal;
-	  lCursor_Select         : Cardinal;
-	  lCursor_FindSite       : Cardinal;
-	  lCursor_Red            : Cardinal;
-	  lCursor_Green          : Cardinal;
-	  lCursor_Normal         : Cardinal;
-	  lCursor_Hourglass      : Cardinal;
-	  lCursor_PathIcon       : Cardinal; //0x148D3
-	  Unknown36              : array [0..67] of Byte;
+    unknow_21              : array [0..7] of Byte;
+    palettes               : array [0..1023] of Byte;
+    baseheight             : Word;
+    field_147A9            : Word;
+    Animation_Counts       : Integer;
+    Animation_Files        : Pointer;
+    field_147B3            : array [0..7] of Byte;
+    cannonshell            : Pointer;
+    plasmasm               : Pointer;
+    plasmamd               : Pointer;
+    ultrashell             : Pointer;
+    plasmasm_              : Pointer;
+    smoke_1                : Pointer;
+    smoke_2                : Pointer;
+    fire1                  : Pointer;
+    alfboom1               : Pointer;
+    radlogo                : Pointer;
+    radlogohigh            : Pointer;
+    nuclogo                : Pointer;
+    h2oboom2               : Pointer;
+    lavasplash             : Pointer;
+    flamestream            : Pointer;
+    explosion              : Pointer;
+    explode2               : Pointer;
+    explode3               : Pointer;
+    explode4               : Pointer;
+    explode5               : Pointer;
+    nuke1                  : Pointer;
+    shadow                 : Pointer;
+    igvictory              : Pointer;
+    igdefeat               : Pointer;
+    igpaused               : Pointer;
+    PANELTOP               : array [0..4] of Cardinal;
+    PANELBOT               : array [0..4] of Cardinal;
+    PANELSIDE              : Cardinal;
+    field_1484B            : array [0..15] of Byte;
+    p_FogOfWar             : Pointer;
+    Black1                 : Pointer;
+    Black2                 : Pointer;
+    Black3                 : Pointer;
+    Black4                 : Pointer;
+    Gray1                  : Pointer;
+    Gray2                  : Pointer;
+    Gray3                  : Pointer;
+    Gray4                  : Pointer;
+    p_cursor_ary           : Pointer;
+	  p_Cursor_Attack        : Pointer; //0x14883
+	  p_Cursor_AirStrike     : Pointer;
+	  p_Cursor_TooFar        : Pointer;
+	  p_Cursor_Capture       : Pointer;
+	  p_Cursor_Defend        : Pointer;
+	  p_Cursor_Repair        : Pointer;
+	  p_Cursor_Patrol        : Pointer;
+	  p_Cursor_Pickup        : Pointer;
+	  p_Cursor_Teleport      : Pointer;
+	  p_Cursor_Revive        : Pointer;
+	  p_Cursor_Reclaim       : Pointer;
+	  p_Cursor_Load          : Pointer;
+	  p_Cursor_Unload        : Pointer;
+	  p_Cursor_Move          : Pointer;
+	  p_Cursor_Select        : Pointer;
+	  p_Cursor_FindSite      : Pointer;
+	  p_Cursor_Red           : Pointer;
+	  p_Cursor_Green         : Pointer;
+	  p_Cursor_Normal        : Pointer;
+	  p_Cursor_Hourglass     : Pointer;
+	  p_Cursor_PathIcon      : Pointer; //0x148D3
+    p_LogosGaf             : Pointer;
+    p_GafSequence_32xlogos : Pointer;
+	  Unknown36              : array [0..59] of Byte;
 	  lNumExplosions         : Cardinal; //0x1491B
     Explosions             : array [0..299] of TExplosion; //0x1491F
 	  pUnknown36             : Pointer; //0x1AB8F
@@ -846,19 +928,36 @@ type
 	  pSoundClassAry         : Pointer; //0x37E13
 	  lSoundClassNumber      : Cardinal; //0x37E17
     ScreenOFFSCREEN        : Pointer;
-	  Unknown40              : array [0..23] of Byte;
+    ScreenWidth            : Integer;
+    ScreenHeight           : Integer;
+	  GameUI_Rect            : tagRECT;
 	  lInGamePos_X           : Cardinal; //0x37E37
 	  lInGamePos_Y           : Cardinal;
-    ViewResBar             : array [0..20] of Byte;
+    ViewResBar             : TViewResBar;
     Active_BottomState     : array [0..47] of Byte;
-	  Unknown41              : array [0..101] of Byte;
+    PopadBoxOffset         : Pointer;
+    LIGHTBAR               : Pointer;
+    field_37E98            : Pointer;
+    ShowRangeUnitIndex     : Word;
+    field_37E9E            : Word;
+    CurtUnitGUIName        : array [0..29] of AnsiChar;
+    DesktopGUIState        : Byte;
+    RaceGenGUIState        : Byte;
+    field_37EC0            : Word;
+    field_37EC2            : Word;
+    field_37EC4            : Cardinal;
+    field_37EC8            : Cardinal;
+    field_37ECC            : Cardinal;
+    field_37ED0            : Cardinal;
+    field_37ED4            : Cardinal;
+    WindDirection          : array [0..13] of byte;
 	  nPerMissionUnitLimit   : Word; //0x37EE6
 	  nUnknown42             : Word;
 	  nActualUnitLimit       : Word;
 	  nMaxUnitLimitPerPlayer : Word;
 	  lCurrenTAIProfile      : Cardinal; //0x37EEE - xpoy's gives this as "Difficulty"
 	  lSide                  : Cardinal; //0x37EF2
-	  lUnknown43             : Cardinal;
+	  bAlterKills            : Cardinal;
 	  lInterfaceType         : Cardinal;
 	  lUnknown44             : Cardinal;
 	  lSingleLOSType         : Cardinal;
@@ -976,10 +1075,10 @@ type
     p_PriorOrder_uosp : Pointer;
     cOrderType        : Byte;
     cState            : Byte;
-    unknow_0          : Word;
+    nPaused           : Word;
     field_8           : Word;
-    unknow_1____      : Cardinal;
-    p_Unit            : Pointer;
+    lRecallTime       : Cardinal;  // when current stage will be called again (for result = 2)
+    p_Unit            : PUnitStruct;
     field_12          : Cardinal;
     p_UnitTarget      : Pointer;
     field_1A          : Cardinal;
@@ -1096,7 +1195,9 @@ type
                     Action_WaitForAttack = 67,
                     Action_NoResult = 68 );
 
+  // ---------------------------------------------------------------------------
   // custom structures used by TADR
+  // ---------------------------------------------------------------------------
   TCobMethods = ( Activate, Deactivate, Upgrade, Reminder, Cloak );
 
   TUnitCategories = ( ucsNoChase, ucsPriBadTarget, ucsSecBadTarget, ucsTerBadTarget );
@@ -1236,6 +1337,8 @@ type
 
   TCustomUnitFieldsRec = packed record
     LongID               : Cardinal;
+    TeleportReloadMax    : Integer;
+    TeleportReloadCur    : Integer;
     { GUI }
     CustomWeapReload     : Boolean;
     CustomWeapReloadMax  : Integer;
@@ -1252,7 +1355,7 @@ type
     WeaponType2      : String[64];
   end;
 
-  TExtraUnitDefTagsRec = packed record
+  TExtraUnitInfoTagsRec = packed record
     MultiAirTransport : Integer;
     ExtraVTOLOrders : Integer;
     TransportWeightCapacity : Integer;
@@ -1260,6 +1363,14 @@ type
     NotLab : Boolean;
     DrawBuildSpotNanoFrame : Boolean;
     AISquadNr : Integer;
+    TeleportMethod : Integer;
+    TeleportMaxDistance : Integer;
+    TeleportMinDistance : Integer;
+    CustomRange1Distance : Integer;
+    CustomRange1Color : Integer;
+    CustomRange2Distance : Integer;
+    CustomRange2Color : Integer;
+    CustomRange2Animate : Boolean;
   end;
 
 var
@@ -1267,7 +1378,9 @@ var
   ExtraAnimations : array[0..15] of Pointer;
 
   ExtraWeaponDefTags : array of TExtraWeaponDefTagsRec;
-  ExtraUnitDefTags : array of TExtraUnitDefTagsRec;
+  ExtraUnitInfoTags : array of TExtraUnitInfoTagsRec;
+
+  GafSequence_Arm32lt, GafSequence_Core32lt : Pointer; 
 
   // pointer to ddraw's weapon array
   WeaponLimitPatchArr : Pointer;

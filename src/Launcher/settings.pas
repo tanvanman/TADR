@@ -487,7 +487,7 @@ begin
       reg.RootKey := HKEY_CURRENT_USER;
       subKey:= 'Software\'+LoadedModsList[fmLauncherMain.cbModsList.ItemIndex].RegName+'\Total Annihilation';
       reg.Access := KEY_WRITE;
-      if reg.OpenKey(subKey, true) then
+      if reg.OpenKey(subKey, True) then
       begin
         reg.WriteString('LaunchParam', GameSettings.LaunchParam);
         { Video Settings }
@@ -752,7 +752,7 @@ begin
     if (not reg.KeyExists(subKey)) then
     begin
       reg.Access := KEY_WRITE;
-      if reg.OpenKey(subKey, true) then
+      if reg.OpenKey(subKey, True) then
       begin
         if (not SettingsWindow) then
         begin
@@ -762,7 +762,7 @@ begin
     end else
     begin
       reg.Access := KEY_READ;
-      if reg.OpenKey(subKey, false) then
+      if reg.OpenKey(subKey, False) then
       begin
         if (not SettingsWindow) then
         begin

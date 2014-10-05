@@ -260,12 +260,24 @@ type
   end;
 
 const
-  TANM_Rec2Rec_SetNanolatheParticles = $0E;
+  TANM_Rec2Rec_NewUnitLocation = $0E;
+type
+  PRec2Rec_NewUnitLocation_Message = ^TRec2Rec_NewUnitLocation_Message;
+  TRec2Rec_NewUnitLocation_Message = packed record
+    UnitID         : Word;
+    NewX           : Cardinal;
+    NewY           : Cardinal;
+    NewZ           : Cardinal;
+  end;
+
+const
+  TANM_Rec2Rec_SetNanolatheParticles = $0F;
 type
   PRec2Rec_SetNanolatheParticles_Message = ^TRec2Rec_SetNanolatheParticles_Message;
   TRec2Rec_SetNanolatheParticles_Message = packed record
     PosFrom        : TPosition;
-    PosTo          : TPosition;
+    PosTo          : TNanolathePos;
+    Reverse        : Byte;
   end;
 
 {

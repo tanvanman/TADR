@@ -104,7 +104,7 @@ asm
   mov     ecx, StrExplode6
   push    ecx
   push    esi
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx], eax
 
@@ -112,14 +112,14 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+4], eax
   mov     ecx, StrExplode8
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+8], eax
 
@@ -127,7 +127,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$C], eax
 
@@ -135,7 +135,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$10], eax
 
@@ -143,7 +143,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$14], eax
 
@@ -151,7 +151,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$18], eax
 
@@ -159,7 +159,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$1C], eax
 
@@ -167,7 +167,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$20], eax
 
@@ -175,7 +175,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$24], eax
 
@@ -183,7 +183,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$28], eax
 
@@ -191,7 +191,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$2C], eax
 
@@ -199,7 +199,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$30], eax
 
@@ -207,7 +207,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$34], eax
 
@@ -215,7 +215,7 @@ asm
   push    ecx
   push    esi
   mov     [eax+2], bl
-  call    Name2Sequence_Gaf
+  call    GAF_Name2Sequence
   lea     ecx, ExtraAnimations
   mov     [ecx+$38], eax
   mov     [eax+2], bl

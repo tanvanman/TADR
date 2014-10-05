@@ -2,7 +2,6 @@ unit idplay;
 {$DEFINE Release}
 
 {.$DEFINE WarZone}
-{$DEFINE KeyboardHookPlugin}
 
 {.$DEFINE DebuggerHooks}
 
@@ -215,7 +214,7 @@ type
 
     procedure SendAlliedChat();
     procedure SendClipboard();
-    procedure SendCobEventMessage(EventType: Byte; UnitPtr: Pointer; arg1: PLongWord; arg2: PByte; arg3: PWord; arg4: PCardinal);
+    procedure SendCobEventMessage(EventType: Byte; Dest: TDPID; UnitPtr: Pointer; arg1: PCardinal; arg2: PByte; arg3: PWord; arg4: PCardinal; arg5: PCardinal);
 
     procedure ExceptMessage;
     function OnException(E: Exception) : boolean;     
@@ -246,10 +245,12 @@ type
     IsInGame : Boolean;
     trCheckMemoryCheats: TConsoleTimer;
     trCheckProhibitedProcesses: TConsoleTimer;
+    trBroadcastCommanderPos : TConsoleTimer;
     //trTakeScreenshot : TConsoleTimer;
     procedure OnFinishedCheatsCheck(CheatsFound: TTACheats);
     procedure OnMemoryCheckTick(Sender : TObject);
     procedure OnProcessCheckTick(Sender : TObject);
+    procedure OnBroadcastCommanderPos(Sender : TObject);
     //procedure OnScreenshotTakeTick(Sender : TObject);
     procedure Exiting();
     procedure ResetRecorder;
@@ -426,9 +427,9 @@ uses
  TA_FunctionsU,
  InputHook,
  IniOptions,
- {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
+ KeyboardHook,
  {$IFDEF WarZone}WarZoneRankings,{$ENDIF}
- ModsList, GUIEnhancements;
+ ModsList, GUIEnhancements, UnitActions;
 
 {$WARNINGS ON}
 {$HINTS ON}
@@ -650,7 +651,7 @@ SendChatLocal2(s);
 chatview^.NewData := 0;
 end;
 
-procedure TDPlay.SendCobEventMessage(EventType: Byte; UnitPtr: Pointer; arg1: PLongWord; arg2: PByte; arg3: PWord; arg4: PCardinal);
+procedure TDPlay.SendCobEventMessage(EventType: Byte; Dest: TDPID; UnitPtr: Pointer; arg1: PCardinal; arg2: PByte; arg3: PWord; arg4: PCardinal; arg5: PCardinal);
 var
   customPacket: string;
   unitId: Word;
@@ -659,8 +660,8 @@ begin
   if Self <> nil then
   begin
     if UnitPtr <> nil then
-      unitIdSender:= TAUnit.GetLongId(Pointer(unitPtr^));
-    unitId:= Word(unitIdSender);
+      unitIdSender := TAUnit.GetLongId(unitPtr);
+    unitId := Word(unitIdSender);
     case eventType of
       TANM_Rec2Rec_UnitWeapon :
         begin
@@ -674,16 +675,16 @@ begin
         begin
           SetLength( customPacket, SizeOf(TRec2Rec_UnitGrantUnitInfo_Message));
           Move( unitId, customPacket[1], SizeOf(Word));
-          Move( unitIdSender, customPacket[3], SizeOf(LongWord));
+          Move( unitIdSender, customPacket[3], SizeOf(Cardinal));
           Move( arg2^, customPacket[7], SizeOf(Byte)); // new state
         end;
       TANM_Rec2Rec_UnitInfoEdit :
         begin
           SetLength( customPacket, SizeOf(TRec2Rec_UnitInfoEdit_Message));
           Move( unitId, customPacket[1], SizeOf(Word));
-          Move( unitIdSender, customPacket[3], SizeOf(LongWord));
-          Move( arg4^, customPacket[7], SizeOf(LongWord));
-          Move( arg1^, customPacket[11], SizeOf(LongWord));
+          Move( unitIdSender, customPacket[3], SizeOf(Cardinal));
+          Move( arg4^, customPacket[7], SizeOf(Cardinal));
+          Move( arg1^, customPacket[11], SizeOf(Cardinal));
         end;
       TANM_Rec2Rec_UnitTemplate :
         begin
@@ -692,18 +693,27 @@ begin
           Move( arg3^, customPacket[3], SizeOf(Cardinal)); // new template crc
           Move( arg1^, customPacket[7], SizeOf(Byte)); // recreate object
         end;
+      TANM_Rec2Rec_NewUnitLocation :
+        begin
+          SetLength( customPacket, SizeOf(TRec2Rec_NewUnitLocation_Message));
+          Move( unitId, customPacket[1], SizeOf(Word));
+          Move( arg1^, customPacket[3], SizeOf(Cardinal));
+          Move( arg4^, customPacket[7], SizeOf(Cardinal));
+          Move( arg5^, customPacket[11], SizeOf(Cardinal));
+        end;
       TANM_Rec2Rec_SetNanolatheParticles :
         begin
           SetLength( customPacket, SizeOf(TRec2Rec_SetNanolatheParticles_Message));
           Move( PPosition(arg1^)^, customPacket[1], SizeOf(TPosition)); // start position
-          Move( PPosition(arg4^)^, customPacket[13], SizeOf(TPosition)); // target position
+          Move( PNanolathePos(arg4^)^, customPacket[13], SizeOf(TNanolathePos)); // target position
+          Move( arg2^, customPacket[37], SizeOf(Byte));
         end;
     end;
-    SendRecorderToRecorderMsg( eventType, customPacket, False );
+    SendRecorderToRecorderMsg( eventType, customPacket, False, Dest );
     {$IFNDEF Release}SendChat(Players[1].Name + ' sent COB event: #' + inttostr(eventtype));{$ENDIF}
   end;
 end;
-
+                                   
 // -----------------------------------------------------------------------------
 
 procedure TDPlay.OnMemoryCheckTick(Sender : TObject);
@@ -723,6 +733,17 @@ begin
   trCheckProhibitedProcesses.Enabled:= False;
   CheckForCheats(ctProcesses);
   trCheckProhibitedProcesses.Enabled:= True;
+end;
+
+procedure TDPlay.OnBroadcastCommanderPos(Sender : TObject);
+begin
+  if not trBroadcastCommanderPos.FirstTick then
+  begin
+    trBroadcastCommanderPos.FirstTick := True;
+    Exit;
+  end;
+  BroadcastCommanderStartPosition;
+  trBroadcastCommanderPos.Enabled:= False;
 end;
 {
 procedure TDPlay.OnScreenshotTakeTick(Sender : TObject);
@@ -2242,9 +2263,8 @@ if assigned(chatview) then
         begin //börja ladda
         TLog.add(3,'loading started');
         TAStatus := InLoading;
-        {$IFDEF KeyboardHookPlugin}
         keyboardHookLevel:= 0;
-        {$ENDIF}
+
         if assigned(chatview) then
           begin
           if (not NotViewingRecording) then
@@ -2385,9 +2405,10 @@ if assigned(chatview) then
       begin
         IsInGame := True;
         TAStatus := InGame;
+        BroadcastCommanderStartPosition;
         if NotViewingRecording and
            compatibleTA and
-           not TAPlayer.GetIsWatcher(TAPlayer.GetPlayerByIndex(TAData.ViewPlayer)) then
+           not TAPlayer.IsKilled(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID)) then
         begin
           if (not Assigned(trCheckMemoryCheats)) then
           begin
@@ -2407,6 +2428,14 @@ if assigned(chatview) then
               Enabled := True;
             end;
 
+            trBroadcastCommanderPos := TConsoleTimer.Create;
+            with trBroadcastCommanderPos do
+            begin
+              Interval := 5000;
+              OnTimerEvent := OnBroadcastCommanderPos;
+              Enabled := True;
+            end;
+
            { trTakeScreenshot := TConsoleTimer.Create;
             Randomize;
             with trTakeScreenshot do
@@ -2417,9 +2446,7 @@ if assigned(chatview) then
             end; }
           end;
         end;
-        {$IFDEF KeyboardHookPlugin}
-        keyboardHookLevel:= 2;
-        {$ENDIF}
+
         if assigned(chatview) then
           begin
           chatview^.TAStatus:=3;
@@ -2891,18 +2918,6 @@ if assigned(chatview) then
                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_Sharelos_Message) );
                  FromPlayer.SharingLos := PRec2Rec_Sharelos_Message(Rec2Rec_Data)^.ShareLosState <> 0;
                  end;
-               {TANM_Rec2Rec_UnitTemplate :
-                 begin
-                 assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitTemplate_Message) );
-                 SendChatLocal('ID: ' + IntToHex((PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID), 4) + ' from player ' + FromPlayer.Name + ' changed its template to:');
-                 SendChatLocal(IntToStr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID));
-
-                 SendChatLocal(IntToStr(PLongWord(TAMem.GetUnitPtr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID))^));
-                 if TAUnit.IsOnThisCOmp(TAMem.GetUnitPtr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID)) <> 1 then
-                 begin
-                   TAUnit.setTemplate(pointer( TAMem.GetUnitStruct(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UniqueUnitID) ), PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateID);
-                 end;
-                 end; }
                TANM_Rec2Rec_UnitWeapon :
                  begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitWeapon_Message) );
@@ -2934,12 +2949,29 @@ if assigned(chatview) then
                                               PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.NewValue,
                                               Pointer(PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.UnitIdRemote));
                  end;
+               TANM_Rec2Rec_NewUnitLocation :
+                 begin
+                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_NewUnitLocation_Message) );
+                   if not TAUnit.IsOnThisComp(TAUnit.Id2Ptr(PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.UnitId), True) then
+                   begin
+                     UNITS_NewUnitPosition(TAUnit.Id2Ptr(PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.UnitId),
+                                           PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewX,
+                                           PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewY,
+                                           PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewZ, 1);
+                   end;
+                 end;
                TANM_Rec2Rec_SetNanolatheParticles :
                  begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_SetNanolatheParticles_Message) );
                    if not FromPlayer.IsSelf then
-                     TASfx.NanoParticles(PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosFrom,
-                                         PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosTo);
+                   begin
+                     if PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.Reverse = 0 then
+                       TASfx.NanoParticles(PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosFrom,
+                                           PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosTo)
+                     else
+                       TASfx.NanoReverseParticles(PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosFrom,
+                                                  PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosTo);
+                   end;
                  end;
 
                end;
@@ -3728,9 +3760,8 @@ try
   ServerPlayer := nil;
   PacketsToFilter := nil;
   TAStatus := InBattleRoom;
-  {$IFDEF KeyboardHookPlugin}
   keyboardHookLevel:= 1;
-  {$ENDIF}
+
 //  IamServer := false;
   IsRecording := false;
 
@@ -3963,6 +3994,8 @@ destructor TDPlay.Destroy;
 begin
 GlobalDPlay.trCheckMemoryCheats.Free;
 GlobalDPlay.trCheckProhibitedProcesses.Free;
+GlobalDPlay.trBroadcastCommanderPos.Free;
+
 //GlobalDPlay.trTakeScreenshot.Free;
 GlobalDPlay:= nil;
   cs.Acquire;

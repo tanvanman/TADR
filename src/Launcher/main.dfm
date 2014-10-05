@@ -3,7 +3,7 @@ object fmLauncherMain: TfmLauncherMain
   Top = 173
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
-  ClientHeight = 303
+  ClientHeight = 268
   ClientWidth = 294
   Color = clBtnFace
   Font.Charset = EASTEUROPE_CHARSET
@@ -404,6 +404,7 @@ object fmLauncherMain: TfmLauncherMain
     Cursor = crArrow
     Caption = 'Check For Updates'
     TabOrder = 6
+    Visible = False
     OnClick = btnUpdateClick
     Glyph.Data = {
       A2070000424DA207000000000000360000002800000019000000190000000100
@@ -471,7 +472,7 @@ object fmLauncherMain: TfmLauncherMain
   end
   object btnHelp: TBitBtn
     Left = 8
-    Top = 227
+    Top = 190
     Width = 278
     Height = 31
     Cursor = crArrow
@@ -544,7 +545,7 @@ object fmLauncherMain: TfmLauncherMain
   end
   object btnExit: TBitBtn
     Left = 8
-    Top = 264
+    Top = 227
     Width = 278
     Height = 31
     Cursor = crArrow

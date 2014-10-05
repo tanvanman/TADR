@@ -34,12 +34,12 @@ var
   x, z : Integer;
   AtLava : Boolean;
 begin
-  sCurrentTNTPath := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).sTNTFile;
+  sCurrentTNTPath := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).sTNTFile;
   lpFileName := PAnsiChar(ChangeFileExt(sCurrentTNTPath, IntToStr(Idx) + '.TNT'));
   TNTFile := LoadTNTFile(lpFileName);
 
   TNTMemStruct := @PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct;
-  CopyMemory(@PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).sTNTFile,
+  CopyMemory(@PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).sTNTFile,
              lpFileName, Length(lpFileName));
 
   // tileset pixels data
@@ -130,7 +130,7 @@ begin
         end;
         if AtLava then
           if (UnitPtr.lUnitStateMask and 3) <> 2 then
-            if (PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr)^.p_MapOTAFile).lIsLavaMap <> 0) then
+            if (PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).lIsLavaMap <> 0) then
               TAUnit.Kill(UnitPtr, 1)
             else
               TAUnit.Kill(UnitPtr, 0);
