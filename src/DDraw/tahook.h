@@ -78,6 +78,8 @@ class CTAHook
 	void (__stdcall *TAMapClick)(void *msgstruct);
 	void (__stdcall *TestBuildSpot)(void);
 	void (__stdcall *TADrawRect)(tagRECT *unk, tagRECT *rect, int color);
+	bool (__stdcall *TPlayxInitNanoUnit)(void);
+	bool (__stdcall *TPlayxAddNanoUnit)(int posx, int posy, int color);
 	unsigned short (__stdcall *FindMouseUnit)(void);
 	int (__stdcall *SendText)(char *Text, int Type);
 

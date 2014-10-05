@@ -159,8 +159,6 @@ ModifyWeaponPacket::ModifyWeaponPacket ()
 	ModifyRoutine ( FALSE);
 
 	FeaturePacket ( FALSE);
-
-	EnsureDplayx ( FALSE);
 }
 
 ModifyWeaponPacket::ModifyWeaponPacket (BOOL DoIt)
@@ -168,8 +166,6 @@ ModifyWeaponPacket::ModifyWeaponPacket (BOOL DoIt)
 	ModifyRoutine ( DoIt);
 
 	FeaturePacket ( DoIt);
-
-	EnsureDplayx ( DoIt);
 }
 
 void ModifyWeaponPacket::ModifyRoutine (BOOL DoIt)
@@ -178,10 +174,6 @@ void ModifyWeaponPacket::ModifyRoutine (BOOL DoIt)
 	{
 		WeaponPacketAryHook[i]= NULL;
 	}
-
-	DplayxWeaponPacketLen= NULL;
-	DplayxAofDPacketLen= NULL;
-	DplayxFeatureDestroyPacketLen= NULL;
 
 	if (!DoIt)
 	{
@@ -192,87 +184,6 @@ void ModifyWeaponPacket::ModifyRoutine (BOOL DoIt)
 	for (int i= 0; i<WEAPONPACKETARYLEN; ++i)
 	{
 		WeaponPacketAryHook[i]= new SingleHook ( (WeaponPacketAddressAry[i]), WeaponPacketLenAry[i], INLINE_UNPROTECTEVINMENT, WeaponPacketBitsAry[i]);
-	}
-}
-
-
-void ModifyWeaponPacket::EnsureDplayx (BOOL DoIt)
-{
-	if (!DoIt)
-	{
-		return ;
-	}
-	// ugly hook dplayx's packet length at now 
-	try 
-	{
-		/*
-		546
-		27B8C   C745 F0 24000000 MOV DWORD PTR SS:[EBP-10],24
-		27BC8   C745 F0 0E000000 MOV DWORD PTR SS:[EBP-10],0E
-		27BA4   C745 F0 06000000 MOV DWORD PTR SS:[EBP-10],6
-
-		545
-		1E09C   C745 F0 24000000 MOV DWORD PTR SS:[EBP-10],24
-		1E0D8   C745 F0 0E000000 MOV DWORD PTR SS:[EBP-10],0E
-		1E0B4   C745 F0 06000000 MOV DWORD PTR SS:[EBP-10],6
-		
-		99b
-		1BCE8   BB 24000000      MOV EBX,24
-		1BD1A   BB 0E000000      MOV EBX,0E
-		1BCFC   BB 06000000      MOV EBX,6
-		*/
-
-		LPSTR DplayxDllName= reinterpret_cast<LPSTR> (0x004FF9E4);
-		LPBYTE DplayHmodule= reinterpret_cast<LPBYTE>(GetModuleHandle ( DplayxDllName));
-		BYTE _546_0[]= {0xC7, 0x45, 0xF0, 0x24, 0x00, 0x00, 0x00};
-		BYTE _546_1[]= {0xC7, 0x45, 0xF0, 0x0E, 0x00, 0x00, 0x00};
-
-		BYTE _99b_0[]= {0xBB, 0x24, 0x00, 0x00, 0x00};
-		BYTE _99b_1[]= {0xBB, 0x0E, 0x00, 0x00, 0x00};
-		
-
-		if (NULL==DplayHmodule)
-		{
-			;
-		}
-		else if (0==memcmp ( &DplayHmodule[0x27B8C], _546_0, sizeof(_546_0)))
-		{//565 version dplayx.dll
-			*reinterpret_cast<DWORD *>(&_546_0[3])= 0x28;
-			*reinterpret_cast<DWORD *>(&_546_1[3])= 0x11;
-
-			DplayxWeaponPacketLen=  new SingleHook ( &DplayHmodule[0x27B8C], sizeof(_546_0), INLINE_UNPROTECTEVINMENT, _546_0);
-			DplayxAofDPacketLen=  new SingleHook ( &DplayHmodule[0x27BC8], sizeof(_546_1), INLINE_UNPROTECTEVINMENT, _546_1);
-
-			*reinterpret_cast<DWORD *>(&_546_1[3])= 0x8;
-			DplayxFeatureDestroyPacketLen=  new SingleHook ( &DplayHmodule[0x27BA4], sizeof(_546_1), INLINE_UNPROTECTEVINMENT, _546_1);
-		}
-		else if (0==memcmp ( &DplayHmodule[0x1E09C], _546_0, sizeof(_546_0)))
-		{
-			*reinterpret_cast<DWORD *>(&_546_0[3])= 0x28;
-			*reinterpret_cast<DWORD *>(&_546_1[3])= 0x11;
-
-			DplayxWeaponPacketLen=  new SingleHook ( &DplayHmodule[0x1E09C], sizeof(_546_0), INLINE_UNPROTECTEVINMENT, _546_0);
-			DplayxAofDPacketLen=  new SingleHook ( &DplayHmodule[0x1E0D8], sizeof(_546_1), INLINE_UNPROTECTEVINMENT, _546_1);
-
-			*reinterpret_cast<DWORD *>(&_546_1[3])= 0x8;
-			
-			DplayxFeatureDestroyPacketLen=  new SingleHook ( &DplayHmodule[0x1E0B4], sizeof(_546_1), INLINE_UNPROTECTEVINMENT, _546_1);
-		}
-		else if (0==memcmp ( &DplayHmodule[0x1BCE8], _99b_0, sizeof(_99b_0)))
-		{
-			*reinterpret_cast<DWORD *>(&_99b_0[1])= 0x28;
-			*reinterpret_cast<DWORD *>(&_99b_1[1])= 0x11;
-
-			DplayxWeaponPacketLen=  new SingleHook ( &DplayHmodule[0x1BCE8], sizeof(_99b_0), INLINE_UNPROTECTEVINMENT, _99b_0);
-			DplayxAofDPacketLen=  new SingleHook ( &DplayHmodule[0x1BD1A], sizeof(_99b_1), INLINE_UNPROTECTEVINMENT, _99b_1);
-			*reinterpret_cast<DWORD *>(&_99b_1[1])= 0x8;
-			DplayxFeatureDestroyPacketLen= new SingleHook ( &DplayHmodule[0x1BCFC], sizeof(_99b_1), INLINE_UNPROTECTEVINMENT, _99b_1);
-		}
-	}
-	catch (...)
-	{
-		//error happen in patch dplayx, stop!
-		;
 	}
 }
 /*
@@ -476,18 +387,4 @@ ModifyWeaponPacket::~ModifyWeaponPacket ()
 			delete FeaturePacketSize_sgl_ary[i];
 		}
 	}
-
-	/// ugly hook dplayx
-	if (NULL!=DplayxAofDPacketLen)
-	{
-		delete DplayxAofDPacketLen;
-	}
-	if (NULL!=DplayxWeaponPacketLen)
-	{
-		delete DplayxWeaponPacketLen;
-	} 
-	if (NULL!=DplayxFeatureDestroyPacketLen)
-	{
-		delete DplayxFeatureDestroyPacketLen;
-	} 
 }

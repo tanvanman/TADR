@@ -10,6 +10,7 @@
 #include "hook\etc.h"
 #include "hook\hook.h"
 #include "tahook.h"
+#include "TAConfig.h"
 
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
@@ -38,7 +39,7 @@ CTAHook::CTAHook(BOOL VidMem)
 	HKEY hKey;
 	HKEY hKey1;
 	DWORD dwDisposition;
-	RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\TA Patch", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
+	RegCreateKeyEx(HKEY_CURRENT_USER, MyConfig->ModRegistryName.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
 
 	RegCreateKeyEx(hKey1, "TAHook", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 	//write tahook ver string for the .hookreport function in recorder
@@ -79,11 +80,19 @@ CTAHook::CTAHook(BOOL VidMem)
 	FindMouseUnit = (unsigned short (__stdcall *)(void))0x48CD80;
 	SendText = (int (__stdcall *)(char*, int))0x46bc70;
 	ShowText = (void (__stdcall *)(PlayerStruct *Player, char *Text, int Unk1, int Unk2))0x463E50;
-
 	//	void (__stdcall *sShowText)(PlayerStruct *Player, char *text, int access, int type) = 0x463E50;
 
 	int *PTR = (int*)0x00511de8;
 	TAdynmem = (TAdynmemStruct*)(*PTR);
+
+	LPSTR TplayxDllName= reinterpret_cast<LPSTR> (0x004FF9E4);
+	HMODULE hTPlayxDLL = GetModuleHandle(TplayxDllName);
+
+	if (hTPlayxDLL != NULL)
+	{
+		(FARPROC &)TPlayxAddNanoUnit = GetProcAddress(hTPlayxDLL, "AddNanoUnit");
+		(FARPROC &)TPlayxInitNanoUnit = GetProcAddress(hTPlayxDLL, "InitNanoUnit");
+	}
 
 	IDDrawSurface::OutptTxt ( "New CTAHook");
 }
@@ -712,30 +721,48 @@ void CTAHook::OptimizeDTRows()
 void CTAHook::VisualizeRow()
 {
 	int i=0;
-
-	while(XMatrix[i] != -1 && YMatrix[i]!=-1)
+	bool ready_to_draw;
+	if (TPlayxInitNanoUnit != NULL)
 	{
-		int BakX= TAdynmem->MouseMapPos.X;
-		int BakY= TAdynmem->MouseMapPos.Y;
+		ready_to_draw = TPlayxInitNanoUnit();
+	} 
+	else 
+	{
+		ready_to_draw = TRUE;
+	}
 
-		TAdynmem->MouseMapPos.X = XMatrix[i];
-		TAdynmem->MouseMapPos.Y = YMatrix[i];
+	if (ready_to_draw)
+	{
+		while(XMatrix[i] != -1 && YMatrix[i]!=-1)
+		{
+			int BakX= TAdynmem->MouseMapPos.X;
+			int BakY= TAdynmem->MouseMapPos.Y;
 
-		TAdynmem->BuildSpotState=70;
+			TAdynmem->MouseMapPos.X = XMatrix[i];
+			TAdynmem->MouseMapPos.Y = YMatrix[i];
 
-		TestBuildSpot ( );
+			TAdynmem->BuildSpotState=70;
 
-		int color = TAdynmem->BuildSpotState==70 ? 234 : 214; 
+			TestBuildSpot ( );
 
-		DrawBuildRect( (TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
-			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz/2),
-			GetFootX()*16,
-			GetFootY()*16,
-			color);
-		
-		i++;
-		TAdynmem->MouseMapPos.X= BakX;
-		TAdynmem->MouseMapPos.Y= BakY;
+			int color = TAdynmem->BuildSpotState==70 ? 234 : 214; 
+
+			DrawBuildRect( (TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
+				(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz/2),
+				GetFootX()*16,
+				GetFootY()*16,
+				color);
+
+			if (TPlayxAddNanoUnit != NULL)
+			{
+				ready_to_draw = TPlayxAddNanoUnit( TAdynmem->CircleSelect_Pos1TAx, 
+					TAdynmem->CircleSelect_Pos1TAy,
+					color);
+			}
+			i++;
+			TAdynmem->MouseMapPos.X= BakX;
+			TAdynmem->MouseMapPos.Y= BakY;
+		}
 	}
 
 	/*  DDBLTFX ddbltfx;
@@ -1171,14 +1198,15 @@ void CTAHook::EnableTABuildRect()
 
 void CTAHook::DisableTABuildRect()
 {
-	/*int ops = 0x90909090;
+	/*
+	int ops = 0x90909090;
 	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EB6, &ops, 1, NULL);
 
 	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EBB, &ops, 2, NULL);
 
 	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC5, &ops, 4, NULL);
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC9, &ops, 1, NULL);*/
-
+	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC9, &ops, 1, NULL);
+	*/
 	int ops = 0xcc2;
 	WriteProcessMemory(GetCurrentProcess(), (void*)0x4BF8C0, &ops, 4, NULL);//disable TA buildrectangel
 

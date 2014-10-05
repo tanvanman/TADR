@@ -11,9 +11,6 @@
     <Filter Include="Source Files\Functions">
       <UniqueIdentifier>{116dc400-450d-4937-953e-52e99d630821}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\STL">
-      <UniqueIdentifier>{ebaae430-0659-48cb-9a1e-7b6d317c550b}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files">
       <UniqueIdentifier>{4e62ee03-925b-47a3-a3f1-98617932e7e1}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl</Extensions>
@@ -110,9 +107,6 @@
     </ClCompile>
     <ClCompile Include="HardCodeFunctions.cpp">
       <Filter>Source Files\Functions\externFromChina\HardCodeInTA3.1c</Filter>
-    </ClCompile>
-    <ClCompile Include="xthrow.cpp">
-      <Filter>Source Files\STL</Filter>
     </ClCompile>
     <ClCompile Include="bookmarks.cpp">
       <Filter>Source Files\Functions\OrginalTadr</Filter>

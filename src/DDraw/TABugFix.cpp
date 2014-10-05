@@ -322,7 +322,7 @@ int __stdcall BadModelHunter (PInlineX86StackBuffer X86StrackBuffer)
 		Object3doStruct * Obj_ptr=  *(Object3doStruct * *)(X86StrackBuffer->Esp+ 0x68+ 0x10+ 0x8);
 
 		LogToErrorlog ( "\r\n===============================\r\n");
-		LogToErrorlog ( "Bad Model Which Crash Game In Random!!!!!");
+		LogToErrorlog ( "Erroneous unit model :");
 		LogToErrorlog ( "Bad Unit ID:");
 		LogToErrorlog ( Obj_ptr->ThisUnit->UnitType->Name);
 		LogToErrorlog ( "Bad Unit Name:");

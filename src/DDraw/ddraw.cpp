@@ -161,6 +161,17 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		IDDrawSurface::OutptTxt ("Init TAConfig");
 		MyConfig = new TADRConfig ();
 
+		char ModRegName[21]={0};
+		MyConfig->GetIniStr ( "RegistryName", ModRegName, 21, NULL);
+		if (NULL!=ModRegName[0])
+		{
+			MyConfig->ModRegistryName = "Software\\";
+			MyConfig->ModRegistryName += ModRegName;
+			MyConfig->ModRegistryName = MyConfig->ModRegistryName.erase(MyConfig->ModRegistryName.length()-1);
+		} else {
+			MyConfig->ModRegistryName = "Software\\TA Patch";
+		}
+
 		IDDrawSurface::OutptTxt ("Install Limit Crack");
 		NowCrackLimit= new LimitCrack;
 

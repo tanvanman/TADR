@@ -8,6 +8,7 @@
 #include "whiteboard.h"
 #include "tamem.h"
 #include "tafunctions.h"
+#include "TAConfig.h"
 
 #define OutptTxt IDDrawSurface::OutptTxt
 char* __cdecl ChatStrnCpy(char *strDest, const char *strSource, size_t count );

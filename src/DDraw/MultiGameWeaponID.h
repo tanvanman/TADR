@@ -43,10 +43,6 @@ class ModifyWeaponPacket
 private:
 	SingleHook * WeaponPacketAryHook [WEAPONPACKETARYLEN];
 
-	SingleHook * DplayxWeaponPacketLen;
-	SingleHook * DplayxAofDPacketLen;
-	SingleHook * DplayxFeatureDestroyPacketLen;
-
 	ModifyHook * FeaturePacket_mdf_ary[FEATUREPACKET_MDFARYLEN];
 	SingleHook * FeaturePacketSize_sgl_ary[FEATUREPACKET_SGLARYLEN];
 
@@ -59,5 +55,4 @@ public:
 private:
 	void ModifyRoutine (BOOL DoIt);
 	void FeaturePacket (BOOL DoIt);
-	void EnsureDplayx (BOOL DoIt);
 };

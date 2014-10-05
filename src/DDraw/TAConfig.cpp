@@ -28,7 +28,7 @@ TADRConfig::TADRConfig ()
 	
 	GetTempPathA ( MAX_PATH, TAexePath);
 	GetTempFileNameA ( TAexePath, "taini", 0x0, TAexeName);
-	
+
 	//strcat_s ( TAexePath, MAX_PATH, TAexeName);
 // 
 // 	if (TAHPI)

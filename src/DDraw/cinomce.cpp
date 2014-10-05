@@ -5,7 +5,7 @@
 #include "font.h"
 #include "tamem.h"
 #include "tafunctions.h"
-
+#include "TAConfig.h"
 
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
@@ -397,7 +397,10 @@ void CIncome::ReadPos()
 	DWORD dwDisposition;
 	DWORD Size = sizeof(int);
 
-	RegCreateKeyEx(HKEY_CURRENT_USER, TADRREGPATH, NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
+	std::string SubKey = MyConfig->ModRegistryName;
+	SubKey += "\\Eye";
+
+	RegCreateKeyEx(HKEY_CURRENT_USER, SubKey.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 
 	if(RegQueryValueEx(hKey, "IncomePosX", NULL, NULL, (unsigned char*)&posX, &Size) == ERROR_SUCCESS)
 	{
@@ -426,7 +429,7 @@ void CIncome::WritePos()
 	HKEY hKey1;
 	DWORD dwDisposition;
 
-	RegCreateKeyEx(HKEY_CURRENT_USER, "Software\\TA Patch", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
+	RegCreateKeyEx(HKEY_CURRENT_USER, MyConfig->ModRegistryName.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
 
 	RegCreateKeyEx(hKey1, "Eye", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 

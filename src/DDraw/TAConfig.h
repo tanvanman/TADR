@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 extern LPCSTR TAIniStr;
 
 class RegDword
@@ -37,6 +39,7 @@ class TADRConfig
 {
 private:
 	bool IsDdrawIni;
+
 	char IniFilePath_cstr[MAX_PATH];
 
 	std::vector<RegString *> RegStrings_vec;
@@ -45,6 +48,7 @@ private:
 public:
 	TADRConfig ();
 	~TADRConfig ();
+	std::string ModRegistryName;
 
 	BOOL GetIniBool (LPCSTR ConfigName, BOOL Default);
 	int GetIniInt (LPCSTR ConfigName, int DefaultValue);

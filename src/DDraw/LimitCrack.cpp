@@ -38,7 +38,7 @@ LimitCrack* NowCrackLimit;
 LimitCrack::LimitCrack ( void)
 {
 	NowIncreaseAISearchMapEntriesLimit= new IncreaseAISearchMapEntriesLimit ( MyConfig->GetIniInt ( "AISearchMapEntries", 66650));
-	DWORD tmp_i= MyConfig->GetIniInt ( "WeaponType", 16000);
+	DWORD tmp_i= MyConfig->GetIniInt ( "WeaponType", 256);
 	NowIncreaseWeaponTypeLimit= new IncreaseWeaponTypeLimit ( tmp_i);
 	if ((tmp_i* 0x115)<=(*(WeaponAryLen[0])))
 	{

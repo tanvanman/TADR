@@ -83,7 +83,6 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	LocalShare->DDrawSurfClass = this;
 	LocalShare->TADirectDrawFrontSurface = lpFront;
 
-
 	//check if version is 3.1 standar
 	if((*((unsigned char*)0x4ad494))==0x00 && (*((unsigned char*)0x4ad495))==0x55 && (*((unsigned char*)0x4ad496))==0xe8)
 	{
@@ -98,8 +97,11 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	PlayingMovie = false;
 	DisableDeInterlace = false;
 
+	// TADRREGPATH
+	std::string SubKey = MyConfig->ModRegistryName;
+	SubKey += "\\Eye";
 
-	RegCreateKeyEx(HKEY_CURRENT_USER, TADRREGPATH, NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
+	RegCreateKeyEx(HKEY_CURRENT_USER, SubKey.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 	Size = sizeof(bool);
 	if(RegQueryValueEx(hKey, "DisableDeInterlaceMovie", NULL, NULL, (unsigned char*)&DisableDeInterlace, &Size) != ERROR_SUCCESS)
 	{

@@ -14,11 +14,7 @@ enum TAProcessEnum
 	TAExiting
 };
 
-
-
-#define TADRREGPATH ("Software\\TA Patch\\Eye")
 #define TADRCONFIGREGNAME ("Moo")
-
 
 
 //#define DEBUG_INFO
@@ -113,6 +109,8 @@ typedef struct LocalShare_
 
 	UINT LocalPlayerID;
 	UINT OrgLocalPlayerID;
+
+	LPSTR ModRegName;
 	//extern for unicode font;
 	//LPVOID TAUnicodeSupport;
 }*LocalSharePTR;
