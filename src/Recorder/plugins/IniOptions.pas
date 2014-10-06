@@ -31,7 +31,9 @@ type
 
     { GUI Plugins }
     Plugin_Colors        : Boolean;
-    Colors               : array[0..3] of array[0..30] of Cardinal;
+    CustomColors         : array[0..3] of array[0..28] of Byte;
+    Colors_MenuDots      : Byte;
+    Colors_DisableMenuDots : Boolean;
     Plugin_HBWidth       : Integer;
     Plugin_HBDynamicSize : Boolean;
     Plugin_HBCategory1   : Cardinal;
@@ -59,39 +61,6 @@ type
   end;
 var IniSettings: TIniSettings;
 
-type
-  TIniColors = (UNITSELECTIONBOX = 0,
-                UNITHEALTHBARGOOD,
-                UNITHEALTHBARMEDIUM,
-                UNITHEALTHBARLOW,
-                WEAPONRELOADBAR,
-                RECLAIMBAR,
-                STOCKPILEBAR,
-                BUILDQUEUEBOXSELECTED1,
-                BUILDQUEUEBOXSELECTED2,
-                BUILDQUEUEBOXNONSELECTED1,
-                BUILDQUEUEBOXNONSELECTED2,
-                LOADBARSTEXTURESREADY,
-                LOADBARSTEXTURESLOADING,
-                LOADBARSTERRAINREADY,
-                LOADBARSTERRAINLOADING,
-                LOADBARSUNITSREADY,
-                LOADBARSUNITSLOADING,
-                LOADBARSANIMATIONSREADY,
-                LOADBARSANIMATIONSLOADING,
-                LOADBARS3DDATAREADY,
-                LOADBARS3DDATALOADING,
-                LOADBARSEXPLOSIONSREADY,
-                LOADBARSEXPLOSIONSLOADING,
-                MAINMENUDOTS,
-                NANOLATHEPARTICLEBASE,
-                NANOLATHEPARTICLECOLORS,
-                UNDERCONSTRUCTSURFACELO,
-                UNDERCONSTRUCTSURFACEHI,
-                UNDERCONSTRUCTOUTLINELO,
-                UNDERCONSTRUCTOUTLINEHI,
-                MAINMENUDOTSDISABLED);
-
 // -----------------------------------------------------------------------------
 
 const
@@ -114,8 +83,10 @@ uses
   TA_MemoryConstants,
   ModsList,
   logging,
+  Colors,
   strUtils,
   TypInfo;
+
 const
   INI_MEM_OFFSET = $5098A3;
 
@@ -295,7 +266,6 @@ var
   IniFile: TIniFile;
   MultiGameWeapon: Boolean;
   i: integer;
-  currcolor: string;
 begin
   Result:= False;
 
@@ -336,38 +306,20 @@ begin
       IniSettings.CreateStatsFile := ReadIniBool(IniFile, 'Preferences', 'CreateStats', False);
 
       if IniFile.SectionExists('Colors') or
-         IniFile.SectionExists('ColorsArm') or
-         IniFile.SectionExists('ColorsCore') or
-         IniFile.SectionExists('ColorsWatch') then
+         IniFile.SectionExists('ColorsSide1') or
+         IniFile.SectionExists('ColorsSide2') or
+         IniFile.SectionExists('ColorsSide3') then
       begin
         IniSettings.Plugin_Colors := True;
-        for i := 0 to 29 do
+        for i := Low(ColorsArray) to High(ColorsArray) - 2 do
         begin
-          if IniFile.SectionExists('Colors') then
-          begin
-            currcolor := GetEnumName(TypeInfo(TIniColors), i);
-            IniSettings.Colors[0][i] := ReadIniValue(IniFile, 'Colors', UpperCase(currcolor), 0);
-          end;
-          if IniFile.SectionExists('ColorsArm') then
-          begin
-            currcolor := GetEnumName(TypeInfo(TIniColors), i);
-            IniSettings.Colors[1][i] := ReadIniValue(IniFile, 'ColorsArm', UpperCase(currcolor), 0);
-          end;
-          if IniFile.SectionExists('ColorsCore') then
-          begin
-            currcolor := GetEnumName(TypeInfo(TIniColors), i);
-            IniSettings.Colors[2][i] := ReadIniValue(IniFile, 'ColorsCore', UpperCase(currcolor), 0);
-          end;
-          if IniFile.SectionExists('ColorsWatch') then
-          begin
-            currcolor := GetEnumName(TypeInfo(TIniColors), i);
-            IniSettings.Colors[3][i] := ReadIniValue(IniFile, 'ColorsWatch', UpperCase(currcolor), 0);
-          end;
+          IniSettings.CustomColors[0][i] := ReadIniValue(IniFile, 'Colors', ColorsArray[i].sName, 0);
+          IniSettings.CustomColors[1][i] := ReadIniValue(IniFile, 'ColorsSide1', ColorsArray[i].sName, 0);
+          IniSettings.CustomColors[2][i] := ReadIniValue(IniFile, 'ColorsSide2', ColorsArray[i].sName, 0);
+          IniSettings.CustomColors[3][i] := ReadIniValue(IniFile, 'ColorsSide3', ColorsArray[i].sName, 0);
         end;
-        if ReadIniBool(IniFile, 'Colors', 'MainMenuDotsDisabled', False) then
-          IniSettings.Colors[0][30] := 1
-        else
-          IniSettings.Colors[0][30] := 0;
+        IniSettings.Colors_MenuDots := ReadIniValue(IniFile, 'Colors', ColorsArray[29].sName, 0);
+        IniSettings.Colors_DisableMenuDots := ReadIniBool(IniFile, 'Colors', ColorsArray[30].sName, False);
       end;
 
       IniSettings.Plugin_HBWidth := ReadIniValue(IniFile, 'Preferences', 'HealthBarWidth', 0);

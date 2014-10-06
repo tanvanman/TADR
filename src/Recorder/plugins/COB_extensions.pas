@@ -274,6 +274,7 @@ var
   Turn: TTurn;
   nPosX, nPosZ : Word;
   b : Byte;
+  i : Integer;
   ExtensionsNotForDemos : Boolean;
 begin
 result := 0;
@@ -374,7 +375,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     PLAYER_TYPE :
       begin
-      result := Ord(TAPlayer.PlayerType(TAPlayer.GetPlayerByIndex(arg1)));
+      result := Ord(TAPlayer.PlayerController(TAPlayer.GetPlayerByIndex(arg1)));
       end;
     PLAYER_SIDE :
       begin
@@ -788,7 +789,10 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     SET_UNITINFO : //
       begin
-        if TAUnit.setUnitInfoField(pointer(unitptr), TUnitInfoExtensions(arg1), arg2, nil) then
+        i := arg2;
+        if arg3 <> 0 then
+          i := -i;
+        if TAUnit.setUnitInfoField(pointer(unitptr), TUnitInfoExtensions(arg1), i, nil) then
           if TAData.NetworkLayerEnabled then
             globalDplay.SendCobEventMessage(TANM_Rec2Rec_UnitInfoEdit, 0, @unitptr, @arg1, nil, nil, @index, nil);
       end;
@@ -1088,14 +1092,14 @@ DefaultCase:
 
   mov ecx,[TADynmemStructPtr]
   mov esi,[esp+28h+$8]
-  imul esi, UnitStructSize
-  mov eax, [ecx+TAdynmemStruct_Units]
+  imul esi, Integer(SizeOf(TUnitStruct))
+  mov eax, [ecx+TTADynMemStruct.p_Units]
   add esi, eax
 
   cmp esi, eax
   jb DoReturn
 
-  mov eax, [ecx+TAdynmemStruct_Units_EndMarker]
+  mov eax, [ecx+TTADynMemStruct.p_LastUnitInArray]
   cmp esi, eax
   jae DoReturn  
 
@@ -1153,14 +1157,14 @@ DefaultCase:
 
   mov ecx,[TADynmemStructPtr]
   mov esi,[esp+28h+$8]
-  imul esi, UnitStructSize
-  mov eax, [ecx+TAdynmemStruct_Units]
+  imul esi, Integer(SizeOf(TUnitStruct))
+  mov eax, [ecx+TTADynMemStruct.p_Units]
   add esi, eax
 
   cmp esi, eax
   jb DoReturn
 
-  mov eax, [ecx+TAdynmemStruct_Units_EndMarker]
+  mov eax, [ecx+TTADynMemStruct.p_LastUnitInArray]
   cmp esi, eax
   jae DoReturn  
 

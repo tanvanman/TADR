@@ -1,5 +1,5 @@
 unit Plugins;
-{$DEFINE KeyboardHookPlugin}
+
 interface
 
 // some code injects must occur before the exe's main has run
@@ -20,7 +20,7 @@ uses
   UnitLimit,
   LOS_extensions,
   MultiAILimit,
-  {$IFDEF KeyboardHookPlugin}KeyboardHook,{$ENDIF}
+  KeyboardHook,
   WeaponsExtend,
   UnitInfoExtend,
   Builders,
@@ -38,6 +38,7 @@ uses
   GUIEnhancements,
   BattlerRoomMemFix,
   COB_extensions,
+  //PlayersSlotsExpand,
   StatsLogging;
 
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
@@ -55,7 +56,7 @@ if OnMainRun then
 
   RegisterPlugin( LOS_extensions.GetPlugin() );
   RegisterPlugin( MultiAILimit.GetPlugin() );
-  {$IFDEF KeyboardHookPlugin}RegisterPlugin( KeyboardHook.GetPlugin() );{$ENDIF}
+  RegisterPlugin( KeyboardHook.GetPlugin() );
   //RegisterPlugin( BattleRoomScroll.GetPlugin() );
 
   RegisterPlugin( WeaponsExtend.GetPlugin() );
@@ -63,6 +64,7 @@ if OnMainRun then
   RegisterPlugin( RegPathFix.GetPlugin() );
   if IniSettings.ModId > 1 then
   begin
+    //RegisterPlugin( PlayersSlotsExpand.GetPlugin() );
     RegisterPlugin( Builders.GetPlugin() );
     RegisterPlugin( ScriptCallsExtend.GetPlugin() );
     RegisterPlugin( ResurrectPatrol.GetPlugin() );

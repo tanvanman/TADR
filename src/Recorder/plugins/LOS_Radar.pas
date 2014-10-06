@@ -102,8 +102,8 @@ asm // uses ecx, ebx, esi
   // only chance to see units via radar if the player is watching
   cmp dword ptr [ebp], 0
   jz CanNotSeeUnitOnRadar
-  mov ecx, [ebp+PlayerStruct_PlayerInfo]
-  test [ecx+PlayerInfoStruct_IsWatching], 40h
+  mov ecx, [ebp+TPlayerStruct.PlayerInfo]
+  test [ecx+TPlayerInfoStruct.SharedBits], 40h
   jnz CanSeeUnitOnRadar
 
 // Cant directly see the unit on radar
@@ -157,12 +157,12 @@ l1:
 
   // TestPlayerPtr = TAdynmemStruct.Players[0]
   mov eax, esi
-  add eax, TAdynmemStruct_Players
+  add eax, Integer(TTAdynmemStruct.Players)
   mov TestPlayerPtr, eax
   
   // PlayerPtr = TAdynmemStruct.Players[ViewPlayer]
-  add esi, TAdynmemStruct_Players
-  mov eax, PlayerStructSize
+  add esi, Integer(TTAdynmemStruct.Players)
+  mov eax, Integer(SizeOf(TPlayerStruct))
   mul eax, ecx
   add esi, eax
   mov PlayerPtr, esi
@@ -195,7 +195,7 @@ TryNextPlayer_NextValue:
   // TestPlayerIndex++
   inc ecx;
   // TestPlayerPtr++
-  add eax, PlayerStructSize
+  add eax, Integer(SizeOf(TPlayerStruct))
   // if (TestPlayerIndex >= 10) then exit; 
 TryNextPlayer_Condition:
   cmp ecx, 10
@@ -210,13 +210,13 @@ TryNextPlayer_Condition:
 
   inc ecx
   mov TestPlayerIndex, ecx
-  add eax, PlayerStructSize
+  add eax, Integer(SizeOf(TPlayerStruct))
   mov TestPlayerPtr, eax
 
   mov     dl, [esi+TAdynmemStruct_LOS_Sight]
-  mov     edi, [esi+TAdynmemStruct_Units]
+  mov     edi, [esi+TTADynMemStruct.p_Units]
   mov     eax, edx
-  mov     ebx, [esi+TAdynmemStruct_Units_EndMarker]
+  mov     ebx, [esi+TTADynMemStruct.p_Units]
   and     eax, 0FFh
   add     edi, 118h
   mov     ecx, eax
@@ -227,7 +227,7 @@ TryNextPlayer_Condition:
   mov     [esp+14h], edi // [esp+38h+Units_Index]
   mov     [esp+10h], ebx  // [esp+38h+Units_EndMarker]
   lea     ecx, [ecx+ecx*4]
-  lea     ebp, [esi+ecx*2+TAdynmemStruct_Players]
+  lea     ebp, [esi+ecx*2+Integer(TTAdynmemStruct.Players)]
 
 
   // code thumped by injecting the jmp statement

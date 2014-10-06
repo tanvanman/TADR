@@ -980,6 +980,11 @@ var
   LoadTNTFile : LoadTNTFileHandler = LoadTNTFileHandler($00429660);
 
 Type
+  LoadGameData_MainHandler = procedure(); stdcall;
+var
+  LoadGameData_Main : LoadGameData_MainHandler = LoadGameData_MainHandler($004917D0);
+
+Type
   HAPINET_guaranteepacketsHandler = function(NewState: Integer): Integer; stdcall;
 var
   HAPINET_guaranteepackets : HAPINET_guaranteepacketsHandler = HAPINET_guaranteepacketsHandler($004C9790);
@@ -1047,6 +1052,11 @@ var
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not used.
 //////////////////////////////////////////////////////////////////////////////////////////
+
+type
+  InitPlayerStructHandler = function ( PlayerPtr: PPlayerStruct ): Pointer; stdcall;
+var
+  InitPlayerStruct : InitPlayerStructHandler = InitPlayerStructHandler($00464700);
 
 Type
   HAPINET_BroadcastMessageHandler = function(FromPID: Integer; Buffer: Pointer; BufferSize: Integer): Integer; stdcall;

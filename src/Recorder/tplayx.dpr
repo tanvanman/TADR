@@ -69,7 +69,8 @@ uses
   DynamicMap in 'TAMem\DynamicMap.pas',
   CampaignExtensions in 'plugins\CampaignExtensions.pas',
   UnitInfoExtend in 'plugins\UnitInfoExtend.pas',
-  MinimapExpand in 'plugins\MinimapExpand.pas';
+  MinimapExpand in 'plugins\MinimapExpand.pas',
+  PlayersSlotsExpand in 'plugins\PlayersSlotsExpand.pas';
 
 {$R *.res}
 

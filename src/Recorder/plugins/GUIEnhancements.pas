@@ -67,6 +67,7 @@ uses
   Math,
   TA_FunctionsU,
   logging,
+  Colors,
   idplay,
   TA_NetworkingMessages;
 
@@ -421,26 +422,26 @@ begin
             RectDrawPos.Right := Round(RectDrawPos.Left + ((HPBackgRectWidth-2) * UnitHealth) / UnitMaxHP);
             HealthState := UnitMaxHP div 3;
 
-            if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(TAData.RaceSide)][Ord(UNITHEALTHBARGOOD)] <> 0) then
+            if IniSettings.Plugin_Colors and (GetRaceSpecificColor(23) <> 0) then
             begin
               if UnitHealth <= (HealthState * 2) then
               begin
                 if UnitHealth <= HealthState then
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(TAData.RaceSide)][Ord(UNITHEALTHBARLOW)])^)  // low
+                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(25))^)
                 else
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(TAData.RaceSide)][Ord(UNITHEALTHBARMEDIUM)])^); // yellow
+                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(24))^);
               end else
-                DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(TAData.RaceSide)][Ord(UNITHEALTHBARGOOD)])^); // good
+                DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(23))^);
             end else
             begin
               if UnitHealth <= (HealthState * 2) then
               begin
                 if UnitHealth <= HealthState then
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+12)^)  // low
+                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[25].cDefaultVal)^)  // low
                 else
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+14)^); // medium
+                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[24].cDefaultVal)^); // medium
               end else
-                DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+10)^); // good
+                DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[23].cDefaultVal)^); // good
             end;
           end;
 
@@ -550,17 +551,17 @@ begin
 
                 if StockPile <> 0 then
                 begin
-                  if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(TAData.RaceSide)][Ord(STOCKPILEBAR)] <> 0) then
-                    DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+IniSettings.Colors[Ord(TAData.RaceSide)][Ord(STOCKPILEBAR)])^)
+                  if IniSettings.Plugin_Colors and (GetRaceSpecificColor(28) <> 0) then
+                    DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(28))^)
                   else
-                    DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+14)^);
+                    DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[28].cDefaultVal)^);
                 end else
                 begin
                   BarProgress := Round((CurReloadTime / MaxReloadTime) * 100);
-                  if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(TAData.RaceSide)][Ord(WEAPONRELOADBAR)] <> 0) then
-                    WeapReloadColor := IniSettings.Colors[Ord(TAData.RaceSide)][Ord(WEAPONRELOADBAR)]
+                  if IniSettings.Plugin_Colors and (GetRaceSpecificColor(26) <> 0) then
+                    WeapReloadColor := GetRaceSpecificColor(26)
                   else
-                    WeapReloadColor := 143;
+                    WeapReloadColor := ColorsArray[26].cDefaultVal;
                   case BarProgress of
                      0..15 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor)^);
                     16..30 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 1)^);
@@ -662,10 +663,10 @@ begin
                   RectDrawPos.Right := Round(RectDrawPos.Left + (32 * CurActionVal) / MaxActionVal);
 
                   BarProgress := Round((CurActionVal / MaxActionVal) * 100);
-                  if IniSettings.Plugin_Colors and (IniSettings.Colors[Ord(TAData.RaceSide)][Ord(RECLAIMBAR)] <> 0) then
-                    ReclaimColor := IniSettings.Colors[Ord(TAData.RaceSide)][Ord(RECLAIMBAR)]
+                  if IniSettings.Plugin_Colors and (GetRaceSpecificColor(27) <> 0) then
+                    ReclaimColor := GetRaceSpecificColor(27)
                   else
-                    ReclaimColor := 17;
+                    ReclaimColor := ColorsArray[27].cDefaultVal;
                   case BarProgress of
                     0..20 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor)^);
                    21..40 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 1)^);
@@ -1569,7 +1570,7 @@ var
   cCurActivePlayer, IteratePlayerIdx : Byte;
   cCurActiveSortPlayer : Byte;
   cIterateSort : Byte;
-  PlayerType, PlayerSortType: TTAPlayerType;
+  PlayerType, PlayerSortType: TTAPlayerController;
   PlayerSide : TTAPlayerSide;
   LocalPlayerBox : tagRect;
   p_ColorLogo : PGAFFrame;
@@ -1604,7 +1605,7 @@ begin
       begin
         if TAPlayer.IsActive(Player) then
         begin
-          PlayerType := TAPlayer.PlayerType(Player);
+          PlayerType := TAPlayer.PlayerController(Player);
           if ( PlayerType = Player_LocalHuman ) or
              ( PlayerType = Player_LocalAI ) or
              ( PlayerType = Player_RemotePlayer ) then
@@ -1699,7 +1700,7 @@ SortPlayers:
         repeat
           if ( TAPlayer.IsActive(PlayerSort) ) then
           begin
-            PlayerSortType := TAPlayer.PlayerType(PlayerSort);
+            PlayerSortType := TAPlayer.PlayerController(PlayerSort);
             if ( PlayerSortType = Player_LocalHuman ) or
                ( PlayerSortType = Player_LocalAI ) or
                ( PlayerSortType = Player_RemotePlayer ) then

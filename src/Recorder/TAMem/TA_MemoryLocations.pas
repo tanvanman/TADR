@@ -103,7 +103,7 @@ type
     class Function GetPlayerByDPID(playerPID : TDPID) : LongWord;
 
     class function PlayerIndex(player : PPlayerStruct) : Byte;
-    class Function PlayerType(player : PPlayerStruct) : TTAPlayerType;
+    class Function PlayerController(player : PPlayerStruct) : TTAPlayerController;
     class Function PlayerSide(player : PPlayerStruct) : TTAPlayerSide;
     class function PlayerLogoIndex(player : PPlayerStruct) : Byte;
 
@@ -214,7 +214,7 @@ type
     class function GrantUnitInfo(UnitPtr: Pointer; State: Byte; remoteUnitId: PLongWord): Boolean;
     class function SearchCustomUnitInfos(unitId: LongWord; remoteUnitId: PLongWord; local: Boolean; out index: Integer ): Boolean;
     class function GetUnitInfoField(UnitPtr: Pointer; fieldType: TUnitInfoExtensions; remoteUnitId: PLongWord): LongWord;
-    class function SetUnitInfoField(UnitPtr: Pointer; fieldType: TUnitInfoExtensions; value: LongWord; remoteUnitId: PLongWord): Boolean;
+    class function SetUnitInfoField(UnitPtr: Pointer; fieldType: TUnitInfoExtensions; value: Integer; remoteUnitId: PLongWord): Boolean;
   end;
 
   TAUnits = class
@@ -696,14 +696,14 @@ begin
   Result := Player.cPlayerIndex;
 end;
 
-class Function TAPlayer.PlayerType(player : PPlayerStruct) : TTAPlayerType;
+class Function TAPlayer.PlayerController(player : PPlayerStruct) : TTAPlayerController;
 begin
-  Result := Player.en_cPlayerType;
+  Result := Player.cPlayerController;
 end;
 
 class Function TAPlayer.PlayerSide(player : PPlayerStruct) : TTAPlayerSide;
 begin
-  Result := TTAPlayerSide(Player.PlayerInfo.Raceside + 1);
+  Result := TTAPlayerSide(Player.PlayerInfo.Raceside);
 end;
 
 class Function TAPlayer.PlayerLogoIndex(player : PPlayerStruct) : Byte;
@@ -1648,7 +1648,7 @@ end;
 class Function TAUnit.IsOnThisComp(UnitPtr : Pointer; IncludeAI: Boolean) : Boolean;
 var
   playerPtr : Pointer;
-  TAPlayerType : TTAPlayerType;
+  TAPlayerType : TTAPlayerController;
 begin
 result:= False;
 try
@@ -1656,7 +1656,7 @@ try
   //playerPtr := TAPlayer.GetPlayerByIndex(TAunit.GetOwnerIndex(UnitPtr));
   if playerPtr <> nil then
   begin
-    TAPlayerType := TAPlayer.PlayerType(playerPtr);
+    TAPlayerType := TAPlayer.PlayerController(playerPtr);
     case TAPlayerType of
       Player_LocalHuman:
         result := True;
@@ -1943,7 +1943,7 @@ begin
   end;
 end;
 
-class function TAUnit.SetUnitInfoField(UnitPtr: Pointer; fieldType: TUnitInfoExtensions; value: LongWord; remoteUnitId: PLongWord): Boolean;
+class function TAUnit.SetUnitInfoField(UnitPtr: Pointer; fieldType: TUnitInfoExtensions; value: Integer; remoteUnitId: PLongWord): Boolean;
 procedure SetUnitTypeMask(arrIdx: Integer; unittypemask: byte; onoff: boolean; mask: LongWord);
 begin
   case onoff of
@@ -2330,7 +2330,7 @@ begin
 
       if not (usfAI in Filter) then
       begin
-        if TAPlayer.PlayerType(CheckedUnitSt.p_Owner) = Player_LocalAI then
+        if TAPlayer.PlayerController(CheckedUnitSt.p_Owner) = Player_LocalAI then
           Continue;
       end;
     end;

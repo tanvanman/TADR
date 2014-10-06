@@ -220,10 +220,10 @@ TryNextPlayer_Condition:
     
   // NextPlayer = [TADynmemStructPtr+TAdynmemStruct.Players[TestPlayer]]
   mov eax, ebp
-  mov ecx, PlayerStructSize
+  mov ecx, Integer(SizeOf(TPlayerStruct))
   mul ecx;
   mov ecx, [TADynmemStructPtr];
-  lea ecx, [ecx+TAdynmemStruct_Players];
+  lea ecx, [ecx+Integer(TTAdynmemStruct.Players)];
   add eax, ecx;
   // if (NextPlayer = Player)  continue; 
   mov esi, PlayerPtr;

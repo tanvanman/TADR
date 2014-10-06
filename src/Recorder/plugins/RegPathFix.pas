@@ -125,14 +125,15 @@ var
   SearchRec: TAFindData;
   SharedMaps, SharedBasicGameData : Boolean;
   TAPath : String;
+  sRev31Name : String;
 begin
   SharedMaps := IniSettings.CommonMapsPath <> '';
   SharedBasicGameData := IniSettings.CommonGameDataPath <> '';
 
   SetCurrentDirectoryToTAPath;
   TAPath := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation));
-
-  FindHandle := findfirst_HPI('rev31.GP3', @SearchRec, -1, 1);
+  sRev31Name := Format(PAnsiChar($005028CC), [PAnsiChar($005028D8)]);
+  FindHandle := findfirst_HPI(PAnsiChar(sRev31Name), @SearchRec, -1, 1);
   if FindHandle >= 0 then
   begin
     repeat

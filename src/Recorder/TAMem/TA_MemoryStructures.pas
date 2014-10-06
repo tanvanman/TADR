@@ -330,8 +330,8 @@ type
     UnitTypeMask2      : Cardinal;
   end;
 
-  TTAPlayerType = (Player_LocalHuman = 1, Player_LocalAI = 2, Player_RemotePlayer = 3);
-  TTAPlayerSide = (psUnknown, psArm, psCore, psWatch);
+  TTAPlayerController = (Player_LocalHuman = 1, Player_LocalAI = 2, Player_RemotePlayer = 3);
+  TTAPlayerSide = (psArm, psCore, psWatch);
 
   PAlliedState = ^TAlliedState;
   TAlliedState = array [ 0..9 ] of Byte;
@@ -412,7 +412,7 @@ type
     p_LastUnit           : PUnitStruct;			// 0x6B the last unit in the array
     nUnitsIndexBegin     : Word;
     nUnitsIndexEnd       : Word;
-    en_cPlayerType       : TTAPlayerType;			// 0x73
+    cPlayerController    : TTAPlayerController;			// 0x73
     p_AIConfig           : Cardinal;
     SQUADS_p             : Pointer;			// 0x78
     LOS_MEMORY           : Pointer;		// 0x7C
@@ -760,8 +760,7 @@ type
 	  cUnknown8              : array [0..1781] of Byte;
 	  lUnknown9              : Cardinal;
 	  Unknown10              : array [0..310] of Byte;
-	  Players                : array [0..9] of TPlayerStruct; //starts at 0x1B63 and each player is 0x14B (331) bytes long
-	  ExtraPlayer            : TPlayerStruct;   //extra player
+	  Players                : array [0..10] of TPlayerStruct; //starts at 0x1B63 and each player is 0x14B (331) bytes long
 	  lUnknown12             : Cardinal;
 	  p_AllyData             : Pointer; //xon's IDA database gives as SkirmishCommanderDeath dd ?
 	  Unknown13              : array [0..143] of Byte;

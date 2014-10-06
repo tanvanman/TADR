@@ -9,6 +9,48 @@ uses
 
 // -----------------------------------------------------------------------------
 
+type
+  TColorEntry = record
+    sName : String;
+    lOffset : Cardinal;
+    cSwapType : Byte;
+    cDefaultVal : Byte;
+  end;
+
+const
+  ColorsArray : array[0..30] of TColorEntry = (
+    (sName: 'UnitSelectionBox'; lOffset: $00467A70; cSwapType: 2; cDefaultVal: 0;),
+    (sName: 'BuildQueueBoxSelected1'; lOffset: $00438D63; cSwapType: 2; cDefaultVal: 0;),
+    (sName: 'BuildQueueBoxSelected2'; lOffset: $00438D5D; cSwapType: 2; cDefaultVal: 0;),
+    (sName: 'BuildQueueBoxNonSelected1'; lOffset: $00438D79; cSwapType: 2; cDefaultVal: 0;),
+    (sName: 'BuildQueueBoxNonSelected2'; lOffset: $00438D73; cSwapType: 2; cDefaultVal: 0;),
+    (sName: 'LoadBarsTexturesReady'; lOffset: $0049876B; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBarsTexturesLoading'; lOffset: $00498768; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBarsTerrainReady'; lOffset: $00498848; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBarsTexturesLoading'; lOffset: $00498845; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBarsUnitsReady'; lOffset: $0049891C; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBarsUnitsLoading'; lOffset: $00498919; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBarsAnimationsReady'; lOffset: $004989F0; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBarsAnimationsLoading'; lOffset: $004989ED; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBars3DDataReady'; lOffset: $00498AC4; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBars3DDataLoading'; lOffset: $00498AC1; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBarsExplosionsReady'; lOffset: $00498BBD; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'LoadBarsExplosionsLoading'; lOffset: $00498BBA; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'NanolatheParticleBase'; lOffset: $00473F3D; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'NanolatheParticleColors'; lOffset: $004739D6; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'UnderConstructSurfaceLo'; lOffset: $00458E6C; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'UnderConstructSurfaceHi'; lOffset: $00458E5F; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'UnderConstructOutlineLo'; lOffset: $00458E88; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'UnderConstructOutlineHi'; lOffset: $00458E7B; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'UnitHealthBarGood'; lOffset: 0; cSwapType: 0; cDefaultVal: 10;),
+    (sName: 'UnitHealthBarMedium '; lOffset: 0; cSwapType: 0; cDefaultVal: 14;),
+    (sName: 'UnitHealthBarLow'; lOffset: 0; cSwapType: 0; cDefaultVal: 12;),
+    (sName: 'WeaponReloadBar'; lOffset: 0; cSwapType: 0; cDefaultVal: 143;),
+    (sName: 'ReclaimBar'; lOffset: 0; cSwapType: 0; cDefaultVal: 17;),
+    (sName: 'StockpileBar'; lOffset: 0; cSwapType: 0; cDefaultVal: 14;),
+    (sName: 'MainMenuDots'; lOffset: $00425C56; cSwapType: 0; cDefaultVal: 0;),
+    (sName: 'MainMenuDotsDisabled'; lOffset: $00426440; cSwapType: 0; cDefaultVal: 0;));
+
 const
   State_Colors : boolean = true;
 
@@ -18,6 +60,7 @@ function GetPlugin : TPluginData;
 
 Procedure OnInstallColors;
 Procedure OnUninstallColors;
+
 // -----------------------------------------------------------------------------
 
 Const
@@ -25,78 +68,80 @@ Const
 
 // -----------------------------------------------------------------------------
 
+function GetRaceSpecificColor(ColorNr: Byte) : Byte;
+procedure Colors_ApplyPerRaceColors;
+
 implementation
 uses
   IniOptions,
   TADemoConsts,
   TA_MemoryLocations,
   SysUtils,
+  TA_FunctionsU,
   windows;
 
 var
   ColorsPlugin: TPluginData;
 
-procedure SetColor(swaptype: byte; address: Integer; i: integer; arridx: byte; colorbyte: PByte = nil; colorword: PWord = nil);
+function GetRaceSpecificColor(ColorNr: Byte) : Byte;
 begin
-  case swaptype of
-    { just a color number }
-    1: begin
-        if i <> -1 then
-          colorByte:= PByte(iniSettings.Colors[arridx][i]);
-        if colorByte <> nil then
-          ColorsPlugin.MakeReplacement( State_Colors, IntToStr(address), Address, colorByte, 1);
-       end;
-    { color number as offset from first guipal color }
-    2: begin
-        if i <> -1 then
-          colorWord:= PWord(FIRST_GUIPAL_COLOR + iniSettings.Colors[arridx][i]);
-        if colorWord <> nil then
-          ColorsPlugin.MakeReplacement( State_Colors, IntToStr(address), Address, colorWord, 2);
-       end;
-    3: begin
-        if i <> -1 then
-          ColorsPlugin.MakeNOPReplacement ( State_Colors, IntToStr(address), Address, i);
-       end;
+  Result := IniSettings.CustomColors[Ord(TAData.RaceSide) + 1][ColorNr];
+  if Result = 0 then
+    Result := IniSettings.CustomColors[0][ColorNr];
+end;
+
+Procedure InstallColors(RaceSpecific: Boolean); stdcall;
+var
+  cColor : Byte;
+  nColor : Word;
+  nCurColor : Word;
+  i: integer;
+  CurrentProcessHandle : THandle;
+  CommittedBytes : Longword;
+  OldProtect, tmpOldProtect : longword;
+begin
+  CurrentProcessHandle := GetCurrentProcess;
+  for i := 0 to 28 do
+  begin
+    nCurColor := 0;
+    if RaceSpecific then
+      if IniSettings.CustomColors[Ord(TAData.RaceSide) + 1][i] <> 0 then
+        nCurColor := GetRaceSpecificColor(i)
+    else
+      nCurColor := IniSettings.CustomColors[0][i];
+    if nCurColor <> 0 then
+    begin
+      case ColorsArray[i].cSwapType of
+        1: begin
+             Win32Check( VirtualProtect( pointer(ColorsArray[i].lOffset), 1, PAGE_READWRITE, OldProtect ) );
+             cColor := nCurColor;
+             Win32Check( WriteProcessMemory( CurrentProcessHandle,
+                              pointer(ColorsArray[i].lOffset),
+                              @cColor,
+                              1,
+                              CommittedBytes) );
+             FlushInstructionCache( CurrentProcessHandle, pointer(ColorsArray[i].lOffset), 1 );
+             Win32Check( VirtualProtect( pointer(ColorsArray[i].lOffset), 2, OldProtect, tmpOldProtect ) );
+           end;
+        2: begin
+             Win32Check( VirtualProtect( pointer(ColorsArray[i].lOffset), 2, PAGE_READWRITE, OldProtect ) );
+             nColor := FIRST_GUIPAL_COLOR + nCurColor;
+             Win32Check( WriteProcessMemory( CurrentProcessHandle,
+                              pointer(ColorsArray[i].lOffset),
+                              @nColor,
+                              2,
+                              CommittedBytes) );
+             FlushInstructionCache( CurrentProcessHandle, pointer(ColorsArray[i].lOffset), 2 );
+             Win32Check( VirtualProtect( pointer(ColorsArray[i].lOffset), 2, OldProtect, tmpOldProtect ) );
+           end;
+      end;
+    end;
   end;
 end;
 
 Procedure OnInstallColors;
-var
-  i: integer;
 begin
-  for i:= Low(IniSettings.Colors) to High(IniSettings.Colors) do
-  begin
-    if IniSettings.Colors[0][i] <> 0 then
-    begin
-      case i of
-      Ord(UNITSELECTIONBOX) : begin SetColor(2, $467A70, i, 0); end;
-      Ord(BUILDQUEUEBOXSELECTED1) : begin SetColor(2, $438D63, i, 0); end;
-      Ord(BUILDQUEUEBOXSELECTED2) : begin SetColor(2, $438D5D, i, 0); end;
-      Ord(BUILDQUEUEBOXNONSELECTED1) : begin SetColor(2, $438D79, i, 0); end;
-      Ord(BUILDQUEUEBOXNONSELECTED2) : begin SetColor(2, $438D73, i, 0); end;
-      Ord(LOADBARSTEXTURESREADY) : begin SetColor(1, $49876B, i, 0); end;
-      Ord(LOADBARSTEXTURESLOADING) : begin SetColor(1, $498768, i, 0); end;
-      Ord(LOADBARSTERRAINREADY): begin SetColor(1, $498848, i, 0); end;
-      Ord(LOADBARSTERRAINLOADING): begin SetColor(1, $498845, i , 0); end;
-      Ord(LOADBARSUNITSREADY): begin SetColor(1, $49891C, i,0 ); end;
-      Ord(LOADBARSUNITSLOADING): begin SetColor(1, $498919, i,0); end;
-      Ord(LOADBARSANIMATIONSREADY): begin SetColor(1, $4989F0, i,0); end;
-      Ord(LOADBARSANIMATIONSLOADING): begin SetColor(1, $4989ED, i,0); end;
-      Ord(LOADBARS3DDATAREADY): begin SetColor(1, $498AC4, i,0); end;
-      Ord(LOADBARS3DDATALOADING): begin SetColor(1, $498AC1, i,0); end;
-      Ord(LOADBARSEXPLOSIONSREADY): begin SetColor(1, $498BBD, i,0); end;
-      Ord(LOADBARSEXPLOSIONSLOADING): begin SetColor(1, $498BBA, i,0); end;
-      Ord(MAINMENUDOTS): begin SetColor(1, $425C56, i,0); end;
-      Ord(NANOLATHEPARTICLEBASE): begin SetColor(1, $473F3D, i,0); end;
-      Ord(NANOLATHEPARTICLECOLORS): begin SetColor(1, $4739D6, i,0); end;
-      Ord(UNDERCONSTRUCTSURFACELO): begin SetColor(1, $458E6C, i,0); end;
-      Ord(UNDERCONSTRUCTSURFACEHI): begin SetColor(1, $458E5F, i,0); end;
-      Ord(UNDERCONSTRUCTOUTLINELO): begin SetColor(1, $458E88, i,0); end;
-      Ord(UNDERCONSTRUCTOUTLINEHI): begin SetColor(1, $458E7B, i,0); end;
-      Ord(MAINMENUDOTSDISABLED): begin SetColor(3, $426440, 7,0); end;
-      end;
-    end;
-  end;
+  InstallColors(False);
 end;
 
 Procedure OnUninstallColors;
@@ -112,11 +157,40 @@ if IsTAVersion31 and State_Colors then
                                 'Colors',
                                 State_Colors,
                                 @OnInstallColors, @OnUnInstallColors );
-  Result:= ColorsPlugin;
 
+  ColorsPlugin.MakeRelativeJmp(State_Colors,
+                               'Apply per race specific colors at game load',
+                               @Colors_ApplyPerRaceColors,
+                               $00497581, 0);
+
+  if IniSettings.Colors_DisableMenuDots then
+    ColorsPlugin.MakeNOPReplacement( State_Colors, '',
+                                     ColorsArray[30].lOffset, 7);
+
+  if IniSettings.Colors_MenuDots <> 0 then
+    ColorsPlugin.MakeReplacement( State_Colors, '',
+                                  ColorsArray[29].lOffset,
+                                  IniSettings.Colors_MenuDots, 1);
+
+  Result:= ColorsPlugin;
   end
 else
   result := nil;  
+end;
+
+procedure ApplyPerRaceColors; stdcall;
+begin
+  InstallColors(True);
+end;
+
+procedure Colors_ApplyPerRaceColors;
+asm
+  pushAD
+  call    ApplyPerRaceColors
+  popAD
+  call    LoadGameData_Main
+  push $00497586;
+  call PatchNJump;
 end;
 
 end.
