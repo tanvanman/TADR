@@ -117,7 +117,7 @@ AutoIncBuild=0
 MajorVer=3
 MinorVer=9
 Release=2
-Build=496
+Build=498
 Debug=0
 PreRelease=1
 Special=0
@@ -128,13 +128,13 @@ CodePage=1252
 [Version Info Keys]
 CompanyName=Swedish Yankspankers & TA Universe community
 FileDescription=TA Unofficial Patch - Demo Recorder Component
-FileVersion=3.9.2.496
+FileVersion=3.9.2.498
 InternalName=
 LegalCopyright=
 LegalTrademarks=
 OriginalFilename=
 ProductName=
-ProductVersion=3.9.3.496
+ProductVersion=3.9.3.498
 Comments=
 [Excluded Packages]
 c:\program files (x86)\borland\delphi7\Bin\dclindy70.bpl=Internet Direct (Indy) for D7 Property and Component Editors

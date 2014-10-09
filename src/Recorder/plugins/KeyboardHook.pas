@@ -39,8 +39,8 @@ function FindIdleFactory : Boolean;
 implementation
 uses
   idplay, TA_MemoryLocations, TA_MemoryStructures,TA_MemoryConstants, TA_FunctionsU, //BattleRoomScroll,
-  COB_Extensions, TAMemManipulations, DropUnitsWeaponsList, DynamicMap, GUIEnhancements,
-  UnitInfoExtend;
+  COB_Extensions, TAMemManipulations, SaveUnitsWeaponsList, DynamicMap, GUIEnhancements,
+  UnitInfoExpand;
 
 const
   LastNum : Cardinal = 0;

@@ -21,8 +21,8 @@ uses
   LOS_extensions,
   MultiAILimit,
   KeyboardHook,
-  WeaponsExtend,
-  UnitInfoExtend,
+  WeaponsExpand,
+  UnitInfoExpand,
   Builders,
   ScriptCallsExtend,
   ResurrectPatrol,
@@ -31,7 +31,7 @@ uses
   //KillDamage,
   ExplodeBitmaps,
   TAExceptionsLog,
-  CampaignExtensions,
+  MapExtensions,
   //MinimapExpand,
   Colors,
   ClockPosition,
@@ -59,8 +59,8 @@ if OnMainRun then
   RegisterPlugin( KeyboardHook.GetPlugin() );
   //RegisterPlugin( BattleRoomScroll.GetPlugin() );
 
-  RegisterPlugin( WeaponsExtend.GetPlugin() );
-  RegisterPlugin( UnitInfoExtend.GetPlugin() );
+  RegisterPlugin( WeaponsExpand.GetPlugin() );
+  RegisterPlugin( UnitInfoExpand.GetPlugin() );
   RegisterPlugin( RegPathFix.GetPlugin() );
   if IniSettings.ModId > 1 then
   begin
@@ -74,7 +74,7 @@ if OnMainRun then
     if IniSettings.Plugin_Gaf then
       RegisterPlugin( ExplodeBitmaps.GetPlugin() );
     RegisterPlugin( TAExceptionsLog.GetPlugin() );
-    RegisterPlugin( CampaignExtensions.GetPlugin() );
+    RegisterPlugin( MapExtensions.GetPlugin() );
 //    if IniSettings.ExpandMinimap then
 //      RegisterPlugin( MinimapExpand.GetPlugin() );
   end;

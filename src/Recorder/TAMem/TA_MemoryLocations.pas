@@ -262,6 +262,7 @@ uses
   IniOptions,
   TAMemManipulations,
   ExplodeBitmaps,
+  UnitInfoExpand,
   COB_Extensions,
   TA_MemoryConstants;
 

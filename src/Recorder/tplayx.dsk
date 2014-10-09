@@ -1,19 +1,25 @@
 [Closed Files]
-File_0=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\plugins\COB_extensions.pas',0,1,484,49,510,0,0
-File_1=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\TAMem\TA_MemoryStructures.pas',0,1,316,57,333,0,0
-File_2=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\plugins\GUIEnhancements.pas',0,1,1744,29,1749,0,0
-File_3=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\Plugins.pas',0,1,56,55,83,0,0
-File_4=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\TAMem\TA_MemoryLocations.pas',0,1,1056,76,1065,0,0
-File_5=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\DPlay.pas',0,1,100,68,117,0,0
-File_6=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\TAMem\TA_MemoryConstants.pas',0,1,1,38,17,0,0
-File_7=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\plugins\UnitActions.pas',0,1,868,40,885,0,0
-File_8=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\idplay.pas',0,1,640,68,712,0,0
-File_9=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\plugins\ExplodeBitmaps.pas',0,1,95,1,114,0,0
+File_0=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\Plugins.pas',0,1,58,34,77,0,0
+File_1=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\plugins\MapExtensions.pas',0,1,243,4,259,0,0
+File_2=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\plugins\UnitInfoExpand.pas',0,1,91,37,102,0,0
+File_3=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\TAMem\TA_MemoryConstants.pas',0,1,1,29,9,0,0
+File_4=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\TAMem\TA_MemoryLocations.pas',0,1,631,1,650,0,0
+File_5=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\TAMem\TA_MemoryStructures.pas',0,1,1355,19,1374,0,0
+File_6=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\plugins\KeyboardHook.pas',0,1,71,28,99,0,0
+File_7=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\plugins\COB_extensions.pas',0,1,182,23,213,0,0
+File_8=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\TAMem\DynamicMap.pas',0,1,1,1,5,0,0
+File_9=SourceModule,'F:\TA\TADR\SVN\trunk\src\Recorder\plugins\CampaignExtensions.pas',0,1,1,1,312,0,0
 
 [Modules]
-Module0=F:\TA\TADR\SVN\trunk\src\Recorder\tplayx.dpr
-Count=1
+Module0=F:\TA\TADR\SVN\trunk\src\Recorder\plugins\IniOptions.pas
+Module1=F:\TA\TADR\SVN\trunk\src\Recorder\tplayx.dpr
+Count=2
 EditWindowCount=1
+
+[F:\TA\TADR\SVN\trunk\src\Recorder\plugins\IniOptions.pas]
+ModuleType=SourceModule
+FormState=0
+FormOnTop=0
 
 [F:\TA\TADR\SVN\trunk\src\Recorder\tplayx.dpr]
 ModuleType=SourceModule
@@ -25,9 +31,10 @@ FormState=0
 FormOnTop=0
 
 [EditWindow0]
-ViewCount=1
-CurrentView=0
+ViewCount=2
+CurrentView=1
 View0=0
+View1=1
 CodeExplorer=CodeExplorer@EditWindow0
 MessageView=MessageView@EditWindow0
 Create=1
@@ -49,17 +56,21 @@ BottomPanelData=0000040000000000740300000000000002BA0000000000000001000000007403
 
 [View0]
 Module=F:\TA\TADR\SVN\trunk\src\Recorder\tplayx.dpr
-CursorX=33
-CursorY=14
-TopLine=1
+CursorX=16
+CursorY=67
+TopLine=43
+LeftCol=1
+
+[View1]
+Module=F:\TA\TADR\SVN\trunk\src\Recorder\plugins\IniOptions.pas
+CursorX=87
+CursorY=325
+TopLine=317
 LeftCol=1
 
 [Watches]
-Count=4
+Count=1
 Watch0='Cardinal(@PTAdynmemStruct(TAData.MainStructPtr)^.CurtMousePostion) - Cardinal(@PTAdynmemStruct(TAData.MainStructPtr)^)',64,0,18,1,0,'Watches'
-Watch1='SumOfX_posOfSelectedUnits',256,0,18,1,0,'Watches'
-Watch2='tmp_x shr 32',256,0,18,1,0,'Watches'
-Watch3='tmp_z * tmp_z shr 32',256,0,18,1,0,'Watches'
 
 [WatchWindow]
 WatchColumnWidth=100
@@ -80,7 +91,9 @@ LRDockWidth=426
 Dockable=1
 
 [Breakpoints]
-Count=0
+Count=2
+Breakpoint0='F:\TA\TADR\SVN\trunk\src\Recorder\plugins\UnitInfoExpand.pas',73,'',0,1,'',1,0,0,'',1,'','',''
+Breakpoint1='F:\TA\TADR\SVN\trunk\src\Recorder\plugins\KeyboardHook.pas',168,'',0,1,'',1,0,0,'',1,'','',''
 
 [AddressBreakpoints]
 Count=0

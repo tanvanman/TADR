@@ -55,6 +55,7 @@ type
     Plugin_BuildSpotNanoShimmer : Boolean;
     Plugin_DrawBuildSpotQueueNano : Boolean;
 
+    Plugin_StopButton : Boolean;
     
     Plugin_MinReclaimTime : Integer;
     Plugin_Gaf : Boolean;
@@ -342,6 +343,8 @@ begin
 
       IniSettings.Plugin_ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
       IniSettings.Plugin_MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
+
+      IniSettings.Plugin_StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
 
       IniSettings.Plugin_Gaf := ReadIniBool(IniFile, 'Preferences', 'GAFExt', False);
     finally

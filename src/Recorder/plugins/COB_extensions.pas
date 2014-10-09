@@ -176,16 +176,12 @@ const
 // -----------------------------------------------------------------------------
 
 var
-  CustomUnitInfosArray : TUnitInfos;
   UnitSearchArr : TUnitSearchArr;
   SpawnedMinionsArr : TSpawnedMinionsArr;
-  CustomUnitFieldsArr : TCustomUnitFieldsArr;
-  CustomUnitInfos,
   UnitSearchResults,
-  SpawnedMinions, CustomUnitFields : TDynArray;
-  CustomUnitInfosCount,
+  SpawnedMinions : TDynArray;
   UnitSearchCount,
-  SpawnedMinionsCount, CustomUnitFieldsCount : Integer;
+  SpawnedMinionsCount : Integer;
 
 // -----------------------------------------------------------------------------
 
@@ -202,7 +198,8 @@ uses
   TA_MemoryConstants,
   TA_FunctionsU,
   SysUtils,
-  DynamicMap,
+  MapExtensions,
+  UnitInfoExpand,
   IniOptions;
 
 Procedure OnInstallCobExtensions;
@@ -210,12 +207,6 @@ var
   i: LongWord;
   UnitRec: TStoreUnitsRec;
 begin
-  CustomUnitInfos.Init(TypeInfo(TUnitInfos),CustomUnitInfosArray, @CustomUnitInfosCount);
-  CustomUnitInfos.Capacity := IniSettings.UnitLimit * MAXPLAYERCOUNT;
-
-  CustomUnitFields.Init(TypeInfo(TCustomUnitFieldsArr), CustomUnitFieldsArr, @CustomUnitFieldsCount);
-  CustomUnitFields.Capacity := IniSettings.UnitLimit * MAXPLAYERCOUNT;
-
   UnitSearchResults.Init(TypeInfo(TUnitSearchArr), UnitSearchArr, @UnitSearchCount);
   UnitSearchResults.Capacity := High(Word);
 
@@ -1188,11 +1179,6 @@ begin
   MouseLock := False;
 
   //ReleaseFeature_TdfVector;
-
-  if not CustomUnitInfos.IsVoid then
-    CustomUnitInfos.Clear;
-  if not CustomUnitFields.IsVoid then
-    CustomUnitFields.Clear;
   if not UnitSearchResults.IsVoid then
     UnitSearchResults.Clear;
   if not SpawnedMinions.IsVoid then

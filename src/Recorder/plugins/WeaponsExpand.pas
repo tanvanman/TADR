@@ -1,11 +1,4 @@
-unit WeaponsExtend;
-{
- extend weapons TDF fields
-
- hightrajectory   - enables high trajectory for ballistic weapons
- preserveaccuracy - disables accuracy advantage for units with more than 12 kills,
-                    usefull for vulcan etc. so it still shoots in "spray mode"
-}
+unit WeaponsExpand;
 
 interface
 uses
@@ -14,18 +7,18 @@ uses
 // -----------------------------------------------------------------------------
 
 const
-  State_WeaponsExtend : boolean = true;
+  State_WeaponsExpand : boolean = true;
 
 function GetPlugin : TPluginData;
 
 // -----------------------------------------------------------------------------
 
-Procedure OnInstallWeaponsExtend;
-Procedure OnUninstallWeaponsExtend;
+Procedure OnInstallWeaponsExpand;
+Procedure OnUninstallWeaponsExpand;
 
 // -----------------------------------------------------------------------------
 
-procedure WeaponsExtend_NewPropertiesLoadHook;
+procedure WeaponsExpand_NewPropertiesLoadHook;
 
 implementation
 uses
@@ -43,35 +36,35 @@ const
   WeapInfo_WeaponType2 : AnsiString = 'weapontype2';
 
 var
-  WeaponsExtendPlugin: TPluginData;
+  WeaponsExpandPlugin: TPluginData;
 
-Procedure OnInstallWeaponsExtend;
+Procedure OnInstallWeaponsExpand;
 begin
   if IniSettings.WeaponType > 256 then
     WeaponLimitPatchArr := Pointer(PCardinal(PCardinal($0042CDCE)^)^);  // get ptr to ddraw's weapon id patch array
   SetLength(ExtraWeaponDefTags, IniSettings.WeaponType);
 end;
 
-Procedure OnUninstallWeaponsExtend;
+Procedure OnUninstallWeaponsExpand;
 begin
 end;
 
 function GetPlugin : TPluginData;
 begin
-  if IsTAVersion31 and State_WeaponsExtend then
+  if IsTAVersion31 and State_WeaponsExpand then
   begin
-    WeaponsExtendPlugin := TPluginData.create( false,
+    WeaponsExpandPlugin := TPluginData.create( false,
                             '',
-                            State_WeaponsExtend,
-                            @OnInstallWeaponsExtend,
-                            @OnUnInstallWeaponsExtend );
+                            State_WeaponsExpand,
+                            @OnInstallWeaponsExpand,
+                            @OnUnInstallWeaponsExpand );
 
-    WeaponsExtendPlugin.MakeRelativeJmp( State_WeaponsExtend,
+    WeaponsExpandPlugin.MakeRelativeJmp( State_WeaponsExpand,
                           'Load new weapon tags',
-                          @WeaponsExtend_NewPropertiesLoadHook,
+                          @WeaponsExpand_NewPropertiesLoadHook,
                           $0042E46E, 1);
 
-    Result:= WeaponsExtendPlugin;
+    Result:= WeaponsExpandPlugin;
   end else
     Result := nil;
 end;
@@ -90,7 +83,7 @@ begin
   TempString := '';
 end;
 
-procedure WeaponsExtend_NewPropertiesLoadHook;
+procedure WeaponsExpand_NewPropertiesLoadHook;
 label
   NoWeaponType2;
 asm

@@ -442,6 +442,12 @@ var
   TdfFile__GetStr : TdfFile__GetStrHandler = TdfFile__GetStrHandler($004C48C0);
 
 type
+  TdfFile__GetFloatHandler = function ( TagName : Pointer;
+                                        DefaultNumber : Double): Integer; stdcall;
+var
+  TdfFile__GetFloat : TdfFile__GetFloatHandler = TdfFile__GetFloatHandler($004C4760);
+
+type
   GetStrExtentHandler = function ( Str : PAnsiChar): Integer; stdcall;
 var
   GetStrExtent : GetStrExtentHandler = GetStrExtentHandler($004A5030);

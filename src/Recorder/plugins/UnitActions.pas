@@ -44,7 +44,7 @@ uses
   TA_MemoryLocations,
   TA_FunctionsU,
   COB_extensions,
-  UnitInfoExtend;
+  UnitInfoExpand;
 
 Procedure OnInstallUnitActions;
 begin
@@ -636,26 +636,29 @@ begin
     PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
         PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
 
-    Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
-    PlayerMaxUnitID := Player.nNumUnits;
-    for i := 0 to PlayerMaxUnitID do
+    if IniSettings.Plugin_StopButton then
     begin
-      CurrentUnit := Pointer(Cardinal(Player.p_UnitsArray) + i * SizeOf(TUnitStruct));
-      if ((CurrentUnit.lUnitStateMask and UnitSelectState[UnitSelected_State]) = UnitSelectState[UnitSelected_State]) then
+      Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
+      PlayerMaxUnitID := Player.nNumUnits;
+      for i := 0 to PlayerMaxUnitID do
       begin
-        if (CurrentUnit.lBuildTimeLeft <> 0.0) or
-           (CurrentUnit.p_Owner = nil) or
-           (CurrentUnit.p_UnitDef = nil) then
-          Break;
+        CurrentUnit := Pointer(Cardinal(Player.p_UnitsArray) + i * SizeOf(TUnitStruct));
+        if ((CurrentUnit.lUnitStateMask and UnitSelectState[UnitSelected_State]) = UnitSelectState[UnitSelected_State]) then
+        begin
+          if (CurrentUnit.lBuildTimeLeft <> 0.0) or
+             (CurrentUnit.p_Owner = nil) or
+             (CurrentUnit.p_UnitDef = nil) then
+            Break;
 
-        if (PUnitInfo(CurrentUnit.p_UnitDef).cBMCode <> 0) then
-          Break;
-          
-        if (TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER, nil) = 0) then
-           Break
-        else begin
-          ORDERS_RemoveAllBuildQueues(CurrentUnit, True);
-          UpdateIngameGUI(0);
+          if (PUnitInfo(CurrentUnit.p_UnitDef).cBMCode <> 0) then
+            Break;
+
+          if (TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER, nil) = 0) then
+             Break
+          else begin
+            ORDERS_RemoveAllBuildQueues(CurrentUnit, True);
+            UpdateIngameGUI(0);
+          end;
         end;
       end;
     end;
@@ -874,6 +877,8 @@ begin
             if ExtraUnitInfoTags[PUnitInfo(UnitPtr.p_UnitDef).nCategory].TeleportMethod <> 0 then
             begin
               Distance := TAUnits.Distance(@UnitPtr.Position, @TargetPosition);
+              if Distance < ExtraUnitInfoTags[PUnitInfo(UnitPtr.p_UnitDef).nCategory].TeleportMinReloadTime then
+                Distance := ExtraUnitInfoTags[PUnitInfo(UnitPtr.p_UnitDef).nCategory].TeleportMinReloadTime;
               CustomUnitFieldsArr[UnitID].TeleportReloadMax := Distance;
             end;
 

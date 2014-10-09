@@ -29,8 +29,8 @@ procedure DrawBuildSpot_QueueNanoframeHook;
 procedure DrawBuildSpot_NanoframeShimmerHook;
 procedure DrawUnitRanges_ShowrangesOnHook;
 procedure DrawUnitRanges_CustomRanges;
-procedure LoadArmCore32ltGafSequences;
-procedure DrawScoreboard;
+//procedure LoadArmCore32ltGafSequences;
+//procedure DrawScoreboard;
 
 procedure BroadcastNanolatheParticles_BuildingBuild;
 procedure BroadcastNanolatheParticles_MobileBuild;
@@ -62,8 +62,7 @@ uses
   SysUtils,
   TA_MemoryConstants,
   TA_MemoryLocations,
-  COB_Extensions,
-  UnitInfoExtend,
+  UnitInfoExpand,
   Math,
   TA_FunctionsU,
   logging,
@@ -1537,7 +1536,7 @@ loc_439CC8 :
   push $00439CC8;
   call PatchNJump;
 end;
-
+{
 procedure LoadArmCore32ltGafSequences;
 asm
   push    eax
@@ -1689,7 +1688,7 @@ begin
 // drawings
      { if (PlayerSide <> psArm) and
          (PlayerSide <> psCore) then
-      goto IterateWatcher; }
+      goto IterateWatcher;
 // end drawings
 SortPlayers:
       if ( IteratePlayerIdx = 10 ) then
@@ -1722,7 +1721,7 @@ SortPlayers:
     until (cCurActivePlayer >= TAData.ActivePlayersCount);
 
     // now draw watchers
- {   for IteratePlayerIdx := 0 to 9 do
+    for IteratePlayerIdx := 0 to 9 do
     begin
       Player := TAPlayer.GetPlayerByIndex(IteratePlayerIdx);
       if TAPlayer.IsActive(Player) then
@@ -1733,7 +1732,7 @@ SortPlayers:
         end;
 IterateWatcher :
       Continue;
-    end; }
+    end;
   end;
 end;
 
@@ -1744,7 +1743,7 @@ asm
   push $00494E5D;
   call PatchNJump;
 end;
-
+}
 procedure BroadcastNanolatheParticles(PosStart: PPosition;
   PosTarget: PNanolathePos; bReverse: Integer); stdcall;
 //var

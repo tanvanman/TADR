@@ -1363,6 +1363,7 @@ type
     DrawBuildSpotNanoFrame : Boolean;
     AISquadNr : Integer;
     TeleportMethod : Integer;
+    TeleportMinReloadTime : Integer;
     TeleportMaxDistance : Integer;
     TeleportMinDistance : Integer;
     CustomRange1Distance : Integer;
@@ -1370,16 +1371,24 @@ type
     CustomRange2Distance : Integer;
     CustomRange2Color : Integer;
     CustomRange2Animate : Boolean;
+    SolarGenerator : Double;
+  end;
+
+  TExtraMapOTATagsRec = packed record
+    SolarStrength : Extended;
   end;
 
 var
   // additional GAF animations
   ExtraAnimations : array[0..15] of Pointer;
 
-  ExtraWeaponDefTags : array of TExtraWeaponDefTagsRec;
-  ExtraUnitInfoTags : array of TExtraUnitInfoTagsRec;
+  CustomUnitFieldsArr : TCustomUnitFieldsArr;
 
-  GafSequence_Arm32lt, GafSequence_Core32lt : Pointer; 
+  ExtraUnitInfoTags : array of TExtraUnitInfoTagsRec;
+  ExtraWeaponDefTags : array of TExtraWeaponDefTagsRec;
+  ExtraMapOTATags : TExtraMapOTATagsRec;
+
+  //GafSequence_Arm32lt, GafSequence_Core32lt : Pointer; 
 
   // pointer to ddraw's weapon array
   WeaponLimitPatchArr : Pointer;

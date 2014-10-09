@@ -1,30 +1,37 @@
-unit UnitInfoExtend;
+unit UnitInfoExpand;
 
 interface
 uses
-  PluginEngine;
+  PluginEngine, SynCommons, TA_MemoryStructures;
 
 // -----------------------------------------------------------------------------
 
 const
-  State_UnitInfoExtend : boolean = true;
+  State_UnitInfoExpand : boolean = true;
+
+var
+  CustomUnitInfosArray : TUnitInfos;
+  CustomUnitInfos,
+  CustomUnitFields : TDynArray;
+  CustomUnitInfosCount,
+  CustomUnitFieldsCount : Integer;
 
 function GetPlugin : TPluginData;
 
 // -----------------------------------------------------------------------------
 
-Procedure OnInstallUnitInfoExtend;
-Procedure OnUninstallUnitInfoExtend;
+Procedure OnInstallUnitInfoExpand;
+Procedure OnUninstallUnitInfoExpand;
 
 // -----------------------------------------------------------------------------
 
-procedure UnitInfoExtend_NewPropertiesLoadHook;
+procedure UnitInfoExpand_NewPropertiesLoadHook;
 function GetUnitInfoProperty(UnitPtr: Pointer; PropertyType: Integer): Integer; stdcall;
 
 implementation
 uses
   IniOptions,
-  TA_MemoryStructures,
+  TA_MemoryConstants,
   TA_FunctionsU,
   TA_MemoryLocations;
 
@@ -37,6 +44,7 @@ const
   UnitInfo_DrawBuildSpotNanoFrame : AnsiString = 'drawbuildspotnano';
   UnitInfo_AISquadNr : AnsiString = 'aisquadnr';
   UnitInfo_TeleportMethod : AnsiString = 'teleportmethod';
+  UnitInfo_TeleportMinReloadTime : AnsiString = 'teleportminreloadtime';
   UnitInfo_TeleportMaxDistance : AnsiString = 'teleportmaxdist';
   UnitInfo_TeleportMinDistance : AnsiString = 'teleportmindist';
   UnitInfo_CustomRange1Distance : AnsiString = 'customrange1dist';
@@ -44,35 +52,46 @@ const
   UnitInfo_CustomRange2Distance : AnsiString = 'customrange2dist';
   UnitInfo_CustomRange2Color : AnsiString = 'customrange2color';
   UnitInfo_CustomRange2Animate : AnsiString = 'customrange2anim';
+  UnitInfo_SolarGenerator : AnsiString = 'solargenerator';
 
 var
-  UnitInfoExtendPlugin: TPluginData;
+  UnitInfoExpandPlugin: TPluginData;
 
-Procedure OnInstallUnitInfoExtend;
+Procedure OnInstallUnitInfoExpand;
 begin
   SetLength(ExtraUnitInfoTags, IniSettings.UnitType);
+
+  CustomUnitInfos.Init(TypeInfo(TUnitInfos),CustomUnitInfosArray, @CustomUnitInfosCount);
+  CustomUnitInfos.Capacity := IniSettings.UnitLimit * MAXPLAYERCOUNT;
+
+  CustomUnitFields.Init(TypeInfo(TCustomUnitFieldsArr), CustomUnitFieldsArr, @CustomUnitFieldsCount);
+  CustomUnitFields.Capacity := IniSettings.UnitLimit * MAXPLAYERCOUNT;
 end;
 
-Procedure OnUninstallUnitInfoExtend;
+Procedure OnUninstallUnitInfoExpand;
 begin
+  if not CustomUnitInfos.IsVoid then
+    CustomUnitInfos.Clear;
+  if not CustomUnitFields.IsVoid then
+    CustomUnitFields.Clear;
 end;
 
 function GetPlugin : TPluginData;
 begin
-  if IsTAVersion31 and State_UnitInfoExtend then
+  if IsTAVersion31 and State_UnitInfoExpand then
   begin
-    UnitInfoExtendPlugin := TPluginData.create( false,
+    UnitInfoExpandPlugin := TPluginData.create( false,
                             'Load new unit definition tags',
-                            State_UnitInfoExtend,
-                            @OnInstallUnitInfoExtend,
-                            @OnUnInstallUnitInfoExtend );
+                            State_UnitInfoExpand,
+                            @OnInstallUnitInfoExpand,
+                            @OnUnInstallUnitInfoExpand );
 
-    UnitInfoExtendPlugin.MakeRelativeJmp( State_UnitInfoExtend,
+    UnitInfoExpandPlugin.MakeRelativeJmp( State_UnitInfoExpand,
                           'Load new unit definition tags hook',
-                          @UnitInfoExtend_NewPropertiesLoadHook,
+                          @UnitInfoExpand_NewPropertiesLoadHook,
                           $0042C401, 1);
 
-    Result:= UnitInfoExtendPlugin;
+    Result:= UnitInfoExpandPlugin;
   end else
     Result := nil;
 end;
@@ -88,13 +107,15 @@ begin
     6 : ExtraUnitInfoTags[UnitTypeID].DrawBuildSpotNanoFrame := (AValue = 1);
     7 : ExtraUnitInfoTags[UnitTypeID].AiSquadNr := AValue;
     8 : ExtraUnitInfoTags[UnitTypeID].TeleportMethod := AValue;
-    9 : ExtraUnitInfoTags[UnitTypeID].TeleportMaxDistance := AValue;
-   10 : ExtraUnitInfoTags[UnitTypeID].TeleportMinDistance := AValue;
-   11 : ExtraUnitInfoTags[UnitTypeID].CustomRange1Distance := AValue;
-   12 : ExtraUnitInfoTags[UnitTypeID].CustomRange1Color := AValue;
-   13 : ExtraUnitInfoTags[UnitTypeID].CustomRange2Distance := AValue;
-   14 : ExtraUnitInfoTags[UnitTypeID].CustomRange2Color := AValue;
-   15 : ExtraUnitInfoTags[UnitTypeID].CustomRange2Animate := (AValue = 1);
+    9 : ExtraUnitInfoTags[UnitTypeID].TeleportMinReloadTime := AValue;
+   10 : ExtraUnitInfoTags[UnitTypeID].TeleportMaxDistance := AValue;
+   11 : ExtraUnitInfoTags[UnitTypeID].TeleportMinDistance := AValue;
+   12 : ExtraUnitInfoTags[UnitTypeID].CustomRange1Distance := AValue;
+   13 : ExtraUnitInfoTags[UnitTypeID].CustomRange1Color := AValue;
+   14 : ExtraUnitInfoTags[UnitTypeID].CustomRange2Distance := AValue;
+   15 : ExtraUnitInfoTags[UnitTypeID].CustomRange2Color := AValue;
+   16 : ExtraUnitInfoTags[UnitTypeID].CustomRange2Animate := (AValue = 1);
+   17 : ExtraUnitInfoTags[UnitTypeID].SolarGenerator := AValue / 100;
   end;
 end;
 
@@ -114,13 +135,15 @@ begin
         6 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].DrawBuildSpotNanoFrame];
         7 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].AiSquadNr;
         8 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMethod;
-        9 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMaxDistance;
-       10 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMinDistance;
-       11 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange1Distance;
-       12 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange1Color;
-       13 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange2Distance;
-       14 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange2Color;
-       15 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange2Animate];
+        9 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMinReloadTime;
+       10 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMaxDistance;
+       11 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMinDistance;
+       12 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange1Distance;
+       13 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange1Color;
+       14 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange2Distance;
+       15 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange2Color;
+       16 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange2Animate];
+       17 : Result := Trunc(ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].SolarGenerator);
       end;
     end;
   end;
@@ -132,7 +155,7 @@ end;
 .text:0042C402 52C 68 94 3C 50 00      push    offset aBmcode  ; "bmcode"
 .text:0042C407 530 8B 4C 24 1C         mov     ecx, [esp+530h+TdfFileClass_.ParsedTdf_]
 }
-procedure UnitInfoExtend_NewPropertiesLoadHook;
+procedure UnitInfoExpand_NewPropertiesLoadHook;
 asm
     pushAD
     movzx   ebx, word [ebp+TUnitInfo.nCategory]
@@ -252,7 +275,7 @@ asm
     push    edx
     push    eax
     push    0
-    push    UnitInfo_TeleportMaxDistance
+    push    UnitInfo_TeleportMinReloadTime
     call    TdfFile__GetInt
     push    eax
     push    ebx
@@ -266,7 +289,7 @@ asm
     push    edx
     push    eax
     push    0
-    push    UnitInfo_TeleportMinDistance
+    push    UnitInfo_TeleportMaxDistance
     call    TdfFile__GetInt
     push    eax
     push    ebx
@@ -280,7 +303,7 @@ asm
     push    edx
     push    eax
     push    0
-    push    UnitInfo_CustomRange1Distance
+    push    UnitInfo_TeleportMinDistance
     call    TdfFile__GetInt
     push    eax
     push    ebx
@@ -294,7 +317,7 @@ asm
     push    edx
     push    eax
     push    0
-    push    UnitInfo_CustomRange1Color
+    push    UnitInfo_CustomRange1Distance
     call    TdfFile__GetInt
     push    eax
     push    ebx
@@ -308,7 +331,7 @@ asm
     push    edx
     push    eax
     push    0
-    push    UnitInfo_CustomRange2Distance
+    push    UnitInfo_CustomRange1Color
     call    TdfFile__GetInt
     push    eax
     push    ebx
@@ -322,7 +345,7 @@ asm
     push    edx
     push    eax
     push    0
-    push    UnitInfo_CustomRange2Color
+    push    UnitInfo_CustomRange2Distance
     call    TdfFile__GetInt
     push    eax
     push    ebx
@@ -336,11 +359,39 @@ asm
     push    edx
     push    eax
     push    0
-    push    UnitInfo_CustomRange2Animate
+    push    UnitInfo_CustomRange2Color
     call    TdfFile__GetInt
     push    eax
     push    ebx
     push    15
+    call    UnitInfoPropertyToArray
+    pop     esi
+    pop     edx
+    pop     ecx
+
+    push    ecx
+    push    edx
+    push    eax
+    push    0
+    push    UnitInfo_CustomRange2Animate
+    call    TdfFile__GetInt
+    push    eax
+    push    ebx
+    push    16
+    call    UnitInfoPropertyToArray
+    pop     esi
+    pop     edx
+    pop     ecx
+
+    push    ecx
+    push    edx
+    push    eax
+    push    0
+    push    UnitInfo_SolarGenerator
+    call    TdfFile__GetInt
+    push    eax
+    push    ebx
+    push    17
     call    UnitInfoPropertyToArray
     pop     esi
     pop     edx
@@ -354,4 +405,3 @@ asm
 end;
 
 end.
- 
