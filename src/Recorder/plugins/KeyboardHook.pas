@@ -38,8 +38,14 @@ function FindIdleFactory : Boolean;
 
 implementation
 uses
-  idplay, TA_MemoryLocations, TA_MemoryStructures,TA_MemoryConstants, TA_FunctionsU, //BattleRoomScroll,
-  COB_Extensions, TAMemManipulations, SaveUnitsWeaponsList, DynamicMap, GUIEnhancements,
+  idplay,
+  TA_MemoryLocations,
+  TA_MemoryStructures,
+  TA_MemoryConstants,
+  TA_FunctionsU,
+  //BattleRoomScroll,
+  SaveUnitsWeaponsList,
+  UnitActions,
   UnitInfoExpand;
 
 const
@@ -161,6 +167,15 @@ begin
                       Exit;
                     end;
                 end;
+                // ctrl + shift + s
+                if ( ((GetAsyncKeyState(VK_CONTROL) and $8000) > 0) and
+                     ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
+                begin
+                  RemoveBuildQueuesFromSelected;
+                  //DeselectAllUnits;
+                  Result := 1;
+                  Exit;
+                end;
               end;
        $51 : begin     // left alt + shift + q
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
@@ -223,18 +238,6 @@ begin
               end;
         $5D : begin     // MENU KEY
                 InterpretCommand('showranges', 1);
-              end;
-        $45 : begin     // left alt + shift + e
-                if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
-                     ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
-                begin
-                  UnitAtMouse := TAUnit.AtMouse;
-                  if (UnitAtMouse <> nil) then
-                  begin
-                    ORDERS_RemoveAllBuildQueues(UnitAtMouse, True);
-                    UpdateIngameGUI(0);
-                  end;
-                end;
               end;
         $46 : begin     // ctrl + f
                 if ( ((GetAsyncKeyState(VK_CONTROL) and $8000) > 0) and

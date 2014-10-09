@@ -35,6 +35,7 @@ uses
   TADemoConsts,
   TA_MemoryLocations,
   TA_MemoryConstants,
+  TA_MemoryStructures,
   TA_FunctionsU,
   InputHook,
   LOS_Radar,
@@ -110,7 +111,7 @@ end;
 Procedure TextCommand_View_Hook;
 asm
   mov  ecx, [TADynmemStructPtr]
-  mov  [ecx+TAdynmemStruct_LOS_Sight], al // The player to use for LOS calcs
+  mov  [ecx+TTADynMemStruct.cViewPlayerID], al // The player to use for LOS calcs
   
   // update the internal viewplayer, or things can get a little *funky*
   xor ecx, ecx
@@ -131,7 +132,7 @@ asm
 
   // code we replace, ecx is free
   xor edx, edx
-  mov dl, [eax+TAdynmemStruct_SharedBits]
+  mov dl, [eax+TTADynMemStruct.cControlPlayerID]
   // jump back to TA
   push $4190BD;
   call PatchNJump;

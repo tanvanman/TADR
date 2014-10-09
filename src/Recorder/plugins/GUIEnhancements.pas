@@ -31,7 +31,6 @@ procedure DrawUnitRanges_ShowrangesOnHook;
 procedure DrawUnitRanges_CustomRanges;
 //procedure LoadArmCore32ltGafSequences;
 //procedure DrawScoreboard;
-
 procedure BroadcastNanolatheParticles_BuildingBuild;
 procedure BroadcastNanolatheParticles_MobileBuild;
 procedure BroadcastNanolatheParticles_HelpBuild;
@@ -46,7 +45,7 @@ procedure BroadcastNanolatheParticles_ReclaimUnit;
 procedure BroadcastNanolatheParticles_ReclaimFeature;
 procedure BroadcastNanolatheParticles_VTOLReclaimUnit;
 procedure BroadcastNanolatheParticles_VTOLReclaimFeature; 
-
+procedure ScreenFadeControl;
 {
 function AddNanoUnit(x, y, color: Integer): LongBool; stdcall;
 function InitNanoUnit: LongBool; stdcall;
@@ -71,6 +70,7 @@ uses
   TA_NetworkingMessages;
 
 const
+  OFFSCREEN_off = -$1F0;
   STANDARDUNIT : cardinal = 250;
   MEDIUMUNIT : cardinal = 1900;
   BIGUNIT : cardinal = 3000;
@@ -292,6 +292,11 @@ begin
                               @BroadcastNanolatheParticles_VTOLReclaimFeature,
                               $00414A1A, 1);
     end;
+
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                           'Control game screen fade level',
+                           @ScreenFadeControl,
+                           $0046A2E2, 0 );
 
     Result:= GUIEnhancementsPlugin;
   end else
@@ -1988,6 +1993,23 @@ asm
   popAD
   push $00414A31;
   call PatchNJump;
+end;
+
+procedure DrawFade(Offscreenp: Cardinal); stdcall;
+begin
+  if CameraFadeLevel <> 0 then
+    DrawTransparentBox(Offscreenp, nil, CameraFadeLevel - 31);
+end;
+
+procedure ScreenFadeControl;
+asm
+  lea     ecx, [esp+224h+OFFSCREEN_off]
+  push    ecx
+  call    DrawFade
+  lea     ecx, [esp+224h+OFFSCREEN_off]
+  push    ecx
+  push $0046A2E7
+  call PatchNJump
 end;
 
 end.

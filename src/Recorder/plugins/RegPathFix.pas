@@ -132,7 +132,7 @@ begin
 
   SetCurrentDirectoryToTAPath;
   TAPath := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation));
-  sRev31Name := Format(PAnsiChar($005028CC), [PAnsiChar($005028D8)]);
+  sRev31Name := Format(PAnsiChar(Rev31GP3_Name), [PAnsiChar(Rev31GP3_31)]);
   FindHandle := findfirst_HPI(PAnsiChar(sRev31Name), @SearchRec, -1, 1);
   if FindHandle >= 0 then
   begin

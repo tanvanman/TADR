@@ -106,7 +106,7 @@ asm  // uses eax, ecx
   // preserve the initial player viewpoint
   // ViewPlayer = [TADynmemStructPtr+TAdynmemStruct.LOS_Sight]
   mov eax, [TADynmemStructPtr]
-  mov cl, [eax+TAdynmemStruct_LOS_Sight]
+  mov cl, [eax+TTADynMemStruct.cViewPlayerID]
   mov ViewPlayerPlSeeU, ecx;
   // check to see if this player is allowed to see the unit
 {
@@ -122,9 +122,9 @@ asm  // uses eax, ecx
 }
   // check if the player is allied
   xor eax, eax  
-  mov al, [esi+PlayerStruct_Index]
+  mov al, [esi+TPlayerStruct.cPlayerIndex]
   mov ecx, [ebx+TUnitStruct.p_Owner]
-  cmp byte [eax+ecx+PlayerStruct_AlliedPlayers], 0   // check if the unit's player is allied
+  cmp byte [eax+ecx+TPlayerStruct.cAllyFlagArray], 0   // check if the unit's player is allied
   jnz CanSeeUnit
 
   // we *might* be able to see this unit
@@ -182,7 +182,7 @@ asm // uses ecx, eax, edi, ebp
   
   mov edi, ViewPlayerPlSeeU
   mov ecx, [ebx+TUnitStruct.p_Owner]
-  cmp byte [edi+ecx+PlayerStruct_AlliedPlayers], 0
+  cmp byte [edi+ecx+TPlayerStruct.cAllyFlagArray], 0
   jnz CanSeeUnit
 
   // select a new player to test (skip ourself)
@@ -209,11 +209,11 @@ TryNextPlayer_Condition:
   cmp ebp, $A;
   jnb CanNotSeeUnit;
   //  if (UnitStruct.Owner.AlliedPlayers[TestPlayer] == 0) goto TryNextPlayer_NextValue
-  cmp byte [ebp+ecx+PlayerStruct_AlliedPlayers], 0
+  cmp byte [ebp+ecx+TPlayerStruct.cAllyFlagArray], 0
   jz TryNextPlayer_NextValue
 // }
   //  if (UnitStruct.Owner.Index == TestPlayer) goto TryNextPlayer_NextValue
-  cmp byte [ecx+PlayerStruct_Index], bl
+  cmp byte [ecx+TPlayerStruct.cPlayerIndex], bl
   jnz TryNextPlayer_NextValue
 
   mov TestPlayerPlSeeU, ebp;
@@ -295,7 +295,7 @@ CheckNextPlayer_Condition:
   // LOS calcs
   push eax;
   push edx;  
-  mov     cl, [ebx+TAdynmemStruct_LOS_Sight]
+  mov     cl, [ebx+TTADynMemStruct.cViewPlayerID]
   shl     edx, cl
   and     eax, edx
   neg     eax

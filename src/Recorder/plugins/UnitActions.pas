@@ -18,6 +18,7 @@ Procedure OnUninstallUnitActions;
 
 // -----------------------------------------------------------------------------
 
+procedure RemoveBuildQueuesFromSelected;
 procedure UnitActions_AssignAISquad;
 procedure UnitActions_TransportOverloadFix;
 procedure UnitActions_VTOLTransportCapacityCanLoadTest;
@@ -596,6 +597,38 @@ default_order:
   call PatchNJump;
 end;
 
+procedure RemoveBuildQueuesFromSelected;
+var
+  Player : PPlayerStruct;
+  PlayerMaxUnitID : Cardinal;
+  CurrentUnit : PUnitStruct;
+  i : Cardinal;
+begin
+  Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
+  PlayerMaxUnitID := Player.nNumUnits;
+  for i := 0 to PlayerMaxUnitID do
+  begin
+    CurrentUnit := Pointer(Cardinal(Player.p_UnitsArray) + i * SizeOf(TUnitStruct));
+    if ((CurrentUnit.lUnitStateMask and UnitSelectState[UnitSelected_State]) = UnitSelectState[UnitSelected_State]) then
+    begin
+      if (CurrentUnit.lBuildTimeLeft <> 0.0) or
+         (CurrentUnit.p_Owner = nil) or
+         (CurrentUnit.p_UnitDef = nil) then
+        Continue;
+
+      if (PUnitInfo(CurrentUnit.p_UnitDef).cBMCode <> 0) then
+        Continue;
+
+      if (TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER, nil) = 0) then
+         Continue
+      else begin
+        ORDERS_RemoveAllBuildQueues(CurrentUnit, True);
+        UpdateIngameGUI(0);
+      end;
+    end;
+  end;
+end;
+
 const
   IMMEDIATEORDERS : AnsiString = 'immediateorders';
   SPECIALORDERS : AnsiString = 'specialorders';
@@ -604,10 +637,6 @@ var
   DestStr : array[0..15] of AnsiChar;
   OrderName : String;
   ActionIndex : Cardinal;
-  i : Cardinal;
-  Player : PPlayerStruct;
-  PlayerMaxUnitID : Cardinal;
-  CurrentUnit : PUnitStruct;
 label
   buildspot_state,
   play_immediateorders_return,
@@ -637,31 +666,7 @@ begin
         PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
 
     if IniSettings.Plugin_StopButton then
-    begin
-      Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
-      PlayerMaxUnitID := Player.nNumUnits;
-      for i := 0 to PlayerMaxUnitID do
-      begin
-        CurrentUnit := Pointer(Cardinal(Player.p_UnitsArray) + i * SizeOf(TUnitStruct));
-        if ((CurrentUnit.lUnitStateMask and UnitSelectState[UnitSelected_State]) = UnitSelectState[UnitSelected_State]) then
-        begin
-          if (CurrentUnit.lBuildTimeLeft <> 0.0) or
-             (CurrentUnit.p_Owner = nil) or
-             (CurrentUnit.p_UnitDef = nil) then
-            Break;
-
-          if (PUnitInfo(CurrentUnit.p_UnitDef).cBMCode <> 0) then
-            Break;
-
-          if (TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER, nil) = 0) then
-             Break
-          else begin
-            ORDERS_RemoveAllBuildQueues(CurrentUnit, True);
-            UpdateIngameGUI(0);
-          end;
-        end;
-      end;
-    end;
+      RemoveBuildQueuesFromSelected;
 
     ActionIndex := TAMem.ScriptActionName2Index(PAnsiChar('STOP'));
     MOUSE_EVENT_2UnitOrder(@PTAdynmemStruct(TAData.MainStructPtr).CurtMousePosition, 0, ActionIndex, 0, 0, 0);

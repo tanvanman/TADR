@@ -23,6 +23,7 @@ uses
   LOS_extensions,
   TADemoConsts,
   TA_MemoryConstants,
+  TA_MemoryStructures,
   TA_FunctionsU;
 
 
@@ -74,7 +75,7 @@ asm
   popAD  
 SkipLOSReset:
   mov ecx, [TAdynmemStructPtr]
-  cmp bl, [ecx+TAdynmemStruct_LOS_Sight]
+  cmp bl, [ecx+TTADynMemStruct.cViewPlayerID]
   jnz SkipRadarNMiniMapUpdate
    
   push $46556D

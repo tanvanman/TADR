@@ -28,7 +28,6 @@ procedure SwapTNT(Idx: Byte);
 procedure LoadingMapSchema;
 procedure RunMapMissionScript;
 procedure CheckMouseForLock;
-procedure ScreenFadeControl;
 procedure SolarEnergy;
 procedure LoadOTATags;
 
@@ -80,11 +79,6 @@ begin
                            'Locking mouse functionality',
                            @CheckMouseForLock,
                            $004B5E35, 1 );
-
-    Result.MakeRelativeJmp(State_MapExtensions,
-                           'Control game screen fade level',
-                           @ScreenFadeControl,
-                           $0046A2E2, 0 );
 
     Result.MakeRelativeJmp(State_MapExtensions,
                            '',
@@ -227,23 +221,6 @@ NoNewMouseEvent :
   call PatchNJump
 DiscardMouseEvent :
   push $004B5F56
-  call PatchNJump
-end;
-
-procedure DrawFade(Offscreenp: Cardinal); stdcall;
-begin
-  if CameraFadeLevel <> 0 then
-    DrawTransparentBox(Offscreenp, nil, CameraFadeLevel - 31);
-end;
-
-procedure ScreenFadeControl;
-asm
-  lea     ecx, [esp+224h+OFFSCREEN_off]
-  push    ecx
-  call    DrawFade
-  lea     ecx, [esp+224h+OFFSCREEN_off]
-  push    ecx
-  push $0046A2E7
   call PatchNJump
 end;
 

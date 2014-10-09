@@ -70,9 +70,9 @@ asm
 }
   // check if the player is allied
   xor eax, eax  
-  mov al, [edx+TAdynmemStruct_LOS_Sight]
+  mov al, [edx+TTADynMemStruct.cViewPlayerID]
   mov ecx, [esi+TUnitStruct.p_Owner]
-  cmp byte [eax+ecx+PlayerStruct_AlliedPlayers], 0
+  cmp byte [eax+ecx+TPlayerStruct.cAllyFlagArray], 0
   jnz CanSeeUnit
 
 CanNotSeeUnit:
@@ -112,9 +112,9 @@ asm
 }
   // check if the player is allied
   xor edx, edx  
-  mov dl, [eax+TAdynmemStruct_LOS_Sight]
+  mov dl, [eax+TTADynMemStruct.cViewPlayerID]
   mov ecx, [esi+TUnitStruct.p_Owner]
-  cmp byte [edx+ecx+PlayerStruct_AlliedPlayers], 0
+  cmp byte [edx+ecx+TPlayerStruct.cAllyFlagArray], 0
   jnz CanSeeUnit
     
 CanNotSeeUnit:
@@ -153,9 +153,9 @@ asm
 }
   // check if the player is allied
   xor edx, edx
-  mov dl, [eax+TAdynmemStruct_LOS_Sight]
+  mov dl, [eax+TTADynMemStruct.cViewPlayerID]
   mov ecx, [esi+TUnitStruct.p_Owner]
-  cmp byte [edx+ecx+PlayerStruct_AlliedPlayers], 0   
+  cmp byte [edx+ecx+TPlayerStruct.cAllyFlagArray], 0   
   jnz CanSeeUnit
     
 CanNotSeeUnit:

@@ -95,8 +95,8 @@ asm // uses ecx, ebx, esi
   // if (UnitStruct.Owner.AlliedPlayers[Player.Index])
   mov ecx, [eax-7Ah]   // UnitStruct.Owner^
   xor ebx, ebx
-  mov bl, [ebp+PlayerStruct_Index]
-  cmp byte [ebx+ecx+PlayerStruct_AlliedPlayers], 0   // check if the unit's player is allied
+  mov bl, [ebp+TPlayerStruct.cPlayerIndex]
+  cmp byte [ebx+ecx+TPlayerStruct.cAllyFlagArray], 0   // check if the unit's player is allied
   jnz CanSeeUnitOnRadar
 
   // only chance to see units via radar if the player is watching
@@ -132,8 +132,8 @@ label
   l1,l2;
 asm
   // code thumped by injecting the jmp statement
-  mov esi, [ebp+PlayerStruct_Units]
-  mov eax, [ebp+PlayerStruct_Units_End]
+  mov esi, [ebp+TPlayerStruct.p_UnitsArray]
+  mov eax, [ebp+TPlayerStruct.p_LastUnit]
   cmp esi, eax
   ja l2
   jmp l1;
@@ -152,7 +152,7 @@ l1:
   
   // ViewPlayer = [TADynmemStrutPtr+TAdynmemStruct.LOS_Sight]
   mov esi, [TADynmemStructPtr] // mov esi, TADynmemStrutPtr
-  mov cl, [esi+TAdynmemStruct_LOS_Sight]
+  mov cl, [esi+TTADynMemStruct.cViewPlayerID]
   mov ViewPlayerRadar, ecx;
 
   // TestPlayerPtr = TAdynmemStruct.Players[0]
@@ -201,19 +201,19 @@ TryNextPlayer_Condition:
   cmp ecx, 10
   jnb CleanupNExit
   // if (TAdynmemStruct.Players[TestPlayerIndex].AlliedPlayers[ViewPlayer]) continue;
-  cmp byte [eax+esi+PlayerStruct_AlliedPlayers], 0
+  cmp byte [eax+esi+TPlayerStruct.cAllyFlagArray], 0
   jz TryNextPlayer_NextValue
 
   // setup for calcing LOS with this player
   mov esi, [TADynmemStructPtr] 
-  mov [esi+TAdynmemStruct_LOS_Sight], cl
+  mov [esi+TTADynMemStruct.cViewPlayerID], cl
 
   inc ecx
   mov TestPlayerIndex, ecx
   add eax, Integer(SizeOf(TPlayerStruct))
   mov TestPlayerPtr, eax
 
-  mov     dl, [esi+TAdynmemStruct_LOS_Sight]
+  mov     dl, [esi+TTADynMemStruct.cViewPlayerID]
   mov     edi, [esi+TTADynMemStruct.p_Units]
   mov     eax, edx
   mov     ebx, [esi+TTADynMemStruct.p_Units]
@@ -231,8 +231,8 @@ TryNextPlayer_Condition:
 
 
   // code thumped by injecting the jmp statement
-  mov esi, [ebp+PlayerStruct_Units]
-  mov eax, [ebp+PlayerStruct_Units_End]
+  mov esi, [ebp+TPlayerStruct.p_UnitsArray]
+  mov eax, [ebp+TPlayerStruct.p_LastUnit]
   cmp esi, eax
   ja SkipTest
 
@@ -255,7 +255,7 @@ CleanupNExit:
   // [TADynmemStrutPtr+TAdynmemStruct.LOS_Sight] = ViewPlayer
   mov ecx, ViewPlayerRadar;
   mov esi, [TADynmemStructPtr]
-  mov [esi+TAdynmemStruct_LOS_Sight], cl
+  mov [esi+TTADynMemStruct.cViewPlayerID], cl
   xor eax, eax
   // function epilog
   pop edi

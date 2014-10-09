@@ -117,11 +117,11 @@ TryNextPlayer_Condition:
   cmp ecx, $A;
   jnb NoMoreAllies;
   //  if (UnitStruct.Owner.AlliedPlayers[TestPlayer] == 0) goto TryNextPlayer_NextValue
-  cmp byte [eax+ecx+PlayerStruct_AlliedPlayers], 0
+  cmp byte [eax+ecx+TPlayerStruct.cAllyFlagArray], 0
   jz TryNextPlayer_NextValue
 
   //  if (PlayerPtr.Index == TestPlayer) goto TryNextPlayer_NextValue
-  cmp byte [eax+PlayerStruct_Index], cl
+  cmp byte [eax+TPlayerStruct.cPlayerIndex], cl
   jz TryNextPlayer_NextValue
 
 
@@ -149,12 +149,12 @@ TryNextPlayer_Condition:
 DoLOSStuff:
 
   // remote player's control their own units, so we dont care about their LOS
-  cmp byte ptr [eax+PlayerStruct_PlayerType], Player_RemotePlayer
+  cmp byte ptr [eax+TPlayerStruct.cPlayerController], Player_RemotePlayer
   jnz SkipRemotePlayerOptimization
   // if the viewplayer & the current player being altered are the same,
   // we need todo the
   mov ecx, ViewPlayer
-  cmp cl, byte ptr [eax+PlayerStruct_Index]
+  cmp cl, byte ptr [eax+TPlayerStruct.cPlayerIndex]
   jz SkipRemotePlayerOptimization
 
   mov eax, PlayerPtr
@@ -170,12 +170,12 @@ SkipRemotePlayerOptimization:
   mov ebx, LOS_Updates_PTR
   mov [ebx], eax
 
-  mov dl, [eax+PlayerStruct_Index]
+  mov dl, [eax+TPlayerStruct.cPlayerIndex]
   mov al, dl
 //  mov al, [ecx+TAdynmemStruct_LOS_Sight]
   cmp dl, al
   jnz SkipChunk
-  and word ptr [ecx+TAdynmemStruct_LOS_Type], 0FFF7h
+  and word ptr [ecx+TTADynMemStruct.TNTMemStruct.nLOS_Type], 0FFF7h
   or byte ptr [ecx+142F1h], 4
   
 SkipChunk:
@@ -240,11 +240,11 @@ TryNextPlayer_Condition:
   cmp ecx, $A;
   jnb NoMoreAllies;
   //  if (UnitStruct.Owner.AlliedPlayers[TestPlayer] == 0) goto TryNextPlayer_NextValue
-  cmp byte [eax+ecx+PlayerStruct_AlliedPlayers], 0
+  cmp byte [eax+ecx+TPlayerStruct.cAllyFlagArray], 0
   jz TryNextPlayer_NextValue
 
   //  if (PlayerPtr.Index == TestPlayer) goto TryNextPlayer_NextValue
-  cmp byte [eax+PlayerStruct_Index], cl
+  cmp byte [eax+TPlayerStruct.cPlayerIndex], cl
   jz TryNextPlayer_NextValue
 
 
@@ -270,12 +270,12 @@ TryNextPlayer_Condition:
 DoLOSStuff:
 
   // remote player's control their own units, so we dont care about their LOS
-  cmp byte ptr [eax+PlayerStruct_PlayerType], Player_RemotePlayer
+  cmp byte ptr [eax+TPlayerStruct.cPlayerController], Player_RemotePlayer
   jnz SkipRemotePlayerOptimization
   // if the viewplayer & the current player being altered are the same,
   // we need todo the
   mov ecx, ViewPlayer
-  cmp cl, byte ptr [eax+PlayerStruct_Index]
+  cmp cl, byte ptr [eax+TPlayerStruct.cPlayerIndex]
   jz SkipRemotePlayerOptimization
   
   mov eax, PlayerPtr
@@ -291,12 +291,12 @@ SkipRemotePlayerOptimization:
   mov ebx, LOS_Updates_PTR
   mov [ebx], eax
 
-  mov dl, [eax+PlayerStruct_Index]
+  mov dl, [eax+TPlayerStruct.cPlayerIndex]
   mov al, dl
 //  mov al, [ecx+TAdynmemStruct_LOS_Sight]
   cmp dl, al
   jnz SkipChunk
-  and word ptr [ecx+TAdynmemStruct_LOS_Type], 0FFF7h
+  and word ptr [ecx+TTADynMemStruct.TNTMemStruct.nLOS_Type], 0FFF7h
   or byte ptr [ecx+142F1h], 4
   
 SkipChunk:

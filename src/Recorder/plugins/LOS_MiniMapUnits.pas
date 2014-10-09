@@ -43,9 +43,9 @@ label
 asm 
   // if (UnitStruct.OwnerPtr.AlliedPlayers[TAdynmemStruct.LOS_Sight])
   xor eax, eax
-  mov al, [esi+TAdynmemStruct_LOS_Sight]
+  mov al, [esi+TTADynMemStruct.cViewPlayerID]
   mov edx, [ebx+TUnitStruct.p_Owner]
-  cmp byte [eax+edx+PlayerStruct_AlliedPlayers], 0
+  cmp byte [eax+edx+TPlayerStruct.cAllyFlagArray], 0
   jnz IsOwnerAlly
 
   push $46718C

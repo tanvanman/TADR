@@ -88,9 +88,6 @@ uses
   strUtils,
   TypInfo;
 
-const
-  INI_MEM_OFFSET = $5098A3;
-
 type TIniFileName = array [0..12] of AnsiChar;
 PIniFileName = ^TIniFileName;
 
@@ -125,7 +122,7 @@ if iniPath_cache = '' then
 begin
   Result:= #0;
   try
-    iniName:= PIniFileName(INI_MEM_OFFSET)^;
+    iniName:= PIniFileName(Totala_ini)^;
     Trim(iniName);
     if TaFileExists(iniName, tempPath) then
       iniPath_cache:= tempPath
