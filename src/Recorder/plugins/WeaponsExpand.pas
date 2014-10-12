@@ -29,12 +29,6 @@ uses
   TA_MemoryLocations,
   logging;
 
-const
-  WeapInfo_HighTrajectory : AnsiString = 'hightrajectory';
-  WeapInfo_PreserveAccuracy : AnsiString = 'preserveaccuracy';
-  WeapInfo_NotAirWeapon : AnsiString = 'notairweapon';
-  WeapInfo_WeaponType2 : AnsiString = 'weapontype2';
-
 var
   WeaponsExpandPlugin: TPluginData;
 
@@ -69,89 +63,20 @@ begin
     Result := nil;
 end;
 
-var
-  TempString : array[0..63] of AnsiChar;
-function WeaponPropertyPutIntoArray(PropertyType : Integer; WeapID : Cardinal; AValue : Cardinal): Integer; stdcall;
+procedure WeaponsExpand_NewPropertiesLoad(TDFHandle: Cardinal; WeaponID: Cardinal); stdcall;
 begin
-  Result := WeapID;
-  case PropertyType of
-    1 : ExtraWeaponDefTags[WeapID].HighTrajectory := AValue;
-    2 : ExtraWeaponDefTags[WeapID].PreserveAccuracy := AValue;
-    3 : ExtraWeaponDefTags[WeapID].NotAirWeapon := AValue;
-    4 : ExtraWeaponDefTags[WeapID].WeaponType2 := TempString;
-  end;
-  TempString := '';
+  ExtraWeaponDefTags[WeaponID].HighTrajectory := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('hightrajectory'));
+  ExtraWeaponDefTags[WeaponID].PreserveAccuracy := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('preserveaccuracy'));
+  TdfFile_GetStr(0, 0, TDFHandle, Pointer(Null_str), $40, PAnsiChar('weapontype2'), @ExtraWeaponDefTags[WeaponID].WeaponType2);
+  ExtraWeaponDefTags[WeaponID].NotAirWeapon := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('notairweapon'));
 end;
 
 procedure WeaponsExpand_NewPropertiesLoadHook;
-label
-  NoWeaponType2;
 asm
-    //mov     edx, [TADynmemStructPtr]
     pushAD
-
-    push    edx
-    push    eax
-    push    0
-    push    WeapInfo_HighTrajectory
-    call    TdfFile__GetInt
-    // result in eax
-    pop     ecx
-    // weap id in ecx
     push    eax
     push    ecx
-    push    1
-    call    WeaponPropertyPutIntoArray
-    pop     edx
-    mov     ecx, ebx
-
-    push    edx
-    push    eax
-    push    0
-    push    WeapInfo_PreserveAccuracy
-    call    TdfFile__GetInt
-    pop     ecx
-    push    eax
-    push    ecx
-    push    2
-    call    WeaponPropertyPutIntoArray
-    pop     edx
-    mov     ecx, ebx
-
-    push    edx
-    push    eax
-    push    0
-    push    WeapInfo_NotAirWeapon
-    call    TdfFile__GetInt
-    pop     ecx
-    push    eax
-    push    ecx
-    push    3
-    call    WeaponPropertyPutIntoArray
-    pop     edx
-    mov     ecx, ebx
-
-    push    ebx
-    push    edx
-    push    eax
-    push    Null_str                 // null str
-    push    $40                      // buff len
-    push    WeapInfo_WeaponType2
-    lea     ebx, TempString
-    push    ebx
-    call    TdfFile__GetStr
-    test    eax, eax
-    pop     eax
-    jz      NoWeaponType2
-    push    ebx
-    push    eax
-    push    4
-    call    WeaponPropertyPutIntoArray
-NoWeaponType2 :
-    pop     edx
-    pop     ebx
-    mov     ecx, ebx
-
+    call    WeaponsExpand_NewPropertiesLoad
     popAD
     lea     ecx, [eax+eax*2]
     shl     ecx, 3

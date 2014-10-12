@@ -103,7 +103,7 @@ asm // uses ecx, ebx, esi
   cmp dword ptr [ebp], 0
   jz CanNotSeeUnitOnRadar
   mov ecx, [ebp+TPlayerStruct.PlayerInfo]
-  test [ecx+TPlayerInfoStruct.SharedBits], 40h
+  test [ecx+TPlayerInfoStruct.PropertyMask], 40h
   jnz CanSeeUnitOnRadar
 
 // Cant directly see the unit on radar
@@ -157,12 +157,12 @@ l1:
 
   // TestPlayerPtr = TAdynmemStruct.Players[0]
   mov eax, esi
-  add eax, Integer(TTAdynmemStruct.Players)
+  add eax, Cardinal(TTADynMemStruct.Players)
   mov TestPlayerPtr, eax
   
   // PlayerPtr = TAdynmemStruct.Players[ViewPlayer]
-  add esi, Integer(TTAdynmemStruct.Players)
-  mov eax, Integer(SizeOf(TPlayerStruct))
+  add esi, Cardinal(TTADynMemStruct.Players)
+  mov eax, type TPlayerStruct
   mul eax, ecx
   add esi, eax
   mov PlayerPtr, esi
@@ -195,7 +195,7 @@ TryNextPlayer_NextValue:
   // TestPlayerIndex++
   inc ecx;
   // TestPlayerPtr++
-  add eax, Integer(SizeOf(TPlayerStruct))
+  add eax, type TPlayerStruct
   // if (TestPlayerIndex >= 10) then exit; 
 TryNextPlayer_Condition:
   cmp ecx, 10
@@ -210,13 +210,13 @@ TryNextPlayer_Condition:
 
   inc ecx
   mov TestPlayerIndex, ecx
-  add eax, Integer(SizeOf(TPlayerStruct))
+  add eax, type TPlayerStruct
   mov TestPlayerPtr, eax
 
   mov     dl, [esi+TTADynMemStruct.cViewPlayerID]
   mov     edi, [esi+TTADynMemStruct.p_Units]
   mov     eax, edx
-  mov     ebx, [esi+TTADynMemStruct.p_Units]
+  mov     ebx, [esi+TTADynMemStruct.p_LastUnitInArray]
   and     eax, 0FFh
   add     edi, 118h
   mov     ecx, eax
@@ -227,7 +227,7 @@ TryNextPlayer_Condition:
   mov     [esp+14h], edi // [esp+38h+Units_Index]
   mov     [esp+10h], ebx  // [esp+38h+Units_EndMarker]
   lea     ecx, [ecx+ecx*4]
-  lea     ebp, [esi+ecx*2+Integer(TTAdynmemStruct.Players)]
+  lea     ebp, [esi+ecx*2+TTADynMemStruct.Players]
 
 
   // code thumped by injecting the jmp statement

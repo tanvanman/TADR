@@ -256,7 +256,7 @@ asm
     pushAD
     mov     ecx, [esp+34h]
     push    Null_str                 // null str
-    push    $40                      // buff len
+    push    $400                     // buff len
     push    $00503988  // "YardMap"
     lea     ebx, TempString
     push    ebx

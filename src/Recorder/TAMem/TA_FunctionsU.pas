@@ -426,24 +426,53 @@ type
                                                   WhichWeapon: Word ): Byte; stdcall;
 var
   UnitAutoAim_CheckUnitWeapon : UnitAutoAim_CheckUnitWeaponHandler = UnitAutoAim_CheckUnitWeaponHandler($0049ABB0);
-  
+
 type
-  TdfFile__GetIntHandler = function ( TagName : Pointer;
-                                      DefaultNumber : LongInt): Integer; stdcall;
+  TdfFile_GetIntHandler = function ( Eax : Cardinal;
+                                     Edx : Cardinal;
+                                     Ecx : Cardinal;
+                                     DefaultNumber : LongInt;
+                                     TagName : PAnsiChar): Integer; register;
+var
+  TdfFile_GetInt : TdfFile_GetIntHandler = TdfFile_GetIntHandler($004C46C0);
+
+type
+  TdfFile_GetStrHandler = function ( Eax : Cardinal;
+                                     Edx : Cardinal;
+                                     Ecx : Cardinal;
+                                     Default : Pointer;
+                                     BufLen : Integer;
+                                     Name : Pointer;
+                                     ReceiveBuf : Pointer): Integer; register;
+var
+  TdfFile_GetStr : TdfFile_GetStrHandler = TdfFile_GetStrHandler($004C48C0);
+
+type
+  TdfFile_GetFloatHandler = function ( Eax : Cardinal;
+                                       Edx : Cardinal;
+                                       Ecx : Cardinal;
+                                       DefaultNumber : Double;
+                                       TagName : PAnsiChar): Double; register;
+var
+  TdfFile_GetFloat : TdfFile_GetFloatHandler = TdfFile_GetFloatHandler($004C4760);
+
+type
+  TdfFile__GetIntHandler = function ( TagName : PAnsiChar;
+                                      DefaultNumber : LongInt): Integer; cdecl;
 var
   TdfFile__GetInt : TdfFile__GetIntHandler = TdfFile__GetIntHandler($004C46C0);
 
 type
   TdfFile__GetStrHandler = function ( ReceiveBuf : Pointer;
                                       Name : Pointer;
-                                      BufLen : Cardinal;
-                                      Default : Pointer): Integer; stdcall;
+                                      BufLen : Integer;
+                                      Default : Pointer): Integer; cdecl;
 var
   TdfFile__GetStr : TdfFile__GetStrHandler = TdfFile__GetStrHandler($004C48C0);
 
 type
-  TdfFile__GetFloatHandler = function ( TagName : Pointer;
-                                        DefaultNumber : Double): Integer; stdcall;
+  TdfFile__GetFloatHandler = function ( TagName : PAnsiChar;
+                                        DefaultNumber : Double): Double; cdecl;
 var
   TdfFile__GetFloat : TdfFile__GetFloatHandler = TdfFile__GetFloatHandler($004C4760);
 

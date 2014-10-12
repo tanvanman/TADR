@@ -1351,7 +1351,7 @@ type
     HighTrajectory   : Integer;
     PreserveAccuracy : Integer;
     NotAirWeapon     : Integer;
-    WeaponType2      : String[64];
+    WeaponType2      : array[0..63] of AnsiChar;
   end;
 
   TExtraUnitInfoTagsRec = packed record

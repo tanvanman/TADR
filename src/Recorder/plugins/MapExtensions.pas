@@ -29,7 +29,7 @@ procedure LoadingMapSchema;
 procedure RunMapMissionScript;
 procedure CheckMouseForLock;
 procedure SolarEnergy;
-procedure LoadOTATags;
+procedure LoadOTATagsHook;
 
 procedure InitMapMissions; stdcall;
 
@@ -40,9 +40,6 @@ uses
   TA_MemoryStructures,
   TA_MemoryLocations,
   TA_FunctionsU;
-
-const
-  OTATags_SolarStrength : AnsiString = 'SolarStrength';
 
 Procedure OnInstallMapExtensions;
 begin
@@ -87,7 +84,7 @@ begin
 
     Result.MakeRelativeJmp(State_MapExtensions,
                            '',
-                           @LoadOTATags,
+                           @LoadOTATagsHook,
                            $00436556, 4 );
 
 
@@ -236,14 +233,18 @@ asm
   test    eax, eax
   jz      EnergyUse
 UseSolarEnergy:
+  // pop EnergyUse value
   fstp    st(0)
   fld     ExtraMapOTATags.SolarStrength
-  mov     ecx, [esi+92h]
+  mov     ecx, [esi+TUnitStruct.p_UnitDef]
   movzx   eax, word ptr [ecx+TUnitInfo.nCategory]
-  imul    eax, eax, $0F
+  mov     ecx, type TExtraUnitInfoTagsRec
   mov     edx, [ExtraUnitInfoTags]
-  fld     qword ptr [edx+eax*4+TExtraUnitInfoTagsRec.SolarGenerator]
+  imul    eax, ecx
+  fld     qword ptr [edx+eax+TExtraUnitInfoTagsRec.SolarGenerator]
   fmul    st(0), st(1)
+  // new value must be in st(0)
+  fstp    st(1)
   popAD
   mov     eax, [esi+TUnitStruct.p_Owner]
   push $00401431
@@ -255,14 +256,16 @@ EnergyUse:
   call PatchNJump
 end;
 
-procedure LoadOTATags;
+procedure LoadOTATags(TDFHandle: Cardinal); stdcall;
+begin
+  ExtraMapOTATags.SolarStrength := TdfFile_GetFloat(0, 0, TDFHandle, 0.0, PAnsiChar('SolarStrength'));
+end;
+
+procedure LoadOTATagsHook;
 asm
   pushAD
-  push    0
-  push    0
-  push    OTATags_SolarStrength
-  call    TdfFile__GetFloat
-  fstp    ExtraMapOTATags.SolarStrength
+  push    ecx
+  call    LoadOTATags
   popAD
   push    0
   push    0                // double

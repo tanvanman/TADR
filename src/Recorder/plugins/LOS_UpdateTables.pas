@@ -132,10 +132,10 @@ TryNextPlayer_Condition:
   mov TestPlayer, ecx
 
   // NextPlayer = [TADynmemStructPtr+TAdynmemStruct.Players[TestPlayer]]
-  mov ecx, Integer(SizeOf(TPlayerStruct))
+  mov ecx, type TPlayerStruct
   mul ecx;
   mov ecx, [TADynmemStructPtr];
-  lea ecx, [ecx+Integer(TTAdynmemStruct.Players)];
+  lea ecx, [ecx+TTADynMemStruct.Players];
   add eax, ecx
 
   //  if (!NextPlayer.Active) continue;
@@ -253,10 +253,10 @@ TryNextPlayer_Condition:
   mov TestPlayer, ecx
 
   // NextPlayer = [TADynmemStructPtr+TAdynmemStruct.Players[TestPlayer]]
-  mov ecx, Integer(SizeOf(TPlayerStruct))
+  mov ecx, type TPlayerStruct
   mul ecx;
   mov ecx, [TADynmemStructPtr];
-  lea ecx, [ecx+Integer(TTAdynmemStruct.Players)];
+  lea ecx, [ecx+TTADynMemStruct.Players];
   add eax, ecx
 
   //  if (!NextPlayer.Active) continue;
