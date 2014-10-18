@@ -55,10 +55,8 @@ uses
   RegPathFix in 'plugins\RegPathFix.pas',
   ResurrectPatrol in 'plugins\ResurrectPatrol.pas',
   ClockPosition in 'plugins\ClockPosition.pas',
-  ExplodeBitmaps in 'plugins\ExplodeBitmaps.pas',
   WeaponAimNTrajectory in 'plugins\WeaponAimNTrajectory.pas',
   KillDamage in 'plugins\KillDamage.pas',
-  BattlerRoomMemFix in 'plugins\BattlerRoomMemFix.pas',
   ScriptCallsExtend in 'plugins\ScriptCallsExtend.pas',
   UnitActions in 'plugins\UnitActions.pas',
   TAExceptionsLog in 'plugins\TAExceptionsLog.pas',
@@ -69,7 +67,9 @@ uses
   SaveUnitsWeaponsList in 'plugins\SaveUnitsWeaponsList.pas',
   WeaponsExpand in 'plugins\WeaponsExpand.pas',
   UnitInfoExpand in 'plugins\UnitInfoExpand.pas',
-  MapExtensions in 'plugins\MapExtensions.pas';
+  MapExtensions in 'plugins\MapExtensions.pas',
+  GAFSequences in 'plugins\GAFSequences.pas',
+  BattleRoomEnhancements in 'plugins\BattleRoomEnhancements.pas';
 
 {$R *.res}
 

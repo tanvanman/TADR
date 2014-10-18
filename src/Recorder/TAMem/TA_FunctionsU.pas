@@ -528,7 +528,6 @@ type
 var
   SubOrder2Unit: SubOrder2UnitHandler = SubOrder2UnitHandler($0043ADC0);
 
-
 type
   OrderSubBuildHandler = function ( UnitInfoName: PAnsiChar;
                                     BuilderPtr: PUnitStruct;
@@ -642,6 +641,16 @@ type
   DrawLineHandler = function (OFFSCREEN_ptr: Cardinal; X, Y, X2, Y2 : Integer; ColorOffset: Byte) : LongInt; stdcall;
 var
   DrawLine : DrawLineHandler = DrawLineHandler($004BE950);
+
+type
+  DrawLightHandler = function (OFFSCREEN_ptr: Cardinal; X, Y, X2, Y2 : Integer; ColorOffset: Byte) : LongInt; stdcall;
+var
+  DrawLight : DrawLightHandler = DrawLightHandler($004BEC70);
+
+type
+  DrawAlphaHandler = function (OFFSCREEN_ptr: Cardinal; X, Y, X2, Y2 : Integer; ColorOffset: Byte) : LongInt; stdcall;
+var
+  DrawAlpha : DrawAlphaHandler = DrawAlphaHandler($004BED70);
 
 type
   DrawLine2Handler = function (OFFSCREEN_ptr: Cardinal; x1, y1, x2, y2 : Integer; Color: Byte) : LongInt; cdecl;
@@ -794,6 +803,11 @@ type
   DirectID2PlayerAryHandler = function ( a1: LongInt ): Byte; stdcall;
 var
   DirectID2PlayerAry : DirectID2PlayerAryHandler = DirectID2PlayerAryHandler($44FE40);
+
+type
+  IsLocalPlayerHostHandler = function : LongBool; cdecl;
+var
+  IsLocalPlayerHost : IsLocalPlayerHostHandler = IsLocalPlayerHostHandler($00457A50);
 
 type
   // sets hot key group of a unit
@@ -1019,6 +1033,28 @@ Type
 var
   LoadGameData_Main : LoadGameData_MainHandler = LoadGameData_MainHandler($004917D0);
 
+////////////////////////////////////////////////////////////////////////////////
+// Engine registry and INI options
+
+Type
+  REGISTRY_ReadIntegerHandler = function(const lpSubKey: PAnsiChar;
+    const lpValueName: PAnsiChar; Buffer: Pointer): Integer; stdcall;
+var
+  REGISTRY_ReadInteger : REGISTRY_ReadIntegerHandler = REGISTRY_ReadIntegerHandler($004B69D0);
+
+Type
+  REGISTRY_WriteIntegerHandler = function(const lpSubKey: PAnsiChar;
+    const lpValueName: PAnsiChar; Data: Integer): Integer; stdcall;
+var
+  REGISTRY_WriteInteger : REGISTRY_WriteIntegerHandler = REGISTRY_WriteIntegerHandler($004B6A50);
+
+Type
+  REGISTRY_SaveSettingsHandler = Procedure; cdecl;
+var
+  REGISTRY_SaveSettings : REGISTRY_SaveSettingsHandler = REGISTRY_SaveSettingsHandler($00430F00);
+
+////////////////////////////////////////////////////////////////////////////////
+
 Type
   HAPINET_guaranteepacketsHandler = function(NewState: Integer): Integer; stdcall;
 var
@@ -1069,12 +1105,50 @@ type
 var
   UpdateIngameGUI : UpdateIngameGUIHandler = UpdateIngameGUIHandler($00491D70);
 
-  //4A81E0
-
 type
   ApplySelectUnitMenuHandler = function(): Integer; cdecl;
 var
   ApplySelectUnitMenu : ApplySelectUnitMenuHandler = ApplySelectUnitMenuHandler($00495860);
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// GUI - menus
+
+type
+  GUIGADGET_GetStatusHandler = function(pTAUI: Pointer; Name: PAnsiChar): Integer; stdcall;
+var
+  GUIGADGET_GetStatus : GUIGADGET_GetStatusHandler = GUIGADGET_GetStatusHandler($004A0F60);
+
+type
+  GUIGADGET_SetStatusHandler = function(pTAUI: Pointer; Name: PAnsiChar; NewVal: Integer): Integer; stdcall;
+var
+  GUIGADGET_SetStatus : GUIGADGET_SetStatusHandler = GUIGADGET_SetStatusHandler($004A1080);
+
+type
+  GUIGADGET_GetActiveHandler = function(pTAUI: Pointer; Name: PAnsiChar): Integer; stdcall;
+var
+  GUIGADGET_GetActive : GUIGADGET_GetActiveHandler = GUIGADGET_GetActiveHandler($004A04F0);
+
+type
+  GUIGADGET_SetActiveHandler = function(pTAUI: Pointer; Name: PAnsiChar; NewVal: Integer): Integer; stdcall;
+var
+  GUIGADGET_SetActive : GUIGADGET_SetActiveHandler = GUIGADGET_SetActiveHandler($004A0570);
+
+type
+  GUIGADGET_SetGrayedOutHandler = function(pTAUI: Pointer; Name: PAnsiChar; NewVal: Integer): Integer; stdcall;
+var
+  GUIGADGET_SetGrayedOut : GUIGADGET_SetGrayedOutHandler = GUIGADGET_SetGrayedOutHandler($004A1450);
+
+type
+  GUIGADGET_WasPressedHandler = function(pTAUI: Pointer; Name: PAnsiChar): LongBool; stdcall;
+var
+  GUIGADGET_WasPressed : GUIGADGET_WasPressedHandler = GUIGADGET_WasPressedHandler($0049FD60);
+
+type
+  GUICONTROL_IsOnTopHandler = function(pTAUI: Pointer; const Name: PAnsiChar): LongBool; stdcall;
+var
+  GUICONTROL_IsOnTop : GUICONTROL_IsOnTopHandler = GUICONTROL_IsOnTopHandler($004AB060);
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Not working.

@@ -33,6 +33,8 @@ type
     SpeedLock : Boolean;
     FastSpeed : word;
     SlowSpeed : word;
+    SpeedLockNative : Boolean;
+    AIDifficulty : Byte;
   end;
 
   TDPlay = class ({TObject} TInterfacedObject, IDirectPlay,IDirectPlay2, IDirectPlay3)
@@ -62,9 +64,11 @@ type
     Procedure SetAutoPauseAtStart( value : Boolean);
     Procedure SetCommanderWarp( value : Byte);
     Procedure SetF1Disable( value : byte);
-    Procedure SetSpeedLock( value  : Boolean);
+    Procedure SetSpeedLock( value : Boolean);
     Procedure SetFastSpeed( value : word);
     Procedure SetSlowSpeed( value : word);
+    Procedure SetSpeedLockNative( value : Boolean);
+    Procedure SetAIDifficulty( value : Byte);
   public
     Property AutoPauseAtStart : Boolean read fBattleRoomState.AutoPauseAtStart write SetAutoPauseAtStart;
     Property CommanderWarp : Byte read fBattleRoomState.CommanderWarp write SetCommanderWarp;
@@ -72,6 +76,9 @@ type
     Property SpeedLock  : Boolean read fBattleRoomState.SpeedLock write SetSpeedLock;
     Property FastSpeed : word read fBattleRoomState.FastSpeed write SetFastSpeed;
     Property SlowSpeed : word read fBattleRoomState.SlowSpeed write SetSlowSpeed;
+    Property SpeedLockNative : Boolean read fBattleRoomState.SpeedLockNative write SetSpeedLockNative;
+    Property AIDifficulty : Byte read fBattleRoomState.AIDifficulty write SetAIDifficulty;
+    procedure BroadcastExtraBattleRoomSettings(ToPlayer: TDPID);
   protected
 //    packetwaiting: boolean;
 
@@ -1771,6 +1778,53 @@ fBattleRoomStateUpdated := true;
 fBattleRoomState.SlowSpeed := value;
 end;
 
+Procedure TDPlay.SetSpeedLockNative( value  : Boolean);
+begin
+fBattleRoomStateUpdated := true;
+fBattleRoomState.SpeedLockNative := value;
+if Value then
+begin
+  notime := False;
+  SpeedHack.LowerLimit := 10;
+  SpeedHack.Upperlimit := 10;
+  PTAdynmemStruct(TAData.MainStructPtr).nTAGameSpeed := 10;
+end else
+begin
+  notime := True;
+  SpeedHack.LowerLimit := 0;
+  SpeedHack.Upperlimit := 20;
+end;
+fBattleRoomState.SpeedLock := Value;
+end;
+
+Procedure TDPlay.SetAIDifficulty( value : Byte);
+begin
+fBattleRoomStateUpdated := true;
+fBattleRoomState.AIDifficulty := value;
+end;
+
+procedure TDPlay.BroadcastExtraBattleRoomSettings(ToPlayer: TDPID);
+var
+  BattleRoomRecorderOptions  : string;
+begin
+  BattleRoomRecorderOptions:= '';
+  SetLength( BattleRoomRecorderOptions, SizeOf(TRec2Rec_GameStateInfo_Message) );
+
+  move( AutopauseAtStart, BattleRoomRecorderOptions[1], 1 );
+  move( F1Disable, BattleRoomRecorderOptions[2], 1 );
+  move( CommanderWarp, BattleRoomRecorderOptions[3], 1 );
+  move( SpeedLock, BattleRoomRecorderOptions[4], 1 );
+  move( SpeedLockNative, BattleRoomRecorderOptions[5], 1 );
+  move( SlowSpeed, BattleRoomRecorderOptions[6], 1 );
+  move( FastSpeed, BattleRoomRecorderOptions[7], 1 );
+  move( AIDifficulty, BattleRoomRecorderOptions[8], 1 );
+
+  if ToPlayer <> 0 then
+    SendRecorderToRecorderMsg( TANM_Rec2Rec_GameStateInfo, BattleRoomRecorderOptions, False, ToPlayer, Players[1].ID )
+  else
+    SendRecorderToRecorderMsg( TANM_Rec2Rec_GameStateInfo, BattleRoomRecorderOptions, False );
+end;
+
 // -----------------------------------------------------------------------------
 
 function TDPlay.packetHandler(input : String; var FromPlayerDPID, ToPlayerDPID : TDPID):string;
@@ -1807,7 +1861,6 @@ var
   ally              : ^byte;
   playerlist        : TList;
   tmps              : string;
-  BattleRoomRecorderOptions  : string;
 
   player : TPlayerData;
   FromPlayer : TPlayerData;
@@ -2151,25 +2204,14 @@ if assigned(chatview) then
             begin
               if FromPlayer.Uses_Rec2Rec_Notification then
                begin
-                BattleRoomRecorderOptions:= '';
-                SetLength( BattleRoomRecorderOptions, SizeOf(TRec2Rec_GameStateInfo_Message) );
-
-                move( AutopauseAtStart, BattleRoomRecorderOptions[1], 1 );
-                move( F1Disable, BattleRoomRecorderOptions[2], 1 );
-                move( CommanderWarp, BattleRoomRecorderOptions[3], 1 );
-                move( SpeedLock, BattleRoomRecorderOptions[4], 1 );
-                move( SlowSpeed, BattleRoomRecorderOptions[5], 1 );
-                move( FastSpeed, BattleRoomRecorderOptions[6], 1 );
-
-                SendRecorderToRecorderMsg( TANM_Rec2Rec_GameStateInfo, BattleRoomRecorderOptions, True, FromPlayer.Id, Players[1].ID );
-
+                 BroadcastExtraBattleRoomSettings(FromPlayer.ID);
                end else
-                begin
+               begin
 
                 { if CommanderWarp = 1 then SendLocal('.cmdwarp',FromPlayer.Id,false,true);
                 if SpeedLock = 1 then SendLocal('.cmdwarp',FromPlayer.Id,false,true); }
 
-                end;
+               end;
              FromPlayer.ReceivedBRSettings:= True;
            end;
 
@@ -2230,6 +2272,11 @@ if assigned(chatview) then
             SetF1Disable(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.F1Disable);
             SetCommanderWarp(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.CommanderWarp);
 
+            if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SpeedLockNative = 1 then
+              SetSpeedLockNative(True)
+             else
+              SetSpeedLockNative(False);
+
             if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SpeedLock = 1 then
               SetSpeedLock(True)
              else
@@ -2237,6 +2284,7 @@ if assigned(chatview) then
 
             SetSlowSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SlowSpeed);
             SetFastSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.FastSpeed);
+            SetAIDifficulty(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.AIDifficulty);
           end;
         tmp := #$2a'd';          //Remove packets, so nothing happens
         datachanged := true;

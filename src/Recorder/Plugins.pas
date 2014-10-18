@@ -29,14 +29,14 @@ uses
   UnitActions,
   WeaponAimNTrajectory,
   //KillDamage,
-  ExplodeBitmaps,
+  GAFSequences,
   TAExceptionsLog,
   MapExtensions,
   //MinimapExpand,
   Colors,
   ClockPosition,
   GUIEnhancements,
-  BattlerRoomMemFix,
+  BattleRoomEnhancements,
   COB_extensions,
   //PlayersSlotsExpand,
   StatsLogging;
@@ -58,7 +58,6 @@ if OnMainRun then
   RegisterPlugin( MultiAILimit.GetPlugin() );
   RegisterPlugin( KeyboardHook.GetPlugin() );
   //RegisterPlugin( BattleRoomScroll.GetPlugin() );
-
   RegisterPlugin( WeaponsExpand.GetPlugin() );
   RegisterPlugin( UnitInfoExpand.GetPlugin() );
   RegisterPlugin( RegPathFix.GetPlugin() );
@@ -71,8 +70,7 @@ if OnMainRun then
     RegisterPlugin( UnitActions.GetPlugin() );
     RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
     //RegisterPlugin( KillDamage.GetPlugin() );
-    if IniSettings.Plugin_Gaf then
-      RegisterPlugin( ExplodeBitmaps.GetPlugin() );
+    RegisterPlugin( GAFSequences.GetPlugin() );
     RegisterPlugin( TAExceptionsLog.GetPlugin() );
     RegisterPlugin( MapExtensions.GetPlugin() );
 //    if IniSettings.ExpandMinimap then
@@ -82,7 +80,8 @@ if OnMainRun then
     RegisterPlugin( Colors.GetPlugin() );
   RegisterPlugin( ClockPosition.GetPlugin() );
   RegisterPlugin( GUIEnhancements.GetPlugin() );
-  RegisterPlugin( BattlerRoomMemFix.GetPlugin() );
+  if IniSettings.Plugin_BattleRoomEnh then
+    RegisterPlugin( BattleRoomEnhancements.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );
   if IniSettings.CreateStatsFile then
     RegisterPlugin( StatsLogging.GetPlugin() );

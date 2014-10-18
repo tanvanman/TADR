@@ -586,7 +586,18 @@ type
     PtrFrameData : Pointer;
     PtrFrameBits : Pointer;
     Bits2_Ptr : Pointer;
-  end;  
+  end;
+
+  PGAFSequence = ^TGAFSequence;
+  TGAFSequence = packed record
+    Frames : Word;
+    Signature : Word;
+    Signature2 : Word;
+    field_8 : Word;
+    Name : array[0..31] of AnsiChar;
+    FrameAry : Pointer;
+    Animated : Cardinal;
+  end;
 
   PViewResBar = ^TViewResBar;
   TViewResBar = packed record
@@ -954,7 +965,7 @@ type
 	  nUnknown42             : Word;
 	  nActualUnitLimit       : Word;
 	  nMaxUnitLimitPerPlayer : Word;
-	  lCurrenTAIProfile      : Cardinal; //0x37EEE - xpoy's gives this as "Difficulty"
+	  lCurrentAIProfile      : Cardinal; //0x37EEE - xpoy's gives this as "Difficulty"
 	  lSide                  : Cardinal; //0x37EF2
 	  bAlterKills            : Cardinal;
 	  lInterfaceType         : Cardinal;
@@ -1378,17 +1389,22 @@ type
     SolarStrength : Extended;
   end;
 
+  TExtraGAFAnimations = packed record
+    Explode : array of Pointer;
+    CustAnim : array of Pointer;
+    FlameStream : array of Pointer;
+//    GafSequence_Arm32lt,
+//    GafSequence_Core32lt : Pointer;
+  end;
+
 var
-  // additional GAF animations
-  ExtraAnimations : array[0..15] of Pointer;
+  ExtraGAFAnimations : TExtraGAFAnimations;
 
   CustomUnitFieldsArr : TCustomUnitFieldsArr;
 
   ExtraUnitInfoTags : array of TExtraUnitInfoTagsRec;
   ExtraWeaponDefTags : array of TExtraWeaponDefTagsRec;
   ExtraMapOTATags : TExtraMapOTATagsRec;
-
-  //GafSequence_Arm32lt, GafSequence_Core32lt : Pointer; 
 
   // pointer to ddraw's weapon array
   WeaponLimitPatchArr : Pointer;

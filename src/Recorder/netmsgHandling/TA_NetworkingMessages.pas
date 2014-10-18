@@ -207,10 +207,12 @@ type
     F1Disable      : Byte;
     Commanderwarp  : Byte;
     SpeedLock      : Byte;
+    SpeedLockNative: Byte;
     SlowSpeed      : Byte;
-    FastSpeed      : Byte;
+    FastSpeed      : Byte;    
+    AIDifficulty   : Byte;
   end;
-
+  
 {
 Use to notify other players that unit wants to have its own "global" template
 }

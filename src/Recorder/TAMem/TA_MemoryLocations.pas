@@ -261,7 +261,7 @@ uses
   TA_FunctionsU,
   IniOptions,
   TAMemManipulations,
-  ExplodeBitmaps,
+  GAFSequences,
   UnitInfoExpand,
   COB_Extensions,
   TA_MemoryConstants;
@@ -2579,13 +2579,14 @@ begin
     SmokeInt := Smoke - 1;
 
   case BmpType of
-    0 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147F7)^, GlowInt, SmokeInt); //explosion
-    1 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FB)^, GlowInt, SmokeInt); //explode2
-    2 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FF)^, GlowInt, SmokeInt); //explode3
-    3 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14803)^, GlowInt, SmokeInt); //explode4
-    4 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14807)^, GlowInt, SmokeInt); //explode5
-    5 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $1480B)^, GlowInt, SmokeInt); //nuke1
-    6..20 : result := ShowExplodeGaf(@Position, LongWord(ExtraAnimations[BmpType - 6]), GlowInt, SmokeInt); // explode6,7,8... custanim1,2,3...
+        0 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147F7)^, GlowInt, SmokeInt); //explosion
+        1 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FB)^, GlowInt, SmokeInt); //explode2
+        2 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FF)^, GlowInt, SmokeInt); //explode3
+        3 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14803)^, GlowInt, SmokeInt); //explode4
+        4 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14807)^, GlowInt, SmokeInt); //explode5
+        5 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $1480B)^, GlowInt, SmokeInt); //nuke1
+    6..99 : result := ShowExplodeGaf(@Position, LongWord(ExtraGAFAnimations.Explode[BmpType - 6]), GlowInt, SmokeInt);
+ 100..199 : result := ShowExplodeGaf(@Position, LongWord(ExtraGAFAnimations.CustAnim[BmpType - 100]), GlowInt, SmokeInt);
   end;
 end;
 

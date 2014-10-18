@@ -46,6 +46,7 @@ procedure BroadcastNanolatheParticles_ReclaimFeature;
 procedure BroadcastNanolatheParticles_VTOLReclaimUnit;
 procedure BroadcastNanolatheParticles_VTOLReclaimFeature; 
 procedure ScreenFadeControl;
+procedure WeaponProjectileFlameStreamHook;
 {
 function AddNanoUnit(x, y, color: Integer): LongBool; stdcall;
 function InitNanoUnit: LongBool; stdcall;
@@ -297,6 +298,11 @@ begin
                            'Control game screen fade level',
                            @ScreenFadeControl,
                            $0046A2E2, 0 );
+
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                           'WeaponProjectileFlameStreamHook',
+                           @WeaponProjectileFlameStreamHook,
+                           $0049C39E, 1 );
 
     Result:= GUIEnhancementsPlugin;
   end else
@@ -2009,6 +2015,51 @@ asm
   lea     ecx, [esp+224h+OFFSCREEN_off]
   push    ecx
   push $0046A2E7
+  call PatchNJump
+end;
+
+function WeaponProjectileFlameStream(Weapon: PWeaponDef): Pointer; stdcall;
+begin
+  if ExtraGAFAnimations.FlameStream[Weapon.cColor - 1] <> nil then
+    Result := ExtraGAFAnimations.FlameStream[Weapon.cColor - 1]
+  else
+    Result := PTADynMemStruct(TAData.MainStructPtr).flamestream;
+end;
+
+{
+.text:0049C39E 078 8B BF F3 47 01 00           mov     edi, [edi+TAMainStruct.flamestream]
+.text:0049C3A4 078 0F BF 4D 06                 movsx   ecx, word ptr [ebp+6]
+ }
+procedure WeaponProjectileFlameStreamHook;
+label
+  CustomFlameStream;
+asm
+  push    ecx
+  mov     cl, byte ptr [ebx+TWeaponDef.cColor]
+  test    cl, cl
+  pop     ecx
+  jnz     CustomFlameStream
+  mov     edi, [edi+TTADynMemStruct.flamestream]
+  push $0049C3A4
+  call PatchNJump
+CustomFlameStream :
+  push    esi
+  push    eax
+  push    ebx
+  push    ecx
+  push    edx
+
+  push    ebx // weapon
+  call    WeaponProjectileFlameStream
+  mov     edi, eax
+
+  pop     edx
+  pop     ecx
+  pop     ebx
+  pop     eax
+  pop     esi
+
+  push $0049C3A4
   call PatchNJump
 end;
 

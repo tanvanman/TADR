@@ -49,6 +49,7 @@ type
     Plugin_MinWeaponReload  : Integer;
     Plugin_Transporters  : Boolean;
     Plugin_Stockpile     : Boolean;
+    Plugin_BattleRoomEnh : Boolean;
 
     Plugin_CircleUnitSelect : Boolean;
     Plugin_ForceDrawBuildSpotNano : Boolean;
@@ -58,7 +59,6 @@ type
     Plugin_StopButton : Boolean;
     
     Plugin_MinReclaimTime : Integer;
-    Plugin_Gaf : Boolean;
   end;
 var IniSettings: TIniSettings;
 
@@ -181,7 +181,6 @@ function ReadINISettings: boolean;
           Trim(temp);
           Result:= StrToInt(temp);
         except
-          TLog.Add(0, 'Error reading setting [' + ident + ']');
           Exit;
         end;
       end else
@@ -341,9 +340,9 @@ begin
       IniSettings.Plugin_ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
       IniSettings.Plugin_MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
 
-      IniSettings.Plugin_StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
+      IniSettings.Plugin_BattleRoomEnh := ReadIniBool(IniFile, 'Preferences', 'BattleRoomEnhancements', False);
 
-      IniSettings.Plugin_Gaf := ReadIniBool(IniFile, 'Preferences', 'GAFExt', False);
+      IniSettings.Plugin_StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
     finally
       Result:= True;
       IniFile.Free;
