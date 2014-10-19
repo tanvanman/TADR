@@ -81,6 +81,7 @@ implementation
 uses
   TADemoConsts,
   TA_MemoryLocations,
+  TA_MemoryStructures,
   TA_MemoryConstants,
   ModsList,
   logging,
@@ -369,6 +370,17 @@ begin
           IniSettings.RegName := 'TA Patch';
     end else
       if IniSettings.ModId > 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
+
+    LocalModInfo.ModID := IniSettings.ModID;
+    if IniSettings.Version <> '' then
+    begin
+      LocalModInfo.ModMajorVer := Copy(IniSettings.Version, 1, Pos('.', IniSettings.Version)-1 )[1];
+      LocalModInfo.ModMinorVer := Copy(IniSettings.Version, Pos('.', IniSettings.Version) + 1, Length(IniSettings.Version))[1];
+    end else
+    begin
+      LocalModInfo.ModMajorVer := '0';
+      LocalModInfo.ModMinorVer := '0';
+    end;
   end;
 end;
 

@@ -96,16 +96,13 @@ begin
     WeapsMax := IniSettings.WeaponType;
     for i := 0 to WeapsMax - 1 do
     begin
-      WeapInfo := TAMem.WeaponId2Ptr(i);
+      WeapInfo := TAWeapon.WeaponId2Ptr(i);
       if WeapInfo <> nil then
       begin
         if WeapInfo.szWeaponName[0] <> #0 then
         begin
           ScriptorFile.WriteComment(WeapInfo.szWeaponDescription);
-          if IniSettings.WeaponType <= 256 then
-            ScriptorFile.WriteDefinition('WEAP_' + UpperCase(WeapInfo.szWeaponName), WeapInfo.ucID)
-          else
-            ScriptorFile.WriteDefinition('WEAP_' + UpperCase(WeapInfo.szWeaponName), WeapInfo.lWeaponIDCrack);
+          ScriptorFile.WriteDefinition('WEAP_' + UpperCase(WeapInfo.szWeaponName), TAWeapon.GetWeaponID(WeapInfo))
         end;
       end;
     end;

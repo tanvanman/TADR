@@ -17,7 +17,11 @@ uses
   //DplayPacketU,
   ListsU, CommandHandlerU, ConsoleTimer,
 //  PacketHandlerU,
-  TADemoConsts,  TAMemManipulations, MemMappedDataStructure, PlayerDataU,
+  TADemoConsts,
+  TAMemManipulations,
+  MemMappedDataStructure,
+  TA_MemoryStructures,
+  PlayerDataU,
   log2, statslogging,//SavedDemoU,
   PacketBufferU;
 
@@ -79,6 +83,7 @@ type
     Property SpeedLockNative : Boolean read fBattleRoomState.SpeedLockNative write SetSpeedLockNative;
     Property AIDifficulty : Byte read fBattleRoomState.AIDifficulty write SetAIDifficulty;
     procedure BroadcastExtraBattleRoomSettings(ToPlayer: TDPID);
+    procedure BroadcastModInfo;
   protected
 //    packetwaiting: boolean;
 
@@ -429,7 +434,6 @@ uses
  LOS_extensions,
  SpeedHack,
  TA_MemoryLocations,
- TA_MemoryStructures,
  TA_NetworkingMessages,
  TA_FunctionsU,
  InputHook,
@@ -1825,6 +1829,35 @@ begin
     SendRecorderToRecorderMsg( TANM_Rec2Rec_GameStateInfo, BattleRoomRecorderOptions, False );
 end;
 
+procedure TDPlay.BroadcastModInfo();
+var
+  sModInfo: String;
+  PlayerIdx: Byte;
+  Player: PPlayerStruct;
+begin
+  sModInfo:= '';
+  SetLength( sModInfo, SizeOf(TRec2Rec_ModInfo_Message) );
+
+  for PlayerIdx := 1 to Players.Count do
+  begin
+    Player := TAPlayer.GetPlayerPtrByDPID(Players[PlayerIdx].Id);
+    if Player <> nil then
+    begin
+      if (Player.cPlayerController = Player_LocalHuman) or
+         (Player.cPlayerController = Player_LocalAI) then
+      begin
+        sModInfo:= '';
+        SetLength( sModInfo, SizeOf(TRec2Rec_ModInfo_Message) );
+        move( Players[PlayerIdx].Id, sModInfo[1], 4 );
+        move( LocalModInfo.ModID, sModInfo[5], 2 );
+        move( LocalModInfo.ModMajorVer, sModInfo[7], 1 );
+        move( LocalModInfo.ModMinorVer, sModInfo[8], 1 );
+        SendRecorderToRecorderMsg( TANM_Rec2Rec_ModInfo, sModInfo, False );
+      end;
+    end;
+  end;
+end;
+
 // -----------------------------------------------------------------------------
 
 function TDPlay.packetHandler(input : String; var FromPlayerDPID, ToPlayerDPID : TDPID):string;
@@ -2197,6 +2230,8 @@ if assigned(chatview) then
           FromPlayer.RecConnect := InternalVersion > TADemoVersion_97;
           FromPlayer.Uses_Rec2Rec_Notification := InternalVersion >= TADemoVersion_99b3_beta2;
 
+          BroadcastModInfo;
+
           // send extra battleroom settings (autopause, cmdwarp, syncon)
           if ImServer and
              (not FromPlayer.ReceivedBRSettings) and
@@ -2258,15 +2293,16 @@ if assigned(chatview) then
         end;
 
       if s[1] = #$fb then
-        begin
-         Rec2Rec := PRecorderToRecorderMessage(@tmp[1]);
-         Rec2Rec_Data := Pointer(Longword(Rec2Rec)+SizeOf(TRecorderToRecorderMessage) );
-          if Rec2Rec^.MsgSubType = TANM_Rec2Rec_GameStateInfo then
+      begin
+        Rec2Rec := PRecorderToRecorderMessage(@tmp[1]);
+        Rec2Rec_Data := Pointer(Longword(Rec2Rec)+SizeOf(TRecorderToRecorderMessage) );
+        case Rec2Rec^.MsgSubType of
+          TANM_Rec2Rec_GameStateInfo :
           begin
             assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_GameStateInfo_Message) );
             if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.AutopauseState = 1 then
               SetAutoPauseAtStart(True)
-             else
+            else
               SetAutoPauseAtStart(False);
 
             SetF1Disable(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.F1Disable);
@@ -2274,18 +2310,27 @@ if assigned(chatview) then
 
             if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SpeedLockNative = 1 then
               SetSpeedLockNative(True)
-             else
+            else
               SetSpeedLockNative(False);
 
             if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SpeedLock = 1 then
               SetSpeedLock(True)
-             else
+            else
               SetSpeedLock(False);
 
             SetSlowSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SlowSpeed);
             SetFastSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.FastSpeed);
             SetAIDifficulty(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.AIDifficulty);
           end;
+          TANM_Rec2Rec_ModInfo :
+          begin
+            assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_ModInfo_Message) );
+            uc := Players.ConvertId(PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.PlayerID,ZI_Everyone,false);
+            Players[uc].ModInfo.ModID := PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.ModID;
+            Players[uc].ModInfo.ModMajorVer := PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.ModMajorVer;
+            Players[uc].ModInfo.ModMinorVer := PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.ModMinorVer;
+          end;
+        end;
         tmp := #$2a'd';          //Remove packets, so nothing happens
         datachanged := true;
         end;
@@ -3186,7 +3231,6 @@ var
   lpName: PDPName;
   playerlist : TList;
   NameLen : integer;
-
 begin
 try
 cs.Acquire;
@@ -3236,6 +3280,7 @@ try
   NotVotedGoCount := 0;
   for i := 1 to Players.Count-1 do
     if (not Players[i].VotedGo or not not Players[i].ClickedIn ) and
+    // todo: racecount - 1 instead of Side compare
        ((Players[i].Side =0) or (Players[i].Side=1)) then
       inc( NotVotedGoCount );
   ForceGo := NotVotedGoCount = 0;
@@ -3262,6 +3307,17 @@ try
       chatview^.playernames[Players.Count][i] := Player.Name[i];
     chatview^.playernames[Players.Count][NameLen+1] :=#0;
     end;
+  if IniSettings.Plugin_BattleRoomEnh then
+  begin
+    if (PPlayerStruct(TAPlayer.GetPlayerByIndex(Player.PlayerIndex -1)).cPlayerController = Player_LocalAI) or
+       (PPlayerStruct(TAPlayer.GetPlayerByIndex(Player.PlayerIndex -1)).cPlayerController = Player_LocalHuman) then
+    begin
+      Players[Player.PlayerIndex].ModInfo.ModID := LocalModInfo.ModID;
+      Players[Player.PlayerIndex].ModInfo.ModMajorVer := LocalModInfo.ModMajorVer;
+      Players[Player.PlayerIndex].ModInfo.ModMinorVer := LocalModInfo.ModMinorVer;
+    end;
+    BroadcastModInfo;
+  end;
 finally
   cs.Release;
 end;    
@@ -3667,6 +3723,13 @@ end; {GetGoodSource}
 
 procedure TDPlay.OnRemovePlayer(player : TPlayerData);
 begin
+if IniSettings.Plugin_BattleRoomEnh then
+begin
+  Player.ModInfo.ModID := -1;
+  Player.ModInfo.ModMajorVer := '0';
+  Player.ModInfo.ModMinorVer := '0';
+  BroadcastModInfo;
+end;
 if (player = ServerPlayer) then
   ServerPlayer := nil;
 end;

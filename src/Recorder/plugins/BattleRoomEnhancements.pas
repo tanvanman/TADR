@@ -26,14 +26,20 @@ procedure BattleRoom_EnterBattleRoomHook;
 procedure BattleRoom_BattleRoomHostToGameHook;
 procedure BattleRoom_BattleRoomToGameHook;
 procedure BattleRoom_HostButtonsHook;
+procedure BattleRoom_DrawModVersionOverLogo;
+procedure BattleRoom_BroadcastModInfoHook;
 
 implementation
 uses
   Windows,
+  IniOptions,
+  SysUtils,
+  PlayerDataU,
   idplay,
-  TA_MemoryConstants,
   TA_MemoryLocations,
   TA_MemoryStructures,
+  TA_MemoryConstants,
+  TADemoConsts,
   TA_FunctionsU;
 
 type
@@ -54,7 +60,7 @@ type
 
 var
   BattleRoomEnhancementsPlugin: TPluginData;
-
+  
 function GlobalMemoryStatusEx(var lpBuffer: TMemoryStatusEx): BOOL; stdcall; external kernel32;
 
 Procedure OnInstallBattleRoomEnhancements;
@@ -115,6 +121,16 @@ begin
                           @BattleRoom_HostButtonsHook,
                           $0044600D, 0);
 
+    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
+                          'Draw Mod Version instead of internal version',
+                          @BattleRoom_DrawModVersionOverLogo,
+                          $0044AF11, 0);
+                            {
+    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
+                          '',
+                          @BattleRoom_BroadcastModInfoHook,
+                          $00450FDC, 0);
+                           }
     Result:= BattleRoomEnhancementsPlugin;
   end else
     Result := nil;
@@ -295,6 +311,7 @@ begin
       GUIGADGET_SetStatus(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
           PAnsiChar('AIDIFF'), GlobalDPlay.AIDifficulty);
     end;
+    GlobalDplay.BroadcastModInfo;
   end;
 end;
 
@@ -397,6 +414,62 @@ asm
     call    GUIGADGET_SetStatus
     push $00446012;
     call PatchNJump;
+end;
+
+function DrawModVersionOverLogo(PlayerIdx: Integer; OFFSCREEN_ptr: Cardinal;
+  const str: PAnsiChar; left: Integer; top: Integer; MaxLen: Integer;
+  Background: Integer) : LongInt; stdcall;
+var
+  Player: PPlayerStruct;
+  NewStr: String;
+begin
+  Player := TAPlayer.GetPlayerByIndex(PlayerIdx);
+  PlayerIdx := GlobalDPlay.Players.ConvertId(Player.lDirectPlayID,ZI_Everyone,false);
+
+  if (GlobalDPlay.Players[PlayerIdx].ModInfo.ModID > 1) and
+     (GlobalDPlay.Players[PlayerIdx].ModInfo.ModMajorVer <> '0') then
+  begin
+    // known mod and mod version
+    NewStr := GlobalDPlay.Players[PlayerIdx].ModInfo.ModMajorVer + '.' +
+              GlobalDPlay.Players[PlayerIdx].ModInfo.ModMinorVer;
+    Result := DrawText(OFFSCREEN_ptr, PAnsiChar(NewStr), left - 1, top, MaxLen + 2, Background);
+  end else
+  begin
+    case GlobalDPlay.Players[PlayerIdx].ModInfo.ModID of
+      -1   : NewStr := '';
+      0, 1 : NewStr := Copy(GetTADemoVersion, 1, 3);
+      else
+      begin
+        NewStr := '?';
+        left := left + 6;
+      end;
+    end;
+    Result := DrawText(OFFSCREEN_ptr, PAnsiChar(NewStr), left - 1, top, MaxLen + 2, Background);
+  end;
+end;
+
+procedure BattleRoom_DrawModVersionOverLogo;
+asm
+    push    edi
+    call    DrawModVersionOverLogo
+    push $0044AF16;
+    call PatchNJump;
+end;
+ 
+procedure BattleRoom_BroadcastModInfo(Player: PPlayerStruct); stdcall;
+begin
+  GlobalDplay.BroadcastModInfo;
+end;
+
+procedure BattleRoom_BroadcastModInfoHook;
+asm
+  pushAD
+  push      ebp
+  call      BattleRoom_BroadcastModInfo
+  popAD
+  mov       ecx, 2Eh
+  push $00450FE1;
+  call PatchNJump;
 end;
 
 end.

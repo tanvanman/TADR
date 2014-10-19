@@ -2,7 +2,7 @@ unit PlayerDataU;
 
 interface
 uses
-  classes, DPlay;
+  classes, DPlay, TA_MemoryStructures;
 
 type
   TTAStatus = ( InBattleRoom, InLoading, InGame );
@@ -49,7 +49,6 @@ type
     TotalSharedMetal  : single;
     TotalSharedEnergy : single;
   end;
-
 
   TPlayers = class;
 
@@ -109,6 +108,7 @@ type
     EnemyChat         : boolean;
     RecConnect        : boolean;
     Uses_Rec2Rec_Notification : Boolean;
+    ModInfo : TPlayerModInfo;
 
     HasBrokenRecorder : Boolean;
     HasWarnedOnUnitLimit : Boolean;
@@ -203,6 +203,7 @@ Assert( aName <>  '' );
 Name := aName;
 ID := aID;
 StartInfo.ID := High(longword);
+ModInfo.ModID := -1;
 end; {Create}
 
 procedure TPlayerData.OnPlayerRemoved( Index : Integer );
@@ -210,6 +211,7 @@ var i : Integer;
 begin
 if (Index >=1) and (Index <=10) then
   begin
+  ModInfo.ModID := -1;
   for i := Index to 9 do
     AlliedTo[i] := AlliedTo[i+1];
   AlliedTo[10] := False;

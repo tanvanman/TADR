@@ -74,7 +74,6 @@ type
     class function UnitInfoCrc2Ptr(CRC: Cardinal): Pointer;
     class function Crc32ToCrc24(CRC: Cardinal): Cardinal;
     class function MovementClassId2Ptr(index: Word): Pointer;
-    class function WeaponId2Ptr(ID: Cardinal) : Pointer;
     class function FeatureDefId2Ptr(ID : Word) : Pointer;
     class function PlaceFeatureOnMap(FeatureName: String; Position: TPosition; Turn: TTurn): Boolean;
     class function RemoveMapFeature(X, Z : Integer; Method: Boolean): Boolean;
@@ -240,6 +239,12 @@ type
     class function EmitSfxFromPiece(UnitPtr: PUnitStruct; TargetUnitPtr: PUnitStruct; PieceIdx: Integer; SfxType: Byte): Cardinal; 
     class function NanoParticles(StartPos: TPosition; TargetPos : TNanolathePos): Cardinal;
     class function NanoReverseParticles(StartPos: TPosition; TargetPos : TNanolathePos): Cardinal;
+  end;
+
+  TAWeapon = class
+  public
+    class function WeaponId2Ptr(ID: Cardinal) : Pointer;
+    class function GetWeaponID(WeaponPtr: PWeaponDef) : Cardinal;
   end;
 
 const
@@ -472,14 +477,6 @@ begin
 result := Pointer(TAMovementClassArray + SizeOf(TMoveInfoClassStruct) * index);
 end;
 
-class function TAMem.WeaponId2Ptr(ID: Cardinal): Pointer;
-begin
-  if IniSettings.WeaponType <= 256 then
-    result:= @PTAdynmemStruct(TAData.MainStructPtr).Weapons[ID]
-  else
-    result:= Pointer(Cardinal(TAData.WeaponTypeDefArrayPtr) + SizeOf(TWeaponDef) * ID);
-end;
-
 class function TAMem.FeatureDefId2Ptr(ID: Word): Pointer;
 begin
   result := Pointer(LongWord(PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.p_FeatureDefs) + SizeOf(TFeatureDefStruct) * ID);
@@ -663,7 +660,7 @@ i := 0;
 while i < MAXPLAYERCOUNT do
   begin
   PlayerSt:= GetPlayerByIndex(i);
-  if PDPID(PlayerSt.lDirectPlayID)^ = playerPID then
+  if PlayerSt.lDirectPlayID = playerPID then
     begin
     result := PlayerSt;
     break;
@@ -940,10 +937,7 @@ begin
       else Weapon := nil;
     end;
     if Weapon <> nil then
-      if IniSettings.WeaponType <= 256 then
-        Result := PWeaponDef(Weapon)^.ucID
-      else
-        Result := PWeaponDef(Weapon)^.lWeaponIDCrack;
+      Result := TAWeapon.GetWeaponID(Weapon);
   end;
 end;
 
@@ -954,7 +948,7 @@ begin
   Result:= False;
   if UnitPtr <> nil then
   begin
-    Weapon:= TAMem.WeaponId2Ptr(NewWeaponID);
+    Weapon:= TAWeapon.WeaponId2Ptr(NewWeaponID);
     case index of
       WEAPON_PRIMARY   : PUnitStruct(UnitPtr).UnitWeapons[0].p_Weapon := Weapon;
       WEAPON_SECONDARY : PUnitStruct(UnitPtr).UnitWeapons[1].p_Weapon := Weapon;
@@ -1586,7 +1580,7 @@ begin
 Result := 0;
 if UnitPtr <> nil then
 //Result := PPlayerStruct(PUnitStruct(UnitPtr).p_Owner).cPlayerIndexZero;
-  Result := PUnitStruct(UnitPtr).cMyLOSPlayerID;
+  Result := PUnitStruct(UnitPtr).cOwnerID;
 end;
 
 class Function TAUnit.GetId(UnitPtr : Pointer) : Word;
@@ -2049,8 +2043,8 @@ begin
 
       UNITINFO_BMCODE          : CustomUnitInfosArray[arrIdx].InfoStruct.cBMCode := value;
 
-      UNITINFO_EXPLODEAS       : CustomUnitInfosArray[arrIdx].InfoStruct.p_ExplodeAs := PLongWord(TAMem.WeaponId2Ptr(value));
-      UNITINFO_SELFDSTRAS      : CustomUnitInfosArray[arrIdx].InfoStruct.p_SelfDestructAsAs := PLongWord(TAMem.WeaponId2Ptr(value));
+      UNITINFO_EXPLODEAS       : CustomUnitInfosArray[arrIdx].InfoStruct.p_ExplodeAs := PLongWord(TAWeapon.WeaponId2Ptr(value));
+      UNITINFO_SELFDSTRAS      : CustomUnitInfosArray[arrIdx].InfoStruct.p_SelfDestructAsAs := PLongWord(TAWeapon.WeaponId2Ptr(value));
 
 // 1 ?
 // 2 standingfireorder
@@ -2665,6 +2659,24 @@ class function TASfx.NanoReverseParticles(StartPos: TPosition;
   TargetPos: TNanolathePos): Cardinal;
 begin
   Result := EmitSfx_NanoParticlesReverse(@TargetPos, @StartPos, 6);
+end;
+
+{ TAWeapon }
+
+class function TAWeapon.GetWeaponID(WeaponPtr: PWeaponDef): Cardinal;
+begin
+  if IniSettings.WeaponType <= 256 then
+    Result := PWeaponDef(WeaponPtr)^.ucID
+  else
+    Result := PWeaponDef(WeaponPtr)^.lWeaponIDCrack;
+end;
+
+class function TAWeapon.WeaponId2Ptr(ID: Cardinal): Pointer;
+begin
+  if IniSettings.WeaponType <= 256 then
+    result:= @PTAdynmemStruct(TAData.MainStructPtr).Weapons[ID]
+  else
+    result:= Pointer(Cardinal(TAData.WeaponTypeDefArrayPtr) + SizeOf(TWeaponDef) * ID);
 end;
 
 end.

@@ -152,13 +152,69 @@ type
     pBaseObject      : PBaseObject;
   end;
 
+  // 0x115
+  PWeaponDef = ^TWeaponDef;
+  TWeaponDef = packed record
+	  szWeaponName         : array [0..31] of AnsiChar;
+	  szWeaponDescription  : array [0..63] of AnsiChar;
+	  p_FireCallback       : Pointer;
+	  p_WeaponDefUnkStruct : Pointer;
+	  lWeaponVelocity      : Cardinal;
+	  lStartVelocity       : Cardinal;
+	  lWeaponAcceleration  : Cardinal;
+	  lObjects3DFile       : Cardinal;
+	  p_LandExplodeAsGFX   : Pointer;
+	  p_WaterExplodeAsGFX  : Pointer;
+	  ModelName            : array [0..47] of AnsiChar;
+    field_B0             : Cardinal;
+    field_B4             : Cardinal;
+    field_B8             : Cardinal;
+    lWeaponIDCrack       : Cardinal;
+	  lEnergyPerShot       : Cardinal;
+	  lMetalPerShot        : Cardinal;
+	  lMinBarrelAngle      : Cardinal;
+	  fShakeMagnitude      : Single;
+	  lShakeDuration       : Cardinal;
+	  nDefaultDamage       : Word;
+	  nAreaOfEffect        : Word;
+	  fEdgeEffectivnes     : Single;
+	  lRange               : Cardinal;
+	  lCoverage            : Integer;
+	  nReloadTime          : Word;
+	  nWeaponTimer         : Word;
+	  nTurnRate            : Word;
+	  nBurst               : Word;
+	  nBurstRate           : Word;
+	  nSprayAngle          : Word;
+	  nDuration            : Word;
+	  nRandomDecay         : Word;
+	  nSoundStartEffectID  : SmallInt;
+	  nSoundHitEffectID    : SmallInt;
+	  nSoundWaterEffectID  : SmallInt;
+	  nSmokeDelay          : Word;
+	  nFlightTime          : Word;
+	  nHoldTime            : Word;
+	  nUnknown1            : Word;
+	  nUnknown2            : Word;
+	  nAccuracy            : Word;
+	  nTolerance           : Word;
+	  nPitchTolerance      : Word;
+	  ucID                 : Byte;
+	  cFireStarter         : Byte;
+	  cRenderType          : Byte;
+	  cColor               : Byte;
+	  cColor2              : Byte;
+	  Unknown3             : array [0..1] of Byte;
+	  lWeaponTypeMask      : Cardinal;
+  end;
+
   PUnitWeapon = ^TUnitWeapon;
   TUnitWeapon = packed record
     nTargetID         : Word;
     nUsedSpot         : Word;
     p_AutoAimCallback : Pointer;   //$4FD6F0
     lState            : Cardinal;  //1 if can shoot
-    p_Weapon          : Pointer;
+    p_Weapon          : PWeaponDef;
     unknow            : Cardinal;
     nReloadTime       : Word;
     nAngle            : Word;
@@ -221,7 +277,7 @@ type
     ucHeight          : Byte;
     nOwnerIndex       : Word;
     field_FE          : Byte;
-    cMyLOSPlayerID    : Byte;
+    cOwnerID          : Byte;
     unknow_14         : Cardinal;
     lBuildTimeLeft    : Single;
     nHealth           : Word;
@@ -443,62 +499,6 @@ type
   end;
 
   TFoundUnits = array of Cardinal;
-
-  // 0x115
-  PWeaponDef = ^TWeaponDef;
-  TWeaponDef = packed record
-	  szWeaponName         : array [0..31] of AnsiChar;
-	  szWeaponDescription  : array [0..63] of AnsiChar;
-	  p_FireCallback       : Pointer;
-	  p_WeaponDefUnkStruct : Pointer;
-	  lWeaponVelocity      : Cardinal;
-	  lStartVelocity       : Cardinal;
-	  lWeaponAcceleration  : Cardinal;
-	  lObjects3DFile       : Cardinal;
-	  p_LandExplodeAsGFX   : Pointer;
-	  p_WaterExplodeAsGFX  : Pointer;
-	  ModelName            : array [0..47] of AnsiChar;
-    field_B0             : Cardinal;
-    field_B4             : Cardinal;
-    field_B8             : Cardinal;
-    lWeaponIDCrack       : Cardinal;
-	  lEnergyPerShot       : Cardinal;
-	  lMetalPerShot        : Cardinal;
-	  lMinBarrelAngle      : Cardinal;
-	  fShakeMagnitude      : Single;
-	  lShakeDuration       : Cardinal;
-	  nDefaultDamage       : Word;
-	  nAreaOfEffect        : Word;
-	  fEdgeEffectivnes     : Single;
-	  lRange               : Cardinal;
-	  lCoverage            : Cardinal;
-	  nReloadTime          : Word;
-	  nWeaponTimer         : Word;
-	  nTurnRate            : Word;
-	  nBurst               : Word;
-	  nBurstRate           : Word;
-	  nSprayAngle          : Word;
-	  nDuration            : Word;
-	  nRandomDecay         : Word;
-	  nSoundStartEffectID  : SmallInt;
-	  nSoundHitEffectID    : SmallInt;
-	  nSoundWaterEffectID  : SmallInt;
-	  nSmokeDelay          : Word;
-	  nFlightTime          : Word;
-	  nHoldTime            : Word;
-	  nUnknown1            : Word;
-	  nUnknown2            : Word;
-	  nAccuracy            : Word;
-	  nTolerance           : Word;
-	  nPitchTolerance      : Word;
-	  ucID                 : Byte;
-	  cFireStarter         : Byte;
-	  cRenderType          : Byte;
-	  cColor               : Byte;
-	  cColor2              : Byte;
-	  Unknown3             : array [0..1] of Byte;
-	  lWeaponTypeMask      : Cardinal;
-  end;
 
   // 0x100
   PFeatureDefStruct = ^TFeatureDefStruct;
@@ -747,6 +747,34 @@ type
 	  p_TileSet              : Pointer;
 	  p_PlotMemory           : Pointer; // features
     p_TileMap              : Pointer;
+  end;
+
+  PWeaponProjectile = ^TWeaponProjectile;
+  TWeaponProjectile = packed record
+    Weapon          : Pointer;
+    Position_Curnt  : TPosition;
+    Position_Start  : TPosition;
+    Position_Target : TPosition;
+    Position_Target2: TPosition;
+    field_34        : Word;
+    Turn            : TTurn;
+    data2           : Word;
+    field_3E        : Integer;
+    CreateTime      : Integer;
+    TimeToDeath     : Integer;
+    CreatingTime    : Integer;
+    p_TargetUnit    : Pointer;
+    p_AttackerUnit  : Pointer;
+    lInterceptor    : Pointer;
+    field_5A        : Integer;
+    field_5E        : Word;
+    nBurst          : Word;
+    nObjectPiece    : Word;
+    nPropellerSpeed : Word;
+    cOwnerID        : Byte;
+    field_67        : Word;
+    Mask            : Byte;
+    data3           : Byte;
   end;
 
   PTAdynmemStruct = ^TTAdynmemStruct;
@@ -1107,34 +1135,6 @@ type
     p_Order_CallBack  : Pointer;
   end;
 
-  PWeaponProjectile = ^TWeaponProjectile;
-  TWeaponProjectile = packed record
-    Weapon          : Pointer;
-    Position_Curnt  : TPosition;
-    Position_Start  : TPosition;
-    Position_Target : TPosition;
-    Position_Target2: TPosition;
-    field_34        : Word;
-    Turn            : TTurn;
-    data2           : Word;
-    field_3E        : Integer;
-    CreateTime      : Integer;
-    TimeToDeath     : Integer;
-    CreatingTime    : Integer;
-    p_TargetUnit    : Pointer;
-    p_AttackerUnit  : Pointer;
-    lInterceptor    : Integer;     // enemy units nukes counter
-    field_5A        : Integer;
-    field_5E        : Word;
-    nBurst          : Word;
-    nObjectPiece    : Word;
-    nPropellerSpeed : Word;
-    cMyLos_PlayerID : Byte;
-    field_67        : Word;
-    Mask            : Byte;
-    data3           : Byte;
-  end;
-
   TTAActionType = ( Action_Ready = 0,
                     Action_Activate = 1,
                     Action_AirStrike = 2,
@@ -1363,6 +1363,7 @@ type
     PreserveAccuracy : Integer;
     NotAirWeapon     : Integer;
     WeaponType2      : array[0..63] of AnsiChar;
+    Intercepts       : TStringList;
   end;
 
   TExtraUnitInfoTagsRec = packed record
@@ -1397,6 +1398,12 @@ type
 //    GafSequence_Core32lt : Pointer;
   end;
 
+  TPlayerModInfo = packed record
+    ModID          : SmallInt;
+    ModMajorVer    : AnsiChar;
+    ModMinorVer    : AnsiChar;
+  end;  
+  
 var
   ExtraGAFAnimations : TExtraGAFAnimations;
 
@@ -1405,6 +1412,8 @@ var
   ExtraUnitInfoTags : array of TExtraUnitInfoTagsRec;
   ExtraWeaponDefTags : array of TExtraWeaponDefTagsRec;
   ExtraMapOTATags : TExtraMapOTATagsRec;
+
+  LocalModInfo : TPlayerModInfo;
 
   // pointer to ddraw's weapon array
   WeaponLimitPatchArr : Pointer;

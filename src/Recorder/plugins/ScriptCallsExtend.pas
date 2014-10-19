@@ -202,11 +202,7 @@ begin
   begin
     if PUnitStruct(PWeaponProjectile(Projectile).p_AttackerUnit).p_UnitScriptsData <> nil then
     begin
-      if IniSettings.WeaponType <= 256 then
-        WeapID := PWeaponDef(PWeaponProjectile(Projectile).Weapon).ucID
-      else
-        WeapID := PWeaponDef(PWeaponProjectile(Projectile).Weapon).lWeaponIDCrack;
-
+      WeapID := TAWeapon.GetWeaponID(PWeaponProjectile(Projectile).Weapon);
       Script_RunScript ( 0, 0, LongWord(PUnitStruct(PWeaponProjectile(Projectile).p_AttackerUnit).p_UnitScriptsData),
                          0, 0, Hit, WeapID,
                          2,

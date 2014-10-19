@@ -200,7 +200,6 @@ Used to transfer extra battleroom state info to other players
 const
   TANM_Rec2Rec_GameStateInfo = $4;
 type
-{$MINENUMSIZE 1}
   PRec2Rec_GameStateInfo_Message = ^TRec2Rec_GameStateInfo_Message;
   TRec2Rec_GameStateInfo_Message = packed record
     AutopauseState : Byte;
@@ -212,7 +211,21 @@ type
     FastSpeed      : Byte;    
     AIDifficulty   : Byte;
   end;
-  
+
+{
+Used to transfer mod version to other players
+}
+const
+  TANM_Rec2Rec_ModInfo = $5;
+type
+  PRec2Rec_ModInfo_Message = ^TRec2Rec_ModInfo_Message;
+  TRec2Rec_ModInfo_Message = packed record
+    PlayerID       : TDPID;
+    ModID          : SmallInt;
+    ModMajorVer    : AnsiChar;
+    ModMinorVer    : AnsiChar;
+  end;
+
 {
 Use to notify other players that unit wants to have its own "global" template
 }
