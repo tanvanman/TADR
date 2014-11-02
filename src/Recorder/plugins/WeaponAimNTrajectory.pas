@@ -25,7 +25,7 @@ procedure WeaponAimNTrajectory_WeaponType2;
 procedure WeaponAimNTrajectory_NoAirWeapon;
 procedure WeaponAimNTrajectory_NoAirWeapon_Cursor;
 function WeaponAimNTrajectory_SearchForEnemyNukes(UnitStruct: PUnitStruct;
-  WeapIndex: Byte): PWeaponProjectile; stdcall;
+  WeapStructIndex: Byte): PWeaponProjectile; stdcall;
 
 //procedure WeaponAimNTrajectory_SecondPhaseSpray;
 //procedure WeaponAimNTrajectory_WaterToGroundCheck_GrantFire;
@@ -633,7 +633,7 @@ StandardWeaponContinue :
 end;
 
 function WeaponAimNTrajectory_SearchForEnemyNukes(UnitStruct: PUnitStruct;
-  WeapIndex: Byte): PWeaponProjectile; stdcall;
+  WeapStructIndex: Byte): PWeaponProjectile; stdcall;
 var
   CurProjectileIdx : Integer;
   ProjectilesCount : Integer;
@@ -651,8 +651,8 @@ begin
   ProjectilesCount := PTADynMemStruct(TAData.MainStructPtr).lNumProjectiles;
   FirstProjectile := PTADynMemStruct(TAData.MainStructPtr).p_Projectiles;
   Projectile := PTADynMemStruct(TAData.MainStructPtr).p_Projectiles;
-  Coverage := PWeaponDef(@UnitStruct.UnitWeapons[WeapIndex]).lCoverage shl 16;
-  if ( UnitStruct.UnitWeapons[WeapIndex].cStock <> 0 ) and
+  Coverage := PWeaponDef(@UnitStruct.UnitWeapons[WeapStructIndex]).lCoverage shl 16;
+  if ( UnitStruct.UnitWeapons[WeapStructIndex].cStock <> 0 ) and
      ( ProjectilesCount > 0 ) then
   begin
     while ( True ) do
@@ -663,19 +663,20 @@ begin
           if ( Coverage + UnitStruct.Position.X - Projectile.Position_Target2.X <= (2 * Coverage) ) and
              ( Coverage + UnitStruct.Position.Z - Projectile.Position_Target2.Z <= (2 * Coverage) ) then
           begin
+            // if tag is empty = intercept all
             bAllowShoot := True;
-            WeapIdx := TAWeapon.GetWeaponID(UnitStruct.UnitWeapons[WeapIndex].p_Weapon);
+            WeapIdx := TAWeapon.GetWeaponID(UnitStruct.UnitWeapons[WeapStructIndex].p_Weapon);
             if ExtraWeaponDefTags[WeapIdx].Intercepts <> nil then
             begin
-               bAllowShoot := False;
-               for i := 0 to ExtraWeaponDefTags[WeapIdx].Intercepts.Count - 1 do
-               begin
-                 if Pos(ExtraWeaponDefTags[WeapIdx].Intercepts[i], PWeaponDef(Projectile.Weapon).szWeaponName) <> 0 then
-                 begin
-                   bAllowShoot := True;
-                   Break;
-                 end;
-               end;
+              bAllowShoot := False;
+              for i := 0 to ExtraWeaponDefTags[WeapIdx].Intercepts.Count - 1 do
+              begin
+                if Pos(ExtraWeaponDefTags[WeapIdx].Intercepts[i], PWeaponDef(Projectile.Weapon).szWeaponName) <> 0 then
+                begin
+                  bAllowShoot := True;
+                  Break;
+                end;
+              end;
             end;
             if bAllowShoot then
             begin

@@ -68,7 +68,7 @@ begin
                             @OnUninstallGAFSequences );
 
     GAFSequencesPlugin.MakeRelativeJmp(State_GAFSequences,
-                                         'Load extra gaf sequences from FX.GAF',
+                                         'Load extra gaf sequences from CUSTOMFX.GAF',
                                          @LoadExtraGAFAnimationsHook,
                                          $00429AC5, 1);
 
@@ -82,52 +82,57 @@ begin
     Result := nil;
 end;
 
-procedure LoadExtraGAFAnimations(GAFHandle: Pointer); stdcall;
+procedure LoadExtraGAFAnimations; stdcall;
 var
   i, j: integer;
-  pSeq: Pointer;
+  pSeq: PGAFSequence;
+  CustomFXHandle : Pointer;
 begin
-  j := 6;
-  i := 0;
-  while True do
+  CustomFXHandle := GAF_OpenAnimsFile(PAnsiChar('customfx'));
+  if CustomFXHandle <> nil then
   begin
-    pSeq := GAF_Name2Sequence(GAFHandle, PAnsiChar('Explode' + IntToStr(j)));
-    if pSeq <> nil then
+    j := 6;
+    i := 0;
+    while True do
     begin
-      SetLength(ExtraGAFAnimations.Explode, High(ExtraGAFAnimations.Explode) + 2);
-      PGAFSequence(pSeq).Signature := 0;
-      ExtraGAFAnimations.Explode[i] := pSeq;
-      Inc(i);
-      Inc(j);
-    end else
-      Break;
-  end;
+      pSeq := GAF_Name2Sequence(CustomFXHandle, PAnsiChar('Explode' + IntToStr(j)));
+      if pSeq <> nil then
+      begin
+        SetLength(ExtraGAFAnimations.Explode, High(ExtraGAFAnimations.Explode) + 2);
+        PGAFSequence(pSeq).Signature := 0;
+        ExtraGAFAnimations.Explode[i] := pSeq;
+        Inc(i);
+        Inc(j);
+      end else
+        Break;
+    end;
 
-  i := 0;
-  while True do
-  begin
-    pSeq := GAF_Name2Sequence(GAFHandle, PAnsiChar('CustAnim' + IntToStr(i + 1)));
-    if pSeq <> nil then
+    i := 0;
+    while True do
     begin
-      SetLength(ExtraGAFAnimations.CustAnim, High(ExtraGAFAnimations.CustAnim) + 2);
-      PGAFSequence(pSeq).Signature := 0;
-      ExtraGAFAnimations.CustAnim[i] := pSeq;
-      Inc(i);
-    end else
-      Break;
-  end;
+      pSeq := GAF_Name2Sequence(CustomFXHandle, PAnsiChar('CustAnim' + IntToStr(i + 1)));
+      if pSeq <> nil then
+      begin
+        SetLength(ExtraGAFAnimations.CustAnim, High(ExtraGAFAnimations.CustAnim) + 2);
+        PGAFSequence(pSeq).Signature := 0;
+        ExtraGAFAnimations.CustAnim[i] := pSeq;
+        Inc(i);
+      end else
+        Break;
+    end;
 
-  i := 0;
-  while True do
-  begin
-    pSeq := GAF_Name2Sequence(GAFHandle, PAnsiChar('flamestream' + IntToStr(i + 2)));
-    if pSeq <> nil then
+    i := 0;
+    while True do
     begin
-      SetLength(ExtraGAFAnimations.FlameStream, High(ExtraGAFAnimations.FlameStream) + 2);
-      ExtraGAFAnimations.FlameStream[i] := pSeq;
-      Inc(i);
-    end else
-      Break;
+      pSeq := GAF_Name2Sequence(CustomFXHandle, PAnsiChar('flamestream' + IntToStr(i + 2)));
+      if pSeq <> nil then
+      begin
+        SetLength(ExtraGAFAnimations.FlameStream, High(ExtraGAFAnimations.FlameStream) + 2);
+        ExtraGAFAnimations.FlameStream[i] := pSeq;
+        Inc(i);
+      end else
+        Break;
+    end;
   end;
 end;
 
@@ -135,7 +140,6 @@ procedure LoadExtraGAFAnimationsHook;
 asm
 //  mov     [eax+2], bl
   pushAD
-  push    esi
   call    LoadExtraGAFAnimations
   popAD
   mov     ecx, [TADynmemStructPtr]

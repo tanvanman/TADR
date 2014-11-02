@@ -175,7 +175,7 @@ begin
   if bIsUnitWeaponNuke then
   begin
     UnitInfo := TAMem.UnitInfoId2Ptr(Word(UnitInfoId));
-    OrderSubBuild(UnitInfo.szUnitName, UnitPtr, 1);
+    UnitSubBuildClick(UnitInfo.szUnitName, UnitPtr, 1);
   end;
 
   Result := bIsUnitWeaponNuke;

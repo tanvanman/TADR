@@ -286,7 +286,18 @@ type
   end;
 
 const
-  TANM_Rec2Rec_SetNanolatheParticles = $0F;
+  TANM_Rec2Rec_EmitSFXToUnit = $0F;
+type
+  PRec2Rec_EmitSFXToUnit_Message = ^TRec2Rec_EmitSFXToUnit_Message;
+  TRec2Rec_EmitSFXToUnit_Message = packed record
+    FromUnitID     : Word;
+    ToUnitID       : Word;
+    FromPieceIdx   : SmallInt;
+    SfxType        : Byte;
+  end;
+
+const
+  TANM_Rec2Rec_SetNanolatheParticles = $10;
 type
   PRec2Rec_SetNanolatheParticles_Message = ^TRec2Rec_SetNanolatheParticles_Message;
   TRec2Rec_SetNanolatheParticles_Message = packed record

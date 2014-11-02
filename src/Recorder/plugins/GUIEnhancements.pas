@@ -309,7 +309,8 @@ begin
     Result := nil;
 end;
 
-function DrawUnitState(Offscreen_p: Cardinal; Unit_p: Pointer; CenterPosX : Integer; CenterPosZ: Integer) : Integer; stdcall;
+function DrawUnitState(Offscreen_p: Cardinal; Unit_p: PUnitStruct;
+  CenterPosX : Integer; CenterPosZ: Integer) : Integer; stdcall;
 var
   { drawing }
   ColorsPal : Pointer;
@@ -369,7 +370,7 @@ begin
   if ((PTAdynmemStruct(TAData.MainStructPtr).GameOptionMask and 1) = 1) or
      (PUnitStruct(Unit_p).HotKeyGroup <> 0) then
   begin
-    UnitInfo := PUnitStruct(Unit_p).p_UnitDef;
+    UnitInfo := PUnitStruct(Unit_p).p_UNITINFO;
     ColorsPal := Pointer(LongWord(TAData.MainStructPtr)+$DCB);
     
     if ((PTAdynmemStruct(TAData.MainStructPtr).GameOptionMask and 1) = 1) and
@@ -456,142 +457,145 @@ begin
           end;
 
         // weapons reload
-        if (IniSettings.Plugin_MinWeaponReload <> 0) and
+        if ((IniSettings.Plugin_MinWeaponReload <> 0) or
+           (ExtraUnitInfoTags[UnitInfo.nCategory].UseCustomReloadBar)) and
            (UnitBuildTimeLeft = 0.0) then
         begin
-          if (PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon <> nil) or
-             (PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon <> nil) or
-             (PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon <> nil) then
+          MaxReloadTime := 0;
+          CurReloadTime := 0;
+          StockPile := 0;
+          CustomReloadBar := False;
+          if ExtraUnitInfoTags[UnitInfo.nCategory].UseCustomReloadBar then
           begin
-            MaxReloadTime := 0;
-            CurReloadTime := 0;
-            StockPile := 0;
-
-            if (PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon <> nil) then
+            if CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].LongID = TAUnit.GetLongId(Unit_p) then
             begin
-              if (PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28) then
-                StockPile := 1;
-              if PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon).nReloadTime >= IniSettings.Plugin_MinWeaponReload * 30 then
+              if CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].CustomWeapReload then
               begin
-                MaxReloadTime := PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon).nReloadTime;
-                CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).UnitWeapons[0].nReloadTime;
-              end;
-            end;
-            if (PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon <> nil) then
-            begin
-              if (PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28) then
-                StockPile := 2;
-              if PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon).nReloadTime >= IniSettings.Plugin_MinWeaponReload * 30 then
-              begin
-                MaxReloadTime := PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon).nReloadTime;
-                CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).UnitWeapons[1].nReloadTime;
-              end;
-            end;
-            if (PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon <> nil) then
-            begin
-              if (PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28) then
-                StockPile := 3;
-              if PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon).nReloadTime >= IniSettings.Plugin_MinWeaponReload * 30 then
-              begin
-                MaxReloadTime := PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon).nReloadTime;
-                CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).UnitWeapons[2].nReloadTime;
-              end;
-            end;
-
-            // custom weapon reload bar progress
-            CustomReloadBar := False;
-            if Assigned(CustomUnitInfosArray) then
-            begin
-              if CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].LongID = TAUnit.GetLongId(Pointer(Unit_p)) then
-                if CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].CustomWeapReload then
-                begin
-                  MaxReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].CustomWeapReloadMax;
-                  CurReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].CustomWeapReloadCur;
-                  CustomReloadBar := True;
-                end;
-              if CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].TeleportReloadMax <> 0 then
-              begin
-                MaxReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].TeleportReloadMax;
-                CurReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Pointer(Unit_p))].TeleportReloadCur;
+                MaxReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].CustomWeapReloadMax;
+                CurReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].CustomWeapReloadCur;
                 CustomReloadBar := True;
               end;
             end;
-
-            if MaxReloadTime <> 0 then
+          end else
+          begin
+            if (PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon <> nil) or
+               (PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon <> nil) or
+               (PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon <> nil) then
             begin
-              BottomZ := 6;
-              if (PUnitStruct(Unit_p).nKills >= 5) and
-                 not CustomReloadBar then
+              if (PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon <> nil) then
               begin
-                CurReloadTime := CurReloadTime - VETERANLEVEL_RELOADBOOST;
-                MaxReloadTime := MaxReloadTime - VETERANLEVEL_RELOADBOOST;
+                if (PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28) then
+                  StockPile := 1;
+                if PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon).nReloadTime >= IniSettings.Plugin_MinWeaponReload * 30 then
+                begin
+                  MaxReloadTime := PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[0].p_Weapon).nReloadTime;
+                  CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).UnitWeapons[0].nReloadTime;
+                end;
               end;
-
-              if CurReloadTime < 0 then
-                CurReloadTime := 0;
-
-              // stockpile weapon build progress instead of reload bar
-              if (StockPile <> 0) and
-                 IniSettings.Plugin_Stockpile and
-                 not CustomReloadBar then
+              if (PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon <> nil) then
               begin
-                if PUnitStruct(Unit_p).p_FutureOrder <> nil then
+                if (PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28) then
+                  StockPile := 2;
+                if PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon).nReloadTime >= IniSettings.Plugin_MinWeaponReload * 30 then
                 begin
-                  MaxReloadTime := 100;
-                  CurReloadTime := GetUnit_BuildWeaponProgress(pointer(Unit_p));
-                end else
-                  MaxReloadTime := 0; // disable drawing bar
+                  MaxReloadTime := PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[1].p_Weapon).nReloadTime;
+                  CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).UnitWeapons[1].nReloadTime;
+                end;
               end;
-
-              if MaxReloadTime > 0 then
+              if (PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon <> nil) then
               begin
-                RectDrawPos.Left := Word(CenterPosX) - 17;
-                RectDrawPos.Right := Word(CenterPosX) + 17;
-                RectDrawPos.Top := Word(CenterPosZ) + 5 - 2;
-                RectDrawPos.Bottom := Word(CenterPosZ) + 5 + 2;
-              {  if StockPile <> 0 then
-                  DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+4)^)
-                else   }
-                DrawBar(Offscreen_p, @RectDrawPos, PByte(ColorsPal)^);
-
-                Inc(RectDrawPos.Top);
-                Dec(RectDrawPos.Bottom);
-                Inc(RectDrawPos.Left);
-                RectDrawPos.Right := Round(RectDrawPos.Left + (32 * CurReloadTime) / MaxReloadTime);
-
-                if StockPile <> 0 then
+                if (PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28) then
+                  StockPile := 3;
+                if PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon).nReloadTime >= IniSettings.Plugin_MinWeaponReload * 30 then
                 begin
-                  if IniSettings.Plugin_Colors and (GetRaceSpecificColor(28) <> 0) then
-                    DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(28))^)
-                  else
-                    DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[28].cDefaultVal)^);
-                end else
-                begin
-                  BarProgress := Round((CurReloadTime / MaxReloadTime) * 100);
-                  if IniSettings.Plugin_Colors and (GetRaceSpecificColor(26) <> 0) then
-                    WeapReloadColor := GetRaceSpecificColor(26)
-                  else
-                    WeapReloadColor := ColorsArray[26].cDefaultVal;
-                  case BarProgress of
-                     0..15 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor)^);
-                    16..30 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 1)^);
-                    31..47 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 2)^);
-                    48..64 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 3)^);
-                    65..80 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 4)^);
-                    81..94 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 5)^);
-                   95..100 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 6)^);
-                  end;
+                  MaxReloadTime := PWeaponDef(PUnitStruct(Unit_p).UnitWeapons[2].p_Weapon).nReloadTime;
+                  CurReloadTime := MaxReloadTime - PUnitStruct(Unit_p).UnitWeapons[2].nReloadTime;
                 end;
               end;
             end;
-          end; { Unit got any weapons }
+          end;
+
+          if CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].TeleportReloadMax <> 0 then
+          begin
+            MaxReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].TeleportReloadMax;
+            CurReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].TeleportReloadCur;
+            CustomReloadBar := True;
+          end;
+
+          if MaxReloadTime <> 0 then
+          begin
+            BottomZ := 6;
+            if (PUnitStruct(Unit_p).nKills >= 5) and
+               not CustomReloadBar then
+            begin
+              CurReloadTime := CurReloadTime - VETERANLEVEL_RELOADBOOST;
+              MaxReloadTime := MaxReloadTime - VETERANLEVEL_RELOADBOOST;
+            end;
+
+            if CurReloadTime < 0 then
+              CurReloadTime := 0;
+
+            // stockpile weapon build progress instead of reload bar
+            if (StockPile <> 0) and
+               IniSettings.Plugin_Stockpile and
+               not CustomReloadBar then
+            begin
+              if PUnitStruct(Unit_p).p_FutureOrder <> nil then
+              begin
+                MaxReloadTime := 100;
+                CurReloadTime := GetUnit_BuildWeaponProgress(Unit_p);
+              end else
+                MaxReloadTime := 0; // disable drawing bar
+            end;
+
+            if MaxReloadTime > 0 then
+            begin
+              RectDrawPos.Left := Word(CenterPosX) - 17;
+              RectDrawPos.Right := Word(CenterPosX) + 17;
+              RectDrawPos.Top := Word(CenterPosZ) + 5 - 2;
+              RectDrawPos.Bottom := Word(CenterPosZ) + 5 + 2;
+            {  if StockPile <> 0 then
+                DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+4)^)
+              else   }
+              DrawBar(Offscreen_p, @RectDrawPos, PByte(ColorsPal)^);
+
+              Inc(RectDrawPos.Top);
+              Dec(RectDrawPos.Bottom);
+              Inc(RectDrawPos.Left);
+              RectDrawPos.Right := Round(RectDrawPos.Left + (32 * CurReloadTime) / MaxReloadTime);
+
+              if StockPile <> 0 then
+              begin
+                if IniSettings.Plugin_Colors and (GetRaceSpecificColor(28) <> 0) then
+                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(28))^)
+                else
+                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[28].cDefaultVal)^);
+              end else
+              begin
+                BarProgress := Round((CurReloadTime / MaxReloadTime) * 100);
+                if IniSettings.Plugin_Colors and (GetRaceSpecificColor(26) <> 0) then
+                  WeapReloadColor := GetRaceSpecificColor(26)
+                else
+                  WeapReloadColor := ColorsArray[26].cDefaultVal;
+                case BarProgress of
+                   0..15 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor)^);
+                  16..30 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 1)^);
+                  31..47 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 2)^);
+                  48..64 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 3)^);
+                  65..80 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 4)^);
+                  81..94 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 5)^);
+                 95..100 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 6)^);
+                end;
+              end;
+            end;
+          end;
         end; { IniSettings.Plugin_WeaponReloadTimeBar }
 
         end; {UnitHealth > 0}
 
         if IniSettings.Plugin_MinReclaimTime > 0 then
         begin
-          CurOrder := TAUnit.GetCurrentOrderType(Pointer(Unit_p));
+          CurOrder := TAUnit.GetCurrentOrderType(Unit_p);
           if (CurOrder = Action_Reclaim) or
              (CurOrder = Action_VTOL_Reclaim) or
              (CurOrder = Action_Capture) or
@@ -600,15 +604,15 @@ begin
             if (CurOrder = Action_Reclaim) or
                (CurOrder = Action_Resurrect) or
                (CurOrder = Action_Capture) then
-              OrderStateCorrect := TAUnit.GetCurrentOrderState(Pointer(Unit_p)) and $400000 = $400000
+              OrderStateCorrect := TAUnit.GetCurrentOrderState(Unit_p) and $400000 = $400000
             else
-              OrderStateCorrect := TAUnit.GetCurrentOrderState(Pointer(Unit_p)) and $100000 = $100000;
+              OrderStateCorrect := TAUnit.GetCurrentOrderState(Unit_p) and $100000 = $100000;
             if OrderStateCorrect then
             begin
               if CurOrder = Action_Capture then
                 FeatureDefID := 0
               else
-                FeatureDefID := GetFeatureTypeOfPos(@PUnitOrder(PUnitStruct(Pointer(Unit_p)).p_UnitOrders).Pos, PUnitStruct(Pointer(Unit_p)).p_UnitOrders, nil);
+                FeatureDefID := GetFeatureTypeOfPos(@PUnitOrder(PUnitStruct(Unit_p).p_MainOrder).Pos, PUnitStruct(Unit_p).p_MainOrder, nil);
               if FeatureDefID <> -1 then
               begin
                 MaxActionVal := 0;
@@ -618,17 +622,17 @@ begin
                   begin
                     FeatureDefPtr := TAMem.FeatureDefId2Ptr(FeatureDefID);
                     MaxActionVal := Trunc( (PFeatureDefStruct(FeatureDefPtr).metal + PFeatureDefStruct(FeatureDefPtr).energy) / 2 + 15);
-                    CurActionVal := TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 1);
+                    CurActionVal := TAUnit.GetCurrentOrderParams(Unit_p, 1);
                   end;
                   Action_VTOL_Reclaim :
                   begin
                     FeatureDefPtr := TAMem.FeatureDefId2Ptr(FeatureDefID);
                     MaxActionVal := Trunc( (PFeatureDefStruct(FeatureDefPtr).metal + PFeatureDefStruct(FeatureDefPtr).energy) / 2 + 30);
-                    CurActionVal := TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 1);
+                    CurActionVal := TAUnit.GetCurrentOrderParams(Unit_p, 1);
                   end;
                   Action_Capture:
                   begin
-                    ActionUnitType := TAUnit.GetUnitInfoId(TAUnit.GetCurrentOrderTargetUnit(Pointer(Unit_p)));
+                    ActionUnitType := TAUnit.GetUnitInfoId(TAUnit.GetCurrentOrderTargetUnit(Unit_p));
                     if ActionUnitType <> 0 then
                     begin
                       ActionUnitBuildCost1 := PUnitInfo(TAMem.UnitInfoId2Ptr(ActionUnitType)).lBuildCostEnergy * 30 * 0.00050000002;
@@ -636,21 +640,21 @@ begin
                       ActionTime := (ActionUnitBuildCost1 - ActionUnitBuildCost2) + 150;
 
                       MaxActionVal := Round(ActionTime);
-                      if MaxActionVal - TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 1) > 0 then
-                        CurActionVal := MaxActionVal - TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 1);
+                      if MaxActionVal - TAUnit.GetCurrentOrderParams(Unit_p, 1) > 0 then
+                        CurActionVal := MaxActionVal - TAUnit.GetCurrentOrderParams(Unit_p, 1);
                     end;
                   end;
                   Action_Resurrect :
                   begin
                     FeatureDefPtr := TAMem.FeatureDefId2Ptr(FeatureDefID);
-                    ActionUnitType := TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 1);
+                    ActionUnitType := TAUnit.GetCurrentOrderParams(Unit_p, 1);
                     if ActionUnitType <> 0 then
                     begin
                       ActionUnitBuildTime := PUnitInfo(TAMem.UnitInfoId2Ptr(ActionUnitType)).lBuildTime;
-                      ActionWorkTime := PUnitInfo(PUnitStruct(Pointer(Unit_p)).p_UnitDef).nWorkerTime div 30;
+                      ActionWorkTime := PUnitInfo(PUnitStruct(Unit_p).p_UNITINFO).nWorkerTime div 30;
                       ActionTime := (ActionUnitBuildTime * 0.3) / ActionWorkTime;
                       MaxActionVal := Trunc(ActionTime);
-                      CurActionVal := TAUnit.GetCurrentOrderParams(Pointer(Unit_p), 2);
+                      CurActionVal := TAUnit.GetCurrentOrderParams(Unit_p, 2);
                     end;
                   end;
                 end;
@@ -689,7 +693,6 @@ begin
             end;
           end;
         end;
-        //TAMem.GetFeatureDef($5C)
 
         // built weapons counter (nukes)
         if IniSettings.Plugin_Stockpile then
@@ -960,7 +963,7 @@ var
 begin
   Result := 0;
   UnitPtr := Pointer(UnitVolume - $64);
-  UnitInfo := UnitPtr.p_UnitDef;
+  UnitInfo := UnitPtr.p_UNITINFO;
 
   CenterX := Round((Rx2+Botx1)/2);
   CenterY := Round((Boty1+Ry2)/2);
@@ -1119,7 +1122,7 @@ procedure PrepareNanoUnit(UnitPtr: PUnitStruct);
 var
   UnitInfo : PUnitInfo;
 begin
-  UnitInfo := UnitPtr.p_UnitDef;
+  UnitInfo := UnitPtr.p_UNITINFO;
   if UnitInfo <> nil then
   begin
     UnitInfo.UnitTypeMask := UnitInfo.UnitTypeMask or $2000000;
@@ -1173,8 +1176,8 @@ begin
      (PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType = $E) then
   begin
     NanoSpotUnitSt.nUnitInfoID := PTAdynmemStruct(TAData.MainStructPtr).nBuildNum;
-    NanoSpotUnitSt.p_UnitDef := TAMem.UnitInfoId2Ptr(NanoSpotUnitSt.nUnitInfoID);
-    if (ExtraUnitInfoTags[PUnitInfo(NanoSpotUnitSt.p_UnitDef).nCategory].DrawBuildSpotNanoFrame = True) or
+    NanoSpotUnitSt.p_UNITINFO := TAMem.UnitInfoId2Ptr(NanoSpotUnitSt.nUnitInfoID);
+    if (ExtraUnitInfoTags[PUnitInfo(NanoSpotUnitSt.p_UNITINFO).nCategory].DrawBuildSpotNanoFrame = True) or
        IniSettings.Plugin_ForceDrawBuildSpotNano then
     begin
       X := PTAdynmemStruct(TAData.MainStructPtr).lBuildPosRealX;
@@ -1186,7 +1189,7 @@ begin
       if UNITS_AllocateUnit(@NanoSpotUnitSt, X, Position.Y, Z, 0) then
       begin
         NanoSpotUnitInfoSt := PUnitInfo(TAMem.UnitInfoId2Ptr(NanoSpotUnitSt.nUnitInfoID))^;
-        NanoSpotUnitSt.p_UnitDef := @NanoSpotUnitInfoSt;
+        NanoSpotUnitSt.p_UNITINFO := @NanoSpotUnitInfoSt;
 
         NanoSpotUnitSt.Position.X := NanoSpotUnitSt.Position.x_ + NanoSpotUnitSt.nFootPrintX * 8;
         NanoSpotUnitSt.Position.x_ := 0;
@@ -1245,15 +1248,15 @@ begin
   i := High(LineNanoSpotUnitSt);
 
   LineNanoSpotUnitSt[i].nUnitInfoID := PTAdynmemStruct(TAData.MainStructPtr).nBuildNum;
-  LineNanoSpotUnitSt[i].p_UnitDef := TAMem.UnitInfoId2Ptr(LineNanoSpotUnitSt[i].nUnitInfoID);
-  LineNanoSpotUnitInfoSt := PUnitInfo(LineNanoSpotUnitSt[i].p_UnitDef)^;
+  LineNanoSpotUnitSt[i].p_UNITINFO := TAMem.UnitInfoId2Ptr(LineNanoSpotUnitSt[i].nUnitInfoID);
+  LineNanoSpotUnitInfoSt := PUnitInfo(LineNanoSpotUnitSt[i].p_UNITINFO)^;
   
   GetTPosition(X, Y, Position);
   LineNanoSpotUnitSt[i].p_Owner := TAPlayer.GetPlayerByIndex(TAData.ViewPlayer);
 
   if UNITS_AllocateUnit(@LineNanoSpotUnitSt[i], X, Position.Y, Y, 0) then
   begin
-    LineNanoSpotUnitSt[i].p_UnitDef := @LineNanoSpotUnitInfoSt;
+    LineNanoSpotUnitSt[i].p_UNITINFO := @LineNanoSpotUnitInfoSt;
     PrepareNanoUnit(@LineNanoSpotUnitSt[0]);
 
     LineNanoSpotUnitSt[i].Position.X := LineNanoSpotUnitSt[i].Position.x_ + LineNanoSpotUnitSt[i].nFootPrintX * 8;
@@ -1304,7 +1307,7 @@ begin
 
     Position := UnitOrder.Pos;
     NanoSpotQueueUnitSt.nUnitInfoID := UnitInfo.nCategory;
-    NanoSpotQueueUnitSt.p_UnitDef := TAMem.UnitInfoId2Ptr(NanoSpotQueueUnitSt.nUnitInfoID);
+    NanoSpotQueueUnitSt.p_UNITINFO := TAMem.UnitInfoId2Ptr(NanoSpotQueueUnitSt.nUnitInfoID);
     X := Position.X;
     Z := Position.Z;
     GetTPosition(X, Z, Position);
@@ -1313,7 +1316,7 @@ begin
     if UNITS_AllocateUnit(@NanoSpotQueueUnitSt, X, Position.Y, Z, 0) then
     begin
       NanoSpotQueueUnitInfoSt := PUnitInfo(TAMem.UnitInfoId2Ptr(NanoSpotQueueUnitSt.nUnitInfoID))^;
-      NanoSpotQueueUnitSt.p_UnitDef := @NanoSpotQueueUnitInfoSt;
+      NanoSpotQueueUnitSt.p_UNITINFO := @NanoSpotQueueUnitInfoSt;
 
       NanoSpotQueueUnitSt.Position.X := NanoSpotQueueUnitSt.Position.x_;
       NanoSpotQueueUnitSt.Position.x_ := 0;
@@ -1477,7 +1480,7 @@ var
   GameTime : Integer;
   UnitInfo : PUnitInfo;
 begin
-  UnitInfo := UnitOrder.p_Unit.p_UnitDef;
+  UnitInfo := UnitOrder.p_Unit.p_UNITINFO;
   if UnitInfo = nil then
     Exit;
     
@@ -1755,22 +1758,12 @@ asm
   call PatchNJump;
 end;
 }
+
 procedure BroadcastNanolatheParticles(PosStart: PPosition;
   PosTarget: PNanolathePos; bReverse: Integer); stdcall;
-//var
-//  c1, c2, f: Int64;
-//  e: Extended;
 begin
-//if TAData.GameTime mod 4 = 0 then
-//  begin
-//  QueryPerformanceFrequency(f);
-//  QueryPerformanceCounter(c1);
   if TAData.NetworkLayerEnabled then
     GlobalDplay.SendCobEventMessage(TANM_Rec2Rec_SetNanolatheParticles, 0, nil, @PosStart, @bReverse, nil, @PosTarget, nil);
-//  QueryPerformanceCounter(c2);
-//  e := (c2-c1)/f;
- // Log_.Add(0, 'took: ' +FloatToStr(e));
-//  end;
 end;
 
 procedure BroadcastNanolatheParticles_BuildingBuild;

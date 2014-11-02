@@ -43,6 +43,11 @@ var
   GAF_SequenceIndex2Frame : GAF_SequenceIndex2FrameHandler = GAF_SequenceIndex2FrameHandler($004B7F30);
 
 type
+  GAF_OpenAnimsFileHandler = function (FileName: PAnsiChar): Pointer; stdcall;
+var
+  GAF_OpenAnimsFile : GAF_OpenAnimsFileHandler = GAF_OpenAnimsFileHandler($00429700);
+
+type
   GAF_DrawTransformedHandler = function (OFFSCREEN_Ptr: Cardinal; GafSequence: Pointer; Position: PGAFFrameTransform; Pos2: PGAFFrameTransform) : Pointer; stdcall;
 var
   GAF_DrawTransformed : GAF_DrawTransformedHandler = GAF_DrawTransformedHandler($004C7580);
@@ -529,11 +534,19 @@ var
   SubOrder2Unit: SubOrder2UnitHandler = SubOrder2UnitHandler($0043ADC0);
 
 type
-  OrderSubBuildHandler = function ( UnitInfoName: PAnsiChar;
+  ORDERS_NewSubBuildOrderHandler = function ( OrderType: Cardinal;
+                                              BuilderPtr: PUnitStruct;
+                                              UnitInfoID: Cardinal;
+                                              QueueAmount: Integer): PUnitOrder; stdcall;
+var
+  ORDERS_NewSubBuildOrder: ORDERS_NewSubBuildOrderHandler = ORDERS_NewSubBuildOrderHandler($0043B0B0);
+
+type
+  UnitSubBuildClickHandler = function ( UnitInfoName: PAnsiChar;
                                     BuilderPtr: PUnitStruct;
                                     QueueAmount: Integer): Word; stdcall;
 var
-  OrderSubBuild: OrderSubBuildHandler = OrderSubBuildHandler($00419B00);
+  UnitSubBuildClick: UnitSubBuildClickHandler = UnitSubBuildClickHandler($00419B00);
 
 type
   ORDERS_RemoveAllBuildQueuesHandler = procedure ( UnitPtr: PUnitStruct; Unk: LongBool); stdcall;
@@ -790,9 +803,17 @@ var
   LoadCampaign_UniqueUnits : LoadCampaign_UniqueUnitsHandler = LoadCampaign_UniqueUnitsHandler($00488310);
 
 type
-  CreateMovementClassHandler = function ( a1: Longint ): Longint; stdcall;
+  Campaign_ParseUnitInitialMissionHandler = function( UnitPtr: PUnitStruct;
+                                                      Missions: PAnsiChar;
+                                                      UniqueNameArray: Pointer): Pointer; stdcall;
 var
-  CreateMovementClass : CreateMovementClassHandler = CreateMovementClassHandler($485E50);
+  Campaign_ParseUnitInitialMission :
+    Campaign_ParseUnitInitialMissionHandler = Campaign_ParseUnitInitialMissionHandler($00487BF0);
+
+type
+  CreateMovementClassHandler = function ( UnitPtr: Pointer ): Pointer; stdcall;
+var
+  CreateMovementClass : CreateMovementClassHandler = CreateMovementClassHandler($00485E50);
 
 type
   PlayerArryIndex2IDHandler = function ( a1: LongWord ): Longint; stdcall;

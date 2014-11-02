@@ -43,9 +43,9 @@ const
  UNIT_TYPE_CRC = 78;
  UNIT_TYPE_CRC_TO_ID = 79;
  UNIT_TYPE_IN_CATEGORY = 80;
- PRIOR_UNIT	= 81;
- TRANSPORTED_BY	= 82;
- TRANSPORTING	= 83;
+ PRIOR_UNIT = 81;
+ TRANSPORTED_BY = 82;
+ TRANSPORTING = 83;
 
  { Players }
  PLAYER_ACTIVE = 84;
@@ -81,7 +81,7 @@ const
  WEAPON_PRIMARY = 110;
  WEAPON_SECONDARY = 111;
  WEAPON_TERTIARY = 112;
- KILLS = 113;
+ UNIT_KILLS = 113;
  ATTACKER_ID = 114;
  LOCKED_TARGET_ID = 115;
  UNDER_ATTACK = 116;
@@ -119,6 +119,7 @@ const
  ORDER_UNIT_POS = 145;
  ORDER_SELF_UNIT_POS = 146;
  RESET_ORDER = 147;
+ ADD_BUILD = 148;
 
  { Global unit template }
  GRANT_UNITINFO = 149;
@@ -162,6 +163,7 @@ const
  MS_SWAP_TERRAIN = 187;
  MS_VIEW_PLAYER_ID = 188;
  MS_GAME_TIME = 189;
+ MS_APPLY_UNIT_SCRIPT = 190;
 
  { Math }
  LOWWORD = 200;
@@ -263,7 +265,6 @@ var
   UnitInfoSt : PUnitInfo;
   Position : TPosition;
   Turn: TTurn;
-  nPosX, nPosZ : Word;
   b : Byte;
   i : Integer;
   ExtensionsNotForDemos : Boolean;
@@ -444,7 +445,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     HEAL_UNIT :
       begin
-        result := UNITS_HealUnit(TAUnit.Id2Ptr(arg1), TAUnit.Id2Ptr(arg2), PUnitInfo(TAUnit.Id2Ptr(arg1).p_UnitDef).nWorkerTime / 30 );
+        result := UNITS_HealUnit(TAUnit.Id2Ptr(arg1), TAUnit.Id2Ptr(arg2), PUnitInfo(TAUnit.Id2Ptr(arg1).p_UNITINFO).nWorkerTime / 30 );
       end;
     GET_CLOAKED :
       begin
@@ -511,7 +512,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       begin
       result := BoolValues[(TAUnit.IsUnitTypeInCategory(TUnitCategories(arg1), TAUnit.GetUnitInfoPtr(pointer(unitptr)), TAMem.UnitInfoCrc2Ptr(arg2)))];
       end;
-    KILLS :
+    UNIT_KILLS :
       begin
       if arg1 <> 0 then
         result := TAUnit.GetKills(TAUnit.Id2Ptr(arg1))
@@ -695,7 +696,16 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     RESET_ORDER :
       begin
       if ExtensionsNotForDemos then
-        PUnitStruct(pointer(unitptr)).p_UnitOrders := nil;
+        PUnitStruct(pointer(unitptr)).p_MainOrder := nil;
+      end;
+    ADD_BUILD :
+      begin
+      if ExtensionsNotForDemos then
+        case arg1 of
+          1 : ORDERS_NewSubBuildOrder(Ord(Action_BuildWeapon), Pointer(UnitPtr), 0, arg2);
+          2 : PUnitStruct(UnitPtr).UnitWeapons[arg3 - 1].cStock := PUnitStruct(UnitPtr).UnitWeapons[arg3 - 1].cStock + arg2;
+          3 : ORDERS_NewSubBuildOrder(Ord(Action_BuildingBuild), Pointer(UnitPtr), arg3, arg2);
+        end;
       end;
     CALL_COB_PROC :
       begin
@@ -722,8 +732,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     TEST_UNLOAD_POS :
       begin
-      TAUnit.Position2Grid(PUnitStruct(TAUnit.Id2Ptr(arg1)).Position, PUnitStruct(TAUnit.Id2Ptr(arg1)).p_UnitDef, nPosX, nPosZ);
-      result := BoolValues[(TAUnit.TestAttachAtGridSpot(TAUnit.GetUnitInfoPtr(TAUnit.Id2Ptr(arg1)), nPosX, nPosZ)) = True];
+      result := BoolValues[(TAUnit.TestUnloadPosition(TAUnit.GetUnitInfoPtr(TAUnit.Id2Ptr(arg1)), PUnitStruct(TAUnit.Id2Ptr(arg1)).Position))];
       end;
     TEST_BUILD_SPOT :
       begin
@@ -835,7 +844,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     EMIT_SFX :
       begin
-      Result := BoolValues[TASfx.EmitSfxFromPiece(pointer(unitptr), TAUnit.Id2Ptr(arg3), arg1, arg2) <> 0];
+      Result := BoolValues[TASfx.EmitSfxFromPiece(pointer(unitptr), TAUnit.Id2Ptr(arg3), arg1, arg2, PUnitStruct(Pointer(UnitPtr)).cOwnerID = TAData.LocalPlayerID) <> 0];
       end;
     MS_MOVE_CAM_POS :
       begin
@@ -894,6 +903,12 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     MS_GAME_TIME :
       begin
       result := TAData.GameTime;
+      end;
+    MS_APPLY_UNIT_SCRIPT :
+      begin
+      Campaign_ParseUnitInitialMission(TAUnit.Id2Ptr(arg1),
+                                       PAnsiChar(MapMissionsUnitsInitialMissions[arg2]),
+                                       nil);
       end;
     MS_PLACE_FEATURE :
       begin
@@ -975,9 +990,10 @@ begin
             end;
           WEAPON_AIM_ABORTED :
             begin
-            if (Ord(TAUnit.GetCurrentOrderType(pointer(unitptr))) >= 2) and
-               (Ord(TAUnit.GetCurrentOrderType(pointer(unitptr))) <= 10) then
-              PUnitOrder(PUnitStruct(pointer(unitptr)).p_UnitOrders).lMask := PUnitOrder(PUnitStruct(pointer(unitptr)).p_UnitOrders).lMask or $8;
+            if ((TAUnit.GetCurrentOrderType(pointer(unitptr)) >= Action_AirStrike) and
+               (TAUnit.GetCurrentOrderType(pointer(unitptr)) <= Action_AttackUType)) or
+               (TAUnit.GetCurrentOrderType(pointer(unitptr)) = Action_Guard_NoMove) then
+              PUnitOrder(PUnitStruct(pointer(unitptr)).p_MainOrder).lMask := PUnitOrder(PUnitStruct(pointer(unitptr)).p_MainOrder).lMask or $8;
             case arg1 of
               WEAPON_PRIMARY   : PUnitStruct(pointer(unitptr)).UnitWeapons[0].nTargetID := $0;
               WEAPON_SECONDARY : PUnitStruct(pointer(unitptr)).UnitWeapons[1].nTargetID := $0;
@@ -1194,6 +1210,8 @@ begin
     MapMissionsSounds.Free;
   if Assigned(MapMissionsFeatures) then
     MapMissionsFeatures.Free;
+  if Assigned(MapMissionsUnitsInitialMissions) then
+    MapMissionsUnitsInitialMissions.Free;
 
   ZeroMemory(@MapMissionsUnit, SizeOf(TUnitStruct));
   ZeroMemory(@NanoSpotUnitSt, SizeOf(TUnitStruct));

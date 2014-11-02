@@ -76,7 +76,7 @@ begin
                            'Locking mouse functionality',
                            @CheckMouseForLock,
                            $004B5E35, 1 );
-
+    
     Result.MakeRelativeJmp(State_MapExtensions,
                            '',
                            @SolarEnergy,
@@ -142,6 +142,11 @@ begin
             MapMissionsFeatures := TStringList.Create;
             TDFIni.ReadSection('features', MapMissionsFeatures);
           end;
+          if TDFIni.SectionExists('unitsmissions') then
+          begin
+            MapMissionsUnitsInitialMissions := TStringList.Create;
+            TDFIni.ReadSection('unitsmissions', MapMissionsUnitsInitialMissions);
+          end;
         finally
           msTDF.Free;
         end;
@@ -153,14 +158,14 @@ begin
     FreeUnitMem(@MapMissionsUnit);
 
     MapMissionsUnit.nUnitInfoID := 1;
-    //MapMissionsUnit.p_UnitDef := TAMem.UnitInfoId2Ptr(0);
+    //MapMissionsUnit.p_UNITINFO := TAMem.UnitInfoId2Ptr(0);
 
     MapMissionsUnit.p_Owner := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
     //if UNITS_AllocateUnit(@MapMissionsUnit, 0, 0, 0, 1) then
     //begin
       MapMissionsUnitInfo := PUnitInfo(TAMem.UnitInfoId2Ptr(MapMissionsUnit.nUnitInfoID))^;
       MapMissionsUnitInfo.pCOBScript := COBEngine_LoadScriptFromFile(PAnsiChar(COBFilePath));
-      MapMissionsUnit.p_UnitDef := @MapMissionsUnitInfo;
+      MapMissionsUnit.p_UNITINFO := @MapMissionsUnitInfo;
       UNITS_CreateModelScripts(@MapMissionsUnit);
       GameType := Ord(TAData.GameingType);
       if GameType <> 0 then
@@ -236,7 +241,7 @@ UseSolarEnergy:
   // pop EnergyUse value
   fstp    st(0)
   fld     ExtraMapOTATags.SolarStrength
-  mov     ecx, [esi+TUnitStruct.p_UnitDef]
+  mov     ecx, [esi+TUnitStruct.p_UNITINFO]
   movzx   eax, word ptr [ecx+TUnitInfo.nCategory]
   mov     ecx, type TExtraUnitInfoTagsRec
   mov     edx, [ExtraUnitInfoTags]
@@ -377,7 +382,7 @@ begin
   CopyGafToContext(@offp, @GafFrame, 0, 0);
   InitRadar;
 
-  if (TAData.UnitsPtr <> nil) then
+  if (TAData.UnitsArray_p <> nil) then
   begin
     for i := 1 to TAData.MaxUnitsID do
     begin

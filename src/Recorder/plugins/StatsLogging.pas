@@ -180,11 +180,11 @@ procedure TStatsLogging.UnitFinished_StatEvent(player:word; unitid:word; tid:lon
 begin
   if lastunit <> TAUnit.Id2LongId(unitid) then
   begin
-    if (PUnitInfo(PUnitStruct(TAUnit.Id2Ptr(unitid)).p_UnitDef).szUnitName <> 'None') and
-       (((PUnitInfo(PUnitStruct(TAUnit.Id2Ptr(unitid)).p_UnitDef).UnitTypeMask2 shl 18) and 1) <> 1) then
+    if (PUnitInfo(PUnitStruct(TAUnit.Id2Ptr(unitid)).p_UNITINFO).szUnitName <> 'None') and
+       (((PUnitInfo(PUnitStruct(TAUnit.Id2Ptr(unitid)).p_UNITINFO).UnitTypeMask2 shl 18) and 1) <> 1) then
       Add(IntToStr(Ord(etUnitFinish)) + ';' + IntToStr(tid) + ';' +
           IntToStr(player) + ';' + IntToStr(unitid) + ';' +
-          PUnitInfo(PUnitStruct(TAUnit.Id2Ptr(unitid)).p_UnitDef).szName);
+          PUnitInfo(PUnitStruct(TAUnit.Id2Ptr(unitid)).p_UNITINFO).szName);
     lastunit := TAUnit.Id2LongId(unitid);
   end;
 end;
@@ -238,13 +238,13 @@ procedure TStatsLogging.Kill_StatEvent(killed:word; killer:word; tid:longword);
 var
   KilledUnit : PUnitStruct;
 begin
-  if TAData.UnitsPtr <> nil then
+  if TAData.UnitsArray_p <> nil then
   begin
     KilledUnit := PUnitStruct(TAUnit.Id2Ptr(killed));
-    if KilledUnit.p_UnitDef <> nil then
+    if KilledUnit.p_UNITINFO <> nil then
       Add(IntToStr(Ord(etUnitKill)) + ';' + IntToStr(tid) + ';' +
           IntToStr(killer) + ';' + IntToStr(killed) + ';' +
-          PUnitInfo(KilledUnit.p_UnitDef).szName)
+          PUnitInfo(KilledUnit.p_UNITINFO).szName)
     else
       Add(IntToStr(Ord(etUnitKill)) + ';' + IntToStr(tid) + ';' +
           IntToStr(killer) + ';' + IntToStr(killed));

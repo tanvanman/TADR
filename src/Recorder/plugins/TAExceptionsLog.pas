@@ -168,8 +168,8 @@ begin
   if ActionName = 'SetMaxReloadTime' then
   begin
     UnitPtr := Pointer(a2 - $73);
-    if PUnitStruct(UnitPtr).p_UnitDef <> nil then
-      UnitInfo := PUnitStruct(UnitPtr).p_UnitDef;
+    if PUnitStruct(UnitPtr).p_UNITINFO <> nil then
+      UnitInfo := PUnitStruct(UnitPtr).p_UNITINFO;
   end else
     if (ActionName = 'Create') or
        (ActionName = 'Activate') or
@@ -179,8 +179,8 @@ begin
        (ActionName = 'StopBuilding') then
     begin
       //UnitPtr := Pointer(a2 - $73);
-      //if PUnitStruct(UnitPtr).p_UnitDef <> nil then
-      //  UnitInfo := PUnitStruct(UnitPtr).p_UnitDef;
+      //if PUnitStruct(UnitPtr).p_UNITINFO <> nil then
+      //  UnitInfo := PUnitStruct(UnitPtr).p_UNITINFO;
     end;
 
   if UnitPtr <> nil then
@@ -282,4 +282,3 @@ UnitInfoTooHigh :
 end;
 
 end.
-

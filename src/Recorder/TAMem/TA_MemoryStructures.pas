@@ -112,7 +112,7 @@ type
     Y  : Word;
   end;
 
-  TPositionCard = packed record
+  TPositionLong = packed record
     X  : Integer;
     Y  : Integer;
     Z  : Integer;
@@ -120,8 +120,8 @@ type
 
   PNanolathePos = ^TNanolathePos;
   TNanolathePos = packed record
-    Pos1 : TPositionCard;
-    Pos2 : TPositionCard;
+    Pos1 : TPositionLong;
+    Pos2 : TPositionLong;
   end;
 
   PBaseObject = ^TBaseObject;
@@ -223,14 +223,42 @@ type
     cStateMask        : Byte;      // and 1 = aiming, nand 10 = target locked, nand 1 and nand 10 = weapon reloaded, firing again
   end;
 
-  // 0x118
+  PUnitOrder = ^TUnitOrder;
   PUnitStruct = ^TUnitStruct;
+  
+  TUnitOrder = packed record
+    p_PriorOrder_uosp : Pointer;
+    cOrderType        : Byte;
+    cState            : Byte;
+    nPaused           : Word;
+    field_8           : Word;
+    lRecallTime       : Cardinal;  // when current stage will be called again (for result = 2)
+    p_Unit            : PUnitStruct;
+    field_12          : Cardinal;
+    p_UnitTarget      : Pointer;
+    field_1A          : Cardinal;
+    p_ThisOrder       : Pointer;   // Just a pointer to this order.
+    Pos               : TPosition;
+    unknow_5          : Cardinal;
+    field_32          : Word;
+    nFootPrint        : Word;
+    lPar1             : Cardinal;  // for lab build queue = unit type
+    lPar2             : Cardinal;  // for lab build queue = amount of units
+    lUnitOrderFlags   : Cardinal;
+    lOrder_State      : Cardinal;  // reclaim - going to 00103801 / start reclaim 00503801
+    lStartTime        : Cardinal;
+    p_NextOrder_uos   : Pointer;
+    lMask             : Cardinal;
+    p_Order_CallBack  : Pointer;
+  end;  
+
+  // 0x118
   TUnitStruct = packed record
     p_MovementClass   : Pointer;
     UnitWeapons       : array[0..2] of TUnitWeapon;
     fMetalExtrRatio   : Single; //UnitInfo.extractsmetal * ExtractRatio * 0.0000152587890625;
-    p_UnitOrders      : Pointer;
-    p_FutureOrder     : Pointer;
+    p_MainOrder       : PUnitOrder;
+    p_FutureOrder     : PUnitOrder;
     Turn              : TTurn;
     Position          : TPosition;
     nGridPosX         : Word;
@@ -243,7 +271,7 @@ type
     p_TransporterUnit : Pointer;
     p_TransportedUnit : Pointer;
     p_PriorUnit       : Pointer;
-    p_UnitDef         : Pointer;
+    p_UNITINFO        : Pointer;
     p_Owner           : Pointer;
     p_UnitScriptsData : Pointer;
     p_Object3DO       : PObject3do;
@@ -883,7 +911,7 @@ type
     lNumUnitTypeDefs       : Cardinal;
     lNumUnitTypeDefs_Sqrt  : Cardinal;
     LoadedUNITINFO         : Cardinal;
-	  p_UnitDefs             : Pointer; //0x1439B
+	  p_UNITINFOs             : Pointer; //0x1439B
     unknow_21              : array [0..7] of Byte;
     palettes               : array [0..1023] of Byte;
     baseheight             : Word;
@@ -1108,33 +1136,6 @@ type
     Position : TPosition;
   end;
 
-  PUnitOrder = ^TUnitOrder;
-  TUnitOrder = packed record
-    p_PriorOrder_uosp : Pointer;
-    cOrderType        : Byte;
-    cState            : Byte;
-    nPaused           : Word;
-    field_8           : Word;
-    lRecallTime       : Cardinal;  // when current stage will be called again (for result = 2)
-    p_Unit            : PUnitStruct;
-    field_12          : Cardinal;
-    p_UnitTarget      : Pointer;
-    field_1A          : Cardinal;
-    p_ThisOrder       : Pointer;   // Just a pointer to this order.
-    Pos               : TPosition;
-    unknow_5          : Cardinal;
-    field_32          : Word;
-    nFootPrint        : Word;
-    lPar1             : Cardinal;  // for lab build queue = unit type
-    lPar2             : Cardinal;  // for lab build queue = amount of units
-    lUnitOrderFlags   : Cardinal;
-    lOrder_State      : Cardinal;  // reclaim - going to 00103801 / start reclaim 00503801
-    lStartTime        : Cardinal;
-    p_NextOrder_uos   : Pointer;
-    lMask             : Cardinal;
-    p_Order_CallBack  : Pointer;
-  end;
-
   TTAActionType = ( Action_Ready = 0,
                     Action_Activate = 1,
                     Action_AirStrike = 2,
@@ -1234,6 +1235,8 @@ type
                         usfIncludeInBuildState );
 
   TUnitSearchFilterSet = set of TUnitSearchFilter;
+
+  TTeleportMethod = ( tmNone, tmSelf, tmSelfLoS, tmVTOLOthers, tmYardmap, tmLinked );
 
   TUnitInfoExtensions = (
     UNITINFO_BUILDER = 0,
@@ -1374,16 +1377,20 @@ type
     NotLab : Boolean;
     DrawBuildSpotNanoFrame : Boolean;
     AISquadNr : Integer;
-    TeleportMethod : Integer;
+    TeleportMethod : TTeleportMethod;
     TeleportMinReloadTime : Integer;
     TeleportMaxDistance : Integer;
     TeleportMinDistance : Integer;
+    TeleportCost : Integer;
+    TeleportFilter : TUnitSearchFilterSet;
+    TeleportToLoSOnly : Boolean;
     CustomRange1Distance : Integer;
     CustomRange1Color : Integer;
     CustomRange2Distance : Integer;
     CustomRange2Color : Integer;
     CustomRange2Animate : Boolean;
     SolarGenerator : Double;
+    UseCustomReloadBar : Boolean;
   end;
 
   TExtraMapOTATagsRec = packed record
@@ -1430,6 +1437,7 @@ var
   MapMissionsCOB : Pointer;
   MapMissionsSounds : TStringList;
   MapMissionsFeatures : TStringList;
+  MapMissionsUnitsInitialMissions : TStringList;
   MouseLock : LongBool;
   CameraFadeLevel : Integer;
 

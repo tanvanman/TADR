@@ -712,12 +712,20 @@ begin
           Move( arg4^, customPacket[7], SizeOf(Cardinal));
           Move( arg5^, customPacket[11], SizeOf(Cardinal));
         end;
+      TANM_Rec2Rec_EmitSFXToUnit :
+        begin
+          SetLength( customPacket, SizeOf(TRec2Rec_EmitSFXToUnit_Message));
+          Move( unitId, customPacket[1], SizeOf(Word));  // from unit
+          Move( arg3^, customPacket[3], SizeOf(Word));   // to unit
+          Move( arg1^, customPacket[5], SizeOf(SmallInt)); // from piece
+          Move( arg2^, customPacket[7], SizeOf(Byte)); // sfx type
+        end;
       TANM_Rec2Rec_SetNanolatheParticles :
         begin
           SetLength( customPacket, SizeOf(TRec2Rec_SetNanolatheParticles_Message));
           Move( PPosition(arg1^)^, customPacket[1], SizeOf(TPosition)); // start position
           Move( PNanolathePos(arg4^)^, customPacket[13], SizeOf(TNanolathePos)); // target position
-          Move( arg2^, customPacket[37], SizeOf(Byte));
+          Move( arg2^, customPacket[37], SizeOf(Byte)); // nano reverse or not
         end;
     end;
     SendRecorderToRecorderMsg( eventType, customPacket, False, Dest );
@@ -3051,6 +3059,18 @@ if assigned(chatview) then
                                            PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewX,
                                            PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewY,
                                            PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewZ, 1);
+                   end;
+                 end;
+               TANM_Rec2Rec_EmitSFXToUnit :
+                 begin
+                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_EmitSFXToUnit_Message) );
+                   if not FromPlayer.IsSelf then
+                   begin
+                     TASfx.EmitSfxFromPiece( TAUnit.Id2Ptr(PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.FromUnitID),
+                                             TAUnit.Id2Ptr(PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.ToUnitID),
+                                             PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.FromPieceIdx,
+                                             PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.SfxType,
+                                             False );
                    end;
                  end;
                TANM_Rec2Rec_SetNanolatheParticles :

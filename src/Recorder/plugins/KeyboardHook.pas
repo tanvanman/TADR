@@ -161,7 +161,7 @@ begin
                   if (UnitAtMouse <> nil) then
                     if TAUnit.IsOnThisComp(UnitAtMouse, False) then
                     begin
-                      PUnitOrder(UnitAtMouse.p_UnitOrders).p_NextOrder_uos := nil;
+                      PUnitOrder(UnitAtMouse.p_MainOrder).p_NextOrder_uos := nil;
                       PUnitStruct(UnitAtMouse).p_FutureOrder := nil;
                       Result := 1;
                       Exit;
@@ -369,7 +369,7 @@ Retry:
   j := LastNum;
   Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
   PlayerMaxUnitID := Player.nNumUnits;
-  CurrentUnit := TAData.UnitsPtr;
+  CurrentUnit := TAData.UnitsArray_p;
   
   while (j<=PlayerMaxUnitID) do
   begin
@@ -379,9 +379,9 @@ Retry:
       if CurrentUnit.lBuildTimeLeft = 0.0 then
         if CurrentUnit.p_Owner <> nil then
         begin
-          if CurrentUnit.p_UnitDef <> nil then
+          if CurrentUnit.p_UNITINFO <> nil then
           begin
-            if PUnitInfo(CurrentUnit.p_UnitDef).cBMCode = 0 then
+            if PUnitInfo(CurrentUnit.p_UNITINFO).cBMCode = 0 then
               if TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER, nil) <> 0 then
               begin
                 if GetUnitInfoProperty(CurrentUnit, 5) <> 0 then
@@ -390,8 +390,8 @@ Retry:
                   Continue;
                 end else
                 begin
-                  if CurrentUnit.p_UnitOrders <> nil then
-                    if PUnitOrder(CurrentUnit.p_UnitOrders).cOrderType = $C then
+                  if CurrentUnit.p_MainOrder <> nil then
+                    if PUnitOrder(CurrentUnit.p_MainOrder).cOrderType = $C then
                     begin
                       Inc(j);
                       Continue;

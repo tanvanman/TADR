@@ -82,26 +82,26 @@ begin
   Result := 0;
   if UnitPtr <> nil then
   begin
-    if High(ExtraUnitInfoTags) >= PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory then
+    if High(ExtraUnitInfoTags) >= PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory then
     begin
       case PropertyType of
-        1 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].MultiAirTransport;
-        2 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].ExtraVTOLOrders;
-        3 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TransportWeightCapacity;
-        4 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].HideHPBar];
-        5 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].NotLab];
-        6 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].DrawBuildSpotNanoFrame];
-        7 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].AiSquadNr;
-        8 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMethod;
-        9 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMinReloadTime;
-       10 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMaxDistance;
-       11 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].TeleportMinDistance;
-       12 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange1Distance;
-       13 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange1Color;
-       14 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange2Distance;
-       15 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange2Color;
-       16 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].CustomRange2Animate];
-       17 : Result := Trunc(ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UnitDef).nCategory].SolarGenerator * 100);
+        1 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].MultiAirTransport;
+        2 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].ExtraVTOLOrders;
+        3 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TransportWeightCapacity;
+        4 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].HideHPBar];
+        5 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].NotLab];
+        6 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].DrawBuildSpotNanoFrame];
+        7 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].AiSquadNr;
+        8 : Result := Ord(ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TeleportMethod);
+        9 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TeleportMinReloadTime;
+       10 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TeleportMaxDistance;
+       11 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TeleportMinDistance;
+       12 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange1Distance;
+       13 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange1Color;
+       14 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange2Distance;
+       15 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange2Color;
+       16 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange2Animate];
+       17 : Result := Trunc(ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].SolarGenerator * 100);
       end;
     end;
   end;
@@ -117,15 +117,19 @@ begin
   ExtraUnitInfoTags[UnitInfoID].NotLab := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('notlab')) <> 0;
   ExtraUnitInfoTags[UnitInfoID].DrawBuildSpotNanoFrame := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('drawbuildspotnano')) <> 0;
   ExtraUnitInfoTags[UnitInfoID].AISquadNr := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('aisquadnr'));
-  ExtraUnitInfoTags[UnitInfoID].TeleportMethod := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('teleportmethod'));
+  ExtraUnitInfoTags[UnitInfoID].TeleportMethod := TTeleportMethod(TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('teleportmethod')));
   ExtraUnitInfoTags[UnitInfoID].TeleportMinReloadTime := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('teleportminreloadtime'));
   ExtraUnitInfoTags[UnitInfoID].TeleportMaxDistance := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('teleportmaxdist'));
   ExtraUnitInfoTags[UnitInfoID].TeleportMinDistance := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('teleportmindist'));
+  ExtraUnitInfoTags[UnitInfoID].TeleportCost := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('teleportcost'));
+  ExtraUnitInfoTags[UnitInfoID].TeleportFilter := TAUnits.CreateSearchFilter(TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('teleportfilter')));
+  ExtraUnitInfoTags[UnitInfoID].TeleportToLoSOnly := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('teleporttolosonly')) <> 0;
   ExtraUnitInfoTags[UnitInfoID].CustomRange1Distance := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customrange1dist'));
   ExtraUnitInfoTags[UnitInfoID].CustomRange1Color := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customrange1color'));
   ExtraUnitInfoTags[UnitInfoID].CustomRange2Distance := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customrange2dist'));
   ExtraUnitInfoTags[UnitInfoID].CustomRange2Color := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customrange2color'));
   ExtraUnitInfoTags[UnitInfoID].CustomRange2Animate := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customrange2anim')) <> 0;
+  ExtraUnitInfoTags[UnitInfoID].UseCustomReloadBar := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customreloadbar')) <> 0;
 end;
 
 procedure UnitInfoExpand_NewPropertiesLoadHook;
