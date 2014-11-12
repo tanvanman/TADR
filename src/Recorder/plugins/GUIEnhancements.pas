@@ -62,6 +62,7 @@ uses
   SysUtils,
   TA_MemoryConstants,
   TA_MemoryLocations,
+  ExtensionsMem,
   UnitInfoExpand,
   Math,
   TA_FunctionsU,
@@ -314,7 +315,7 @@ function DrawUnitState(Offscreen_p: Cardinal; Unit_p: PUnitStruct;
 var
   { drawing }
   ColorsPal : Pointer;
-  v65 : LongInt;
+  FontColor : LongInt;
   RectDrawPos : tagRect;
   // initial drawing position for this unit
   //PosX, PosZ, PosY : Integer;
@@ -742,23 +743,23 @@ begin
               if (WeightTransportCur > 0) then
               begin
                 WeightTransportPercent := Round((WeightTransportCur / WeightTransportMax) * 100);
+                FontColor := GetFontColor;
                 if WeightTransportPercent > 100 then
                   WeightTransportPercent := 100;
                 if TransportCount = TransportCap then
                   WeightTransportPercent := 100;
-                v65 := sub_4C13F0;
                 if (WeightTransportPercent > 85) then
-                  SetFontColor(PByte(LongWord(ColorsPal)+18)^, v65)
+                  SetFontColor(PByte(LongWord(ColorsPal)+18)^, FontColor)
                 else
                   if (WeightTransportPercent > 50) then
-                    SetFontColor(PByte(LongWord(ColorsPal)+17)^, v65)
+                    SetFontColor(PByte(LongWord(ColorsPal)+17)^, FontColor)
                   else
-                    SetFontColor(PByte(LongWord(ColorsPal)+16)^, v65);
+                    SetFontColor(PByte(LongWord(ColorsPal)+16)^, FontColor);
 
                 DrawText_Heavy(Offscreen_p,
                                PAnsiChar(IntToStr(WeightTransportPercent) + '%'),
                                Word(CenterPosX) - 10, Word(CenterPosZ) - 70, -1);
-                SetFontColor(PByte(LongWord(ColorsPal)+255)^, v65);
+                SetFontColor(PByte(LongWord(ColorsPal)+255)^, FontColor);
               end;
             end;
           end;
@@ -792,18 +793,18 @@ var
   ResourceIncome : Single;
   PlayerResourceString : PAnsiChar;
   ColorsPal : Pointer;
-  v65 : LongInt;
+  FontColor : LongInt;
   FormatSettings: TFormatSettings;
 begin
   Result := 0;
   ColorsPal := Pointer(LongWord(TAData.MainStructPtr)+$DCB);
   FormatSettings.DecimalSeparator := '.';
-  v65 := sub_4C13F0;
+  FontColor := GetFontColor;
 
   ResourceIncome := ViewResBar.fEnergyProduction - ViewResBar.fEnergyExpense;
   if ResourceIncome > 0.0 then
   begin
-    SetFontColor(PByte(LongWord(ColorsPal)+10)^, v65);
+    SetFontColor(PByte(LongWord(ColorsPal)+10)^, FontColor);
     if ResourceIncome < 10000 then
       PlayerResourceString := PAnsiChar(Format('+%.0f', [ResourceIncome], FormatSettings))
     else
@@ -813,7 +814,7 @@ begin
     end;
   end else
   begin
-    SetFontColor(PByte(LongWord(ColorsPal)+12)^, v65);
+    SetFontColor(PByte(LongWord(ColorsPal)+12)^, FontColor);
     if ResourceIncome > -10000 then
       PlayerResourceString := PAnsiChar(Format('%.0f', [ResourceIncome], FormatSettings))
     else
@@ -827,7 +828,7 @@ begin
   ResourceIncome := ViewResBar.fMetalProduction - ViewResBar.fMetalExpense;
   if ResourceIncome > 0.0 then
   begin
-    SetFontColor(PByte(LongWord(ColorsPal)+10)^, v65);
+    SetFontColor(PByte(LongWord(ColorsPal)+10)^, FontColor);
     if ResourceIncome < 10000 then
       PlayerResourceString := PAnsiChar(Format('+%.1f', [ResourceIncome], FormatSettings))
     else
@@ -837,7 +838,7 @@ begin
     end;
   end else
   begin
-    SetFontColor(PByte(LongWord(ColorsPal)+12)^, v65);
+    SetFontColor(PByte(LongWord(ColorsPal)+12)^, FontColor);
     if ResourceIncome > -10000 then
       PlayerResourceString := PAnsiChar(Format('%.1f', [ResourceIncome], FormatSettings))
     else
@@ -915,20 +916,20 @@ procedure DrawHealthPercentage(top, curr, left, max: Cardinal; offscreen_p: Card
 var
   HealthPercent : Single;
   HealthPercentStr : PAnsiChar;
-  v65 : LongInt;
+  FontColor : LongInt;
   FormatSettings: TFormatSettings;
 begin
   if (Max = 0) or (Curr > Max) then
     Exit;
 
   FormatSettings.DecimalSeparator := '.';
-  v65 := sub_4C13F0;
+  FontColor := GetFontColor;
   HealthPercentStr := '';
 
   HealthPercent := (Curr / Max) * 100;
   if HealthPercent > 0.0 then
   begin
-    SetFontColor(83, v65);
+    SetFontColor(83, FontColor);
     HealthPercentStr := PAnsiChar(Format('%.1f%%', [HealthPercent], FormatSettings))
   end;
   DrawText_Heavy(offscreen_p, HealthPercentStr, Left - 38, Top - 4, -1);
@@ -1300,7 +1301,7 @@ var
   Position : TPosition;
 begin
   // draw only queued (and not under construction already)
-  if UnitOrder.cState <= 1 then
+  if UnitOrder.ucState <= 1 then
   begin
     if NanoSpotQueueUnitSt.nUnitInfoID <> 0 then
       FreeUnitMem(@NanoSpotQueueUnitSt);
@@ -2013,8 +2014,8 @@ end;
 
 function WeaponProjectileFlameStream(Weapon: PWeaponDef): Pointer; stdcall;
 begin
-  if ExtraGAFAnimations.FlameStream[Weapon.cColor - 1] <> nil then
-    Result := ExtraGAFAnimations.FlameStream[Weapon.cColor - 1]
+  if ExtraGAFAnimations.FlameStream[Weapon.ucColor - 1] <> nil then
+    Result := ExtraGAFAnimations.FlameStream[Weapon.ucColor - 1]
   else
     Result := PTADynMemStruct(TAData.MainStructPtr).flamestream;
 end;
@@ -2028,7 +2029,7 @@ label
   CustomFlameStream;
 asm
   push    ecx
-  mov     cl, byte ptr [ebx+TWeaponDef.cColor]
+  mov     cl, byte ptr [ebx+TWeaponDef.ucColor]
   test    cl, cl
   pop     ecx
   jnz     CustomFlameStream

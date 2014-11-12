@@ -100,6 +100,24 @@ asm
   call PatchNJump;
 end;
 
+procedure MeteorsTest;
+var
+  StartPos, TargetPos: TPosition;
+begin
+  StartPos.X := PTAdynmemStruct(TAData.MainStructPtr).nMouseMapPosX;
+  StartPos.Z := PTAdynmemStruct(TAData.MainStructPtr).nMouseMapPosY;
+
+  TargetPos.x_ := 0;
+  TargetPos.X := 0;
+  TargetPos.z_ := 0;
+  TargetPos.Z := 0;
+
+  StartPos.Y := 1350;
+  TargetPos.Y := 65521;
+
+  PROJECTILES_FireMapWeap(WEAPONS_Name2Ptr(PAnsiChar('METEOR')), @StartPos, @TargetPos, True);
+end;
+
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
 var
   UnitAtMouse: PUnitStruct;
@@ -212,6 +230,9 @@ begin
                           SendTextLocal('Increased stockpile');
                         end;
                       SendTextLocal('');
+                    end else
+                    begin
+                      MeteorsTest;
                     end;
                   end;
                 end;
@@ -399,7 +420,7 @@ Retry:
                 end;
                 if (LastNum<j) then
                 begin
-   					      LastNum := j;
+                  LastNum := j;
                   Break;
                 end;
               end;
@@ -408,19 +429,19 @@ Retry:
     end;
     Inc(j);
   end;
-	if (j<=PlayerMaxUnitID) then
+  if (j<=PlayerMaxUnitID) then
   begin
     DeselectAllUnits;
-		CurrentUnit.lUnitStateMask := CurrentUnit.lUnitStateMask or UnitSelectState[UnitSelected_State];
+    CurrentUnit.lUnitStateMask := CurrentUnit.lUnitStateMask or UnitSelectState[UnitSelected_State];
     ScrollCenterView(CurrentUnit.Position.X, CurrentUnit.Position.Z, True);
     Result := True;
-	end else
+  end else
   begin
-		if (LastNum<>0) then
-		begin
-			LastNum := 0;
-			goto Retry;
-		end;
+    if (LastNum<>0) then
+    begin
+      LastNum := 0;
+      goto Retry;
+    end;
   end;
   ReleaseSemaphore(Semaphore_IdleFactory, 1, nil);
 end;

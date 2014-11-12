@@ -49,7 +49,6 @@ function OnOnlyUnits( const Command : string; Sender : TPlayerData; params : TSt
 function OnCreatetxt( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnLockOn( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnRandMap( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
-function OnRandMapEx( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnFakeWatch( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 function OnForceCd( const Command : string; Sender : TPlayerData; params : TStringList ) : Boolean;
 {$IFDEF WarZone}

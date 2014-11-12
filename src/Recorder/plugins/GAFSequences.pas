@@ -88,7 +88,9 @@ var
   pSeq: PGAFSequence;
   CustomFXHandle : Pointer;
 begin
-  CustomFXHandle := GAF_OpenAnimsFile(PAnsiChar('customfx'));
+  CustomFXHandle := nil;
+  if HAPIFILE_GetFileLength(PAnsiChar('customfx')) > 0 then
+    CustomFXHandle := GAF_OpenAnimsFile(PAnsiChar('customfx'));
   if CustomFXHandle <> nil then
   begin
     j := 6;

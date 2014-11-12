@@ -234,7 +234,7 @@ MakeOrderResurrect :
   push    ebx
   call    WreckToUnitType
   push    eax
-  call    UnitName2ID
+  call    UNITINFO_Name2ID
   pop     edx
   and     eax, 0FFFFh
   jz      StopResurrectNonWreck

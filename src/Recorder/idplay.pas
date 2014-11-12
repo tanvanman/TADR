@@ -175,10 +175,8 @@ type
 
     killunits    : string;
 
-    MapsList : TStringList;
     procedure GetRandomMap (fname :string);
-    procedure GetRandomMapEx;
-
+    
     function getRecorderStatusString : string;
   protected
     Commands : TCommands;
@@ -883,82 +881,6 @@ begin
   finally
     maps.Free;
   end;
-end;
-
-procedure TDPlay.GetRandomMapEx;
-var
-  st    :string;
-  nr    :integer;
-  //error :integer;
-  tot   :integer;
-  i     :integer;
-  currchar :char;
-  pos: integer;
-  mapname :string;
-begin
-if ImServer then
-begin
-  if (not Assigned(MapsList)) then
-  begin
-    MapsList:= TStringlist.create;
-    tot := IterateMaps(0, 0, 0);
-    SendChat('Host maps count: '+IntToStr(tot));
-    if tot > 0 then
-    begin
-      pos:= Plongword($5122D4)^;
-      nr:= 1;
-      while nr < tot do
-      begin
-
-        for i:= 1 to 64 do
-        begin
-          currchar:= PChar(pos)^;
-
-          if currchar <> #0 then
-          begin
-            mapname:= mapname + currchar;
-            Inc(pos);
-          end else
-          begin
-            MapsList.AddObject (mapname, pointer(nr));
-            Inc(nr);
-            mapname:= '';
-            Inc(pos);
-            Break;
-          end;
-        end;
-
-      end;
-    end;
-
-  end else
-  begin
-    tot := IterateMaps(0, 0, 0);
-  end;
-
-  if MapsList.count = 0 then
-  begin
-    SendChat( 'Could not find any map names to pick from');
-    exit;
-  end;
-
-  nr := Random (tot-1);
-  //error := 0;
-  //st := 'none!! should not happen heh';
-  st := MapsList.strings[nr];
-  {for i := 0 to MapsList.count - 1 do
-  begin
-    inc (error, integer(MapsList.Objects [i]));
-    if nr < error then
-    begin
-      st := MapsList.strings [i];
-      break;
-    end;
-  end;  }
-
-
-  SendChat('The randomly selected map is: '+st);
-end;
 end;
 
 // -----------------------------------------------------------------------------

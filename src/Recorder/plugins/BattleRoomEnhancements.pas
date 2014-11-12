@@ -32,6 +32,7 @@ procedure BattleRoom_BroadcastModInfoHook;
 implementation
 uses
   Windows,
+  Classes,
   IniOptions,
   SysUtils,
   PlayerDataU,
@@ -184,6 +185,59 @@ OrginalTAMemRead :
     call PatchNJump;
 end;
 
+
+function GetRandomMapEx: String;
+var
+  st    :string;
+  nr    :integer;
+  tot   :integer;
+  i     :integer;
+  currchar :char;
+  pos: Cardinal;
+  mapname :string;
+begin
+  Result := '';
+  if IsLocalPlayerHost then
+  begin
+    tot := IterateMaps(0, 0, 0);
+    if (not Assigned(MapsList)) then
+    begin
+      MapsList := TStringList.create;
+      if tot > 0 then
+      begin
+        pos:= PCardinal(MultiplayerMapsList)^;
+        nr:= 1;
+        while nr < tot do
+        begin
+          for i:= 1 to 64 do
+          begin
+            currchar:= PChar(pos)^;
+            if currchar <> #0 then
+            begin
+              mapname:= mapname + currchar;
+              Inc(pos);
+            end else
+            begin
+              MapsList.AddObject (mapname, pointer(nr));
+              Inc(nr);
+              mapname:= '';
+              Inc(pos);
+              Break;
+            end;
+          end;
+        end;
+      end;
+    end;
+
+    if MapsList.Count = 0 then
+      Exit;
+
+    nr := Random(tot-1);
+    st := MapsList.strings[nr];
+    Result := st;
+  end;
+end;
+
 procedure CommanderWarpButtonState(State: Integer); stdcall;
 begin
   if GlobalDPlay.CommanderWarp <> State then
@@ -235,6 +289,10 @@ asm
 end;
 
 function BattleRoom_NewButtonsPress(GUIHandle: Pointer): LongBool; stdcall;
+var
+  sMapName : String;
+  LocalPlayer, Player: PPlayerStruct;
+  i: Integer;
 begin
   Result := False;
   if GUIGADGET_WasPressed(GUIHandle, PAnsiChar('AUTOPAUSE')) then
@@ -261,6 +319,39 @@ begin
   if GUIGADGET_WasPressed(GUIHandle, PAnsiChar('RANDMAP')) then
   begin
     Result := True;
+
+    sMapName := GetRandomMapEx;
+    LocalPlayer := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
+
+    sub_435D30(nil, nil, PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile, 0);
+
+    LoadMap(nil, nil,
+            PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile,
+            PAnsiChar(sMapName));
+
+    LocalPlayer.PlayerInfo.lCRC_OTA :=
+      CalculateOTACRC(nil, nil, PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile);
+    PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile.pCurrentMapName :=
+      @PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile.pMapName;
+
+    FillChar(LocalPlayer.PlayerInfo.MapName, 32, 0);
+    StrPLCopy(LocalPlayer.PlayerInfo.MapName, sMapName, 32);
+    GUIGADGET_SetText(GUIHandle, PAnsiChar('MAPNAME'), @LocalPlayer.PlayerInfo.MapName, 0);
+
+    LocalPlayer.PlayerInfo.lCRC_OTA :=
+      CalculateOTACRC(nil, nil, PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile);
+
+    Send_PacketPlayerInfo();
+    REPORTER_PlayerInfo(5);
+    UpdateGameInfo();
+
+    for i:= 0 to 10 do
+    begin
+      Player := TAPlayer.GetPlayerByIndex(i);
+      if (TAPlayer.PlayerController(Player) = Player_LocalHuman) or
+         (TAPlayer.PlayerController(Player) = Player_LocalAI) then
+        Player.PlayerInfo.PropertyMask := Player.PlayerInfo.PropertyMask and $FFDF;
+    end;
   end;
 
   if Result then
@@ -388,6 +479,8 @@ begin
     PAnsiChar('AIDIFF'), cGrayed);
   GUIGADGET_SetGrayedOut(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
     PAnsiChar('SPEEDLOCK'), cGrayed);
+  GUIGADGET_SetGrayedOut(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
+    PAnsiChar('RANDMAP'), cGrayed);
 
   if cGrayed = 1 then
   begin
@@ -422,6 +515,7 @@ function DrawModVersionOverLogo(PlayerIdx: Integer; OFFSCREEN_ptr: Cardinal;
 var
   Player: PPlayerStruct;
   NewStr: String;
+  StrExt: Integer;
 begin
   Player := TAPlayer.GetPlayerByIndex(PlayerIdx);
   PlayerIdx := GlobalDPlay.Players.ConvertId(Player.lDirectPlayID,ZI_Everyone,false);
@@ -432,7 +526,6 @@ begin
     // known mod and mod version
     NewStr := GlobalDPlay.Players[PlayerIdx].ModInfo.ModMajorVer + '.' +
               GlobalDPlay.Players[PlayerIdx].ModInfo.ModMinorVer;
-    Result := DrawText(OFFSCREEN_ptr, PAnsiChar(NewStr), left - 1, top, MaxLen + 2, Background);
   end else
   begin
     case GlobalDPlay.Players[PlayerIdx].ModInfo.ModID of
@@ -444,8 +537,11 @@ begin
         left := left + 6;
       end;
     end;
-    Result := DrawText(OFFSCREEN_ptr, PAnsiChar(NewStr), left - 1, top, MaxLen + 2, Background);
   end;
+  StrExt := 0;
+  if GetStrExtent(PAnsiChar(NewStr)) > 14 then
+    StrExt := 1;
+  Result := DrawText(OFFSCREEN_ptr, PAnsiChar(NewStr), left - StrExt, top, MaxLen + 2, Background);
 end;
 
 procedure BattleRoom_DrawModVersionOverLogo;

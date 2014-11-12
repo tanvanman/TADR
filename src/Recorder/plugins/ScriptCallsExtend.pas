@@ -194,7 +194,7 @@ ContinueToGame:
     call PatchNJump;
 end;
 
-procedure CallWeaponHit(Projectile: Pointer; Hit: Cardinal); stdcall;
+procedure CallWeaponHit(Projectile: PWeaponProjectile; Hit: Cardinal); stdcall;
 var
   WeapID : Cardinal;
 begin
@@ -204,8 +204,8 @@ begin
     begin
       WeapID := TAWeapon.GetWeaponID(PWeaponProjectile(Projectile).Weapon);
       Script_RunScript ( 0, 0, LongWord(PUnitStruct(PWeaponProjectile(Projectile).p_AttackerUnit).p_UnitScriptsData),
-                         0, 0, Hit, WeapID,
-                         2,
+                         Projectile.Position_Curnt.Z, Projectile.Position_Curnt.X, Hit, WeapID,
+                         4,
                          0, 0,
                          PAnsiChar('WeaponHit') );
 

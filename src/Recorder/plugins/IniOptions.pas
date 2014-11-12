@@ -50,6 +50,7 @@ type
     Plugin_Transporters  : Boolean;
     Plugin_Stockpile     : Boolean;
     Plugin_BattleRoomEnh : Boolean;
+    Plugin_ScriptSlotsLimit : Boolean;
 
     Plugin_CircleUnitSelect : Boolean;
     Plugin_ForceDrawBuildSpotNano : Boolean;
@@ -342,6 +343,7 @@ begin
       IniSettings.Plugin_MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
 
       IniSettings.Plugin_BattleRoomEnh := ReadIniBool(IniFile, 'Preferences', 'BattleRoomEnhancements', False);
+      IniSettings.Plugin_ScriptSlotsLimit := ReadIniBool(IniFile, 'Preferences', 'IncScriptSlotsLimit', False);
 
       IniSettings.Plugin_StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
     finally

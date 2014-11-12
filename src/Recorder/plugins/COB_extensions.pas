@@ -6,6 +6,13 @@ uses
 
 // -----------------------------------------------------------------------------
 
+type
+  TScriptSlotsSaveGameRec = packed record
+    lCOBFileNode : Cardinal;
+    SlotsData : array[0..63] of TScriptSlot;
+    lStartRunningNow : Cardinal;
+  end;
+
 const
   State_COB_extensions : boolean = true;         
 
@@ -15,6 +22,9 @@ function GetPlugin : TPluginData;
 
 Procedure OnInstallCobExtensions;
 Procedure OnUninstallCobExtensions;
+
+const
+  MAX_SCRIPT_SLOTS : Byte = 64;
 
 const
  WEAPON_AIM_ABORTED = 21;
@@ -38,7 +48,7 @@ const
  // indicates if the 1st parameter(a unit ID) is local to this computer
  UNIT_IS_ON_THIS_COMP = 75;
  // returns local long id of unit
- UNIT_STAMP = 76;
+ ID_TO_STAMP = 76;
  CONFIRM_STAMP = 77;
  UNIT_TYPE_CRC = 78;
  UNIT_TYPE_CRC_TO_ID = 79;
@@ -164,6 +174,7 @@ const
  MS_VIEW_PLAYER_ID = 188;
  MS_GAME_TIME = 189;
  MS_APPLY_UNIT_SCRIPT = 190;
+ MS_FIRE_MAP_WEAPON = 191;
 
  { Math }
  LOWWORD = 200;
@@ -189,7 +200,9 @@ var
 
 Procedure COB_Extensions_Handling;
 Procedure COB_ExtensionsSetters_Handling;
-Procedure COB_Extensions_FreeMemory;
+procedure COB_SaveUnitScriptSlots;
+procedure COB_LoadUnitScriptSlots_1;
+procedure COB_LoadUnitScriptSlots_2;
 
 implementation
 uses
@@ -205,20 +218,7 @@ uses
   IniOptions;
 
 Procedure OnInstallCobExtensions;
-var
-  i: LongWord;
-  UnitRec: TStoreUnitsRec;
 begin
-  UnitSearchResults.Init(TypeInfo(TUnitSearchArr), UnitSearchArr, @UnitSearchCount);
-  UnitSearchResults.Capacity := High(Word);
-
-  SpawnedMinions.Init(TypeInfo(TSpawnedMinionsArr), SpawnedMinionsArr, @SpawnedMinionsCount);
-  SpawnedMinions.Capacity := High(Word);
-  for i := 0 to High(Word) - 1 do
-  begin
-    UnitSearchResults.Add(UnitRec);
-    SpawnedMinions.Add(UnitRec);
-  end;
 end;
 
 Procedure OnUninstallCobExtensions;
@@ -226,6 +226,8 @@ begin
 end;
 
 function GetPlugin : TPluginData;
+var
+  lReplacement : Cardinal;
 begin
 if IsTAVersion31 and State_COB_extensions then
   begin
@@ -238,19 +240,240 @@ if IsTAVersion31 and State_COB_extensions then
   result.MakeRelativeJmp( State_COB_extensions,
                           'COB Extensions handler',
                           @COB_Extensions_Handling,
-                          $480770,
-                          1 );
+                          $00480776,
+                          2 );
 
   result.MakeRelativeJmp( State_COB_extensions,
                           'COB Extensions Setters handler',
                           @COB_ExtensionsSetters_Handling,
-                          $480B20,
+                          $00480B26,
                           1 );
 
-  result.MakeRelativeJmp( State_COB_extensions,
-                          'COB_Extensions_FreeMemory',
-                          @COB_Extensions_FreeMemory,
-                          $00496B15, 0 ); 
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  // Maximum scripts slots that can be run by a unit in game
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+
+  if IniSettings.Plugin_ScriptSlotsLimit and
+     (IniSettings.ModId > 1) then
+  begin
+    lReplacement := SizeOf(TNewScriptsData);
+    result.MakeReplacement( State_COB_extensions,
+                            'Init scripts data - Alloc memory increase',
+                            $00485D74, lReplacement, SizeOf(lReplacement));
+
+    lReplacement := $0000291C;
+    result.MakeReplacement( State_COB_extensions,
+                            'Init scripts data - ScriptsData.lStartRunningNow',
+                            $004B0638, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B0923, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B09CA, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B0A3F, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B0B88, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B0D22, lReplacement, SizeOf(lReplacement));
+
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B0D6A, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B19EF, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B19FB, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B1AA1, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B1AAD, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B1B68, lReplacement, SizeOf(lReplacement));
+
+
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B1B77, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B1F15, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004B211E, lReplacement, SizeOf(lReplacement));
+
+    lReplacement := $00002920;
+    result.MakeReplacement( State_COB_extensions,
+                            'Init scripts data - ScriptsData.pObject3d',
+                            $00480D46, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480C56, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480C7F, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480C8C, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480C99, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480C36, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480CBA, lReplacement, SizeOf(lReplacement));
+
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480CF3, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480D0C, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480D1E, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480D2B, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480D5E, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480D8B, lReplacement, SizeOf(lReplacement));
+
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480D96, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480DB6, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480DDF, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480DF6, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480E20, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480E36, lReplacement, SizeOf(lReplacement));
+
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480E56, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480E76, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480EBD, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480EF4, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480F0C, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00480F5B, lReplacement, SizeOf(lReplacement));
+
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $0048115B, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $0048124C, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00481388, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00481397, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $004813EE, lReplacement, SizeOf(lReplacement));
+
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00481432, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            '',
+                            $00481472, lReplacement, SizeOf(lReplacement));
+
+    result.MakeReplacement( State_COB_extensions,
+                            'setters',
+                            $00480B22, lReplacement, SizeOf(lReplacement));
+    result.MakeReplacement( State_COB_extensions,
+                            'getters',
+                            $00480772, lReplacement, SizeOf(lReplacement));
+                             
+    result.MakeRelativeJmp( State_COB_extensions,
+                            '',
+                            @COB_SaveUnitScriptSlots,
+                            $004B1EDA,
+                            1 );
+    lReplacement := $00002908;
+    result.MakeReplacement( State_COB_extensions,
+                            'load game struct size fix',
+                            $004B207A, lReplacement, SizeOf(lReplacement));
+    result.MakeRelativeJmp( State_COB_extensions,
+                            '',
+                            @COB_LoadUnitScriptSlots_1,
+                            $004B209A,
+                            4 );
+    result.MakeRelativeJmp( State_COB_extensions,
+                            '',
+                            @COB_LoadUnitScriptSlots_2,
+                            $004B20C1,
+                            2 );
+    result.MakeReplacement( State_COB_extensions,
+                            'load game struct size fix 3',
+                            $004B20AC, lReplacement, SizeOf(lReplacement));
+
+    result.MakeReplacement( State_COB_extensions,
+                            'start script',
+                            $004B09E1, MAX_SCRIPT_SLOTS, 1);
+    result.MakeReplacement( State_COB_extensions,
+                            'no xrefs',
+                            $004B0A57, MAX_SCRIPT_SLOTS, 1);
+    result.MakeReplacement( State_COB_extensions,
+                            'run script',
+                            $004B0B9F, MAX_SCRIPT_SLOTS, 1);
+    result.MakeReplacement( State_COB_extensions,
+                            'do scripts now, called from units loop',
+                            $004B0D81, MAX_SCRIPT_SLOTS, 1);
+    result.MakeReplacement( State_COB_extensions,
+                            'alloc mem and init script slots',
+                            $004B0616, MAX_SCRIPT_SLOTS, 1);
+
+    result.MakeReplacement( State_COB_extensions,
+                            'slots limiter',
+                            $004B08E5, MAX_SCRIPT_SLOTS, 1);
+
+    result.MakeReplacement( State_COB_extensions,
+                            'dispatcher 1',
+                            $004B1AA7, MAX_SCRIPT_SLOTS, 1);
+    result.MakeReplacement( State_COB_extensions,
+                            'dispatcher 2',
+                            $004B1AEE, MAX_SCRIPT_SLOTS, 1);
+    result.MakeReplacement( State_COB_extensions,
+                            'dispatcher 3',
+                            $004B19F5, MAX_SCRIPT_SLOTS, 1);
+  end;
 
   end
 else
@@ -324,12 +547,10 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       else
         result := BoolValues[TAUnit.IsOnThisComp(pointer(unitptr), True)];
       end;
-    UNIT_STAMP :
+    ID_TO_STAMP :
       begin
       if arg1 <> 0 then
-        result := HiWord(TAUnit.Id2LongId(arg1))
-      else
-        result := HiWord(TAUnit.GetLongId(pointer(unitptr)));
+        result := HiWord(TAUnit.Id2LongId(arg1));
       end;
     OWNED_BY_ALLY :
       begin
@@ -465,7 +686,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     STATE_UNIT :
       begin
-      Unit_ShortMaskState(nil, nil, TAUnit.Id2Ptr(arg1), arg3, arg2);
+      UNITS_SetStateMask(nil, nil, TAUnit.Id2Ptr(arg1), arg3, arg2);
       end;
     SFX_OCCUPY_STATE :
       begin
@@ -633,7 +854,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       if arg2 <> 0 then
         result := LongWord(TAUnits.Distance(@TAUnit.Id2Ptr(arg1).Position, @TAUnit.Id2Ptr(arg2).Position))
       else
-        result := LongWord(TAUnits.Distance(@PUnitStruct(Pointer(UnitPtr)).Position, @TAUnit.Id2Ptr(arg2).Position));
+        result := LongWord(TAUnits.Distance(@PUnitStruct(Pointer(UnitPtr)).Position, @TAUnit.Id2Ptr(arg1).Position));
       end;
     CURRENT_ORDER_TYPE :
       begin
@@ -912,13 +1133,17 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     MS_PLACE_FEATURE :
       begin
-      GetTPosition(HiWord(arg2), LoWord(arg2), Position);
-      Turn.Z := arg3;
+      GetTPosition(arg2, arg3, Position);
+      Turn.Z := arg4;
       Result := BoolValues[TAMem.PlaceFeatureOnMap(MapMissionsFeatures[arg1], Position, Turn)];
       end;
     MS_REMOVE_FEATURE :
       begin
       Result := BoolValues[TAMem.RemoveMapFeature(arg1, arg2, (arg3 = 1))];
+      end;
+    MS_FIRE_MAP_WEAPON :
+      begin
+      TAWeapon.FireMapWeapon(TAWeapon.WeaponId2Ptr(arg1), HiWord(arg2), LoWord(arg2));
       end;
     end;
   end;
@@ -1076,8 +1301,7 @@ label
   GeneralCaseGetter;
 asm
   // function prolog
-  mov     eax, [ecx+540h]
-  mov     ecx, [esp+4]//[esp+arg_0]
+  mov     ecx, [esp+4]//[esp+GetterIdx]
   sub     esp, 24h
   push    esi
   // start of case statement
@@ -1141,8 +1365,7 @@ label
   GeneralCaseSetter;
 asm
   // function prolog
-  mov     eax, [ecx+540h]
-  mov     ecx, [esp+4]//[esp+arg_0]
+  mov     ecx, [esp+4]//[esp+SetterIdx]
   push    esi
   // start of case statement
   mov     esi, [eax+0Ch];
@@ -1190,45 +1413,89 @@ DoReturn:
   ret 8h;
 end;
 
-procedure FreeExtensionsMemory; stdcall;
+var
+  ScriptSlotsSaveGameRec : TScriptSlotsSaveGameRec;
+procedure SaveUnitScriptSlots(ScriptData: PNewScriptsData); stdcall;
+var
+  lSlotIdx : Integer;
 begin
-  MouseLock := False;
-
-  //ReleaseFeature_TdfVector;
-  if not UnitSearchResults.IsVoid then
-    UnitSearchResults.Clear;
-  if not SpawnedMinions.IsVoid then
-    SpawnedMinions.Clear;
-
-  if MapMissionsUnit.lUnitInGameIndex <> 0 then
+  FillChar(ScriptSlotsSaveGameRec, SizeOf(ScriptSlotsSaveGameRec), 0);
+  ScriptSlotsSaveGameRec.lCOBFileNode := Cardinal(ScriptData.pCOBFileNode);
+  for lSlotIdx := 0 to MAX_SCRIPT_SLOTS - 1 do
   begin
-    UNITS_KillUnit(@MapMissionsUnit, 8);
-    FreeUnitMem(@MapMissionsUnit);
+    ScriptSlotsSaveGameRec.SlotsData[lSlotIdx] := ScriptData.ScriptSlots[lSlotIdx];
   end;
-
-  if Assigned(MapMissionsSounds) then
-    MapMissionsSounds.Free;
-  if Assigned(MapMissionsFeatures) then
-    MapMissionsFeatures.Free;
-  if Assigned(MapMissionsUnitsInitialMissions) then
-    MapMissionsUnitsInitialMissions.Free;
-
-  ZeroMemory(@MapMissionsUnit, SizeOf(TUnitStruct));
-  ZeroMemory(@NanoSpotUnitSt, SizeOf(TUnitStruct));
-  ZeroMemory(@NanoSpotQueueUnitSt, SizeOf(TUnitStruct));
-  ZeroMemory(@NanoSpotUnitInfoSt, SizeOf(TUnitInfo));
-  ZeroMemory(@NanoSpotQueueUnitInfoSt, SizeOf(TUnitInfo));
-  ZeroMemory(@UnitsSharedData, SizeOf(UnitsSharedData));
+  ScriptSlotsSaveGameRec.lStartRunningNow := ScriptData.lStartRunningNow;
 end;
 
-procedure COB_Extensions_FreeMemory;
+procedure COB_SaveUnitScriptSlots;
 asm
-  pushAD
-  call    FreeExtensionsMemory
-  popAD
-  mov     eax, [TAdynMemStructPtr]
-  push    $00496B1A
-  call    PatchNJump;
+  push    ebx
+  push    edx
+  push    ecx
+
+  push    ebx                  // scriptsdata
+  call    SaveUnitScriptSlots
+
+  pop     ecx
+  pop     edx
+  pop     ebx
+
+  mov     esi, [esp+5B0h]
+  xor     ebp, ebp
+  push    type TScriptSlotsSaveGameRec
+  lea     eax, ScriptSlotsSaveGameRec
+  push    eax
+  mov     ecx, esi
+
+  push $004B1F36
+  Call PatchNJump;
+end;
+
+procedure COB_LoadUnitScriptSlots_1;
+asm
+  lea     edx, ScriptSlotsSaveGameRec
+  push    type TScriptSlotsSaveGameRec
+  push    edx
+  mov     ecx, ebp
+  push $004B20A6
+  Call PatchNJump;
+end;
+
+procedure LoadUnitScriptSlots(ScriptData: PNewScriptsData); stdcall;
+var
+  lSlotIdx : Integer;
+begin
+  ScriptData.pCOBFileNode := Pointer(ScriptSlotsSaveGameRec.lCOBFileNode);
+  for lSlotIdx := 0 to MAX_SCRIPT_SLOTS - 1 do
+  begin
+    ScriptData.ScriptSlots[lSlotIdx] := ScriptSlotsSaveGameRec.SlotsData[lSlotIdx];
+  end;
+  ScriptData.lStartRunningNow := ScriptSlotsSaveGameRec.lStartRunningNow;
+  FillChar(ScriptSlotsSaveGameRec, SizeOf(ScriptSlotsSaveGameRec), 0);
+end;
+
+procedure COB_LoadUnitScriptSlots_2;
+label
+  ContinueParse;
+asm
+  mov     eax, [ebx+TNewScriptsData.pCOBFileNode]
+  mov     ecx, ScriptSlotsSaveGameRec.lCOBFileNode
+  cmp     eax, ecx
+  jz      ContinueParse
+  push $004B20CC
+  call PatchNJump;
+ContinueParse :
+pushAD
+  push    ebx
+  call    LoadUnitScriptSlots
+popAD
+  mov     esi, [esp+10h]
+  mov     edx, [ebx+10h]
+  mov     ebp, [esp+54Ch]
+
+  push $004B2122
+  call PatchNJump;
 end;
 
 end.

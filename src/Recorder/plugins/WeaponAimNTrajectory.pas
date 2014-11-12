@@ -267,7 +267,7 @@ begin
     if WeaponType2 <> '' then
     begin
       CurrentProjectile := PWeaponProjectile(Projectile);
-      CurrentProjectile.Weapon := WeaponName2Ptr(PAnsiChar(WeaponType2));
+      CurrentProjectile.Weapon := WEAPONS_Name2Ptr(PAnsiChar(WeaponType2));
     end;
   end;
 end;
@@ -658,7 +658,7 @@ begin
     while ( True ) do
     begin
       if ( Projectile.cOwnerID <> UnitStruct.cOwnerID ) then
-        if ( (PWeaponDef(Projectile.Weapon).lWeaponTypeMask shr 29) and 1 = 1 ) then
+        if ( (Projectile.Weapon.lWeaponTypeMask shr 29) and 1 = 1 ) then
         begin
           if ( Coverage + UnitStruct.Position.X - Projectile.Position_Target2.X <= (2 * Coverage) ) and
              ( Coverage + UnitStruct.Position.Z - Projectile.Position_Target2.Z <= (2 * Coverage) ) then
@@ -697,7 +697,7 @@ begin
           end;
         end;
       Inc(CurProjectileIdx);
-      Projectile := Pointer(Cardinal(PTADynMemStruct(TAData.MainStructPtr).p_Projectiles) + 4);
+      Projectile := Pointer(Cardinal(PTADynMemStruct(TAData.MainStructPtr).p_Projectiles) + SizeOf(TWeaponProjectile));
       if ( CurProjectileIdx >= ProjectilesCount ) then
         goto AntiNukeNotInStock;
     end;

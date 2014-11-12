@@ -69,7 +69,8 @@ uses
   UnitInfoExpand in 'plugins\UnitInfoExpand.pas',
   MapExtensions in 'plugins\MapExtensions.pas',
   GAFSequences in 'plugins\GAFSequences.pas',
-  BattleRoomEnhancements in 'plugins\BattleRoomEnhancements.pas';
+  BattleRoomEnhancements in 'plugins\BattleRoomEnhancements.pas',
+  ExtensionsMem in 'plugins\ExtensionsMem.pas';
 
 {$R *.res}
 

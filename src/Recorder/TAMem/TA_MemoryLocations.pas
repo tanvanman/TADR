@@ -248,6 +248,8 @@ type
   public
     class function WeaponId2Ptr(ID: Cardinal) : Pointer;
     class function GetWeaponID(WeaponPtr: PWeaponDef) : Cardinal;
+    class function FireMapWeapon(WeaponPtr: PWeaponDef;
+      TargetX, TargetZ: Cardinal): Boolean;
   end;
 
 const
@@ -600,9 +602,9 @@ end;
 class function TAMem.ProtectMemoryRegion(Address : Cardinal; Writable: Boolean): Integer;
 begin
   if Writable then
-    Result := AllowMemReadWrite(Address)
+    Result := MEM_AllowReadWrite(Address)
   else
-    Result := SetMemReadOnly(Address);
+    Result := MEM_SetReadOnly(Address);
 end;
 
 // -----------------------------------------------------------------------------
@@ -650,7 +652,7 @@ end;
 class Function TAPlayer.GetPlayerByIndex(playerIndex : LongWord) : Pointer;
 begin
 result := nil;
-if playerindex < MAXPLAYERCOUNT then
+if playerindex <= MAXPLAYERCOUNT then
   result:= @PTAdynmemStruct(TAData.MainStructPtr).Players[playerIndex];
 //result := Pointer(TAData.PlayersStructPtr+(playerIndex*SizeOf(TPlayerStruct)) );
 end;
@@ -1229,20 +1231,20 @@ var
   Id: LongWord;
 begin
   Result:= nil;
-  Id:= GetUnitAtMouse;
+  Id := GetUnitAtMouse;
   if (Id <> 0) and (TAUnit.Id2Ptr(Id) <> TAUnit.Id2Ptr(0)) then
     Result:= TAUnit.Id2Ptr(Id);
 end;
 
 class function TAUnit.AtPosition(Position: PPosition): Cardinal;
 var
-  UnkStruct : Pointer;
+  PlotGrid : PPlotGrid;
 begin
   Result := 0;
   if Position <> nil then
   begin
-    UnkStruct := UnitAtPosition(Position);
-    Result := Word(PCardinal(UnkStruct)^);
+    PlotGrid := Position2GridPlot(Position);
+    Result := Word(PCardinal(PlotGrid)^);
   end;
 end;
 
@@ -2000,7 +2002,7 @@ begin
           if FieldType = UNITINFO_MOVEMENTCLASS_SAFE then
           begin
             Z := UnitPtr.Turn.Z;
-            CreateMovementClass(TAUnit.Id2Ptr(Word(unitId)));
+            UNITS_CreateMoveClass(TAUnit.Id2Ptr(Word(unitId)));
             UnitPtr.Turn.Z := Z;
           end;
         end else
@@ -2276,16 +2278,11 @@ begin
   repeat
     inc(retry);
     test:= 1 + Random(High(Word) - 1);  //0..65534
-    try
-      case ArrayType of
-        1 : cond:= not Assigned(UnitSearchArr[test].UnitIds);
-        2 : cond:= not Assigned(SpawnedMinionsArr[test].UnitIds);
-        else
-          exit;
-      end;
-    except
-      Exit;
-      sendtextlocal('whoops');
+    case ArrayType of
+      1 : cond:= not Assigned(UnitSearchArr[test].UnitIds);
+      2 : cond:= not Assigned(SpawnedMinionsArr[test].UnitIds);
+      else
+        exit;
     end;
     if (retry > 100) and (cond = false) then exit;
   until (cond = true);
@@ -2699,6 +2696,25 @@ begin
     result:= @PTAdynmemStruct(TAData.MainStructPtr).Weapons[ID]
   else
     result:= Pointer(Cardinal(TAData.WeaponTypeDefArrayPtr) + SizeOf(TWeaponDef) * ID);
+end;
+
+class function TAWeapon.FireMapWeapon(WeaponPtr: PWeaponDef;
+  TargetX, TargetZ: Cardinal): Boolean;
+var
+  StartPos, TargetPos: TPosition;
+begin
+  TargetPos.X := TargetX;
+  TargetPos.Z := TargetZ;
+
+  StartPos.x_ := 0;
+  StartPos.X := 0;
+  StartPos.z_ := 0;
+  StartPos.Z := 0;
+
+  TargetPos.Y := 1350;
+  StartPos.Y := 65521;
+
+  Result := PROJECTILES_FireMapWeap(WEAPONS_Name2Ptr(PAnsiChar('METEOR')), @TargetPos, @StartPos, True);
 end;
 
 end.

@@ -36,6 +36,7 @@ procedure InitMapMissions; stdcall;
 implementation
 uses
   UnitInfoExpand,
+  ExtensionsMem,
   TA_MemoryConstants,
   TA_MemoryStructures,
   TA_MemoryLocations,
@@ -116,10 +117,10 @@ begin
 
   MapOTAFile := PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile;
   COBFilePath := ChangeFileExt(MapOTAFile.sTNTFile, '.cob');
-  if _filelength_HPI(PAnsiChar(COBFilePath)) > 0 then
+  if HAPIFILE_GetFileLength(PAnsiChar(COBFilePath)) > 0 then
   begin
     TDFFilePath := ChangeFileExt(MapOTAFile.sTNTFile, '.tdf');
-    TDFFileSize := _filelength_HPI(PAnsiChar(TDFFilePath));
+    TDFFileSize := HAPIFILE_GetFileLength(PAnsiChar(TDFFilePath));
     if TDFFileSize > 0 then
     begin
       p_TDFFile := LoadHPITerainFile(PAnsiChar(TDFFilePath));
@@ -324,20 +325,20 @@ begin
 
   // tileset pixels data
   PTR_TILE_SET := Pointer(Cardinal(TNTFile) + TNTFile.p_TileSet);
-  p_TileSet := cmalloc_MM__((TNTFile.lTilesCount shl 10) + 8);
+  p_TileSet := MEM_Alloc((TNTFile.lTilesCount shl 10) + 8);
   PCardinal(p_TileSet)^ := TNTFile.lTilesCount;
   PCardinal(Cardinal(p_TileSet) + 4)^ := Cardinal(Pointer(Cardinal(p_TileSet) + 8));
   CopyMemory(Pointer(Cardinal(p_TileSet) + 8), PTR_TILE_SET, 4 * ((TNTFile.lTilesCount shl 10) shr 2));
 
   // tileset map
   TileMapSize := 2 * TNTMemStruct.lMapWidth div 32 * TNTMemStruct.lMapHeight div 32;
-  p_TileMap := cmalloc_MM__(TileMapSize);
+  p_TileMap := MEM_Alloc(TileMapSize);
   PTR_TILE_MAP := Pointer(Cardinal(TNTFile) + TNTFile.p_TileMap);
   CopyMemory(p_TileMap, PTR_TILE_MAP, TileMapSize);
 
   // plot data
   PlotSize := TNTMemStruct.lTilesetMapSizeX * TNTMemStruct.lTilesetMapSizeY;
-  p_PlotMemory := cmalloc_MM__(SizeOf(TPlotGrid) * PlotSize);
+  p_PlotMemory := MEM_Alloc(SizeOf(TPlotGrid) * PlotSize);
   CopyMemory(p_PlotMemory, TNTMemStruct.p_PlotMemory, SizeOf(TPlotGrid) * PlotSize);
 
   PTR_HEIGHT_MAP := Pointer(Cardinal(TNTFile) + TNTFile.p_HeightMap);

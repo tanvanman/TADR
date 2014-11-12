@@ -927,7 +927,7 @@ var
   UnitID : Word;
 begin
   UnitID := TAUnit.GetId(UnitPtr);
-  case OrderPtr.cState of
+  case OrderPtr.ucState of
     0 : begin
           if CustomUnitFieldsArr[UnitID].TeleportReloadMax <> 0 then
           begin

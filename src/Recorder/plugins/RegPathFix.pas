@@ -133,37 +133,37 @@ begin
   SetCurrentDirectoryToTAPath;
   TAPath := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation));
   sRev31Name := Format(PAnsiChar(Rev31GP3_Name), [PAnsiChar(Rev31GP3_31)]);
-  FindHandle := findfirst_HPI(PAnsiChar(sRev31Name), @SearchRec, -1, 1);
+  FindHandle := HAPIFILE_FindFirst(PAnsiChar(sRev31Name), @SearchRec, -1, 1);
   if FindHandle >= 0 then
   begin
     repeat
-      InsertToHPIAry(PAnsiChar(TAPath + SearchRec.FileName), 1);
+      HAPIFILE_InsertToArray(PAnsiChar(TAPath + SearchRec.FileName), 1);
     until
-      (findnext_HPI(FindHandle, @SearchRec) < 0);
-    findclose_HPI(FindHandle);
+      (HAPIFILE_FindNext(FindHandle, @SearchRec) < 0);
+    HAPIFILE_FindClose(FindHandle);
   end;
 
-  FindHandle := findfirst_HPI('*.CCX', @SearchRec, -1, 1);
+  FindHandle := HAPIFILE_FindFirst('*.CCX', @SearchRec, -1, 1);
   if FindHandle >= 0 then
   begin
     repeat
-      InsertToHPIAry(PAnsiChar(TAPath + SearchRec.FileName), 1);
+      HAPIFILE_InsertToArray(PAnsiChar(TAPath + SearchRec.FileName), 1);
     until
-      (findnext_HPI(FindHandle, @SearchRec) < 0);
-    findclose_HPI(FindHandle);
+      (HAPIFILE_FindNext(FindHandle, @SearchRec) < 0);
+    HAPIFILE_FindClose(FindHandle);
   end;
 
   if SharedBasicGameData then
   begin
     SetCurrentDir(IniSettings.CommonGameDataPath);
-    FindHandle := findfirst_HPI('*.CCX', @SearchRec, -1, 1);
+    FindHandle := HAPIFILE_FindFirst('*.CCX', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.CommonGameDataPath + SearchRec.FileName), 1);
+        HAPIFILE_InsertToArray(PAnsiChar(IniSettings.CommonGameDataPath + SearchRec.FileName), 1);
       until
-        (findnext_HPI(FindHandle, @SearchRec) < 0);
-      findclose_HPI(FindHandle);
+        (HAPIFILE_FindNext(FindHandle, @SearchRec) < 0);
+      HAPIFILE_FindClose(FindHandle);
     end;
     SetCurrentDirectoryToTAPath;
   end;
@@ -171,78 +171,78 @@ begin
   if SharedMaps then
   begin
     SetCurrentDir(IniSettings.CommonMapsPath);
-    FindHandle := findfirst_HPI('*.CCX', @SearchRec, -1, 1);
+    FindHandle := HAPIFILE_FindFirst('*.CCX', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.CommonMapsPath + SearchRec.FileName), 1);
+        HAPIFILE_InsertToArray(PAnsiChar(IniSettings.CommonMapsPath + SearchRec.FileName), 1);
       until
-        (findnext_HPI(FindHandle, @SearchRec) < 0);
-      findclose_HPI(FindHandle);
+        (HAPIFILE_FindNext(FindHandle, @SearchRec) < 0);
+      HAPIFILE_FindClose(FindHandle);
     end;
     SetCurrentDirectoryToTAPath;
   end;
 
-  FindHandle := findfirst_HPI('*.UFO', @SearchRec, -1, 1);
+  FindHandle := HAPIFILE_FindFirst('*.UFO', @SearchRec, -1, 1);
   if FindHandle >= 0 then
   begin
     repeat
-      InsertToHPIAry(PAnsiChar(TAPath + SearchRec.FileName), 0);
+      HAPIFILE_InsertToArray(PAnsiChar(TAPath + SearchRec.FileName), 0);
     until
-      (findnext_HPI(FindHandle, @SearchRec) < 0);
-    findclose_HPI(FindHandle);
+      (HAPIFILE_FindNext(FindHandle, @SearchRec) < 0);
+    HAPIFILE_FindClose(FindHandle);
   end;
 
   if SharedMaps then
   begin
     SetCurrentDir(IniSettings.CommonMapsPath);
-    FindHandle := findfirst_HPI('*.UFO', @SearchRec, -1, 1);
+    FindHandle := HAPIFILE_FindFirst('*.UFO', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.CommonMapsPath + SearchRec.FileName), 0);
+        HAPIFILE_InsertToArray(PAnsiChar(IniSettings.CommonMapsPath + SearchRec.FileName), 0);
       until
-        (findnext_HPI(FindHandle, @SearchRec) < 0);
-      findclose_HPI(FindHandle);
+        (HAPIFILE_FindNext(FindHandle, @SearchRec) < 0);
+      HAPIFILE_FindClose(FindHandle);
     end;
     SetCurrentDirectoryToTAPath;
   end;
 
-  FindHandle := findfirst_HPI('*.HPI', @SearchRec, -1, 1);
+  FindHandle := HAPIFILE_FindFirst('*.HPI', @SearchRec, -1, 1);
   if FindHandle >= 0 then
   begin
     repeat
-      InsertToHPIAry(PAnsiChar(TAPath + SearchRec.FileName), 0);
+      HAPIFILE_InsertToArray(PAnsiChar(TAPath + SearchRec.FileName), 0);
     until
-      (findnext_HPI(FindHandle, @SearchRec) < 0);
-    findclose_HPI(FindHandle);
+      (HAPIFILE_FindNext(FindHandle, @SearchRec) < 0);
+    HAPIFILE_FindClose(FindHandle);
   end;
 
   if SharedBasicGameData then
   begin
     SetCurrentDir(IniSettings.CommonGameDataPath);
-    FindHandle := findfirst_HPI('*.HPI', @SearchRec, -1, 1);
+    FindHandle := HAPIFILE_FindFirst('*.HPI', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.CommonGameDataPath + SearchRec.FileName), 0);
+        HAPIFILE_InsertToArray(PAnsiChar(IniSettings.CommonGameDataPath + SearchRec.FileName), 0);
       until
-        (findnext_HPI(FindHandle, @SearchRec) < 0);
-      findclose_HPI(FindHandle);
+        (HAPIFILE_FindNext(FindHandle, @SearchRec) < 0);
+      HAPIFILE_FindClose(FindHandle);
     end;
   end;
 
   if SharedMaps then
   begin
     SetCurrentDir(IniSettings.CommonMapsPath);
-    FindHandle := findfirst_HPI('*.HPI', @SearchRec, -1, 1);
+    FindHandle := HAPIFILE_FindFirst('*.HPI', @SearchRec, -1, 1);
     if FindHandle >= 0 then
     begin
       repeat
-        InsertToHPIAry(PAnsiChar(IniSettings.CommonMapsPath + SearchRec.FileName), 0);
+        HAPIFILE_InsertToArray(PAnsiChar(IniSettings.CommonMapsPath + SearchRec.FileName), 0);
       until
-        (findnext_HPI(FindHandle, @SearchRec) < 0);
-      findclose_HPI(FindHandle);
+        (HAPIFILE_FindNext(FindHandle, @SearchRec) < 0);
+      HAPIFILE_FindClose(FindHandle);
     end;
   end;
 

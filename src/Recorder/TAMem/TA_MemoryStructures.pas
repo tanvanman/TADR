@@ -25,6 +25,58 @@ type
 
   TAIDifficulty = ( adEasy, adMedium, adHard );
 
+  PScriptSlot = ^TScriptSlot;
+  TScriptSlot = packed record //0xA4
+    Flags                  : Cardinal;    // enum COB_RunningFlags
+    lInstrIndex            : Cardinal;
+    lStackIndex            : Cardinal;
+    pLoopsToWait           : Pointer;
+    field_10               : Pointer;     // +12Ch "deg/s"
+    field_14               : Pointer;     // unit iitial mission
+    pScriptToWaitOn        : Pointer;
+    field_1C               : Cardinal;    // Known values: 1
+    lMethodReturnCallBack  : Cardinal;    // Known Values: 0
+    lSleepTime             : Cardinal;    // 
+    field_28               : Pointer;     // +12Ch "%.1f"
+    field_2C               : Pointer;     // +12Ch "Number of units"
+    field_30               : Pointer;
+    field_34               : Pointer;     // +12Ch "m/s"
+    field_38               : Pointer;
+    field_3C               : Pointer;     // +12Ch "Script%"
+    field_40               : array[0..7] of Pointer;    // slots in use for *something* this
+                                                        // prob needs to be expanded too
+    field_60               : Cardinal;
+    field_64               : array[0..63] of Byte;
+  end;
+
+  PScriptsData = ^TScriptsData;
+  TScriptsData = packed record //0x544
+    pSciprt_vtbl      : Pointer; //004FD698
+    field_4           : Pointer;
+    pCOB              : Pointer; //pointer to COB file data (Directly points to the method count)
+    pCOBFileNode      : Pointer;
+    pStatic_Variables : Pointer;
+    pObject_States    : Pointer;
+    field_18          : Pointer;
+    ScriptSlots       : array[0..7] of TScriptSlot; // 0000001C  8 * 0xA4 = 0x520
+    lStartRunningNow  : Cardinal;                   // 0000053C
+    pObject3D         : Pointer;                    // 00000540
+  end;
+
+  PNewScriptsData = ^TNewScriptsData;
+  TNewScriptsData = packed record
+    pSciprt_vtbl      : Pointer;
+    field_4           : Pointer;
+    pCOB              : Pointer;
+    pCOBFileNode      : Pointer;
+    pStatic_Variables : Pointer;
+    pObject_States    : Pointer;
+    field_18          : Pointer;
+    ScriptSlots       : array[0..63] of TScriptSlot; // 0000001C  64 * 0xA4 = 0x2900
+    lStartRunningNow  : Cardinal;                    // 0000291C
+    pObject3D         : Pointer;                     // 00002920
+  end;
+
   PMoveInfoClassStruct = ^TMoveInfoClassStruct;
   TMoveInfoClassStruct = packed record
     pName          : Pointer;
@@ -155,57 +207,57 @@ type
   // 0x115
   PWeaponDef = ^TWeaponDef;
   TWeaponDef = packed record
-	  szWeaponName         : array [0..31] of AnsiChar;
-	  szWeaponDescription  : array [0..63] of AnsiChar;
-	  p_FireCallback       : Pointer;
-	  p_WeaponDefUnkStruct : Pointer;
-	  lWeaponVelocity      : Cardinal;
-	  lStartVelocity       : Cardinal;
-	  lWeaponAcceleration  : Cardinal;
-	  lObjects3DFile       : Cardinal;
-	  p_LandExplodeAsGFX   : Pointer;
-	  p_WaterExplodeAsGFX  : Pointer;
-	  ModelName            : array [0..47] of AnsiChar;
-    field_B0             : Cardinal;
-    field_B4             : Cardinal;
-    field_B8             : Cardinal;
+    szWeaponName         : array [0..31] of AnsiChar;
+    szWeaponDescription  : array [0..63] of AnsiChar;
+    p_FireCallback       : Pointer;
+    p_CustomDamageArray  : Pointer;
+    lWeaponVelocity      : Cardinal;
+    lStartVelocity       : Cardinal;
+    lWeaponAcceleration  : Cardinal;
+    p_WeaponModel        : Pointer;
+    p_LandExplodeAsGFX   : Pointer;
+    p_WaterExplodeAsGFX  : Pointer;
+    szModelName          : array [0..47] of AnsiChar;
+    lReserved1           : Cardinal;
+    lReserved2           : Cardinal;
+    lReserved3           : Cardinal;
     lWeaponIDCrack       : Cardinal;
-	  lEnergyPerShot       : Cardinal;
-	  lMetalPerShot        : Cardinal;
-	  lMinBarrelAngle      : Cardinal;
-	  fShakeMagnitude      : Single;
-	  lShakeDuration       : Cardinal;
-	  nDefaultDamage       : Word;
-	  nAreaOfEffect        : Word;
-	  fEdgeEffectivnes     : Single;
-	  lRange               : Cardinal;
-	  lCoverage            : Integer;
-	  nReloadTime          : Word;
-	  nWeaponTimer         : Word;
-	  nTurnRate            : Word;
-	  nBurst               : Word;
-	  nBurstRate           : Word;
-	  nSprayAngle          : Word;
-	  nDuration            : Word;
-	  nRandomDecay         : Word;
-	  nSoundStartEffectID  : SmallInt;
-	  nSoundHitEffectID    : SmallInt;
-	  nSoundWaterEffectID  : SmallInt;
-	  nSmokeDelay          : Word;
-	  nFlightTime          : Word;
-	  nHoldTime            : Word;
-	  nUnknown1            : Word;
-	  nUnknown2            : Word;
-	  nAccuracy            : Word;
-	  nTolerance           : Word;
-	  nPitchTolerance      : Word;
-	  ucID                 : Byte;
-	  cFireStarter         : Byte;
-	  cRenderType          : Byte;
-	  cColor               : Byte;
-	  cColor2              : Byte;
-	  Unknown3             : array [0..1] of Byte;
-	  lWeaponTypeMask      : Cardinal;
+    lEnergyPerShot       : Cardinal;
+    lMetalPerShot        : Cardinal;
+    lMinBarrelAngle      : Cardinal;
+    fShakeMagnitude      : Single;
+    lShakeDuration       : Cardinal;
+    nDefaultDamage       : Word;
+    nAreaOfEffect        : Word;
+    fEdgeEffectivnes     : Single;
+    lRange               : Cardinal;
+    lCoverage            : Integer;
+    nReloadTime          : Word;
+    nWeaponTimer         : Word;
+    nTurnRate            : Word;
+    nBurst               : Word;
+    nBurstRate           : Word;
+    nSprayAngle          : Word;
+    nDuration            : Word;
+    nRandomDecay         : Word;
+    nSoundStartEffectID  : SmallInt;
+    nSoundHitEffectID    : SmallInt;
+    nSoundWaterEffectID  : SmallInt;
+    nSmokeDelay          : Word;
+    nFlightTime          : Word;
+    nHoldTime            : Word;
+    nUnknown1            : Word;
+    nUnknown2            : Word;
+    nAccuracy            : Word;
+    nTolerance           : Word;
+    nPitchTolerance      : Word;
+    ucID                 : Byte;
+    ucFireStarter        : Byte;
+    ucRenderType         : Byte;
+    ucColor              : Byte;
+    ucColor2             : Byte;
+    Unknown3             : array [0..1] of Byte;
+    lWeaponTypeMask      : Cardinal;
   end;
 
   PUnitWeapon = ^TUnitWeapon;
@@ -229,7 +281,7 @@ type
   TUnitOrder = packed record
     p_PriorOrder_uosp : Pointer;
     cOrderType        : Byte;
-    cState            : Byte;
+    ucState           : Byte;
     nPaused           : Word;
     field_8           : Word;
     lRecallTime       : Cardinal;  // when current stage will be called again (for result = 2)
@@ -273,7 +325,7 @@ type
     p_PriorUnit       : Pointer;
     p_UNITINFO        : Pointer;
     p_Owner           : Pointer;
-    p_UnitScriptsData : Pointer;
+    p_UnitScriptsData : PNewScriptsData;
     p_Object3DO       : PObject3do;
     Order_Unknow      : Cardinal;
     nUnitInfoID       : Word;
@@ -478,7 +530,13 @@ type
     SharedBits      : TPlayerSharedStatesSet;
     field_98        : array [0..2] of Byte;
     PropertyMask    : Byte;
-    field_9C        : array [0..28] of Byte;
+    field_9C        : array [0..10] of Byte;
+    ucMajorVersion  : Byte;
+    ucMinorVersion  : Byte;
+    lCRC_OTA        : Cardinal;
+    field_unk2      : Cardinal;
+    field_unk3      : Cardinal;
+    field_unk4      : Cardinal;
   end;
   
   //0x14B
@@ -697,7 +755,7 @@ type
     FileHandle         : Pointer;
     field_A0C          : Pointer;
     field_A10          : Pointer;
-    sOTAFile           : Pointer;
+    pMapName           : Pointer;
     field_A18          : Pointer;
     field_A1C          : array [0..247] of Byte;
     field_B14          : Pointer;
@@ -705,9 +763,9 @@ type
     p_Briefing         : Pointer;
     field_C18          : Pointer;
     field_C1C          : array [0..263] of Byte;
-    field_D24          : Pointer;
-    field_D28          : Pointer;
-    field_D2C          : Pointer;
+    pCurrentMapName    : PAnsiChar;
+    lPlayerMapsCount   : Integer;
+    bIsMapSet          : LongBool;
     lSurfaceMetal      : Integer;
     lMinWindSpeed      : Single;
     lMaxWindSpeed      : Single;
@@ -729,7 +787,7 @@ type
     field_DB0          : Cardinal;
     p_PlayersStartPos  : Pointer;
     PlayersStartPosNr  : Cardinal;
-    field_DBC          : Cardinal;
+    field_DBC          : Pointer;
     field_DC0          : Cardinal;
     sMemory            : array [0..255] of AnsiChar;  //0-127 memory, 128-255 - numplayers
   end;
@@ -779,7 +837,7 @@ type
 
   PWeaponProjectile = ^TWeaponProjectile;
   TWeaponProjectile = packed record
-    Weapon          : Pointer;
+    Weapon          : PWeaponDef;
     Position_Curnt  : TPosition;
     Position_Start  : TPosition;
     Position_Target : TPosition;
@@ -1109,7 +1167,7 @@ type
     field_391C7            : Cardinal;
     field_391CB            : Cardinal;
     field_391CF            : array[0..25] of Byte;
-	  p_MapOTAFile           : PMapOTAFile; //0x391E9
+    p_MapOTAFile           : PMapOTAFile; //0x391E9
 	  Unknown52              : array [0..3] of Byte; //0x391ED - there's references to [p_TAMemory + 0x391ED] in ta.exe, so this is definitely something
 	  lGUICallbackState      : Cardinal; //0x391F1
 	  lGUICallback           : Cardinal; //0x391F5
@@ -1240,95 +1298,95 @@ type
 
   TUnitInfoExtensions = (
     UNITINFO_BUILDER = 0,
-		UNITINFO_FLOATER = 1,
-		UNITINFO_AMPHIBIOUS = 2,
-		UNITINFO_STEALTH = 3,
-		UNITINFO_ISAIRBASE = 4,
-		UNITINFO_TARGETTINGUPGRADE = 5,
-		UNITINFO_TELEPORTER = 6,
-		UNITINFO_HIDEDAMAGE = 7,
-		UNITINFO_SHOOTME = 8,
+    UNITINFO_FLOATER = 1,
+    UNITINFO_AMPHIBIOUS = 2,
+    UNITINFO_STEALTH = 3,
+    UNITINFO_ISAIRBASE = 4,
+    UNITINFO_TARGETTINGUPGRADE = 5,
+    UNITINFO_TELEPORTER = 6,
+    UNITINFO_HIDEDAMAGE = 7,
+    UNITINFO_SHOOTME = 8,
     UNITINFO_HASWEAPONS = 9,
-		UNITINFO_CANFLY = 10,
-		UNITINFO_CANHOVER = 11,
-		UNITINFO_IMMUNETOPARALYZER = 12,
-		UNITINFO_HOVERATTACK = 13,
-		UNITINFO_ANTIWEAPONS = 14,
-		UNITINFO_DIGGER = 15,
-		UNITINFO_ONOFFABLE = 16,
-		UNITINFO_CANSTOP = 17,
-		UNITINFO_CANATTACK = 18,
-		UNITINFO_CANGUARD = 19,
-		UNITINFO_CANPATROL = 20,
-		UNITINFO_CANMOVE = 21,
-		UNITINFO_CANLOAD = 22,
-		UNITINFO_CANRECLAMATE = 23,
-		UNITINFO_CANRESURRECT = 24,
-		UNITINFO_CANCAPTURE = 25,
-		UNITINFO_CANDGUN = 26,
-		UNITINFO_KAMIKAZE = 27,
-		UNITINFO_COMMANDER = 28,
-		UNITINFO_SHOWPLAYERNAME = 29,
-		UNITINFO_CANTBERANSPORTED = 30,
-		UNITINFO_UPRIGHT = 31,
-		UNITINFO_BMCODE = 32,
+    UNITINFO_CANFLY = 10,
+    UNITINFO_CANHOVER = 11,
+    UNITINFO_IMMUNETOPARALYZER = 12,
+    UNITINFO_HOVERATTACK = 13,
+    UNITINFO_ANTIWEAPONS = 14,
+    UNITINFO_DIGGER = 15,
+    UNITINFO_ONOFFABLE = 16,
+    UNITINFO_CANSTOP = 17,
+    UNITINFO_CANATTACK = 18,
+    UNITINFO_CANGUARD = 19,
+    UNITINFO_CANPATROL = 20,
+    UNITINFO_CANMOVE = 21,
+    UNITINFO_CANLOAD = 22,
+    UNITINFO_CANRECLAMATE = 23,
+    UNITINFO_CANRESURRECT = 24,
+    UNITINFO_CANCAPTURE = 25,
+    UNITINFO_CANDGUN = 26,
+    UNITINFO_KAMIKAZE = 27,
+    UNITINFO_COMMANDER = 28,
+    UNITINFO_SHOWPLAYERNAME = 29,
+    UNITINFO_CANTBERANSPORTED = 30,
+    UNITINFO_UPRIGHT = 31,
+    UNITINFO_BMCODE = 32,
 
-		UNITINFO_SOUNDCTGR = 33,
+    UNITINFO_SOUNDCTGR = 33,
 
-		UNITINFO_MOVEMENTCLASS_SAFE = 34,
-		UNITINFO_MOVEMENTCLASS = 35,
+    UNITINFO_MOVEMENTCLASS_SAFE = 34,
+    UNITINFO_MOVEMENTCLASS = 35,
 
-		UNITINFO_MAXHEALTH = 36,
-		UNITINFO_HEALTIME = 37,
+    UNITINFO_MAXHEALTH = 36,
+    UNITINFO_HEALTIME = 37,
 
-		UNITINFO_MAXSPEED = 38,
-		UNITINFO_ACCELERATION = 39,
-		UNITINFO_BRAKERATE = 40,
-		UNITINFO_TURNRATE = 41,
-		UNITINFO_CRUISEALT = 42,
-		UNITINFO_MANEUVERLEASH = 43,
-		UNITINFO_ATTACKRUNLEN = 44,
-		UNITINFO_MAXWATERDEPTH = 45,
-		UNITINFO_MINWATERDEPTH = 46,
-		UNITINFO_MAXSLOPE = 47,
-		UNITINFO_MAXWATERSLOPE = 48,
-		UNITINFO_WATERLINE = 49,
+    UNITINFO_MAXSPEED = 38,
+    UNITINFO_ACCELERATION = 39,
+    UNITINFO_BRAKERATE = 40,
+    UNITINFO_TURNRATE = 41,
+    UNITINFO_CRUISEALT = 42,
+    UNITINFO_MANEUVERLEASH = 43,
+    UNITINFO_ATTACKRUNLEN = 44,
+    UNITINFO_MAXWATERDEPTH = 45,
+    UNITINFO_MINWATERDEPTH = 46,
+    UNITINFO_MAXSLOPE = 47,
+    UNITINFO_MAXWATERSLOPE = 48,
+    UNITINFO_WATERLINE = 49,
 
-		UNITINFO_TRANSPORTSIZE = 50,
-		UNITINFO_TRANSPORTCAP = 51,
+    UNITINFO_TRANSPORTSIZE = 50,
+    UNITINFO_TRANSPORTCAP = 51,
 
-		UNITINFO_BANKSCALE = 52,
-		UNITINFO_KAMIKAZEDIST = 53,
-		UNITINFO_DAMAGEMODIFIER = 54,
+    UNITINFO_BANKSCALE = 52,
+    UNITINFO_KAMIKAZEDIST = 53,
+    UNITINFO_DAMAGEMODIFIER = 54,
 
-		UNITINFO_WORKERTIME = 55,
-		UNITINFO_BUILDDIST = 56,
+    UNITINFO_WORKERTIME = 55,
+    UNITINFO_BUILDDIST = 56,
 
-		UNITINFO_SIGHTDIST = 57,
-		UNITINFO_RADARDIST = 58,
-		UNITINFO_SONARDIST = 59,
-		UNITINFO_MINCLOAKDIST = 60,
-		UNITINFO_RADARDISTJAM = 61,
-		UNITINFO_SONARDISTJAM = 62,
+    UNITINFO_SIGHTDIST = 57,
+    UNITINFO_RADARDIST = 58,
+    UNITINFO_SONARDIST = 59,
+    UNITINFO_MINCLOAKDIST = 60,
+    UNITINFO_RADARDISTJAM = 61,
+    UNITINFO_SONARDISTJAM = 62,
 
-		UNITINFO_MAKESMETAL = 63,
-		UNITINFO_FENERGYMAKE = 64,
-		UNITINFO_FMETALMAKE = 65,
-		UNITINFO_FENERGYUSE = 66,
-		UNITINFO_FMETALUSE = 67,
-		UNITINFO_FENERGYSTOR = 68,
-		UNITINFO_FMETALSTOR = 69,
-		UNITINFO_FWINDGENERATOR = 70,
-		UNITINFO_FTIDALGENERATOR = 71,
-		UNITINFO_FCLOAKCOST = 72,
-		UNITINFO_FCLOAKCOSTMOVE = 73,
+    UNITINFO_MAKESMETAL = 63,
+    UNITINFO_FENERGYMAKE = 64,
+    UNITINFO_FMETALMAKE = 65,
+    UNITINFO_FENERGYUSE = 66,
+    UNITINFO_FMETALUSE = 67,
+    UNITINFO_FENERGYSTOR = 68,
+    UNITINFO_FMETALSTOR = 69,
+    UNITINFO_FWINDGENERATOR = 70,
+    UNITINFO_FTIDALGENERATOR = 71,
+    UNITINFO_FCLOAKCOST = 72,
+    UNITINFO_FCLOAKCOSTMOVE = 73,
 
-		UNITINFO_BUILDCOSTMETAL = 74,
-		UNITINFO_BUILDCOSTENERGY = 75,
+    UNITINFO_BUILDCOSTMETAL = 74,
+    UNITINFO_BUILDCOSTENERGY = 75,
     UNITINFO_BUILDTIME = 76,
 
-		UNITINFO_EXPLODEAS = 77,
-		UNITINFO_SELFDSTRAS = 78,
+    UNITINFO_EXPLODEAS = 77,
+    UNITINFO_SELFDSTRAS = 78,
     UNITINFO_ISFEATURE = 79 );
     
   PCustomUnitInfo = ^TCustomUnitInfo;
@@ -1440,6 +1498,8 @@ var
   MapMissionsUnitsInitialMissions : TStringList;
   MouseLock : LongBool;
   CameraFadeLevel : Integer;
+
+  MapsList : TStringList;
 
   // data that can be shared globally between units
   UnitsSharedData : array[0..1024] of Integer;

@@ -37,6 +37,7 @@ uses
   ClockPosition,
   GUIEnhancements,
   BattleRoomEnhancements,
+  ExtensionsMem,
   COB_extensions,
   //PlayersSlotsExpand,
   StatsLogging;
@@ -82,6 +83,7 @@ if OnMainRun then
   RegisterPlugin( GUIEnhancements.GetPlugin() );
   if IniSettings.Plugin_BattleRoomEnh then
     RegisterPlugin( BattleRoomEnhancements.GetPlugin() );
+  RegisterPlugin( ExtensionsMem.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );
   if IniSettings.CreateStatsFile then
     RegisterPlugin( StatsLogging.GetPlugin() );
