@@ -39,6 +39,7 @@ uses
   BattleRoomEnhancements,
   ExtensionsMem,
   COB_extensions,
+  SaveGame,
   //PlayersSlotsExpand,
   StatsLogging;
 
@@ -87,6 +88,7 @@ if OnMainRun then
   RegisterPlugin( COB_extensions.GetPlugin() );
   if IniSettings.CreateStatsFile then
     RegisterPlugin( StatsLogging.GetPlugin() );
+  RegisterPlugin( SaveGame.GetPlugin() );
   end;
 // Run the code injection engine
 InstallPlugins( OnMainRun );

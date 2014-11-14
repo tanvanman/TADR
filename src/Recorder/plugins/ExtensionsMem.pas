@@ -21,6 +21,8 @@ Procedure OnUninstallExtensionsMem;
 procedure InitExtensionsMemory;
 procedure FreeExtensionsMemory;
 
+procedure InitExtensionsArrays; stdcall;
+procedure ExtensionsFreeMemory; stdcall;
 procedure FreeUnitMem(UnitPtr: PUnitStruct);
 
 implementation
@@ -53,6 +55,7 @@ begin
                             'Init extensions search arrays etc.',
                             @InitExtensionsMemory,
                             $004971B3, 0 );
+                            
     Result.MakeRelativeJmp( State_ExtensionsMem,
                             '',
                             @FreeExtensionsMemory,
@@ -66,6 +69,7 @@ var
   i: LongWord;
   UnitRec: TStoreUnitsRec;
 begin
+  ExtensionsFreeMemory;
   UnitSearchResults.Init(TypeInfo(TUnitSearchArr), UnitSearchArr, @UnitSearchCount);
   UnitSearchResults.Capacity := High(Word);
 

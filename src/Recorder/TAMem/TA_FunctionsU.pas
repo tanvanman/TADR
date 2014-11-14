@@ -1114,6 +1114,11 @@ var
   MEM_Alloc : MEM_AllocHandler = MEM_AllocHandler($004B4F10);
 
 type
+  MEM_ReAllocHandler = function(Memory: Pointer; NewSize: Cardinal): Pointer; cdecl;
+var
+  MEM_ReAlloc : MEM_ReAllocHandler = MEM_ReAllocHandler($004D8580);
+
+type
   MEM_FreeHandler = procedure(Memory: Pointer); cdecl;
 var
   MEM_Free : MEM_FreeHandler = MEM_FreeHandler($004D85A0);
@@ -1129,7 +1134,7 @@ var
   MEM_SetReadOnly : MEM_SetReadOnlyHandler = MEM_SetReadOnlyHandler($004D8710);
 
 //////////////////////////////////////////////////////////////////////////////////////////
-// HPI and TDF files
+// HPI, HAPIBANK and TDF files
 //////////////////////////////////////////////////////////////////////////////////////////
 
 type
@@ -1159,6 +1164,74 @@ Type
     Priority: Integer): Integer; stdcall;
 var
   HAPIFILE_InsertToArray : HAPIFILE_InsertToArrayHandler = HAPIFILE_InsertToArrayHandler($004BE0B0);
+
+type
+  HAPIBANK_OpenAccountHandler = function ( Eax: Pointer; Edx: Pointer;
+                                           HAPIBANK: Pointer;
+                                           const AccountName: PAnsiChar ): LongBool; register;
+var
+  HAPIBANK_OpenAccount : HAPIBANK_OpenAccountHandler = HAPIBANK_OpenAccountHandler($004B4560);
+
+type
+  HAPIBANK_WriteIntegerHandler = function ( Eax: Pointer; Edx: Pointer;
+                                            HAPIBANK: Pointer;
+                                            Value: Integer;
+                                            const Description: PAnsiChar ): LongBool; register;
+var
+  HAPIBANK_WriteInteger : HAPIBANK_WriteIntegerHandler = HAPIBANK_WriteIntegerHandler($004B4630);
+
+type
+  HAPIBANK_ReadIntegerHandler = function ( Eax: Pointer; Edx: Pointer;
+                                           HAPIBANK: Pointer;
+                                           DefaultVal: Integer;
+                                           const Description: PAnsiChar ): Integer; register;
+var
+  HAPIBANK_ReadInteger : HAPIBANK_ReadIntegerHandler = HAPIBANK_ReadIntegerHandler($004B4800);
+
+type
+  HAPIBANK_WriteStringHandler = function ( Eax: Pointer; Edx: Pointer;
+                                           HAPIBANK: Pointer;
+                                           Description: PAnsiChar;
+                                           Value: PAnsiChar ): LongBool; register;
+var
+  HAPIBANK_WriteString : HAPIBANK_WriteStringHandler = HAPIBANK_WriteStringHandler($004B4750);
+
+type
+  HAPIBANK_WriteBinDataHandler = function ( Eax: Pointer; Edx: Pointer;
+                                            HAPIBANK: Pointer;
+                                            WriteSize: Cardinal;
+                                            Data: Pointer ): Cardinal; register;
+var
+  HAPIBANK_WriteBinData : HAPIBANK_WriteBinDataHandler = HAPIBANK_WriteBinDataHandler($004B4CF0);
+
+type
+  HAPIBANK_ReadBinDataHandler = function ( Eax: Pointer; Edx: Pointer;
+                                           HAPIBANK: Pointer;
+                                           ReadSize: Cardinal;
+                                           Dest: Pointer ): Cardinal; register;
+var
+  HAPIBANK_ReadBinData : HAPIBANK_ReadBinDataHandler = HAPIBANK_ReadBinDataHandler($004B4C80);
+
+type
+  HAPIBANK_GetItemSizeHandler = function ( Eax: Pointer; Edx: Pointer;
+                                           HAPIBANK: Pointer ): Integer; register;
+var
+  HAPIBANK_GetItemSize : HAPIBANK_GetItemSizeHandler = HAPIBANK_GetItemSizeHandler($004B4BF0);
+
+type
+  HAPIBANK_AccessSafeDepositHandler = function ( Eax: Pointer; Edx: Pointer;
+                                                 HAPIBANK: Pointer;
+                                                 Description: PAnsiChar ): LongBool; register;
+var
+  HAPIBANK_AccessSafeDeposit :
+    HAPIBANK_AccessSafeDepositHandler = HAPIBANK_AccessSafeDepositHandler($004B4BA0);
+
+type
+  HAPIBANK_SeekInHexHandler = function ( Eax: Pointer; Edx: Pointer;
+                                         HAPIBANK: Pointer;
+                                         Position: Integer ): Integer; register;
+var
+  HAPIBANK_SeekInHex : HAPIBANK_SeekInHexHandler = HAPIBANK_SeekInHexHandler($004B4C10);
 
 type
   TdfFile_GetIntHandler = function ( Eax : Cardinal;

@@ -31,6 +31,7 @@ type
     class function GetSwitchesMask : Word;
     class procedure SetSwitchesMask(Mask: Word);
     class function GetGameingType : TGameingType;
+    class function GetGUICallbackState : TGUICallbackState;
     class function GetAIDifficulty : TAIDifficulty;
     class procedure SetCameraToUnit(UnitPtr : Pointer);
     class procedure SetCameraFadeLevel(FadePercent : Integer);
@@ -63,6 +64,7 @@ type
     Property UnitInfosCount : LongWord read GetUnitInfosCount;
     Property SwitchesMask : Word read GetSwitchesMask write SetSwitchesMask;
     Property GameingType : TGameingType read GetGameingType;
+    Property GUICallbackState : TGUICallbackState read GetGUICallbackState;
     Property AIDifficulty : TAIDifficulty read GetAIDifficulty;
     Property RaceSide : TTAPlayerSide read GetViewPlayerRaceSide;
     Property CameraToUnit : Pointer write SetCameraToUnit;
@@ -562,6 +564,11 @@ begin
   Result := gtMenu;
   if PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile <> nil then
     Result := TGameingType(PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).MissionType);
+end;
+
+class function TAMem.GetGUICallbackState: TGUICallbackState;
+begin
+  Result := TGUICallbackState(PTAdynmemStruct(TAData.MainStructPtr).lGUICallbackState);
 end;
 
 class function TAMem.GetAIDifficulty: TAIDifficulty;
@@ -2423,13 +2430,15 @@ end;
 class procedure TAUnits.ClearSearchRec(Id: LongWord; ArrayType: Byte);
 begin
   case ArrayType of
-  1 : begin
-      if Assigned(UnitSearchArr[Id].UnitIds) then
+  1 : if UnitSearchArr[Id].UnitIds <> nil then
+      begin
         UnitSearchArr[Id].UnitIds := nil;
+        UnitSearchArr[Id].Id := 0;
       end;
-  2 : begin
-      if Assigned(SpawnedMinionsArr[Id].UnitIds) then
+  2 : if SpawnedMinionsArr[Id].UnitIds <> nil then
+      begin
         SpawnedMinionsArr[Id].UnitIds := nil;
+        SpawnedMinionsArr[Id].Id := 0;
       end;
   end;
 end;

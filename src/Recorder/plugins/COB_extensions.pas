@@ -6,13 +6,6 @@ uses
 
 // -----------------------------------------------------------------------------
 
-type
-  TScriptSlotsSaveGameRec = packed record
-    lCOBFileNode : Cardinal;
-    SlotsData : array[0..63] of TScriptSlot;
-    lStartRunningNow : Cardinal;
-  end;
-
 const
   State_COB_extensions : boolean = true;         
 
@@ -22,9 +15,6 @@ function GetPlugin : TPluginData;
 
 Procedure OnInstallCobExtensions;
 Procedure OnUninstallCobExtensions;
-
-const
-  MAX_SCRIPT_SLOTS : Byte = 64;
 
 const
  WEAPON_AIM_ABORTED = 21;
@@ -200,9 +190,6 @@ var
 
 Procedure COB_Extensions_Handling;
 Procedure COB_ExtensionsSetters_Handling;
-procedure COB_SaveUnitScriptSlots;
-procedure COB_LoadUnitScriptSlots_1;
-procedure COB_LoadUnitScriptSlots_2;
 
 implementation
 uses
@@ -420,29 +407,6 @@ if IsTAVersion31 and State_COB_extensions then
     result.MakeReplacement( State_COB_extensions,
                             'getters',
                             $00480772, lReplacement, SizeOf(lReplacement));
-                             
-    result.MakeRelativeJmp( State_COB_extensions,
-                            '',
-                            @COB_SaveUnitScriptSlots,
-                            $004B1EDA,
-                            1 );
-    lReplacement := $00002908;
-    result.MakeReplacement( State_COB_extensions,
-                            'load game struct size fix',
-                            $004B207A, lReplacement, SizeOf(lReplacement));
-    result.MakeRelativeJmp( State_COB_extensions,
-                            '',
-                            @COB_LoadUnitScriptSlots_1,
-                            $004B209A,
-                            4 );
-    result.MakeRelativeJmp( State_COB_extensions,
-                            '',
-                            @COB_LoadUnitScriptSlots_2,
-                            $004B20C1,
-                            2 );
-    result.MakeReplacement( State_COB_extensions,
-                            'load game struct size fix 3',
-                            $004B20AC, lReplacement, SizeOf(lReplacement));
 
     result.MakeReplacement( State_COB_extensions,
                             'start script',
@@ -1411,91 +1375,6 @@ GeneralCaseSetter:
 DoReturn:
   pop esi;
   ret 8h;
-end;
-
-var
-  ScriptSlotsSaveGameRec : TScriptSlotsSaveGameRec;
-procedure SaveUnitScriptSlots(ScriptData: PNewScriptsData); stdcall;
-var
-  lSlotIdx : Integer;
-begin
-  FillChar(ScriptSlotsSaveGameRec, SizeOf(ScriptSlotsSaveGameRec), 0);
-  ScriptSlotsSaveGameRec.lCOBFileNode := Cardinal(ScriptData.pCOBFileNode);
-  for lSlotIdx := 0 to MAX_SCRIPT_SLOTS - 1 do
-  begin
-    ScriptSlotsSaveGameRec.SlotsData[lSlotIdx] := ScriptData.ScriptSlots[lSlotIdx];
-  end;
-  ScriptSlotsSaveGameRec.lStartRunningNow := ScriptData.lStartRunningNow;
-end;
-
-procedure COB_SaveUnitScriptSlots;
-asm
-  push    ebx
-  push    edx
-  push    ecx
-
-  push    ebx                  // scriptsdata
-  call    SaveUnitScriptSlots
-
-  pop     ecx
-  pop     edx
-  pop     ebx
-
-  mov     esi, [esp+5B0h]
-  xor     ebp, ebp
-  push    type TScriptSlotsSaveGameRec
-  lea     eax, ScriptSlotsSaveGameRec
-  push    eax
-  mov     ecx, esi
-
-  push $004B1F36
-  Call PatchNJump;
-end;
-
-procedure COB_LoadUnitScriptSlots_1;
-asm
-  lea     edx, ScriptSlotsSaveGameRec
-  push    type TScriptSlotsSaveGameRec
-  push    edx
-  mov     ecx, ebp
-  push $004B20A6
-  Call PatchNJump;
-end;
-
-procedure LoadUnitScriptSlots(ScriptData: PNewScriptsData); stdcall;
-var
-  lSlotIdx : Integer;
-begin
-  ScriptData.pCOBFileNode := Pointer(ScriptSlotsSaveGameRec.lCOBFileNode);
-  for lSlotIdx := 0 to MAX_SCRIPT_SLOTS - 1 do
-  begin
-    ScriptData.ScriptSlots[lSlotIdx] := ScriptSlotsSaveGameRec.SlotsData[lSlotIdx];
-  end;
-  ScriptData.lStartRunningNow := ScriptSlotsSaveGameRec.lStartRunningNow;
-  FillChar(ScriptSlotsSaveGameRec, SizeOf(ScriptSlotsSaveGameRec), 0);
-end;
-
-procedure COB_LoadUnitScriptSlots_2;
-label
-  ContinueParse;
-asm
-  mov     eax, [ebx+TNewScriptsData.pCOBFileNode]
-  mov     ecx, ScriptSlotsSaveGameRec.lCOBFileNode
-  cmp     eax, ecx
-  jz      ContinueParse
-  push $004B20CC
-  call PatchNJump;
-ContinueParse :
-pushAD
-  push    ebx
-  call    LoadUnitScriptSlots
-popAD
-  mov     esi, [esp+10h]
-  mov     edx, [ebx+10h]
-  mov     ebp, [esp+54Ch]
-
-  push $004B2122
-  call PatchNJump;
 end;
 
 end.

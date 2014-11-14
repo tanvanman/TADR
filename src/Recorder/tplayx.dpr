@@ -70,15 +70,7 @@ uses
   MapExtensions in 'plugins\MapExtensions.pas',
   GAFSequences in 'plugins\GAFSequences.pas',
   BattleRoomEnhancements in 'plugins\BattleRoomEnhancements.pas',
-  ExtensionsMem in 'plugins\ExtensionsMem.pas';
+  ExtensionsMem in 'plugins\ExtensionsMem.pas',
+  SaveGame in 'plugins\SaveGame.pas';
 
-{$R *.res}
-
-begin
 end.
-
-
-
-
-
-

@@ -440,16 +440,19 @@ procedure BattleRoom_BattleRoomToGame; stdcall;
 var
   Player: PPlayerStruct;
 begin
-  if TAData.PlayersStructPtr <> nil then
+  if TAData.GameingType = gtMultiplayer then
   begin
-    Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
-    if Player.PlayerInfo.PropertyMask and $40 <> $40 then
-      REGISTRY_WriteInteger(PAnsiChar('Total Annihilation'),
-        PAnsiChar('RaceSide'), Player.PlayerInfo.Raceside);
+    if TAData.PlayersStructPtr <> nil then
+    begin
+      Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
+      if Player.PlayerInfo.PropertyMask and $40 <> $40 then
+        REGISTRY_WriteInteger(PAnsiChar('Total Annihilation'),
+          PAnsiChar('RaceSide'), Player.PlayerInfo.Raceside);
+    end;
+    PTADynMemStruct(TAData.MainStructPtr).lCurrentAIProfile := 2;
+    if GlobalDPlay.AIDifficulty <> 0 then
+      PTADynMemStruct(TAData.MainStructPtr).lCurrentAIProfile := GlobalDPlay.AIDifficulty + 1;
   end;
-  PTADynMemStruct(TAData.MainStructPtr).lCurrentAIProfile := 2;
-  if GlobalDPlay.AIDifficulty <> 0 then
-    PTADynMemStruct(TAData.MainStructPtr).lCurrentAIProfile := GlobalDPlay.AIDifficulty + 1;
 end;
 
 procedure BattleRoom_BattleRoomToGameHook;

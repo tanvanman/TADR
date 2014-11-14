@@ -47,6 +47,7 @@ procedure BroadcastNanolatheParticles_VTOLReclaimUnit;
 procedure BroadcastNanolatheParticles_VTOLReclaimFeature; 
 procedure ScreenFadeControl;
 procedure WeaponProjectileFlameStreamHook;
+procedure DontRadarSonarJammAllies;
 {
 function AddNanoUnit(x, y, color: Integer): LongBool; stdcall;
 function InitNanoUnit: LongBool; stdcall;
@@ -304,7 +305,12 @@ begin
                            'WeaponProjectileFlameStreamHook',
                            @WeaponProjectileFlameStreamHook,
                            $0049C39E, 1 );
-
+                                   {
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                           'DontRadarSonarJammAllies',
+                           @DontRadarSonarJammAllies,
+                           $00467608, 5 );
+                                   }
     Result:= GUIEnhancementsPlugin;
   end else
     Result := nil;
@@ -2054,6 +2060,29 @@ CustomFlameStream :
   pop     esi
 
   push $0049C3A4
+  call PatchNJump
+end;
+
+procedure DontRadarSonarJammAllies;
+label
+  NextUnit,
+  NotARadarJammer;
+asm
+  xor     ecx, ecx
+  mov     cl, [esi+6Dh]                         // unit owner index
+  mov     al, byte ptr [ebp+TPlayerStruct.cAllyFlagArray[ecx]]
+  test    al, al
+  jnz     NextUnit
+  mov     eax, [esi]
+  cmp     [eax+TUnitInfo.nRadarDistanceJam], 0
+  jz      NotARadarJammer
+  push $00467614
+  call PatchNJump
+NotARadarJammer :
+  push $00467631
+  call PatchNJump
+NextUnit :
+  push $0046765A
   call PatchNJump
 end;
 
