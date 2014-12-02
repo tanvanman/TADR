@@ -71,6 +71,12 @@ uses
   GAFSequences in 'plugins\GAFSequences.pas',
   BattleRoomEnhancements in 'plugins\BattleRoomEnhancements.pas',
   ExtensionsMem in 'plugins\ExtensionsMem.pas',
-  SaveGame in 'plugins\SaveGame.pas';
+  SaveGame in 'plugins\SaveGame.pas',
+  TA_MemPlayers in 'TAMem\TA_MemPlayers.pas',
+  TA_MemUnits in 'TAMem\TA_MemUnits.pas',
+  TA_MemPlotData in 'TAMem\TA_MemPlotData.pas';
 
+{$R *.res}
+
+begin
 end.

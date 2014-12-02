@@ -40,6 +40,8 @@ uses
   TA_MemoryConstants,
   TA_MemoryStructures,
   TA_MemoryLocations,
+  TA_MemPlayers,
+  TA_MemUnits,
   TA_FunctionsU;
 
 Procedure OnInstallMapExtensions;

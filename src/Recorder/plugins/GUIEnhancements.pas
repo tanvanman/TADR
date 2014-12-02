@@ -63,6 +63,8 @@ uses
   SysUtils,
   TA_MemoryConstants,
   TA_MemoryLocations,
+  TA_MemPlayers,
+  TA_MemUnits,
   ExtensionsMem,
   UnitInfoExpand,
   Math,
@@ -474,14 +476,11 @@ begin
           CustomReloadBar := False;
           if ExtraUnitInfoTags[UnitInfo.nCategory].UseCustomReloadBar then
           begin
-            if CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].LongID = TAUnit.GetLongId(Unit_p) then
+            if CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].CustomWeapReload then
             begin
-              if CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].CustomWeapReload then
-              begin
-                MaxReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].CustomWeapReloadMax;
-                CurReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].CustomWeapReloadCur;
-                CustomReloadBar := True;
-              end;
+              MaxReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].CustomWeapReloadMax;
+              CurReloadTime := CustomUnitFieldsArr[TAUnit.GetId(Unit_p)].CustomWeapReloadCur;
+              CustomReloadBar := True;
             end;
           end else
           begin
@@ -1767,10 +1766,10 @@ end;
 }
 
 procedure BroadcastNanolatheParticles(PosStart: PPosition;
-  PosTarget: PNanolathePos; bReverse: Integer); stdcall;
+  PosTarget: PNanolathePos; Reverse: Integer); stdcall;
 begin
   if TAData.NetworkLayerEnabled then
-    GlobalDplay.SendCobEventMessage(TANM_Rec2Rec_SetNanolatheParticles, 0, nil, @PosStart, @bReverse, nil, @PosTarget, nil);
+    GlobalDPlay.Broadcast_SetNanolatheParticles(PosStart^, PosTarget^, Reverse);
 end;
 
 procedure BroadcastNanolatheParticles_BuildingBuild;

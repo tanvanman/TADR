@@ -909,7 +909,7 @@ var
   DrawProgressBar : DrawProgressBarHandler = DrawProgressBarHandler($00468310);
 
 type
-  DrawTransparentBoxHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; Transp: Integer) : LongInt; stdcall;
+  DrawTransparentBoxHandler = function (OFFSCREEN_ptr: Cardinal; Position: PtagRECT; Transp: Integer) : LongInt; stdcall;
 var
   DrawTransparentBox : DrawTransparentBoxHandler = DrawTransparentBoxHandler($004BF4D0);
 

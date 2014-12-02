@@ -31,7 +31,8 @@ uses
   COB_Extensions,
   TA_MemoryConstants,
   TA_MemoryLocations,
-  TA_FunctionsU;
+  TA_FunctionsU,
+  IniOptions;
 
 Procedure OnInstallExtensionsMem;
 begin
@@ -70,6 +71,11 @@ var
   UnitRec: TStoreUnitsRec;
 begin
   ExtensionsFreeMemory;
+
+  
+  CustomUnitFields.Init(TypeInfo(TCustomUnitFieldsArr), CustomUnitFieldsArr, @CustomUnitFieldsCount);
+  CustomUnitFields.Capacity := IniSettings.UnitLimit * MAXPLAYERCOUNT;
+
   UnitSearchResults.Init(TypeInfo(TUnitSearchArr), UnitSearchArr, @UnitSearchCount);
   UnitSearchResults.Capacity := High(Word);
 
@@ -93,10 +99,21 @@ asm
 end;
 
 procedure ExtensionsFreeMemory; stdcall;
+var
+  i : Integer;
 begin
   MouseLock := False;
 
   //ReleaseFeature_TdfVector;
+  for i := Low(CustomUnitFieldsArr) to High(CustomUnitFieldsArr) do
+    if CustomUnitFieldsArr[i].UnitInfo <> nil then
+    begin
+      MEM_Free(CustomUnitFieldsArr[i].UnitInfo);
+      CustomUnitFieldsArr[i].UnitInfo := nil;
+    end;
+
+  if not CustomUnitFields.IsVoid then
+    CustomUnitFields.Clear;
   if not UnitSearchResults.IsVoid then
     UnitSearchResults.Clear;
   if not SpawnedMinions.IsVoid then

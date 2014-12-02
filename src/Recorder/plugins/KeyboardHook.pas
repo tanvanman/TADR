@@ -40,6 +40,8 @@ implementation
 uses
   idplay,
   TA_MemoryLocations,
+  TA_MemPlayers,
+  TA_MemUnits,
   TA_MemoryStructures,
   TA_MemoryConstants,
   TA_FunctionsU,
@@ -162,8 +164,8 @@ begin
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-                  PlayerInfo.ShootAll:= not PlayerInfo.ShootAll;
-                  if PlayerInfo.ShootAll then
+                  TAData.ShootAll := not TAData.ShootAll;
+                  if TAData.ShootAll then
                     SendTextLocal('Toggled ShootAll to: ON')
                   else
                     SendTextLocal('Toggled ShootAll to: OFF');
@@ -175,7 +177,7 @@ begin
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-                  UnitAtMouse:= TAUnit.AtMouse;
+                  UnitAtMouse := TAUnit.AtMouse;
                   if (UnitAtMouse <> nil) then
                     if TAUnit.IsOnThisComp(UnitAtMouse, False) then
                     begin
@@ -250,7 +252,7 @@ begin
               end;
         $13 : begin     // pause button
                 if TAData.NetworkLayerEnabled then
-                  if globalDPlay.AutopauseAtStart and not globalDPlay.Players[TAData.LocalPlayerID+1].IsServer then
+                  if GlobalDPlay.AutopauseAtStart and not GlobalDPlay.Players[TAData.LocalPlayerID+1].IsServer then
                   begin
                     Msg_Reminder(PAnsiChar('Only the host can unpause.' +#13#10+ 'You can also vote to go with .ready command'), 1);
                     Result := 1;
@@ -315,11 +317,11 @@ Switch share energy to 0 or latest value
 }
 procedure SwitchSetShareEnergy;
 begin
-  if not PlayerInfo.ShareEnergy then
+  if not TAData.ShareEnergy then
     InterpretInternalCommand('shareenergy');
-  if PlayerInfo.ShareEnergyVal > 0 then
+  if TAData.ShareEnergyVal > 0 then
   begin
-    lastShareEnergyVal:= PlayerInfo.ShareEnergyVal;
+    lastShareEnergyVal := TAData.ShareEnergyVal;
     InterpretInternalCommand('setshareenergy 0');
   end else
     InterpretInternalCommand('setshareenergy '+IntToStr(Round(lastShareEnergyVal)));
@@ -403,7 +405,7 @@ Retry:
           if CurrentUnit.p_UNITINFO <> nil then
           begin
             if PUnitInfo(CurrentUnit.p_UNITINFO).cBMCode = 0 then
-              if TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER, nil) <> 0 then
+              if TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER) <> 0 then
               begin
                 if GetUnitInfoProperty(CurrentUnit, 5) <> 0 then
                 begin

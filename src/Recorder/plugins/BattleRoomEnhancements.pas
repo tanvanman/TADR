@@ -38,6 +38,7 @@ uses
   PlayerDataU,
   idplay,
   TA_MemoryLocations,
+  TA_MemPlayers,
   TA_MemoryStructures,
   TA_MemoryConstants,
   TADemoConsts,
@@ -402,7 +403,7 @@ begin
       GUIGADGET_SetStatus(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
           PAnsiChar('AIDIFF'), GlobalDPlay.AIDifficulty);
     end;
-    GlobalDplay.BroadcastModInfo;
+    GlobalDPlay.BroadcastModInfo;
   end;
 end;
 
@@ -487,13 +488,13 @@ begin
 
   if cGrayed = 1 then
   begin
-    if GlobalDplay.AutoPauseAtStart then
+    if GlobalDPlay.AutoPauseAtStart then
       cStatus := 1;
     GUIGADGET_SetStatus(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
       PAnsiChar('AUTOPAUSE'), cStatus);
     GUIGADGET_SetStatus(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
       PAnsiChar('AIDIFF'), GlobalDPlay.AIDifficulty);
-    if GlobalDplay.SpeedLockNative then
+    if GlobalDPlay.SpeedLockNative then
       cStatus := 1
     else
       cStatus := 0;
@@ -557,7 +558,7 @@ end;
  
 procedure BattleRoom_BroadcastModInfo(Player: PPlayerStruct); stdcall;
 begin
-  GlobalDplay.BroadcastModInfo;
+  GlobalDPlay.BroadcastModInfo;
 end;
 
 procedure BattleRoom_BroadcastModInfoHook;

@@ -1,8 +1,5 @@
 unit idplay;
 {$DEFINE Release}
-
-{.$DEFINE WarZone}
-
 {.$DEFINE DebuggerHooks}
 
 // causes the $2c packets to be logged
@@ -224,7 +221,14 @@ type
 
     procedure SendAlliedChat();
     procedure SendClipboard();
-    procedure SendCobEventMessage(EventType: Byte; Dest: TDPID; UnitPtr: Pointer; arg1: PCardinal; arg2: PByte; arg3: PWord; arg4: PCardinal; arg5: PCardinal);
+
+    procedure Broadcast_UnitWeapon(UnitID: Word; UnitWeaponIdx: Byte; WeaponID: Cardinal; Dest: TDPID = 0);
+    procedure Broadcast_UnitGrantUnitInfo(UnitID: Word; ANewState: Byte; Dest: TDPID = 0);
+    procedure Broadcast_UnitInfoEdit(UnitID: Word; FieldType: Cardinal; NewValue: Integer; Dest: TDPID = 0);
+    procedure Broadcast_UnitInfoSwap(UnitID: Word; UnitInfoCrc: Cardinal; Dest: TDPID = 0);
+    procedure Broadcast_NewUnitLocation(UnitID: Word; X, Y, Z: Cardinal; Dest: TDPID = 0);
+    procedure Broadcast_EmitSFXToUnit(UnitID: Word; ToUnitID: Word; FromPieceIdx: SmallInt; SfxType: Byte; Dest: TDPID = 0);
+    procedure Broadcast_SetNanolatheParticles(PosFrom: TPosition; PosTo: TNanolathePos; Reverse: Byte; Dest: TDPID = 0);
 
     procedure ExceptMessage;
     function OnException(E: Exception) : boolean;     
@@ -432,12 +436,13 @@ uses
  LOS_extensions,
  SpeedHack,
  TA_MemoryLocations,
+ TA_MemPlayers,
+ TA_MemUnits,
  TA_NetworkingMessages,
  TA_FunctionsU,
  InputHook,
  IniOptions,
  KeyboardHook,
- {$IFDEF WarZone}WarZoneRankings,{$ENDIF}
  ModsList, GUIEnhancements, UnitActions;
 
 {$WARNINGS ON}
@@ -660,75 +665,89 @@ SendChatLocal2(s);
 chatview^.NewData := 0;
 end;
 
-procedure TDPlay.SendCobEventMessage(EventType: Byte; Dest: TDPID; UnitPtr: Pointer; arg1: PCardinal; arg2: PByte; arg3: PWord; arg4: PCardinal; arg5: PCardinal);
+procedure TDPlay.Broadcast_UnitWeapon(UnitID: Word;
+  UnitWeaponIdx: Byte; WeaponID: Cardinal; Dest: TDPID = 0);
 var
-  customPacket: string;
-  unitId: Word;
-  unitIdSender: LongWord;
+  customPacket : AnsiString;
 begin
-  if Self <> nil then
-  begin
-    if UnitPtr <> nil then
-      unitIdSender := TAUnit.GetLongId(unitPtr);
-    unitId := Word(unitIdSender);
-    case eventType of
-      TANM_Rec2Rec_UnitWeapon :
-        begin
-          SetLength( customPacket, SizeOf(TRec2Rec_UnitWeapon_Message));
-          Move( unitId, customPacket[1], SizeOf(Word));
-          Move( arg1^, customPacket[3], SizeOf(Byte)); // which weap
-          Move( arg4^, customPacket[4], SizeOf(Cardinal)); // new weap id
-          Move( IniSettings.WeaponIdPatch, customPacket[8], SizeOf(Boolean));
-        end;
-      TANM_Rec2Rec_UnitGrantUnitInfo :
-        begin
-          SetLength( customPacket, SizeOf(TRec2Rec_UnitGrantUnitInfo_Message));
-          Move( unitId, customPacket[1], SizeOf(Word));
-          Move( unitIdSender, customPacket[3], SizeOf(Cardinal));
-          Move( arg2^, customPacket[7], SizeOf(Byte)); // new state
-        end;
-      TANM_Rec2Rec_UnitInfoEdit :
-        begin
-          SetLength( customPacket, SizeOf(TRec2Rec_UnitInfoEdit_Message));
-          Move( unitId, customPacket[1], SizeOf(Word));
-          Move( unitIdSender, customPacket[3], SizeOf(Cardinal));
-          Move( arg4^, customPacket[7], SizeOf(Cardinal));
-          Move( arg1^, customPacket[11], SizeOf(Cardinal));
-        end;
-      TANM_Rec2Rec_UnitTemplate :
-        begin
-          SetLength( customPacket, SizeOf(TRec2Rec_UnitTemplate_Message));
-          Move( unitId, customPacket[1], SizeOf(Word));
-          Move( arg3^, customPacket[3], SizeOf(Cardinal)); // new template crc
-          Move( arg1^, customPacket[7], SizeOf(Byte)); // recreate object
-        end;
-      TANM_Rec2Rec_NewUnitLocation :
-        begin
-          SetLength( customPacket, SizeOf(TRec2Rec_NewUnitLocation_Message));
-          Move( unitId, customPacket[1], SizeOf(Word));
-          Move( arg1^, customPacket[3], SizeOf(Cardinal));
-          Move( arg4^, customPacket[7], SizeOf(Cardinal));
-          Move( arg5^, customPacket[11], SizeOf(Cardinal));
-        end;
-      TANM_Rec2Rec_EmitSFXToUnit :
-        begin
-          SetLength( customPacket, SizeOf(TRec2Rec_EmitSFXToUnit_Message));
-          Move( unitId, customPacket[1], SizeOf(Word));  // from unit
-          Move( arg3^, customPacket[3], SizeOf(Word));   // to unit
-          Move( arg1^, customPacket[5], SizeOf(SmallInt)); // from piece
-          Move( arg2^, customPacket[7], SizeOf(Byte)); // sfx type
-        end;
-      TANM_Rec2Rec_SetNanolatheParticles :
-        begin
-          SetLength( customPacket, SizeOf(TRec2Rec_SetNanolatheParticles_Message));
-          Move( PPosition(arg1^)^, customPacket[1], SizeOf(TPosition)); // start position
-          Move( PNanolathePos(arg4^)^, customPacket[13], SizeOf(TNanolathePos)); // target position
-          Move( arg2^, customPacket[37], SizeOf(Byte)); // nano reverse or not
-        end;
-    end;
-    SendRecorderToRecorderMsg( eventType, customPacket, False, Dest );
-    {$IFNDEF Release}SendChat(Players[1].Name + ' sent COB event: #' + inttostr(eventtype));{$ENDIF}
-  end;
+  SetLength( customPacket, SizeOf(TRec2Rec_UnitWeapon_Message));
+  Move( UnitID, customPacket[1], SizeOf(Word));
+  Move( UnitWeaponIdx, customPacket[3], SizeOf(Byte));
+  Move( WeaponID, customPacket[4], SizeOf(Cardinal));
+  Move( IniSettings.WeaponIdPatch, customPacket[8], SizeOf(Boolean));
+  SendRecorderToRecorderMsg( TANM_Rec2Rec_UnitWeapon, customPacket, False, Dest );
+end;
+
+procedure TDPlay.Broadcast_UnitGrantUnitInfo(UnitID: Word;
+  ANewState: Byte; Dest: TDPID = 0);
+var
+  customPacket : AnsiString;
+begin
+  SetLength( customPacket, SizeOf(TRec2Rec_UnitGrantUnitInfo_Message));
+  Move( UnitID, customPacket[1], SizeOf(Word));
+  Move( ANewState, customPacket[3], SizeOf(Byte));
+  SendRecorderToRecorderMsg( TANM_Rec2Rec_UnitGrantUnitInfo, customPacket, False, Dest );
+end;
+
+procedure TDPlay.Broadcast_UnitInfoEdit(UnitID: Word;
+  FieldType: Cardinal; NewValue: Integer; Dest: TDPID = 0);
+var
+  customPacket : AnsiString;
+begin
+  SetLength( customPacket, SizeOf(TRec2Rec_UnitInfoEdit_Message));
+  Move( UnitID, customPacket[1], SizeOf(Word));
+  Move( FieldType, customPacket[3], SizeOf(Cardinal));
+  Move( NewValue, customPacket[7], SizeOf(Integer));
+  SendRecorderToRecorderMsg( TANM_Rec2Rec_UnitInfoEdit, customPacket, False, Dest );
+end;
+
+procedure TDPlay.Broadcast_UnitInfoSwap(UnitID: Word;
+  UnitInfoCrc: Cardinal; Dest: TDPID = 0);
+var
+  customPacket : AnsiString;
+begin
+  SetLength( customPacket, SizeOf(TRec2Rec_UnitInfoSwap_Message));
+  Move( UnitID, customPacket[1], SizeOf(Word));
+  Move( UnitInfoCrc, customPacket[3], SizeOf(Cardinal));
+  SendRecorderToRecorderMsg( TANM_Rec2Rec_UnitInfoSwap, customPacket, False, Dest );
+end;
+
+procedure TDPlay.Broadcast_NewUnitLocation(UnitID: Word;
+  X, Y, Z: Cardinal; Dest: TDPID = 0);
+var
+  customPacket : AnsiString;
+begin
+  SetLength( customPacket, SizeOf(TRec2Rec_NewUnitLocation_Message));
+  Move( UnitID, customPacket[1], SizeOf(Word));
+  Move( X, customPacket[3], SizeOf(Cardinal));
+  Move( Z, customPacket[7], SizeOf(Cardinal));
+  Move( Y, customPacket[11], SizeOf(Cardinal));
+  SendRecorderToRecorderMsg( TANM_Rec2Rec_NewUnitLocation, customPacket, False, Dest );
+end;
+
+procedure TDPlay.Broadcast_EmitSFXToUnit(UnitID: Word;
+  ToUnitID: Word; FromPieceIdx: SmallInt; SfxType: Byte; Dest: TDPID = 0);
+var
+  customPacket : AnsiString;
+begin
+  SetLength( customPacket, SizeOf(TRec2Rec_EmitSFXToUnit_Message));
+  Move( UnitID, customPacket[1], SizeOf(Word));
+  Move( ToUnitID, customPacket[3], SizeOf(Word));
+  Move( FromPieceIdx, customPacket[5], SizeOf(SmallInt));
+  Move( SfxType, customPacket[7], SizeOf(Byte));
+  SendRecorderToRecorderMsg( TANM_Rec2Rec_EmitSFXToUnit, customPacket, False, Dest );
+end;
+
+procedure TDPlay.Broadcast_SetNanolatheParticles(PosFrom: TPosition;
+  PosTo: TNanolathePos; Reverse: Byte; Dest: TDPID = 0);
+var
+  customPacket : AnsiString;
+begin
+  SetLength( customPacket, SizeOf(TRec2Rec_SetNanolatheParticles_Message));
+  Move( PosFrom, customPacket[1], SizeOf(TPosition));
+  Move( PosTo, customPacket[13], SizeOf(TNanolathePos));
+  Move( Reverse, customPacket[37], SizeOf(Byte));
+  SendRecorderToRecorderMsg( TANM_Rec2Rec_SetNanolatheParticles, customPacket, False, Dest );
 end;
                                    
 // -----------------------------------------------------------------------------
@@ -2947,40 +2966,50 @@ if assigned(chatview) then
                    if not TAUnit.IsOnThisComp(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId), True) then
                    begin
                      TAUnit.SetWeapon(Pointer(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId)),
-                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WhichWeapon,
+                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WeaponIdx,
                                               PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID);
                                               //PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.RequiresPatch);
                    end;
                  end;
-               TANM_Rec2Rec_UnitTemplate :
+               TANM_Rec2Rec_UnitInfoSwap :
                  begin
-                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitTemplate_Message) );
-                   TAUnit.SetTemplate(Pointer(TAUnit.Id2Ptr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.UnitId)),
-                                              TAMem.UnitInfoCrc2Ptr(PRec2Rec_UnitTemplate_Message(Rec2Rec_Data)^.NewTemplateCrc));
+                   if (not FromPlayer.IsSelf) then
+                   begin
+                     assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitInfoSwap_Message) );
+                     TAUnit.SetUnitInfo( TAUnit.Id2Ptr(PRec2Rec_UnitInfoSwap_Message(Rec2Rec_Data)^.UnitID),
+                                         TAMem.UnitInfoCrc2Ptr(PRec2Rec_UnitInfoSwap_Message(Rec2Rec_Data)^.UnitInfoCRC) );
+                   end;
                  end;
                TANM_Rec2Rec_UnitGrantUnitInfo :
                  begin
-                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitGrantUnitInfo_Message) );
-                   TAUnit.GrantUnitInfo( nil,
-                                          PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.NewState,
-                                          Pointer(PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.UnitIdRemote));
+                   if (not FromPlayer.IsSelf) then
+                   begin
+                     assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitGrantUnitInfo_Message) );
+                     TAUnit.GrantUnitInfo( TAUnit.Id2Ptr(PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.UnitId),
+                                           PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.NewState,
+                                           False );
+                   end;
                  end;
                TANM_Rec2Rec_UnitInfoEdit :
                  begin
-                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitInfoEdit_Message) );
-                   TAUnit.setUnitInfoField( nil, TUnitInfoExtensions(PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.FieldType),
-                                              PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.NewValue,
-                                              Pointer(PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.UnitIdRemote));
+                   if (not FromPlayer.IsSelf) then
+                   begin
+                     assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitInfoEdit_Message) );
+                     TAUnit.setUnitInfoField( TAUnit.Id2Ptr(PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.UnitId),
+                                              TUnitInfoExtensions(PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.FieldType),
+                                              PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.NewValue );
+                   end;
                  end;
                TANM_Rec2Rec_NewUnitLocation :
                  begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_NewUnitLocation_Message) );
-                   if not TAUnit.IsOnThisComp(TAUnit.Id2Ptr(PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.UnitId), True) then
+                   if (not FromPlayer.IsSelf) then
                    begin
-                     UNITS_NewUnitPosition(TAUnit.Id2Ptr(PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.UnitId),
-                                           PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewX,
-                                           PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewY,
-                                           PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewZ, 1);
+                     UNITS_NewUnitPosition( TAUnit.Id2Ptr(PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.UnitId),
+                                            PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewX,
+                                            PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewY,
+                                            PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewZ,
+                                            1 );
                    end;
                  end;
                TANM_Rec2Rec_EmitSFXToUnit :

@@ -235,7 +235,6 @@ type
   PRec2Rec_UnitGrantUnitInfo_Message = ^TRec2Rec_UnitGrantUnitInfo_Message;
   TRec2Rec_UnitGrantUnitInfo_Message = packed record
     UnitId        : Word;
-    UnitIdRemote  : LongWord;
     NewState      : Byte;
   end;
 
@@ -246,7 +245,7 @@ type
   PRec2Rec_UnitWeapon_Message = ^TRec2Rec_UnitWeapon_Message;
   TRec2Rec_UnitWeapon_Message = packed record
     UnitId        : Word;
-    WhichWeapon   : Byte;
+    WeaponIdx     : Byte;
     NewWeaponID   : Cardinal;
     RequiresPatch : Boolean;
   end;
@@ -258,20 +257,18 @@ type
   PRec2Rec_UnitInfoEdit_Message = ^TRec2Rec_UnitInfoEdit_Message;
   TRec2Rec_UnitInfoEdit_Message = packed record
     UnitId        : Word;
-    UnitIdRemote  : LongWord;
-    FieldType     : LongWord;
-    NewValue      : LongWord;
+    FieldType     : Cardinal;
+    NewValue      : Integer;
   end;
 
 // unit type ID changed
 const
-  TANM_Rec2Rec_UnitTemplate = $0D;
+  TANM_Rec2Rec_UnitInfoSwap = $0D;
 type
-  PRec2Rec_UnitTemplate_Message = ^TRec2Rec_UnitTemplate_Message;
-  TRec2Rec_UnitTemplate_Message = packed record
+  PRec2Rec_UnitInfoSwap_Message = ^TRec2Rec_UnitInfoSwap_Message;
+  TRec2Rec_UnitInfoSwap_Message = packed record
     UnitID         : Word;
-    NewTemplateCrc : Cardinal;
-    Recreate       : Byte;
+    UnitInfoCRC    : Cardinal;
   end;
 
 const

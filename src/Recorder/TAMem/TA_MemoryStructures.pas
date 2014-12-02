@@ -278,6 +278,7 @@ type
 
   PUnitOrder = ^TUnitOrder;
   PUnitStruct = ^TUnitStruct;
+  PUnitInfo = ^TUnitInfo;
   
   TUnitOrder = packed record
     p_PriorOrder_uosp : Pointer;
@@ -324,7 +325,7 @@ type
     p_TransporterUnit : Pointer;
     p_TransportedUnit : Pointer;
     p_PriorUnit       : Pointer;
-    p_UNITINFO        : Pointer;
+    p_UNITINFO        : PUnitInfo;
     p_Owner           : Pointer;
     p_UnitScriptsData : PNewScriptsData;
     p_Object3DO       : PObject3do;
@@ -369,7 +370,6 @@ type
   end;
 
   // 0x249
-  PUnitInfo = ^TUnitInfo;
   TUnitInfo = packed record
     szName             : array [0..31] of AnsiChar;
     szUnitName         : array [0..31] of AnsiChar;
@@ -1392,16 +1392,6 @@ type
     UNITINFO_SELFDSTRAS = 78,
     UNITINFO_ISFEATURE = 79 );
     
-  PCustomUnitInfo = ^TCustomUnitInfo;
-  TCustomUnitInfo = packed record
-    unitId        : Cardinal;
-    unitIdRemote  : Cardinal;  // owner's (unit upgrade packet sender) local unit id
-    //OwnerPlayer  : Longint; // Buffer.EventPlayer_DirectID = PlayerAryIndex2ID(UnitInfo.ThisPlayer_ID   )
-    InfoPtrOld   : Cardinal;  // local old global template Pointer
-    InfoStruct   : TUnitInfo;
-  end;
-  TUnitInfos = array of TCustomUnitInfo;
-
   TStoreUnitsRec = packed record
     Id : Cardinal;
     UnitIds : array of LongWord;
@@ -1413,6 +1403,7 @@ type
     LongID               : Cardinal;
     TeleportReloadMax    : Integer;
     TeleportReloadCur    : Integer;
+    UnitInfo             : PUnitInfo;       
     { GUI }
     CustomWeapReload     : Boolean;
     CustomWeapReloadMax  : Integer;

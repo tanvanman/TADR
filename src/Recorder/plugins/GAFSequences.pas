@@ -89,7 +89,7 @@ var
   CustomFXHandle : Pointer;
 begin
   CustomFXHandle := nil;
-  if HAPIFILE_GetFileLength(PAnsiChar('customfx')) > 0 then
+  if HAPIFILE_GetFileLength(PAnsiChar('anims\customfx.gaf')) > 0 then
     CustomFXHandle := GAF_OpenAnimsFile(PAnsiChar('customfx'));
   if CustomFXHandle <> nil then
   begin

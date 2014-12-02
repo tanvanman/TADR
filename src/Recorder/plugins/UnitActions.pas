@@ -44,6 +44,9 @@ uses
   TA_MemoryConstants,
   TA_MemoryStructures,
   TA_MemoryLocations,
+  TA_MemPlayers,
+  TA_MemUnits,
+  TA_MemPlotData,
   TA_FunctionsU,
   COB_extensions,
   UnitInfoExpand;
@@ -375,7 +378,7 @@ begin
 
           if ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportToLoSOnly then
             CanTeleport := CanTeleport and
-                           TAPlayer.PositionInLOS(OrderUnit.p_Owner, TargetPosition);
+                           TAMap.PositionInLOS(OrderUnit.p_Owner, TargetPosition);
 
           if CanTeleport then
             ReturnVal := 9;
@@ -474,7 +477,7 @@ begin
       begin
         if (TestedUnitInfo.cBMCode = 1) and
            ((TestedUnitInfo.UnitTypeMask2 and 2) = 2) and
-           (TAUnit.GetUnitInfoField(TestedUnit, UNITINFO_BUILDER, nil) = 0) then  // can fire
+           (TAUnit.GetUnitInfoField(TestedUnit, UNITINFO_BUILDER) = 0) then  // can fire
         begin
           GetTPosition(TargetPosition.X + UnitsArr[i].OffX,
                        TargetPosition.Z + UnitsArr[i].OffZ,
@@ -606,7 +609,7 @@ begin
           begin
             case ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportMethod of
               tmSelf : ;
-              tmSelfLoS : if not TAPlayer.PositionInLOS(OrderUnit.p_Owner, TargetPosition) then
+              tmSelfLoS : if not TAMap.PositionInLOS(OrderUnit.p_Owner, TargetPosition) then
                             Exit;
               tmVTOLOthers :
                 begin
@@ -697,7 +700,7 @@ begin
       if (PUnitInfo(CurrentUnit.p_UNITINFO).cBMCode <> 0) then
         Continue;
 
-      if (TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER, nil) = 0) then
+      if (TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER) = 0) then
          Continue
       else begin
         ORDERS_RemoveAllBuildQueues(CurrentUnit, True);
@@ -978,7 +981,7 @@ begin
             NewZ := PCardinal(@TargetPosition.Z_)^;
 
             if TAData.NetworkLayerEnabled then
-              globalDplay.SendCobEventMessage(TANM_Rec2Rec_NewUnitLocation, 0, UnitPtr, @NewX, nil, nil, @NewY, @NewZ);
+              GlobalDPlay.Broadcast_NewUnitLocation(TAUnit.GetID(UnitPtr), NewX, NewZ, NewY);
             UNITS_NewUnitPosition(UnitPtr, NewX, NewY, NewZ, 1);
             if OrderPtr.lPar1 <> 0 then
               TASfx.EmitSfxFromPiece(OrderPtr.p_UnitTarget, UnitPtr, 0, 8, True);

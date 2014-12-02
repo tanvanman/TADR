@@ -63,6 +63,8 @@ uses
   TADemoConsts,
   TA_MemoryConstants,
   TA_MemoryLocations,
+  TA_MemPlayers,
+  TA_MemUnits,
   TA_MemoryStructures,
   IniOptions;
 

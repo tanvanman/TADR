@@ -46,6 +46,7 @@ uses
   TA_MemoryConstants,
   TA_MemoryStructures,
   TA_MemoryLocations,
+  TA_MemUnits,
   TA_FunctionsU, logging, sysutils;
 
 var

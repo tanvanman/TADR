@@ -10,10 +10,7 @@ const
   State_UnitInfoExpand : boolean = true;
 
 var
-  CustomUnitInfosArray : TUnitInfos;
-  CustomUnitInfos,
   CustomUnitFields : TDynArray;
-  CustomUnitInfosCount,
   CustomUnitFieldsCount : Integer;
 
 function GetPlugin : TPluginData;
@@ -26,6 +23,8 @@ Procedure OnUninstallUnitInfoExpand;
 // -----------------------------------------------------------------------------
 
 procedure UnitInfoExpand_NewPropertiesLoadHook;
+procedure FreeCustomUnitInfoHook;
+procedure FreeCustomUnitInfo(UnitPtr: PUnitStruct); stdcall;
 function GetUnitInfoProperty(UnitPtr: Pointer; PropertyType: Integer): Integer; stdcall;
 
 implementation
@@ -33,7 +32,8 @@ uses
   IniOptions,
   TA_MemoryConstants,
   TA_FunctionsU,
-  TA_MemoryLocations;
+  TA_MemoryLocations,
+  TA_MemUnits;
 
 var
   UnitInfoExpandPlugin: TPluginData;
@@ -41,18 +41,10 @@ var
 Procedure OnInstallUnitInfoExpand;
 begin
   SetLength(ExtraUnitInfoTags, IniSettings.UnitType);
-
-  CustomUnitInfos.Init(TypeInfo(TUnitInfos),CustomUnitInfosArray, @CustomUnitInfosCount);
-  CustomUnitInfos.Capacity := IniSettings.UnitLimit * MAXPLAYERCOUNT;
-
-  CustomUnitFields.Init(TypeInfo(TCustomUnitFieldsArr), CustomUnitFieldsArr, @CustomUnitFieldsCount);
-  CustomUnitFields.Capacity := IniSettings.UnitLimit * MAXPLAYERCOUNT;
 end;
 
 Procedure OnUninstallUnitInfoExpand;
 begin
-  if not CustomUnitInfos.IsVoid then
-    CustomUnitInfos.Clear;
   if not CustomUnitFields.IsVoid then
     CustomUnitFields.Clear;
 end;
@@ -71,6 +63,11 @@ begin
                           'Load new unit definition tags hook',
                           @UnitInfoExpand_NewPropertiesLoadHook,
                           $0042C401, 1);
+                            
+    UnitInfoExpandPlugin.MakeRelativeJmp( State_UnitInfoExpand,
+                          'Free custom unitinfo at unit create',
+                          @FreeCustomUnitInfoHook,
+                          $00485A75, 1);
 
     Result:= UnitInfoExpandPlugin;
   end else
@@ -145,6 +142,27 @@ asm
     push    503C94h
     push $0042C407;
     call PatchNJump;
+end;
+
+procedure FreeCustomUnitInfo(UnitPtr: PUnitStruct); stdcall;
+begin
+  // !! clear record here !!
+  if CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)].UnitInfo <> nil then
+  begin
+    MEM_Free(CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)].UnitInfo);
+    CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)].UnitInfo := nil;
+  end;
+end;
+
+procedure FreeCustomUnitInfoHook;
+asm
+  mov     [esi+92h], edx
+  pushAD
+  push    esi
+  call    FreeCustomUnitInfo
+  popAD
+  push $00485A7B;
+  call PatchNJump;
 end;
 
 end.
