@@ -597,7 +597,7 @@ begin
   TargetPos.Y := 1350;
   StartPos.Y := 65521;
 
-  Result := PROJECTILES_FireMapWeap(WEAPONS_Name2Ptr(PAnsiChar('METEOR')), @TargetPos, @StartPos, True);
+  Result := PROJECTILES_FireMapWeap(WeaponPtr, @TargetPos, @StartPos, True);
 end;
 
 end.

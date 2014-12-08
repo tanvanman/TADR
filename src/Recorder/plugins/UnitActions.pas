@@ -31,6 +31,7 @@ procedure UnitActions_NewOrdersButtonsWrapper;
 procedure UnitActions_TeleportOrderWrapper;
 procedure UnitActions_TeleportReloadWrapper;
 procedure UnitActions_TeleportPositionOffset;
+procedure UnitActions_AdvancedDefaultMission;
 
 procedure BroadcastCommanderStartPosition; stdcall;
 
@@ -126,7 +127,13 @@ begin
     Result.MakeRelativeJmp( State_UnitActions,
                             'multiple teleport, apply position offset',
                             @UnitActions_TeleportPositionOffset,
-                            $0048D126, 1);    
+                            $0048D126, 1);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'Default unit mission with position parameter addition',
+                            @UnitActions_AdvancedDefaultMission,
+                            $0043B9DE, 1);
+
   end else
     Result := nil;
 end;
@@ -1059,6 +1066,57 @@ UseNonOffsetPosition:
   cmp     al, 47                 // teleport self button
   jz      UseOffsetPosition
   push $0048D1D9;
+  call PatchNJump;
+end;
+
+procedure AdvancedDefaultMission(UnitPtr: PUnitStruct; OldSelfOrder: Pointer); stdcall;
+
+  procedure ChangeOrderState(var OrderState: Cardinal);
+  asm
+    mov     edx, OrderState
+    or      dh, 40h
+  end;
+
+var
+  OrderMem : Pointer;
+  NewOrder : PUnitOrder;
+  Position : TPosition;
+  UnitID, UnitInfoID : Word;
+  OrderState : Cardinal;
+begin
+  OrderMem := MEM_Alloc(SizeOf(TUnitOrder));
+  if OrderMem <> nil then
+  begin
+    UnitInfoID := UnitPtr.p_UNITINFO.nCategory;
+    UnitID := TAUnit.GetID(UnitPtr);
+
+    if ExtraUnitInfoTags[UnitInfoID].DefaultMissionOrgPos then
+      Position := UnitPtr.Position
+    else
+      GetTPosition(CustomUnitFieldsArr[UnitID].DefaultMissionPosX,
+                   CustomUnitFieldsArr[UnitID].DefaultMissionPosZ,
+                   Position);
+
+    NewOrder := ORDERS_CreateObject(nil, nil, OrderMem, 0,
+                                    0, 0, @Position, nil,
+                                    UnitPtr.p_UNITINFO.cDefMissionType);
+
+    OrderState := NewOrder.lOrder_State;
+    ChangeOrderState(OrderState);
+    NewOrder.lOrder_State := OrderState;
+    if (OrderState and $40000) = $40000 then
+      ORDERS_QueueOrder(UnitPtr, NewOrder, UnitPtr.p_FutureOrder)
+    else
+      ORDERS_QueueOrder(UnitPtr, NewOrder, PUnitOrder(OldSelfOrder^));
+  end;
+end;
+
+procedure UnitActions_AdvancedDefaultMission;
+asm
+  push    ebx // old self order
+  push    edi // unit
+  call    AdvancedDefaultMission
+  push $0043BA88;
   call PatchNJump;
 end;
 

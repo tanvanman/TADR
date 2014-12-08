@@ -649,7 +649,6 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
         TAUnit.SetCloak(TAUnit.Id2Ptr(arg2), arg1)
       else
         TAUnit.SetCloak(UnitPtr, arg1);
-      UpdateIngameGUI(0);
       end;
     STATE_UNIT :
       begin

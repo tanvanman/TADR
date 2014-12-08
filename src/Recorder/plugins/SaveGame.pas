@@ -33,6 +33,7 @@ procedure SaveGame_LoadUnitScriptSlots_1;
 procedure SaveGame_LoadUnitScriptSlots_2;
 procedure SaveGame_SaveAdditionHook;
 procedure SaveGame_LoadAdditionHook;
+procedure SaveGame_LoadNoScriptsFix;
 
 implementation
 uses
@@ -61,11 +62,11 @@ begin
                                   State_SaveGame,
                                   @OnInstallSaveGame,
                                   @OnUninstallSaveGame );
-
+{
     Result.MakeReplacement( State_SaveGame,
                             'Create audit file next to .SAV',
                             $00432A5B, CREATE_AUDIT_FILE, 1);
-
+}
     Result.MakeRelativeJmp( State_SaveGame,
                             'Save TADR structures to SAV file',
                             @SaveGame_SaveAdditionHook,
@@ -75,6 +76,13 @@ begin
                             'Load TADR structures from SAV file',
                             @SaveGame_LoadAdditionHook,
                             $0043267D, 1 );
+                            
+                             {
+    Result.MakeRelativeJmp( State_SaveGame,
+                            'Load game fix for units with no scripts',
+                            @SaveGame_LoadNoScriptsFix,
+                            $004875F9, 1 );
+                             }
 
     if IniSettings.Plugin_ScriptSlotsLimit and
        (IniSettings.ModId > 1) then
@@ -304,6 +312,20 @@ asm
   mov     edx, [TADynMemStructPtr]
   push $00432683
   call PatchNJump;
+end;
+
+procedure SaveGame_LoadNoScriptsFix;
+label
+  AvoidLoad;
+asm
+   mov     ecx, [esi+TUnitStruct.p_UnitScriptsData]
+   test    ecx, ecx
+   jz      AvoidLoad
+   push $004875FF
+   call PatchNJump;
+AvoidLoad:
+   push $00487605
+   call PatchNJump;
 end;
 
 end.

@@ -70,7 +70,7 @@ var
 
 type
   FreeUnitScriptDataHandler = function ( uneax, unedx: Pointer;
-                                         ScriptData: PNewScriptsData; a2: Byte ): Pointer; register;
+                                         ScriptData: Pointer; a2: Byte ): Pointer; register;
 var
   FreeUnitScriptData : FreeUnitScriptDataHandler = FreeUnitScriptDataHandler($00485E30);
 
@@ -562,7 +562,7 @@ type
                                  ShiftKey: Cardinal;
                                  pUnitPtr: Pointer;
                                  pTargetUnitPtr: Pointer;
-                                 pPosition: Pointer;
+                                 Position: PPosition;
                                  lPar1: Cardinal;
                                  lPar2: Cardinal ): Cardinal; stdcall;
 var
@@ -573,7 +573,7 @@ type
                                     ShiftKey: Cardinal;
                                     pUnitPtr: Pointer;
                                     pTargetUnitPtr: Pointer;
-                                    pPosition: Pointer;
+                                    Position: PPosition;
                                     lPar1: Cardinal;
                                     lPar2: Cardinal ): Cardinal; stdcall;
 var
@@ -603,6 +603,19 @@ type
   GetUnitFirstOrderTargatHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
 var
   GetUnitFirstOrderTargat: GetUnitFirstOrderTargatHandler = GetUnitFirstOrderTargatHandler($439DD0);
+
+type
+  ORDERS_CreateObjectHandler = function ( uneax, unedx: Pointer; OrderObject: Pointer;
+    Flags: Cardinal; lPar2: Cardinal; lPar1: Cardinal;
+    TargetPosition: PPosition; TargetUnit: PUnitStruct; ActionType: Cardinal): PUnitOrder; register;
+var
+  ORDERS_CreateObject: ORDERS_CreateObjectHandler = ORDERS_CreateObjectHandler($0043A0C0);
+
+type
+  ORDERS_QueueOrderHandler = procedure ( UnitPtr: PUnitStruct;
+    Order1: PUnitOrder; Order2: PUnitOrder ); stdcall;
+var
+  ORDERS_QueueOrder: ORDERS_QueueOrderHandler = ORDERS_QueueOrderHandler($0043AC60);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Units

@@ -327,7 +327,7 @@ type
     p_PriorUnit       : Pointer;
     p_UNITINFO        : PUnitInfo;
     p_Owner           : Pointer;
-    p_UnitScriptsData : PNewScriptsData;
+    p_UnitScriptsData : Pointer;
     p_Object3DO       : PObject3do;
     Order_Unknow      : Cardinal;
     nUnitInfoID       : Word;
@@ -852,7 +852,7 @@ type
     CreatingTime    : Integer;
     p_TargetUnit    : Pointer;
     p_AttackerUnit  : Pointer;
-    lInterceptor    : Pointer;
+    lInterceptor    : Cardinal;
     field_5A        : Integer;
     field_5E        : Word;
     nBurst          : Word;
@@ -1403,7 +1403,9 @@ type
     LongID               : Cardinal;
     TeleportReloadMax    : Integer;
     TeleportReloadCur    : Integer;
-    UnitInfo             : PUnitInfo;       
+    UnitInfo             : PUnitInfo;
+    DefaultMissionPosX   : Word;
+    DefaultMissionPosZ   : Word;
     { GUI }
     CustomWeapReload     : Boolean;
     CustomWeapReloadMax  : Integer;
@@ -1443,6 +1445,7 @@ type
     CustomRange2Animate : Boolean;
     SolarGenerator : Double;
     UseCustomReloadBar : Boolean;
+    DefaultMissionOrgPos : Boolean;
   end;
 
   TExtraMapOTATagsRec = packed record

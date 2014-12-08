@@ -51,6 +51,7 @@ type
     Plugin_Stockpile     : Boolean;
     Plugin_BattleRoomEnh : Boolean;
     Plugin_ScriptSlotsLimit : Boolean;
+    Plugin_InterceptsOnlyList : Boolean;
 
     Plugin_CircleUnitSelect : Boolean;
     Plugin_ForceDrawBuildSpotNano : Boolean;
@@ -161,7 +162,7 @@ function ReadINISettings: boolean;
           Result:= True;
       end else
       begin
-        TLog.Add(0, 'Error reading setting [' + ident + ']');
+        //TLog.Add(0, 'Error reading setting [' + ident + ']');
         Exit;
       end;
     end;
@@ -206,7 +207,7 @@ function ReadINISettings: boolean;
           Trim(temp);
           Result:= temp;
         except
-          TLog.Add(0, 'Error reading setting [' + ident + ']');
+          //TLog.Add(0, 'Error reading setting [' + ident + ']');
           Exit;
         end;
       end else
@@ -230,7 +231,7 @@ function ReadIniPath(var IniFile: TIniFile; sect: string; ident: string; out pat
 
           Result:= true;
         except
-          TLog.Add(0, 'Error reading setting [' + ident + ']');
+          //TLog.Add(0, 'Error reading setting [' + ident + ']');
           Exit;
         end;
       end else
@@ -253,7 +254,7 @@ function ReadIniPath(var IniFile: TIniFile; sect: string; ident: string; out pat
           temp:= Copy(temp, Pos(':', temp) + 1, Length(temp) - Pos(':', temp));
           Result:= StrToInt(temp);
         except
-          TLog.Add(0, 'Error reading setting [' + ident + ']');
+          //TLog.Add(0, 'Error reading setting [' + ident + ']');
           Exit;
         end;
       end else
@@ -329,23 +330,23 @@ begin
       IniSettings.Plugin_HBCategory4 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
       IniSettings.Plugin_HBCategory5 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
       IniSettings.Plugin_MinWeaponReload := ReadIniValue(IniFile, 'Preferences', 'MinWeaponReloadTime', 0);
+      IniSettings.Plugin_MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
       IniSettings.Plugin_Transporters := ReadIniBool(IniFile, 'Preferences', 'TransportersCount', False);
       IniSettings.Plugin_Stockpile := ReadIniBool(IniFile, 'Preferences', 'StockpileCount', False);
+      IniSettings.Plugin_TrueIncome := ReadIniBool(IniFile, 'Preferences', 'TrueIncome', False);
+      IniSettings.Plugin_ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
       IniSettings.Plugin_CircleUnitSelect := ReadIniBool(IniFile, 'Preferences', 'CircleUnitSelect', False);
       IniSettings.Plugin_ForceDrawBuildSpotNano := ReadIniBool(IniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
       IniSettings.Plugin_DrawBuildSpotQueueNano := ReadIniBool(IniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);
       IniSettings.Plugin_BuildSpotNanoShimmer := ReadIniBool(IniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
 
-      IniSettings.Plugin_TrueIncome := ReadIniBool(IniFile, 'Preferences', 'TrueIncome', False);
-      IniSettings.Plugin_BroadcastNanolathe := ReadIniBool(IniFile, 'Preferences', 'BroadcastNanolathe', False);
-
-      IniSettings.Plugin_ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
-      IniSettings.Plugin_MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
-
-      IniSettings.Plugin_BattleRoomEnh := ReadIniBool(IniFile, 'Preferences', 'BattleRoomEnhancements', False);
-      IniSettings.Plugin_ScriptSlotsLimit := ReadIniBool(IniFile, 'Preferences', 'IncScriptSlotsLimit', False);
-
       IniSettings.Plugin_StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
+
+      IniSettings.Plugin_BroadcastNanolathe := ReadIniBool(IniFile, 'Preferences', 'BroadcastNanolathe', False);
+      IniSettings.Plugin_BattleRoomEnh := ReadIniBool(IniFile, 'Preferences', 'BattleRoomEnhancements', False);
+
+      IniSettings.Plugin_ScriptSlotsLimit := ReadIniBool(IniFile, 'Preferences', 'IncScriptSlotsLimit', False);
+      IniSettings.Plugin_InterceptsOnlyList := ReadIniBool(IniFile, 'Preferences', 'UseInterceptsOnlyList', True);
     finally
       Result:= True;
       IniFile.Free;

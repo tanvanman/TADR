@@ -87,19 +87,21 @@ begin
                           @WeaponAimNTrajectory_NoAirWeapon_Cursor,
                           $0043E578, 0);
 
-    WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
-                          'Overwrite nukes search function call #1',
-                          @WeaponAimNTrajectory_SearchForEnemyNukes,
-                          $0049DC2F);
-    WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
-                          'Overwrite nukes search function call #2',
-                          @WeaponAimNTrajectory_SearchForEnemyNukes,
-                          $00408B48);
-    WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
-                          'Overwrite nukes search function call #3',
-                          @WeaponAimNTrajectory_SearchForEnemyNukes,
-                          $00408945);
-
+    if IniSettings.Plugin_InterceptsOnlyList then
+    begin
+      WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                            'Overwrite nukes search function call #1',
+                            @WeaponAimNTrajectory_SearchForEnemyNukes,
+                            $0049DC2F);
+      WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                            'Overwrite nukes search function call #2',
+                            @WeaponAimNTrajectory_SearchForEnemyNukes,
+                            $00408B48);
+      WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                            'Overwrite nukes search function call #3',
+                            @WeaponAimNTrajectory_SearchForEnemyNukes,
+                            $00408945);
+    end;
 {
     WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
                           'WeaponAimNTrajectory_InterceptorTest',
@@ -651,7 +653,8 @@ begin
   ProjectilesCount := PTADynMemStruct(TAData.MainStructPtr).lNumProjectiles;
   FirstProjectile := PTADynMemStruct(TAData.MainStructPtr).p_Projectiles;
   Projectile := PTADynMemStruct(TAData.MainStructPtr).p_Projectiles;
-  Coverage := PWeaponDef(@UnitStruct.UnitWeapons[WeapStructIndex]).lCoverage shl 16;
+  Coverage := UnitStruct.UnitWeapons[WeapStructIndex].p_Weapon.lCoverage shl 16;
+
   if ( UnitStruct.UnitWeapons[WeapStructIndex].cStock <> 0 ) and
      ( ProjectilesCount > 0 ) then
   begin
@@ -660,8 +663,8 @@ begin
       if ( Projectile.cOwnerID <> UnitStruct.cOwnerID ) then
         if ( (Projectile.Weapon.lWeaponTypeMask shr 29) and 1 = 1 ) then
         begin
-          if ( Coverage + UnitStruct.Position.X - Projectile.Position_Target2.X <= (2 * Coverage) ) and
-             ( Coverage + UnitStruct.Position.Z - Projectile.Position_Target2.Z <= (2 * Coverage) ) then
+          if ( PInteger(@UnitStruct.Position.x_)^ - PInteger(@Projectile.Position_Target2.x_)^ + Coverage <= (2 * Coverage) ) and
+             ( PInteger(@UnitStruct.Position.z_)^ - PInteger(@Projectile.Position_Target2.z_)^ + Coverage <= (2 * Coverage) ) then
           begin
             // if tag is empty = intercept all
             bAllowShoot := True;
@@ -671,7 +674,7 @@ begin
               bAllowShoot := False;
               for i := 0 to ExtraWeaponDefTags[WeapIdx].Intercepts.Count - 1 do
               begin
-                if Pos(ExtraWeaponDefTags[WeapIdx].Intercepts[i], PWeaponDef(Projectile.Weapon).szWeaponName) <> 0 then
+                if ExtraWeaponDefTags[WeapIdx].Intercepts[i] = String(PWeaponDef(Projectile.Weapon).szWeaponName) then
                 begin
                   bAllowShoot := True;
                   Break;
@@ -697,7 +700,7 @@ begin
           end;
         end;
       Inc(CurProjectileIdx);
-      Projectile := Pointer(Cardinal(PTADynMemStruct(TAData.MainStructPtr).p_Projectiles) + SizeOf(TWeaponProjectile));
+      Projectile := Pointer(Cardinal(Projectile) + SizeOf(TWeaponProjectile));
       if ( CurProjectileIdx >= ProjectilesCount ) then
         goto AntiNukeNotInStock;
     end;

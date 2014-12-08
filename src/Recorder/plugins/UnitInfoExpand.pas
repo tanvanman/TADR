@@ -127,6 +127,7 @@ begin
   ExtraUnitInfoTags[UnitInfoID].CustomRange2Color := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customrange2color'));
   ExtraUnitInfoTags[UnitInfoID].CustomRange2Animate := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customrange2anim')) <> 0;
   ExtraUnitInfoTags[UnitInfoID].UseCustomReloadBar := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customreloadbar')) <> 0;
+  ExtraUnitInfoTags[UnitInfoID].DefaultMissionOrgPos := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('defaultmissionorgpos')) <> 0;
 end;
 
 procedure UnitInfoExpand_NewPropertiesLoadHook;
@@ -146,12 +147,12 @@ end;
 
 procedure FreeCustomUnitInfo(UnitPtr: PUnitStruct); stdcall;
 begin
-  // !! clear record here !!
   if CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)].UnitInfo <> nil then
   begin
     MEM_Free(CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)].UnitInfo);
     CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)].UnitInfo := nil;
   end;
+  CustomUnitFields.ElemClear(CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)]);
 end;
 
 procedure FreeCustomUnitInfoHook;

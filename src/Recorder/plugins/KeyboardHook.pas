@@ -24,7 +24,7 @@ var
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
 procedure SetInGameHotkeysLevel;
-procedure CtrlFDontSelectNotLabs;
+//procedure CtrlFDontSelectNotLabs;
 
 // -----------------------------------------------------------------------------
 // actions for keys
@@ -80,12 +80,12 @@ begin
                                 'Keyboard Hook',
                                 State_KeyboardHook,
                                 @OnInstallKeyboardHook, @OnUnInstallKeyboardHook );
-
+    {
     Result.MakeRelativeJmp( State_KeyboardHook,
                             '',
                             @CtrlFDontSelectNotLabs,
                             $0048DB72, 1);
-
+    }
     Result.MakeRelativeJmp( State_KeyboardHook,
                             'set ingame hotkeys level',
                             @SetInGameHotkeysLevel,
@@ -304,12 +304,12 @@ end;
 .text:0048DB78 020 3B C1                                 cmp     eax, ecx
 .text:0048DB7A 020 75 44                                 jnz     short loc_48DBC0
 }
-procedure CtrlFDontSelectNotLabs;
+{procedure CtrlFDontSelectNotLabs;
 asm
     mov     eax, [esi+0ACh]
     push $0048DB78;
     call PatchNJump;
-end;
+end;    }
 
 {
 Switch share energy to 0 or latest value
@@ -407,7 +407,7 @@ Retry:
             if PUnitInfo(CurrentUnit.p_UNITINFO).cBMCode = 0 then
               if TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER) <> 0 then
               begin
-                if GetUnitInfoProperty(CurrentUnit, 5) <> 0 then
+                if ExtraUnitInfoTags[PUnitInfo(CurrentUnit.p_UNITINFO).nCategory].NotLab then
                 begin
                   Inc(j);
                   Continue;

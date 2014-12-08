@@ -292,8 +292,8 @@ end;
 function BattleRoom_NewButtonsPress(GUIHandle: Pointer): LongBool; stdcall;
 var
   sMapName : String;
-  LocalPlayer, Player: PPlayerStruct;
-  i: Integer;
+//  LocalPlayer, Player: PPlayerStruct;
+//  i: Integer;
 begin
   Result := False;
   if GUIGADGET_WasPressed(GUIHandle, PAnsiChar('AUTOPAUSE')) then
@@ -322,7 +322,11 @@ begin
     Result := True;
 
     sMapName := GetRandomMapEx;
-    LocalPlayer := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
+    if GlobalDPlay.Players.Count > 1 then
+      GlobalDPlay.SendChat('The randomly selected map is: ' + sMapName)
+    else
+      SendTextLocal('The randomly selected map is: ' + sMapName);
+{    LocalPlayer := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
 
     sub_435D30(nil, nil, PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile, 0);
 
@@ -352,7 +356,7 @@ begin
       if (TAPlayer.PlayerController(Player) = Player_LocalHuman) or
          (TAPlayer.PlayerController(Player) = Player_LocalAI) then
         Player.PlayerInfo.PropertyMask := Player.PlayerInfo.PropertyMask and $FFDF;
-    end;
+    end;  }
   end;
 
   if Result then
