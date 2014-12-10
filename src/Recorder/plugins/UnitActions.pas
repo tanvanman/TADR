@@ -1069,46 +1069,41 @@ UseNonOffsetPosition:
   call PatchNJump;
 end;
 
-procedure AdvancedDefaultMission(UnitPtr: PUnitStruct; OldSelfOrder: Pointer); stdcall;
-
-  procedure ChangeOrderState(var OrderState: Cardinal);
-  asm
-    mov     edx, OrderState
-    or      dh, 40h
-  end;
-
+function AdvancedDefaultMission(UnitPtr: PUnitStruct): PUnitOrder; stdcall;
 var
   OrderMem : Pointer;
-  NewOrder : PUnitOrder;
   Position : TPosition;
-  UnitID, UnitInfoID : Word;
-  OrderState : Cardinal;
+  //UnitID,
+  UnitInfoID : Word;
+  //OrderState : Cardinal;
 begin
   OrderMem := MEM_Alloc(SizeOf(TUnitOrder));
   if OrderMem <> nil then
   begin
     UnitInfoID := UnitPtr.p_UNITINFO.nCategory;
-    UnitID := TAUnit.GetID(UnitPtr);
+    //UnitID := TAUnit.GetID(UnitPtr);
 
     if ExtraUnitInfoTags[UnitInfoID].DefaultMissionOrgPos then
       Position := UnitPtr.Position
-    else
+    else begin
+      {
       GetTPosition(CustomUnitFieldsArr[UnitID].DefaultMissionPosX,
                    CustomUnitFieldsArr[UnitID].DefaultMissionPosZ,
                    Position);
+      }
+      Position.x_ := 0;
+      Position.z_ := 0;
+      Position.y_ := 0;
+      Position.X  := 0;
+      Position.Z  := 0;
+      Position.Y  := 0;
+    end;
 
-    NewOrder := ORDERS_CreateObject(nil, nil, OrderMem, 0,
-                                    0, 0, @Position, nil,
-                                    UnitPtr.p_UNITINFO.cDefMissionType);
-
-    OrderState := NewOrder.lOrder_State;
-    ChangeOrderState(OrderState);
-    NewOrder.lOrder_State := OrderState;
-    if (OrderState and $40000) = $40000 then
-      ORDERS_QueueOrder(UnitPtr, NewOrder, UnitPtr.p_FutureOrder)
-    else
-      ORDERS_QueueOrder(UnitPtr, NewOrder, PUnitOrder(OldSelfOrder^));
-  end;
+    Result := ORDERS_CreateObject(nil, nil, OrderMem, 0,
+                                  0, 0, @Position, nil,
+                                  UnitPtr.p_UNITINFO.cDefMissionType);
+  end else
+    Result := nil;
 end;
 
 procedure UnitActions_AdvancedDefaultMission;
@@ -1116,7 +1111,10 @@ asm
   push    ebx // old self order
   push    edi // unit
   call    AdvancedDefaultMission
-  push $0043BA88;
+  pop     ebx
+
+  //push $0043BA88;
+  push $0043BA05;
   call PatchNJump;
 end;
 

@@ -30,7 +30,7 @@ const
  // returns ID of current unit
  MY_ID = 71;
  // returns player id of unit given with parameter
- OWNER_ID = 72;
+ UNIT_TEAM = 72;
  // basically BUILD_PERCENT_LEFT, but comes with a unit parameter
  UNIT_BUILD_PERCENT_LEFT = 73;
  // is unit given with parameter allied to the unit of the current COB script. 1=allied, 0=not allied
@@ -492,7 +492,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       begin
       result := TAUnit.GetId(UnitPtr);
       end;
-    OWNER_ID :
+    UNIT_TEAM :
       begin
       result := TAUnit.GetOwnerIndex(TAUnit.Id2Ptr(arg1));
       end;
@@ -1262,17 +1262,18 @@ asm
   ja      DefaultCase
   jmp     ds:$480AC4[eax*4] // switch jump
   // should not get here
-  int 3 
+  int 3
 
 DefaultCase:
 
   inc eax;
+{
   cmp eax, UNIT_BUILD_PERCENT_LEFT
   jnz GeneralCaseGetter
 
   mov ecx,[TADynmemStructPtr]
   mov esi,[esp+28h+$8]
-  imul esi, Integer(SizeOf(TUnitStruct))
+  imul esi, type TUnitStruct
   mov eax, [ecx+TTADynMemStruct.p_Units]
   add esi, eax
 
@@ -1281,11 +1282,11 @@ DefaultCase:
 
   mov eax, [ecx+TTADynMemStruct.p_LastUnitInArray]
   cmp esi, eax
-  jae DoReturn  
+  jae DoReturn
 
   push $480A44
   Call PatchNJump;
-
+}
 GeneralCaseGetter:
   mov ecx, [esp+28h+$14] // arg_14
   push ecx;
@@ -1309,7 +1310,6 @@ end;
 Procedure COB_ExtensionsSetters_Handling;
 
 label
-  DefaultCase,
   DoReturn,
   GeneralCaseSetter;
 asm
@@ -1321,7 +1321,7 @@ asm
   mov     esi, [eax+0Ch]
   lea     eax, [ecx-1]    // switch 20 cases
   cmp     eax, 13h
-  ja      DefaultCase
+  ja      GeneralCaseSetter
 
   xor edx, edx
   mov dl, ds:$480C18[eax]
@@ -1329,28 +1329,8 @@ asm
   // should not get here
   int 3
   
-DefaultCase:
-  inc eax;
-  cmp eax, UNIT_BUILD_PERCENT_LEFT
-  jnz GeneralCaseSetter
-
-  mov ecx,[TADynmemStructPtr]
-  mov esi,[esp+28h+$8]
-  imul esi, Integer(SizeOf(TUnitStruct))
-  mov eax, [ecx+TTADynMemStruct.p_Units]
-  add esi, eax
-
-  cmp esi, eax
-  jb DoReturn
-
-  mov eax, [ecx+TTADynMemStruct.p_LastUnitInArray]
-  cmp esi, eax
-  jae DoReturn  
-
-  push $480BF1
-  Call PatchNJump;
-
 GeneralCaseSetter:
+  inc eax;
   mov ecx, [esp+4h+$8] // value to be set
   push ecx;
   push esi;             // unitPtr

@@ -120,10 +120,16 @@ var
 procedure SaveUnitScriptSlots(ScriptData: PNewScriptsData); stdcall;
 var
   lSlotIdx : Integer;
+  MaxSlots : Byte;
 begin
   FillChar(ScriptSlotsSaveGameRec, SizeOf(ScriptSlotsSaveGameRec), 0);
   ScriptSlotsSaveGameRec.lCOBFileNode := Cardinal(ScriptData.pCOBFileNode);
-  for lSlotIdx := 0 to MAX_SCRIPT_SLOTS - 1 do
+  if IniSettings.Plugin_ScriptSlotsLimit then
+    MaxSlots := MAX_SCRIPT_SLOTS
+  else
+    MaxSlots := 8;
+
+  for lSlotIdx := 0 to MaxSlots - 1 do
   begin
     ScriptSlotsSaveGameRec.SlotsData[lSlotIdx] := ScriptData.ScriptSlots[lSlotIdx];
   end;
@@ -167,9 +173,15 @@ end;
 procedure LoadUnitScriptSlots(ScriptData: PNewScriptsData); stdcall;
 var
   lSlotIdx : Integer;
+  MaxSlots : Byte;
 begin
   ScriptData.pCOBFileNode := Pointer(ScriptSlotsSaveGameRec.lCOBFileNode);
-  for lSlotIdx := 0 to MAX_SCRIPT_SLOTS - 1 do
+  if IniSettings.Plugin_ScriptSlotsLimit then
+    MaxSlots := MAX_SCRIPT_SLOTS
+  else
+    MaxSlots := 8;
+
+  for lSlotIdx := 0 to MaxSlots - 1 do
   begin
     ScriptData.ScriptSlots[lSlotIdx] := ScriptSlotsSaveGameRec.SlotsData[lSlotIdx];
   end;
