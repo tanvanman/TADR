@@ -7,48 +7,48 @@ uses
 type
   TAUnit = class
   public
-    class Function GetHealth(UnitPtr: PUnitStruct) : Word;
-    class function MakeDamage(MakerUnitPtr: PUnitStruct; TakerUnitPtr: PUnitStruct;
+    class Function GetHealth(p_Unit: PUnitStruct) : Word;
+    class function MakeDamage(Makerp_Unit: PUnitStruct; Takerp_Unit: PUnitStruct;
       DamageType: TDmgType; Amount: Cardinal) : Word;
-    class Function GetCloak(UnitPtr: PUnitStruct) : LongWord;
-    class procedure SetCloak(UnitPtr: PUnitStruct; cloak: Word);
+    class Function GetCloak(p_Unit: PUnitStruct) : LongWord;
+    class procedure SetCloak(p_Unit: PUnitStruct; cloak: Word);
 
-    class function GetUnitX(UnitPtr: PUnitStruct) : Word;
-    class function GetUnitZ(UnitPtr: PUnitStruct) : Word;
-    class function GetUnitY(UnitPtr: PUnitStruct) : Word;
+    class function GetUnitX(p_Unit: PUnitStruct) : Word;
+    class function GetUnitZ(p_Unit: PUnitStruct) : Word;
+    class function GetUnitY(p_Unit: PUnitStruct) : Word;
 
-    class function GetTurnX(UnitPtr: PUnitStruct) : Word;
-    class procedure SetTurnX(UnitPtr: PUnitStruct; X: Word);
-    class function GetTurnZ(UnitPtr: PUnitStruct) : Word;
-    class procedure SetTurnZ(UnitPtr: PUnitStruct; Z: Word);
-    class function GetTurnY(UnitPtr: PUnitStruct) : Word;
-    class procedure SetTurnY(UnitPtr: PUnitStruct; Y: Word);
+    class function GetTurnX(p_Unit: PUnitStruct) : Word;
+    class procedure SetTurnX(p_Unit: PUnitStruct; X: Word);
+    class function GetTurnZ(p_Unit: PUnitStruct) : Word;
+    class procedure SetTurnZ(p_Unit: PUnitStruct; Z: Word);
+    class function GetTurnY(p_Unit: PUnitStruct) : Word;
+    class procedure SetTurnY(p_Unit: PUnitStruct; Y: Word);
 
-    class function GetMovementClass(UnitPtr: PUnitStruct) : Pointer;
-    class procedure SetUnitInfo(UnitPtr: PUnitStruct; NewUnitInfo: PUnitInfo; Broadcast: Boolean = False);
+    class function GetMovementClass(p_Unit: PUnitStruct) : Pointer;
+    class procedure SetUnitInfo(p_Unit: PUnitStruct; NewUnitInfo: PUnitInfo; Broadcast: Boolean = False);
 
-    class function GetWeapon(UnitPtr: Pointer; index: Cardinal) : Cardinal;
-    class function SetWeapon(UnitPtr: Pointer; index: Cardinal; NewWeaponID: Cardinal) : Boolean;
-    class function GetAttackerID(UnitPtr: Pointer) : LongWord;
-    class function GetTransporterUnit(UnitPtr: Pointer) : Pointer;
-    class function GetTransportingUnit(UnitPtr: Pointer) : Pointer;
-    class function GetPriorUnit(UnitPtr: Pointer) : Pointer;
-    class function GetRandomFreePiece(UnitPtr: Pointer; piecemin, piecemax : Integer) : Cardinal;
+    class function GetWeapon(p_Unit: PUnitStruct; index: Cardinal) : Cardinal;
+    class function SetWeapon(p_Unit: PUnitStruct; index: Cardinal; NewWeaponID: Cardinal) : Boolean;
+    class function GetAttackerID(p_Unit: PUnitStruct) : LongWord;
+    class function GetTransporterUnit(p_Unit: PUnitStruct) : Pointer;
+    class function GetTransportingUnit(p_Unit: PUnitStruct) : Pointer;
+    class function GetPriorUnit(p_Unit: PUnitStruct) : Pointer;
+    class function GetRandomFreePiece(p_Unit: PUnitStruct; piecemin, piecemax : Integer) : Cardinal;
     class procedure AttachDetachUnit(Transported, Transporter: Pointer; Piece: Byte; Attach: Boolean);
-    class function GetUnitAttachedTo(UnitPtr: Pointer; Piece: Byte) : Pointer;
-    class function GetLoadWeight(UnitPtr: Pointer) : Integer;
-    class function GetLoadCurAmount(UnitPtr: Pointer) : Integer;
+    class function GetUnitAttachedTo(p_Unit: PUnitStruct; Piece: Byte) : Pointer;
+    class function GetLoadWeight(p_Unit: PUnitStruct) : Integer;
+    class function GetLoadCurAmount(p_Unit: PUnitStruct) : Integer;
 
-    class function UpdateLos(UnitPtr: Pointer) : LongWord;
-    class function FireWeapon(AttackerPtr : Pointer; WhichWeap : Byte; TargetUnitPtr : Pointer; TargetShortPosition : TShortPosition) : Integer;
+    class function UpdateLos(p_Unit: PUnitStruct) : LongWord;
+    class function FireWeapon(AttackerPtr : Pointer; WhichWeap : Byte; Targetp_Unit: PUnitStruct; TargetShortPosition : TShortPosition) : Integer;
 
     { position stuff }
     class function AtMouse: Pointer;
     class function AtPosition(Position: PPosition) : Cardinal;
     class function Position2Grid(Position: TPosition; UnitInfo: Pointer; out GridPosX, GridPosZ: Word ) : Boolean;
-    class function GetCurrentSpeedPercent(UnitPtr: Pointer) : Cardinal;
-    class function GetCurrentSpeedVal(UnitPtr: Pointer) : Cardinal;
-    class procedure SetCurrentSpeed(UnitPtr: Pointer; NewSpeed: Cardinal);
+    class function GetCurrentSpeedPercent(p_Unit: PUnitStruct) : Cardinal;
+    class function GetCurrentSpeedVal(p_Unit: PUnitStruct) : Cardinal;
+    class procedure SetCurrentSpeed(p_Unit: PUnitStruct; NewSpeed: Cardinal);
     class function TestUnloadPosition(Unitinfo: PUnitInfo; Position: TPosition) : Boolean;
 
     { creating and killing unit }
@@ -56,63 +56,63 @@ type
     class function IsPlantYardOccupied(BuilderPtr: PUnitStruct; State: Integer) : Boolean;
     class function TestAttachAtGridSpot(UnitInfo : Pointer; nPosX, nPosZ : Word) : Boolean;
     class function CreateUnit(OwnerIndex: LongWord; UnitInfo: PUnitInfo; Position: TPosition; Turn: PTurn; TurnZOnly, RandomTurnZ: Boolean; UnitState: LongWord) : Pointer;
-    class Function GetBuildPercentLeft(UnitPtr : Pointer) : Cardinal;
-    class Function GetMissingHealth(UnitPtr : Pointer) : Cardinal;
-    class procedure Kill(UnitPtr : Pointer; deathtype: byte);
-    class procedure SwapByKill(UnitPtr: Pointer; newUnitInfo: Pointer);
+    class Function GetBuildPercentLeft(p_Unit: PUnitStruct) : Cardinal;
+    class Function GetMissingHealth(p_Unit: PUnitStruct) : Cardinal;
+    class procedure Kill(p_Unit: PUnitStruct; deathtype: byte);
+    class procedure SwapByKill(p_Unit: PUnitStruct; newUnitInfo: Pointer);
 
     { actions (orders, unit state) }
-    class function GetCurrentOrderType(UnitPtr: Pointer) : TTAActionType;
-    class function GetCurrentOrderParams(UnitPtr: Pointer; Par: Byte) : Cardinal;
-    class function GetCurrentOrderState(UnitPtr: Pointer) : Cardinal;
-    class function GetCurrentOrderPos(UnitPtr: Pointer) : Cardinal;
-    class function GetCurrentOrderTargetUnit(UnitPtr: Pointer) : Pointer;
+    class function GetCurrentOrderType(p_Unit: PUnitStruct) : TTAActionType;
+    class function GetCurrentOrderParams(p_Unit: PUnitStruct; Par: Byte) : Integer;
+    class function GetCurrentOrderState(p_Unit: PUnitStruct) : Cardinal;
+    class function GetCurrentOrderPos(p_Unit: PUnitStruct) : Cardinal;
+    class function GetCurrentOrderTargetUnit(p_Unit: PUnitStruct) : Pointer;
 
-    class function EditCurrentOrderParams(UnitPtr: Pointer; Par: Byte; NewValue: LongWord) : Boolean;
-    class function CreateMainOrder(UnitPtr: Pointer; TargetUnitPtr: Pointer; ActionType: TTAActionType; Position: PPosition; ShiftKey: Byte; Par1: LongWord; Par2: LongWord) : LongInt;
+    class function EditCurrentOrderParams(p_Unit: PUnitStruct; Par: Byte; NewValue: LongWord) : Boolean;
+    class function CreateMainOrder(p_Unit: PUnitStruct; Targetp_Unit: PUnitStruct; ActionType: TTAActionType; Position: PPosition; ShiftKey: Byte; Par1: LongWord; Par2: LongWord) : LongInt;
 
     { COB }
-    class Function GetCOBDataPtr(UnitPtr : Pointer) : Pointer;
-    class function CallCobProcedure(UnitPtr: Pointer; ProcName: String; Par1, Par2, Par3, Par4: PLongWord) : Cardinal;
-    class function CallCobWithCallback(UnitPtr: Pointer; ProcName: String; Par1, Par2, Par3, Par4: LongWord) : Cardinal;
-    class function GetCobString(UnitPtr: Pointer) : String;
+    class Function GetCOBDataPtr(p_Unit: PUnitStruct) : Pointer;
+    class function CallCobProcedure(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: PLongWord) : Cardinal;
+    class function CallCobWithCallback(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: LongWord) : Cardinal;
+    class function GetCobString(p_Unit: PUnitStruct) : String;
 
     { id, owner, unit type etc. }
-    class Function GetOwnerPtr(UnitPtr: PUnitStruct) : Pointer;
-    class Function GetOwnerIndex(UnitPtr: PUnitStruct) : Integer;
-    class Function GetId(UnitPtr: PUnitStruct) : Word;
-    class Function GetLongId(UnitPtr: PUnitStruct) : Cardinal;
+    class Function GetOwnerPtr(p_Unit: PUnitStruct) : Pointer;
+    class Function GetOwnerIndex(p_Unit: PUnitStruct) : Integer;
+    class Function GetId(p_Unit: PUnitStruct) : Word;
+    class Function GetLongId(p_Unit: PUnitStruct) : Cardinal;
     class Function Id2Ptr(LongUnitId: Cardinal) : PUnitStruct;
     class Function Id2LongId(UnitId: Word) : Cardinal;
-    class function GetUnitInfoId(UnitPtr: PUnitStruct) : Word;
-    class function GetUnitInfoCrc(UnitPtr: PUnitStruct) : Cardinal;
-    class function GetUnitInfoPtr(UnitPtr: PUnitStruct) : Pointer;
-    class Function IsOnThisComp(UnitPtr: Pointer; IncludeAI: Boolean) : Boolean;
-    class function IsAllied(UnitPtr: Pointer; UnitId: LongWord) : Byte;
-//    class Function IsRemoteIdLocal(UnitPtr: Pointer; remoteUnitId: PLongWord; out local: Boolean) : LongWord;
+    class function GetUnitInfoId(p_Unit: PUnitStruct) : Word;
+    class function GetUnitInfoCrc(p_Unit: PUnitStruct) : Cardinal;
+    class function GetUnitInfoPtr(p_Unit: PUnitStruct) : Pointer;
+    class Function IsOnThisComp(p_Unit: PUnitStruct; IncludeAI: Boolean) : Boolean;
+    class function IsAllied(p_Unit: PUnitStruct; UnitId: LongWord) : Byte;
+//    class Function IsRemoteIdLocal(p_Unit: PUnitStruct; remoteUnitId: PLongWord; out local: Boolean) : LongWord;
 
     class Function IsUnitTypeInCategory(CategoryType: TUnitCategories; UnitInfo: PUnitInfo; TargetUnitInfo: PUnitInfo) : Boolean;
 
     { cloning global template and setting its fields }
-    class function GrantUnitInfo(UnitPtr: PUnitStruct; ANewState: Byte; Broadcast: Boolean) : Boolean;
-    class function GetUnitInfoField(UnitPtr: PUnitStruct; fieldType: TUnitInfoExtensions) : LongWord;
-    class function SetUnitInfoField(UnitPtr: PUnitStruct; fieldType: TUnitInfoExtensions; value: Integer) : Boolean;
+    class function GrantUnitInfo(p_Unit: PUnitStruct; ANewState: Byte; Broadcast: Boolean) : Boolean;
+    class function GetUnitInfoField(p_Unit: PUnitStruct; fieldType: TUnitInfoExtensions) : LongWord;
+    class function SetUnitInfoField(p_Unit: PUnitStruct; fieldType: TUnitInfoExtensions; value: Integer) : Boolean;
   end;
 
   TAUnits = class
   public
-    class Function CreateMinions(UnitPtr: Pointer; Amount: Byte; UnitInfo: Pointer; Action: TTAActionType; ArrayId: Cardinal) : Integer;
-    class procedure GiveUnit(ExistingUnitPtr: Pointer; PlayerIdx: Byte);
+    class Function CreateMinions(p_Unit: PUnitStruct; Amount: Byte; UnitInfo: Pointer; Action: TTAActionType; ArrayId: Cardinal) : Integer;
+    class procedure GiveUnit(Existingp_Unit: PUnitStruct; PlayerIdx: Byte);
     { searching units in game }
     class function CreateSearchFilter(Mask: Integer) : TUnitSearchFilterSet;
     class function GetRandomArrayId(ArrayType: Byte) : Word;
-    class function SearchUnits(UnitPtr: Pointer; SearchId: LongWord; SearchType: Byte; MaxDistance: Integer; Filter: TUnitSearchFilterSet; UnitTypeFilter: Pointer ) : LongWord;
-    class function UnitsIntoGetterArray(UnitPtr: Pointer; ArrayType: Byte; Id: LongWord; const UnitsArray: TFoundUnits) : Boolean;
+    class function SearchUnits(p_Unit: PUnitStruct; SearchId: LongWord; SearchType: Byte; MaxDistance: Integer; Filter: TUnitSearchFilterSet; UnitTypeFilter: Pointer ) : LongWord;
+    class function UnitsIntoGetterArray(p_Unit: PUnitStruct; ArrayType: Byte; Id: LongWord; const UnitsArray: TFoundUnits) : Boolean;
     class procedure ClearSearchRec(Id: LongWord; ArrayType: Byte);
     class procedure RandomizeSearchRec(Id: LongWord; ArrayType: Byte);
     class function Distance(Pos1, Pos2 : PPosition) : Cardinal;
     class function CircleCoords(CenterPosition: TPosition; Radius: Integer; Angle: Integer; out x, z: Integer) : Boolean;
-    class function UnitsFilterVsUnit(UnitPtr: PUnitStruct; Filter: TUnitSearchFilterSet; Player: PPlayerStruct) : Boolean;
+    class function UnitsFilterVsUnit(p_Unit: PUnitStruct; Filter: TUnitSearchFilterSet; Player: PPlayerStruct) : Boolean;
   end;
 
 implementation
@@ -132,130 +132,130 @@ uses
 // TAUnit
 // -----------------------------------------------------------------------------
 
-class Function TAUnit.GetHealth(UnitPtr : PUnitStruct) : Word;
+class Function TAUnit.GetHealth(p_Unit : PUnitStruct) : Word;
 begin
-result := UnitPtr.nHealth;
+result := p_Unit.nHealth;
 end;
 
-class function TAUnit.MakeDamage(MakerUnitPtr: PUnitStruct; TakerUnitPtr: PUnitStruct;
+class function TAUnit.MakeDamage(Makerp_Unit: PUnitStruct; Takerp_Unit: PUnitStruct;
   DamageType: TDmgType; Amount: Cardinal) : Word;
 var
   UnitInfoSt : PUnitInfo;
   Angle : Word;
   AtanX, AtanY : Integer;
 begin
-  UnitInfoSt := PUnitStruct(TakerUnitPtr).p_UNITINFO;
+  UnitInfoSt := PUnitStruct(Takerp_Unit).p_UNITINFO;
   case DamageType of
     dtWeapon..dtParalyze :
       begin
-        AtanY := PUnitStruct(TakerUnitPtr).Position.z - PUnitStruct(MakerUnitPtr).Position.z;
-        AtanX := PUnitStruct(TakerUnitPtr).Position.x - PUnitStruct(MakerUnitPtr).Position.x;
+        AtanY := PUnitStruct(Takerp_Unit).Position.z - PUnitStruct(Makerp_Unit).Position.z;
+        AtanX := PUnitStruct(Takerp_Unit).Position.x - PUnitStruct(Makerp_Unit).Position.x;
         Angle := Word(TA_Atan2(AtanY, AtanX));
-        UNITS_MakeDamage(MakerUnitPtr, TakerUnitPtr, Amount, Ord(DamageType), Angle);
+        UNITS_MakeDamage(Makerp_Unit, Takerp_Unit, Amount, Ord(DamageType), Angle);
       end;
     dtHeal :
       begin
-        if PUnitStruct(TakerUnitPtr).nHealth < UnitInfoSt.lMaxHP then
-          UNITS_MakeDamage(MakerUnitPtr, TakerUnitPtr, Amount, 10, 0);
+        if PUnitStruct(Takerp_Unit).nHealth < UnitInfoSt.lMaxHP then
+          UNITS_MakeDamage(Makerp_Unit, Takerp_Unit, Amount, 10, 0);
       end;
     else
-      UNITS_MakeDamage(MakerUnitPtr, TakerUnitPtr, Amount, Ord(DamageType), 0);
+      UNITS_MakeDamage(Makerp_Unit, Takerp_Unit, Amount, Ord(DamageType), 0);
   end;
-  Result := TAUnit.GetHealth(TakerUnitPtr);
+  Result := TAUnit.GetHealth(Takerp_Unit);
 end;
 
 const
   Cloak_BitMask = $4;
   CloakUnitStateMask_BitMask = $800;
-Class function TAUnit.GetCloak(UnitPtr : PUnitStruct) : LongWord;
+Class function TAUnit.GetCloak(p_Unit : PUnitStruct) : LongWord;
 var
   Bitfield : Word;
 begin
-  Bitfield := UnitPtr.nUnitStateMaskBas;
+  Bitfield := p_Unit.nUnitStateMaskBas;
   if (Bitfield and Cloak_BitMask) = Cloak_BitMask then
     Result := 1
   else
     Result := 0;
 end;
 
-class procedure TAUnit.SetCloak(UnitPtr : PUnitStruct; Cloak : Word);
+class procedure TAUnit.SetCloak(p_Unit : PUnitStruct; Cloak : Word);
 begin
   if Cloak = 1 then
-    UnitPtr.lUnitStateMask := UnitPtr.lUnitStateMask or CloakUnitStateMask_BitMask
+    p_Unit.lUnitStateMask := p_Unit.lUnitStateMask or CloakUnitStateMask_BitMask
   else
-    UnitPtr.lUnitStateMask := UnitPtr.lUnitStateMask and not CloakUnitStateMask_BitMask;
+    p_Unit.lUnitStateMask := p_Unit.lUnitStateMask and not CloakUnitStateMask_BitMask;
 end;
 
-class function TAUnit.GetUnitX(UnitPtr : PUnitStruct) : Word;
+class function TAUnit.GetUnitX(p_Unit : PUnitStruct) : Word;
 begin
-result := PUnitStruct(UnitPtr).Position.X;
+result := p_Unit.Position.X;
 end;
 
-class function TAUnit.GetUnitZ(UnitPtr : PUnitStruct) : Word;
+class function TAUnit.GetUnitZ(p_Unit : PUnitStruct) : Word;
 begin
-result := PUnitStruct(UnitPtr).Position.Z;
+result := p_Unit.Position.Z;
 end;
 
-class function TAUnit.GetUnitY(UnitPtr : PUnitStruct) : Word;
+class function TAUnit.GetUnitY(p_Unit : PUnitStruct) : Word;
 begin
-result := PUnitStruct(UnitPtr).Position.Y;
+result := p_Unit.Position.Y;
 end;
 
-class function TAUnit.GetTurnX(UnitPtr : PUnitStruct) : Word;
+class function TAUnit.GetTurnX(p_Unit : PUnitStruct) : Word;
 begin
-result := PUnitStruct(UnitPtr).Turn.X;
+result := p_Unit.Turn.X;
 end;
 
-class procedure TAUnit.SetTurnX(UnitPtr : PUnitStruct; X : Word);
+class procedure TAUnit.SetTurnX(p_Unit : PUnitStruct; X : Word);
 begin
-PUnitStruct(UnitPtr).Turn.X:= X;
+p_Unit.Turn.X:= X;
 end;
 
-class function TAUnit.GetTurnZ(UnitPtr : PUnitStruct) : Word;
+class function TAUnit.GetTurnZ(p_Unit : PUnitStruct) : Word;
 begin
-result := PUnitStruct(UnitPtr).Turn.Z;
+result := p_Unit.Turn.Z;
 end;
 
-class procedure TAUnit.SetTurnZ(UnitPtr : PUnitStruct; Z : Word);
+class procedure TAUnit.SetTurnZ(p_Unit : PUnitStruct; Z : Word);
 begin
-PUnitStruct(UnitPtr).Turn.Z:= Z;
+p_Unit.Turn.Z:= Z;
 end;
 
-class function TAUnit.GetTurnY(UnitPtr : PUnitStruct) : Word;
+class function TAUnit.GetTurnY(p_Unit : PUnitStruct) : Word;
 begin
-result := PUnitStruct(UnitPtr).Turn.Y;
+result := p_Unit.Turn.Y;
 end;
 
-class procedure TAUnit.SetTurnY(UnitPtr : PUnitStruct; Y : Word);
+class procedure TAUnit.SetTurnY(p_Unit : PUnitStruct; Y : Word);
 begin
-PUnitStruct(UnitPtr).Turn.Y:= Y;
+p_Unit.Turn.Y:= Y;
 end;
 
-class function TAUnit.GetMovementClass(UnitPtr : PUnitStruct) : Pointer;
+class function TAUnit.GetMovementClass(p_Unit : PUnitStruct) : Pointer;
 begin
-result := UnitPtr.p_MovementClass;
+result := p_Unit.p_MovementClass;
 end;
 
-class procedure TAUnit.SetUnitInfo(UnitPtr: PUnitStruct; NewUnitInfo: PUnitInfo; Broadcast: Boolean = False);
+class procedure TAUnit.SetUnitInfo(p_Unit: PUnitStruct; NewUnitInfo: PUnitInfo; Broadcast: Boolean = False);
 begin
-  UnitPtr.nUnitInfoID := NewUnitInfo.nCategory;
-  UnitPtr.p_UNITINFO := NewUnitInfo;
+  p_Unit.nUnitInfoID := NewUnitInfo.nCategory;
+  p_Unit.p_UNITINFO := NewUnitInfo;
 
   if Broadcast and TAData.NetworkLayerEnabled then
-    GlobalDPlay.Broadcast_UnitInfoSwap(TAUnit.GetID(UnitPtr), TAMem.Crc32ToCrc24(NewUnitInfo.CRC_FBI));
+    GlobalDPlay.Broadcast_UnitInfoSwap(TAUnit.GetID(p_Unit), TAMem.Crc32ToCrc24(NewUnitInfo.CRC_FBI));
 end;
 
-class function TAUnit.GetWeapon(UnitPtr : Pointer; index: Cardinal) : Cardinal;
+class function TAUnit.GetWeapon(p_Unit: PUnitStruct; index: Cardinal) : Cardinal;
 var
   Weapon: Pointer;
 begin
   Result:= 0;
-  if UnitPtr <> nil then
+  if p_Unit <> nil then
   begin
     case index of
-      WEAPON_PRIMARY   : Weapon := PUnitStruct(UnitPtr).UnitWeapons[0].p_Weapon;
-      WEAPON_SECONDARY : Weapon := PUnitStruct(UnitPtr).UnitWeapons[1].p_Weapon;
-      WEAPON_TERTIARY  : Weapon := PUnitStruct(UnitPtr).UnitWeapons[2].p_Weapon;
+      WEAPON_PRIMARY   : Weapon := p_Unit.UnitWeapons[0].p_Weapon;
+      WEAPON_SECONDARY : Weapon := p_Unit.UnitWeapons[1].p_Weapon;
+      WEAPON_TERTIARY  : Weapon := p_Unit.UnitWeapons[2].p_Weapon;
       else Weapon := nil;
     end;
     if Weapon <> nil then
@@ -263,58 +263,58 @@ begin
   end;
 end;
 
-class function TAUnit.SetWeapon(UnitPtr : Pointer; index: Cardinal; NewWeaponID: Cardinal) : Boolean;
+class function TAUnit.SetWeapon(p_Unit: PUnitStruct; index: Cardinal; NewWeaponID: Cardinal) : Boolean;
 var
   Weapon: Pointer;
 begin
   Result:= False;
-  if UnitPtr <> nil then
+  if p_Unit <> nil then
   begin
     Weapon:= TAWeapon.WeaponId2Ptr(NewWeaponID);
     case index of
-      WEAPON_PRIMARY   : PUnitStruct(UnitPtr).UnitWeapons[0].p_Weapon := Weapon;
-      WEAPON_SECONDARY : PUnitStruct(UnitPtr).UnitWeapons[1].p_Weapon := Weapon;
-      WEAPON_TERTIARY  : PUnitStruct(UnitPtr).UnitWeapons[2].p_Weapon := Weapon;
+      WEAPON_PRIMARY   : p_Unit.UnitWeapons[0].p_Weapon := Weapon;
+      WEAPON_SECONDARY : p_Unit.UnitWeapons[1].p_Weapon := Weapon;
+      WEAPON_TERTIARY  : p_Unit.UnitWeapons[2].p_Weapon := Weapon;
     end;
     Result:= True;
   end;
 end;
 
-class function TAUnit.GetAttackerID(UnitPtr : Pointer) : LongWord;
+class function TAUnit.GetAttackerID(p_Unit: PUnitStruct) : LongWord;
 begin
 result:= 0;
-if PUnitStruct(UnitPtr).p_Attacker <> nil then
-  result:= TAUnit.GetId(PUnitStruct(UnitPtr).p_Attacker);
+if p_Unit.p_Attacker <> nil then
+  result:= TAUnit.GetId(p_Unit.p_Attacker);
 end;
 
-class function TAUnit.GetTransporterUnit(UnitPtr: Pointer) : Pointer;
+class function TAUnit.GetTransporterUnit(p_Unit: PUnitStruct) : Pointer;
 begin
 result:= nil;
-if PUnitStruct(UnitPtr).p_TransporterUnit <> nil then
-  result:= PUnitStruct(UnitPtr).p_TransporterUnit;
+if p_Unit.p_TransporterUnit <> nil then
+  result:= p_Unit.p_TransporterUnit;
 end;
 
-class function TAUnit.GetTransportingUnit(UnitPtr: Pointer) : Pointer;
+class function TAUnit.GetTransportingUnit(p_Unit: PUnitStruct) : Pointer;
 begin
 result:= nil;
-if PUnitStruct(UnitPtr).p_TransportedUnit <> nil then
-  result:= PUnitStruct(UnitPtr).p_TransportedUnit;
+if p_Unit.p_TransportedUnit <> nil then
+  result:= p_Unit.p_TransportedUnit;
 end;
 
-class function TAUnit.GetPriorUnit(UnitPtr: Pointer) : Pointer;
+class function TAUnit.GetPriorUnit(p_Unit: PUnitStruct) : Pointer;
 begin
-  result:= PUnitStruct(UnitPtr).p_PriorUnit;
+  result:= p_Unit.p_PriorUnit;
 end;
 
-class function TAUnit.GetRandomFreePiece(UnitPtr: Pointer; piecemin, piecemax : Integer) : Cardinal;
+class function TAUnit.GetRandomFreePiece(p_Unit: PUnitStruct; piecemin, piecemax : Integer) : Cardinal;
 var
  i, j : word;
  MaxElem : Integer;
  X : Cardinal;
- Pieces : array of Cardinal;
+ Pieces : array of ShortInt;
  PiecesLength : Integer;
  TransportedUnit : Pointer;
- AttachedToPiece : Byte;
+ AttachedToPiece : ShortInt;
 begin
   Result := 0;
   Randomize;
@@ -325,7 +325,7 @@ begin
     Pieces[i] := piecemin + i;
   end;
 
-  TransportedUnit := TAUnit.GetTransportingUnit(UnitPtr);
+  TransportedUnit := TAUnit.GetTransportingUnit(p_Unit);
   if TransportedUnit = nil then
   begin
     result := Random(piecemax - piecemin + 1) + piecemin;
@@ -335,7 +335,7 @@ begin
   begin
     if TransportedUnit <> nil then
     begin
-      AttachedToPiece := PUnitStruct(TransportedUnit).ucAttachedToPiece;
+      AttachedToPiece := PUnitStruct(TransportedUnit).cAttachedToPiece;
       if AttachedToPiece <> 0 then
       begin
         for i := 0 to High(Pieces) do
@@ -386,7 +386,7 @@ begin
   end;
 end;
 
-class function TAUnit.GetUnitAttachedTo(UnitPtr: Pointer; Piece: Byte) : Pointer;
+class function TAUnit.GetUnitAttachedTo(p_Unit: PUnitStruct; Piece: Byte) : Pointer;
 var
   MaxUnitId, UnitId : Cardinal;
   TestedUnit : PUnitStruct;
@@ -397,9 +397,9 @@ begin
   for UnitId := 1 to MaxUnitId do
   begin
     TestedUnit := TAUnit.Id2Ptr(UnitId);
-    if TAUnit.GetTransporterUnit(TestedUnit) = UnitPtr then
+    if TAUnit.GetTransporterUnit(TestedUnit) = p_Unit then
     begin
-      if TestedUnit.ucAttachedToPiece = Piece then
+      if TestedUnit.cAttachedToPiece = ShortInt(Piece) then
       begin
         Result := TestedUnit;
         Exit;
@@ -408,16 +408,16 @@ begin
   end;
 end;
 
-class function TAUnit.GetLoadWeight(UnitPtr: Pointer) : Integer;
+class function TAUnit.GetLoadWeight(p_Unit: PUnitStruct) : Integer;
 var
   TransportedIterr : Pointer;
   CurLoadWeight : Integer;
 begin
   CurLoadWeight := 0;
-  TransportedIterr := TAUnit.GetTransportingUnit(UnitPtr);
+  TransportedIterr := TAUnit.GetTransportingUnit(p_Unit);
   while TransportedIterr <> nil do
   begin
-    if TAUnit.GetTransporterUnit(TransportedIterr) = UnitPtr then
+    if TAUnit.GetTransporterUnit(TransportedIterr) = p_Unit then
     begin
       CurLoadWeight := CurLoadWeight +
                        Round(PUnitInfo(TAUnit.GetUnitInfoPtr(TransportedIterr)).lBuildCostMetal);
@@ -427,16 +427,16 @@ begin
   Result := CurLoadWeight;
 end;
 
-class function TAUnit.GetLoadCurAmount(UnitPtr: Pointer) : Integer;
+class function TAUnit.GetLoadCurAmount(p_Unit: PUnitStruct) : Integer;
 var
   TransportedIterr : Pointer;
   i : Integer;
 begin
   i := 0;
-  TransportedIterr := TAUnit.GetTransportingUnit(UnitPtr);
+  TransportedIterr := TAUnit.GetTransportingUnit(p_Unit);
   while TransportedIterr <> nil do
   begin
-    if TAUnit.GetTransporterUnit(TransportedIterr) = UnitPtr then
+    if TAUnit.GetTransporterUnit(TransportedIterr) = p_Unit then
     begin
       Inc(i);
     end;
@@ -445,15 +445,15 @@ begin
   Result := i;
 end;
 
-class function TAUnit.UpdateLos(UnitPtr: Pointer) : LongWord;
+class function TAUnit.UpdateLos(p_Unit: PUnitStruct) : LongWord;
 begin
-  UNITS_RebuildLOS(UnitPtr);
-  //Result := TA_UpdateLOS(TAUnit.GetOwnerIndex(UnitPtr), 0);
+  UNITS_RebuildLOS(p_Unit);
+  //Result := TA_UpdateLOS(TAUnit.GetOwnerIndex(p_Unit), 0);
   Result := TA_UpdateLOS(0);
 end;
 
 class function TAUnit.FireWeapon(AttackerPtr : Pointer; WhichWeap : Byte;
-  TargetUnitPtr : Pointer; TargetShortPosition : TShortPosition) : Integer;
+  Targetp_Unit: PUnitStruct; TargetShortPosition : TShortPosition) : Integer;
 var
   WeapPtr : PWeaponDef;
   UnitSt : PUnitStruct;
@@ -524,16 +524,16 @@ begin
           end;
         end;
         PLongWord(WeapStatePtr)^ := PLongWord(WeapStatePtr)^ or $1;
-        if (TargetUnitPtr <> nil) then
-          TargetPosition := PUnitStruct(TargetUnitPtr).Position
+        if (Targetp_Unit <> nil) then
+          TargetPosition := PUnitStruct(Targetp_Unit).Position
         else
           GetTPosition(TargetShortPosition.X, TargetShortPosition.Z, TargetPosition);
 
         case WeapType of
-          0 : Result := fire_callback0(AttackerPtr, WeapTargetIDPtr, TargetUnitPtr, @TargetPosition);
-          1 : Result := fire_callback1(AttackerPtr, WeapTargetIDPtr, TargetUnitPtr, @TargetPosition);
-          2 : Result := fire_callback2(AttackerPtr, WeapTargetIDPtr, TargetUnitPtr, @TargetPosition);
-          3 : Result := fire_callback3(AttackerPtr, WeapTargetIDPtr, TargetUnitPtr, @TargetPosition);
+          0 : Result := fire_callback0(AttackerPtr, WeapTargetIDPtr, Targetp_Unit, @TargetPosition);
+          1 : Result := fire_callback1(AttackerPtr, WeapTargetIDPtr, Targetp_Unit, @TargetPosition);
+          2 : Result := fire_callback2(AttackerPtr, WeapTargetIDPtr, Targetp_Unit, @TargetPosition);
+          3 : Result := fire_callback3(AttackerPtr, WeapTargetIDPtr, Targetp_Unit, @TargetPosition);
         end;
         PLongWord(WeapStatePtr)^ := PLongWord(WeapStatePtr)^ and not $1;
       end;
@@ -580,35 +580,35 @@ begin
   end;
 end;
 
-class function TAUnit.GetCurrentSpeedPercent(UnitPtr: Pointer) : Cardinal;
+class function TAUnit.GetCurrentSpeedPercent(p_Unit: PUnitStruct) : Cardinal;
 begin
   result := 0;
-  if PUnitStruct(UnitPtr).p_MovementClass <> nil then
+  if p_Unit.p_MovementClass <> nil then
   begin
-    if PUnitStruct(UnitPtr).lSfxOccupy = 4 then
-      result := Trunc(((PMoveClass(PUnitStruct(UnitPtr).p_MovementClass).lCurrentSpeed) /
-                        (PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).lMaxSpeedRaw)) * 100)
+    if p_Unit.lSfxOccupy = 4 then
+      result := Trunc(((p_Unit.p_MovementClass.lCurrentSpeed) /
+                        (p_Unit.p_UNITINFO.lMaxSpeedRaw)) * 100)
     else
-      result := Trunc(((PMoveClass(PUnitStruct(UnitPtr).p_MovementClass).lCurrentSpeed) /
-                        Trunc((PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).lMaxSpeedRaw) / 2)) * 100);
+      result := Trunc(((p_Unit.p_MovementClass.lCurrentSpeed) /
+                        Trunc((p_Unit.p_UNITINFO.lMaxSpeedRaw) / 2)) * 100);
     if result > 100 then
       result := 100;
   end;
 end;
 
-class function TAUnit.GetCurrentSpeedVal(UnitPtr: Pointer) : Cardinal;
+class function TAUnit.GetCurrentSpeedVal(p_Unit: PUnitStruct) : Cardinal;
 begin
   result := 0;
-  if PUnitStruct(UnitPtr).p_MovementClass <> nil then
+  if p_Unit.p_MovementClass <> nil then
   begin
-    result := (PMoveClass(PUnitStruct(UnitPtr).p_MovementClass).lCurrentSpeed);
+    result := (PMoveClass(p_Unit.p_MovementClass).lCurrentSpeed);
   end;
 end;
 
-class procedure TAUnit.SetCurrentSpeed(UnitPtr: Pointer; NewSpeed: Cardinal); // percentage
+class procedure TAUnit.SetCurrentSpeed(p_Unit: PUnitStruct; NewSpeed: Cardinal); // percentage
 begin
-  if PUnitStruct(UnitPtr).p_MovementClass <> nil then
-    PMoveClass(PUnitStruct(UnitPtr).p_MovementClass).lCurrentSpeed := NewSpeed;
+  if p_Unit.p_MovementClass <> nil then
+    PMoveClass(p_Unit.p_MovementClass).lCurrentSpeed := NewSpeed;
 end;
 
 class function TAUnit.TestUnloadPosition(UnitInfo: PUnitInfo; Position: TPosition) : Boolean;
@@ -697,153 +697,153 @@ begin
   end;
 end;
 
-class Function TAUnit.GetBuildPercentLeft(UnitPtr : Pointer) : Cardinal;
+class Function TAUnit.GetBuildPercentLeft(p_Unit: PUnitStruct) : Cardinal;
 begin
-  if ( PUnitStruct(UnitPtr).lBuildTimeLeft = 0.0 ) then
+  if ( p_Unit.fBuildTimeLeft = 0.0 ) then
     Result := 0
   else
-    Result := Trunc(1 - (PUnitStruct(UnitPtr).lBuildTimeLeft * -99.0));
+    Result := Trunc(1 - (p_Unit.fBuildTimeLeft * -99.0));
 end;
 
-class Function TAUnit.GetMissingHealth(UnitPtr : Pointer) : Cardinal;
+class Function TAUnit.GetMissingHealth(p_Unit: PUnitStruct) : Cardinal;
 var
   ShouldBe : Cardinal;
   IsCurr : Cardinal;
   UnitInfo : PUnitInfo;
 begin
   Result := 0;
-  if (UnitPtr <> nil) then
-    if PUnitStruct(UnitPtr).nUnitInfoID <> 0 then
+  if (p_Unit <> nil) then
+    if p_Unit.nUnitInfoID <> 0 then
     begin
-      UnitInfo := TAMem.UnitInfoId2Ptr(PUnitStruct(UnitPtr).nUnitInfoID);
-      if ( PUnitStruct(UnitPtr).lBuildTimeLeft = 0.0 ) then
+      UnitInfo := TAMem.UnitInfoId2Ptr(p_Unit.nUnitInfoID);
+      if ( p_Unit.fBuildTimeLeft = 0.0 ) then
         Result := 0
       else begin
-        ShouldBe := Round((1 - PUnitStruct(UnitPtr).lBuildTimeLeft) * UnitInfo.lMaxHP);
-        IsCurr := PUnitStruct(UnitPtr).nHealth;
+        ShouldBe := Round((1 - p_Unit.fBuildTimeLeft) * UnitInfo.lMaxHP);
+        IsCurr := p_Unit.nHealth;
         if IsCurr < ShouldBe then
           Result := ShouldBe - IsCurr;
       end;
     end;
 end;
 
-class procedure TAUnit.Kill(UnitPtr : Pointer; deathtype: byte);
+class procedure TAUnit.Kill(p_Unit: PUnitStruct; deathtype: byte);
 begin
-  if UnitPtr <> nil then
+  if p_Unit <> nil then
   begin
     case deathtype of
-      0 : UNITS_MakeDamage(nil, UnitPtr, 30000, 3, 0);
-      1 : UnitExplosion(UnitPtr, 0);
-      2 : UnitExplosion(UnitPtr, 1);
-      3 : UNITS_MakeDamage(nil, UnitPtr, 30000, 4, 0);
-      4 : TAUnit.CreateMainOrder(UnitPtr, nil, Action_SelfDestruct, nil, 1, 0, 0);
-      5 : PUnitStruct(UnitPtr).lUnitStateMask:= PUnitStruct(UnitPtr).lUnitStateMask or $4000;
+      0 : UNITS_MakeDamage(nil, p_Unit, 30000, 3, 0);
+      1 : UnitExplosion(p_Unit, 0);
+      2 : UnitExplosion(p_Unit, 1);
+      3 : UNITS_MakeDamage(nil, p_Unit, 30000, 4, 0);
+      4 : TAUnit.CreateMainOrder(p_Unit, nil, Action_SelfDestruct, nil, 1, 0, 0);
+      5 : p_Unit.lUnitStateMask:= p_Unit.lUnitStateMask or $4000;
     end;
     if (deathtype = 1) or (deathtype = 2) then
-      UNITS_MakeDamage(nil, UnitPtr, 30000, 4, 0);
+      UNITS_MakeDamage(nil, p_Unit, 30000, 4, 0);
   end;
 end;
 
-class procedure TAUnit.SwapByKill(UnitPtr: Pointer; newUnitInfo: Pointer);
+class procedure TAUnit.SwapByKill(p_Unit: PUnitStruct; newUnitInfo: Pointer);
 var
   UnitSt: PUnitStruct;
   Position: TPosition;
   Turn: TTurn;
 begin
-  if (UnitPtr <> nil) and
+  if (p_Unit <> nil) and
      (newUnitInfo <> nil) then
   begin
-    UnitSt := UnitPtr;
+    UnitSt := p_Unit;
     Position := UnitSt.Position;
     Turn := UnitSt.Turn;
-    if TAUnit.CreateUnit(TAUnit.GetOwnerIndex(UnitPtr), newUnitInfo, Position, @Turn, True, False, 1) <> nil then
-      TAUnit.Kill(UnitPtr, 3);
+    if TAUnit.CreateUnit(TAUnit.GetOwnerIndex(p_Unit), newUnitInfo, Position, @Turn, True, False, 1) <> nil then
+      TAUnit.Kill(p_Unit, 3);
   end;
 end;
 
-class function TAUnit.GetCurrentOrderType(UnitPtr: Pointer) : TTAActionType;
+class function TAUnit.GetCurrentOrderType(p_Unit: PUnitStruct) : TTAActionType;
 var
   UnitSt: PUnitStruct;
 begin
-  UnitSt:= UnitPtr;
+  UnitSt:= p_Unit;
   if UnitSt.p_MainOrder <> nil then
     Result := TTAActionType(PUnitOrder(UnitSt.p_MainOrder).cOrderType)
   else
     Result := Action_NoResult;
 end;
 
-class function TAUnit.GetCurrentOrderParams(UnitPtr: Pointer; Par: Byte) : Cardinal;
+class function TAUnit.GetCurrentOrderParams(p_Unit: PUnitStruct; Par: Byte) : Integer;
 begin
   Result := 0;
-  if PUnitStruct(UnitPtr).p_MainOrder <> nil then
+  if p_Unit.p_MainOrder <> nil then
   begin
     if Par = 1 then
-      Result := PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).lPar1
+      Result := p_Unit.p_MainOrder.lPar1
     else
-      Result := PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).lPar2;
+      Result := p_Unit.p_MainOrder.lPar2;
   end;
 end;
 
-class function TAUnit.GetCurrentOrderState(UnitPtr: Pointer) : Cardinal;
+class function TAUnit.GetCurrentOrderState(p_Unit: PUnitStruct) : Cardinal;
 begin
   Result := 0;
-  if PUnitStruct(UnitPtr).p_MainOrder <> nil then
-    Result := PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).lOrder_State;
+  if p_Unit.p_MainOrder <> nil then
+    Result := PUnitOrder(p_Unit.p_MainOrder).lOrder_State;
 end;
 
-class function TAUnit.GetCurrentOrderPos(UnitPtr: Pointer) : Cardinal;
+class function TAUnit.GetCurrentOrderPos(p_Unit: PUnitStruct) : Cardinal;
 var
   tempx, tempz : Word;
 begin
   Result := 0;
-  if PUnitStruct(UnitPtr).p_MainOrder <> nil then
+  if p_Unit.p_MainOrder <> nil then
   begin
-    tempx := PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).Pos.X;
-    tempz := PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).Pos.Z;
+    tempx := PUnitOrder(p_Unit.p_MainOrder).Pos.X;
+    tempz := PUnitOrder(p_Unit.p_MainOrder).Pos.Z;
     Result := MakeLong(tempz, tempx);
   end;
 end;
 
-class function TAUnit.GetCurrentOrderTargetUnit(UnitPtr: Pointer) : Pointer;
+class function TAUnit.GetCurrentOrderTargetUnit(p_Unit: PUnitStruct) : Pointer;
 begin
   Result := nil;
-  if PUnitStruct(UnitPtr).p_MainOrder <> nil then
+  if p_Unit.p_MainOrder <> nil then
   begin
-    Result := PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).p_UnitTarget;
+    Result := PUnitOrder(p_Unit.p_MainOrder).p_UnitTarget;
   end;
 end;
 
-class function TAUnit.EditCurrentOrderParams(UnitPtr: Pointer; Par: Byte; NewValue: LongWord) : Boolean;
+class function TAUnit.EditCurrentOrderParams(p_Unit: PUnitStruct; Par: Byte; NewValue: LongWord) : Boolean;
 begin
   Result := False;
-  if PUnitStruct(UnitPtr).p_MainOrder <> nil then
+  if p_Unit.p_MainOrder <> nil then
   begin
     if Par = 1 then
-      PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).lPar1 := NewValue
+      PUnitOrder(p_Unit.p_MainOrder).lPar1 := NewValue
     else
-      PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).lPar2 := NewValue;
+      PUnitOrder(p_Unit.p_MainOrder).lPar2 := NewValue;
     Result := True;
   end;
 end;
 
-class function TAUnit.CreateMainOrder(UnitPtr: Pointer; TargetUnitPtr: Pointer; ActionType: TTAActionType; Position: PPosition; ShiftKey: Byte; Par1: LongWord; Par2: LongWord) : LongInt;
+class function TAUnit.CreateMainOrder(p_Unit: PUnitStruct; Targetp_Unit: PUnitStruct; ActionType: TTAActionType; Position: PPosition; ShiftKey: Byte; Par1: LongWord; Par2: LongWord) : LongInt;
 begin
-  Result:= Order2Unit(Ord(ActionType), ShiftKey, UnitPtr, TargetUnitPtr, Position, Par1, Par2);
+  Result:= Order2Unit(Ord(ActionType), ShiftKey, p_Unit, Targetp_Unit, Position, Par1, Par2);
 end;
 
-class Function TAUnit.GetCOBDataPtr(UnitPtr : Pointer) : Pointer;
+class Function TAUnit.GetCOBDataPtr(p_Unit: PUnitStruct) : Pointer;
 begin
-result := PUnitStruct(UnitPtr).p_UnitScriptsData;
+result := p_Unit.p_UnitScriptsData;
 end;
 
-class function TAUnit.CallCobProcedure(UnitPtr: Pointer; ProcName: String; Par1, Par2, Par3, Par4: PLongWord) : Cardinal;
+class function TAUnit.CallCobProcedure(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: PLongWord) : Cardinal;
 var
   ParamsCount: LongWord;
   UnitSt: PUnitStruct;
   lPar1, lPar2, lPar3, lPar4: LongWord;
 begin
   Result := 0;
-  if UnitPtr <> nil then
+  if p_Unit <> nil then
   begin
     ParamsCount:= 0;
     if Par1 <> nil then
@@ -871,7 +871,7 @@ begin
     end else
       lPar4 := 0;
 
-    UnitSt:= UnitPtr;
+    UnitSt:= p_Unit;
     Result := Script_RunScript ( 0, 0, LongWord(UnitSt.p_UnitScriptsData),
                                  lPar4, lPar3, lPar2, lPar1,
                                  ParamsCount,
@@ -880,14 +880,14 @@ begin
   end;
 end;
 
-class function TAUnit.CallCobWithCallback(UnitPtr: Pointer; ProcName: String; Par1, Par2, Par3, Par4: LongWord) : Cardinal;
+class function TAUnit.CallCobWithCallback(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: LongWord) : Cardinal;
 var
   UnitSt: PUnitStruct;
 begin
   Result := 0;
-  if UnitPtr <> nil then
+  if p_Unit <> nil then
   begin
-    UnitSt := UnitPtr;
+    UnitSt := p_Unit;
     Result := Script_ProcessCallback( nil, nil, LongWord(UnitSt.p_UnitScriptsData),
                                       @Par4, @Par3, @Par2, @Par1,
                                       PAnsiChar(ProcName) );
@@ -896,33 +896,32 @@ begin
   end;
 end;
 
-class function TAUnit.GetCobString(UnitPtr: Pointer) : String;
+class function TAUnit.GetCobString(p_Unit: PUnitStruct) : String;
 begin
 end;
 
-class Function TAUnit.GetOwnerPtr(UnitPtr: PUnitStruct) : Pointer;
+class Function TAUnit.GetOwnerPtr(p_Unit: PUnitStruct) : Pointer;
 begin
-result := UnitPtr.p_Owner;
+result := p_Unit.p_Owner;
 end;
 
-class Function TAUnit.GetOwnerIndex(UnitPtr: PUnitStruct) : Integer;
-begin
-Result := 0;
-if UnitPtr <> nil then
-//Result := PPlayerStruct(PUnitStruct(UnitPtr).p_Owner).cPlayerIndexZero;
-  Result := UnitPtr.cOwnerID;
-end;
-
-class Function TAUnit.GetId(UnitPtr: PUnitStruct) : Word;
+class Function TAUnit.GetOwnerIndex(p_Unit: PUnitStruct) : Integer;
 begin
   Result := 0;
-  if UnitPtr <> nil then
-    result := Word(UnitPtr.lUnitInGameIndex);
+  if p_Unit <> nil then
+    Result := p_Unit.ucOwnerID;
 end;
 
-class Function TAUnit.GetLongId(UnitPtr : PUnitStruct) : Cardinal;
+class Function TAUnit.GetId(p_Unit: PUnitStruct) : Word;
 begin
-result := UnitPtr.lUnitInGameIndex;
+  Result := 0;
+  if p_Unit <> nil then
+    result := Word(p_Unit.lUnitInGameIndex);
+end;
+
+class Function TAUnit.GetLongId(p_Unit : PUnitStruct) : Cardinal;
+begin
+result := p_Unit.lUnitInGameIndex;
 end;
 
 class Function TAUnit.Id2Ptr(LongUnitId: Cardinal) : PUnitStruct;
@@ -937,43 +936,43 @@ end;
 
 class Function TAUnit.Id2LongId(UnitId: Word) : Cardinal;
 var
-  UnitPtr: PUnitStruct;
+  p_Unit: PUnitStruct;
 begin
   Result := 0;
   if TAData.UnitsArray_p <> nil then
   begin
-    UnitPtr := TAUnit.Id2Ptr(UnitId);
-    if UnitPtr.nUnitInfoID <> 0 then
-      Result := UnitPtr.lUnitInGameIndex;
+    p_Unit := TAUnit.Id2Ptr(UnitId);
+    if p_Unit.nUnitInfoID <> 0 then
+      Result := p_Unit.lUnitInGameIndex;
   end;
 end;
 
-class function TAUnit.GetUnitInfoId(UnitPtr: PUnitStruct) : Word;
+class function TAUnit.GetUnitInfoId(p_Unit: PUnitStruct) : Word;
 begin
-result:= UnitPtr.nUnitInfoID;
+result:= p_Unit.nUnitInfoID;
 end;
 
-class function TAUnit.GetUnitInfoCrc(UnitPtr: PUnitStruct) : Cardinal;
+class function TAUnit.GetUnitInfoCrc(p_Unit: PUnitStruct) : Cardinal;
 begin
 result := 0;
-if TAUnit.GetUnitInfoPtr(UnitPtr) <> nil then
-  result := PUnitInfo(TAUnit.GetUnitInfoPtr(UnitPtr)).CRC_FBI;
+if TAUnit.GetUnitInfoPtr(p_Unit) <> nil then
+  result := PUnitInfo(TAUnit.GetUnitInfoPtr(p_Unit)).CRC_FBI;
 end;
 
-class function TAUnit.GetUnitInfoPtr(UnitPtr: PUnitStruct) : Pointer;
+class function TAUnit.GetUnitInfoPtr(p_Unit: PUnitStruct) : Pointer;
 begin
-result:= UnitPtr.p_UNITINFO;
+result:= p_Unit.p_UNITINFO;
 end;
 
-class Function TAUnit.IsOnThisComp(UnitPtr : Pointer; IncludeAI: Boolean) : Boolean;
+class Function TAUnit.IsOnThisComp(p_Unit: PUnitStruct; IncludeAI: Boolean) : Boolean;
 var
   playerPtr : Pointer;
   TAPlayerType : TTAPlayerController;
 begin
 result:= False;
 try
-  playerPtr := TAUnit.GetOwnerPtr(Pointer(UnitPtr));
-  //playerPtr := TAPlayer.GetPlayerByIndex(TAunit.GetOwnerIndex(UnitPtr));
+  playerPtr := TAUnit.GetOwnerPtr(Pointer(p_Unit));
+  //playerPtr := TAPlayer.GetPlayerByIndex(TAunit.GetOwnerIndex(p_Unit));
   if playerPtr <> nil then
   begin
     TAPlayerType := TAPlayer.PlayerController(playerPtr);
@@ -990,18 +989,18 @@ except
 end;
 end;
 
-class Function TAUnit.IsAllied(UnitPtr: Pointer; UnitId: LongWord) : Byte;
+class Function TAUnit.IsAllied(p_Unit: PUnitStruct; UnitId: LongWord) : Byte;
 var
   Unit2Ptr, playerPtr: Pointer;
   playerindex: Integer;
 begin
-  playerPtr := TAUnit.GetOwnerPtr(unitptr);
+  playerPtr := TAUnit.GetOwnerPtr(p_Unit);
   Unit2Ptr := TAUnit.Id2Ptr(Word(UnitId));
   playerIndex := TAUnit.GetOwnerIndex(Unit2Ptr);
   result := BoolValues[TAPlayer.GetAlliedState(playerPtr,playerIndex)];
 end;
  {
-class Function TAUnit.IsRemoteIdLocal(UnitPtr: Pointer; remoteUnitId: PLongWord; out Local: Boolean) : LongWord;
+class Function TAUnit.IsRemoteIdLocal(p_Unit: PUnitStruct; remoteUnitId: PLongWord; out Local: Boolean) : LongWord;
 begin
   Local:= False;
   Result:= 0;
@@ -1011,10 +1010,10 @@ begin
     Result:= Word(remoteUnitId);
   end else
   begin
-    if UnitPtr <> nil then
+    if p_Unit <> nil then
     begin
-      Local:= IsOnThisComp(Pointer(UnitPtr), True);
-      Result:= TAUnit.GetLongId(Pointer(UnitPtr));
+      Local:= IsOnThisComp(Pointer(p_Unit), True);
+      Result:= TAUnit.GetLongId(Pointer(p_Unit));
     end;
   end;
 end; }
@@ -1046,49 +1045,49 @@ begin
   end;
 end;
 
-class function TAUnit.GrantUnitInfo(UnitPtr: PUnitStruct; ANewState: Byte; Broadcast: Boolean) : Boolean;
+class function TAUnit.GrantUnitInfo(p_Unit: PUnitStruct; ANewState: Byte; Broadcast: Boolean) : Boolean;
 var
   NewUnitInfo : PUnitInfo;
   UnitID : Word;
 begin
   Result := False;
-  UnitID := TAUnit.GetId(UnitPtr);
+  UnitID := TAUnit.GetId(p_Unit);
 
   if ANewState = 1 then
   begin
     NewUnitInfo := MEM_Alloc(SizeOf(TUnitInfo));
     if NewUnitInfo <> nil then
     begin
-      CopyMemory(NewUnitInfo, UnitPtr.p_UNITINFO, SizeOf(TUnitInfo));
+      CopyMemory(NewUnitInfo, p_Unit.p_UNITINFO, SizeOf(TUnitInfo));
       CustomUnitFieldsArr[UnitID].UnitInfo := NewUnitInfo;
-      UnitPtr.p_UNITINFO := NewUnitInfo;
+      p_Unit.p_UNITINFO := NewUnitInfo;
     end;
   end else
   begin
-    UnitPtr.p_UNITINFO := TAMem.UnitInfoId2Ptr(UnitPtr.nUnitInfoID);
-    if CustomUnitFieldsArr[TAUnit.GetId(UnitPtr)].UnitInfo <> nil then
+    p_Unit.p_UNITINFO := TAMem.UnitInfoId2Ptr(p_Unit.nUnitInfoID);
+    if CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].UnitInfo <> nil then
     begin
-      FreeCustomUnitInfo(UnitPtr);
-      CustomUnitFieldsArr[TAUnit.GetId(UnitPtr)].UnitInfo := nil;
+      FreeCustomUnitInfo(p_Unit);
+      CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].UnitInfo := nil;
     end;
   end;
 
   if Broadcast and TAData.NetworkLayerEnabled then
-    GlobalDPlay.Broadcast_UnitGrantUnitInfo(TAUnit.GetId(UnitPtr), ANewState);
+    GlobalDPlay.Broadcast_UnitGrantUnitInfo(TAUnit.GetId(p_Unit), ANewState);
 end;
 
-class function TAUnit.GetUnitInfoField(UnitPtr: PUnitStruct; fieldType: TUnitInfoExtensions) : LongWord;
+class function TAUnit.GetUnitInfoField(p_Unit: PUnitStruct; fieldType: TUnitInfoExtensions) : LongWord;
 var
   UnitID : Word;
   UseTemplate: PUnitInfo;
 begin
   Result := 0;
-  UnitID := TAUnit.GetId(UnitPtr);
+  UnitID := TAUnit.GetId(p_Unit);
 
   if CustomUnitFieldsArr[UnitID].UnitInfo = nil then
   begin
-    if (UnitPtr.p_UNITINFO <> nil) then
-      UseTemplate := UnitPtr.p_UNITINFO
+    if (p_Unit.p_UNITINFO <> nil) then
+      UseTemplate := p_Unit.p_UNITINFO
     else
       Exit;
   end else
@@ -1192,10 +1191,12 @@ begin
     UNITINFO_SHOWPLAYERNAME  : Result := Byte((UseTemplate.UnitTypeMask2 and 131072) > 0 );
     UNITINFO_COMMANDER       : Result := Byte((UseTemplate.UnitTypeMask2 and 262144) > 0 );
     UNITINFO_CANTBERANSPORTED: Result := Byte((UseTemplate.UnitTypeMask2 and 524288) > 0 );
+    UNITINFO_FOOTPRINTX      : Result := UseTemplate.nFootPrintX;
+    UNITINFO_FOOTPRINTZ      : Result := UseTemplate.nFootPrintZ;
   end;
 end;
 
-class function TAUnit.SetUnitInfoField(UnitPtr: PUnitStruct; fieldType: TUnitInfoExtensions; value: Integer) : Boolean;
+class function TAUnit.SetUnitInfoField(p_Unit: PUnitStruct; fieldType: TUnitInfoExtensions; value: Integer) : Boolean;
   procedure SetUnitTypeMask(UnitID: Word; unittypemask: byte; onoff: boolean; mask: Cardinal);
   begin
     case onoff of
@@ -1224,7 +1225,7 @@ var
 begin
   Result := False;
 
-  UnitID := TAUnit.GetId(UnitPtr);
+  UnitID := TAUnit.GetId(p_Unit);
   UnitInfo := CustomUnitFieldsArr[UnitID].UnitInfo;
   if UnitInfo <> nil then
   begin
@@ -1244,9 +1245,9 @@ begin
           UnitInfo.cMaxWaterSlope := MovementClassStruct.cMaxWaterSlope;
           if FieldType = UNITINFO_MOVEMENTCLASS_SAFE then
           begin
-            Z := UnitPtr.Turn.Z;
+            Z := p_Unit.Turn.Z;
             UNITS_CreateMoveClass(TAUnit.Id2Ptr(Word(UnitID)));
-            UnitPtr.Turn.Z := Z;
+            p_Unit.Turn.Z := Z;
           end;
         end else
             Exit;
@@ -1360,7 +1361,7 @@ begin
   end;
 end;
 
-class Function TAUnits.CreateMinions(UnitPtr: Pointer; Amount: Byte; UnitInfo: Pointer; Action: TTAActionType; ArrayId: Cardinal) : Integer;
+class Function TAUnits.CreateMinions(p_Unit: PUnitStruct; Amount: Byte; UnitInfo: Pointer; Action: TTAActionType; ArrayId: Cardinal) : Integer;
 const
   MAXRETRIES = 25 - 1;
 var
@@ -1384,12 +1385,12 @@ var
   SpawnRange: Cardinal;
 begin
   Result := 0;
-  if (UnitPtr <> nil) and
+  if (p_Unit <> nil) and
      (UnitInfo <> nil) then
   begin
-    UnitSt := UnitPtr;
+    UnitSt := p_Unit;
 
-    PlayerIndex := TAUnit.GetOwnerIndex(pointer(UnitPtr));
+    PlayerIndex := TAUnit.GetOwnerIndex(pointer(p_Unit));
 
     UnitInfoSt := UnitInfo;
     CallerUnitInfoSt := Pointer(TAMem.UnitInfoId2Ptr(UnitSt.nUnitInfoID));
@@ -1441,11 +1442,11 @@ begin
               if ResultUnit <> nil then
               begin
                 if TAData.NetworkLayerEnabled then
-                  Send_UnitBuildFinished(UnitPtr, ResultUnit);
+                  Send_UnitBuildFinished(p_Unit, ResultUnit);
                 SetLength(UnitsArray, High(UnitsArray) + 2);
                 UnitsArray[High(UnitsArray)] := PUnitStruct(ResultUnit).lUnitInGameIndex;
                 if Action <> Action_Ready then
-                  TAUnit.CreateMainOrder(ResultUnit, UnitPtr, Action, nil, 1, 0, 0);
+                  TAUnit.CreateMainOrder(ResultUnit, p_Unit, Action, nil, 1, 0, 0);
                 Break;
               end;
             end;
@@ -1469,21 +1470,21 @@ begin
         if ArrayId <> 0 then
         begin
           if not Assigned(SpawnedMinionsArr[ArrayId].UnitIds) then
-            if not TAUnits.UnitsIntoGetterArray(UnitPtr, 2, ArrayId, UnitsArray) then
+            if not TAUnits.UnitsIntoGetterArray(p_Unit, 2, ArrayId, UnitsArray) then
               Result:= 0;
         end;
     end;
   end;
 end;
 
-class procedure TAUnits.GiveUnit(ExistingUnitPtr: Pointer; PlayerIdx: Byte);
+class procedure TAUnits.GiveUnit(Existingp_Unit: PUnitStruct; PlayerIdx: Byte);
 var
   PlayerStruct : PPlayerStruct;
 begin
-  if ExistingUnitPtr <> nil then
+  if Existingp_Unit <> nil then
   begin
     PlayerStruct := TAPlayer.GetPlayerByIndex(PlayerIdx);
-    UNITS_GiveUnit(ExistingUnitPtr, PlayerStruct, nil);
+    UNITS_GiveUnit(Existingp_Unit, PlayerStruct, nil);
   end;
 end;
 
@@ -1491,17 +1492,13 @@ class function TAUnits.CreateSearchFilter(Mask: Integer) : TUnitSearchFilterSet;
 var
   a, b: word;
 begin
-  if Mask <> 0 then
-    Result:= []
-  else
-  begin
-    Result:= [usfNone];
+  Result := [usfNone];
+  if Mask = 0 then
     Exit;
-  end;
 
-  for a:= Ord(usfNone) to Ord(usfIncludeInBuildState) do
+  for a:= Ord(usfNone) to Ord(usfIncludeTransported) do
   begin
-    b:= Round(Power(2, a));
+    b := Round(Power(2, a));
     if (Mask and b) = b then
     begin
       Include(Result, TUnitSearchFilter(a + 1));
@@ -1532,7 +1529,7 @@ begin
     Result:= test;
 end;
 
-class function TAUnits.SearchUnits ( UnitPtr: Pointer; SearchId: LongWord; SearchType: Byte;
+class function TAUnits.SearchUnits ( p_Unit: PUnitStruct; SearchId: LongWord; SearchType: Byte;
   MaxDistance: Integer; Filter: TUnitSearchFilterSet; UnitTypeFilter: Pointer ) : LongWord;
 var
   FoundCount: Integer;
@@ -1553,7 +1550,7 @@ begin
   FoundCount:= 0;
   Result:= 0;
   //if (SearchType = 2) and (MaxDistance = 0) then Exit;
-  UnitSt:= UnitPtr;
+  UnitSt:= p_Unit;
   UnitInfoSt:= UnitSt.p_UNITINFO;
   MaxUnitId:= TAData.MaxUnitsID;
 
@@ -1561,7 +1558,7 @@ begin
   begin
     CheckedUnitSt:= TAUnit.Id2Ptr(UnitId);
     if (CheckedUnitSt = nil) or
-       (CheckedUnitSt = UnitPtr) then
+       (CheckedUnitSt = p_Unit) then
       Continue;
     if CheckedUnitSt.nUnitInfoID = 0 then
       Continue;
@@ -1621,7 +1618,7 @@ begin
     if High(FoundArray) + 1 > 0 then
       for i:= Low(FoundArray) to High(FoundArray) do
       begin
-        NearestUnitDistance := TAUnits.Distance(@UnitSt.Position, @PUnitStruct(TAUnit.Id2Ptr(FoundArray[i])).Position);
+        NearestUnitDistance := TAUnits.Distance(@UnitSt.Position, @TAUnit.Id2Ptr(FoundArray[i]).Position);
         if i = Low(FoundArray) then
         begin
           if NearestUnitDistance <> -1 then
@@ -1639,11 +1636,11 @@ begin
 
   if SearchId <> 65535 then
     if not Assigned(UnitSearchArr[SearchId].UnitIds) then
-      if TAUnits.UnitsIntoGetterArray(UnitPtr, 1, SearchId, FoundArray) then
+      if TAUnits.UnitsIntoGetterArray(p_Unit, 1, SearchId, FoundArray) then
         Result:= FoundCount;
 end;
 
-class function TAUnits.UnitsIntoGetterArray(UnitPtr: Pointer; ArrayType: Byte; Id: LongWord; const UnitsArray: TFoundUnits) : Boolean;
+class function TAUnits.UnitsIntoGetterArray(p_Unit: PUnitStruct; ArrayType: Byte; Id: LongWord; const UnitsArray: TFoundUnits) : Boolean;
 var
   i: integer;
   UnitRec: TStoreUnitsRec;
@@ -1757,10 +1754,15 @@ begin
     Result:= False;
 end;
 
-class function TAUnits.UnitsFilterVsUnit(UnitPtr: PUnitStruct;
+class function TAUnits.UnitsFilterVsUnit(p_Unit: PUnitStruct;
   Filter: TUnitSearchFilterSet; Player: PPlayerStruct) : Boolean;
 begin
   Result := False;
+
+  if not (usfIncludeTransported in Filter) then
+    if p_Unit.cAttachedToPiece <> -1 then
+      Exit;
+
   if Player <> nil then
   begin
     if (usfOwner in Filter) or
@@ -1769,19 +1771,19 @@ begin
     begin
       if usfAllied in Filter then
       begin
-        if not TAPlayer.GetAlliedState(Player, TAPlayer.PlayerIndex(UnitPtr.p_Owner)) then
+        if not TAPlayer.GetAlliedState(Player, TAPlayer.PlayerIndex(p_Unit.p_Owner)) then
           Exit;
       end else
       begin
         if usfOwner in Filter then
         begin
-          if Player <> UnitPtr.p_Owner then
+          if Player <> p_Unit.p_Owner then
             Exit;
         end else
         begin
           if usfEnemy in Filter then
           begin
-            if TAPlayer.GetAlliedState(Player, TAPlayer.PlayerIndex(UnitPtr.p_Owner)) then
+            if TAPlayer.GetAlliedState(Player, TAPlayer.PlayerIndex(p_Unit.p_Owner)) then
               Exit;
           end;
         end;
@@ -1789,7 +1791,7 @@ begin
 
       if not (usfAI in Filter) then
       begin
-        if TAPlayer.PlayerController(UnitPtr.p_Owner) = Player_LocalAI then
+        if TAPlayer.PlayerController(p_Unit.p_Owner) = Player_LocalAI then
           Exit;
       end;
     end;
@@ -1797,33 +1799,33 @@ begin
 
   if usfExcludeAir in Filter then
   begin
-    if TAUnit.GetUnitInfoField(UnitPtr, UNITINFO_CANFLY) = 1 then
+    if TAUnit.GetUnitInfoField(p_Unit, UNITINFO_CANFLY) = 1 then
       Exit;
   end;
   if usfExcludeSea in Filter then
   begin
-    if TAUnit.GetUnitInfoField(UnitPtr, UNITINFO_FLOATER) = 1 then
+    if TAUnit.GetUnitInfoField(p_Unit, UNITINFO_FLOATER) = 1 then
       Exit
     else
       //subs or pels/hovers currently in sea
-      if not (GetPosHeight(@UnitPtr.Position) > PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.SeaLevel) then
+      if not (GetPosHeight(@p_Unit.Position) > PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.SeaLevel) then
       begin
         Exit;
       end;
   end;
   if usfExcludeBuildings in Filter then
   begin
-    if TAUnit.GetUnitInfoField(UnitPtr, UNITINFO_BMCODE) = 0 then
+    if TAUnit.GetUnitInfoField(p_Unit, UNITINFO_BMCODE) = 0 then
       Exit;
   end;
   if usfExcludeNonWeaponed in Filter then
   begin
-    if TAUnit.GetUnitInfoField(UnitPtr, UNITINFO_HASWEAPONS) = 0 then
+    if TAUnit.GetUnitInfoField(p_Unit, UNITINFO_HASWEAPONS) = 0 then
       Exit;
   end;
 
   if not (usfIncludeInBuildState in Filter) and
-    (UnitPtr.lBuildTimeLeft <> 0.0) then
+    (p_Unit.fBuildTimeLeft <> 0.0) then
     Exit;
 
   Result := True;

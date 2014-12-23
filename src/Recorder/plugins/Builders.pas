@@ -166,7 +166,7 @@ AddToQueue:
     call PatchNJump;
 end;
 
-function QueueIfStockpile(UnitPtr: PunitStruct; UnitInfoId: Cardinal): LongBool; stdcall
+function QueueIfStockpile(p_Unit: PunitStruct; UnitInfoId: Cardinal): LongBool; stdcall
 var
   UnitInfo : PUnitInfo;
   bIsUnitWeaponNuke : Boolean;
@@ -175,7 +175,7 @@ begin
   if bIsUnitWeaponNuke then
   begin
     UnitInfo := TAMem.UnitInfoId2Ptr(Word(UnitInfoId));
-    UnitSubBuildClick(UnitInfo.szUnitName, UnitPtr, 1);
+    UnitSubBuildClick(UnitInfo.szUnitName, p_Unit, 1);
   end;
 
   Result := bIsUnitWeaponNuke;
@@ -274,4 +274,3 @@ NoYardmap : //bmcode 1 without yardmap
 end;
 
 end.
-

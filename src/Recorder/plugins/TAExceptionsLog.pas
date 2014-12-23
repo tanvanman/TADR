@@ -160,16 +160,16 @@ end;
 
 procedure LogMissingCob(ActionName : PAnsiChar; a2: Cardinal); stdcall;
 var
-  UnitPtr : Pointer;
+  p_Unit : PUnitStruct;
   UnitInfo : PUnitInfo;
 begin
-  UnitPtr := nil;
+  p_Unit := nil;
   UnitInfo := nil;
   if ActionName = 'SetMaxReloadTime' then
   begin
-    UnitPtr := Pointer(a2 - $73);
-    if PUnitStruct(UnitPtr).p_UNITINFO <> nil then
-      UnitInfo := PUnitStruct(UnitPtr).p_UNITINFO;
+    p_Unit := Pointer(a2 - $73);
+    if p_Unit.p_UNITINFO <> nil then
+      UnitInfo := p_Unit.p_UNITINFO;
   end else
     if (ActionName = 'Create') or
        (ActionName = 'Activate') or
@@ -178,17 +178,17 @@ begin
        (ActionName = 'EndTransport') or
        (ActionName = 'StopBuilding') then
     begin
-      //UnitPtr := Pointer(a2 - $73);
-      //if PUnitStruct(UnitPtr).p_UNITINFO <> nil then
-      //  UnitInfo := PUnitStruct(UnitPtr).p_UNITINFO;
+      //p_Unit := Pointer(a2 - $73);
+      //if p_Unit.p_UNITINFO <> nil then
+      //  UnitInfo := p_Unit.p_UNITINFO;
     end;
 
-  if UnitPtr <> nil then
+  if p_Unit <> nil then
   begin
     if UnitInfo <> nil then
       TLog.Add(0, 'Error in processing script callback. UnitType: ' + UnitInfo.szUnitName + ', Script name: ' + ActionName)
     else
-      TLog.Add(0, 'Error in processing script callback. UnitID: ' + IntToStr(PUnitStruct(UnitPtr).lUnitInGameIndex) + ', Script name: ' + ActionName);
+      TLog.Add(0, 'Error in processing script callback. UnitID: ' + IntToStr(p_Unit.lUnitInGameIndex) + ', Script name: ' + ActionName);
   end else
     TLog.Add(0, 'Error in processing script callback. Script name: ' + ActionName);
 end;

@@ -28,7 +28,7 @@ uses
 
 
 
-{$IFDEF release}
+{$IFNDEF Debug}
 (*
 Procedure CheckTADemoIntegrity;
 var
@@ -101,7 +101,7 @@ procedure OnInitialize( OnMainRun : boolean );
 var
   aTimeCaps : TTimeCaps;
 begin
-{$IFDEF release}
+{$IFNDEF Debug}
 CheckTADemoIntegrity;
 {$ENDIF}
   //Integer(GetModuleHandleA(nil))

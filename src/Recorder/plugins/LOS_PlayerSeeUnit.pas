@@ -2,16 +2,16 @@ unit LOS_PlayerSeeUnit;
 
 interface
 uses
-  PluginEngine;
+  PluginEngine, TA_MemoryStructures;
 
 var
   // the register containing the player & unit pointers can be overwritten
-  UnitPtr : pointer;
-  PlayerPtr : pointer;
+  PlayerSeeUnit_p_Unit : PUnitStruct;
+  PlayerSeeUnit_PlayerPtr : PPlayerStruct;
   // the player currently being tested to see if it can see a unit
-  TestPlayer : longint;
-  ViewPlayerPlSeeU: longint;
-  TestPlayerPlSeeU: longint;
+  PlayerSeeUnit_TestPlayer : longint;
+  PlayerSeeUnit_ViewPlayerPlSeeU: longint;
+  PlayerSeeUnit_TestPlayerPlSeeU: longint;
 
 Procedure GameUnit_LOS_PlayerSeeUnit_IsOwnerAllowedToSee;
 Procedure GameUnit_LOS_PlayerSeeUnit_EpilogCode_Exit;
@@ -27,8 +27,7 @@ implementation
 uses
   LOS_extensions,
   TADemoConsts,
-  TA_MemoryConstants,
-  TA_MemoryStructures;
+  TA_MemoryConstants;
 
 Procedure GetCodeInjections( PluginData : TPluginData );
 begin
@@ -99,15 +98,15 @@ asm  // uses eax, ecx
 
   xor ecx, ecx;
   // store the unit pointer
-  mov UnitPtr, ebx;
-  mov PlayerPtr, esi;
-  mov TestPlayer, ecx;
+  mov PlayerSeeUnit_p_Unit, ebx;
+  mov PlayerSeeUnit_PlayerPtr, esi;
+  mov PlayerSeeUnit_TestPlayer, ecx;
 
   // preserve the initial player viewpoint
   // ViewPlayer = [TADynmemStructPtr+TAdynmemStruct.LOS_Sight]
   mov eax, [TADynmemStructPtr]
   mov cl, [eax+TTADynMemStruct.cViewPlayerID]
-  mov ViewPlayerPlSeeU, ecx;
+  mov PlayerSeeUnit_ViewPlayerPlSeeU, ecx;
   // check to see if this player is allowed to see the unit
 {
   xor eax, eax;
@@ -176,11 +175,11 @@ label
   TryNextPlayer_Condition;
 asm // uses ecx, eax, edi, ebp
   // restore the unit pointer
-  mov ebx, UnitPtr;
+  mov ebx, PlayerSeeUnit_p_Unit;
   
   // if ( UnitStruct.Owner.AlliedPlayers[ViewPlayer] != 0) goto CanSeeUnit; else goto TryNextPlayer;
   
-  mov edi, ViewPlayerPlSeeU
+  mov edi, PlayerSeeUnit_ViewPlayerPlSeeU
   mov ecx, [ebx+TUnitStruct.p_Owner]
   cmp byte [edi+ecx+TPlayerStruct.cAllyFlagArray], 0
   jnz CanSeeUnit
@@ -199,7 +198,7 @@ asm // uses ecx, eax, edi, ebp
     }
   }
 *)
-  mov ebp, TestPlayerPlSeeU;
+  mov ebp, PlayerSeeUnit_TestPlayerPlSeeU;
   jmp TryNextPlayer_Condition;
 TryNextPlayer_NextValue:
   // TestPlayer++
@@ -216,7 +215,7 @@ TryNextPlayer_Condition:
   cmp byte [ecx+TPlayerStruct.cPlayerIndex], bl
   jnz TryNextPlayer_NextValue
 
-  mov TestPlayerPlSeeU, ebp;
+  mov PlayerSeeUnit_TestPlayerPlSeeU, ebp;
     
   // NextPlayer = [TADynmemStructPtr+TAdynmemStruct.Players[TestPlayer]]
   mov eax, ebp
@@ -226,7 +225,7 @@ TryNextPlayer_Condition:
   lea ecx, [ecx+TTADynMemStruct.Players];
   add eax, ecx;
   // if (NextPlayer = Player)  continue; 
-  mov esi, PlayerPtr;
+  mov esi, PlayerSeeUnit_PlayerPtr;
   cmp eax, esi
   jz TryNextPlayer_NextValue;
   // Player = NextPlayer;
@@ -238,7 +237,7 @@ TryNextPlayer_Condition:
 TestPlayerLOS:
   // TestPlayer++
   inc ebp;
-  mov TestPlayerPlSeeU, ebp;  
+  mov PlayerSeeUnit_TestPlayerPlSeeU, ebp;
   
   // restore the player pointer
   // we *might* can be able to see this unit
@@ -248,14 +247,14 @@ CanSeeUnit:
   // we definitely can see this unit
   mov eax, 1;
   // restore the player pointer
-  mov esi, PlayerPtr;
+  mov esi, PlayerSeeUnit_PlayerPtr;
   jmp GameUnit_LOS_PlayerSeeUnit_EpilogCode_Exit;
 CanNotSeeUnit:
-  mov TestPlayerPlSeeU, ebp;
+  mov PlayerSeeUnit_TestPlayerPlSeeU, ebp;
   // we definitely can *not* see this unit
   xor eax, eax;
   // restore the player pointer
-  mov esi, PlayerPtr;
+  mov esi, PlayerSeeUnit_PlayerPtr;
   jmp GameUnit_LOS_PlayerSeeUnit_EpilogCode_Exit;
 end;
 

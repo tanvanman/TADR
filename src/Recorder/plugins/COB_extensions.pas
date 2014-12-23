@@ -2,6 +2,7 @@ unit COB_extensions;
 
 interface
 uses
+  {$IFDEF DEBUG}logging, uDebug,{$ENDIF}
   PluginEngine, SynCommons, TA_MemoryLocations, TA_MemoryStructures;
 
 // -----------------------------------------------------------------------------
@@ -447,19 +448,25 @@ else
   result := nil;
 end;
 
-function CustomGetters( index : LongWord;
-                        unitPtr : PUnitStruct;
-                        arg1, arg2, arg3, arg4 : LongWord) : LongWord; stdcall;
+function CustomGetters( index : Cardinal;
+                        p_Unit : PUnitStruct;
+                        arg1, arg2, arg3, arg4 : Cardinal) : Cardinal; stdcall;
 var
-  pUnit : Pointer;
   UnitInfoSt : PUnitInfo;
   Position : TPosition;
   Turn: TTurn;
   b : Byte;
   i : Integer;
   ExtensionsNotForDemos : Boolean;
+  {$IFDEF DEBUG}
+  errorAddress,errorAddress2 : Longword;
+  s:string;
+  {$ENDIF}
 begin
 result := 0;
+{$IFDEF DEBUG}
+try
+{$ENDIF}
 if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
   begin
 
@@ -474,11 +481,11 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       if arg1 <> 0 then
         result := TAUnit.GetCurrentSpeedVal(TAUnit.Id2Ptr(arg1))
       else
-        result := TAUnit.GetCurrentSpeedVal(UnitPtr);
+        result := TAUnit.GetCurrentSpeedVal(p_Unit);
       end;
     VETERAN_LEVEL :
       begin
-      Result := UnitPtr.nKills * 100;
+      Result := p_Unit.nKills * 100;
       end;
     MIN_ID :
       begin
@@ -490,7 +497,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     MY_ID :
       begin
-      result := TAUnit.GetId(UnitPtr);
+      result := TAUnit.GetId(p_Unit);
       end;
     UNIT_TEAM :
       begin
@@ -501,18 +508,18 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       if arg1 <> 0 then
         result := TAUnit.GetBuildPercentLeft(TAUnit.Id2Ptr(arg1))
       else
-        result := TAUnit.GetBuildPercentLeft(UnitPtr);
+        result := TAUnit.GetBuildPercentLeft(p_Unit);
       end;
     UNIT_ALLIED :
       begin
-      result := TAUnit.IsAllied(UnitPtr, arg1);
+      result := TAUnit.IsAllied(p_Unit, arg1);
       end;
     UNIT_IS_ON_THIS_COMP :
       begin
       if arg1 <> 0 then
         result := BoolValues[TAUnit.IsOnThisComp(TAUnit.Id2Ptr(arg1), True)]
       else
-        result := BoolValues[TAUnit.IsOnThisComp(UnitPtr, True)];
+        result := BoolValues[TAUnit.IsOnThisComp(p_Unit, True)];
       end;
     ID_TO_STAMP :
       begin
@@ -543,11 +550,11 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       if arg1 <> 0 then
         result := TAMem.Crc32ToCrc24(TAUnit.GetUnitInfoCrc(TAUnit.Id2Ptr(arg1)))
       else
-        result := TAMem.Crc32ToCrc24(TAUnit.GetUnitInfoCrc(UnitPtr));
+        result := TAMem.Crc32ToCrc24(TAUnit.GetUnitInfoCrc(p_Unit));
       end;
     UNIT_TYPE_CRC_TO_ID :
       begin
-      result := PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory;
+      result := TAMem.UnitInfoCrc2Ptr(arg1).nCategory;
       end;
     PLAYER_ACTIVE :
       begin
@@ -568,63 +575,63 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     PRIOR_UNIT :
       begin
       if arg1 <> 0 then
-        result := TAUnit.GetId(PUnitStruct(TAUnit.Id2Ptr(arg1)).p_PriorUnit)
+        result := TAUnit.GetId(TAUnit.Id2Ptr(arg1).p_PriorUnit)
       else
-        result := TAUnit.GetId(PUnitStruct(UnitPtr).p_PriorUnit);
+        result := TAUnit.GetId(p_Unit.p_PriorUnit);
       end;
     TRANSPORTED_BY :
       begin
       if arg1 <> 0 then
         result := TAUnit.GetId(TAUnit.GetTransporterUnit(TAUnit.Id2Ptr(arg1)))
       else
-        result := TAUnit.GetId(TAUnit.GetTransporterUnit(UnitPtr));
+        result := TAUnit.GetId(TAUnit.GetTransporterUnit(p_Unit));
       end;
     TRANSPORTING :
       begin
       if arg1 <> 0 then
         result := TAUnit.GetId(TAUnit.GetTransportingUnit(TAUnit.Id2Ptr(arg1)))
       else
-        result := TAUnit.GetId(TAunit.GetTransportingUnit(UnitPtr));
+        result := TAUnit.GetId(TAunit.GetTransportingUnit(p_Unit));
       end;
     UNITX :
       begin
       if arg1 <> 0 then
         result := TAUnit.GetUnitX(TAUnit.Id2Ptr(arg1))
       else
-        result := TAUnit.GetUnitX(UnitPtr);
+        result := TAUnit.GetUnitX(p_Unit);
       end;
     UNITZ:
       begin
       if arg1 <> 0 then
         result := TAUnit.GetUnitZ(TAUnit.Id2Ptr(arg1))
       else
-        result := TAUnit.GetUnitZ(UnitPtr);
+        result := TAUnit.GetUnitZ(p_Unit);
       end;
     UNITY :
       begin
-      result := TAUnit.GetUnitY(UnitPtr);
+      result := TAUnit.GetUnitY(p_Unit);
       end;
     TURNX :
       begin
-      result := Word(TAUnit.GetTurnX(UnitPtr));
+      result := Word(TAUnit.GetTurnX(p_Unit));
       end;
     TURNZ :
       begin
       if arg1 <> 0 then
         result := Word(TAUnit.GetTurnZ(TAUnit.Id2Ptr(arg1)))
       else
-        result := Word(TAUnit.GetTurnZ(UnitPtr));
+        result := Word(TAUnit.GetTurnZ(p_Unit));
       end;
     TURNY :
       begin
-      result := Word(TAUnit.GetTurnY(UnitPtr));
+      result := Word(TAUnit.GetTurnY(p_Unit));
       end;
     HEALTH_VAL :
       begin
       if arg1 <> 0 then
         result := TAUnit.GetHealth(TAUnit.Id2Ptr(arg1))
       else
-        result := TAUnit.GetHealth(UnitPtr);
+        result := TAUnit.GetHealth(p_Unit);
       end;
     MAKE_DAMAGE :
       begin
@@ -633,14 +640,14 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     HEAL_UNIT :
       begin
-        result := UNITS_HealUnit(TAUnit.Id2Ptr(arg1), TAUnit.Id2Ptr(arg2), PUnitInfo(TAUnit.Id2Ptr(arg1).p_UNITINFO).nWorkerTime / 30 );
+        result := UNITS_HealUnit(TAUnit.Id2Ptr(arg1), TAUnit.Id2Ptr(arg2), TAUnit.Id2Ptr(arg1).p_UNITINFO.nWorkerTime / 30 );
       end;
     GET_CLOAKED :
       begin
       if arg1 <> 0 then
         result := TAUnit.GetCloak(TAUnit.Id2Ptr(arg1))
       else
-        result := TAUnit.GetCloak(UnitPtr);
+        result := TAUnit.GetCloak(p_Unit);
       end;
     SET_CLOAKED : //
       begin
@@ -648,7 +655,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       if arg2 <> 0 then
         TAUnit.SetCloak(TAUnit.Id2Ptr(arg2), arg1)
       else
-        TAUnit.SetCloak(UnitPtr, arg1);
+        TAUnit.SetCloak(p_Unit, arg1);
       end;
     STATE_UNIT :
       begin
@@ -657,27 +664,27 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     SFX_OCCUPY_STATE :
       begin
         if arg2 = 0 then
-          result := PUnitStruct(TAUnit.Id2Ptr(arg1)).lSfxOccupy
+          result := TAUnit.Id2Ptr(arg1).lSfxOccupy
         else
-          PUnitStruct(TAUnit.Id2Ptr(arg1)).lSfxOccupy := arg2;
+          TAUnit.Id2Ptr(arg1).lSfxOccupy := arg2;
       end;
     CUSTOM_BAR_PROGRESS :
       begin
         if arg2 <> 0 then
         begin
-          CustomUnitFieldsArr[TAUnit.GetId(UnitPtr)].CustomWeapReload := True;
-          CustomUnitFieldsArr[TAUnit.GetId(UnitPtr)].CustomWeapReloadCur := arg1;
-          CustomUnitFieldsArr[TAUnit.GetId(UnitPtr)].CustomWeapReloadMax := arg2;
+          CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CustomWeapReload := True;
+          CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CustomWeapReloadCur := arg1;
+          CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CustomWeapReloadMax := arg2;
         end else
         begin
-          CustomUnitFieldsArr[TAUnit.GetId(UnitPtr)].CustomWeapReload := False;
-          CustomUnitFieldsArr[TAUnit.GetId(UnitPtr)].CustomWeapReloadCur := 0;
-          CustomUnitFieldsArr[TAUnit.GetId(UnitPtr)].CustomWeapReloadMax := 0;
+          CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CustomWeapReload := False;
+          CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CustomWeapReloadCur := 0;
+          CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CustomWeapReloadMax := 0;
         end;
       end;
     MEX_RATIO :
       begin
-      result := Trunc(PUnitStruct(UnitPtr).fMetalExtrRatio * 100);
+      result := Trunc(p_Unit.fMetalExtrRatio * 100);
       end;
     ATTACH_UNIT :
       begin
@@ -686,56 +693,56 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
         case arg1 of
           0 : TAUnit.AttachDetachUnit(TAUnit.Id2Ptr(arg2), TAUnit.Id2Ptr(arg3), arg4, False);
           1 : TAUnit.AttachDetachUnit(TAUnit.Id2Ptr(arg2), TAUnit.Id2Ptr(arg3), arg4, True);
-          2 : Result := TAUnit.GetId(TAUnit.GetUnitAttachedTo(UnitPtr, arg2));
+          2 : Result := TAUnit.GetId(TAUnit.GetUnitAttachedTo(p_Unit, arg2));
         end;
         end;
       end;
     RANDOM_FREE_PIECE :
       begin
-      result := TAUnit.GetRandomFreePiece(UnitPtr, arg1, arg2);
+      result := TAUnit.GetRandomFreePiece(p_Unit, arg1, arg2);
       end;
     UNIT_TYPE_IN_CATEGORY :
       begin
-      result := BoolValues[(TAUnit.IsUnitTypeInCategory(TUnitCategories(arg1), TAUnit.GetUnitInfoPtr(UnitPtr), TAMem.UnitInfoCrc2Ptr(arg2)))];
+      result := BoolValues[(TAUnit.IsUnitTypeInCategory(TUnitCategories(arg1), TAUnit.GetUnitInfoPtr(p_Unit), TAMem.UnitInfoCrc2Ptr(arg2)))];
       end;
     UNIT_KILLS :
       begin
       if arg1 <> 0 then
-        result := PUnitStruct(TAUnit.Id2Ptr(arg1)).nKills
+        result := TAUnit.Id2Ptr(arg1).nKills
       else
-        result := UnitPtr.nKills;
+        result := p_Unit.nKills;
       end;
     ATTACKER_ID :
       begin
-      result := TAUnit.GetAttackerID(UnitPtr);
+      result := TAUnit.GetAttackerID(p_Unit);
       end;
     UNDER_ATTACK :
       begin
-      result := PUnitStruct(UnitPtr).ucRecentDamage;
+      result := p_Unit.ucRecentDamage;
       end;
     LOCKED_TARGET_ID :
       begin
         b := arg1 - WEAPON_PRIMARY;
-        if PUnitStruct(UnitPtr).UnitWeapons[b].nUsedSpot = $8000 then
-          Result := PUnitStruct(UnitPtr).UnitWeapons[b].nTargetID
+        if p_Unit.UnitWeapons[b].nUsedSpot = $8000 then
+          Result := p_Unit.UnitWeapons[b].nTargetID
         else
           Result := 0;
       end;
     FIRE_WEAPON :
       begin
       if ExtensionsNotForDemos then
-        result := TAUnit.FireWeapon(UnitPtr, arg1, TAUnit.Id2Ptr(arg2), TShortPosition(arg3));
+        result := TAUnit.FireWeapon(p_Unit, arg1, TAUnit.Id2Ptr(arg2), TShortPosition(arg3));
       end;
     WEAPON_BUILD_PROGRESS :
       begin
       if arg1 = 0 then
-        result := GetUnit_BuildWeaponProgress(UnitPtr)
+        result := GetUnit_BuildWeaponProgress(p_Unit)
       else
-        result := PUnitStruct(UnitPtr).UnitWeapons[0].cStock;
+        result := p_Unit.UnitWeapons[0].cStock;
       end;
     WEAPON_PRIMARY..WEAPON_TERTIARY :
       begin
-      result := TAUnit.GetWeapon(UnitPtr, index);
+      result := TAUnit.GetWeapon(p_Unit, index);
       end;
     GIVE_UNIT :
       begin
@@ -751,13 +758,13 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
             if (UnitInfoSt.nCruiseAlt <> 0) and (arg4 = 6) then
               Position.Y := GetPosHeight(@Position) + UnitInfoSt.nCruiseAlt - PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.SeaLevel;
             if arg3 = 10 then
-              arg3 := TAUnit.GetOwnerIndex(UnitPtr);
-            pUnit := TAUnit.CreateUnit(arg3, UnitinfoSt, Position, nil, False, False, arg4);
-            if pUnit <> nil then
+              arg3 := TAUnit.GetOwnerIndex(p_Unit);
+            p_Unit := TAUnit.CreateUnit(arg3, UnitinfoSt, Position, nil, False, False, arg4);
+            if p_Unit <> nil then
             begin
-              result := Word(PUnitStruct(pUnit).lUnitInGameIndex);
+              result := Word(p_Unit.lUnitInGameIndex);
               if TAData.NetworkLayerEnabled then
-                Send_UnitBuildFinished(UnitPtr, pUnit);
+                Send_UnitBuildFinished(p_Unit, p_Unit);
             end;
           end;
         end;
@@ -770,19 +777,19 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     CREATE_MINIONS : //
       begin
       if ExtensionsNotForDemos then
-        result := TAUnits.CreateMinions(UnitPtr, arg2, TAMem.UnitInfoCrc2Ptr(arg1), TTAActionType(arg3), arg4);
+        result := TAUnits.CreateMinions(p_Unit, arg2, TAMem.UnitInfoCrc2Ptr(arg1), TTAActionType(arg3), arg4);
       end;
     UNITS_NEAR :
       begin
-      result := TAUnits.SearchUnits(UnitPtr, arg3, 2, arg2, TAUnits.CreateSearchFilter(arg1), TAMem.UnitInfoCrc2Ptr(arg4) );
+      result := TAUnits.SearchUnits(p_Unit, arg3, 2, arg2, TAUnits.CreateSearchFilter(arg1), TAMem.UnitInfoCrc2Ptr(arg4) );
       end;
     UNITS_YARDMAP :
       begin
-      result := TAUnits.SearchUnits(UnitPtr, arg3, 1, arg2, TAUnits.CreateSearchFilter(arg1), TAMem.UnitInfoCrc2Ptr(arg4) );
+      result := TAUnits.SearchUnits(p_Unit, arg3, 1, arg2, TAUnits.CreateSearchFilter(arg1), TAMem.UnitInfoCrc2Ptr(arg4) );
       end;
     UNITS_WHOLEMAP :
       begin
-      result := TAUnits.SearchUnits(UnitPtr, arg3, 4, arg2, TAUnits.CreateSearchFilter(arg1), TAMem.UnitInfoCrc2Ptr(arg4) );
+      result := TAUnits.SearchUnits(p_Unit, arg3, 4, arg2, TAUnits.CreateSearchFilter(arg1), TAMem.UnitInfoCrc2Ptr(arg4) );
       end;
     UNITS_ARRAY_RESULT :
       begin
@@ -812,50 +819,50 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     UNIT_NEAREST :
       begin
-      result := TAUnits.SearchUnits(UnitPtr, 0, 3, arg2, TAUnits.CreateSearchFilter(arg1), TAMem.UnitInfoCrc2Ptr(arg3) );
+      result := TAUnits.SearchUnits(p_Unit, 0, 3, arg2, TAUnits.CreateSearchFilter(arg1), TAMem.UnitInfoCrc2Ptr(arg3) );
       end;
     DISTANCE :
       begin
       if arg2 <> 0 then
         result := LongWord(TAUnits.Distance(@TAUnit.Id2Ptr(arg1).Position, @TAUnit.Id2Ptr(arg2).Position))
       else
-        result := LongWord(TAUnits.Distance(@PUnitStruct(UnitPtr).Position, @TAUnit.Id2Ptr(arg1).Position));
+        result := LongWord(TAUnits.Distance(@p_Unit.Position, @TAUnit.Id2Ptr(arg1).Position));
       end;
     CURRENT_ORDER_TYPE :
       begin
       if arg1 <> 0 then
         result := Ord(TAUnit.GetCurrentOrderType(TAUnit.Id2Ptr(arg1)))
       else
-        result := Ord(TAUnit.GetCurrentOrderType(UnitPtr));
+        result := Ord(TAUnit.GetCurrentOrderType(p_Unit));
       end;
     CURRENT_ORDER_TARGET_POS :
       begin
-      result := TAUnit.GetCurrentOrderPos(UnitPtr);
+      result := TAUnit.GetCurrentOrderPos(p_Unit);
       end;
     CURRENT_ORDER_TARGET_ID :
       begin
-      result := TAUnit.GetId(TAUnit.GetCurrentOrderTargetUnit(UnitPtr));
+      result := TAUnit.GetId(TAUnit.GetCurrentOrderTargetUnit(p_Unit));
       end;
     CURRENT_ORDER_PAR :
       begin
-      result := TAUnit.GetCurrentOrderParams(UnitPtr, arg1);
+      result := TAUnit.GetCurrentOrderParams(p_Unit, arg1);
       end;
     EDIT_CURRENT_ORDER_PAR : //
       begin
       if ExtensionsNotForDemos then
-        result := BoolValues[(TAUnit.EditCurrentOrderParams(UnitPtr, arg1, arg2)) = True];
+        result := BoolValues[(TAUnit.EditCurrentOrderParams(p_Unit, arg1, arg2)) = True];
       end;
     ORDER_SELF : //
       begin
       if ExtensionsNotForDemos then
-        result := TAUnit.CreateMainOrder(UnitPtr, nil, TTAActionType(arg1), nil, arg2, arg3, arg4);
+        result := TAUnit.CreateMainOrder(p_Unit, nil, TTAActionType(arg1), nil, arg2, arg3, arg4);
       end;
     ORDER_SELF_POS : //
       begin
         if ExtensionsNotForDemos then
         begin
           if GetTPosition(HiWord(arg3), LoWord(arg3), Position) <> nil then
-            result := TAUnit.CreateMainOrder(UnitPtr, nil, TTAActionType(arg1), @Position, arg2, LoWord(arg4), HiWord(arg4));
+            result := TAUnit.CreateMainOrder(p_Unit, nil, TTAActionType(arg1), @Position, arg2, LoWord(arg4), HiWord(arg4));
         end;
       end;
     ORDER_SELF_UNIT_POS : //
@@ -863,7 +870,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
         if ExtensionsNotForDemos then
         begin
           if GetTPosition(HiWord(arg3), LoWord(arg3), Position) <> nil then
-            result := TAUnit.CreateMainOrder(UnitPtr, TAUnit.Id2Ptr(arg2), TTAActionType(arg1), @Position, LoWord(arg4), HiWord(arg4), 0);
+            result := TAUnit.CreateMainOrder(p_Unit, TAUnit.Id2Ptr(arg2), TTAActionType(arg1), @Position, LoWord(arg4), HiWord(arg4), 0);
         end;
       end;
     ORDER_UNIT_UNIT : //
@@ -882,15 +889,15 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     RESET_ORDER :
       begin
       if ExtensionsNotForDemos then
-        PUnitStruct(UnitPtr).p_MainOrder := nil;
+        p_Unit.p_MainOrder := nil;
       end;
     ADD_BUILD :
       begin
       if ExtensionsNotForDemos then
         case arg1 of
-          1 : ORDERS_NewSubBuildOrder(Ord(Action_BuildWeapon), UnitPtr, 0, arg2);
-          2 : PUnitStruct(UnitPtr).UnitWeapons[arg3 - 1].cStock := PUnitStruct(UnitPtr).UnitWeapons[arg3 - 1].cStock + arg2;
-          3 : ORDERS_NewSubBuildOrder(Ord(Action_BuildingBuild), UnitPtr, arg3, arg2);
+          1 : ORDERS_NewSubBuildOrder(Ord(Action_BuildWeapon), p_Unit, 0, arg2);
+          2 : p_Unit.UnitWeapons[arg3 - 1].cStock := p_Unit.UnitWeapons[arg3 - 1].cStock + arg2;
+          3 : ORDERS_NewSubBuildOrder(Ord(Action_BuildingBuild), p_Unit, arg3, arg2);
         end;
       end;
     CALL_COB_PROC :
@@ -918,19 +925,19 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     TEST_UNLOAD_POS :
       begin
-      result := BoolValues[(TAUnit.TestUnloadPosition(TAUnit.GetUnitInfoPtr(TAUnit.Id2Ptr(arg1)), PUnitStruct(TAUnit.Id2Ptr(arg1)).Position))];
+      result := BoolValues[(TAUnit.TestUnloadPosition(TAUnit.GetUnitInfoPtr(TAUnit.Id2Ptr(arg1)), TAUnit.Id2Ptr(arg1).Position))];
       end;
     TEST_BUILD_SPOT :
       begin
-      result := BoolValues[(TAUnit.TestBuildSpot(TAUnit.GetOwnerIndex(UnitPtr), TAMem.UnitInfoCrc2Ptr(arg1), HiWord(arg2), LoWord(arg2)) = True)];
+      result := BoolValues[(TAUnit.TestBuildSpot(TAUnit.GetOwnerIndex(p_Unit), TAMem.UnitInfoCrc2Ptr(arg1), HiWord(arg2), LoWord(arg2)) = True)];
       end;
     PLANT_YARD_OCCUPIED :
       begin
-      result := BoolValues[TAUnit.IsPlantYardOccupied(UnitPtr, arg1)];
+      result := BoolValues[TAUnit.IsPlantYardOccupied(p_Unit, arg1)];
       end;
     UNIT_REBUILD_YARD :
       begin
-      result := UNITS_RebuildFootPrint(UnitPtr);
+      result := UNITS_RebuildFootPrint(p_Unit);
       end;
     MAP_SEA_LEVEL :
       begin
@@ -949,7 +956,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     UNIT_IN_PLAYER_LOS :
       begin
       if arg1 <> 0 then
-        if PUnitStruct(TAUnit.Id2Ptr(arg1)).p_Owner <> nil then
+        if TAUnit.Id2Ptr(arg1).p_Owner <> nil then
           result := UnitInPlayerLOS(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID), TAUnit.Id2Ptr(arg1));
       end;
     POSITION_IN_PLAYER_LOS :
@@ -964,39 +971,39 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     DBG_OUTPUT :
       begin
-      SendTextLocal(IntToStr(TAUnit.GetId(UnitPtr)) + ' DBG_OUTPUT: [' + IntToStr(arg1) +'] + Value: ' + IntToStr(arg2) + ', Hex: ' + IntToHex(arg2, 8));
+      SendTextLocal(IntToStr(TAUnit.GetId(p_Unit)) + ' DBG_OUTPUT: [' + IntToStr(arg1) +'] + Value: ' + IntToStr(arg2) + ', Hex: ' + IntToHex(arg2, 8));
       end;
     GET_UNITINFO :
       begin
       if arg2 <> 0 then
         result := TAUnit.getUnitInfoField(TAUnit.Id2Ptr(arg2), TUnitInfoExtensions(arg1))
       else
-        result := TAUnit.getUnitInfoField(UnitPtr, TUnitInfoExtensions(arg1));
+        result := TAUnit.getUnitInfoField(p_Unit, TUnitInfoExtensions(arg1));
       end;
     SET_UNITINFO : //
       begin
         i := arg2;
         if arg3 <> 0 then
           i := -i;
-        if TAUnit.setUnitInfoField(UnitPtr, TUnitInfoExtensions(arg1), i) then
+        if TAUnit.setUnitInfoField(p_Unit, TUnitInfoExtensions(arg1), i) then
           if TAData.NetworkLayerEnabled then
-            GlobalDPlay.Broadcast_UnitInfoEdit(TAUnit.GetID(UnitPtr), arg1, i);
+            GlobalDPlay.Broadcast_UnitInfoEdit(TAUnit.GetID(p_Unit), arg1, i);
       end;
     ENABLEDISABLE_UNIT :
       begin
-        if TAUnit.IsOnThisComp(UnitPtr, False) then
+        if TAUnit.IsOnThisComp(p_Unit, False) then
         begin
-          if (arg2 = 0) and (PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory = 0) then
+          if (arg2 = 0) and (TAMem.UnitInfoCrc2Ptr(arg1).nCategory = 0) then
             Exit;
-          if (arg2 <> 0) and (PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory <> 0) then
+          if (arg2 <> 0) and (TAMem.UnitInfoCrc2Ptr(arg1).nCategory <> 0) then
             Exit;
           TAMem.ProtectMemoryRegion(Cardinal(TAData.UnitInfosPtr), True);
           if arg2 = 0 then
           begin
-            Result := PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory;
-            PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory := 0;
+            Result := TAMem.UnitInfoCrc2Ptr(arg1).nCategory;
+            TAMem.UnitInfoCrc2Ptr(arg1).nCategory := 0;
           end else
-            PUnitInfo(TAMem.UnitInfoCrc2Ptr(arg1)).nCategory := arg3;
+            TAMem.UnitInfoCrc2Ptr(arg1).nCategory := arg3;
           TAMem.ProtectMemoryRegion(Cardinal(TAData.UnitInfosPtr), False);
         end;
       end;
@@ -1005,15 +1012,15 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       if arg2 <> 0 then
       begin
         if arg1 = 1 then
-          PUnitStruct(TAUnit.Id2Ptr(arg2)).lUnitStateMask := PUnitStruct(TAUnit.Id2Ptr(arg2)).lUnitStateMask or 32
+          TAUnit.Id2Ptr(arg2).lUnitStateMask := TAUnit.Id2Ptr(arg2).lUnitStateMask or 32
         else
-          PUnitStruct(TAUnit.Id2Ptr(arg2)).lUnitStateMask := PUnitStruct(TAUnit.Id2Ptr(arg2)).lUnitStateMask and not 32;
+          TAUnit.Id2Ptr(arg2).lUnitStateMask := TAUnit.Id2Ptr(arg2).lUnitStateMask and not 32;
       end else
       begin
         if arg1 = 1 then
-          PUnitStruct(UnitPtr).lUnitStateMask := PUnitStruct(UnitPtr).lUnitStateMask or 32
+          p_Unit.lUnitStateMask := p_Unit.lUnitStateMask or 32
         else
-          PUnitStruct(UnitPtr).lUnitStateMask := PUnitStruct(UnitPtr).lUnitStateMask and not 32;
+          p_Unit.lUnitStateMask := p_Unit.lUnitStateMask and not 32;
       end;
       end;
     PLAY_3D_SOUND : //
@@ -1030,7 +1037,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     EMIT_SFX :
       begin
-      Result := BoolValues[TASfx.EmitSfxFromPiece(UnitPtr, TAUnit.Id2Ptr(arg3), arg1, arg2, PUnitStruct(UnitPtr).cOwnerID = TAData.LocalPlayerID) <> 0];
+      Result := BoolValues[TASfx.EmitSfxFromPiece(p_Unit, TAUnit.Id2Ptr(arg3), arg1, arg2, p_Unit.ucOwnerID = TAData.LocalPlayerID) <> 0];
       end;
     MS_MOVE_CAM_POS :
       begin
@@ -1041,7 +1048,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       if arg1 <> 0 then
         TAMap.SetCameraToUnit(TAUnit.Id2Ptr(arg1))
       else
-        TAMap.SetCameraToUnit(UnitPtr);
+        TAMap.SetCameraToUnit(p_Unit);
       end;
     MS_SHAKE :
       begin
@@ -1108,16 +1115,56 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     MS_FIRE_MAP_WEAPON :
       begin
-      TAWeapon.FireMapWeapon(TAWeapon.WeaponId2Ptr(arg1), HiWord(arg2), LoWord(arg2));
+      TAWeapon.FireMap_Weapon(TAWeapon.WeaponId2Ptr(arg1), HiWord(arg2), LoWord(arg2));
       end;
     end;
   end;
+{$IFDEF DEBUG}
+except
+  on E: Exception do
+    begin
+    LogException(E);
+    try
+      errorAddress := Longword(ExceptAddr);
+      if not MapFileSetup then
+        LoadAndParseMapFile;
+      errorAddress2 := GetMapAddressFromAddress(errorAddress);
+      s := GetModuleNameFromAddress(errorAddress2);
+      if s <> '' then
+        begin
+        TLog.Add(0, 'COB GETTER '+s+':'+
+                    GetProcNameFromAddress(errorAddress2)+':'+
+                    GetLineNumberFromAddress(errorAddress2)+':'+
+                    IntToStr(index)+':'+
+                    IntToStr(arg1)+':'+
+                    IntToStr(arg2)+':'+
+                    IntToStr(arg3)+':'+
+                    IntToStr(arg4));
+        if p_Unit.p_UNITINFO <> nil then
+          TLog.Add(0, 'Called by ' + p_Unit.p_UNITINFO.szName + ' ' + p_Unit.p_UNITINFO.szUnitName);
+        end;
+
+      if E is EInvalidPointer then
+        raise e at ExceptAddr;
+    finally
+      TLog.Flush;
+    end;
+  end;
+end;
+{$ENDIF}
 end;
 
-procedure CustomSetters( index: longword; unitptr : PUnitStruct; arg1: longword); stdcall;
+procedure CustomSetters( index: longword; p_Unit : PUnitStruct; arg1: longword); stdcall;
 var
   ExtensionsNotForDemos: Boolean;
+  {$IFDEF DEBUG}
+  errorAddress,errorAddress2: Longword;
+  s: string;
+  {$ENDIF}
 begin
+{$IFDEF DEBUG}
+try
+{$ENDIF}
   if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
   begin
     case index of
@@ -1141,28 +1188,28 @@ begin
       MS_SWAP_TERRAIN :
         SwapTNT(arg1);
     end;
-    if TAUnit.IsOnThisComp(UnitPtr, True) then
+    if TAUnit.IsOnThisComp(p_Unit, True) then
     begin
       case index of
         UNIT_SPEECH : //
           begin
-          TASfx.Speech(UnitPtr, arg1, nil);
+          TASfx.Speech(p_Unit, arg1, nil);
           end;
         MOBILE_PLANT : //
           begin
           if arg1 = 1 then
           begin
-            PUnitStruct(UnitPtr).lUnitStateMask:= PUnitStruct(UnitPtr).lUnitStateMask or $20000000;
-            PUnitStruct(UnitPtr).nUnitStateMaskBas := PUnitStruct(UnitPtr).nUnitStateMaskBas and not 1;
+            p_Unit.lUnitStateMask:= p_Unit.lUnitStateMask or $20000000;
+            p_Unit.nUnitStateMaskBas := p_Unit.nUnitStateMaskBas and not 1;
           end else
           begin
-            PUnitStruct(UnitPtr).lUnitStateMask:= PUnitStruct(UnitPtr).lUnitStateMask and not $20000000;
-            PUnitStruct(UnitPtr).nUnitStateMaskBas := PUnitStruct(UnitPtr).nUnitStateMaskBas or 1;
+            p_Unit.lUnitStateMask:= p_Unit.lUnitStateMask and not $20000000;
+            p_Unit.nUnitStateMaskBas := p_Unit.nUnitStateMaskBas or 1;
           end;
           end;
         MEX_RATIO :
           begin
-          PUnitStruct(UnitPtr).fMetalExtrRatio := arg1 / 100;
+          p_Unit.fMetalExtrRatio := arg1 / 100;
           end;
       end;
 
@@ -1176,66 +1223,96 @@ begin
         case index of
           CURRENT_SPEED :
             begin
-            TAUnit.SetCurrentSpeed(UnitPtr, arg1);
+            TAUnit.SetCurrentSpeed(p_Unit, arg1);
             end;
           WEAPON_AIM_ABORTED :
             begin
-            if ((TAUnit.GetCurrentOrderType(UnitPtr) >= Action_AirStrike) and
-               (TAUnit.GetCurrentOrderType(UnitPtr) <= Action_AttackUType)) or
-               (TAUnit.GetCurrentOrderType(UnitPtr) = Action_Guard_NoMove) then
-              PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).lMask := PUnitOrder(PUnitStruct(UnitPtr).p_MainOrder).lMask or $8;
+            if ((TAUnit.GetCurrentOrderType(p_Unit) >= Action_AirStrike) and
+               (TAUnit.GetCurrentOrderType(p_Unit) <= Action_AttackUType)) or
+               (TAUnit.GetCurrentOrderType(p_Unit) = Action_Guard_NoMove) then
+              PUnitOrder(p_Unit.p_MainOrder).lMask := p_Unit.p_MainOrder.lMask or $8;
             case arg1 of
-              WEAPON_PRIMARY   : PUnitStruct(UnitPtr).UnitWeapons[0].nTargetID := $0;
-              WEAPON_SECONDARY : PUnitStruct(UnitPtr).UnitWeapons[1].nTargetID := $0;
-              WEAPON_TERTIARY  : PUnitStruct(UnitPtr).UnitWeapons[2].nTargetID := $0;
+              WEAPON_PRIMARY   : p_Unit.UnitWeapons[0].nTargetID := $0;
+              WEAPON_SECONDARY : p_Unit.UnitWeapons[1].nTargetID := $0;
+              WEAPON_TERTIARY  : p_Unit.UnitWeapons[2].nTargetID := $0;
             end;
             end;
           WEAPON_READY :
             begin
             case arg1 of
-              WEAPON_PRIMARY   : PUnitStruct(UnitPtr).UnitWeapons[0].nReloadTime := 0;
-              WEAPON_SECONDARY : PUnitStruct(UnitPtr).UnitWeapons[1].nReloadTime := 0;
-              WEAPON_TERTIARY  : PUnitStruct(UnitPtr).UnitWeapons[2].nReloadTime := 0;
+              WEAPON_PRIMARY   : p_Unit.UnitWeapons[0].nReloadTime := 0;
+              WEAPON_SECONDARY : p_Unit.UnitWeapons[1].nReloadTime := 0;
+              WEAPON_TERTIARY  : p_Unit.UnitWeapons[2].nReloadTime := 0;
             end;
             end;
           TURNX:
             begin
-            TAUnit.setTurnX(UnitPtr, arg1);
+            TAUnit.setTurnX(p_Unit, arg1);
             end;
           TURNY:
             begin
-            TAUnit.setTurnY(UnitPtr, arg1);
+            TAUnit.setTurnY(p_Unit, arg1);
             end;
           TURNZ:
             begin
-            TAUnit.setTurnZ(UnitPtr, arg1);
+            TAUnit.setTurnZ(p_Unit, arg1);
             end;
           SWAP_UNIT_TYPE :
             begin
-            TAUnit.SwapByKill(UnitPtr, TAMem.UnitInfoCrc2Ptr(arg1));
+            TAUnit.SwapByKill(p_Unit, TAMem.UnitInfoCrc2Ptr(arg1));
             end;
           WEAPON_PRIMARY..WEAPON_TERTIARY :
             begin
-            if TAUnit.setWeapon(UnitPtr, index, arg1) then
+            if TAUnit.setWeapon(p_Unit, index, arg1) then
               if TAData.NetworkLayerEnabled then
-                GlobalDPlay.Broadcast_UnitWeapon(TAUnit.GetID(UnitPtr), Index, arg1);
+                GlobalDPlay.Broadcast_UnitWeapon(TAUnit.GetID(p_Unit), Index, arg1);
             end;
           KILL_THIS_UNIT :
             begin
-            TAUnit.Kill(UnitPtr, arg1);
+            TAUnit.Kill(p_Unit, arg1);
             end;
           GRANT_UNITINFO :
             begin
-            TAUnit.GrantUnitInfo(UnitPtr, arg1, True);
+            TAUnit.GrantUnitInfo(p_Unit, arg1, True);
             end;
           UNIT_TYPE_CRC :
             begin
-            TAUnit.SetUnitInfo(UnitPtr, TAMem.UnitInfoCrc2Ptr(arg1), True);
+            TAUnit.SetUnitInfo(p_Unit, TAMem.UnitInfoCrc2Ptr(arg1), True);
             end;
         end;
       end;
     end;
   end;
+{$IFDEF DEBUG}
+except
+  on E: Exception do
+    begin
+    LogException(E);
+    try
+      errorAddress := Longword(ExceptAddr);
+      if not MapFileSetup then
+        LoadAndParseMapFile;
+      errorAddress2 := GetMapAddressFromAddress(errorAddress);
+      s := GetModuleNameFromAddress(errorAddress2);
+      if s <> '' then
+        begin
+        TLog.Add(0, 'COB SETTER '+s+':'+
+                    GetProcNameFromAddress(errorAddress2)+':'+
+                    GetLineNumberFromAddress(errorAddress2)+':'+
+                    IntToStr(index)+':'+
+                    IntToStr(arg1));
+        if p_Unit.p_UNITINFO <> nil then
+          TLog.Add(0, 'Called by ' + p_Unit.p_UNITINFO.szName + ' ' + p_Unit.p_UNITINFO.szUnitName);
+        end;
+
+      if E is EInvalidPointer then
+        raise e at ExceptAddr;
+    finally
+      TLog.Flush;
+    end;
+  end;
+end;
+{$ENDIF}
 end;
 
 Procedure COB_Extensions_Handling;

@@ -23,7 +23,7 @@ procedure FreeExtensionsMemory;
 
 procedure InitExtensionsArrays; stdcall;
 procedure ExtensionsFreeMemory; stdcall;
-procedure FreeUnitMem(UnitPtr: PUnitStruct);
+procedure FreeUnitMem(p_Unit: PUnitStruct);
 
 implementation
 uses
@@ -150,31 +150,31 @@ asm
   call    PatchNJump;
 end;
 
-procedure FreeUnitMem(UnitPtr: PUnitStruct);
+procedure FreeUnitMem(p_Unit: PUnitStruct);
 var
   CobScript : Pointer;
 begin
-  PUnitStruct(UnitPtr).nKills := 0;
-  FreeUnitOrders(UnitPtr);
-  CobScript := UnitPtr.p_UnitScriptsData;
+  p_Unit.nKills := 0;
+  FreeUnitOrders(p_Unit);
+  CobScript := p_Unit.p_UnitScriptsData;
   if CobScript <> nil then
   begin
-    FreeUnitScriptData(nil, nil, UnitPtr.p_UnitScriptsData, 1);
-    UnitPtr.p_UnitScriptsData := nil;
+    FreeUnitScriptData(nil, nil, p_Unit.p_UnitScriptsData, 1);
+    p_Unit.p_UnitScriptsData := nil;
   end;
-  if UnitPtr.p_Object3DO <> nil then
+  if p_Unit.p_Object3DO <> nil then
   begin
-    FreeObjectState(UnitPtr.p_Object3DO);
-    UnitPtr.p_Object3DO := nil;
+    FreeObjectState(p_Unit.p_Object3DO);
+    p_Unit.p_Object3DO := nil;
   end;
-  if UnitPtr.p_MovementClass <> nil then
+  if p_Unit.p_MovementClass <> nil then
   begin
-    FreeMoveClass(UnitPtr.p_Object3DO, nil, UnitPtr.p_MovementClass);
-    MEM_Free(UnitPtr.p_MovementClass);
-    UnitPtr.p_MovementClass := nil;
+    FreeMoveClass(p_Unit.p_Object3DO, nil, p_Unit.p_MovementClass);
+    MEM_Free(p_Unit.p_MovementClass);
+    p_Unit.p_MovementClass := nil;
   end;
-  UnitPtr.nUnitInfoID := 0;
-  FillChar(UnitPtr^, SizeOf(TUnitStruct), 0);
+  p_Unit.nUnitInfoID := 0;
+  FillChar(p_Unit^, SizeOf(TUnitStruct), 0);
 end;
 
 end.

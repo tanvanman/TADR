@@ -32,6 +32,7 @@ procedure UnitActions_TeleportOrderWrapper;
 procedure UnitActions_TeleportReloadWrapper;
 procedure UnitActions_TeleportPositionOffset;
 procedure UnitActions_AdvancedDefaultMission;
+procedure UnitActions_DontHealTimeNotBuilt;
 
 procedure BroadcastCommanderStartPosition; stdcall;
 
@@ -134,6 +135,10 @@ begin
                             @UnitActions_AdvancedDefaultMission,
                             $0043B9DE, 1);
 
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'dont heal time units that are under construction',
+                            @UnitActions_DontHealTimeNotBuilt,
+                            $0048AF58, 1);
   end else
     Result := nil;
 end;
@@ -141,25 +146,25 @@ end;
 procedure BroadcastCommanderStartPosition; stdcall;
 var
   Player : PPlayerStruct;
-  UnitPtr : PUnitStruct;
+  p_Unit : PUnitStruct;
 begin
   if TAData.NetworkLayerEnabled then
   begin
     Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
-    UnitPtr := Player.p_UnitsArray;
-    if UnitPtr <> nil then
-      UNITS_NewUnitPosition( UnitPtr,
-                             PCardinal(@UnitPtr.Position.x_)^,
-                             PCardinal(@UnitPtr.Position.y_)^,
-                             PCardinal(@UnitPtr.Position.z_)^,
+    p_Unit := Player.p_UnitsArray;
+    if p_Unit <> nil then
+      UNITS_NewUnitPosition( p_Unit,
+                             PCardinal(@p_Unit.Position.x_)^,
+                             PCardinal(@p_Unit.Position.y_)^,
+                             PCardinal(@p_Unit.Position.z_)^,
                              1 );
   end;
 end;
 
-function OverloadBugFix(UnitPtr : Pointer): LongBool; stdcall;
+function OverloadBugFix(p_Unit: PUnitStruct): LongBool; stdcall;
 begin
   Result := False;
-  if (TAUnit.GetLoadCurAmount(UnitPtr) + 1) <= PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).cTransportCap then
+  if (TAUnit.GetLoadCurAmount(p_Unit) + 1) <= p_Unit.p_UnitInfo.cTransportCap then
     Result := True;
 end;
 
@@ -378,12 +383,12 @@ begin
         if TAUnit.AtMouse = nil then
         begin
           Distance := TAUnits.Distance(@OrderUnit.Position, TargetPosition);
-          InDistance := (Distance <= ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportMaxDistance) and
-            (Distance >= ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportMinDistance);
+          InDistance := (Distance <= ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportMaxDistance) and
+            (Distance >= ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportMinDistance);
 
           CanTeleport := InDistance;
 
-          if ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportToLoSOnly then
+          if ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportToLoSOnly then
             CanTeleport := CanTeleport and
                            TAMap.PositionInLOS(OrderUnit.p_Owner, TargetPosition);
 
@@ -459,7 +464,7 @@ begin
   begin
     if TestedUnit <> Teleporter then
     begin
-      if PUnitInfo(TestedUnit.p_UNITINFO).cBMCode = 1 then
+      if PUnitInfo(TestedUnit.p_UnitInfo).cBMCode = 1 then
         if TAUnits.UnitsFilterVsUnit(TestedUnit, UnitsFilter, Teleporter.p_Owner) then
           if TAUnits.Distance(@TestedUnit.Position, @Teleporter.Position) <= Distance then
           begin
@@ -479,7 +484,7 @@ begin
     for i := 0 to UnitsToTeleportCount - 1 do
     begin
       TestedUnit := TAUnit.Id2Ptr(UnitsArr[i].Id);
-      TestedUnitInfo := TestedUnit.p_UNITINFO;
+      TestedUnitInfo := TestedUnit.p_UnitInfo;
       if TestedUnitInfo <> nil then
       begin
         if (TestedUnitInfo.cBMCode = 1) and
@@ -495,19 +500,19 @@ begin
           if TargetPositionWithOffset.Z >= PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lMapHeight - 32 then
             Continue;
 
-          TAUnit.Position2Grid(TargetPositionWithOffset, TestedUnit.p_UNITINFO, nPosX, nPosZ);
-          if (nPosX < PUnitInfo(TestedUnit.p_UNITINFO).nFootPrintX) then
+          TAUnit.Position2Grid(TargetPositionWithOffset, TestedUnit.p_UnitInfo, nPosX, nPosZ);
+          if (nPosX < PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintX) then
           begin
-            nPosX := PUnitInfo(TestedUnit.p_UNITINFO).nFootPrintX;
-            TargetPositionWithOffset.X := PUnitInfo(TestedUnit.p_UNITINFO).nFootPrintX * 16;
+            nPosX := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintX;
+            TargetPositionWithOffset.X := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintX * 16;
           end;
-          if (nPosZ < PUnitInfo(TestedUnit.p_UNITINFO).nFootPrintZ) then
+          if (nPosZ < PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintZ) then
           begin
-            nPosZ := PUnitInfo(TestedUnit.p_UNITINFO).nFootPrintZ;
-            TargetPositionWithOffset.Z := PUnitInfo(TestedUnit.p_UNITINFO).nFootPrintZ * 16;
+            nPosZ := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintZ;
+            TargetPositionWithOffset.Z := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintZ * 16;
           end;
 
-          if TAUnit.TestAttachAtGridSpot(TestedUnit.p_UNITINFO, nPosX, nPosZ) then
+          if TAUnit.TestAttachAtGridSpot(TestedUnit.p_UnitInfo, nPosX, nPosZ) then
           begin
             j := j + 1;
             if Teleporter.p_UnitScriptsData <> nil then
@@ -535,7 +540,7 @@ var
   CurUnit : PUnitStruct;
   NewPos : TPositionLong;
 begin
-  TeleporterUnitInfo := TeleporterUnit.p_UNITINFO;
+  TeleporterUnitInfo := TeleporterUnit.p_UnitInfo;
 
   j := 0;
 
@@ -605,16 +610,16 @@ begin
   case ActionType of
     BUTTON_ORDER_TELEPORTNEW-1 :
       begin
-        if PUnitInfo(OrderUnit.p_UNITINFO).cBMCode = 1 then
+        if PUnitInfo(OrderUnit.p_UnitInfo).cBMCode = 1 then
           ConvertActionIndex := TAMem.ScriptActionName2Index(PAnsiChar('MOVE_GROUND'));
-        if (ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportMethod <> tmNone) and
+        if (ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportMethod <> tmNone) and
            (CustomUnitFieldsArr[TAUnit.GetId(OrderUnit)].TeleportReloadCur = 0) then
         begin
           Distance := TAUnits.Distance(@OrderUnit.Position, TargetPosition);
-          if (Distance <= ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportMaxDistance) and
-             (Distance >= ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportMinDistance) then
+          if (Distance <= ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportMaxDistance) and
+             (Distance >= ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportMinDistance) then
           begin
-            case ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportMethod of
+            case ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportMethod of
               tmSelf : ;
               tmSelfLoS : if not TAMap.PositionInLOS(OrderUnit.p_Owner, TargetPosition) then
                             Exit;
@@ -622,19 +627,19 @@ begin
                 begin
                   ConvertActionIndex := TAMem.ScriptActionName2Index(PAnsiChar('VTOL_MOVE'));
                   TeleportGroupOfUnits(OrderUnit,
-                                       ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportFilter,
+                                       ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportFilter,
                                        @OrderUnit.Position,
                                        TargetPosition,
-                                       ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportMinDistance);
+                                       ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportMinDistance);
                 end;
               tmYardmap :
                 begin
                   ConvertActionIndex := TAMem.ScriptActionName2Index(PAnsiChar('TELEPORT'));
                 end;
             end;
-            if ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UNITINFO).nCategory].TeleportMethod < tmVTOLOthers then
+            if ExtraUnitInfoTags[PUnitInfo(OrderUnit.p_UnitInfo).nCategory].TeleportMethod < tmVTOLOthers then
             begin
-              if TAUnit.TestUnloadPosition(OrderUnit.p_UNITINFO, TargetPosition^) then
+              if TAUnit.TestUnloadPosition(OrderUnit.p_UnitInfo, TargetPosition^) then
                 ConvertActionIndex := TAMem.ScriptActionName2Index(PAnsiChar('TELEPORT'));
             end;
           end;
@@ -699,12 +704,12 @@ begin
     CurrentUnit := Pointer(Cardinal(Player.p_UnitsArray) + i * SizeOf(TUnitStruct));
     if ((CurrentUnit.lUnitStateMask and UnitSelectState[UnitSelected_State]) = UnitSelectState[UnitSelected_State]) then
     begin
-      if (CurrentUnit.lBuildTimeLeft <> 0.0) or
+      if (CurrentUnit.fBuildTimeLeft <> 0.0) or
          (CurrentUnit.p_Owner = nil) or
-         (CurrentUnit.p_UNITINFO = nil) then
+         (CurrentUnit.p_UnitInfo = nil) then
         Continue;
 
-      if (PUnitInfo(CurrentUnit.p_UNITINFO).cBMCode <> 0) then
+      if (PUnitInfo(CurrentUnit.p_UnitInfo).cBMCode <> 0) then
         Continue;
 
       if (TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER) = 0) then
@@ -929,14 +934,14 @@ return:
   call PatchNJump;
 end;
 
-function UnitActions_TeleportOrder(UnitPtr: PUnitStruct; OrderPtr: PUnitOrder; OrderReady: Cardinal): Integer; stdcall;
+function UnitActions_TeleportOrder(p_Unit: PUnitStruct; OrderPtr: PUnitOrder; OrderReady: Cardinal): Integer; stdcall;
 var
   Distance : Integer;
   NewX, NewY, NewZ : Cardinal;
   TargetPosition : TPosition;
   UnitID : Word;
 begin
-  UnitID := TAUnit.GetId(UnitPtr);
+  UnitID := TAUnit.GetId(p_Unit);
   case OrderPtr.ucState of
     0 : begin
           if CustomUnitFieldsArr[UnitID].TeleportReloadMax <> 0 then
@@ -948,11 +953,11 @@ begin
             Exit;
           end else
           begin
-            if ExtraUnitInfoTags[PUnitInfo(UnitPtr.p_UNITINFO).nCategory].TeleportMethod <= tmVTOLOthers then
+            if ExtraUnitInfoTags[PUnitInfo(p_Unit.p_UnitInfo).nCategory].TeleportMethod <= tmVTOLOthers then
             begin
-              if TAUnit.TestUnloadPosition(UnitPtr.p_UNITINFO, OrderPtr.Pos) then
+              if TAUnit.TestUnloadPosition(p_Unit.p_UnitInfo, OrderPtr.Pos) then
               begin
-                if ExtraUnitInfoTags[PUnitInfo(UnitPtr.p_UNITINFO).nCategory].TeleportMethod <> tmNone then
+                if ExtraUnitInfoTags[PUnitInfo(p_Unit.p_UnitInfo).nCategory].TeleportMethod <> tmNone then
                   CustomUnitFieldsArr[UnitID].TeleportReloadCur := 0;
                 Result := 1;
               end else
@@ -960,11 +965,11 @@ begin
             end else
             begin
               CustomUnitFieldsArr[UnitID].TeleportReloadCur := 0;
-              if TeleportUnitsFromYardmap(UnitPtr,
-                                          ExtraUnitInfoTags[PUnitInfo(UnitPtr.p_UNITINFO).nCategory].TeleportFilter,
+              if TeleportUnitsFromYardmap(p_Unit,
+                                          ExtraUnitInfoTags[PUnitInfo(p_Unit.p_UnitInfo).nCategory].TeleportFilter,
                                           OrderPtr) <> 0 then
               begin
-                Distance := TAUnits.Distance(@UnitPtr.Position, @OrderPtr.Pos);
+                Distance := TAUnits.Distance(@p_Unit.Position, @OrderPtr.Pos);
                 CustomUnitFieldsArr[UnitID].TeleportReloadMax := Distance;
               end;
               Result := 5;
@@ -975,11 +980,11 @@ begin
           TargetPosition := OrderPtr.Pos;
           if OrderReady = 1 then
           begin
-            if ExtraUnitInfoTags[PUnitInfo(UnitPtr.p_UNITINFO).nCategory].TeleportMethod <> tmNone then
+            if ExtraUnitInfoTags[PUnitInfo(p_Unit.p_UnitInfo).nCategory].TeleportMethod <> tmNone then
             begin
-              Distance := TAUnits.Distance(@UnitPtr.Position, @TargetPosition);
-              if Distance < ExtraUnitInfoTags[PUnitInfo(UnitPtr.p_UNITINFO).nCategory].TeleportMinReloadTime then
-                Distance := ExtraUnitInfoTags[PUnitInfo(UnitPtr.p_UNITINFO).nCategory].TeleportMinReloadTime;
+              Distance := TAUnits.Distance(@p_Unit.Position, @TargetPosition);
+              if Distance < ExtraUnitInfoTags[PUnitInfo(p_Unit.p_UnitInfo).nCategory].TeleportMinReloadTime then
+                Distance := ExtraUnitInfoTags[PUnitInfo(p_Unit.p_UnitInfo).nCategory].TeleportMinReloadTime;
               CustomUnitFieldsArr[UnitID].TeleportReloadMax := Distance;
             end;
 
@@ -988,19 +993,19 @@ begin
             NewZ := PCardinal(@TargetPosition.Z_)^;
 
             if TAData.NetworkLayerEnabled then
-              GlobalDPlay.Broadcast_NewUnitLocation(TAUnit.GetID(UnitPtr), NewX, NewZ, NewY);
-            UNITS_NewUnitPosition(UnitPtr, NewX, NewY, NewZ, 1);
+              GlobalDPlay.Broadcast_NewUnitLocation(TAUnit.GetID(p_Unit), NewX, NewZ, NewY);
+            UNITS_NewUnitPosition(p_Unit, NewX, NewY, NewZ, 1);
             if OrderPtr.lPar1 <> 0 then
-              TASfx.EmitSfxFromPiece(OrderPtr.p_UnitTarget, UnitPtr, 0, 8, True);
+              TASfx.EmitSfxFromPiece(OrderPtr.p_UnitTarget, p_Unit, 0, 8, True);
             NewZ := 1;
-            if UnitPtr.p_UnitScriptsData <> nil then
-              TAUnit.CallCobProcedure(UnitPtr, 'Teleporting', @Word(TargetPosition.X), @Word(TargetPosition.Z), @Word(TargetPosition.Y), @NewZ);
+            if p_Unit.p_UnitScriptsData <> nil then
+              TAUnit.CallCobProcedure(p_Unit, 'Teleporting', @Word(TargetPosition.X), @Word(TargetPosition.Z), @Word(TargetPosition.Y), @NewZ);
             Result := 5
           end else
           begin
             NewZ := 0;
-            if UnitPtr.p_UnitScriptsData <> nil then
-              TAUnit.CallCobProcedure(UnitPtr, 'Teleporting', @Word(TargetPosition.X), @Word(TargetPosition.Z), @Word(TargetPosition.Y), @NewZ);
+            if p_Unit.p_UnitScriptsData <> nil then
+              TAUnit.CallCobProcedure(p_Unit, 'Teleporting', @Word(TargetPosition.X), @Word(TargetPosition.Z), @Word(TargetPosition.Y), @NewZ);
             OrderPtr.nPaused := OrderPtr.nPaused or 1;
             OrderPtr.lRecallTime := 10 + TAData.GameTime;
             Result := 2;
@@ -1026,11 +1031,11 @@ asm
   call PatchNJump;
 end;
 
-procedure UnitActions_TeleportReload(UnitPtr: PUnitStruct); stdcall;
+procedure UnitActions_TeleportReload(p_Unit: PUnitStruct); stdcall;
 var
   UnitId : Cardinal;
 begin
-  UnitId := TAUnit.GetId(UnitPtr);
+  UnitId := TAUnit.GetId(p_Unit);
   if CustomUnitFieldsArr[UnitId].TeleportReloadMax <> 0 then
     if CustomUnitFieldsArr[UnitId].TeleportReloadCur < CustomUnitFieldsArr[UnitId].TeleportReloadMax then
       Inc(CustomUnitFieldsArr[UnitId].TeleportReloadCur, 1)
@@ -1069,22 +1074,21 @@ UseNonOffsetPosition:
   call PatchNJump;
 end;
 
-function AdvancedDefaultMission(UnitPtr: PUnitStruct): PUnitOrder; stdcall;
+function AdvancedDefaultMission(p_Unit: PUnitStruct): PUnitOrder; stdcall;
 var
   OrderMem : Pointer;
   Position : TPosition;
   //UnitID,
   UnitInfoID : Word;
-  //OrderState : Cardinal;
 begin
   OrderMem := MEM_Alloc(SizeOf(TUnitOrder));
   if OrderMem <> nil then
   begin
-    UnitInfoID := UnitPtr.p_UNITINFO.nCategory;
-    //UnitID := TAUnit.GetID(UnitPtr);
+    UnitInfoID := p_Unit.p_UnitInfo.nCategory;
+    //UnitID := TAUnit.GetID(p_Unit);
 
     if ExtraUnitInfoTags[UnitInfoID].DefaultMissionOrgPos then
-      Position := UnitPtr.Position
+      Position := p_Unit.Position
     else begin
       {
       GetTPosition(CustomUnitFieldsArr[UnitID].DefaultMissionPosX,
@@ -1101,7 +1105,7 @@ begin
 
     Result := ORDERS_CreateObject(nil, nil, OrderMem, 0,
                                   0, 0, @Position, nil,
-                                  UnitPtr.p_UNITINFO.cDefMissionType);
+                                  p_Unit.p_UnitInfo.cDefMissionType);
   end else
     Result := nil;
 end;
@@ -1115,6 +1119,25 @@ asm
 
   //push $0043BA88;
   push $0043BA05;
+  call PatchNJump;
+end;
+
+procedure UnitActions_DontHealTimeNotBuilt;
+label
+  dont_heal,
+  heal;
+asm
+  fld     [esi+TUnitStruct.fBuildTimeLeft]  // buildtimeleft
+  fcomp   ds:$004FD748
+  fnstsw  ax
+  test    ah, 40h
+  jz      dont_heal
+heal :
+  mov     ecx, [TaDynMemStructPtr]
+  push $0048AF5E;
+  call PatchNJump;
+dont_heal :
+  push $0048AF97;
   call PatchNJump;
 end;
 

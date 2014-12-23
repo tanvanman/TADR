@@ -7,7 +7,7 @@ uses
 type
   TAMap = class
   public
-    class procedure SetCameraToUnit(UnitPtr: PUnitStruct);
+    class procedure SetCameraToUnit(p_Unit: PUnitStruct);
     class function PlaceFeatureOnMap(FeatureName: String;
       Position: TPosition; Turn: TTurn) : Boolean;
     class function RemoveMapFeature(X, Z: Integer; Method: Boolean) : Boolean;
@@ -22,9 +22,9 @@ uses
 // TAMap
 // -----------------------------------------------------------------------------
 
-class procedure TAMap.SetCameraToUnit(UnitPtr: PUnitStruct);
+class procedure TAMap.SetCameraToUnit(p_Unit: PUnitStruct);
 begin
-  PTAdynmemStruct(TAData.MainStructPtr).pCameraToUnit := UnitPtr;
+  PTAdynmemStruct(TAData.MainStructPtr).pCameraToUnit := p_Unit;
 end;
 
 class function TAMap.PlaceFeatureOnMap(FeatureName: String;

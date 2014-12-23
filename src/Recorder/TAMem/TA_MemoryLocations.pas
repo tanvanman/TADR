@@ -84,8 +84,8 @@ type
 
     class function ScriptActionName2Index(ActionName: PAnsiChar) : Integer;
     class function GetModelPtr(index: Word) : Pointer;
-    class function UnitInfoId2Ptr(index: Word) : Pointer;
-    class function UnitInfoCrc2Ptr(CRC: Cardinal) : Pointer;
+    class function UnitInfoId2Ptr(index: Word) : PUnitInfo;
+    class function UnitInfoCrc2Ptr(CRC: Cardinal) : PUnitInfo;
     class function Crc32ToCrc24(CRC: Cardinal) : Cardinal;
     class function MovementClassId2Ptr(index: Word) : Pointer;
     class function FeatureDefId2Ptr(ID : Word) : Pointer;
@@ -95,10 +95,10 @@ type
 
   TASfx = class
   public
-    class procedure Speech(UnitPtr: Pointer; SpeechType: Cardinal; Text: PAnsiChar);
+    class procedure Speech(p_Unit: Pointer; SpeechType: Cardinal; Text: PAnsiChar);
     class function Play3DSound(EffectID: Cardinal; Position: TPosition; NetBroadcast: Boolean) : Integer;
     class function PlayGafAnim(BmpType: Byte; X, Z: Word; Glow, Smoke: Byte) : Integer;
-    class function EmitSfxFromPiece(UnitPtr: PUnitStruct; TargetUnitPtr: PUnitStruct;
+    class function EmitSfxFromPiece(p_Unit: PUnitStruct; Targetp_Unit: PUnitStruct;
       PieceIdx: Integer; SfxType: Byte; Broadcast: Boolean) : Cardinal;
     class function NanoParticles(StartPos: TPosition; TargetPos : TNanolathePos) : Cardinal;
     class function NanoReverseParticles(StartPos: TPosition; TargetPos : TNanolathePos) : Cardinal;
@@ -108,7 +108,7 @@ type
   public
     class function WeaponId2Ptr(ID: Cardinal) : Pointer;
     class function GetWeaponID(WeaponPtr: PWeaponDef) : Cardinal;
-    class function FireMapWeapon(WeaponPtr: PWeaponDef;
+    class function FireMap_Weapon(WeaponPtr: PWeaponDef;
       TargetX, TargetZ: Cardinal) : Boolean;
   end;
 
@@ -341,12 +341,12 @@ begin
 result := PLongWord(LongWord(GetModelsArrayPtr) + index * 4);
 end;
 
-class function TAMem.UnitInfoId2Ptr(index: Word) : Pointer;
+class function TAMem.UnitInfoId2Ptr(index: Word) : PUnitInfo;
 begin
 result := Pointer(LongWord(TAData.UnitInfosPtr) + index * SizeOf(TUnitInfo));
 end;
 
-class function TAMem.UnitInfoCrc2Ptr(CRC: Cardinal) : Pointer;
+class function TAMem.UnitInfoCrc2Ptr(CRC: Cardinal) : PUnitInfo;
 var
   i, Max : Integer;
   CheckedUnitInfo : PUnitInfo;
@@ -473,9 +473,9 @@ end;
 
 { TASfx }
 
-class procedure TASfx.Speech(UnitPtr: Pointer; SpeechType: Cardinal; Text: PAnsiChar);
+class procedure TASfx.Speech(p_Unit: Pointer; SpeechType: Cardinal; Text: PAnsiChar);
 begin
-  PlaySound_UnitSpeech(UnitPtr, SpeechType, Text);
+  PlaySound_UnitSpeech(p_Unit, SpeechType, Text);
 end;
 
 class function TASfx.Play3DSound(EffectID: Cardinal; Position: TPosition; NetBroadcast: Boolean) : Integer;
@@ -513,7 +513,7 @@ begin
   end;
 end;
 
-class function TASfx.EmitSfxFromPiece(UnitPtr: PUnitStruct; TargetUnitPtr: PUnitStruct;
+class function TASfx.EmitSfxFromPiece(p_Unit: PUnitStruct; Targetp_Unit: PUnitStruct;
   PieceIdx: Integer; SfxType: Byte; Broadcast: Boolean) : Cardinal;
 var
   PiecePos : TPosition;
@@ -523,13 +523,13 @@ var
   BuildingUnitInfo : PUnitInfo;
 begin
   Result := 0;
-  BuildingUnitInfo := TargetUnitPtr.p_UNITINFO;
-  GetPiecePosition(PiecePos, UnitPtr, PieceIdx);
-  GetPiecePosition(TargetBase, TargetUnitPtr, 0);
+  BuildingUnitInfo := Targetp_Unit.p_UNITINFO;
+  GetPiecePosition(PiecePos, p_Unit, PieceIdx);
+  GetPiecePosition(TargetBase, Targetp_Unit, 0);
 
-  UnitPos.X := MakeLong(0, TargetUnitPtr.Position.X);
-  UnitPos.Y := MakeLong(0, TargetUnitPtr.Position.Y);
-  UnitPos.Z := MakeLong(0, TargetUnitPtr.Position.Z);
+  UnitPos.X := MakeLong(0, Targetp_Unit.Position.X);
+  UnitPos.Y := MakeLong(0, Targetp_Unit.Position.Y);
+  UnitPos.Z := MakeLong(0, Targetp_Unit.Position.Z);
 
   TargetNanoBase.Pos1.X := UnitPos.X + BuildingUnitInfo.lWidthX_;
   TargetNanoBase.Pos1.Y := UnitPos.Y + BuildingUnitInfo.lWidthY_;
@@ -548,7 +548,7 @@ begin
   if IniSettings.Plugin_BroadcastNanolathe then
   begin
     if Broadcast and TAData.NetworkLayerEnabled then
-      GlobalDPlay.Broadcast_EmitSFXToUnit(TAUnit.GetID(UnitPtr), TAUnit.GetID(TargetUnitPtr), PieceIdx, SfxType);
+      GlobalDPlay.Broadcast_EmitSFXToUnit(TAUnit.GetID(p_Unit), TAUnit.GetID(Targetp_Unit), PieceIdx, SfxType);
   end;
 end;
 
@@ -581,7 +581,7 @@ begin
     result:= Pointer(Cardinal(TAData.WeaponTypeDefArrayPtr) + SizeOf(TWeaponDef) * ID);
 end;
 
-class function TAWeapon.FireMapWeapon(WeaponPtr: PWeaponDef;
+class function TAWeapon.FireMap_Weapon(WeaponPtr: PWeaponDef;
   TargetX, TargetZ: Cardinal) : Boolean;
 var
   StartPos, TargetPos: TPosition;

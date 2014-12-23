@@ -30,7 +30,9 @@ uses
   WeaponAimNTrajectory,
   //KillDamage,
   GAFSequences,
+  {$IFDEF DEBUG}
   TAExceptionsLog,
+  {$ENDIF}
   MapExtensions,
   //MinimapExpand,
   Colors,
@@ -68,12 +70,15 @@ if OnMainRun then
     //RegisterPlugin( PlayersSlotsExpand.GetPlugin() );
     RegisterPlugin( Builders.GetPlugin() );
     RegisterPlugin( ScriptCallsExtend.GetPlugin() );
-    RegisterPlugin( ResurrectPatrol.GetPlugin() );
+    if IniSettings.Plugin_ResurrectPatrol then
+      RegisterPlugin( ResurrectPatrol.GetPlugin() );
     RegisterPlugin( UnitActions.GetPlugin() );
     RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
     //RegisterPlugin( KillDamage.GetPlugin() );
     RegisterPlugin( GAFSequences.GetPlugin() );
+    {$IFDEF DEBUG}
     RegisterPlugin( TAExceptionsLog.GetPlugin() );
+    {$ENDIF}
     RegisterPlugin( MapExtensions.GetPlugin() );
 //    if IniSettings.ExpandMinimap then
 //      RegisterPlugin( MinimapExpand.GetPlugin() );

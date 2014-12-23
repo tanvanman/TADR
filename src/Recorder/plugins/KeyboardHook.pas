@@ -399,15 +399,15 @@ Retry:
     CurrentUnit := Pointer(Cardinal(Player.p_UnitsArray) + j * SizeOf(TUnitStruct));
     if ((CurrentUnit.lUnitStateMask and UnitSelectState[UnitValid2_State]) = UnitSelectState[UnitValid2_State]) then
     begin
-      if CurrentUnit.lBuildTimeLeft = 0.0 then
+      if CurrentUnit.fBuildTimeLeft = 0.0 then
         if CurrentUnit.p_Owner <> nil then
         begin
           if CurrentUnit.p_UNITINFO <> nil then
           begin
-            if PUnitInfo(CurrentUnit.p_UNITINFO).cBMCode = 0 then
+            if CurrentUnit.p_UNITINFO.cBMCode = 0 then
               if TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER) <> 0 then
               begin
-                if ExtraUnitInfoTags[PUnitInfo(CurrentUnit.p_UNITINFO).nCategory].NotLab then
+                if ExtraUnitInfoTags[CurrentUnit.p_UNITINFO.nCategory].NotLab then
                 begin
                   Inc(j);
                   Continue;

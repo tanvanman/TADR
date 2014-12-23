@@ -296,8 +296,8 @@ type
     unknow_5          : Cardinal;
     field_32          : Word;
     nFootPrint        : Word;
-    lPar1             : Cardinal;  // for lab build queue = unit type
-    lPar2             : Cardinal;  // for lab build queue = amount of units
+    lPar1             : Integer;  // for lab build queue = unit type
+    lPar2             : Integer;  // for lab build queue = amount of units
     lUnitOrderFlags   : Cardinal;
     lOrder_State      : Cardinal;  // reclaim - going to 00103801 / start reclaim 00503801
     lStartTime        : Cardinal;
@@ -308,7 +308,7 @@ type
 
   // 0x118
   TUnitStruct = packed record
-    p_MovementClass   : Pointer;
+    p_MovementClass   : PMoveClass;
     UnitWeapons       : array[0..2] of TUnitWeapon;
     fMetalExtrRatio   : Single; //UnitInfo.extractsmetal * ExtractRatio * 0.0000152587890625;
     p_MainOrder       : PUnitOrder;
@@ -322,9 +322,9 @@ type
     nFootPrintX       : Word;
     nFootPrintZ       : Word;
     View_dw0          : Cardinal;
-    p_TransporterUnit : Pointer;
-    p_TransportedUnit : Pointer;
-    p_PriorUnit       : Pointer;
+    p_TransporterUnit : PUnitStruct;
+    p_TransportedUnit : PUnitStruct;
+    p_PriorUnit       : PUnitStruct;
     p_UNITINFO        : PUnitInfo;
     p_Owner           : Pointer;
     p_UnitScriptsData : Pointer;
@@ -349,19 +349,19 @@ type
     field_E8          : Cardinal;
     p_Owner2          : Pointer;
     p_Attacker        : Pointer;
-    cOwningPlayerID   : Byte;
-    cLastDamageType   : Byte;
-    cHealthPercentA   : Byte;
-    cHealthPercentB   : Byte;
-    unKnow_13         : Byte;
-    ucAttachedToPiece : Byte;      // index number of piece unit is attached to when its transported
+    ucOwningPlayerID  : Byte;
+    ucLastDamageType  : Byte;
+    ucHealthDivMax    : Byte;
+    ucHealthModMax    : Byte;
+    cVisMask          : Byte;
+    cAttachedToPiece  : ShortInt; // index number of piece unit is attached to when its transported, -1 not attached
     ucRecentDamage    : Byte;
     ucHeight          : Byte;
     nOwnerIndex       : Word;
     field_FE          : Byte;
-    cOwnerID          : Byte;
+    ucOwnerID         : Byte;
     unknow_14         : Cardinal;
-    lBuildTimeLeft    : Single;
+    fBuildTimeLeft    : Single;
     nHealth           : Word;
     lSfxOccupy        : Cardinal;
     nUnitStateMaskBas : Word;      // cloak, activate, armored state
@@ -972,7 +972,7 @@ type
     lNumUnitTypeDefs       : Cardinal;
     lNumUnitTypeDefs_Sqrt  : Cardinal;
     LoadedUNITINFO         : Cardinal;
-    p_UNITINFOs             : Pointer; //0x1439B
+    p_UNITINFOs            : Pointer; //0x1439B
     unknow_21              : array [0..7] of Byte;
     palettes               : array [0..1023] of Byte;
     baseheight             : Word;
@@ -1190,13 +1190,6 @@ type
     Unknown55              : array [0..3522] of Byte; //to get size to 0x3A000 (what xpoy's IDA db says the size of this struct is
   end;
 
-  TPacketUnitRecreate = packed record
-    f0 : Byte;
-    UTypeID : Word;
-    UnitID : Word;
-    Position : TPosition;
-  end;
-
   TTAActionType = ( Action_Ready = 0,
                     Action_Activate = 1,
                     Action_AirStrike = 2,
@@ -1293,7 +1286,8 @@ type
                         usfExcludeSea,
                         usfExcludeBuildings,
                         usfExcludeNonWeaponed,
-                        usfIncludeInBuildState );
+                        usfIncludeInBuildState,
+                        usfIncludeTransported );
 
   TUnitSearchFilterSet = set of TUnitSearchFilter;
 
@@ -1390,7 +1384,9 @@ type
 
     UNITINFO_EXPLODEAS = 77,
     UNITINFO_SELFDSTRAS = 78,
-    UNITINFO_ISFEATURE = 79 );
+    UNITINFO_ISFEATURE = 79,
+    UNITINFO_FOOTPRINTX = 80,
+    UNITINFO_FOOTPRINTZ = 81);
     
   TStoreUnitsRec = packed record
     Id : Cardinal;
@@ -1410,8 +1406,8 @@ type
     CustomWeapReload     : Boolean;
     CustomWeapReloadMax  : Integer;
     CustomWeapReloadCur  : Integer;
-    CircleSelectProgress : Cardinal;
-    CircleSelectRadJig   : Byte;
+    //CircleSelectProgress : Cardinal;
+    //CircleSelectRadJig   : Byte;
   end;
   TCustomUnitFieldsArr = array of TCustomUnitFieldsRec;
 

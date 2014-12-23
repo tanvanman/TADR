@@ -78,7 +78,7 @@ begin
                           $0049BB29, 1);
 
     WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'WeaponAimNTrajectory_NoAirWeapon',
+                          'Is target unit air',
                           @WeaponAimNTrajectory_NoAirWeapon,
                           $0049AD07, 0);
 
@@ -345,7 +345,7 @@ begin
 
   MapWidth := PTAdynmemStruct(TAData.MainStructPtr).MapWidth;
   MapHeight := PTAdynmemStruct(TAData.MainStructPtr).MapHeight;
-  AttackerUnit := CurrentProjectile.p_AttackerUnit;
+  AttackerUnit := CurrentProjectile.pAttackerUnit;
 
   for i := 1 to SprayRate do
   begin
@@ -605,8 +605,8 @@ NoAirWeaponCheckUnit :
     jz      DontShoot_NoRange
     push    0                           // weap idx
     mov     edx, [esp+18h+8]
-    push    edi                         // TargetUnitPtr
-    push    edx                         // AttackerUnitPtr
+    push    edi                         // Targetp_Unit
+    push    edx                         // Attackerp_Unit
     call    UnitAutoAim_CheckUnitWeapon
     test    eax, eax
     jz      DontShoot
@@ -660,7 +660,7 @@ begin
   begin
     while ( True ) do
     begin
-      if ( Projectile.cOwnerID <> UnitStruct.cOwnerID ) then
+      if ( Projectile.cOwnerID <> UnitStruct.ucOwnerID ) then
         if ( (Projectile.Weapon.lWeaponTypeMask shr 29) and 1 = 1 ) then
         begin
           if ( PInteger(@UnitStruct.Position.x_)^ - PInteger(@Projectile.Position_Target2.x_)^ + Coverage <= (2 * Coverage) ) and
@@ -713,4 +713,3 @@ AntiNukeNotInStock:
 end;
 
 end.
-

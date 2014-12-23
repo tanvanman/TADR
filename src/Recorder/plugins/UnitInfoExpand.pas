@@ -24,8 +24,8 @@ Procedure OnUninstallUnitInfoExpand;
 
 procedure UnitInfoExpand_NewPropertiesLoadHook;
 procedure FreeCustomUnitInfoHook;
-procedure FreeCustomUnitInfo(UnitPtr: PUnitStruct); stdcall;
-function GetUnitInfoProperty(UnitPtr: Pointer; PropertyType: Integer): Integer; stdcall;
+procedure FreeCustomUnitInfo(p_Unit: PUnitStruct); stdcall;
+function GetUnitInfoProperty(p_Unit: PUnitStruct; PropertyType: Integer): Integer; stdcall;
 
 implementation
 uses
@@ -74,31 +74,31 @@ begin
     Result := nil;
 end;
 
-function GetUnitInfoProperty(UnitPtr: Pointer; PropertyType: Integer): Integer; stdcall;
+function GetUnitInfoProperty(p_Unit: PUnitStruct; PropertyType: Integer): Integer; stdcall;
 begin
   Result := 0;
-  if UnitPtr <> nil then
+  if p_Unit <> nil then
   begin
-    if High(ExtraUnitInfoTags) >= PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory then
+    if High(ExtraUnitInfoTags) >= p_Unit.p_UNITINFO.nCategory then
     begin
       case PropertyType of
-        1 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].MultiAirTransport;
-        2 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].ExtraVTOLOrders;
-        3 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TransportWeightCapacity;
-        4 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].HideHPBar];
-        5 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].NotLab];
-        6 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].DrawBuildSpotNanoFrame];
-        7 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].AiSquadNr;
-        8 : Result := Ord(ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TeleportMethod);
-        9 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TeleportMinReloadTime;
-       10 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TeleportMaxDistance;
-       11 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].TeleportMinDistance;
-       12 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange1Distance;
-       13 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange1Color;
-       14 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange2Distance;
-       15 : Result := ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange2Color;
-       16 : Result := BoolValues[ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].CustomRange2Animate];
-       17 : Result := Trunc(ExtraUnitInfoTags[PUnitInfo(PUnitStruct(UnitPtr).p_UNITINFO).nCategory].SolarGenerator * 100);
+        1 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].MultiAirTransport;
+        2 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].ExtraVTOLOrders;
+        3 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].TransportWeightCapacity;
+        4 : Result := BoolValues[ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].HideHPBar];
+        5 : Result := BoolValues[ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].NotLab];
+        6 : Result := BoolValues[ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].DrawBuildSpotNanoFrame];
+        7 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].AiSquadNr;
+        8 : Result := Ord(ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].TeleportMethod);
+        9 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].TeleportMinReloadTime;
+       10 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].TeleportMaxDistance;
+       11 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].TeleportMinDistance;
+       12 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].CustomRange1Distance;
+       13 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].CustomRange1Color;
+       14 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].CustomRange2Distance;
+       15 : Result := ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].CustomRange2Color;
+       16 : Result := BoolValues[ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].CustomRange2Animate];
+       17 : Result := Trunc(ExtraUnitInfoTags[p_Unit.p_UNITINFO.nCategory].SolarGenerator * 100);
       end;
     end;
   end;
@@ -145,14 +145,14 @@ asm
     call PatchNJump;
 end;
 
-procedure FreeCustomUnitInfo(UnitPtr: PUnitStruct); stdcall;
+procedure FreeCustomUnitInfo(p_Unit: PUnitStruct); stdcall;
 begin
-  if CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)].UnitInfo <> nil then
+  if CustomUnitFieldsArr[Word(p_Unit.lUnitInGameIndex)].UnitInfo <> nil then
   begin
-    MEM_Free(CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)].UnitInfo);
-    CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)].UnitInfo := nil;
+    MEM_Free(CustomUnitFieldsArr[Word(p_Unit.lUnitInGameIndex)].UnitInfo);
+    CustomUnitFieldsArr[Word(p_Unit.lUnitInGameIndex)].UnitInfo := nil;
   end;
-  CustomUnitFields.ElemClear(CustomUnitFieldsArr[Word(UnitPtr.lUnitInGameIndex)]);
+  CustomUnitFields.ElemClear(CustomUnitFieldsArr[Word(p_Unit.lUnitInGameIndex)]);
 end;
 
 procedure FreeCustomUnitInfoHook;

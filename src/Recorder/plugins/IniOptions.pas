@@ -1,7 +1,5 @@
 unit IniOptions;
 
-{$DEFINE GameStatsLogging}
-
 interface
 uses PluginEngine, Windows, SysUtils, IniFiles;
 
@@ -53,12 +51,12 @@ type
     Plugin_ScriptSlotsLimit : Boolean;
     Plugin_InterceptsOnlyList : Boolean;
 
-    Plugin_CircleUnitSelect : Boolean;
     Plugin_ForceDrawBuildSpotNano : Boolean;
     Plugin_BuildSpotNanoShimmer : Boolean;
     Plugin_DrawBuildSpotQueueNano : Boolean;
 
     Plugin_StopButton : Boolean;
+    Plugin_ResurrectPatrol : Boolean;
     
     Plugin_MinReclaimTime : Integer;
   end;
@@ -335,12 +333,12 @@ begin
       IniSettings.Plugin_Stockpile := ReadIniBool(IniFile, 'Preferences', 'StockpileCount', False);
       IniSettings.Plugin_TrueIncome := ReadIniBool(IniFile, 'Preferences', 'TrueIncome', False);
       IniSettings.Plugin_ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
-      IniSettings.Plugin_CircleUnitSelect := ReadIniBool(IniFile, 'Preferences', 'CircleUnitSelect', False);
       IniSettings.Plugin_ForceDrawBuildSpotNano := ReadIniBool(IniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
       IniSettings.Plugin_DrawBuildSpotQueueNano := ReadIniBool(IniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);
       IniSettings.Plugin_BuildSpotNanoShimmer := ReadIniBool(IniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
 
       IniSettings.Plugin_StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
+      IniSettings.Plugin_ResurrectPatrol := ReadIniBool(IniFile, 'Preferences', 'ResurrectionPatrol', False);
 
       IniSettings.Plugin_BroadcastNanolathe := ReadIniBool(IniFile, 'Preferences', 'BroadcastNanolathe', False);
       IniSettings.Plugin_BattleRoomEnh := ReadIniBool(IniFile, 'Preferences', 'BattleRoomEnhancements', False);

@@ -1,5 +1,4 @@
 unit idplay;
-{$DEFINE Release}
 {.$DEFINE DebuggerHooks}
 
 // causes the $2c packets to be logged
@@ -795,7 +794,7 @@ end;
 }
 procedure TDPlay.CheckForCheats(CheatType: TCheatType);
 begin
-{$IFDEF Release}
+{$IFNDEF Debug}
 TAMemManipulations.CheckForCheats(CheatType);
 {$ELSE}
 MyCheats := 0;
@@ -1149,7 +1148,7 @@ if IniSettings.weaponidpatch then
   result:=result+'T'
 else
   result:=result+'-';
-{$IFNDEF release}
+{$IFDEF Debug}
 result:=result+'D';
 {$ENDIF}
 end;
@@ -1578,7 +1577,7 @@ repeat
     s[1] :=#$fd;
     if ((s[2]=#$0b) and (s[3]=#$00)) then
       begin
-      {$IFNDEF RELEASE}
+      {$IFDEF Debug}
       if copy(s,4,4)<>#$ff#$ff#01#00 then
         begin
         SendChat('From '+FromPlayer+' to '+ ToPlayer+',Warning erroneous compression assumption');
@@ -1983,7 +1982,7 @@ if assigned(chatview) then
         if datachanged then
           tmp:='';
         end;
-      {$IFNDEF release}
+      {$IFDEF Debug}
       if PacketsToFilter <> nil then
         for a := Low(PacketsToFilter) to High(PacketsToFilter) do
           if (byte(tmp[1])=PacketsToFilter[a]) then
@@ -3548,8 +3547,8 @@ try
 //          TLog.add ('packet  : ' + inttostr (length (s)));
           if length (s) > bufsize then
             begin
-            {$IFNDEF release}
-//            SendChat( 'Overflow correction 2');
+            {$IFDEF Debug}
+            SendChat( 'Overflow correction 2');
             {$ENDIF}
             lpdwdatasize := length (s) + 10;
             Result := DPERR_BUFFERTOOSMALL;
@@ -4062,9 +4061,6 @@ begin
   Commands := TCommands.create;
   fPlayers := TPlayers.create(sendchatlocal,OnRemovePlayer,GetServerPlayer);
 
-  {$IFNDEF Release}
-//  AddCommand
-  {$ENDIF}
   {$I AddCommands.inc}
 
   GlobalDPlay:= Self;

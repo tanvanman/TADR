@@ -83,12 +83,12 @@ var
   sub_49D910 : sub_49D910Handler = sub_49D910Handler($49D910);
 
 type
-  GetUnit_BuildWeaponProgressHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
+  GetUnit_BuildWeaponProgressHandler = function ( p_Unit: Pointer ): Cardinal; stdcall;
 var
   GetUnit_BuildWeaponProgress : GetUnit_BuildWeaponProgressHandler = GetUnit_BuildWeaponProgressHandler($439D20);
 
 type
-  UnitExplosionHandler = procedure ( UnitPtr: Pointer; destructas: Cardinal ); stdcall;
+  UnitExplosionHandler = procedure ( p_Unit: Pointer; destructas: Cardinal ); stdcall;
 var
   UnitExplosion: UnitExplosionHandler = UnitExplosionHandler($0049B000);
 
@@ -100,14 +100,14 @@ var
 
 type
   UNITS_SetStateMaskHandler = function ( uneax, unedx: Pointer;
-                                        UnitPtr: Pointer;
+                                        p_Unit: Pointer;
                                         ScriptIdx: Integer;
                                         NewState: Integer ): Cardinal; register;
 var
   UNITS_SetStateMask: UNITS_SetStateMaskHandler = UNITS_SetStateMaskHandler($0048B090);
 
 type
-  Trajectory3Handler = function ( AttackerUnitPtr: Pointer;
+  Trajectory3Handler = function ( Attackerp_Unit: Pointer;
                                   Position1: PPosition;
                                   Position2: PPosition;
                                   WhichWeapon: Word ): Integer; stdcall;
@@ -115,8 +115,8 @@ var
   Trajectory3 : Trajectory3Handler = Trajectory3Handler($0049AA80);
 
 type
-  UnitAutoAim_CheckUnitWeaponHandler = function ( AttackerUnitPtr: Pointer;
-                                                  TargetUnitPtr: Pointer;
+  UnitAutoAim_CheckUnitWeaponHandler = function ( Attackerp_Unit: Pointer;
+                                                  Targetp_Unit: Pointer;
                                                   WhichWeapon: Word ): Byte; stdcall;
 var
   UnitAutoAim_CheckUnitWeapon : UnitAutoAim_CheckUnitWeaponHandler = UnitAutoAim_CheckUnitWeaponHandler($0049ABB0);
@@ -127,8 +127,8 @@ var
   TranslateString : TranslateStringHandler = TranslateStringHandler($004C5740);
 
 type
-  TA_AttachDetachUnitHandler = procedure ( TransportedUnitPtr : Pointer;
-                                           TransporterUnitPtr : Pointer;
+  TA_AttachDetachUnitHandler = procedure ( Transportedp_Unit : Pointer;
+                                           Transporterp_Unit : Pointer;
                                            Piece : ShortInt;
                                            Unknown : Byte ); stdcall;
 var
@@ -198,7 +198,7 @@ var
   LoadCampaign_UniqueUnits : LoadCampaign_UniqueUnitsHandler = LoadCampaign_UniqueUnitsHandler($00488310);
 
 type
-  Campaign_ParseUnitInitialMissionHandler = function( UnitPtr: PUnitStruct;
+  Campaign_ParseUnitInitialMissionHandler = function( p_Unit: PUnitStruct;
                                                       Missions: PAnsiChar;
                                                       UniqueNameArray: Pointer): Pointer; stdcall;
 var
@@ -276,13 +276,13 @@ var
   CanAttachAtGridSpot : CanAttachAtGridSpotHandler = CanAttachAtGridSpotHandler($0047DB70);
 
 type
-  CanCloseOrOpenYardHandler = function ( UnitPtr: Pointer; NewState: Integer): Boolean; stdcall;
+  CanCloseOrOpenYardHandler = function ( p_Unit: Pointer; NewState: Integer): Boolean; stdcall;
 var
   CanCloseOrOpenYard : CanCloseOrOpenYardHandler = CanCloseOrOpenYardHandler($0047D970);
 
 type
 	GetPiecePositionHandler = function(out PositionOut: TPosition;
-                                     UnitPtr: PUnitStruct;
+                                     p_Unit: PUnitStruct;
                                      PieceIdx: Integer): PPosition; stdcall;
 var
   GetPiecePosition : GetPiecePositionHandler = GetPiecePositionHandler($0043E060);
@@ -385,7 +385,7 @@ var
   GetPosHeight : GetPosHeightHandler = GetPosHeightHandler($00485070);
 
 type
-  UnitInPlayerLOSHandler = function (PlayerPtr : Pointer; UnitPtr : Pointer): Integer; stdcall;
+  UnitInPlayerLOSHandler = function (PlayerPtr : Pointer; p_Unit : Pointer): Integer; stdcall;
 var
   UnitInPlayerLOS : UnitInPlayerLOSHandler = UnitInPlayerLOSHandler($00465AC0);
 
@@ -497,9 +497,9 @@ var
   PROJECTILES_FireMapWeap: PROJECTILES_FireMapWeapHandler = PROJECTILES_FireMapWeapHandler($49DF10);
 
 type
-  fire_callbackHandler = function ( Attacker_UnitPtr: Pointer;
+  fire_callbackHandler = function ( Attacker_p_Unit: Pointer;
                                     Weapon_Target_ID: Pointer;
-                                    Victim_UnitPtr: Pointer;
+                                    Victim_p_Unit: Pointer;
                                     Position_Target: Pointer ): Cardinal; stdcall;
 var
   fire_callback1: fire_callbackHandler = fire_callbackHandler($0049DB70);
@@ -507,16 +507,16 @@ var
   fire_callback3: fire_callbackHandler = fire_callbackHandler($0049D9C0);
 
 type
-  fire_callback0Handler = function ( Attacker_UnitPtr: Pointer;
+  fire_callback0Handler = function ( Attacker_p_Unit: Pointer;
                                      Weapon_Target_ID: Pointer;
-                                     Victim_UnitPtr: Pointer;
+                                     Victim_p_Unit: Pointer;
                                      Position_Target: Pointer ): Cardinal; cdecl;
 var
   fire_callback0 : fire_callback0Handler = fire_callback0Handler($0049D580);
 
 type
   CreateProjectile_0_3Handler = function ( UnitWeapon: Pointer;
-                                           Attacker_UnitPtr: Pointer;
+                                           Attacker_p_Unit: Pointer;
                                            Position_Start: PPosition;
                                            Position_Target: PPosition ): LongBool; stdcall;
 var
@@ -524,20 +524,20 @@ var
 
 type
   CreateProjectile_1Handler = function ( UnitWeapon: Pointer;
-                                         Attacker_UnitPtr: Pointer;
+                                         Attacker_p_Unit: Pointer;
                                          Position_Start: PPosition;
                                          Position_Target: PPosition;
-                                         TargetUnitPtr: Pointer;
+                                         Targetp_Unit: Pointer;
                                          Interceptor: Integer ): LongBool; stdcall;
 var
   CreateProjectile_1 : CreateProjectile_1Handler = CreateProjectile_1Handler($0049CC20);
 
 type
   CreateProjectile_0Handler = function ( UnitWeapon: Pointer;
-                                         Attacker_UnitPtr: Pointer;
+                                         Attacker_p_Unit: Pointer;
                                          Position_Start: PPosition;
                                          Position_Target: PPosition;
-                                         TargetUnitPtr: Pointer ): LongBool; stdcall;
+                                         Targetp_Unit: Pointer ): LongBool; stdcall;
 var
   CreateProjectile_0 : CreateProjectile_0Handler = CreateProjectile_0Handler($0049CDE0);
 
@@ -560,8 +560,8 @@ var
 type
   Order2UnitHandler = function ( ScriptIndex: Cardinal;
                                  ShiftKey: Cardinal;
-                                 pUnitPtr: Pointer;
-                                 pTargetUnitPtr: Pointer;
+                                 pp_Unit: Pointer;
+                                 pTargetp_Unit: Pointer;
                                  Position: PPosition;
                                  lPar1: Cardinal;
                                  lPar2: Cardinal ): Cardinal; stdcall;
@@ -571,8 +571,8 @@ var
 type
   SubOrder2UnitHandler = function ( ScriptIndex: Cardinal;
                                     ShiftKey: Cardinal;
-                                    pUnitPtr: Pointer;
-                                    pTargetUnitPtr: Pointer;
+                                    pp_Unit: Pointer;
+                                    pTargetp_Unit: Pointer;
                                     Position: PPosition;
                                     lPar1: Cardinal;
                                     lPar2: Cardinal ): Cardinal; stdcall;
@@ -595,12 +595,12 @@ var
   UnitSubBuildClick: UnitSubBuildClickHandler = UnitSubBuildClickHandler($00419B00);
 
 type
-  ORDERS_RemoveAllBuildQueuesHandler = procedure ( UnitPtr: PUnitStruct; Unk: LongBool); stdcall;
+  ORDERS_RemoveAllBuildQueuesHandler = procedure ( p_Unit: PUnitStruct; Unk: LongBool); stdcall;
 var
   ORDERS_RemoveAllBuildQueues: ORDERS_RemoveAllBuildQueuesHandler = ORDERS_RemoveAllBuildQueuesHandler($00439EB0);
 
 type
-  GetUnitFirstOrderTargatHandler = function ( UnitPtr: Pointer ): Cardinal; stdcall;
+  GetUnitFirstOrderTargatHandler = function ( p_Unit: Pointer ): Cardinal; stdcall;
 var
   GetUnitFirstOrderTargat: GetUnitFirstOrderTargatHandler = GetUnitFirstOrderTargatHandler($439DD0);
 
@@ -612,7 +612,7 @@ var
   ORDERS_CreateObject: ORDERS_CreateObjectHandler = ORDERS_CreateObjectHandler($0043A0C0);
 
 type
-  ORDERS_QueueOrderHandler = procedure ( UnitPtr: PUnitStruct;
+  ORDERS_QueueOrderHandler = procedure ( p_Unit: PUnitStruct;
     Order1: PUnitOrder; Order2: PUnitOrder ); stdcall;
 var
   ORDERS_QueueOrder: ORDERS_QueueOrderHandler = ORDERS_QueueOrderHandler($0043AC60);
@@ -634,42 +634,42 @@ var
   UNITS_Create : UNITS_CreateHandler = UNITS_CreateHandler($00485F50);
 
 type
-  UNITS_CreateModelScriptsHandler = function (UnitPtr : Pointer) : Pointer; stdcall;
+  UNITS_CreateModelScriptsHandler = function (p_Unit : Pointer) : Pointer; stdcall;
 var
   UNITS_CreateModelScripts : UNITS_CreateModelScriptsHandler = UNITS_CreateModelScriptsHandler($00485D40);
 
 type
-  UNITS_CreateMoveClassHandler = function ( UnitPtr: Pointer ): Pointer; stdcall;
+  UNITS_CreateMoveClassHandler = function ( p_Unit: Pointer ): Pointer; stdcall;
 var
   UNITS_CreateMoveClass : UNITS_CreateMoveClassHandler = UNITS_CreateMoveClassHandler($00485E50);
 
 type
-  UNITS_FixYPosHandler = function (UnitPtr : Pointer) : LongInt; stdcall;
+  UNITS_FixYPosHandler = function (p_Unit : Pointer) : LongInt; stdcall;
 var
   UNITS_FixYPos : UNITS_FixYPosHandler = UNITS_FixYPosHandler($0048A870);
 
 type
-  UNITS_NewUnitPositionHandler = function (UnitPtr : Pointer; NewX, NewY, NewZ: Cardinal; State: Cardinal) : Cardinal; stdcall;
+  UNITS_NewUnitPositionHandler = function (p_Unit : Pointer; NewX, NewY, NewZ: Cardinal; State: Cardinal) : Cardinal; stdcall;
 var
   UNITS_NewUnitPosition : UNITS_NewUnitPositionHandler = UNITS_NewUnitPositionHandler($0048A9F0);
 
 type
-  UNITS_SetMetalExtractionRatioHandler = procedure ( UnitPtr: Pointer ); stdcall;
+  UNITS_SetMetalExtractionRatioHandler = procedure ( p_Unit: Pointer ); stdcall;
 var
   UNITS_SetMetalExtractionRatio : UNITS_SetMetalExtractionRatioHandler = UNITS_SetMetalExtractionRatioHandler($00437840);
 
 type
-  UNITS_StartWeaponsScriptsHandler = procedure ( UnitPtr: Pointer ); stdcall;
+  UNITS_StartWeaponsScriptsHandler = procedure ( p_Unit: Pointer ); stdcall;
 var
   UNITS_StartWeaponsScripts : UNITS_StartWeaponsScriptsHandler = UNITS_StartWeaponsScriptsHandler($0049E070);
 
 type
-  UNITS_RecreateHandler = function ( PlayerIndex: Byte; UnitPtr: Pointer): Cardinal; stdcall;
+  UNITS_RecreateHandler = function ( PlayerIndex: Byte; p_Unit: Pointer): Cardinal; stdcall;
 var
   UNITS_Recreate: UNITS_RecreateHandler = UNITS_RecreateHandler($004861D0);
 
 type
-  UNITS_AllocateUnitHandler = function ( UnitPtr : Pointer;
+  UNITS_AllocateUnitHandler = function ( p_Unit : Pointer;
                                          PosX: Cardinal;
                                          PosY: Cardinal;
                                          PosZ: Cardinal;
@@ -678,22 +678,22 @@ var
   UNITS_AllocateUnit: UNITS_AllocateUnitHandler = UNITS_AllocateUnitHandler($00485A40);
 
 type
-  UNITS_AllocateMovementClassHandler = function ( UnitPtr: Pointer): Pointer; stdcall;
+  UNITS_AllocateMovementClassHandler = function ( p_Unit: Pointer): Pointer; stdcall;
 var
   UNITS_AllocateMovementClass: UNITS_AllocateMovementClassHandler = UNITS_AllocateMovementClassHandler($00485E50);
 
 type
-  UNITS_RebuildLOSHandler = function (UnitPtr: Pointer): Byte; stdcall;
+  UNITS_RebuildLOSHandler = function (p_Unit: Pointer): Byte; stdcall;
 var
   UNITS_RebuildLOS : UNITS_RebuildLOSHandler = UNITS_RebuildLOSHandler($00482AC0);
 
 type
-  UNITS_RebuildFootPrintHandler = function (UnitPtr: Pointer): Cardinal; stdcall;
+  UNITS_RebuildFootPrintHandler = function (p_Unit: Pointer): Cardinal; stdcall;
 var
   UNITS_RebuildFootPrint : UNITS_RebuildFootPrintHandler = UNITS_RebuildFootPrintHandler($0047CC30);
 
 type
-  UNITS_GiveUnitHandler = procedure ( UnitPtr : Pointer;
+  UNITS_GiveUnitHandler = procedure ( p_Unit : Pointer;
                                       PlayerStruct : PPlayerStruct;
                                       Packet : Pointer); stdcall;
 var
@@ -703,13 +703,13 @@ type
   // 0 : found in unit "recreate" proc
   // 3 : typical kill
   // 8 : TA finalization, kill all proc etc.
-  UNITS_KillUnitHandler = procedure ( UnitPtr: Pointer; a2: Cardinal ); stdcall;
+  UNITS_KillUnitHandler = procedure ( p_Unit: Pointer; a2: Cardinal ); stdcall;
 var
   UNITS_KillUnit : UNITS_KillUnitHandler = UNITS_KillUnitHandler($004864B0);
 
 type
-  UNITS_MakeDamageHandler = function ( AttackerUnitPtr: Pointer;
-                                       TargetUnitPtr: Pointer;
+  UNITS_MakeDamageHandler = function ( Attackerp_Unit: Pointer;
+                                       Targetp_Unit: Pointer;
                                        Amount: LongInt;
                                        DamageType: Cardinal;
                                        a5: Word ): Pointer; stdcall;
@@ -717,15 +717,15 @@ var
   UNITS_MakeDamage: UNITS_MakeDamageHandler = UNITS_MakeDamageHandler($00489BB0);
 
 type
-  UNITS_HealUnitHandler = function ( HealerUnitPtr: Pointer;
-                                     HealedUnitPtr: Pointer;
+  UNITS_HealUnitHandler = function ( Healerp_Unit: Pointer;
+                                     Healedp_Unit: Pointer;
                                      Amount: Single ): Integer; stdcall;
 var
   UNITS_HealUnit: UNITS_HealUnitHandler = UNITS_HealUnitHandler($0041BD10);
 
 type
   // GroupNr -1 when received unit death packet
-  UNITS_SetHotKeyGroupHandler = procedure ( UnitPtr: Pointer; GroupNr: Integer ); stdcall;
+  UNITS_SetHotKeyGroupHandler = procedure ( p_Unit: Pointer; GroupNr: Integer ); stdcall;
 var
   UNITS_SetHotKeyGroup : UNITS_SetHotKeyGroupHandler = UNITS_SetHotKeyGroupHandler($00480250);
 
@@ -740,17 +740,17 @@ var
   UnitBuilderProbe: UnitBuilderProbeHandler = UnitBuilderProbeHandler($004685A0);
 
 type
-  Send_UnitBuildFinishedHandler = function ( UnitPtr: Pointer; Unit2Ptr: Pointer ): Integer; stdcall;
+  Send_UnitBuildFinishedHandler = function ( p_Unit: Pointer; Unit2Ptr: Pointer ): Integer; stdcall;
 var
   Send_UnitBuildFinished : Send_UnitBuildFinishedHandler = Send_UnitBuildFinishedHandler($004560C0);
 
 type
-  Send_UnitDeathHandler = function ( UnitPtr: Pointer; a2: Integer ): Integer; stdcall;
+  Send_UnitDeathHandler = function ( p_Unit: Pointer; a2: Integer ): Integer; stdcall;
 var
   Send_UnitDeath : Send_UnitDeathHandler = Send_UnitDeathHandler($004864B0);
 
 type
-  FreeUnitOrdersHandler = procedure ( UnitPtr: Pointer ); stdcall;
+  FreeUnitOrdersHandler = procedure ( p_Unit: Pointer ); stdcall;
 var
   FreeUnitOrders : FreeUnitOrdersHandler = FreeUnitOrdersHandler($00489740);
 
@@ -855,7 +855,7 @@ var
   DrawHealthBars : DrawHealthBarsHandler = DrawHealthBarsHandler($0046A430);
 
 type
-  DrawUnitHandler = function (OFFSCREEN_ptr: Cardinal; UnitPtr : Pointer) : LongInt; stdcall;
+  DrawUnitHandler = function (OFFSCREEN_ptr: Cardinal; p_Unit : Pointer) : LongInt; stdcall;
 var
   DrawUnit : DrawUnitHandler = DrawUnitHandler($0045AC20);
 
@@ -1016,7 +1016,7 @@ var
 //////////////////////////////////////////////////////////////////////////////////////////
 
 type
-  PlaySound_UnitSpeechHandler = function (unitptr : Pointer;
+  PlaySound_UnitSpeechHandler = function (p_Unit : PUnitStruct;
     speechtype: Cardinal; speechtext: PAnsiChar) : byte; stdcall;
 var
   PlaySound_UnitSpeech : PlaySound_UnitSpeechHandler = PlaySound_UnitSpeechHandler($0047F780);

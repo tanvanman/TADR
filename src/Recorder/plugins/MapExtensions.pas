@@ -312,7 +312,7 @@ var
   GafFrame : TGAFFrame;
   offp : Cardinal;
   i : integer;
-  UnitPtr : PUnitStruct;
+  p_Unit : PUnitStruct;
   PlotGrid : PPlotGrid;
   x, z : Integer;
   AtLava : Boolean;
@@ -389,18 +389,18 @@ begin
   begin
     for i := 1 to TAData.MaxUnitsID do
     begin
-      UnitPtr := TAUnit.Id2Ptr(i);
+      p_Unit := TAUnit.Id2Ptr(i);
       AtLava := False;
-      if UnitPtr.nUnitInfoID <> 0 then
+      if p_Unit.nUnitInfoID <> 0 then
       begin
-        for z := 0 to UnitPtr.nFootPrintZ do
+        for z := 0 to p_Unit.nFootPrintZ do
         begin
-          for x := 0 to UnitPtr.nFootPrintX do
+          for x := 0 to p_Unit.nFootPrintX do
           begin
-            PlotGrid := GetGridPosPLOT(UnitPtr.nGridPosX + x, UnitPtr.nGridPosZ + z);
+            PlotGrid := GetGridPosPLOT(p_Unit.nGridPosX + x, p_Unit.nGridPosZ + z);
             if PlotGrid <> nil then
             begin
-              //if GetPosHeight(@UnitPtr.Position) = 0 then
+              //if GetPosHeight(@p_Unit.Position) = 0 then
                 if PlotGrid.nFeatureDefIndex = $FFFD then
                 begin
                   AtLava := True;
@@ -412,11 +412,11 @@ begin
             Break;
         end;
         if AtLava then
-          if (UnitPtr.lUnitStateMask and 3) <> 2 then
-            if (PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).lIsLavaMap <> 0) then
-              TAUnit.Kill(UnitPtr, 1)
+          if (p_Unit.lUnitStateMask and 3) <> 2 then
+            if (PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile.lIsLavaMap <> 0) then
+              TAUnit.Kill(p_Unit, 1)
             else
-              TAUnit.Kill(UnitPtr, 0);
+              TAUnit.Kill(p_Unit, 0);
       end;
     end;
   end;

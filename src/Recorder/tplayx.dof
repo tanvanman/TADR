@@ -90,7 +90,7 @@ MaxStackSize=1048576
 ImageBase=7340032
 ExeDescription=
 [Directories]
-OutputDir=G:\CAVEDOG\DevMod\Test
+OutputDir=output\
 UnitOutputDir=dcu\
 PackageDLLOutputDir=
 PackageDCPOutputDir=
@@ -116,8 +116,8 @@ IncludeVerInfo=1
 AutoIncBuild=0
 MajorVer=3
 MinorVer=9
-Release=2
-Build=514
+Release=3
+Build=517
 Debug=0
 PreRelease=1
 Special=0
@@ -128,16 +128,14 @@ CodePage=1252
 [Version Info Keys]
 CompanyName=Swedish Yankspankers & TA Universe community
 FileDescription=TA Unofficial Patch - Demo Recorder Component
-FileVersion=3.9.2.514
+FileVersion=3.9.3.517
 InternalName=
 LegalCopyright=
 LegalTrademarks=
 OriginalFilename=
 ProductName=
-ProductVersion=3.9.3.514
+ProductVersion=3.9.3
 Comments=
-[Excluded Packages]
-c:\program files (x86)\borland\delphi7\Bin\dclindy70.bpl=Internet Direct (Indy) for D7 Property and Component Editors
 [HistoryLists\hlConditionals]
 Count=2
 Item0=IsTesting
@@ -146,42 +144,10 @@ Item1=ThreadLogging
 Count=1
 Item0=WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;
 [HistoryLists\hlSearchPath]
-Count=6
-Item0=$(DELPHI)\Lib\Debug;..\3rdparty;TAMem;plugins;..\
-Item1=$(DELPHI)\Lib\Debug;..\..\common\3rdparty;..\..\Common\Recorder\TAMem;..\..\Common\Recorder\plugins;..\..\Common\Recorder\;..\..\Common\
-Item2=$(DELPHI)\Lib\Debug;..\..\common\3rdparty;..\..\Common\Recorder\;..\..\Common\
-Item3=$(DELPHI)\Lib\Debug;..\..\common\3rdparty;..\..\Common\Recorder\
-Item4=$(DELPHI)\Lib\Debug;..\..\common\3rdparty
-Item5=$(DELPHI)\Lib\Debug
+Count=0
 [HistoryLists\hlUnitOutputDirectory]
 Count=1
 Item0=dcu\
 [HistoryLists\hlOutputDirectorry]
-Count=27
-Item0=G:\CAVEDOG\TADev\Total Mayhem
-Item1=G:\CAVEDOG\TOTALA\DevMod
-Item2=G:\CAVEDOG\DevMod\Game\
-Item3=G:\CAVEDOG\DevMod\Release
-Item4=G:\CAVEDOG\DevMod\Release\
-Item5=output\
-Item6=G:\CAVEDOG\TADev
-Item7=G:\CAVEDOG\TADev\TA Escalation
-Item8=output\
-Item9=G:\CAVEDOG\TOTALA\
-Item10=G:\TOTALA3.1_BT_CC\TOTALA
-Item11=G:\CAVEDOG\TOTALA
-Item12=G:\CAVEDOG\Boneyards
-Item13=G:\CAVEDOG\TADev;G:\shared\
-Item14=G:\TA3.1\totala3\install\TA Escalation
-Item15=G:\TA3.1\totala3\install\Total Mayhem\
-Item16=G:\TA3.1\totala3\install\TA Escalation\
-Item17=G:\TA3.1\totala3\install\TA Zero
-Item18=g:\cavedog\taesc\
-Item19=g:\TA3.1\
-Item20=c:\games\TOTALA\
-Item21=c:\games\
-Item22=D:\programming\ida\TA
-Item23=\\ida-othalla\totala\
-Item24=D:\programming\ida\TA\
-Item25=d:\totala\
-Item26=output
+Count=1
+Item0=output\

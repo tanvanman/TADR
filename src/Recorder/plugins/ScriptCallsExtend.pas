@@ -262,11 +262,11 @@ end;
 .text:00489F43 02C E8 28 6B 02 00                      call    Script_RunCallBack
 }
 
-procedure HitByWeaponNew(UnitPtr : Cardinal; anglex, anglez, damage : Cardinal); stdcall;
+procedure HitByWeaponNew(p_Unit : Cardinal; anglex, anglez, damage : Cardinal); stdcall;
 begin
-  if PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData <> nil then
+  if PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData <> nil then
   begin
-  Script_ProcessCallback( nil, nil, LongWord(PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData),
+  Script_ProcessCallback( nil, nil, LongWord(PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData),
                           nil, @damage, @anglez, @anglex,
                           PAnsiChar('HitByWeapon') );
   end;
@@ -286,11 +286,11 @@ asm
   call PatchNJump;
 end;
 
-procedure TookDamage(UnitPtr: Pointer; DmgType: Cardinal; DmgAmount: Cardinal; AttackerID: Cardinal); stdcall;
+procedure TookDamage(p_Unit: Pointer; DmgType: Cardinal; DmgAmount: Cardinal; AttackerID: Cardinal); stdcall;
 begin
-  if PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData <> nil then
+  if PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData <> nil then
   begin
-    Script_ProcessCallback( nil, nil, LongWord(PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData),
+    Script_ProcessCallback( nil, nil, LongWord(PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData),
                             nil, @AttackerID, @DmgAmount, @DmgType,
                             PAnsiChar('TookDamage') );
   end;  
@@ -325,13 +325,13 @@ DontMakeDmg :
   call PatchNJump;
 end;
 
-procedure ConfirmedKill(UnitPtr: Pointer; DeathType : Cardinal); stdcall;
+procedure ConfirmedKill(p_Unit: PUnitStruct; DeathType : Cardinal); stdcall;
 begin
-  if PUnitStruct(Pointer(UnitPtr)).p_UnitScriptsData <> nil then
+  if PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData <> nil then
   begin
     Script_ProcessCallback( nil,
                             nil,
-                            LongWord(PUnitStruct(UnitPtr).p_UnitScriptsData),
+                            LongWord(p_Unit.p_UnitScriptsData),
                             nil, nil, nil, @DeathType, PAnsiChar('ConfirmedKill') );
   end;
 end;
@@ -352,16 +352,16 @@ asm
   call PatchNJump;
 end;
 
-procedure VTOLLoadUnload(UnitPtr: Pointer; TransportedUnit: Pointer; Piece: Cardinal; Loading: Cardinal); stdcall;
+procedure VTOLLoadUnload(p_Unit: PUnitStruct; TransportedUnit: PUnitStruct; Piece: Cardinal; Loading: Cardinal); stdcall;
 var
   UnitID : Word;
 begin
-  if PUnitStruct(UnitPtr).p_UnitScriptsData <> nil then
+  if p_Unit.p_UnitScriptsData <> nil then
   begin
     UnitID := TAUnit.GetId(TransportedUnit);
     Script_ProcessCallback( nil,
                             nil,
-                            LongWord(PUnitStruct(UnitPtr).p_UnitScriptsData),
+                            LongWord(p_Unit.p_UnitScriptsData),
                             nil, @UnitID, @Piece, @Loading, PAnsiChar('ConfirmVTOLTransport') );
   end;
 end;
@@ -413,4 +413,3 @@ end;
 
 
 end.
-
