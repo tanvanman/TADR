@@ -233,9 +233,6 @@ void FullScreenMinimap::InitMinimap (TNTHeaderStruct * TNTPtr, RECT * GameScreen
 
 	MyMinimap_p= new TNTtoMiniMap ( GameWidth, GameHeight);
 
-	int PlayerDotColors[PLAYERNUM];
-
-
 	if (MyMinimap_p)
 	{
 		MyMinimap_p->MapFromTNTInMem ( reinterpret_cast<LPVOID>(TNTPtr));
@@ -304,19 +301,6 @@ void FullScreenMinimap::InitMinimap (TNTHeaderStruct * TNTPtr, RECT * GameScreen
 
 		MaxIconWidth= MyConfig->GetIniInt ( "MaxIconWidth", ICONMAXWIDTH) ;
 		MaxIconHeight=  MyConfig->GetIniInt ( "MaxIconHeight", ICONMAXHEIGHT) ;
-
-		
-		PlayerDotColors[0]= MyConfig->GetIniInt ( "Player1DotColors", 227);
-		PlayerDotColors[1]= MyConfig->GetIniInt ( "Player2DotColors", 212);
-		PlayerDotColors[2]= MyConfig->GetIniInt ( "Player3DotColors", 80);
-		PlayerDotColors[3]= MyConfig->GetIniInt ( "Player4DotColors", 235);
-		PlayerDotColors[4]= MyConfig->GetIniInt ( "Player5DotColors", 108);
-		PlayerDotColors[5]= MyConfig->GetIniInt ( "Player6DotColors", 219);
-		PlayerDotColors[6]= MyConfig->GetIniInt ( "Player7DotColors", 208);
-		PlayerDotColors[7]= MyConfig->GetIniInt ( "Player8DotColors", 93);
-		PlayerDotColors[8]= MyConfig->GetIniInt ( "Player9DotColors", 130);
-		PlayerDotColors[9]= MyConfig->GetIniInt ( "Player10DotColors", 67);
-
 		
 		UnitsMap= new UnitsMinimap (  this, MinimapAspect.x, MinimapAspect.y,
 			MyConfig->GetIniInt ( "MegamapRadarMinimum", -1),
@@ -333,7 +317,7 @@ void FullScreenMinimap::InitMinimap (TNTHeaderStruct * TNTPtr, RECT * GameScreen
 			MyConfig->GetIniInt ( "MegamapSonarJamColor", -1),
 			MyConfig->GetIniInt ( "MegamapAntinukeColor", -1),
 			MyConfig->GetIniBool ( "UnderAttackFlash", FALSE),
-			PlayerDotColors);
+			DataShare->PlayerDotColors);
 		//UnitsMap->InitSurface ( (IDirectDraw*)LocalShare->TADirectDraw, !VsyncOn);
 
 

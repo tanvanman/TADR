@@ -610,30 +610,7 @@ void CIncome::CorrectPos()
 
 unsigned char CIncome::GetPlayerColor(int Player)
 {
-	switch(DataShare->PlayerColors[Player])
-	{
-	case 0:
-		return 227;
-	case 1:
-		return 212;
-	case 2:
-		return 80;
-	case 3:
-		return 235;
-	case 4:
-		return 108;
-	case 5:
-		return 219;
-	case 6:
-		return 208;
-	case 7:
-		return 93;
-	case 8:
-		return 130;
-	case 9:
-		return 67;
-	}
-	return 227;
+	return DataShare->PlayerDotColors[DataShare->PlayerColors[Player]];
 }
 
 void CIncome::DrawPlayerRect(int posx, int posy, char Color)

@@ -126,41 +126,7 @@ void CMapRect::LockBlit(char *VidBuf, int Pitch)
 
 				char C;
 
-				switch(DataShare->PlayerColors[i])
-				{
-				case 0:
-					C = 227U;
-					break;
-				case 1:
-					C = 212U;
-					break;
-				case 2:
-					C = 80U;
-					break;
-				case 3:
-					C = 235U;
-					break;
-				case 4:
-					C = 108U;
-					break;
-				case 5:
-					C = 219U;
-					break;
-				case 6:
-					C = 208U;
-					break;
-				case 7:
-					C = 93U;
-					break;
-				case 8U:
-					C = 130U;
-					break;
-				case 9:
-					C = 67U;
-					break;
-				default:
-					C = 1;
-				}
+				C = DataShare->PlayerDotColors[DataShare->PlayerColors[i]];
 
 				WhiteBoard->DrawFreeLine(Dest.left, Dest.top, Dest.right, Dest.top, C, VidBuf, Pitch);
 				WhiteBoard->DrawFreeLine(Dest.right, Dest.top, Dest.right, Dest.bottom, C, VidBuf, Pitch);

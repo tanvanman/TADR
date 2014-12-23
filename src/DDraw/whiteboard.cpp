@@ -62,16 +62,16 @@ AlliesWhiteboard::AlliesWhiteboard(BOOL VidMem)
 	GenerateLookupTables();
 
 
-	PlayerDotColors[0]= MyConfig->GetIniInt ( "Player1DotColors", 227);
-	PlayerDotColors[1]= MyConfig->GetIniInt ( "Player2DotColors", 212);
-	PlayerDotColors[2]= MyConfig->GetIniInt ( "Player3DotColors", 80);
-	PlayerDotColors[3]= MyConfig->GetIniInt ( "Player4DotColors", 235);
-	PlayerDotColors[4]= MyConfig->GetIniInt ( "Player5DotColors", 108);
-	PlayerDotColors[5]= MyConfig->GetIniInt ( "Player6DotColors", 219);
-	PlayerDotColors[6]= MyConfig->GetIniInt ( "Player7DotColors", 208);
-	PlayerDotColors[7]= MyConfig->GetIniInt ( "Player8DotColors", 93);
-	PlayerDotColors[8]= MyConfig->GetIniInt ( "Player9DotColors", 130);
-	PlayerDotColors[9]= MyConfig->GetIniInt ( "Player10DotColors", 67);
+	DataShare->PlayerDotColors[0]= MyConfig->GetIniInt ( "Player1DotColors", 227);
+	DataShare->PlayerDotColors[1]= MyConfig->GetIniInt ( "Player2DotColors", 212);
+	DataShare->PlayerDotColors[2]= MyConfig->GetIniInt ( "Player3DotColors", 80);
+	DataShare->PlayerDotColors[3]= MyConfig->GetIniInt ( "Player4DotColors", 235);
+	DataShare->PlayerDotColors[4]= MyConfig->GetIniInt ( "Player5DotColors", 108);
+	DataShare->PlayerDotColors[5]= MyConfig->GetIniInt ( "Player6DotColors", 219);
+	DataShare->PlayerDotColors[6]= MyConfig->GetIniInt ( "Player7DotColors", 208);
+	DataShare->PlayerDotColors[7]= MyConfig->GetIniInt ( "Player8DotColors", 93);
+	DataShare->PlayerDotColors[8]= MyConfig->GetIniInt ( "Player9DotColors", 130);
+	DataShare->PlayerDotColors[9]= MyConfig->GetIniInt ( "Player10DotColors", 67);
 
 	PerPlayerMarkerWidth = MyConfig->GetIniInt ( "PerPlayerMarkerWidth", TextMarkerWidth);
 	PerPlayerMarkerHeight = MyConfig->GetIniInt ( "PerPlayerMarkerHeight", TextMarkerHeight);
@@ -880,41 +880,7 @@ void AlliesWhiteboard::SendMarkers()
 
 void AlliesWhiteboard::DrawLine(int x1, int y1, int x2, int y2, char C, char *VidBuf, int Pitch)
 {
-	C= PlayerDotColors[C];
-/*
-	switch(C)
-	{
-	case 0:
-		C = (char)227;
-		break;
-	case 1:
-		C = (char)212;
-		break;
-	case 2:
-		C = (char)80;
-		break;
-	case 3:
-		C = (char)235;
-		break;
-	case 4:
-		C = (char)108;
-		break;
-	case 5:
-		C = (char)219;
-		break;
-	case 6:
-		C = (char)208;
-		break;
-	case 7:
-		C = (char)93;
-		break;
-	case 8:
-		C = (char)130;
-		break;
-	case 9:
-		C = (char)67;
-		break;
-	}*/
+	C = DataShare->PlayerDotColors[C];
 
 	x1 = x1 - *MapX;
 	y1 = y1 - *MapY;

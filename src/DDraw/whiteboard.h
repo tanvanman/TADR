@@ -111,7 +111,6 @@ class AlliesWhiteboard
 	 int MidX;
 	 int MidY;
 
-	 int PlayerDotColors[PLAYERNUM];
 	 int PerPlayerMarkerWidth;
 	 int PerPlayerMarkerHeight;
 	 CHAR PlayerMarkerPcx[256];
