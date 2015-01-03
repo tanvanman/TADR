@@ -87,7 +87,7 @@ begin
                           @WeaponAimNTrajectory_NoAirWeapon_Cursor,
                           $0043E578, 0);
 
-    if IniSettings.Plugin_InterceptsOnlyList then
+    if IniSettings.InterceptsOnlyList then
     begin
       WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
                             'Overwrite nukes search function call #1',
@@ -343,8 +343,8 @@ begin
   //NewAngle := Angle / High(Word) * 360;
   //Distance := DistanceOrg;
 
-  MapWidth := PTAdynmemStruct(TAData.MainStructPtr).MapWidth;
-  MapHeight := PTAdynmemStruct(TAData.MainStructPtr).MapHeight;
+  MapWidth := TAData.MainStruct.MapWidth;
+  MapHeight := TAData.MainStruct.MapHeight;
   AttackerUnit := CurrentProjectile.pAttackerUnit;
 
   for i := 1 to SprayRate do
@@ -650,9 +650,9 @@ label
   AntiNukeNotInStock;
 begin
   CurProjectileIdx := 0;
-  ProjectilesCount := PTADynMemStruct(TAData.MainStructPtr).lNumProjectiles;
-  FirstProjectile := PTADynMemStruct(TAData.MainStructPtr).p_Projectiles;
-  Projectile := PTADynMemStruct(TAData.MainStructPtr).p_Projectiles;
+  ProjectilesCount := TAData.MainStruct.lNumProjectiles;
+  FirstProjectile := TAData.MainStruct.p_Projectiles;
+  Projectile := TAData.MainStruct.p_Projectiles;
   Coverage := UnitStruct.UnitWeapons[WeapStructIndex].p_Weapon.lCoverage shl 16;
 
   if ( UnitStruct.UnitWeapons[WeapStructIndex].cStock <> 0 ) and

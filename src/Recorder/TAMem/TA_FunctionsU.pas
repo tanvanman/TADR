@@ -617,6 +617,11 @@ type
 var
   ORDERS_QueueOrder: ORDERS_QueueOrderHandler = ORDERS_QueueOrderHandler($0043AC60);
 
+type
+  ORDERS_CancelOrderHandler = procedure(eax, edx: Cardinal; p_UnitOrder: PUnitOrder); register;
+var
+  ORDERS_CancelOrder: ORDERS_CancelOrderHandler = ORDERS_CancelOrderHandler($0043A1F0);
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // Units
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1246,6 +1251,15 @@ type
 var
   HAPIBANK_SeekInHex : HAPIBANK_SeekInHexHandler = HAPIBANK_SeekInHexHandler($004B4C10);
 
+// warning: this also jumps into section if exists
+type
+  TdfFile_SectionExistsHandler = function ( Eax : Cardinal;
+                                            Edx : Cardinal;
+                                            Ecx : Cardinal;
+                                            SectionName : PAnsiChar): Boolean; register;
+var
+  TdfFile_SectionExists : TdfFile_SectionExistsHandler = TdfFile_SectionExistsHandler($004C3410);
+
 type
   TdfFile_GetIntHandler = function ( Eax : Cardinal;
                                      Edx : Cardinal;
@@ -1274,26 +1288,6 @@ type
                                        TagName : PAnsiChar): Double; register;
 var
   TdfFile_GetFloat : TdfFile_GetFloatHandler = TdfFile_GetFloatHandler($004C4760);
-
-type
-  TdfFile__GetIntHandler = function ( TagName : PAnsiChar;
-                                      DefaultNumber : LongInt ): Integer; cdecl;
-var
-  TdfFile__GetInt : TdfFile__GetIntHandler = TdfFile__GetIntHandler($004C46C0);
-
-type
-  TdfFile__GetStrHandler = function ( ReceiveBuf : Pointer;
-                                      Name : Pointer;
-                                      BufLen : Integer;
-                                      Default : Pointer ): Integer; cdecl;
-var
-  TdfFile__GetStr : TdfFile__GetStrHandler = TdfFile__GetStrHandler($004C48C0);
-
-type
-  TdfFile__GetFloatHandler = function ( TagName : PAnsiChar;
-                                        DefaultNumber : Double ): Double; cdecl;
-var
-  TdfFile__GetFloat : TdfFile__GetFloatHandler = TdfFile__GetFloatHandler($004C4760);
 
 Type
   SetCurrentDirectoryToTAPathHandler = function: Boolean; cdecl;

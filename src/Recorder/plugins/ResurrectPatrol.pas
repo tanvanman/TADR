@@ -225,7 +225,7 @@ MakeOrderResurrect :
   cmp     ax, 0FFFFh
   jz      DontCheckIsWreck           // feature isnt there anymore
   mov     ecx, [TADynmemStructPtr]
-  mov     ebx, [ecx+1426Fh]          // PTAdynmemStruct(TAData.MainStructPtr).p_FeatureDefs
+  mov     ebx, [ecx+1426Fh]          // TAData.MainStruct.p_FeatureDefs
   and     eax, $0000FFFF
   mov     ecx, type TFeatureDefStruct // size of TFeatureDefStruct
   push    edx
@@ -258,4 +258,3 @@ StopResurrectNonWreck :
 end;
 
 end.
-

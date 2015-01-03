@@ -77,7 +77,7 @@ begin
                           @TAExceptionsLog_COBRunScriptEmptyCOB2,
                           $004B094D, 0);
 
-    if IniSettings.Plugin_AiNukes then
+    if IniSettings.AiNukes then
       TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
                             'AI build probability unit type too high',
                             @TAExceptionsLog_AIBuildUnitInfoTooHigh,

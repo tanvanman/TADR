@@ -109,6 +109,7 @@ const
  DISTANCE = 135;
 
  { Unit orders }
+ CURRENT_ORDER_ABORT = 136;
  CURRENT_ORDER_TYPE = 137;
  CURRENT_ORDER_TARGET_POS = 138;
  CURRENT_ORDER_TARGET_ID = 139;
@@ -244,7 +245,7 @@ if IsTAVersion31 and State_COB_extensions then
   // Maximum scripts slots that can be run by a unit in game
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
-  if IniSettings.Plugin_ScriptSlotsLimit and
+  if IniSettings.ScriptSlotsLimit and
      (IniSettings.ModId > 1) then
   begin
     lReplacement := SizeOf(TNewScriptsData);
@@ -756,7 +757,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
           begin
             UnitinfoSt := TAMem.UnitInfoCrc2Ptr(arg1);
             if (UnitInfoSt.nCruiseAlt <> 0) and (arg4 = 6) then
-              Position.Y := GetPosHeight(@Position) + UnitInfoSt.nCruiseAlt - PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.SeaLevel;
+              Position.Y := GetPosHeight(@Position) + UnitInfoSt.nCruiseAlt - TAData.MainStruct.TNTMemStruct.SeaLevel;
             if arg3 = 10 then
               arg3 := TAUnit.GetOwnerIndex(p_Unit);
             p_Unit := TAUnit.CreateUnit(arg3, UnitinfoSt, Position, nil, False, False, arg4);
@@ -827,6 +828,10 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
         result := LongWord(TAUnits.Distance(@TAUnit.Id2Ptr(arg1).Position, @TAUnit.Id2Ptr(arg2).Position))
       else
         result := LongWord(TAUnits.Distance(@p_Unit.Position, @TAUnit.Id2Ptr(arg1).Position));
+      end;
+    CURRENT_ORDER_ABORT :
+      begin
+      TAunit.CancelCurrentOrder(p_Unit);
       end;
     CURRENT_ORDER_TYPE :
       begin
@@ -941,17 +946,17 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     MAP_SEA_LEVEL :
       begin
-      result := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.SeaLevel;
+      result := TAData.MainStruct.TNTMemStruct.SeaLevel;
       end;
     IS_LAVA_MAP :
       begin
-      result := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).lIsLavaMap;
+      result := PMapOTAFile(TAData.MainStruct.p_MapOTAFile).lIsLavaMap;
       end;
     SURFACE_METAL :
       begin
       if arg1 <> 0 then
-        PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).lSurfaceMetal := arg1;
-      result := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).lSurfaceMetal;
+        PMapOTAFile(TAData.MainStruct.p_MapOTAFile).lSurfaceMetal := arg1;
+      result := PMapOTAFile(TAData.MainStruct.p_MapOTAFile).lSurfaceMetal;
       end;
     UNIT_IN_PLAYER_LOS :
       begin
@@ -1056,7 +1061,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       end;
     MS_SCREEN_GAMMA :
       begin
-      result := PTAdynmemStruct(TAData.MainStructPtr).Gamma;
+      result := TAData.MainStruct.Gamma;
       end;
     MS_DESELECT_UNITS :
       begin
@@ -1171,7 +1176,7 @@ try
       MS_SCREEN_GAMMA :
         begin
         SetGamma(arg1 * 0.1);
-        PTAdynmemStruct(TAData.MainStructPtr).Gamma := arg1;
+        TAData.MainStruct.Gamma := arg1;
         end;
       MS_SCREEN_FADE :
         begin

@@ -65,7 +65,7 @@ begin
                             @OnInstallClockPosition,
                             @OnUninstallClockPosition );
 
-    if IniSettings.Plugin_ClockPosition <> 0 then
+    if IniSettings.ClockPosition <> 0 then
     begin
       ClockPositionPlugin.MakeReplacement(State_ClockPosition,
                           'ClockPos replace format string',
@@ -77,7 +77,7 @@ begin
                           $0046A242,
                           AGameTime, 4);
 
-      case IniSettings.Plugin_ClockPosition of
+      case IniSettings.ClockPosition of
         1 : begin
               ClockPositionPlugin.MakeRelativeJmp(State_ClockPosition,
                               'Clock left bottom position',
@@ -165,4 +165,3 @@ asm
 end;
 
 end.
-

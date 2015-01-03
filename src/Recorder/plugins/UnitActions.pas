@@ -495,9 +495,9 @@ begin
                        TargetPosition.Z + UnitsArr[i].OffZ,
                        TargetPositionWithOffset);
 
-          if TargetPositionWithOffset.X >= PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lMapWidth - 128 then
+          if TargetPositionWithOffset.X >= TAData.MainStruct.TNTMemStruct.lMapWidth - 128 then
             Continue;
-          if TargetPositionWithOffset.Z >= PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lMapHeight - 32 then
+          if TargetPositionWithOffset.Z >= TAData.MainStruct.TNTMemStruct.lMapHeight - 32 then
             Continue;
 
           TAUnit.Position2Grid(TargetPositionWithOffset, TestedUnit.p_UnitInfo, nPosX, nPosZ);
@@ -741,28 +741,28 @@ begin
   begin
     if ( PWord(v4 + $138)^ <> 0) then
     begin
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_MOVE;
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_MOVE;
+      TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
       PlaySound_2D_Name(PAnsiChar(IMMEDIATEORDERS), 0);
       Result := 1;
       Exit;
     end;
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
     goto buildspot_state;
   end;
 
   if ( Pos('STOP', OrderName) <> 0 ) then
   begin
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
-    PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
 
-    if IniSettings.Plugin_StopButton then
+    if IniSettings.StopButton then
       RemoveBuildQueuesFromSelected;
 
     ActionIndex := TAMem.ScriptActionName2Index(PAnsiChar('STOP'));
-    MOUSE_EVENT_2UnitOrder(@PTAdynmemStruct(TAData.MainStructPtr).CurtMousePosition, 0, ActionIndex, 0, 0, 0);
+    MOUSE_EVENT_2UnitOrder(@TAData.MainStruct.CurtMousePosition, 0, ActionIndex, 0, 0, 0);
 play_immediateorders_return:
     PlaySound_2D_Name(PAnsiChar(IMMEDIATEORDERS), 0);
     Result := 1;
@@ -773,14 +773,14 @@ play_immediateorders_return:
   begin
     if ( PWord(v4 + $138)^ <> 0) then
     begin
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_ATTACK;
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_ATTACK;
+      TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
       PlaySound_2D_Name(PAnsiChar(IMMEDIATEORDERS), 0);
       Result := 1;
       Exit;
     end;
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
     goto buildspot_state;
   end;
 
@@ -788,14 +788,14 @@ play_immediateorders_return:
   begin
     if ( PWord(v4 + $138)^ <> 0) then
     begin
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_BLAST;
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_BLAST;
+      TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
       PlaySound_2D_Name(PAnsiChar(IMMEDIATEORDERS), 0);
       Result := 1;
       Exit;
     end;
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
     goto play_specialorders_return;
   end;
 
@@ -803,14 +803,14 @@ play_immediateorders_return:
   begin
     if ( PWord(v4 + $138)^ <> 0) then
     begin
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_DEFEND;
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_DEFEND;
+      TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
       PlaySound_2D_Name(PAnsiChar(IMMEDIATEORDERS), 0);
       Result := 1;
       Exit;
     end;
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
     goto buildspot_state;
   end;
 
@@ -818,14 +818,14 @@ play_immediateorders_return:
   begin
     if ( PWord(v4 + $138)^ <> 0) then
     begin
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_REPAIR;
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_REPAIR;
+      TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
       PlaySound_2D_Name(PAnsiChar(SPECIALORDERS), 0);
       Result := 1;
       Exit;
     end;
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
     goto play_specialorders_return;
   end;
 
@@ -833,14 +833,14 @@ play_immediateorders_return:
   begin
     if ( PWord(v4 + $138)^ <> 0) then
     begin
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_PATROL;
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_PATROL;
+      TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
       PlaySound_2D_Name(PAnsiChar(IMMEDIATEORDERS), 0);
       Result := 1;
       Exit;
     end;
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
     goto buildspot_state;
   end;
 
@@ -848,14 +848,14 @@ play_immediateorders_return:
   begin
     if ( PWord(v4 + $138)^ <> 0) then
     begin
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_RECLAIM;
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_RECLAIM;
+      TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
       PlaySound_2D_Name(PAnsiChar(SPECIALORDERS), 0);
       Result := 1;
       Exit;
     end;
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
     goto play_specialorders_return;
   end;
 
@@ -863,14 +863,14 @@ play_immediateorders_return:
   begin
     if ( PWord(v4 + $138)^ <> 0) then
     begin
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_CAPTURE;
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_CAPTURE;
+      TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
       PlaySound_2D_Name(PAnsiChar(SPECIALORDERS), 0);
       Result := 1;
       Exit;
     end;
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
     goto play_specialorders_return;
   end;
 
@@ -878,26 +878,26 @@ play_immediateorders_return:
   begin
     if ( PWord(v4 + $138)^ <> 0) then
     begin
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_TELEPORTNEW;
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-        PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_TELEPORTNEW;
+      TAData.MainStruct.cBuildSpotState :=
+        TAData.MainStruct.cBuildSpotState and $F7;
       PlaySound_2D_Name(PAnsiChar(IMMEDIATEORDERS), 0);
       Result := 1;
       Exit;
     end;
-    PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+    TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
     goto buildspot_state;
   end;
 
   if ( Pos('UNLOAD', OrderName) <> 0 ) then
   begin
     if ( PWord(v4 + $138)^ <> 0) then
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_UNLOAD
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_UNLOAD
     else
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
 play_specialorders_return:
-    PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+    TAData.MainStruct.cBuildSpotState :=
+      TAData.MainStruct.cBuildSpotState and $F7;
     PlaySound_2D_Name(PAnsiChar(SPECIALORDERS), 0);
     Result := 1;
     Exit;
@@ -906,12 +906,12 @@ play_specialorders_return:
   if ( Pos('LOAD', OrderName) <> 0 ) then
   begin
     if ( PWord(v4 + $138)^ <> 0) then
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_LOAD
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_LOAD
     else
-      PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := BUTTON_ORDER_STOP;
+      TAData.MainStruct.ucPrepareOrderType := BUTTON_ORDER_STOP;
 buildspot_state:
-    PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState :=
-      PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $F7;
+    TAData.MainStruct.cBuildSpotState :=
+      TAData.MainStruct.cBuildSpotState and $F7;
     goto play_immediateorders_return;
   end;
   Result := 0;

@@ -24,7 +24,7 @@ uses
 
 class procedure TAMap.SetCameraToUnit(p_Unit: PUnitStruct);
 begin
-  PTAdynmemStruct(TAData.MainStructPtr).pCameraToUnit := p_Unit;
+  TAData.MainStruct.pCameraToUnit := p_Unit;
 end;
 
 class function TAMap.PlaceFeatureOnMap(FeatureName: String;

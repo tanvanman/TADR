@@ -32,7 +32,7 @@ Procedure OnUninstallRegPathFix;
 
 // -----------------------------------------------------------------------------
 
-procedure LoadSharedMapsHook;
+procedure LoadCommonDataHook;
 
 implementation
 uses
@@ -110,8 +110,8 @@ begin
     end;
     
     RegPathFixPlugin.MakeRelativeJmp( State_RegPathFix,
-                          'Load shared maps files',
-                          @LoadSharedMapsHook,
+                          'Load common maps and game data files',
+                          @LoadCommonDataHook,
                           $0041D4DB, 0);
 
     Result:= RegPathFixPlugin;
@@ -119,16 +119,18 @@ begin
     Result := nil;
 end;
 
-procedure LoadSharedMaps;
+procedure LoadCommonMaps;
 var
   FindHandle: Integer;
   SearchRec: TAFindData;
-  SharedMaps, SharedBasicGameData : Boolean;
+  CommonMaps, CommonGameData : Boolean;
   TAPath : String;
   sRev31Name : String;
 begin
-  SharedMaps := IniSettings.CommonMapsPath <> '';
-  SharedBasicGameData := IniSettings.CommonGameDataPath <> '';
+  CommonMaps := (IniSettings.CommonMapsPath <> '') and
+    IniSettings.UseCommonMaps;
+  CommonGameData := (IniSettings.CommonGameDataPath <> '') and
+    IniSettings.UseCommonGameData;
 
   SetCurrentDirectoryToTAPath;
   TAPath := IncludeTrailingPathDelimiter(ExtractFilePath(SelfLocation));
@@ -153,7 +155,7 @@ begin
     HAPIFILE_FindClose(FindHandle);
   end;
 
-  if SharedBasicGameData then
+  if CommonGameData then
   begin
     SetCurrentDir(IniSettings.CommonGameDataPath);
     FindHandle := HAPIFILE_FindFirst('*.CCX', @SearchRec, -1, 1);
@@ -168,7 +170,7 @@ begin
     SetCurrentDirectoryToTAPath;
   end;
 
-  if SharedMaps then
+  if CommonMaps then
   begin
     SetCurrentDir(IniSettings.CommonMapsPath);
     FindHandle := HAPIFILE_FindFirst('*.CCX', @SearchRec, -1, 1);
@@ -193,7 +195,7 @@ begin
     HAPIFILE_FindClose(FindHandle);
   end;
 
-  if SharedMaps then
+  if CommonMaps then
   begin
     SetCurrentDir(IniSettings.CommonMapsPath);
     FindHandle := HAPIFILE_FindFirst('*.UFO', @SearchRec, -1, 1);
@@ -218,7 +220,7 @@ begin
     HAPIFILE_FindClose(FindHandle);
   end;
 
-  if SharedBasicGameData then
+  if CommonGameData then
   begin
     SetCurrentDir(IniSettings.CommonGameDataPath);
     FindHandle := HAPIFILE_FindFirst('*.HPI', @SearchRec, -1, 1);
@@ -232,7 +234,7 @@ begin
     end;
   end;
 
-  if SharedMaps then
+  if CommonMaps then
   begin
     SetCurrentDir(IniSettings.CommonMapsPath);
     FindHandle := HAPIFILE_FindFirst('*.HPI', @SearchRec, -1, 1);
@@ -249,10 +251,10 @@ begin
   SetCurrentDirectoryToTAPath;
 end;
 
-procedure LoadSharedMapsHook;
+procedure LoadCommonDataHook;
 asm
     pushAD
-    call LoadSharedMaps
+    call LoadCommonMaps
     popAD
     // before rev31
     //push $0041D4E0;

@@ -16,17 +16,16 @@ const
   TADemoVersion_99b2 = 3;
   TADemoVersion_99b3_beta1 = 4;
   TADemoVersion_99b3_beta2 = 5;
-  //used by 3.9.2 to record OTA demos
+  //used to record OTA demos
   TADemoVersion_99b3_beta3 = 6;
   //used only to record demos with more than 256 weapon IDs
-  TADemoVersion_3_9_2 = 7;
+  TADemoVersion_4 = 7;
 
   TADemoVersion_99b3 = TADemoVersion_99b3_beta3;
   TADemoVersion_Current = TADemoVersion_99b3_beta3;
 
   // every 30 seconds flush the logs
-//  FlushDeltaTime = 30*1000;
-  FlushDeltaTime = 1*1000;
+  FlushDeltaTime = 30*1000;
 const
   NumDeities = 13;
   Deities :array[1..NumDeities] of string = ('Allah', 'Shiva', 'Odin', 'Zeus', 'Jehova', 'Buddha', 'Zarathustra', 'Thor', 'Mammon', 'Uncle Sam', 'Ra', 'Bill Gates', 'Sugar the Snow Fairy');

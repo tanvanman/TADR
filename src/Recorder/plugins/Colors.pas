@@ -19,29 +19,29 @@ type
 
 const
   ColorsArray : array[0..30] of TColorEntry = (
-    (sName: 'UnitSelectionBox'; lOffset: $00467A70; cSwapType: 2; cDefaultVal: 0;),
-    (sName: 'BuildQueueBoxSelected1'; lOffset: $00438D63; cSwapType: 2; cDefaultVal: 0;),
-    (sName: 'BuildQueueBoxSelected2'; lOffset: $00438D5D; cSwapType: 2; cDefaultVal: 0;),
-    (sName: 'BuildQueueBoxNonSelected1'; lOffset: $00438D79; cSwapType: 2; cDefaultVal: 0;),
-    (sName: 'BuildQueueBoxNonSelected2'; lOffset: $00438D73; cSwapType: 2; cDefaultVal: 0;),
-    (sName: 'LoadBarsTexturesReady'; lOffset: $0049876B; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBarsTexturesLoading'; lOffset: $00498768; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBarsTerrainReady'; lOffset: $00498848; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBarsTexturesLoading'; lOffset: $00498845; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBarsUnitsReady'; lOffset: $0049891C; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBarsUnitsLoading'; lOffset: $00498919; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBarsAnimationsReady'; lOffset: $004989F0; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBarsAnimationsLoading'; lOffset: $004989ED; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBars3DDataReady'; lOffset: $00498AC4; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBars3DDataLoading'; lOffset: $00498AC1; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBarsExplosionsReady'; lOffset: $00498BBD; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'LoadBarsExplosionsLoading'; lOffset: $00498BBA; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'NanolatheParticleBase'; lOffset: $00473F3D; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'NanolatheParticleColors'; lOffset: $004739D6; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'UnderConstructSurfaceLo'; lOffset: $00458E6C; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'UnderConstructSurfaceHi'; lOffset: $00458E5F; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'UnderConstructOutlineLo'; lOffset: $00458E88; cSwapType: 1; cDefaultVal: 0;),
-    (sName: 'UnderConstructOutlineHi'; lOffset: $00458E7B; cSwapType: 1; cDefaultVal: 0;),
+    (sName: 'UnitSelectionBox'; lOffset: $00467A70; cSwapType: 2; cDefaultVal: 10;),
+    (sName: 'BuildQueueBoxSelected1'; lOffset: $00438D63; cSwapType: 2; cDefaultVal: 10;),
+    (sName: 'BuildQueueBoxSelected2'; lOffset: $00438D5D; cSwapType: 2; cDefaultVal: 3;),
+    (sName: 'BuildQueueBoxNonSelected1'; lOffset: $00438D79; cSwapType: 2; cDefaultVal: 9;),
+    (sName: 'BuildQueueBoxNonSelected2'; lOffset: $00438D73; cSwapType: 2; cDefaultVal: 1;),
+    (sName: 'LoadBarsTexturesReady'; lOffset: $0049876B; cSwapType: 1; cDefaultVal: 10;),
+    (sName: 'LoadBarsTexturesLoading'; lOffset: $00498768; cSwapType: 1; cDefaultVal: 2;),
+    (sName: 'LoadBarsTerrainReady'; lOffset: $00498848; cSwapType: 1; cDefaultVal: 10;),
+    (sName: 'LoadBarsTexturesLoading'; lOffset: $00498845; cSwapType: 1; cDefaultVal: 2;),
+    (sName: 'LoadBarsUnitsReady'; lOffset: $0049891C; cSwapType: 1; cDefaultVal: 10;),
+    (sName: 'LoadBarsUnitsLoading'; lOffset: $00498919; cSwapType: 1; cDefaultVal: 2;),
+    (sName: 'LoadBarsAnimationsReady'; lOffset: $004989F0; cSwapType: 1; cDefaultVal: 10;),
+    (sName: 'LoadBarsAnimationsLoading'; lOffset: $004989ED; cSwapType: 1; cDefaultVal: 2;),
+    (sName: 'LoadBars3DDataReady'; lOffset: $00498AC4; cSwapType: 1; cDefaultVal: 10;),
+    (sName: 'LoadBars3DDataLoading'; lOffset: $00498AC1; cSwapType: 1; cDefaultVal: 2;),
+    (sName: 'LoadBarsExplosionsReady'; lOffset: $00498BBD; cSwapType: 1; cDefaultVal: 10;),
+    (sName: 'LoadBarsExplosionsLoading'; lOffset: $00498BBA; cSwapType: 1; cDefaultVal: 2;),
+    (sName: 'NanolatheParticleBase'; lOffset: $00473F3D; cSwapType: 1; cDefaultVal: 161;),
+    (sName: 'NanolatheParticleColors'; lOffset: $004739D6; cSwapType: 1; cDefaultVal: 7;),
+    (sName: 'UnderConstructSurfaceLo'; lOffset: $00458E6C; cSwapType: 1; cDefaultVal: 160;),
+    (sName: 'UnderConstructSurfaceHi'; lOffset: $00458E5F; cSwapType: 1; cDefaultVal: 175;),
+    (sName: 'UnderConstructOutlineLo'; lOffset: $00458E88; cSwapType: 1; cDefaultVal: 160;),
+    (sName: 'UnderConstructOutlineHi'; lOffset: $00458E7B; cSwapType: 1; cDefaultVal: 175;),
     (sName: 'UnitHealthBarGood'; lOffset: 0; cSwapType: 0; cDefaultVal: 10;),
     (sName: 'UnitHealthBarMedium '; lOffset: 0; cSwapType: 0; cDefaultVal: 14;),
     (sName: 'UnitHealthBarLow'; lOffset: 0; cSwapType: 0; cDefaultVal: 12;),
@@ -85,9 +85,15 @@ var
 
 function GetRaceSpecificColor(ColorNr: Byte) : Byte;
 begin
-  Result := IniSettings.CustomColors[Ord(TAData.RaceSide) + 1][ColorNr];
-  if Result = 0 then
-    Result := IniSettings.CustomColors[0][ColorNr];
+  if IniSettings.Colors then
+  begin
+    Result := IniSettings.CustomColors[Ord(TAData.RaceSide) + 1][ColorNr];
+    if Result = 0 then
+      Result := IniSettings.CustomColors[0][ColorNr];
+    if Result = 0 then
+      Result := ColorsArray[ColorNr].cDefaultVal;
+  end else
+    Result := ColorsArray[ColorNr].cDefaultVal;
 end;
 
 Procedure InstallColors(RaceSpecific: Boolean); stdcall;

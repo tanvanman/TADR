@@ -70,6 +70,7 @@ type
 
     class function EditCurrentOrderParams(p_Unit: PUnitStruct; Par: Byte; NewValue: LongWord) : Boolean;
     class function CreateMainOrder(p_Unit: PUnitStruct; Targetp_Unit: PUnitStruct; ActionType: TTAActionType; Position: PPosition; ShiftKey: Byte; Par1: LongWord; Par2: LongWord) : LongInt;
+    class procedure CancelCurrentOrder(p_Unit: PUnitStruct);
 
     { COB }
     class Function GetCOBDataPtr(p_Unit: PUnitStruct) : Pointer;
@@ -117,6 +118,7 @@ type
 
 implementation
 uses
+  Windows,
   TA_MemoryLocations,
   TA_NetworkingMessages,
   TA_MemPlayers,
@@ -124,7 +126,6 @@ uses
   UnitInfoExpand,
   COB_Extensions,
   idplay,
-  Windows,
   Math;
 
 
@@ -1746,8 +1747,8 @@ var
 begin
   x := Round(CenterPosition.X + cos(Angle) * Radius);
   z := Round(CenterPosition.Z + sin(Angle) * Radius);
-  MapWidth := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lMapWidth;
-  MapHeight := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lMapHeight;
+  MapWidth := TAData.MainStruct.TNTMemStruct.lMapWidth;
+  MapHeight := TAData.MainStruct.TNTMemStruct.lMapHeight;
   if (x > 0) and (z > 0) and (x < MapWidth) and (z < MapHeight) then
     Result:= True
   else
@@ -1760,7 +1761,7 @@ begin
   Result := False;
 
   if not (usfIncludeTransported in Filter) then
-    if p_Unit.cAttachedToPiece <> -1 then
+    if p_Unit.p_TransporterUnit <> nil then
       Exit;
 
   if Player <> nil then
@@ -1808,7 +1809,7 @@ begin
       Exit
     else
       //subs or pels/hovers currently in sea
-      if not (GetPosHeight(@p_Unit.Position) > PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.SeaLevel) then
+      if not (GetPosHeight(@p_Unit.Position) > TAData.MainStruct.TNTMemStruct.SeaLevel) then
       begin
         Exit;
       end;
@@ -1829,6 +1830,44 @@ begin
     Exit;
 
   Result := True;
+end;
+
+class procedure TAUnit.CancelCurrentOrder(p_Unit: PUnitStruct);
+var
+  OldOrder: PUnitOrder;
+  CurrOrder: Pointer;
+  TmpOrder: Pointer;
+  OldestOrder: TUnitOrder;
+begin
+  if p_Unit.p_MainOrder <> nil then
+  begin
+    OldOrder := p_Unit.p_MainOrder;
+    OldestOrder := p_Unit.p_MainOrder^;
+    CurrOrder := @p_Unit.p_MainOrder;
+
+    if (OldOrder.lOrder_State and $40000) = $40000 then
+      CurrOrder := @p_Unit.p_SubOrder;
+
+    TmpOrder := PUnitOrder(CurrOrder^).p_ThisOrder;
+    if CurrOrder <> nil then
+    begin
+      while TmpOrder <> OldOrder.p_ThisOrder do
+      begin
+        CurrOrder := PUnitOrder(TmpOrder).p_NextOrder;
+        if PUnitOrder(TmpOrder).p_NextOrder = nil then
+          Break;
+        TmpOrder := PUnitOrder(TmpOrder).p_NextOrder;
+      end;
+      PPointer(CurrOrder)^ := OldOrder.p_NextOrder;
+      if OldOrder <> OldestOrder.p_ThisOrder then
+        OldOrder.lOrder_State := OldOrder.lOrder_State or $10000;
+      if OldOrder <> nil then
+      begin
+        ORDERS_CancelOrder(0, 0, OldOrder);
+        MEM_Free(OldOrder);
+      end;
+    end;
+  end;
 end;
 
 end.

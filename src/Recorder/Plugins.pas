@@ -34,6 +34,7 @@ uses
   TAExceptionsLog,
   {$ENDIF}
   MapExtensions,
+  SideDataExpand,
   //MinimapExpand,
   Colors,
   ClockPosition,
@@ -64,13 +65,14 @@ if OnMainRun then
   //RegisterPlugin( BattleRoomScroll.GetPlugin() );
   RegisterPlugin( WeaponsExpand.GetPlugin() );
   RegisterPlugin( UnitInfoExpand.GetPlugin() );
+  RegisterPlugin( SideDataExpand.GetPlugin() );
   RegisterPlugin( RegPathFix.GetPlugin() );
   if IniSettings.ModId > 1 then
   begin
     //RegisterPlugin( PlayersSlotsExpand.GetPlugin() );
     RegisterPlugin( Builders.GetPlugin() );
     RegisterPlugin( ScriptCallsExtend.GetPlugin() );
-    if IniSettings.Plugin_ResurrectPatrol then
+    if IniSettings.ResurrectPatrol then
       RegisterPlugin( ResurrectPatrol.GetPlugin() );
     RegisterPlugin( UnitActions.GetPlugin() );
     RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
@@ -83,11 +85,11 @@ if OnMainRun then
 //    if IniSettings.ExpandMinimap then
 //      RegisterPlugin( MinimapExpand.GetPlugin() );
   end;
-  if IniSettings.Plugin_Colors then
+  if IniSettings.Colors then
     RegisterPlugin( Colors.GetPlugin() );
   RegisterPlugin( ClockPosition.GetPlugin() );
   RegisterPlugin( GUIEnhancements.GetPlugin() );
-  if IniSettings.Plugin_BattleRoomEnh then
+  if IniSettings.BattleRoomEnh then
     RegisterPlugin( BattleRoomEnhancements.GetPlugin() );
   RegisterPlugin( ExtensionsMem.GetPlugin() );
   RegisterPlugin( COB_extensions.GetPlugin() );

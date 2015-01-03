@@ -301,7 +301,7 @@ type
     lUnitOrderFlags   : Cardinal;
     lOrder_State      : Cardinal;  // reclaim - going to 00103801 / start reclaim 00503801
     lStartTime        : Cardinal;
-    p_NextOrder_uos   : Pointer;
+    p_NextOrder       : Pointer;
     lMask             : Cardinal;
     p_Order_CallBack  : Pointer;
   end;  
@@ -312,7 +312,7 @@ type
     UnitWeapons       : array[0..2] of TUnitWeapon;
     fMetalExtrRatio   : Single; //UnitInfo.extractsmetal * ExtractRatio * 0.0000152587890625;
     p_MainOrder       : PUnitOrder;
-    p_FutureOrder     : PUnitOrder;
+    p_SubOrder        : PUnitOrder;
     Turn              : TTurn;
     Position          : TPosition;
     nGridPosX         : Word;
@@ -648,11 +648,11 @@ type
 
   PtagRECT = ^tagRECT;
   tagRECT = packed record
-            Left : Longint;
-            Top : Longint;
-            Right : Longint;
-            Bottom : Longint;
-            end;
+    Left : Longint;
+    Top : Longint;
+    Right : Longint;
+    Bottom : Longint;
+  end;
 
   PGAFFrameTransform = ^TGAFFrameTransform;
   TGAFFrameTransform = packed record
@@ -699,8 +699,14 @@ type
     fMaxMetalStorage : Single;
   end;
 
-  PRaceSideDataStruct = ^TRaceSideDataStruct;
-  TRaceSideDataStruct = packed record
+  TExtraSideData = packed record
+    rectDamageVal      : tagRect;
+    rectRealMIncome    : tagRect;
+    rectRealEIncome    : tagRect;
+  end;
+
+  PRaceSideData = ^TRaceSideData;
+  TRaceSideData = packed record
     Name               : array [0..29] of AnsiChar;
     NamePrefix         : array [0..3] of AnsiChar;
     CommanderUnitName  : array [0..31] of AnsiChar;
@@ -728,15 +734,14 @@ type
     rectUnitMetalUse   : tagRECT;
     rectMissionText    : tagRECT;
     rectUnitName2      : tagRECT;
-    rectField1C2       : tagRECT;
+    rectDamageBar2     : tagRECT;
     rectName           : tagRECT;
     rectDescription    : tagRECT;
-    rectReload_RaceID  : tagRECT;
-    field_202          : array [0..31] of byte;
+    rectReload         : array [1..3] of tagRECT;
     lEnergyColor       : Cardinal;
     lMetalColor        : Cardinal;
-    field_22A          : Cardinal;
-    lFont_File         : Cardinal;
+    lSideIdx           : Integer;
+    lFontFile          : Cardinal;
   end;
 
   PMapOTAFile = ^TMapOTAFile;
@@ -1105,7 +1110,7 @@ type
     lMouseSpeed            : Cardinal;
     nSwitchesMask          : Word;
     Unknown46              : array [0..11] of Byte;
-    RaceSideData           : array [0..4] of TRaceSideDataStruct;
+    RaceSideData           : array [0..4] of TRaceSideData;
     RandNum_               : Cardinal;
     field_38A3B            : Cardinal;
     scrollLen_buf          : Cardinal;
@@ -1472,6 +1477,8 @@ var
   ExtraMapOTATags : TExtraMapOTATagsRec;
 
   LocalModInfo : TPlayerModInfo;
+
+  ExtraSideData : array of TExtraSideData;
 
   // pointer to ddraw's weapon array
   WeaponLimitPatchArr : Pointer;

@@ -29,7 +29,7 @@ type
     class function GetUnitsPtr : Pointer;
     class function GetUnits_EndMarkerPtr : Pointer;
     class function GetMaxUnitId: LongWord;
-    class function GetMainStructPtr : Pointer;
+    class function GetMainStructPtr : PTADynMemStruct;
     class function GetProgramStructPtr : Pointer;
     class function GetPlayersStructPtr : Pointer;
     class function GetModelsArrayPtr : Pointer;
@@ -67,7 +67,7 @@ type
     Property UnitsArray_p : Pointer read GetUnitsPtr;
     Property EndOfUnitsArray_p : Pointer read GetUnits_EndMarkerPtr;
     Property MaxUnitsID : Cardinal read GetMaxUnitId;
-    Property MainStructPtr : Pointer read GetMainStructPtr;
+    Property MainStruct : PTADynMemStruct read GetMainStructPtr;
     Property ProgramStructPtr : Pointer read GetProgramStructPtr;
     Property PlayersStructPtr : Pointer read GetPlayersStructPtr;
     Property ModelsArrayPtr : Pointer read GetModelsArrayPtr;
@@ -219,121 +219,121 @@ end;
 
 class Function TAMem.GetLocalPlayerId : Byte;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).cControlPlayerID;
+result := TAData.MainStruct.cControlPlayerID;
 end;
 
 class Function TAMem.GetActivePlayersCount : Byte;
 begin
-result := Byte(PTAdynmemStruct(TAData.MainStructPtr).nActivePlayersCount);
+result := Byte(TAData.MainStruct.nActivePlayersCount);
 end;
 
 class Function TAMem.GetGameTime : Integer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).lGameTime;
+result := TAData.MainStruct.lGameTime;
 end;
 
 class Function TAMem.GetGameSpeed : Byte;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).nTAGameSpeed;
+result := TAData.MainStruct.nTAGameSpeed;
 end;
 
 class Function TAMem.GetDevMode : Boolean;
 begin
-result := (PTAdynmemStruct(TAData.MainStructPtr).nGameState and 2) = 2;
+result := (TAData.MainStruct.nGameState and 2) = 2;
 end;
 
 class function TAMem.GetIsNetworkLayerEnabled: Boolean;
 begin
-result := (GlobalDPlay <> nil) and ((PTAdynmemStruct(TAData.MainStructPtr).cNetworkLayerEnabled and 1) = 1);
+result := (GlobalDPlay <> nil) and ((TAData.MainStruct.cNetworkLayerEnabled and 1) = 1);
 end;
 
 class function TAMem.GetMaxUnitLimit : Word;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).nMaxUnitLimitPerPlayer;
+result := TAData.MainStruct.nMaxUnitLimitPerPlayer;
 end;
 
 class function TAMem.GetActualUnitLimit : Word;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).nPerMissionUnitLimit;
+result := TAData.MainStruct.nPerMissionUnitLimit;
 end;
 
 class function TAMem.GetIsAlteredUnitLimit : Boolean;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).cAlteredUnitLimit <> 0;
+result := TAData.MainStruct.cAlteredUnitLimit <> 0;
 end;
 
 class function TAMem.GetUnitsPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).p_Units;
+result := TAData.MainStruct.p_Units;
 end;
 
 class function TAMem.GetUnits_EndMarkerPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).p_LastUnitInArray;
+result := TAData.MainStruct.p_LastUnitInArray;
 end;
 
-class function TAMem.GetMainStructPtr : Pointer;
+class function TAMem.GetMainStructPtr : PTADynMemStruct;
 begin
-result := Pointer(PLongWord(TADynmemStructPtr)^);
+result := Pointer(PCardinal(TADynmemStructPtr)^);
 end;
 
 class function TAMem.GetProgramStructPtr : Pointer;
 begin
 
-result := PTAdynmemStruct(TAData.MainStructPtr).p_TAProgram;
+result := TAData.MainStruct.p_TAProgram;
 end;
 
 class function TAMem.GetPlayersStructPtr: Pointer;
 begin
-result := @PTAdynmemStruct(TAData.MainStructPtr).Players[0];
+result := @TAData.MainStruct.Players[0];
 end;
 
 class function TAMem.GetModelsArrayPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).p_MODEL_PTRS;
+result := TAData.MainStruct.p_MODEL_PTRS;
 end;
 
 class function TAMem.GetWeaponTypeDefArrayPtr : Pointer;
 begin
   if IniSettings.WeaponType <= 256 then
-    result := @PTAdynmemStruct(TAData.MainStructPtr).Weapons[0]
+    result := @TAData.MainStruct.Weapons[0]
   else
     result := @PTAdynmemStruct(WeaponLimitPatchArr)^.Weapons[0];
 end;
 
 class function TAMem.GetFeatureTypeDefArrayPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.p_FeatureDefs;
+result := TAData.MainStruct.TNTMemStruct.p_FeatureDefs;
 end;
 
 class function TAMem.GetUnitInfosPtr : Pointer;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).p_UNITINFOs;
+result := TAData.MainStruct.p_UNITINFOs;
 end;
 
 class function TAMem.GetUnitInfosCount : LongWord;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).lNumUnitTypeDefs;
+result := TAData.MainStruct.lNumUnitTypeDefs;
 end;
 
 class function TAMem.GetSwitchesMask : Word;
 begin
-Result:= PTAdynmemStruct(TAData.MainStructPtr).nSwitchesMask;
+Result:= TAData.MainStruct.nSwitchesMask;
 end;
 
 class procedure TAMem.SetSwitchesMask(Mask: Word);
 begin
-PTAdynmemStruct(TAData.MainStructPtr).nSwitchesMask:= Mask;
+TAData.MainStruct.nSwitchesMask:= Mask;
 end;
 
 class Function TAMem.GetPausedState : Boolean;
 begin
-result := PTAdynmemStruct(TAData.MainStructPtr).cIsGamePaused <> 0;
+result := TAData.MainStruct.cIsGamePaused <> 0;
 end;
 
 class Procedure TAMem.SetPausedState( value : Boolean);
 begin
-PTAdynmemStruct(TAData.MainStructPtr).cIsGamePaused := BoolValues[value];
+TAData.MainStruct.cIsGamePaused := BoolValues[value];
 end;
 
 class function TAMem.GetModelPtr(index: Word) : Pointer;
@@ -381,7 +381,7 @@ end;
 
 class function TAMem.FeatureDefId2Ptr(ID: Word) : Pointer;
 begin
-  result := Pointer(LongWord(PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.p_FeatureDefs) + SizeOf(TFeatureDefStruct) * ID);
+  result := Pointer(LongWord(TAData.MainStruct.TNTMemStruct.p_FeatureDefs) + SizeOf(TFeatureDefStruct) * ID);
 end;
 
 class function TAMem.GetMaxUnitId: LongWord;
@@ -424,18 +424,18 @@ end;
 class function TAMem.GetGameingType: TGameingType;
 begin
   Result := gtMenu;
-  if PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile <> nil then
-    Result := TGameingType(PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).MissionType);
+  if TAData.MainStruct.p_MapOTAFile <> nil then
+    Result := TGameingType(PMapOTAFile(TAData.MainStruct.p_MapOTAFile).MissionType);
 end;
 
 class function TAMem.GetGUICallbackState: TGUICallbackState;
 begin
-  Result := TGUICallbackState(PTAdynmemStruct(TAData.MainStructPtr).lGUICallbackState);
+  Result := TGUICallbackState(TAData.MainStruct.lGUICallbackState);
 end;
 
 class function TAMem.GetAIDifficulty: TAIDifficulty;
 begin
-  Result := TAIDifficulty(PTAdynmemStruct(TAData.MainStructPtr).lCurrenTAIProfile);
+  Result := TAIDifficulty(TAData.MainStruct.lCurrenTAIProfile);
 end;
 
 class function TAMem.GetViewPlayerRaceSide: TTAPlayerSide;
@@ -450,17 +450,17 @@ end;
 
 class procedure TAMem.ShakeCam(X, Y, Duration: Cardinal);
 begin
-  PTAdynmemStruct(TAData.MainStructPtr).field_1432F :=
-    (PTAdynmemStruct(TAData.MainStructPtr).field_1432F + Duration) div 2;
-  PTAdynmemStruct(TAData.MainStructPtr).field_14333 := Duration;
+  TAData.MainStruct.field_1432F :=
+    (TAData.MainStruct.field_1432F + Duration) div 2;
+  TAData.MainStruct.field_14333 := Duration;
   if ( X <> 0 ) then
-    PTAdynmemStruct(TAData.MainStructPtr).ShakeMagnitude_1 :=
-      PTAdynmemStruct(TAData.MainStructPtr).ShakeMagnitude_1 + X;
+    TAData.MainStruct.ShakeMagnitude_1 :=
+      TAData.MainStruct.ShakeMagnitude_1 + X;
   if ( Y <> 0 ) then
-    PTAdynmemStruct(TAData.MainStructPtr).ShakeMagnitude_2 :=
-      PTAdynmemStruct(TAData.MainStructPtr).ShakeMagnitude_2 + Y;
-  if ( PTAdynmemStruct(TAData.MainStructPtr).field_1432F > 0 ) then
-    PTAdynmemStruct(TAData.MainStructPtr).cShake := PTAdynmemStruct(TAData.MainStructPtr).cShake or 1;
+    TAData.MainStruct.ShakeMagnitude_2 :=
+      TAData.MainStruct.ShakeMagnitude_2 + Y;
+  if ( TAData.MainStruct.field_1432F > 0 ) then
+    TAData.MainStruct.cShake := TAData.MainStruct.cShake or 1;
 end;
 
 class function TAMem.ProtectMemoryRegion(Address : Cardinal; Writable: Boolean) : Integer;
@@ -502,12 +502,12 @@ begin
     SmokeInt := Smoke - 1;
 
   case BmpType of
-        0 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147F7)^, GlowInt, SmokeInt); //explosion
-        1 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FB)^, GlowInt, SmokeInt); //explode2
-        2 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $147FF)^, GlowInt, SmokeInt); //explode3
-        3 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14803)^, GlowInt, SmokeInt); //explode4
-        4 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $14807)^, GlowInt, SmokeInt); //explode5
-        5 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStructPtr) + $1480B)^, GlowInt, SmokeInt); //nuke1
+        0 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStruct) + $147F7)^, GlowInt, SmokeInt); //explosion
+        1 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStruct) + $147FB)^, GlowInt, SmokeInt); //explode2
+        2 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStruct) + $147FF)^, GlowInt, SmokeInt); //explode3
+        3 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStruct) + $14803)^, GlowInt, SmokeInt); //explode4
+        4 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStruct) + $14807)^, GlowInt, SmokeInt); //explode5
+        5 : result := ShowExplodeGaf(@Position, PLongWord(LongWord(TAData.MainStruct) + $1480B)^, GlowInt, SmokeInt); //nuke1
     6..99 : result := ShowExplodeGaf(@Position, LongWord(ExtraGAFAnimations.Explode[BmpType - 6]), GlowInt, SmokeInt);
  100..199 : result := ShowExplodeGaf(@Position, LongWord(ExtraGAFAnimations.CustAnim[BmpType - 100]), GlowInt, SmokeInt);
   end;
@@ -545,7 +545,7 @@ begin
     8 : Result := EmitSfx_Teleport(@PiecePos, @TargetBase, 30, 5);
   end;
 
-  if IniSettings.Plugin_BroadcastNanolathe then
+  if IniSettings.BroadcastNanolathe then
   begin
     if Broadcast and TAData.NetworkLayerEnabled then
       GlobalDPlay.Broadcast_EmitSFXToUnit(TAUnit.GetID(p_Unit), TAUnit.GetID(Targetp_Unit), PieceIdx, SfxType);
@@ -576,7 +576,7 @@ end;
 class function TAWeapon.WeaponId2Ptr(ID: Cardinal) : Pointer;
 begin
   if IniSettings.WeaponType <= 256 then
-    result:= @PTAdynmemStruct(TAData.MainStructPtr).Weapons[ID]
+    result:= @TAData.MainStruct.Weapons[ID]
   else
     result:= Pointer(Cardinal(TAData.WeaponTypeDefArrayPtr) + SizeOf(TWeaponDef) * ID);
 end;

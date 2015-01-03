@@ -1739,7 +1739,7 @@ begin
   notime := False;
   SpeedHack.LowerLimit := 10;
   SpeedHack.Upperlimit := 10;
-  PTAdynmemStruct(TAData.MainStructPtr).nTAGameSpeed := 10;
+  TAData.MainStruct.nTAGameSpeed := 10;
 end else
 begin
   notime := True;
@@ -2167,7 +2167,7 @@ if assigned(chatview) then
             Players[1].ClickedIn := true;
             end;
           //Identifierar rec som klarar av enemy-chat
-          if IniSettings.weaponidpatch then tmp[182] := char(TADemoVersion_3_9_2) else tmp[182] := char(TADemoVersion_99b3_beta3); //version
+          if IniSettings.weaponidpatch then tmp[182] := char(TADemoVersion_4) else tmp[182] := char(TADemoVersion_99b3_beta3); //version
           datachanged := true;
           end
         else
@@ -3212,7 +3212,7 @@ try
   player := Players.Add( lpName^.lpszLongName, idPlayer );
   if Players.Count = 1 then
     begin
-    if IniSettings.weaponidpatch then player.InternalVersion := TADemoVersion_3_9_2 else player.InternalVersion := TADemoVersion_99b3_beta3;
+    if IniSettings.weaponidpatch then player.InternalVersion := TADemoVersion_4 else player.InternalVersion := TADemoVersion_99b3_beta3;
     player.EnemyChat := true;
     player.RecConnect := true;
     player.Uses_Rec2Rec_Notification := True;
@@ -3277,7 +3277,7 @@ try
       chatview^.playernames[Players.Count][i] := Player.Name[i];
     chatview^.playernames[Players.Count][NameLen+1] :=#0;
     end;
-  if IniSettings.Plugin_BattleRoomEnh then
+  if IniSettings.BattleRoomEnh then
   begin
     if (PPlayerStruct(TAPlayer.GetPlayerByIndex(Player.PlayerIndex -1)).cPlayerController = Player_LocalAI) or
        (PPlayerStruct(TAPlayer.GetPlayerByIndex(Player.PlayerIndex -1)).cPlayerController = Player_LocalHuman) then
@@ -3693,7 +3693,7 @@ end; {GetGoodSource}
 
 procedure TDPlay.OnRemovePlayer(player : TPlayerData);
 begin
-if IniSettings.Plugin_BattleRoomEnh then
+if IniSettings.BattleRoomEnh then
 begin
   Player.ModInfo.ModID := -1;
   Player.ModInfo.ModMajorVer := '0';

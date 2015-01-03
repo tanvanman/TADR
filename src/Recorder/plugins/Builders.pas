@@ -83,7 +83,7 @@ begin
                           @Builders_PlantBuildNonMobile,
                           $0047DBD6, 0);
 
-    if IniSettings.Plugin_AiNukes then
+    if IniSettings.AiNukes then
     begin
       Replacement := $86D0;
       BuildersPlugin.MakeReplacement(State_Builders,
@@ -98,7 +98,7 @@ begin
 
     end;
 
-    if IniSettings.Plugin_AiBuildList then
+    if IniSettings.AiBuildList then
     begin
       bReplacement := 120;
       BuildersPlugin.MakeReplacement( State_Builders,
@@ -260,7 +260,7 @@ asm
     push    $00503988  // "YardMap"
     lea     ebx, TempString
     push    ebx
-    call    TdfFile__GetStr
+    call    TdfFile_GetStr
     test    eax, eax
     jz      NoYardmap
     popAD

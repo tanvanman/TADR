@@ -279,14 +279,14 @@ begin
   if ( MapGameWidth < MapGameHeight ) then
   begin
     i := MiniMapSize * MapGameWidth div MapGameHeight;
-    PTAdynmemStruct(TAData.MainStructPtr).RadarPicRect_left := (MiniMapSize - i) div 2;
-    PTAdynmemStruct(TAData.MainStructPtr).RadarPicRect_top := 0;
+    TAData.MainStruct.RadarPicRect_left := (MiniMapSize - i) div 2;
+    TAData.MainStruct.RadarPicRect_top := 0;
     MinimapSizeRes := MakeLong(MiniMapSize, i);
   end else
   begin
-    PTAdynmemStruct(TAData.MainStructPtr).RadarPicRect_left := 1;
+    TAData.MainStruct.RadarPicRect_left := 1;
     i := MiniMapSize * MapGameHeight div MapGameWidth;
-    PTAdynmemStruct(TAData.MainStructPtr).RadarPicRect_top := (MiniMapSize - i) div 2;
+    TAData.MainStruct.RadarPicRect_top := (MiniMapSize - i) div 2;
     MinimapSizeRes := MakeLong(i, MiniMapSize);
   end;
 end;
@@ -314,4 +314,3 @@ end;
 //  call PatchNJump;
 
 end.
-

@@ -95,18 +95,18 @@ var
 
 Procedure OnInstallGUIEnhancements;
 begin
-  if IniSettings.Plugin_HBDynamicSize then
+  if IniSettings.HBDynamicSize then
   begin
-    if IniSettings.Plugin_HBCategory1 <> 0 then
-      STANDARDUNIT := IniSettings.Plugin_HBCategory1;
-    if IniSettings.Plugin_HBCategory2 <> 0 then
-      MEDIUMUNIT := IniSettings.Plugin_HBCategory2;
-    if IniSettings.Plugin_HBCategory3 <> 0 then
-      BIGUNIT := IniSettings.Plugin_HBCategory3;
-    if IniSettings.Plugin_HBCategory4 <> 0 then
-      HUGEUNIT := IniSettings.Plugin_HBCategory4;
-    if IniSettings.Plugin_HBCategory5 <> 0 then
-      EXTRALARGEUNIT := IniSettings.Plugin_HBCategory5;
+    if IniSettings.HBCategory1 <> 0 then
+      STANDARDUNIT := IniSettings.HBCategory1;
+    if IniSettings.HBCategory2 <> 0 then
+      MEDIUMUNIT := IniSettings.HBCategory2;
+    if IniSettings.HBCategory3 <> 0 then
+      BIGUNIT := IniSettings.HBCategory3;
+    if IniSettings.HBCategory4 <> 0 then
+      HUGEUNIT := IniSettings.HBCategory4;
+    if IniSettings.HBCategory5 <> 0 then
+      EXTRALARGEUNIT := IniSettings.HBCategory5;
   end;
 end;
 
@@ -134,7 +134,7 @@ begin
                             @GUIEnhancements_DevUnitProbes,
                             $00469BD0, 1);
 
-    if IniSettings.Plugin_TrueIncome then
+    if IniSettings.TrueIncome then
       GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'TrueIncomeHook',
                             @TrueIncomeHook,
@@ -145,7 +145,7 @@ begin
                             @HealthPercentage,
                             $0046B088, 1);
     {
-    if IniSettings.Plugin_CircleUnitSelect then
+    if IniSettings.CircleUnitSelect then
       GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'DrawCircleUnitSelectHook',
                             @DrawCircleUnitSelectHook,
@@ -165,13 +165,13 @@ begin
                             @DrawBuildSpot_NanoframeHook,
                             $00469F23, 1);
 
-    if IniSettings.Plugin_DrawBuildSpotQueueNano then
+    if IniSettings.DrawBuildSpotQueueNano then
       GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                               'DrawBuildSpot_QueueNanoframeHook',
                               @DrawBuildSpot_QueueNanoframeHook,
                               $00438C38, 0);
 
-    if not IniSettings.Plugin_BuildSpotNanoShimmer then
+    if not IniSettings.BuildSpotNanoShimmer then
       GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                               'DrawBuildSpot_NanoframeShimmerHook',
                               @DrawBuildSpot_NanoframeShimmerHook,
@@ -225,7 +225,7 @@ begin
     // nanolathe particles broadcast
     // ---------------------------------
 
-    if IniSettings.Plugin_BroadcastNanolathe then
+    if IniSettings.BroadcastNanolathe then
     begin
       GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                               '',
@@ -318,7 +318,7 @@ begin
     Result := nil;
 end;
 
-function DrawUnitState(Offscreen_p: Cardinal; Unit_p: PUnitStruct;
+function DrawUnitState(p_Offscreen: Cardinal; Unit_p: PUnitStruct;
   CenterPosX : Integer; CenterPosZ: Integer) : Integer; stdcall;
 var
   { drawing }
@@ -365,6 +365,7 @@ var
   FeatureDefPtr : Pointer;
   FeatureDefID : SmallInt;
   ActionUnitType : Word;
+  ActionUnit : PUnitStruct;
   ActionUnitBuildTime : Cardinal;
   ActionUnitBuildCost1, ActionUnitBuildCost2 : Single;
   ActionTime : Double;
@@ -376,20 +377,20 @@ begin
   Result := 0;
   BottomZ := 0;
   // is drawing health bars enabled and any of local player units are actually on screen
-  if ((PTAdynmemStruct(TAData.MainStructPtr).GameOptionMask and 1) = 1) or
+  if ((TAData.MainStruct.GameOptionMask and 1) = 1) or
      (Unit_p.HotKeyGroup <> 0) then
   begin
     UnitInfo := Unit_p.p_UnitInfo;
-    ColorsPal := Pointer(LongWord(TAData.MainStructPtr)+$DCB);
+    ColorsPal := Pointer(LongWord(TAData.MainStruct)+$DCB);
     
-    if ((PTAdynmemStruct(TAData.MainStructPtr).GameOptionMask and 1) = 1) and
+    if ((TAData.MainStruct.GameOptionMask and 1) = 1) and
        (CenterPosX <> 0) and
        (CenterPosZ <> 0) and
        (UnitInfo <> nil) then
     begin
       //AlliedUnit := TAPlayer.GetAlliedState(TAUnit.GetOwnerPtr(Unit_p), TAData.ViewPlayer);
       LocalUnit := (PPlayerStruct(Unit_p.p_Owner).cPlayerIndex = TAData.LocalPlayerID);
-//      DrawTransparentBox(Offscreen_p, @Rect, -24);
+//      DrawTransparentBox(p_Offscreen, @Rect, -24);
       if LocalUnit then
       begin
         UnitHealth := Unit_p.nHealth;
@@ -399,7 +400,7 @@ begin
         begin
           UnitMaxHP := UnitInfo.lMaxHP;
           HPBackgRectWidth := 34;
-          if IniSettings.Plugin_HBDynamicSize then
+          if IniSettings.HBDynamicSize then
           begin
             if UnitMaxHP < STANDARDUNIT then
               HPBackgRectWidth := 28
@@ -420,8 +421,8 @@ begin
                         HPBackgRectWidth := 58;
           end else
           begin
-            if (IniSettings.Plugin_HBWidth <> 0) then
-              HPBackgRectWidth := IniSettings.Plugin_HBWidth
+            if (IniSettings.HBWidth <> 0) then
+              HPBackgRectWidth := IniSettings.HBWidth
           end;
 
           if (UnitHealth <= UnitMaxHP) and
@@ -434,7 +435,7 @@ begin
             RectDrawPos.Top := Word(CenterPosZ) - 2;
             RectDrawPos.Bottom := Word(CenterPosZ) + 2;
 
-            DrawBar(Offscreen_p, @RectDrawPos, PByte(ColorsPal)^);
+            DrawBar(p_Offscreen, @RectDrawPos, PByte(ColorsPal)^);
             Inc(RectDrawPos.Top);
             Dec(RectDrawPos.Bottom);
             Inc(RectDrawPos.Left);
@@ -442,31 +443,19 @@ begin
             RectDrawPos.Right := Round(RectDrawPos.Left + ((HPBackgRectWidth-2) * UnitHealth) / UnitMaxHP);
             HealthState := UnitMaxHP div 3;
 
-            if IniSettings.Plugin_Colors and (GetRaceSpecificColor(23) <> 0) then
+
+            if UnitHealth <= (HealthState * 2) then
             begin
-              if UnitHealth <= (HealthState * 2) then
-              begin
-                if UnitHealth <= HealthState then
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(25))^)
-                else
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(24))^);
-              end else
-                DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(23))^);
+              if UnitHealth <= HealthState then
+                DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(25))^)
+              else
+                DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(24))^);
             end else
-            begin
-              if UnitHealth <= (HealthState * 2) then
-              begin
-                if UnitHealth <= HealthState then
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[25].cDefaultVal)^)  // low
-                else
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[24].cDefaultVal)^); // medium
-              end else
-                DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[23].cDefaultVal)^); // good
-            end;
+              DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(23))^);
           end;
 
         // weapons reload
-        if ((IniSettings.Plugin_MinWeaponReload <> 0) or
+        if ((IniSettings.MinWeaponReload <> 0) or
            (ExtraUnitInfoTags[UnitInfo.nCategory].UseCustomReloadBar)) and
            (UnitBuildTimeLeft = 0.0) then
         begin
@@ -492,7 +481,7 @@ begin
               begin
                 if (PWeaponDef(Unit_p.UnitWeapons[0].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28) then
                   StockPile := 1;
-                if PWeaponDef(Unit_p.UnitWeapons[0].p_Weapon).nReloadTime >= IniSettings.Plugin_MinWeaponReload * 30 then
+                if PWeaponDef(Unit_p.UnitWeapons[0].p_Weapon).nReloadTime >= IniSettings.MinWeaponReload * 30 then
                 begin
                   MaxReloadTime := PWeaponDef(Unit_p.UnitWeapons[0].p_Weapon).nReloadTime;
                   CurReloadTime := MaxReloadTime - Unit_p.UnitWeapons[0].nReloadTime;
@@ -502,7 +491,7 @@ begin
               begin
                 if (PWeaponDef(Unit_p.UnitWeapons[1].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28) then
                   StockPile := 2;
-                if PWeaponDef(Unit_p.UnitWeapons[1].p_Weapon).nReloadTime >= IniSettings.Plugin_MinWeaponReload * 30 then
+                if PWeaponDef(Unit_p.UnitWeapons[1].p_Weapon).nReloadTime >= IniSettings.MinWeaponReload * 30 then
                 begin
                   MaxReloadTime := PWeaponDef(Unit_p.UnitWeapons[1].p_Weapon).nReloadTime;
                   CurReloadTime := MaxReloadTime - Unit_p.UnitWeapons[1].nReloadTime;
@@ -512,7 +501,7 @@ begin
               begin
                 if (PWeaponDef(Unit_p.UnitWeapons[2].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28) then
                   StockPile := 3;
-                if PWeaponDef(Unit_p.UnitWeapons[2].p_Weapon).nReloadTime >= IniSettings.Plugin_MinWeaponReload * 30 then
+                if PWeaponDef(Unit_p.UnitWeapons[2].p_Weapon).nReloadTime >= IniSettings.MinWeaponReload * 30 then
                 begin
                   MaxReloadTime := PWeaponDef(Unit_p.UnitWeapons[2].p_Weapon).nReloadTime;
                   CurReloadTime := MaxReloadTime - Unit_p.UnitWeapons[2].nReloadTime;
@@ -543,10 +532,10 @@ begin
 
             // stockpile weapon build progress instead of reload bar
             if (StockPile <> 0) and
-               IniSettings.Plugin_Stockpile and
+               IniSettings.Stockpile and
                not CustomReloadBar then
             begin
-              if Unit_p.p_FutureOrder <> nil then
+              if Unit_p.p_SubOrder <> nil then
               begin
                 MaxReloadTime := 100;
                 CurReloadTime := GetUnit_BuildWeaponProgress(Unit_p);
@@ -561,9 +550,9 @@ begin
               RectDrawPos.Top := Word(CenterPosZ) + 5 - 2;
               RectDrawPos.Bottom := Word(CenterPosZ) + 5 + 2;
             {  if StockPile <> 0 then
-                DrawRectangle(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+4)^)
+                DrawRectangle(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+4)^)
               else   }
-              DrawBar(Offscreen_p, @RectDrawPos, PByte(ColorsPal)^);
+              DrawBar(p_Offscreen, @RectDrawPos, PByte(ColorsPal)^);
 
               Inc(RectDrawPos.Top);
               Dec(RectDrawPos.Bottom);
@@ -572,34 +561,28 @@ begin
 
               if StockPile <> 0 then
               begin
-                if IniSettings.Plugin_Colors and (GetRaceSpecificColor(28) <> 0) then
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(28))^)
-                else
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ColorsArray[28].cDefaultVal)^);
+                DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+GetRaceSpecificColor(28))^)
               end else
               begin
                 BarProgress := Round((CurReloadTime / MaxReloadTime) * 100);
-                if IniSettings.Plugin_Colors and (GetRaceSpecificColor(26) <> 0) then
-                  WeapReloadColor := GetRaceSpecificColor(26)
-                else
-                  WeapReloadColor := ColorsArray[26].cDefaultVal;
+                WeapReloadColor := GetRaceSpecificColor(26);
                 case BarProgress of
-                   0..15 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor)^);
-                  16..30 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 1)^);
-                  31..47 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 2)^);
-                  48..64 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 3)^);
-                  65..80 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 4)^);
-                  81..94 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 5)^);
-                 95..100 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 6)^);
+                   0..15 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor)^);
+                  16..30 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 1)^);
+                  31..47 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 2)^);
+                  48..64 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 3)^);
+                  65..80 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 4)^);
+                  81..94 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 5)^);
+                 95..100 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 6)^);
                 end;
               end;
             end;
           end;
-        end; { IniSettings.Plugin_WeaponReloadTimeBar }
+        end; { IniSettings.WeaponReloadTimeBar }
 
         end; {UnitHealth > 0}
 
-        if IniSettings.Plugin_MinReclaimTime > 0 then
+        if IniSettings.MinReclaimTime > 0 then
         begin
           CurOrder := TAUnit.GetCurrentOrderType(Unit_p);
           if (CurOrder = Action_Reclaim) or
@@ -638,18 +621,22 @@ begin
                   end;
                   Action_Capture:
                   begin
-                    ActionUnitType := TAUnit.GetUnitInfoId(TAUnit.GetCurrentOrderTargetUnit(Unit_p));
-                    if ActionUnitType <> 0 then
+                    ActionUnit := TAUnit.GetCurrentOrderTargetUnit(Unit_p);
+                    if ActionUnit <> nil then
                     begin
-                      ActionUnitBuildCost1 := PUnitInfo(TAMem.UnitInfoId2Ptr(ActionUnitType)).lBuildCostEnergy * 30 * 0.00050000002;
-                      ActionUnitBuildCost2 := PUnitInfo(TAMem.UnitInfoId2Ptr(ActionUnitType)).lBuildCostMetal * 30 * -0.0071428572;
-                      ActionTime := (ActionUnitBuildCost1 - ActionUnitBuildCost2) + 150;
-
-                      MaxActionVal := Round(ActionTime);
-                      if MaxActionVal - TAUnit.GetCurrentOrderParams(Unit_p, 1) > 0 then
+                      ActionUnitType := TAUnit.GetUnitInfoId(ActionUnit);
+                      if ActionUnitType <> 0 then
                       begin
-                        CurActionVal := TAUnit.GetCurrentOrderParams(Unit_p, 1);
-                        CurActionVal := MaxActionVal - CurActionVal;
+                        ActionUnitBuildCost1 := PUnitInfo(TAMem.UnitInfoId2Ptr(ActionUnitType)).lBuildCostEnergy * 30 * 0.00050000002;
+                        ActionUnitBuildCost2 := PUnitInfo(TAMem.UnitInfoId2Ptr(ActionUnitType)).lBuildCostMetal * 30 * -0.0071428572;
+                        ActionTime := (ActionUnitBuildCost1 - ActionUnitBuildCost2) + 150;
+
+                        MaxActionVal := Round(ActionTime);
+                        if MaxActionVal - TAUnit.GetCurrentOrderParams(Unit_p, 1) > 0 then
+                        begin
+                          CurActionVal := TAUnit.GetCurrentOrderParams(Unit_p, 1);
+                          CurActionVal := MaxActionVal - CurActionVal;
+                        end;
                       end;
                     end;
                   end;
@@ -671,14 +658,14 @@ begin
                 if (MaxActionVal > 0) and
                    (CurActionVal > 0) and
                    (CurActionVal <= MaxActionVal) and  // TA changes par1 to it once feature is reclaimed but order state remains "reclaiming"...
-                   (MaxActionVal >= IniSettings.Plugin_MinReclaimTime * 30) then
+                   (MaxActionVal >= IniSettings.MinReclaimTime * 30) then
                 begin
                   RectDrawPos.Left := Word(CenterPosX) - 17;
                   RectDrawPos.Right := Word(CenterPosX) + 17;
                   RectDrawPos.Top := Word(CenterPosZ) - 7;
                   RectDrawPos.Bottom := Word(CenterPosZ) - 3;
 
-                  DrawBar(Offscreen_p, @RectDrawPos, PByte(ColorsPal)^);
+                  DrawBar(p_Offscreen, @RectDrawPos, PByte(ColorsPal)^);
 
                   Inc(RectDrawPos.Top);
                   Dec(RectDrawPos.Bottom);
@@ -686,16 +673,13 @@ begin
                   RectDrawPos.Right := Round(RectDrawPos.Left + (32 * CurActionVal) / MaxActionVal);
 
                   BarProgress := Round((CurActionVal / MaxActionVal) * 100);
-                  if IniSettings.Plugin_Colors and (GetRaceSpecificColor(27) <> 0) then
-                    ReclaimColor := GetRaceSpecificColor(27)
-                  else
-                    ReclaimColor := ColorsArray[27].cDefaultVal;
+                  ReclaimColor := GetRaceSpecificColor(27);
                   case BarProgress of
-                    0..20 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor)^);
-                   21..40 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 1)^);
-                   41..60 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 2)^);
-                   61..80 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 3)^);
-                  81..100 : result := DrawBar(Offscreen_p, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 4)^);
+                    0..20 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor)^);
+                   21..40 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 1)^);
+                   41..60 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 2)^);
+                   61..80 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 3)^);
+                  81..100 : result := DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 4)^);
                   end;
                 end;
               end;
@@ -704,12 +688,12 @@ begin
         end;
 
         // built weapons counter (nukes)
-        if IniSettings.Plugin_Stockpile then
+        if IniSettings.Stockpile then
           if Unit_p.UnitWeapons[0].cStock > 0 then
-            DrawText_Heavy(Offscreen_p, PAnsiChar(IntToStr(Unit_p.UnitWeapons[0].cStock)), Word(CenterPosX), Word(CenterPosZ) - 13, -1);
+            DrawText_Heavy(p_Offscreen, PAnsiChar(IntToStr(Unit_p.UnitWeapons[0].cStock)), Word(CenterPosX), Word(CenterPosZ) - 13, -1);
 
         // transporter count
-        if IniSettings.Plugin_Transporters then
+        if IniSettings.Transporters then
         begin
           if (UnitInfo.UnitTypeMask and 2048 = 2048) then   // unit is air
           begin
@@ -738,7 +722,7 @@ begin
             end;     }
             TransportCount := TAUnit.GetLoadCurAmount(Unit_p);
             if TransportCount > 0 then
-              DrawText_Heavy(Offscreen_p, PAnsiChar(IntToStr(TransportCount) + '/' + IntToStr(TransportCap)), Word(CenterPosX) - 10, Word(CenterPosZ) - 70, -1);
+              DrawText_Heavy(p_Offscreen, PAnsiChar(IntToStr(TransportCount) + '/' + IntToStr(TransportCap)), Word(CenterPosX) - 10, Word(CenterPosZ) - 70, -1);
           end else
           begin
             WeightTransportMax := ExtraUnitInfoTags[UnitInfo.nCategory].TransportWeightCapacity;
@@ -764,7 +748,7 @@ begin
                   else
                     SetFontColor(PByte(LongWord(ColorsPal)+16)^, FontColor);
 
-                DrawText_Heavy(Offscreen_p,
+                DrawText_Heavy(p_Offscreen,
                                PAnsiChar(IntToStr(WeightTransportPercent) + '%'),
                                Word(CenterPosX) - 10, Word(CenterPosZ) - 70, -1);
                 SetFontColor(PByte(LongWord(ColorsPal)+255)^, FontColor);
@@ -789,84 +773,99 @@ begin
         if AllowHotkeyDraw then
         begin
           sGroup := PAnsiChar(Unit_p.HotKeyGroup + 48);
-          DrawText_Heavy(Offscreen_p, @sGroup, Word(CenterPosX), Word(CenterPosZ) + 3 + BottomZ, -1);
+          DrawText_Heavy(p_Offscreen, @sGroup, Word(CenterPosX), Word(CenterPosZ) + 3 + BottomZ, -1);
         end;
       end;
     end; { Bars enabled }
   end;
 end;
 
-function DrawTrueIncome(OFFSCREEN_ptr: Cardinal; RaceSideData: PRaceSideDataStruct; ViewResBar: PViewResBar; MaxWidth: Integer): LongInt; stdcall;
+procedure DrawTrueIncome(OFFSCREEN_ptr: Cardinal; RaceSideData: PRaceSideData;
+  ViewResBar: PViewResBar); stdcall;
 var
   ResourceIncome : Single;
   PlayerResourceString : PAnsiChar;
   ColorsPal : Pointer;
   FontColor : LongInt;
   FormatSettings: TFormatSettings;
+  SideIndex: Integer;
 begin
-  Result := 0;
-  ColorsPal := Pointer(LongWord(TAData.MainStructPtr)+$DCB);
-  FormatSettings.DecimalSeparator := '.';
-  FontColor := GetFontColor;
+  SideIndex := RaceSideData.lSideIdx;
+  if (SideIndex + 1) <= High(ExtraSideData) then
+  begin
+    ColorsPal := Pointer(LongWord(TAData.MainStruct)+$DCB);
+    FormatSettings.DecimalSeparator := '.';
+    FontColor := GetFontColor;
 
-  ResourceIncome := ViewResBar.fEnergyProduction - ViewResBar.fEnergyExpense;
-  if ResourceIncome > 0.0 then
-  begin
-    SetFontColor(PByte(LongWord(ColorsPal)+10)^, FontColor);
-    if ResourceIncome < 10000 then
-      PlayerResourceString := PAnsiChar(Format('+%.0f', [ResourceIncome], FormatSettings))
-    else
+    if ExtraSideData[SideIndex].rectRealEIncome.Left <> 0 then
     begin
-      ResourceIncome := ResourceIncome / 1000;
-      PlayerResourceString := PAnsiChar(Format('+%.0fK', [ResourceIncome], FormatSettings));
+      ResourceIncome := ViewResBar.fEnergyProduction - ViewResBar.fEnergyExpense;
+      if ResourceIncome >= 0.0 then
+      begin
+        SetFontColor(PByte(LongWord(ColorsPal)+10)^, FontColor);
+        if ResourceIncome < 10000 then
+          PlayerResourceString := PAnsiChar(Format('+%.0f', [ResourceIncome], FormatSettings))
+        else
+        begin
+          ResourceIncome := ResourceIncome / 1000;
+          PlayerResourceString := PAnsiChar(Format('+%.0fK', [ResourceIncome], FormatSettings));
+        end;
+      end else
+      begin
+        SetFontColor(PByte(LongWord(ColorsPal)+12)^, FontColor);
+        if ResourceIncome > -10000 then
+          PlayerResourceString := PAnsiChar(Format('%.0f', [ResourceIncome], FormatSettings))
+        else
+        begin
+          ResourceIncome := ResourceIncome / 1000;
+          PlayerResourceString := PAnsiChar(Format('%.0fK', [ResourceIncome], FormatSettings));
+        end;
+      end;
+      DrawText_Heavy(OFFSCREEN_ptr, PlayerResourceString,
+        ExtraSideData[SideIndex].rectRealEIncome.Left,
+        ExtraSideData[SideIndex].rectRealEIncome.Top, -1);
     end;
-  end else
-  begin
-    SetFontColor(PByte(LongWord(ColorsPal)+12)^, FontColor);
-    if ResourceIncome > -10000 then
-      PlayerResourceString := PAnsiChar(Format('%.0f', [ResourceIncome], FormatSettings))
-    else
+
+    if ExtraSideData[SideIndex].rectRealMIncome.Left <> 0 then
     begin
-      ResourceIncome := ResourceIncome / 1000;
-      PlayerResourceString := PAnsiChar(Format('%.0fK', [ResourceIncome], FormatSettings));
+      ResourceIncome := ViewResBar.fMetalProduction - ViewResBar.fMetalExpense;
+      if ResourceIncome >= 0.0 then
+      begin
+        SetFontColor(PByte(LongWord(ColorsPal)+10)^, FontColor);
+        if ResourceIncome < 10000 then
+          PlayerResourceString := PAnsiChar(Format('+%.1f', [ResourceIncome], FormatSettings))
+        else
+        begin
+          ResourceIncome := ResourceIncome / 1000;
+          PlayerResourceString := PAnsiChar(Format('+%.1fK', [ResourceIncome], FormatSettings));
+        end;
+      end else
+      begin
+        SetFontColor(PByte(LongWord(ColorsPal)+12)^, FontColor);
+        if ResourceIncome > -10000 then
+          PlayerResourceString := PAnsiChar(Format('%.1f', [ResourceIncome], FormatSettings))
+        else
+        begin
+          ResourceIncome := ResourceIncome / 1000;
+          PlayerResourceString := PAnsiChar(Format('%.1fK', [ResourceIncome], FormatSettings));
+        end;
+      end;
+      DrawText_Heavy(OFFSCREEN_ptr, PlayerResourceString,
+        ExtraSideData[SideIndex].rectRealMIncome.Left,
+        ExtraSideData[SideIndex].rectRealMIncome.Top, -1);
     end;
   end;
-  DrawText_Heavy(OFFSCREEN_ptr, PlayerResourceString, RaceSideData.rectEnergyBar.Left, RaceSideData.rectEnergyNum.Top, MaxWidth);
-
-  ResourceIncome := ViewResBar.fMetalProduction - ViewResBar.fMetalExpense;
-  if ResourceIncome > 0.0 then
-  begin
-    SetFontColor(PByte(LongWord(ColorsPal)+10)^, FontColor);
-    if ResourceIncome < 10000 then
-      PlayerResourceString := PAnsiChar(Format('+%.1f', [ResourceIncome], FormatSettings))
-    else
-    begin
-      ResourceIncome := ResourceIncome / 1000;
-      PlayerResourceString := PAnsiChar(Format('+%.1fK', [ResourceIncome], FormatSettings));
-    end;
-  end else
-  begin
-    SetFontColor(PByte(LongWord(ColorsPal)+12)^, FontColor);
-    if ResourceIncome > -10000 then
-      PlayerResourceString := PAnsiChar(Format('%.1f', [ResourceIncome], FormatSettings))
-    else
-    begin
-      ResourceIncome := ResourceIncome / 1000;
-      PlayerResourceString := PAnsiChar(Format('%.1fK', [ResourceIncome], FormatSettings));
-    end;
-  end;
-  DrawText_Heavy(OFFSCREEN_ptr, PlayerResourceString, RaceSideData.rectMetalBar.Left, RaceSideData.rectMetalNum.Top, MaxWidth);
 end;
 
-procedure DrawDevUnitStateProbes(Offscreen_p : Cardinal); stdcall;
+procedure DrawDevUnitStateProbes(p_Offscreen : Cardinal); stdcall;
 begin
-  //DrawTranspRectangle(Offscreen_p, @Rect, PByte(LongWord(ColorsPal)+10)^);
+  //DrawTranspRectangle(p_Offscreen, @Rect, PByte(LongWord(ColorsPal)+10)^);
   if TAData.DevMode then
   begin
-    if PTAdynmemStruct(TAData.MainStructPtr).field_391B3 <> 0 then
-      UnitStateProbe(Offscreen_p);
-    if PTAdynmemStruct(TAData.MainStructPtr).field_391B9 <> 0 then
-      UnitBuilderProbe(Offscreen_p);
+    if TAData.MainStruct.field_391B3 <> 0 then
+      UnitStateProbe(p_Offscreen);
+    if TAData.MainStruct.field_391B9 <> 0 then
+      UnitBuilderProbe(p_Offscreen);
   end;
 end;
 
@@ -908,39 +907,42 @@ asm
   call    DrawText_Heavy
   lea     ecx, [esp+224h-$1AC]
   mov     edx, esi
-  push    0FFFFFFFFh      // MaxWidth
   push    ecx             // ViewResBar
-  //lea     eax, [esp+22Ch-$170]
   push    edx             // RaceSideData
-  lea     ecx, [esp+230h+OFFSCREEN_off]
-  //push    eax             // Source
+  lea     ecx, [esp+22Ch+OFFSCREEN_off]
   push    ecx             // OFFSCREEN_ptr
   call    DrawTrueIncome
   push $00469610;
   call PatchNJump;
 end;
 
-procedure DrawHealthPercentage(top, curr, left, max: Cardinal; offscreen_p: Cardinal); register;
+procedure DrawHealthPercentage(p_Offscreen: Cardinal; SideData: PRaceSideData; CurrentHP, MaxHP: Cardinal; Yoffset: Integer); stdcall;
 var
   HealthPercent : Single;
   HealthPercentStr : PAnsiChar;
   FontColor : LongInt;
   FormatSettings: TFormatSettings;
 begin
-  if (Max = 0) or (Curr > Max) then
+  if (MaxHP = 0) or (CurrentHP > MaxHP) then
     Exit;
 
-  FormatSettings.DecimalSeparator := '.';
-  FontColor := GetFontColor;
-  HealthPercentStr := '';
-
-  HealthPercent := (Curr / Max) * 100;
-  if HealthPercent > 0.0 then
+  if (SideData.lSideIdx + 1) <= High(ExtraSideData) then
   begin
-    SetFontColor(83, FontColor);
-    HealthPercentStr := PAnsiChar(Format('%.1f%%', [HealthPercent], FormatSettings))
+    if ExtraSideData[SideData.lSideIdx].rectDamageVal.Left <> 0 then
+    begin
+      HealthPercent := (CurrentHP / MaxHP) * 100;
+      if HealthPercent > 0.0 then
+      begin
+        FontColor := GetFontColor;
+        SetFontColor(83, FontColor);
+        FormatSettings.DecimalSeparator := '.';
+        HealthPercentStr := PAnsiChar(Format('%.1f%%', [HealthPercent], FormatSettings));
+        DrawText_Heavy(p_Offscreen, HealthPercentStr,
+          ExtraSideData[SideData.lSideIdx].rectDamageVal.Left,
+          ExtraSideData[SideData.lSideIdx].rectDamageVal.Top + Yoffset, -1);
+      end;
+    end;
   end;
-  DrawText_Heavy(offscreen_p, HealthPercentStr, Left - 38, Top - 4, -1);
 end;
 
 procedure HealthPercentage;
@@ -948,17 +950,19 @@ asm
   add     eax, ebx
   mov     [esp+18h], ecx
   pushAD
-  mov     ebx, [esp+30h]
-  mov     ecx, [esp+34h]
   push    ebx
-  push    edi
+  mov     ebx, [esp+34h]
+  push    ebx      // max
+  push    edx      // current
+  push    ebp      // sidedata
+  push    edi      // offscreen
   call    DrawHealthPercentage
   popAD
   push $0046B08E;
   call PatchNJump;
 end;
 {
-function DrawCircleUnitSelect(Unitunk: PPosition; Offscreen_p : Cardinal; Botx1, Boty1, Rx2, Ry2 : Integer; UnitVolume: Cardinal): Integer; stdcall;
+function DrawCircleUnitSelect(Unitunk: PPosition; p_Offscreen : Cardinal; Botx1, Boty1, Rx2, Ry2 : Integer; UnitVolume: Cardinal): Integer; stdcall;
 var
   p_Unit : PUnitStruct;
   UnitInfo : PUnitInfo;
@@ -988,7 +992,7 @@ begin
   //  Inc(CustomUnitFieldsArr[TAUnit.GetId(pointer(p_Unit))].CircleSelectTick);
 
   lSpacing := CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectProgress;
-  ColorsPal := Pointer(LongWord(TAData.MainStructPtr)+$DCB);
+  ColorsPal := Pointer(LongWord(TAData.MainStruct)+$DCB);
 
   CurOrder := TAUnit.GetCurrentOrderType(p_Unit);
   if (CurOrder = Action_Ready) or
@@ -1007,7 +1011,7 @@ begin
     end else
       nRadiusJig := Low(Byte);
 
-    DrawDotteCircle(Offscreen_p, CenterX, CenterY,
+    DrawDotteCircle(p_Offscreen, CenterX, CenterY,
                               Round(Radius / 2 + nRadiusJig / 16),
                               PByte(LongWord(ColorsPal)+10)^,
                               Round(Radius / 2),
@@ -1024,7 +1028,7 @@ begin
     end else
       CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectRadJig := lRadiusJigTmp;
 
-    Result := DrawDotteCircle(Offscreen_p, CenterX, CenterY,
+    Result := DrawDotteCircle(p_Offscreen, CenterX, CenterY,
                               Round(Radius / 2 + nRadiusJig / 16),
                               PByte(LongWord(ColorsPal)+10)^,
                               Round(Radius / 2),
@@ -1039,7 +1043,7 @@ label
   Return;
 asm
   push    eax
-  movzx   eax, IniSettings.Plugin_CircleUnitSelect
+  movzx   eax, IniSettings.CircleUnitSelect
   test    eax, eax
   pop     eax
   jnz     Circle
@@ -1170,16 +1174,16 @@ begin
   if NanoSpotUnitSt.nUnitInfoID <> 0 then
     FreeUnitMem(@NanoSpotUnitSt);
 
-  if (PTAdynmemStruct(TAData.MainStructPtr).nBuildNum <> 0) and
-     (PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType = $E) then
+  if (TAData.MainStruct.nBuildNum <> 0) and
+     (TAData.MainStruct.ucPrepareOrderType = $E) then
   begin
-    NanoSpotUnitSt.nUnitInfoID := PTAdynmemStruct(TAData.MainStructPtr).nBuildNum;
+    NanoSpotUnitSt.nUnitInfoID := TAData.MainStruct.nBuildNum;
     NanoSpotUnitSt.p_UnitInfo := TAMem.UnitInfoId2Ptr(NanoSpotUnitSt.nUnitInfoID);
     if (ExtraUnitInfoTags[PUnitInfo(NanoSpotUnitSt.p_UnitInfo).nCategory].DrawBuildSpotNanoFrame = True) or
-       IniSettings.Plugin_ForceDrawBuildSpotNano then
+       IniSettings.ForceDrawBuildSpotNano then
     begin
-      X := PTAdynmemStruct(TAData.MainStructPtr).lBuildPosRealX;
-      Z := PTAdynmemStruct(TAData.MainStructPtr).lBuildPosRealY;
+      X := TAData.MainStruct.lBuildPosRealX;
+      Z := TAData.MainStruct.lBuildPosRealY;
       if (X < 0) or (Z < 0) then
         Exit;
       GetTPosition(X, Z, Position);
@@ -1207,7 +1211,7 @@ begin
           if NanoSpotUnitInfoSt.cWaterLine = 0 then
             NanoSpotUnitSt.Position.Y := 0;
 
-        if (PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $40 = $40) then
+        if (TAData.MainStruct.cBuildSpotState and $40 = $40) then
           NanoSpotUnitSt.nKills := 1
         else
           NanoSpotUnitSt.nKills := 2;
@@ -1245,7 +1249,7 @@ begin
   SetLength(LineNanoSpotUnitSt, High(LineNanoSpotUnitSt) + 2);
   i := High(LineNanoSpotUnitSt);
 
-  LineNanoSpotUnitSt[i].nUnitInfoID := PTAdynmemStruct(TAData.MainStructPtr).nBuildNum;
+  LineNanoSpotUnitSt[i].nUnitInfoID := TAData.MainStruct.nBuildNum;
   LineNanoSpotUnitSt[i].p_UnitInfo := TAMem.UnitInfoId2Ptr(LineNanoSpotUnitSt[i].nUnitInfoID);
   LineNanoSpotUnitInfoSt := PUnitInfo(LineNanoSpotUnitSt[i].p_UnitInfo)^;
   
@@ -1271,7 +1275,7 @@ begin
     LineNanoSpotUnitSt[i].Turn.Z := 32768;
     LineNanoSpotUnitSt[i].Position.y_ := 0;
 
-    if (PTAdynmemStruct(TAData.MainStructPtr).cBuildSpotState and $40 = $40) then
+    if (TAData.MainStruct.cBuildSpotState and $40 = $40) then
       LineNanoSpotUnitSt[i].nKills := 1
     else
       LineNanoSpotUnitSt[i].nKills := 2;
@@ -1684,13 +1688,13 @@ begin
 
       DrawText(OFFSCREEN_Ptr, Player.szName, TextLeftOff, PlayersDrawListTop + 1, SCOREBOARD_WIDTH-6, 0);
 
-      if ( PTAdynmemStruct(TAData.MainStructPtr).bAlterKills = 2 ) then
+      if ( TAData.MainStruct.bAlterKills = 2 ) then
         Counter := Player.nKills_Last
       else
         Counter := Player.nKills;
       DrawText(OFFSCREEN_Ptr, PAnsiChar(IntToStr(Counter)), TextLeftOff, PlayersDrawListTop + 22, 119, PByte($51F2C8 + IteratePlayerIdx)^);
 
-      if ( PTAdynmemStruct(TAData.MainStructPtr).bAlterKills = 2 ) then
+      if ( TAData.MainStruct.bAlterKills = 2 ) then
         Counter := Player.nLosses_Last
       else
         Counter := Player.nLosses;
@@ -2014,7 +2018,7 @@ begin
   if ExtraGAFAnimations.FlameStream[Weapon.ucColor - 1] <> nil then
     Result := ExtraGAFAnimations.FlameStream[Weapon.ucColor - 1]
   else
-    Result := PTADynMemStruct(TAData.MainStructPtr).flamestream;
+    Result := TAData.MainStruct.flamestream;
 end;
 
 {

@@ -328,23 +328,23 @@ begin
       SendTextLocal('The randomly selected map is: ' + sMapName);
 {    LocalPlayer := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
 
-    sub_435D30(nil, nil, PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile, 0);
+    sub_435D30(nil, nil, TAData.MainStruct.p_MapOTAFile, 0);
 
     LoadMap(nil, nil,
-            PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile,
+            TAData.MainStruct.p_MapOTAFile,
             PAnsiChar(sMapName));
 
     LocalPlayer.PlayerInfo.lCRC_OTA :=
-      CalculateOTACRC(nil, nil, PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile);
-    PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile.pCurrentMapName :=
-      @PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile.pMapName;
+      CalculateOTACRC(nil, nil, TAData.MainStruct.p_MapOTAFile);
+    TAData.MainStruct.p_MapOTAFile.pCurrentMapName :=
+      @TAData.MainStruct.p_MapOTAFile.pMapName;
 
     FillChar(LocalPlayer.PlayerInfo.MapName, 32, 0);
     StrPLCopy(LocalPlayer.PlayerInfo.MapName, sMapName, 32);
     GUIGADGET_SetText(GUIHandle, PAnsiChar('MAPNAME'), @LocalPlayer.PlayerInfo.MapName, 0);
 
     LocalPlayer.PlayerInfo.lCRC_OTA :=
-      CalculateOTACRC(nil, nil, PTADynMemStruct(TAData.MainStructPtr).p_MapOTAFile);
+      CalculateOTACRC(nil, nil, TAData.MainStruct.p_MapOTAFile);
 
     Send_PacketPlayerInfo();
     REPORTER_PlayerInfo(5);
@@ -392,7 +392,7 @@ begin
     if REGISTRY_ReadInteger(PAnsiChar('Total Annihilation'),
       PAnsiChar('RaceSide'), @Buffer) <> 0 then
     begin
-      if PTADynMemStruct(TAData.MainStructPtr).RaceSideData[Buffer].Name <> #0 then
+      if TAData.MainStruct.RaceSideData[Buffer].Name <> #0 then
         Player.PlayerInfo.Raceside := Buffer;
     end;
 
@@ -404,7 +404,7 @@ begin
       else
         GlobalDPlay.AIDifficulty := 1;
 
-      GUIGADGET_SetStatus(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
+      GUIGADGET_SetStatus(@TAData.MainStruct.p_TAGUIObject,
           PAnsiChar('AIDIFF'), GlobalDPlay.AIDifficulty);
     end;
     GlobalDPlay.BroadcastModInfo;
@@ -423,10 +423,10 @@ end;
 
 procedure BattleRoom_HostBattleRoomToGame; stdcall;
 begin
-  PTADynMemStruct(TAData.MainStructPtr).lCurrentAIProfile := 2;
+  TAData.MainStruct.lCurrentAIProfile := 2;
   if GlobalDPlay.AIDifficulty <> 0 then
   begin
-    PTADynMemStruct(TAData.MainStructPtr).lCurrentAIProfile := GlobalDPlay.AIDifficulty + 1;
+    TAData.MainStruct.lCurrentAIProfile := GlobalDPlay.AIDifficulty + 1;
     REGISTRY_WriteInteger(PAnsiChar('Total Annihilation'),
       PAnsiChar('MultiDifficulty'), GlobalDPlay.AIDifficulty);
   end;
@@ -454,9 +454,9 @@ begin
         REGISTRY_WriteInteger(PAnsiChar('Total Annihilation'),
           PAnsiChar('RaceSide'), Player.PlayerInfo.Raceside);
     end;
-    PTADynMemStruct(TAData.MainStructPtr).lCurrentAIProfile := 2;
+    TAData.MainStruct.lCurrentAIProfile := 2;
     if GlobalDPlay.AIDifficulty <> 0 then
-      PTADynMemStruct(TAData.MainStructPtr).lCurrentAIProfile := GlobalDPlay.AIDifficulty + 1;
+      TAData.MainStruct.lCurrentAIProfile := GlobalDPlay.AIDifficulty + 1;
   end;
 end;
 
@@ -481,28 +481,28 @@ begin
   else
     cGrayed := 1;
 
-  GUIGADGET_SetGrayedOut(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
+  GUIGADGET_SetGrayedOut(@TAData.MainStruct.p_TAGUIObject,
     PAnsiChar('AUTOPAUSE'), cGrayed);
-  GUIGADGET_SetGrayedOut(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
+  GUIGADGET_SetGrayedOut(@TAData.MainStruct.p_TAGUIObject,
     PAnsiChar('AIDIFF'), cGrayed);
-  GUIGADGET_SetGrayedOut(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
+  GUIGADGET_SetGrayedOut(@TAData.MainStruct.p_TAGUIObject,
     PAnsiChar('SPEEDLOCK'), cGrayed);
-  GUIGADGET_SetGrayedOut(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
+  GUIGADGET_SetGrayedOut(@TAData.MainStruct.p_TAGUIObject,
     PAnsiChar('RANDMAP'), cGrayed);
 
   if cGrayed = 1 then
   begin
     if GlobalDPlay.AutoPauseAtStart then
       cStatus := 1;
-    GUIGADGET_SetStatus(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
+    GUIGADGET_SetStatus(@TAData.MainStruct.p_TAGUIObject,
       PAnsiChar('AUTOPAUSE'), cStatus);
-    GUIGADGET_SetStatus(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
+    GUIGADGET_SetStatus(@TAData.MainStruct.p_TAGUIObject,
       PAnsiChar('AIDIFF'), GlobalDPlay.AIDifficulty);
     if GlobalDPlay.SpeedLockNative then
       cStatus := 1
     else
       cStatus := 0;
-    GUIGADGET_SetStatus(@PTADynMemStruct(TAData.MainStructPtr).p_TAGUIObject,
+    GUIGADGET_SetStatus(@TAData.MainStruct.p_TAGUIObject,
       PAnsiChar('SPEEDLOCK'), cStatus);
   end;
 end;

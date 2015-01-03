@@ -23,6 +23,7 @@ procedure FreeExtensionsMemory;
 
 procedure InitExtensionsArrays; stdcall;
 procedure ExtensionsFreeMemory; stdcall;
+procedure FreeExtensionsMemory2;
 procedure FreeUnitMem(p_Unit: PUnitStruct);
 
 implementation
@@ -56,11 +57,17 @@ begin
                             'Init extensions search arrays etc.',
                             @InitExtensionsMemory,
                             $004971B3, 0 );
-                            
+                             {
     Result.MakeRelativeJmp( State_ExtensionsMem,
                             '',
                             @FreeExtensionsMemory,
                             $00496B15, 0 );
+                             }
+    Result.MakeRelativeJmp( State_ExtensionsMem,
+                            '',
+                            @FreeExtensionsMemory2,
+                            $00491B60, 0 );
+
   end else
     Result := nil;
 end;
@@ -147,6 +154,16 @@ asm
   popAD
   mov     eax, [TAdynMemStructPtr]
   push    $00496B1A
+  call    PatchNJump;
+end;
+
+procedure FreeExtensionsMemory2;
+asm
+  pushAD
+  call    ExtensionsFreeMemory
+  popAD
+  mov     eax, [TAdynMemStructPtr]
+  push    $00491B65
   call    PatchNJump;
 end;
 

@@ -10,57 +10,62 @@ type
     Name                 : String;
     RegName              : String;
     Version              : String;
+
     UnitType             : Integer;
     WeaponType           : Integer;
     WeaponIdPatch        : Boolean;
-    RanksURL             : String;
+//    RanksURL             : String;
     UnitLimit            : Integer;
     Read                 : Boolean;
 
-    ScriptorPath         : String;
-    CommonMapsPath       : String;
-    CommonGameDataPath   : String;
+    ScriptorPath           : String;
+    CommonMapsPath         : String;
+    CommonGameDataPath     : String;
+    UseCommonMaps          : Boolean;
+    UseCommonGameData      : Boolean;
 
-    Plugin_AiNukes       : Boolean;
-    Plugin_AiBuildList   : Boolean;
-    ExpandMinimap        : Boolean;
+    AiNukes                : Boolean;
+    AiBuildList            : Boolean;
+    ExpandMinimap          : Boolean;
 
-    CreateStatsFile      : Boolean;
+    CreateStatsFile        : Boolean;
 
     { GUI Plugins }
-    Plugin_Colors        : Boolean;
-    CustomColors         : array[0..3] of array[0..28] of Byte;
-    Colors_MenuDots      : Byte;
+    Colors                 : Boolean;
+    CustomColors           : array[0..3] of array[0..28] of Byte;
+    Colors_MenuDots        : Byte;
     Colors_DisableMenuDots : Boolean;
-    Plugin_HBWidth       : Integer;
-    Plugin_HBDynamicSize : Boolean;
-    Plugin_HBCategory1   : Cardinal;
-    Plugin_HBCategory2   : Cardinal;
-    Plugin_HBCategory3   : Cardinal;
-    Plugin_HBCategory4   : Cardinal;
-    Plugin_HBCategory5   : Cardinal;
+    HBWidth                : Integer;
+    HBDynamicSize          : Boolean;
+    HBCategory1            : Cardinal;
+    HBCategory2            : Cardinal;
+    HBCategory3            : Cardinal;
+    HBCategory4            : Cardinal;
+    HBCategory5            : Cardinal;
 
-    Plugin_TrueIncome    : Boolean;
-    Plugin_BroadcastNanolathe : Boolean;
-    Plugin_ClockPosition : Byte;
+    TrueIncome             : Boolean;
+    BroadcastNanolathe     : Boolean;
+    ClockPosition          : Byte;
 
-    Plugin_MinWeaponReload  : Integer;
-    Plugin_Transporters  : Boolean;
-    Plugin_Stockpile     : Boolean;
-    Plugin_BattleRoomEnh : Boolean;
-    Plugin_ScriptSlotsLimit : Boolean;
-    Plugin_InterceptsOnlyList : Boolean;
+    MinWeaponReload        : Integer;
+    Transporters           : Boolean;
+    Stockpile              : Boolean;
+    BattleRoomEnh          : Boolean;
+    ScriptSlotsLimit       : Boolean;
+    InterceptsOnlyList     : Boolean;
 
-    Plugin_ForceDrawBuildSpotNano : Boolean;
-    Plugin_BuildSpotNanoShimmer : Boolean;
-    Plugin_DrawBuildSpotQueueNano : Boolean;
+    ForceDrawBuildSpotNano : Boolean;
+    BuildSpotNanoShimmer   : Boolean;
+    DrawBuildSpotQueueNano : Boolean;
 
-    Plugin_StopButton : Boolean;
-    Plugin_ResurrectPatrol : Boolean;
+    StopButton             : Boolean;
+    ResurrectPatrol        : Boolean;
     
-    Plugin_MinReclaimTime : Integer;
+    MinReclaimTime         : Integer;
   end;
-var IniSettings: TIniSettings;
+  
+var
+  IniSettings: TIniSettings;
 
 // -----------------------------------------------------------------------------
 
@@ -89,8 +94,9 @@ uses
   strUtils,
   TypInfo;
 
-type TIniFileName = array [0..12] of AnsiChar;
-PIniFileName = ^TIniFileName;
+type
+  PIniFileName = ^TIniFileName;
+  TIniFileName = array[0..12] of AnsiChar;
 
 function TaFileExists(name: string; out path: string): boolean;
 var
@@ -283,7 +289,7 @@ begin
 
       IniSettings.DemosPrefix := ReadIniString(IniFile, 'MOD','DemosFileNamePrefix', '');
 
-      IniSettings.RanksURL := ReadIniString(IniFile, 'Preferences','RanksURL', '');
+//      IniSettings.RanksURL := ReadIniString(IniFile, 'Preferences','RanksURL', '');
 
       IniSettings.UnitType := ReadIniValue(IniFile, 'Preferences', 'UnitType', 512);
       IniSettings.WeaponType := ReadIniValue(IniFile, 'Preferences', 'WeaponType', 256);
@@ -296,8 +302,8 @@ begin
       if IniSettings.ScriptorPath <> '' then
         IniSettings.ScriptorPath := IncludeTrailingPathDelimiter(IniSettings.ScriptorPath);
 
-      IniSettings.Plugin_AiNukes := ReadIniBool(IniFile, 'Preferences', 'AiNukes', False);
-      IniSettings.Plugin_AiBuildList := ReadIniBool(IniFile, 'Preferences', 'AiBuildListExpand', False);
+      IniSettings.AiNukes := ReadIniBool(IniFile, 'Preferences', 'AiNukes', False);
+      IniSettings.AiBuildList := ReadIniBool(IniFile, 'Preferences', 'AiBuildListExpand', False);
 
       IniSettings.ExpandMinimap := ReadIniBool(IniFile, 'Preferences', 'ExpandMinimap', False);
 
@@ -308,7 +314,7 @@ begin
          IniFile.SectionExists('ColorsSide2') or
          IniFile.SectionExists('ColorsSide3') then
       begin
-        IniSettings.Plugin_Colors := True;
+        IniSettings.Colors := True;
         for i := Low(ColorsArray) to High(ColorsArray) - 2 do
         begin
           IniSettings.CustomColors[0][i] := ReadIniValue(IniFile, 'Colors', ColorsArray[i].sName, 0);
@@ -320,31 +326,34 @@ begin
         IniSettings.Colors_DisableMenuDots := ReadIniBool(IniFile, 'Colors', ColorsArray[30].sName, False);
       end;
 
-      IniSettings.Plugin_HBWidth := ReadIniValue(IniFile, 'Preferences', 'HealthBarWidth', 0);
-      IniSettings.Plugin_HBDynamicSize := ReadIniBool(IniFile, 'Preferences', 'HealthBarDynamicSize', False);
-      IniSettings.Plugin_HBCategory1 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat1', 0);
-      IniSettings.Plugin_HBCategory2 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat2', 0);
-      IniSettings.Plugin_HBCategory3 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat3', 0);
-      IniSettings.Plugin_HBCategory4 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
-      IniSettings.Plugin_HBCategory5 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
-      IniSettings.Plugin_MinWeaponReload := ReadIniValue(IniFile, 'Preferences', 'MinWeaponReloadTime', 0);
-      IniSettings.Plugin_MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
-      IniSettings.Plugin_Transporters := ReadIniBool(IniFile, 'Preferences', 'TransportersCount', False);
-      IniSettings.Plugin_Stockpile := ReadIniBool(IniFile, 'Preferences', 'StockpileCount', False);
-      IniSettings.Plugin_TrueIncome := ReadIniBool(IniFile, 'Preferences', 'TrueIncome', False);
-      IniSettings.Plugin_ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
-      IniSettings.Plugin_ForceDrawBuildSpotNano := ReadIniBool(IniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
-      IniSettings.Plugin_DrawBuildSpotQueueNano := ReadIniBool(IniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);
-      IniSettings.Plugin_BuildSpotNanoShimmer := ReadIniBool(IniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
+      IniSettings.HBWidth := ReadIniValue(IniFile, 'Preferences', 'HealthBarWidth', 0);
+      IniSettings.HBDynamicSize := ReadIniBool(IniFile, 'Preferences', 'HealthBarDynamicSize', False);
+      IniSettings.HBCategory1 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat1', 0);
+      IniSettings.HBCategory2 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat2', 0);
+      IniSettings.HBCategory3 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat3', 0);
+      IniSettings.HBCategory4 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
+      IniSettings.HBCategory5 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
+      IniSettings.MinWeaponReload := ReadIniValue(IniFile, 'Preferences', 'MinWeaponReloadTime', 0);
+      IniSettings.MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
+      IniSettings.Transporters := ReadIniBool(IniFile, 'Preferences', 'TransportersCount', False);
+      IniSettings.Stockpile := ReadIniBool(IniFile, 'Preferences', 'StockpileCount', False);
+      IniSettings.TrueIncome := ReadIniBool(IniFile, 'Preferences', 'TrueIncome', False);
+      IniSettings.ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
+      IniSettings.ForceDrawBuildSpotNano := ReadIniBool(IniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
+      IniSettings.DrawBuildSpotQueueNano := ReadIniBool(IniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);
+      IniSettings.BuildSpotNanoShimmer := ReadIniBool(IniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
 
-      IniSettings.Plugin_StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
-      IniSettings.Plugin_ResurrectPatrol := ReadIniBool(IniFile, 'Preferences', 'ResurrectionPatrol', False);
+      IniSettings.StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
+      IniSettings.ResurrectPatrol := ReadIniBool(IniFile, 'Preferences', 'ResurrectionPatrol', False);
 
-      IniSettings.Plugin_BroadcastNanolathe := ReadIniBool(IniFile, 'Preferences', 'BroadcastNanolathe', False);
-      IniSettings.Plugin_BattleRoomEnh := ReadIniBool(IniFile, 'Preferences', 'BattleRoomEnhancements', False);
+      IniSettings.BroadcastNanolathe := ReadIniBool(IniFile, 'Preferences', 'BroadcastNanolathe', False);
+      IniSettings.BattleRoomEnh := ReadIniBool(IniFile, 'Preferences', 'BattleRoomEnhancements', False);
 
-      IniSettings.Plugin_ScriptSlotsLimit := ReadIniBool(IniFile, 'Preferences', 'IncScriptSlotsLimit', False);
-      IniSettings.Plugin_InterceptsOnlyList := ReadIniBool(IniFile, 'Preferences', 'UseInterceptsOnlyList', True);
+      IniSettings.ScriptSlotsLimit := ReadIniBool(IniFile, 'Preferences', 'IncScriptSlotsLimit', False);
+      IniSettings.InterceptsOnlyList := ReadIniBool(IniFile, 'Preferences', 'UseInterceptsOnlyList', True);
+
+      IniSettings.UseCommonMaps := ReadIniBool(IniFile, 'Preferences', 'UseCommonMaps', True);
+      IniSettings.UseCommonGameData := ReadIniBool(IniFile, 'Preferences', 'UseCommonGameData', True);
     finally
       Result:= True;
       IniFile.Free;

@@ -45,7 +45,7 @@ class Function TAPlayer.GetPlayerByIndex(playerIndex : Byte) : PPlayerStruct;
 begin
   Result := nil;
   if playerindex <= MAXPLAYERCOUNT then
-    Result := @PTAdynmemStruct(TAData.MainStructPtr).Players[playerIndex];
+    Result := @TAData.MainStruct.Players[playerIndex];
 end;
 
 class Function TAPlayer.GetPlayerPtrByDPID(playerPID : TDPID) : PPlayerStruct;
@@ -55,9 +55,9 @@ begin
   Result := nil;
   for i := 0 to 9 do
   begin
-    if PTAdynmemStruct(TAData.MainStructPtr).Players[i].lDirectPlayID = playerPID then
+    if TAData.MainStruct.Players[i].lDirectPlayID = playerPID then
     begin
-      Result := @PTAdynmemStruct(TAData.MainStructPtr).Players[i];
+      Result := @TAData.MainStruct.Players[i];
       Break;
     end;
   end;
@@ -70,7 +70,7 @@ begin
   Result := 10;
   for i := 0 to 9 do
   begin
-    if PTAdynmemStruct(TAData.MainStructPtr).Players[i].lDirectPlayID = playerPID then
+    if TAData.MainStruct.Players[i].lDirectPlayID = playerPID then
     begin
       Result := i + 1;
       Break;
@@ -139,4 +139,3 @@ begin
 end;
 
 end.
-

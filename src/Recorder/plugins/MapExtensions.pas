@@ -117,7 +117,7 @@ begin
   MouseLock := False;
   CameraFadeLevel := 0;
 
-  MapOTAFile := PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile;
+  MapOTAFile := TAData.MainStruct.p_MapOTAFile;
   COBFilePath := ChangeFileExt(MapOTAFile.sTNTFile, '.cob');
   if HAPIFILE_GetFileLength(PAnsiChar(COBFilePath)) > 0 then
   begin
@@ -317,12 +317,12 @@ var
   x, z : Integer;
   AtLava : Boolean;
 begin
-  sCurrentTNTPath := PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).sTNTFile;
+  sCurrentTNTPath := PMapOTAFile(TAData.MainStruct.p_MapOTAFile).sTNTFile;
   lpFileName := PAnsiChar(ChangeFileExt(sCurrentTNTPath, IntToStr(Idx) + '.TNT'));
   TNTFile := LoadTNTFile(lpFileName);
 
-  TNTMemStruct := @PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct;
-  CopyMemory(@PMapOTAFile(PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile).sTNTFile,
+  TNTMemStruct := @TAData.MainStruct.TNTMemStruct;
+  CopyMemory(@PMapOTAFile(TAData.MainStruct.p_MapOTAFile).sTNTFile,
              lpFileName, Length(lpFileName));
 
   // tileset pixels data
@@ -413,7 +413,7 @@ begin
         end;
         if AtLava then
           if (p_Unit.lUnitStateMask and 3) <> 2 then
-            if (PTAdynmemStruct(TAData.MainStructPtr).p_MapOTAFile.lIsLavaMap <> 0) then
+            if (TAData.MainStruct.p_MapOTAFile.lIsLavaMap <> 0) then
               TAUnit.Kill(p_Unit, 1)
             else
               TAUnit.Kill(p_Unit, 0);

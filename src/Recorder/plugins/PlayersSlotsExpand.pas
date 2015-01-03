@@ -81,7 +81,7 @@ begin
     InitPlayerStruct(@PlayersExp[i]);
     // once finished this should be commented
     if i < 11 then
-      InitPlayerStruct(@PTAdynmemStruct(TAData.MainStructPtr).Players[i]);
+      InitPlayerStruct(@TAData.MainStruct.Players[i]);
   end;
 end;
 
@@ -221,4 +221,3 @@ sub_446FB0
 }
 
 end.
-

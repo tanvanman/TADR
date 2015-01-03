@@ -84,7 +84,7 @@ begin
                             $004875F9, 1 );
                              }
 
-    if IniSettings.Plugin_ScriptSlotsLimit and
+    if IniSettings.ScriptSlotsLimit and
        (IniSettings.ModId > 1) then
     begin
       lReplacement := $00002908;
@@ -124,7 +124,7 @@ var
 begin
   FillChar(ScriptSlotsSaveGameRec, SizeOf(ScriptSlotsSaveGameRec), 0);
   ScriptSlotsSaveGameRec.lCOBFileNode := Cardinal(ScriptData.pCOBFileNode);
-  if IniSettings.Plugin_ScriptSlotsLimit then
+  if IniSettings.ScriptSlotsLimit then
     MaxSlots := MAX_SCRIPT_SLOTS
   else
     MaxSlots := 8;
@@ -176,7 +176,7 @@ var
   MaxSlots : Byte;
 begin
   ScriptData.pCOBFileNode := Pointer(ScriptSlotsSaveGameRec.lCOBFileNode);
-  if IniSettings.Plugin_ScriptSlotsLimit then
+  if IniSettings.ScriptSlotsLimit then
     MaxSlots := MAX_SCRIPT_SLOTS
   else
     MaxSlots := 8;

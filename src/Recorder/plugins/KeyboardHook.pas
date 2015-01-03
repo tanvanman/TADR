@@ -106,8 +106,8 @@ procedure MeteorsTest;
 var
   StartPos, TargetPos: TPosition;
 begin
-  StartPos.X := PTAdynmemStruct(TAData.MainStructPtr).nMouseMapPosX;
-  StartPos.Z := PTAdynmemStruct(TAData.MainStructPtr).nMouseMapPosY;
+  StartPos.X := TAData.MainStruct.nMouseMapPosX;
+  StartPos.Z := TAData.MainStruct.nMouseMapPosY;
 
   TargetPos.x_ := 0;
   TargetPos.X := 0;
@@ -181,8 +181,8 @@ begin
                   if (UnitAtMouse <> nil) then
                     if TAUnit.IsOnThisComp(UnitAtMouse, False) then
                     begin
-                      PUnitOrder(UnitAtMouse.p_MainOrder).p_NextOrder_uos := nil;
-                      PUnitStruct(UnitAtMouse).p_FutureOrder := nil;
+                      PUnitOrder(UnitAtMouse.p_MainOrder).p_NextOrder := nil;
+                      PUnitStruct(UnitAtMouse).p_SubOrder := nil;
                       Result := 1;
                       Exit;
                     end;
@@ -207,9 +207,9 @@ begin
                     if (UnitAtMouse <> nil) then
                     begin
                       ClearChat;
-//                      PCardinal(Cardinal(TAData.MainStructPtr) + $391B9)^ := 1;
-//                      PWord(Cardinal(TAData.MainStructPtr) + $391BD)^ := Word(PUnitStruct(UnitAtMouse).lUnitInGameIndex);
-//                      Offscreen := PCardinal(Cardinal(TAData.MainStructPtr) + $37E1B)^;
+//                      PCardinal(Cardinal(TAData.MainStruct) + $391B9)^ := 1;
+//                      PWord(Cardinal(TAData.MainStruct) + $391BD)^ := Word(PUnitStruct(UnitAtMouse).lUnitInGameIndex);
+//                      Offscreen := PCardinal(Cardinal(TAData.MainStruct) + $37E1B)^;
 //                      SendTextLocal(IntToStr(UnitBuilderProbe(Offscreen)));
 //                      TAUnit.MakeDamage(UnitAtMouse, UnitAtMouse, dtUnknown1, 200);
                       SendTextLocal('ptr  : ' + IntToHex(Cardinal(UnitAtMouse), 8));
@@ -329,30 +329,30 @@ end;
 
 procedure UpdateSelectUnitEffect;
 begin
-	PTAdynmemStruct(TAData.MainStructPtr).DesktopGUIState := PTAdynmemStruct(TAData.MainStructPtr).DesktopGUIState or $10;
-	PTAdynmemStruct(TAData.MainStructPtr).ShowRangeUnitIndex := 0;
+	TAData.MainStruct.DesktopGUIState := TAData.MainStruct.DesktopGUIState or $10;
+	TAData.MainStruct.ShowRangeUnitIndex := 0;
 end;
 
 procedure ApplySelectUnitMenu_Wrapper;
 var
   old : Byte;
 begin
-	old := PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType;
+	old := TAData.MainStruct.ucPrepareOrderType;
   ApplySelectUnitMenu;
-  PTAdynmemStruct(TAData.MainStructPtr).ucPrepareOrderType := old;
+  TAData.MainStruct.ucPrepareOrderType := old;
 end;
 
 procedure ScrollCenterView(X, Z : Integer; Smooth: Boolean);
 var
   MaxX, MaxZ : Integer;
 begin
-	X := X - (PTAdynmemStruct(TAData.MainStructPtr).ScreenWidth-128) div 2;
-	Z := Z - (PTAdynmemStruct(TAData.MainStructPtr).ScreenHeight-64) div 2;
+	X := X - (TAData.MainStruct.ScreenWidth-128) div 2;
+	Z := Z - (TAData.MainStruct.ScreenHeight-64) div 2;
 
 	if X < 0 then
 		X := 0
   else begin
-    MaxX := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lRadarPictureWidth - ((PTAdynmemStruct(TAData.MainStructPtr).ScreenWidth-128));
+    MaxX := TAData.MainStruct.TNTMemStruct.lRadarPictureWidth - ((TAData.MainStruct.ScreenWidth-128));
     if (X > MaxX) then
       X := MaxX;
   end;
@@ -360,7 +360,7 @@ begin
 	if Z < 0 then
 		Z := 0
   else begin
-    MaxZ := PTAdynmemStruct(TAData.MainStructPtr).TNTMemStruct.lRadarPictureHeight - ((PTAdynmemStruct(TAData.MainStructPtr).ScreenHeight-64));
+    MaxZ := TAData.MainStruct.TNTMemStruct.lRadarPictureHeight - ((TAData.MainStruct.ScreenHeight-64));
     if (Z > MaxZ) then
       Z := MaxZ;
   end;
