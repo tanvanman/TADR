@@ -43,7 +43,6 @@ type
     HBCategory4            : Cardinal;
     HBCategory5            : Cardinal;
 
-    TrueIncome             : Boolean;
     BroadcastNanolathe     : Boolean;
     ClockPosition          : Byte;
 
@@ -337,7 +336,6 @@ begin
       IniSettings.MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
       IniSettings.Transporters := ReadIniBool(IniFile, 'Preferences', 'TransportersCount', False);
       IniSettings.Stockpile := ReadIniBool(IniFile, 'Preferences', 'StockpileCount', False);
-      IniSettings.TrueIncome := ReadIniBool(IniFile, 'Preferences', 'TrueIncome', False);
       IniSettings.ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
       IniSettings.ForceDrawBuildSpotNano := ReadIniBool(IniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
       IniSettings.DrawBuildSpotQueueNano := ReadIniBool(IniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);

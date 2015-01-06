@@ -57,12 +57,12 @@ begin
                             'Init extensions search arrays etc.',
                             @InitExtensionsMemory,
                             $004971B3, 0 );
-                             {
+
     Result.MakeRelativeJmp( State_ExtensionsMem,
                             '',
                             @FreeExtensionsMemory,
                             $00496B15, 0 );
-                             }
+
     Result.MakeRelativeJmp( State_ExtensionsMem,
                             '',
                             @FreeExtensionsMemory2,

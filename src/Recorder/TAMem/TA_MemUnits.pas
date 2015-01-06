@@ -1593,7 +1593,9 @@ begin
               if MaxDistance > 0 then
               begin
                 Distance:= TAUnits.Distance(@UnitSt.Position, @CheckedUnitSt.Position);
-                if (Distance <> -1) and (Distance <= MaxDistance) then goto AddFound;
+                if (Distance <> 0) and
+                   (Distance <= MaxDistance) then
+                  goto AddFound;
               end else
                 goto AddFound;
             end;

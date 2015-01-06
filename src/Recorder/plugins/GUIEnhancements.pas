@@ -134,8 +134,7 @@ begin
                             @GUIEnhancements_DevUnitProbes,
                             $00469BD0, 1);
 
-    if IniSettings.TrueIncome then
-      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'TrueIncomeHook',
                             @TrueIncomeHook,
                             $004695EE, 0);
@@ -791,7 +790,7 @@ var
   SideIndex: Integer;
 begin
   SideIndex := RaceSideData.lSideIdx;
-  if (SideIndex + 1) <= High(ExtraSideData) then
+  if SideIndex <= High(ExtraSideData) then
   begin
     ColorsPal := Pointer(LongWord(TAData.MainStruct)+$DCB);
     FormatSettings.DecimalSeparator := '.';
@@ -926,7 +925,7 @@ begin
   if (MaxHP = 0) or (CurrentHP > MaxHP) then
     Exit;
 
-  if (SideData.lSideIdx + 1) <= High(ExtraSideData) then
+  if SideData.lSideIdx <= High(ExtraSideData) then
   begin
     if ExtraSideData[SideData.lSideIdx].rectDamageVal.Left <> 0 then
     begin

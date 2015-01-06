@@ -391,33 +391,34 @@ begin
     begin
       p_Unit := TAUnit.Id2Ptr(i);
       AtLava := False;
-      if p_Unit.nUnitInfoID <> 0 then
-      begin
-        for z := 0 to p_Unit.nFootPrintZ do
+      if p_Unit <> nil then
+        if p_Unit.nUnitInfoID <> 0 then
         begin
-          for x := 0 to p_Unit.nFootPrintX do
+          for z := 0 to p_Unit.nFootPrintZ do
           begin
-            PlotGrid := GetGridPosPLOT(p_Unit.nGridPosX + x, p_Unit.nGridPosZ + z);
-            if PlotGrid <> nil then
+            for x := 0 to p_Unit.nFootPrintX do
             begin
-              //if GetPosHeight(@p_Unit.Position) = 0 then
-                if PlotGrid.nFeatureDefIndex = $FFFD then
-                begin
-                  AtLava := True;
-                  Break;
-                end;
+              PlotGrid := GetGridPosPLOT(p_Unit.nGridPosX + x, p_Unit.nGridPosZ + z);
+              if PlotGrid <> nil then
+              begin
+                //if GetPosHeight(@p_Unit.Position) = 0 then
+                  if PlotGrid.nFeatureDefIndex = $FFFD then
+                  begin
+                    AtLava := True;
+                    Break;
+                  end;
+              end;
             end;
+            if AtLava then
+              Break;
           end;
           if AtLava then
-            Break;
+            if (p_Unit.lUnitStateMask and 3) <> 2 then
+              if (TAData.MainStruct.p_MapOTAFile.lIsLavaMap <> 0) then
+                TAUnit.Kill(p_Unit, 1)
+              else
+                TAUnit.Kill(p_Unit, 0);
         end;
-        if AtLava then
-          if (p_Unit.lUnitStateMask and 3) <> 2 then
-            if (TAData.MainStruct.p_MapOTAFile.lIsLavaMap <> 0) then
-              TAUnit.Kill(p_Unit, 1)
-            else
-              TAUnit.Kill(p_Unit, 0);
-      end;
     end;
   end;
   //LoadFeatures;
