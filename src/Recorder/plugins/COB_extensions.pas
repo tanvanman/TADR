@@ -150,6 +150,7 @@ const
  PLANT_YARD_OCCUPIED = 168;
  UNIT_REBUILD_YARD = 169;
 
+ { Map missions }
  MS_MOVE_CAM_POS = 175;
  MS_MOVE_CAM_UNIT = 176;
  MS_SHAKE = 177;
@@ -1192,6 +1193,19 @@ try
         end;
       MS_SWAP_TERRAIN :
         SwapTNT(arg1);
+      UNITY :
+        begin
+          if arg1 <> $FFFFFFFF then
+          begin
+            CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPos := True;
+            CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPosVal := arg1;
+            PCardinal(@p_Unit.Position.y_)^ := arg1 shl 16;
+          end else
+          begin
+            CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPos := False;
+            CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPosVal := 0;
+          end;
+        end;
     end;
     if TAUnit.IsOnThisComp(p_Unit, True) then
     begin

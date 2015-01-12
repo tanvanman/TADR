@@ -265,11 +265,9 @@ end;
 procedure HitByWeaponNew(p_Unit : Cardinal; anglex, anglez, damage : Cardinal); stdcall;
 begin
   if PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData <> nil then
-  begin
-  Script_ProcessCallback( nil, nil, LongWord(PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData),
-                          nil, @damage, @anglez, @anglex,
-                          PAnsiChar('HitByWeapon') );
-  end;
+    COBEngine_CallFunc( nil, nil, PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData,
+                        nil, @damage, @anglez, @anglex,
+                        PAnsiChar('HitByWeapon') );
 end;
 
 procedure ScriptCallsExtend_HitByWeaponExpand;
@@ -289,11 +287,9 @@ end;
 procedure TookDamage(p_Unit: Pointer; DmgType: Cardinal; DmgAmount: Cardinal; AttackerID: Cardinal); stdcall;
 begin
   if PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData <> nil then
-  begin
-    Script_ProcessCallback( nil, nil, LongWord(PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData),
-                            nil, @AttackerID, @DmgAmount, @DmgType,
-                            PAnsiChar('TookDamage') );
-  end;  
+    COBEngine_CallFunc( nil, nil, PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData,
+                        nil, @AttackerID, @DmgAmount, @DmgType,
+                        PAnsiChar('TookDamage') );
 end;
 
 procedure ScriptCallsExtend_TookDamage;
@@ -328,12 +324,9 @@ end;
 procedure ConfirmedKill(p_Unit: PUnitStruct; DeathType : Cardinal); stdcall;
 begin
   if PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData <> nil then
-  begin
-    Script_ProcessCallback( nil,
-                            nil,
-                            LongWord(p_Unit.p_UnitScriptsData),
-                            nil, nil, nil, @DeathType, PAnsiChar('ConfirmedKill') );
-  end;
+    COBEngine_CallFunc( nil, nil,
+                        p_Unit.p_UnitScriptsData,
+                        nil, nil, nil, @DeathType, PAnsiChar('ConfirmedKill') );
 end;
 
 procedure ScriptCallsExtend_ConfirmedKill;
@@ -359,20 +352,12 @@ begin
   if p_Unit.p_UnitScriptsData <> nil then
   begin
     UnitID := TAUnit.GetId(TransportedUnit);
-    Script_ProcessCallback( nil,
-                            nil,
-                            LongWord(p_Unit.p_UnitScriptsData),
-                            nil, @UnitID, @Piece, @Loading, PAnsiChar('ConfirmVTOLTransport') );
+    COBEngine_CallFunc( nil, nil,
+                        p_Unit.p_UnitScriptsData,
+                        nil, @UnitID, @Piece, @Loading, PAnsiChar('ConfirmVTOLTransport') );
   end;
 end;
 
-{
-.text:004114A0 028 8B 4F 36                       mov     ecx, [edi+UnitOrder.lPar1]
-.text:004114A3 028 51                             push    ecx             ; a3
-.text:004114A4 02C 56                             push    esi             ; a2
-.text:004114A5 030 50                             push    eax             ; a1
-.text:004114A6 034 E8 15 96 07 00                 call    Send_LabStartBuild
-}
 procedure ScriptCallsExtend_CallAirLoadScript;
 label
   SendLabStartBuild;

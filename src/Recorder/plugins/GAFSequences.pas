@@ -135,6 +135,7 @@ begin
       end else
         Break;
     end;
+    ExtraGAFAnimations.GafSequence_ShieldIcon := GAF_Name2Sequence(CustomFXHandle, PAnsiChar('ShieldIcon'));
   end;
 end;
 

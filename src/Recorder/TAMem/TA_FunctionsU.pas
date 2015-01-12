@@ -281,11 +281,18 @@ var
   CanCloseOrOpenYard : CanCloseOrOpenYardHandler = CanCloseOrOpenYardHandler($0047D970);
 
 type
-	GetPiecePositionHandler = function(out PositionOut: TPosition;
+  GetPiecePositionHandler = function(var PositionOut: TPosition;
                                      p_Unit: PUnitStruct;
                                      PieceIdx: Integer): PPosition; stdcall;
 var
   GetPiecePosition : GetPiecePositionHandler = GetPiecePositionHandler($0043E060);
+
+type
+  GetUnitPiecePositionHandler = procedure(var PositionOut: TPosition;
+                                          p_Unit: PUnitStruct;
+                                          PieceIdx: Integer); stdcall;
+var
+  GetUnitPiecePosition : GetUnitPiecePositionHandler = GetUnitPiecePositionHandler($0043DEF0);
 
 type // buffer should be at least 50 characters long
   GetContextHandler = function ( ptr : PChar ) : Longint; Stdcall;
@@ -320,8 +327,7 @@ var
 type
   CopyGafToContextHandler = function(OFFSCREEN_ptr: Pointer; GafFrame: Pointer; Off_X, Off_Y: Integer): Pointer; stdcall;
 var
-  CopyGafToContext : CopyGafToContextHandler = CopyGafToContextHandler($4B7F90);
-
+  CopyGafToContext : CopyGafToContextHandler = CopyGafToContextHandler($004B7F90);
 
 type
   InitRadarHandler = function(): Integer; cdecl;
@@ -649,9 +655,14 @@ var
   UNITS_CreateMoveClass : UNITS_CreateMoveClassHandler = UNITS_CreateMoveClassHandler($00485E50);
 
 type
-  UNITS_FixYPosHandler = function (p_Unit : Pointer) : LongInt; stdcall;
+  UNITS_FixYPosHandler = procedure(p_Unit: PUnitStruct); stdcall;
 var
   UNITS_FixYPos : UNITS_FixYPosHandler = UNITS_FixYPosHandler($0048A870);
+
+type
+  UNITS_FixYPosOtherTypeHandler = procedure(p_Unit: PUnitStruct); stdcall;
+var
+  UNITS_FixYPosOtherType : UNITS_FixYPosOtherTypeHandler = UNITS_FixYPosOtherTypeHandler($0048A490);
 
 type
   UNITS_NewUnitPositionHandler = function (p_Unit : Pointer; NewX, NewY, NewZ: Cardinal; State: Cardinal) : Cardinal; stdcall;
@@ -759,6 +770,11 @@ type
 var
   FreeUnitOrders : FreeUnitOrdersHandler = FreeUnitOrdersHandler($00489740);
 
+type
+  AutoAimHandler = procedure(p_Unit: PUnitStruct); stdcall;
+var
+  AutoAim : AutoAimHandler = AutoAimHandler($0049E1A0);
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // Network and multiplayer games related stuff
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -823,17 +839,16 @@ var
   Script_RunScript: Script_RunScriptHandler = Script_RunScriptHandler($004B0A70);
 
 type
-  // guaranteed query call
-  Script_ProcessCallbackHandler = function ( a1: Pointer;  // dunno
-                                             a2: Pointer;  // dunno
-                                             UnitScriptsData_p: Cardinal;
-                                             v4: Pointer;
-                                             v3: Pointer;
-                                             v2: Pointer;
-                                             v1: Pointer;
-                                             const Name: PAnsiChar): LongInt; register;
+  COBEngine_CallFuncHandler = function ( a1: Pointer;
+                                         a2: Pointer;
+                                         UnitScriptsData_p: Pointer;
+                                         lArg4: Pointer;
+                                         lArg3: Pointer;
+                                         lArg2: Pointer;
+                                         lArg1: Pointer;
+                                         const Name: PAnsiChar): LongInt; register;
 var
-  Script_ProcessCallback: Script_ProcessCallbackHandler = Script_ProcessCallbackHandler($004B0BC0);
+  COBEngine_CallFunc: COBEngine_CallFuncHandler = COBEngine_CallFuncHandler($004B0BC0);
 
 type
   COBEngine_InitScriptHandler = function (n1eax, n2edx : Pointer; ScriptInstance: Cardinal; COBData_p: Pointer): Integer; register;

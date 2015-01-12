@@ -915,18 +915,34 @@ asm
   call PatchNJump;
 end;
 
-procedure DrawHealthPercentage(p_Offscreen: Cardinal; SideData: PRaceSideData; CurrentHP, MaxHP: Cardinal; Yoffset: Integer); stdcall;
+procedure DrawHealthPercentage(p_Offscreen: Pointer; p_Unit: PUnitStruct;
+  SideData: PRaceSideData; CurrentHP, MaxHP: Cardinal; Yoffset: Integer); stdcall;
 var
   HealthPercent : Single;
   HealthPercentStr : PAnsiChar;
   FontColor : LongInt;
   FormatSettings: TFormatSettings;
+  GafFrame: Pointer;
 begin
   if (MaxHP = 0) or (CurrentHP > MaxHP) then
     Exit;
 
   if SideData.lSideIdx <= High(ExtraSideData) then
   begin
+    if CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ShieldedBy <> nil then
+    begin
+      if ExtraSideData[SideData.lSideIdx].rectShieldIcon.Left <> 0 then
+      begin
+        if ExtraGAFAnimations.GafSequence_ShieldIcon <> nil then
+        begin
+          GafFrame := GAF_SequenceIndex2Frame(ExtraGAFAnimations.GafSequence_ShieldIcon, SideData.lSideIdx);
+          CopyGafToContext(p_Offscreen, GafFrame,
+            ExtraSideData[SideData.lSideIdx].rectShieldIcon.Left,
+            ExtraSideData[SideData.lSideIdx].rectShieldIcon.Top + Yoffset);
+        end;
+      end;
+    end;
+
     if ExtraSideData[SideData.lSideIdx].rectDamageVal.Left <> 0 then
     begin
       HealthPercent := (CurrentHP / MaxHP) * 100;
@@ -936,7 +952,7 @@ begin
         SetFontColor(83, FontColor);
         FormatSettings.DecimalSeparator := '.';
         HealthPercentStr := PAnsiChar(Format('%.1f%%', [HealthPercent], FormatSettings));
-        DrawText_Heavy(p_Offscreen, HealthPercentStr,
+        DrawText_Heavy(Cardinal(p_Offscreen), HealthPercentStr,
           ExtraSideData[SideData.lSideIdx].rectDamageVal.Left,
           ExtraSideData[SideData.lSideIdx].rectDamageVal.Top + Yoffset, -1);
       end;
@@ -954,6 +970,8 @@ asm
   push    ebx      // max
   push    edx      // current
   push    ebp      // sidedata
+  mov     ebx, [esp+54h]
+  push    ebx
   push    edi      // offscreen
   call    DrawHealthPercentage
   popAD

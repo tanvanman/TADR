@@ -18,6 +18,9 @@ const
   Totala_ini = $005098A3;
   OldMapName = $00512990;
   Null_str = $005119B8;
+  QueryPrimary = $505284;
+  QuerySecondary = $00505274;
+  QueryTertiary = $00505264;
 
 implementation
 

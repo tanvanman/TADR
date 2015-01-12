@@ -303,6 +303,16 @@ type
     Reverse        : Byte;
   end;
 
+const
+  TANM_Rec2Rec_ExtraUnitState = $11;
+type
+  PRec2Rec_ExtraUnitState_Message = ^TRec2Rec_ExtraUnitState_Message;
+  TRec2Rec_ExtraUnitState_Message = packed record
+    UnitId        : Word;
+    FieldType     : Cardinal;
+    NewValue      : Integer;
+  end;
+
 {
 After interpreting vote command by host, launches voting. Host -> players
 }

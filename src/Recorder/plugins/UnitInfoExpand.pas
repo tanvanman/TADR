@@ -128,6 +128,7 @@ begin
   ExtraUnitInfoTags[UnitInfoID].CustomRange2Animate := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customrange2anim')) <> 0;
   ExtraUnitInfoTags[UnitInfoID].UseCustomReloadBar := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customreloadbar')) <> 0;
   ExtraUnitInfoTags[UnitInfoID].DefaultMissionOrgPos := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('defaultmissionorgpos')) <> 0;
+  ExtraUnitInfoTags[UnitInfoID].ShieldRange := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('ShieldRange'));
 end;
 
 procedure UnitInfoExpand_NewPropertiesLoadHook;

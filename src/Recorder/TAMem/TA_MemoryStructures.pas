@@ -171,6 +171,13 @@ type
     Z  : Integer;
   end;
 
+  PPositionLongUns = ^TPositionLongUns;
+  TPositionLongUns = packed record
+    X  : Cardinal;
+    Y  : Cardinal;
+    Z  : Cardinal;
+  end;
+
   PNanolathePos = ^TNanolathePos;
   TNanolathePos = packed record
     Pos1 : TPositionLong;
@@ -703,6 +710,7 @@ type
     rectDamageVal      : tagRect;
     rectRealMIncome    : tagRect;
     rectRealEIncome    : tagRect;
+    rectShieldIcon     : tagRect;
   end;
 
   PRaceSideData = ^TRaceSideData;
@@ -929,8 +937,19 @@ type
     lNumProjectiles        : Integer;
     p_Projectiles          : Pointer; //0x141F7
     TNTMemStruct           : TTNTMemStruct;
-    Unknown25              : array [0..59] of Byte;
-    MinimapRect            : tagRECT;//0x142CB
+    field_1428F            : Pointer;
+    field_14293            : Pointer;
+    field_14297            : Pointer;
+    field_1429B            : Pointer;
+    field_1429F            : Pointer;
+    field_142A3            : Cardinal; // footprint grid size in px x ?
+    field_142A7            : Cardinal; // footprint grid size in px z ?
+    field_142AB            : Pointer;
+    field_142AF            : Pointer;
+    field_142B3            : Pointer;
+    field_142B7            : Pointer;
+    MinimapMouseRect       : tagRECT; //0x142BB
+    MinimapEyeBallRect     : tagRECT; //0x142CB
     p_RadarFinal           : Pointer; //0x142DB
     p_RadarMapped          : Pointer; //0x142DF
     p_RadarPicture         : Pointer; //0x142E3
@@ -1067,7 +1086,7 @@ type
     lInGamePos_Y           : Cardinal;
     ViewResBar             : TViewResBar;
     Active_BottomState     : array [0..47] of Byte;
-    PopadBoxOffset         : Pointer;
+    PopadBoxOffset         : Cardinal;
     LIGHTBAR               : Pointer;
     field_37E98            : Pointer;
     ShowRangeUnitIndex     : Word;
@@ -1298,100 +1317,99 @@ type
 
   TTeleportMethod = ( tmNone, tmSelf, tmSelfLoS, tmVTOLOthers, tmYardmap, tmLinked );
 
-  TUnitInfoExtensions = (
-    UNITINFO_BUILDER = 0,
-    UNITINFO_FLOATER = 1,
-    UNITINFO_AMPHIBIOUS = 2,
-    UNITINFO_STEALTH = 3,
-    UNITINFO_ISAIRBASE = 4,
-    UNITINFO_TARGETTINGUPGRADE = 5,
-    UNITINFO_TELEPORTER = 6,
-    UNITINFO_HIDEDAMAGE = 7,
-    UNITINFO_SHOOTME = 8,
-    UNITINFO_HASWEAPONS = 9,
-    UNITINFO_CANFLY = 10,
-    UNITINFO_CANHOVER = 11,
-    UNITINFO_IMMUNETOPARALYZER = 12,
-    UNITINFO_HOVERATTACK = 13,
-    UNITINFO_ANTIWEAPONS = 14,
-    UNITINFO_DIGGER = 15,
-    UNITINFO_ONOFFABLE = 16,
-    UNITINFO_CANSTOP = 17,
-    UNITINFO_CANATTACK = 18,
-    UNITINFO_CANGUARD = 19,
-    UNITINFO_CANPATROL = 20,
-    UNITINFO_CANMOVE = 21,
-    UNITINFO_CANLOAD = 22,
-    UNITINFO_CANRECLAMATE = 23,
-    UNITINFO_CANRESURRECT = 24,
-    UNITINFO_CANCAPTURE = 25,
-    UNITINFO_CANDGUN = 26,
-    UNITINFO_KAMIKAZE = 27,
-    UNITINFO_COMMANDER = 28,
-    UNITINFO_SHOWPLAYERNAME = 29,
-    UNITINFO_CANTBERANSPORTED = 30,
-    UNITINFO_UPRIGHT = 31,
-    UNITINFO_BMCODE = 32,
+  TUnitInfoExtensions = ( uiBUILDER = 0,
+                          uiFLOATER = 1,
+                          uiAMPHIBIOUS = 2,
+                          uiSTEALTH = 3,
+                          uiISAIRBASE = 4,
+                          uiTARGETTINGUPGRADE = 5,
+                          uiTELEPORTER = 6,
+                          uiHIDEDAMAGE = 7,
+                          uiSHOOTME = 8,
+                          uiHASWEAPONS = 9,
+                          uiCANFLY = 10,
+                          uiCANHOVER = 11,
+                          uiIMMUNETOPARALYZER = 12,
+                          uiHOVERATTACK = 13,
+                          uiANTIWEAPONS = 14,
+                          uiDIGGER = 15,
+                          uiONOFFABLE = 16,
+                          uiCANSTOP = 17,
+                          uiCANATTACK = 18,
+                          uiCANGUARD = 19,
+                          uiCANPATROL = 20,
+                          uiCANMOVE = 21,
+                          uiCANLOAD = 22,
+                          uiCANRECLAMATE = 23,
+                          uiCANRESURRECT = 24,
+                          uiCANCAPTURE = 25,
+                          uiCANDGUN = 26,
+                          uiKAMIKAZE = 27,
+                          uiCOMMANDER = 28,
+                          uiSHOWPLAYERNAME = 29,
+                          uiCANTBERANSPORTED = 30,
+                          uiUPRIGHT = 31,
+                          uiBMCODE = 32,
 
-    UNITINFO_SOUNDCTGR = 33,
+                          uiSOUNDCTGR = 33,
 
-    UNITINFO_MOVEMENTCLASS_SAFE = 34,
-    UNITINFO_MOVEMENTCLASS = 35,
+                          uiMOVEMENTCLASS_SAFE = 34,
+                          uiMOVEMENTCLASS = 35,
 
-    UNITINFO_MAXHEALTH = 36,
-    UNITINFO_HEALTIME = 37,
+                          uiMAXHEALTH = 36,
+                          uiHEALTIME = 37,
 
-    UNITINFO_MAXSPEED = 38,
-    UNITINFO_ACCELERATION = 39,
-    UNITINFO_BRAKERATE = 40,
-    UNITINFO_TURNRATE = 41,
-    UNITINFO_CRUISEALT = 42,
-    UNITINFO_MANEUVERLEASH = 43,
-    UNITINFO_ATTACKRUNLEN = 44,
-    UNITINFO_MAXWATERDEPTH = 45,
-    UNITINFO_MINWATERDEPTH = 46,
-    UNITINFO_MAXSLOPE = 47,
-    UNITINFO_MAXWATERSLOPE = 48,
-    UNITINFO_WATERLINE = 49,
+                          uiMAXSPEED = 38,
+                          uiACCELERATION = 39,
+                          uiBRAKERATE = 40,
+                          uiTURNRATE = 41,
+                          uiCRUISEALT = 42,
+                          uiMANEUVERLEASH = 43,
+                          uiATTACKRUNLEN = 44,
+                          uiMAXWATERDEPTH = 45,
+                          uiMINWATERDEPTH = 46,
+                          uiMAXSLOPE = 47,
+                          uiMAXWATERSLOPE = 48,
+                          uiWATERLINE = 49,
 
-    UNITINFO_TRANSPORTSIZE = 50,
-    UNITINFO_TRANSPORTCAP = 51,
+                          uiTRANSPORTSIZE = 50,
+                          uiTRANSPORTCAP = 51,
 
-    UNITINFO_BANKSCALE = 52,
-    UNITINFO_KAMIKAZEDIST = 53,
-    UNITINFO_DAMAGEMODIFIER = 54,
+                          uiBANKSCALE = 52,
+                          uiKAMIKAZEDIST = 53,
+                          uiDAMAGEMODIFIER = 54,
 
-    UNITINFO_WORKERTIME = 55,
-    UNITINFO_BUILDDIST = 56,
+                          uiWORKERTIME = 55,
+                          uiBUILDDIST = 56,
 
-    UNITINFO_SIGHTDIST = 57,
-    UNITINFO_RADARDIST = 58,
-    UNITINFO_SONARDIST = 59,
-    UNITINFO_MINCLOAKDIST = 60,
-    UNITINFO_RADARDISTJAM = 61,
-    UNITINFO_SONARDISTJAM = 62,
+                          uiSIGHTDIST = 57,
+                          uiRADARDIST = 58,
+                          uiSONARDIST = 59,
+                          uiMINCLOAKDIST = 60,
+                          uiRADARDISTJAM = 61,
+                          uiSONARDISTJAM = 62,
 
-    UNITINFO_MAKESMETAL = 63,
-    UNITINFO_FENERGYMAKE = 64,
-    UNITINFO_FMETALMAKE = 65,
-    UNITINFO_FENERGYUSE = 66,
-    UNITINFO_FMETALUSE = 67,
-    UNITINFO_FENERGYSTOR = 68,
-    UNITINFO_FMETALSTOR = 69,
-    UNITINFO_FWINDGENERATOR = 70,
-    UNITINFO_FTIDALGENERATOR = 71,
-    UNITINFO_FCLOAKCOST = 72,
-    UNITINFO_FCLOAKCOSTMOVE = 73,
+                          uiMAKESMETAL = 63,
+                          uiFENERGYMAKE = 64,
+                          uiFMETALMAKE = 65,
+                          uiFENERGYUSE = 66,
+                          uiFMETALUSE = 67,
+                          uiFENERGYSTOR = 68,
+                          uiFMETALSTOR = 69,
+                          uiFWINDGENERATOR = 70,
+                          uiFTIDALGENERATOR = 71,
+                          uiFCLOAKCOST = 72,
+                          uiFCLOAKCOSTMOVE = 73,
 
-    UNITINFO_BUILDCOSTMETAL = 74,
-    UNITINFO_BUILDCOSTENERGY = 75,
-    UNITINFO_BUILDTIME = 76,
+                          uiBUILDCOSTMETAL = 74,
+                          uiBUILDCOSTENERGY = 75,
+                          uiBUILDTIME = 76,
 
-    UNITINFO_EXPLODEAS = 77,
-    UNITINFO_SELFDSTRAS = 78,
-    UNITINFO_ISFEATURE = 79,
-    UNITINFO_FOOTPRINTX = 80,
-    UNITINFO_FOOTPRINTZ = 81);
+                          uiEXPLODEAS = 77,
+                          uiSELFDSTRAS = 78,
+                          uiISFEATURE = 79,
+                          uiFOOTPRINTX = 80,
+                          uiFOOTPRINTZ = 81);
     
   TStoreUnitsRec = packed record
     Id : Cardinal;
@@ -1401,18 +1419,19 @@ type
   TSpawnedMinionsArr = array of TStoreUnitsRec;
 
   TCustomUnitFieldsRec = packed record
-    LongID               : Cardinal;
     TeleportReloadMax    : Integer;
     TeleportReloadCur    : Integer;
     UnitInfo             : PUnitInfo;
     DefaultMissionPosX   : Word;
     DefaultMissionPosZ   : Word;
+    ShieldedBy           : PUnitStruct;
+    ForcedYPos           : Boolean;
+    ForcedYPosVal        : Integer;
+    
     { GUI }
     CustomWeapReload     : Boolean;
     CustomWeapReloadMax  : Integer;
     CustomWeapReloadCur  : Integer;
-    //CircleSelectProgress : Cardinal;
-    //CircleSelectRadJig   : Byte;
   end;
   TCustomUnitFieldsArr = array of TCustomUnitFieldsRec;
 
@@ -1425,28 +1444,29 @@ type
   end;
 
   TExtraUnitInfoTagsRec = packed record
-    MultiAirTransport : Integer;
-    ExtraVTOLOrders : Integer;
+    MultiAirTransport       : Integer;
+    ExtraVTOLOrders         : Integer;
     TransportWeightCapacity : Integer;
-    HideHPBar : Boolean;
-    NotLab : Boolean;
-    DrawBuildSpotNanoFrame : Boolean;
-    AISquadNr : Integer;
-    TeleportMethod : TTeleportMethod;
-    TeleportMinReloadTime : Integer;
-    TeleportMaxDistance : Integer;
-    TeleportMinDistance : Integer;
-    TeleportCost : Integer;
-    TeleportFilter : TUnitSearchFilterSet;
-    TeleportToLoSOnly : Boolean;
-    CustomRange1Distance : Integer;
-    CustomRange1Color : Integer;
-    CustomRange2Distance : Integer;
-    CustomRange2Color : Integer;
-    CustomRange2Animate : Boolean;
-    SolarGenerator : Double;
-    UseCustomReloadBar : Boolean;
-    DefaultMissionOrgPos : Boolean;
+    HideHPBar               : Boolean;
+    NotLab                  : Boolean;
+    DrawBuildSpotNanoFrame  : Boolean;
+    AISquadNr               : Integer;
+    TeleportMethod          : TTeleportMethod;
+    TeleportMinReloadTime   : Integer;
+    TeleportMaxDistance     : Integer;
+    TeleportMinDistance     : Integer;
+    TeleportCost            : Integer;
+    TeleportFilter          : TUnitSearchFilterSet;
+    TeleportToLoSOnly       : Boolean;
+    CustomRange1Distance    : Integer;
+    CustomRange1Color       : Integer;
+    CustomRange2Distance    : Integer;
+    CustomRange2Color       : Integer;
+    CustomRange2Animate     : Boolean;
+    SolarGenerator          : Double;
+    UseCustomReloadBar      : Boolean;
+    DefaultMissionOrgPos    : Boolean;
+    ShieldRange             : Integer;
   end;
 
   TExtraMapOTATagsRec = packed record
@@ -1457,6 +1477,7 @@ type
     Explode : array of Pointer;
     CustAnim : array of Pointer;
     FlameStream : array of Pointer;
+    GafSequence_ShieldIcon : Pointer;
 //    GafSequence_Arm32lt,
 //    GafSequence_Core32lt : Pointer;
   end;
@@ -1465,7 +1486,15 @@ type
     ModID          : SmallInt;
     ModMajorVer    : AnsiChar;
     ModMinorVer    : AnsiChar;
-  end;  
+  end;
+
+  PCallbackRec = ^TCallbackRec;
+  TSearchUnitsCallbackProc = procedure(p_FoundUnit: PUnitStruct; CallbackRec: PCallbackRec);
+
+  TCallbackRec = record
+    CallbackProc : TSearchUnitsCallbackProc;
+    p_CallerUnit : PUnitStruct;
+  end;
   
 var
   ExtraGAFAnimations : TExtraGAFAnimations;

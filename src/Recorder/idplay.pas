@@ -228,6 +228,7 @@ type
     procedure Broadcast_NewUnitLocation(UnitID: Word; X, Y, Z: Cardinal; Dest: TDPID = 0);
     procedure Broadcast_EmitSFXToUnit(UnitID: Word; ToUnitID: Word; FromPieceIdx: SmallInt; SfxType: Byte; Dest: TDPID = 0);
     procedure Broadcast_SetNanolatheParticles(PosFrom: TPosition; PosTo: TNanolathePos; Reverse: Byte; Dest: TDPID = 0);
+    procedure Broadcast_ExtraUnitState(UnitID: Word; FieldType: Cardinal; NewValue: Integer; Dest: TDPID = 0);
 
     procedure ExceptMessage;
     function OnException(E: Exception) : boolean;     
@@ -747,6 +748,18 @@ begin
   Move( PosTo, customPacket[13], SizeOf(TNanolathePos));
   Move( Reverse, customPacket[37], SizeOf(Byte));
   SendRecorderToRecorderMsg( TANM_Rec2Rec_SetNanolatheParticles, customPacket, False, Dest );
+end;
+
+procedure TDPlay.Broadcast_ExtraUnitState(UnitID: Word;
+  FieldType: Cardinal; NewValue: Integer; Dest: TDPID = 0);
+var
+  customPacket : AnsiString;
+begin
+  SetLength( customPacket, SizeOf(TRec2Rec_ExtraUnitState_Message));
+  Move( UnitID, customPacket[1], SizeOf(Word));
+  Move( FieldType, customPacket[3], SizeOf(Cardinal));
+  Move( NewValue, customPacket[7], SizeOf(Integer));
+  SendRecorderToRecorderMsg( TANM_Rec2Rec_ExtraUnitState, customPacket, False, Dest );
 end;
                                    
 // -----------------------------------------------------------------------------
@@ -3034,6 +3047,20 @@ if assigned(chatview) then
                      else
                        TASfx.NanoReverseParticles(PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosFrom,
                                                   PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosTo);
+                   end;
+                 end;
+               TANM_Rec2Rec_ExtraUnitState :
+                 begin
+                   if (not FromPlayer.IsSelf) then
+                   begin
+                     assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_ExtraUnitState_Message) );
+                     case PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.FieldType of
+                      1 :
+                        begin
+                          CustomUnitFieldsArr[PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.UnitId].ShieldedBy :=
+                            TAUnit.Id2Ptr(PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.NewValue);
+                        end;
+                     end;
                    end;
                  end;
 

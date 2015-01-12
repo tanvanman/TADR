@@ -44,91 +44,6 @@ uses
 var
   WeaponAimNTrajectoryPlugin: TPluginData;
 
-Procedure OnInstallWeaponAimNTrajectory;
-begin
-end;
-
-Procedure OnUninstallWeaponAimNTrajectory;
-begin
-end;
-
-function GetPlugin : TPluginData;
-begin
-  if IsTAVersion31 and State_WeaponAimNTrajectory then
-  begin
-    WeaponAimNTrajectoryPlugin := TPluginData.create( false,
-                            'WeaponAimNTrajectory',
-                            State_WeaponAimNTrajectory,
-                            @OnInstallWeaponAimNTrajectory,
-                            @OnUnInstallWeaponAimNTrajectory );
-
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'High Trajectory',
-                          @WeaponAimNTrajectory_HighTrajectory,
-                          $0049AA50, 0);
-
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'Preserve accuracy of weapon, to be independet of unit kills counter',
-                          @WeaponAimNTrajectory_PreserveAccuracy,
-                          $0049D702, 0);
-
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'twophase weapontype2',
-                          @WeaponAimNTrajectory_WeaponType2,
-                          $0049BB29, 1);
-
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'Is target unit air',
-                          @WeaponAimNTrajectory_NoAirWeapon,
-                          $0049AD07, 0);
-
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'WeaponAimNTrajectory_NoAirWeapon_Cursor',
-                          @WeaponAimNTrajectory_NoAirWeapon_Cursor,
-                          $0043E578, 0);
-
-    if IniSettings.InterceptsOnlyList then
-    begin
-      WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
-                            'Overwrite nukes search function call #1',
-                            @WeaponAimNTrajectory_SearchForEnemyNukes,
-                            $0049DC2F);
-      WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
-                            'Overwrite nukes search function call #2',
-                            @WeaponAimNTrajectory_SearchForEnemyNukes,
-                            $00408B48);
-      WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
-                            'Overwrite nukes search function call #3',
-                            @WeaponAimNTrajectory_SearchForEnemyNukes,
-                            $00408945);
-    end;
-{
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'WeaponAimNTrajectory_InterceptorTest',
-                          @WeaponAimNTrajectory_InterceptorTest,
-                          $0049D16A, 1);
-}
-{
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'Sprayangle for twophase weapons',
-                          @WeaponAimNTrajectory_SecondPhaseSpray,
-                          $0049BAF9, 0);
-}
-{    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'WaterToGroundCheck 1',
-                          @WeaponAimNTrajectory_WaterToGroundCheck_GrantFire,
-                          $0049AB47, 0);
-
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'WaterToGroundCheck 1',
-                          @WeaponAimNTrajectory_WaterToGroundCheck_Trajectory,
-                          $0049B9EB, 0);        }
-
-    Result:= WeaponAimNTrajectoryPlugin;
-  end else
-    Result := nil;
-end;
-
 function GetWeaponExtProperty(WeaponPtr : Pointer; PropertyType : Integer) : Integer; stdcall;
 var
   WeapID : Integer;
@@ -507,21 +422,6 @@ loc_49BA16_WaterGround :
     call PatchNJump
 end;        }
 
-{
-.text:0049AD07 01C A9 00 00 02 00                                                  test    eax, 20000h
-.text:0049AD0C 01C 74 1A                                                           jz      short loc_49AD28
-.text:0049AD0E 01C 8B 8B 10 01 00 00                                               mov     ecx, [ebx+110h]
-.text:0049AD14 01C 83 E1 03                                                        and     ecx, 3
-.text:0049AD17 01C 80 F9 02                                                        cmp     cl, 2
-.text:0049AD1A 01C 74 0C                                                           jz      short loc_49AD28
-.text:0049AD1C 01C 33 C0                                                           xor     eax, eax
-.text:0049AD1E 01C 5F                                                              pop     edi
-.text:0049AD1F 018 5E                                                              pop     esi
-.text:0049AD20 014 5D                                                              pop     ebp
-.text:0049AD21 010 5B                                                              pop     ebx
-.text:0049AD22 00C 83 C4 0C                                                        add     esp, 0Ch
-.text:0049AD25 000 C2 0C 00                                                        retn    0Ch
-}
 procedure WeaponAimNTrajectory_NoAirWeapon;
 label
   ToAirWeapon,
@@ -562,13 +462,6 @@ BallisticCheck :
     call PatchNJump
 end; 
 
-{
-.text:0043E578 014 8B 44 24 1C        mov     eax, [esp+14h+AttackerUnit]
-.text:0043E57C 014 8B 08              mov     ecx, [eax]
-.text:0043E57E 014 8B 70 10           mov     esi, [eax+10h]
-.text:0043E581 014 85 C9              test    ecx, ecx
-.text:0043E583 014 74 0D              jz      short loc_43E592 // unit dont have move class
-}
 procedure WeaponAimNTrajectory_NoAirWeapon_Cursor;
 label
   StandardWeaponContinue,
@@ -711,5 +604,158 @@ AntiNukeNotInStock:
   end;
   Result := Projectile;
 end;
+
+function COB_GetQueryWeaponPosition(p_Unit: PUnitStruct;
+  out OutPosition: TPositionLong; cWhichWeap: Byte; PieceIdx: Integer): Boolean; stdcall;
+var
+  ScriptName: PAnsiChar;
+  Position: TPosition;
+begin
+  if (PieceIdx < 0) then
+  begin
+    case cWhichWeap of
+      0 : ScriptName := Pointer(QueryPrimary);
+      1 : ScriptName := Pointer(QuerySecondary);
+      2 : ScriptName := Pointer(QueryTertiary);
+      else
+        ScriptName := Pointer(QueryPrimary);
+    end;
+    PieceIdx := 0;
+    COBEngine_CallFunc(nil, nil, p_Unit.p_UnitScriptsData,
+                       nil, nil, nil, @PieceIdx, ScriptName);
+  end;
+
+  Result := (PieceIdx <> -2);
+  if Result then
+  begin
+    GetUnitPiecePosition(Position, p_Unit, PieceIdx);
+
+    OutPosition.X := Integer(PInteger(@Position.x_)^ + PInteger(@p_Unit.Position.x_)^);
+    OutPosition.Y := Integer(PInteger(@Position.y_)^ + PInteger(@p_Unit.Position.y_)^);
+    OutPosition.Z := Integer(PInteger(@Position.z_)^ + PInteger(@p_Unit.Position.z_)^);
+  end;
+end;
+
+procedure COB_AbortFireCallback3;
+label
+  abortfire;
+asm
+    test    eax, eax
+    jz      abortfire
+    mov     ebx, [esp+50h]
+    mov     eax, [esp+10h]
+    push $0049D9ED
+    call PatchNJump
+abortfire :
+    push $0049DB61
+    call PatchNJump
+end;
+
+Procedure OnInstallWeaponAimNTrajectory;
+begin
+end;
+
+Procedure OnUninstallWeaponAimNTrajectory;
+begin
+end;
+
+function GetPlugin : TPluginData;
+begin
+  if IsTAVersion31 and State_WeaponAimNTrajectory then
+  begin
+    WeaponAimNTrajectoryPlugin := TPluginData.create( false,
+                            'WeaponAimNTrajectory',
+                            State_WeaponAimNTrajectory,
+                            @OnInstallWeaponAimNTrajectory,
+                            @OnUnInstallWeaponAimNTrajectory );
+
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'High Trajectory',
+                          @WeaponAimNTrajectory_HighTrajectory,
+                          $0049AA50, 0);
+
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'Preserve accuracy of weapon, to be independet of unit kills counter',
+                          @WeaponAimNTrajectory_PreserveAccuracy,
+                          $0049D702, 0);
+
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'twophase weapontype2',
+                          @WeaponAimNTrajectory_WeaponType2,
+                          $0049BB29, 1);
+
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'Is target unit air',
+                          @WeaponAimNTrajectory_NoAirWeapon,
+                          $0049AD07, 0);
+
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'WeaponAimNTrajectory_NoAirWeapon_Cursor',
+                          @WeaponAimNTrajectory_NoAirWeapon_Cursor,
+                          $0043E578, 0);
+
+    if IniSettings.InterceptsOnlyList then
+    begin
+      WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                            'Overwrite nukes search function call #1',
+                            @WeaponAimNTrajectory_SearchForEnemyNukes,
+                            $0049DC2F);
+      WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                            'Overwrite nukes search function call #2',
+                            @WeaponAimNTrajectory_SearchForEnemyNukes,
+                            $00408B48);
+      WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                            'Overwrite nukes search function call #3',
+                            @WeaponAimNTrajectory_SearchForEnemyNukes,
+                            $00408945);
+    end;
+{
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'WeaponAimNTrajectory_InterceptorTest',
+                          @WeaponAimNTrajectory_InterceptorTest,
+                          $0049D16A, 1);
+}
+{
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'Sprayangle for twophase weapons',
+                          @WeaponAimNTrajectory_SecondPhaseSpray,
+                          $0049BAF9, 0);
+}
+{    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'WaterToGroundCheck 1',
+                          @WeaponAimNTrajectory_WaterToGroundCheck_GrantFire,
+                          $0049AB47, 0);
+
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                          'WaterToGroundCheck 1',
+                          @WeaponAimNTrajectory_WaterToGroundCheck_Trajectory,
+                          $0049B9EB, 0);        }
+
+    WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                                               'query unit weapon pos - fire callback 3',
+                                               @COB_GetQueryWeaponPosition,
+                                               $0049D9E0);
+    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
+                                                'abort fire callback 3',
+                                                @COB_AbortFireCallback3,
+                                                $0049D9E5, 3);
+
+    WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                                               'query unit weapon pos - fire callback 0',
+                                               @COB_GetQueryWeaponPosition,
+                                               $0049D6AF);
+    WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                                               'query unit weapon pos - fire callback 1',
+                                               @COB_GetQueryWeaponPosition,
+                                               $0049DB9B);
+    WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
+                                               'query unit weapon pos - fire callback 2',
+                                               @COB_GetQueryWeaponPosition,
+                                               $0049DD80);
+    Result:= WeaponAimNTrajectoryPlugin;
+  end else
+    Result := nil;
+end;
+
 
 end.

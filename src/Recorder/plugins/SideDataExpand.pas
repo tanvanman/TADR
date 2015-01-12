@@ -87,6 +87,7 @@ begin
   TdfFile_GetTagRect(TDFHandle, 'DAMAGEVAL', @ExtraSideData[SideIdx].rectDamageVal);
   TdfFile_GetTagRect(TDFHandle, 'REALMETALINCOME', @ExtraSideData[SideIdx].rectRealMIncome);
   TdfFile_GetTagRect(TDFHandle, 'REALENERGYINCOME', @ExtraSideData[SideIdx].rectRealEIncome);
+  TdfFile_GetTagRect(TDFHandle, 'SHIELDICON', @ExtraSideData[SideIdx].rectShieldIcon);
 end;
 
 procedure SideDataExpand_LoadHook;

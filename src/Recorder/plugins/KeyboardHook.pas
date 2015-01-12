@@ -405,7 +405,7 @@ Retry:
           if CurrentUnit.p_UNITINFO <> nil then
           begin
             if CurrentUnit.p_UNITINFO.cBMCode = 0 then
-              if TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER) <> 0 then
+              if TAUnit.GetUnitInfoField(CurrentUnit, uiBUILDER) <> 0 then
               begin
                 if ExtraUnitInfoTags[CurrentUnit.p_UNITINFO.nCategory].NotLab then
                 begin

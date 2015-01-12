@@ -33,7 +33,7 @@ uses
   TA_MemoryConstants,
   TA_MemoryLocations,
   TA_FunctionsU,
-  IniOptions;
+  IniOptions, SysUtils;
 
 Procedure OnInstallExtensionsMem;
 begin
@@ -126,18 +126,18 @@ begin
   if not SpawnedMinions.IsVoid then
     SpawnedMinions.Clear;
 
-  if MapMissionsUnit.lUnitInGameIndex <> 0 then
+  if MapMissionsUnit.p_UnitScriptsData <> nil then
   begin
     UNITS_KillUnit(@MapMissionsUnit, 8);
     FreeUnitMem(@MapMissionsUnit);
   end;
 
-  if Assigned(MapMissionsSounds) then
-    MapMissionsSounds.Free;
-  if Assigned(MapMissionsFeatures) then
-    MapMissionsFeatures.Free;
-  if Assigned(MapMissionsUnitsInitialMissions) then
-    MapMissionsUnitsInitialMissions.Free;
+  if MapMissionsSounds <> nil then
+    FreeAndNil(MapMissionsSounds);
+  if MapMissionsFeatures <> nil then
+    FreeAndNil(MapMissionsFeatures);
+  if MapMissionsUnitsInitialMissions <> nil then
+    FreeAndNil(MapMissionsUnitsInitialMissions);
 
   FillChar(MapMissionsUnit, SizeOf(TUnitStruct), 0);
   FillChar(NanoSpotUnitSt, SizeOf(TUnitStruct), 0);

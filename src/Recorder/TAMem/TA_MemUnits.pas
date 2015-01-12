@@ -39,13 +39,16 @@ type
     class function GetLoadWeight(p_Unit: PUnitStruct) : Integer;
     class function GetLoadCurAmount(p_Unit: PUnitStruct) : Integer;
 
+    class function IsActivated(p_Unit: PUnitStruct): Boolean;
+    class function IsArmored(p_Unit: PUnitStruct): Boolean;
+
     class function UpdateLos(p_Unit: PUnitStruct) : LongWord;
     class function FireWeapon(AttackerPtr : Pointer; WhichWeap : Byte; Targetp_Unit: PUnitStruct; TargetShortPosition : TShortPosition) : Integer;
 
     { position stuff }
     class function AtMouse: Pointer;
     class function AtPosition(Position: PPosition) : Cardinal;
-    class function Position2Grid(Position: TPosition; UnitInfo: Pointer; out GridPosX, GridPosZ: Word ) : Boolean;
+    class function Position2Grid(Position: TPosition; UnitInfo: PUnitInfo; out GridPosX, GridPosZ: Word ) : Boolean;
     class function GetCurrentSpeedPercent(p_Unit: PUnitStruct) : Cardinal;
     class function GetCurrentSpeedVal(p_Unit: PUnitStruct) : Cardinal;
     class procedure SetCurrentSpeed(p_Unit: PUnitStruct; NewSpeed: Cardinal);
@@ -111,9 +114,11 @@ type
     class function UnitsIntoGetterArray(p_Unit: PUnitStruct; ArrayType: Byte; Id: LongWord; const UnitsArray: TFoundUnits) : Boolean;
     class procedure ClearSearchRec(Id: LongWord; ArrayType: Byte);
     class procedure RandomizeSearchRec(Id: LongWord; ArrayType: Byte);
-    class function Distance(Pos1, Pos2 : PPosition) : Cardinal;
+    class function Distance(Pos1, Pos2: PPosition): Integer;
     class function CircleCoords(CenterPosition: TPosition; Radius: Integer; Angle: Integer; out x, z: Integer) : Boolean;
     class function UnitsFilterVsUnit(p_Unit: PUnitStruct; Filter: TUnitSearchFilterSet; Player: PPlayerStruct) : Boolean;
+    class procedure CallbackForUnitsInDistance(CenterPos: PPosition; Dist: Cardinal;
+      CallbackRec: TCallbackRec);
   end;
 
 implementation
@@ -446,6 +451,16 @@ begin
   Result := i;
 end;
 
+class function TAUnit.IsActivated(p_Unit: PUnitStruct): Boolean;
+begin
+  Result := (p_Unit.nUnitStateMaskBas and 1) = 1;
+end;
+
+class function TAUnit.IsArmored(p_Unit: PUnitStruct): Boolean;
+begin
+  Result := ((p_Unit.nUnitStateMaskBas shr 1) and 1) = 1;
+end;
+
 class function TAUnit.UpdateLos(p_Unit: PUnitStruct) : LongWord;
 begin
   UNITS_RebuildLOS(p_Unit);
@@ -564,17 +579,17 @@ begin
   end;
 end;
 
-class function TAUnit.Position2Grid(Position: TPosition; UnitInfo: Pointer; out GridPosX, GridPosZ: Word ) : Boolean;
+class function TAUnit.Position2Grid(Position: TPosition; UnitInfo: PUnitInfo; out GridPosX, GridPosZ: Word ) : Boolean;
 var
   PosX, PosZ: Integer;
 begin
  // Result := False;
   try
     PosX := MakeLong(Position.x_, Position.X);
-    GridPosX := (PosX - (SmallInt(PUnitInfo(UnitInfo).nFootPrintX shl 19)) + $80000) shr 20;
+    GridPosX := (PosX - (SmallInt(UnitInfo.nFootPrintX shl 19)) + $80000) shr 20;
     //GridPosX := (PosX - (PUnitInfo(UnitInfo).nFootPrintX shl 19) + $80000) shr 20;
     PosZ := MakeLong(0, Position.Z);
-    GridPosZ := (PosZ - (SmallInt(PUnitInfo(UnitInfo).nFootPrintZ shl 19)) + $80000) shr 20;
+    GridPosZ := (PosZ - (SmallInt(UnitInfo.nFootPrintZ shl 19)) + $80000) shr 20;
     //GridPosZ := (PosZ - (PUnitInfo(UnitInfo).nFootPrintZ shl 19) + $80000) shr 20;
   finally
     Result := True;
@@ -745,6 +760,44 @@ begin
   end;
 end;
 
+class procedure TAUnit.CancelCurrentOrder(p_Unit: PUnitStruct);
+var
+  OldOrder: PUnitOrder;
+  CurrOrder: Pointer;
+  TmpOrder: Pointer;
+  OldestOrder: TUnitOrder;
+begin
+  if p_Unit.p_MainOrder <> nil then
+  begin
+    OldOrder := p_Unit.p_MainOrder;
+    OldestOrder := p_Unit.p_MainOrder^;
+    CurrOrder := @p_Unit.p_MainOrder;
+
+    if (OldOrder.lOrder_State and $40000) = $40000 then
+      CurrOrder := @p_Unit.p_SubOrder;
+
+    TmpOrder := PUnitOrder(CurrOrder^).p_ThisOrder;
+    if CurrOrder <> nil then
+    begin
+      while TmpOrder <> OldOrder.p_ThisOrder do
+      begin
+        CurrOrder := PUnitOrder(TmpOrder).p_NextOrder;
+        if PUnitOrder(TmpOrder).p_NextOrder = nil then
+          Break;
+        TmpOrder := PUnitOrder(TmpOrder).p_NextOrder;
+      end;
+      PPointer(CurrOrder)^ := OldOrder.p_NextOrder;
+      if OldOrder <> OldestOrder.p_ThisOrder then
+        OldOrder.lOrder_State := OldOrder.lOrder_State or $10000;
+      if OldOrder <> nil then
+      begin
+        ORDERS_CancelOrder(0, 0, OldOrder);
+        MEM_Free(OldOrder);
+      end;
+    end;
+  end;
+end;
+
 class procedure TAUnit.SwapByKill(p_Unit: PUnitStruct; newUnitInfo: Pointer);
 var
   UnitSt: PUnitStruct;
@@ -889,9 +942,9 @@ begin
   if p_Unit <> nil then
   begin
     UnitSt := p_Unit;
-    Result := Script_ProcessCallback( nil, nil, LongWord(UnitSt.p_UnitScriptsData),
-                                      @Par4, @Par3, @Par2, @Par1,
-                                      PAnsiChar(ProcName) );
+    Result := COBEngine_CallFunc( nil, nil, UnitSt.p_UnitScriptsData,
+                                  @Par4, @Par3, @Par2, @Par1,
+                                  PAnsiChar(ProcName) );
     if Result = 1 then
       Result := Par1;
   end;
@@ -995,10 +1048,14 @@ var
   Unit2Ptr, playerPtr: Pointer;
   playerindex: Integer;
 begin
-  playerPtr := TAUnit.GetOwnerPtr(p_Unit);
-  Unit2Ptr := TAUnit.Id2Ptr(Word(UnitId));
-  playerIndex := TAUnit.GetOwnerIndex(Unit2Ptr);
-  result := BoolValues[TAPlayer.GetAlliedState(playerPtr,playerIndex)];
+  Result := 0;
+  if p_Unit <> nil then
+  begin
+    playerPtr := TAUnit.GetOwnerPtr(p_Unit);
+    Unit2Ptr := TAUnit.Id2Ptr(Word(UnitId));
+    playerIndex := TAUnit.GetOwnerIndex(Unit2Ptr);
+    result := BoolValues[TAPlayer.GetAlliedState(playerPtr,playerIndex)];
+  end;
 end;
  {
 class Function TAUnit.IsRemoteIdLocal(p_Unit: PUnitStruct; remoteUnitId: PLongWord; out Local: Boolean) : LongWord;
@@ -1095,105 +1152,105 @@ begin
     UseTemplate := @CustomUnitFieldsArr[UnitID].UnitInfo;
 
   case fieldType of
-    UNITINFO_MAXHEALTH       : Result := UseTemplate.lMaxHP;
-    UNITINFO_HEALTIME        : Result := UseTemplate.nHealTime;
+    uiMAXHEALTH       : Result := UseTemplate.lMaxHP;
+    uiHEALTIME        : Result := UseTemplate.nHealTime;
 
-    UNITINFO_MAXSPEED        : Result := UseTemplate.lMaxSpeedRaw;
-    UNITINFO_ACCELERATION    : Result := Trunc(UseTemplate.lAcceleration * 100);
-    UNITINFO_BRAKERATE       : Result := Trunc(UseTemplate.lBrakeRate * 100);
-    UNITINFO_TURNRATE        : Result := UseTemplate.nTurnRate;
-    UNITINFO_CRUISEALT       : Result := UseTemplate.nCruiseAlt;
-    UNITINFO_MANEUVERLEASH   : Result := UseTemplate.nManeuverLeashLen;
-    UNITINFO_ATTACKRUNLEN    : Result := UseTemplate.nAttackRunLength;
-    UNITINFO_MAXWATERDEPTH   : Result := UseTemplate.nMaxWaterDepth;
-    UNITINFO_MINWATERDEPTH   : Result := UseTemplate.nMinWaterDepth;
-    UNITINFO_MAXSLOPE        : Result := UseTemplate.cMaxSlope;
-    UNITINFO_MAXWATERSLOPE   : Result := UseTemplate.cMaxWaterSlope;
-    UNITINFO_WATERLINE       : Result := UseTemplate.cWaterLine;
+    uiMAXSPEED        : Result := UseTemplate.lMaxSpeedRaw;
+    uiACCELERATION    : Result := Trunc(UseTemplate.lAcceleration * 100);
+    uiBRAKERATE       : Result := Trunc(UseTemplate.lBrakeRate * 100);
+    uiTURNRATE        : Result := UseTemplate.nTurnRate;
+    uiCRUISEALT       : Result := UseTemplate.nCruiseAlt;
+    uiMANEUVERLEASH   : Result := UseTemplate.nManeuverLeashLen;
+    uiATTACKRUNLEN    : Result := UseTemplate.nAttackRunLength;
+    uiMAXWATERDEPTH   : Result := UseTemplate.nMaxWaterDepth;
+    uiMINWATERDEPTH   : Result := UseTemplate.nMinWaterDepth;
+    uiMAXSLOPE        : Result := UseTemplate.cMaxSlope;
+    uiMAXWATERSLOPE   : Result := UseTemplate.cMaxWaterSlope;
+    uiWATERLINE       : Result := UseTemplate.cWaterLine;
 
-    UNITINFO_TRANSPORTSIZE   : Result := UseTemplate.cTransportSize;
-    UNITINFO_TRANSPORTCAP    : Result := UseTemplate.cTransportCap;
+    uiTRANSPORTSIZE   : Result := UseTemplate.cTransportSize;
+    uiTRANSPORTCAP    : Result := UseTemplate.cTransportCap;
 
-    UNITINFO_BANKSCALE       : Result := UseTemplate.lBankScale;
-    UNITINFO_KAMIKAZEDIST    : Result := UseTemplate.nKamikazeDistance;
-    UNITINFO_DAMAGEMODIFIER  : Result := UseTemplate.lDamageModifier;
+    uiBANKSCALE       : Result := UseTemplate.lBankScale;
+    uiKAMIKAZEDIST    : Result := UseTemplate.nKamikazeDistance;
+    uiDAMAGEMODIFIER  : Result := UseTemplate.lDamageModifier;
 
-    UNITINFO_WORKERTIME      : Result := UseTemplate.nWorkerTime;
-    UNITINFO_BUILDDIST       : Result := UseTemplate.nBuildDistance;
+    uiWORKERTIME      : Result := UseTemplate.nWorkerTime;
+    uiBUILDDIST       : Result := UseTemplate.nBuildDistance;
 
-    UNITINFO_SIGHTDIST       : Result := UseTemplate.nSightDistance;
-    UNITINFO_RADARDIST       : Result := UseTemplate.nRadarDistance;
-    UNITINFO_SONARDIST       : Result := UseTemplate.nSonarDistance;
-    UNITINFO_MINCLOAKDIST    : Result := UseTemplate.nMinCloakDistance;
-    UNITINFO_RADARDISTJAM    : Result := UseTemplate.nRadarDistanceJam;
-    UNITINFO_SONARDISTJAM    : Result := UseTemplate.nSonarDistanceJam;
+    uiSIGHTDIST       : Result := UseTemplate.nSightDistance;
+    uiRADARDIST       : Result := UseTemplate.nRadarDistance;
+    uiSONARDIST       : Result := UseTemplate.nSonarDistance;
+    uiMINCLOAKDIST    : Result := UseTemplate.nMinCloakDistance;
+    uiRADARDISTJAM    : Result := UseTemplate.nRadarDistanceJam;
+    uiSONARDISTJAM    : Result := UseTemplate.nSonarDistanceJam;
 
-    UNITINFO_MAKESMETAL      : Result := UseTemplate.cMakesMetal;
-    UNITINFO_FENERGYMAKE     : Result := Trunc(UseTemplate.fEnergyMake * 100);
-    UNITINFO_FMETALMAKE      : Result := Trunc(UseTemplate.fMetalMake * 100);
-    UNITINFO_FENERGYUSE      : Result := Abs(Trunc(UseTemplate.fEnergyUse * 100));
-    UNITINFO_FMETALUSE       : Result := Abs(Trunc(UseTemplate.fMetalUse * 100));
-    UNITINFO_FENERGYSTOR     : Result := UseTemplate.lEnergyStorage;
-    UNITINFO_FMETALSTOR      : Result := UseTemplate.lMetalStorage;
-    UNITINFO_FWINDGENERATOR  : Result := Trunc(UseTemplate.fWindGenerator * 100);
-    UNITINFO_FTIDALGENERATOR : Result := Trunc(UseTemplate.fTidalGenerator * 100);
-    UNITINFO_FCLOAKCOST      : Result := Trunc(UseTemplate.fCloakCost * 100);
-    UNITINFO_FCLOAKCOSTMOVE  : Result := Trunc(UseTemplate.fCloakCostMoving * 100);
+    uiMAKESMETAL      : Result := UseTemplate.cMakesMetal;
+    uiFENERGYMAKE     : Result := Trunc(UseTemplate.fEnergyMake * 100);
+    uiFMETALMAKE      : Result := Trunc(UseTemplate.fMetalMake * 100);
+    uiFENERGYUSE      : Result := Abs(Trunc(UseTemplate.fEnergyUse * 100));
+    uiFMETALUSE       : Result := Abs(Trunc(UseTemplate.fMetalUse * 100));
+    uiFENERGYSTOR     : Result := UseTemplate.lEnergyStorage;
+    uiFMETALSTOR      : Result := UseTemplate.lMetalStorage;
+    uiFWINDGENERATOR  : Result := Trunc(UseTemplate.fWindGenerator * 100);
+    uiFTIDALGENERATOR : Result := Trunc(UseTemplate.fTidalGenerator * 100);
+    uiFCLOAKCOST      : Result := Trunc(UseTemplate.fCloakCost * 100);
+    uiFCLOAKCOSTMOVE  : Result := Trunc(UseTemplate.fCloakCostMoving * 100);
 
-    UNITINFO_BUILDCOSTMETAL  : Result := Trunc(UseTemplate.lBuildCostMetal);
-    UNITINFO_BUILDCOSTENERGY : Result := Trunc(UseTemplate.lBuildCostEnergy);
+    uiBUILDCOSTMETAL  : Result := Trunc(UseTemplate.lBuildCostMetal);
+    uiBUILDCOSTENERGY : Result := Trunc(UseTemplate.lBuildCostEnergy);
 
-    UNITINFO_BUILDTIME       : Result := UseTemplate.lBuildTime;
+    uiBUILDTIME       : Result := UseTemplate.lBuildTime;
 
 // 1 ?
 // 2 standingfireorder
 // 3 ?
 // 4 init_cloaked
 // 5 downloadable
-    UNITINFO_BUILDER         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 6)) > 0 );
+    uiBUILDER         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 6)) > 0 );
 // 7 zbuffer
-    UNITINFO_STEALTH         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 8)) > 0 );
-    UNITINFO_ISAIRBASE       : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 9)) > 0 );
-    UNITINFO_TARGETTINGUPGRADE   : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 10)) > 0 );
-    UNITINFO_CANFLY          : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 11)) > 0 );
-    UNITINFO_CANHOVER        : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 12)) > 0 );
-    UNITINFO_TELEPORTER      : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 13)) > 0 );
-    UNITINFO_HIDEDAMAGE      : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 14)) > 0 );
-    UNITINFO_SHOOTME         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 15)) > 0 );
-    UNITINFO_HASWEAPONS      : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 16)) > 0 );
+    uiSTEALTH         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 8)) > 0 );
+    uiISAIRBASE       : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 9)) > 0 );
+    uiTARGETTINGUPGRADE   : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 10)) > 0 );
+    uiCANFLY          : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 11)) > 0 );
+    uiCANHOVER        : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 12)) > 0 );
+    uiTELEPORTER      : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 13)) > 0 );
+    uiHIDEDAMAGE      : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 14)) > 0 );
+    uiSHOOTME         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 15)) > 0 );
+    uiHASWEAPONS      : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 16)) > 0 );
 // 17 armoredstate
 // 18 activatewhenbuilt
-    UNITINFO_FLOATER         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 19)) > 0 );
-    UNITINFO_UPRIGHT         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 20)) > 0 );
-    UNITINFO_BMCODE          : Result := UseTemplate.cBMCode;
-    UNITINFO_AMPHIBIOUS      : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 21)) > 0 );
+    uiFLOATER         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 19)) > 0 );
+    uiUPRIGHT         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 20)) > 0 );
+    uiBMCODE          : Result := UseTemplate.cBMCode;
+    uiAMPHIBIOUS      : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 21)) > 0 );
 // 22 ?
 // 23 internal command reload -> sub_42D1F0. probably reloads cob script
-    UNITINFO_ISFEATURE       : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 24)) > 0 );
+    uiISFEATURE       : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 24)) > 0 );
 // 25 noshadow
-    UNITINFO_IMMUNETOPARALYZER  : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 26)) > 0 );
-    UNITINFO_HOVERATTACK     : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 27)) > 0 );
-    UNITINFO_KAMIKAZE        : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 28)) > 0 );
-    UNITINFO_ANTIWEAPONS     : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 29)) > 0 );
-    UNITINFO_DIGGER          : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 30)) > 0 );
+    uiIMMUNETOPARALYZER  : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 26)) > 0 );
+    uiHOVERATTACK     : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 27)) > 0 );
+    uiKAMIKAZE        : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 28)) > 0 );
+    uiANTIWEAPONS     : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 29)) > 0 );
+    uiDIGGER          : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 30)) > 0 );
 // 31 has GUI (does gui file in guis folder exists with name of tested unit) ? sub_42d2e0
 
-    UNITINFO_ONOFFABLE       : Result := Byte((UseTemplate.UnitTypeMask2 and 4) > 0 );
-    UNITINFO_CANSTOP         : Result := Byte((UseTemplate.UnitTypeMask2 and 8) > 0 );
-    UNITINFO_CANATTACK       : Result := Byte((UseTemplate.UnitTypeMask2 and 16) > 0 );
-    UNITINFO_CANGUARD        : Result := Byte((UseTemplate.UnitTypeMask2 and 32) > 0 );
-    UNITINFO_CANPATROL       : Result := Byte((UseTemplate.UnitTypeMask2 and 64) > 0 );
-    UNITINFO_CANMOVE         : Result := Byte((UseTemplate.UnitTypeMask2 and 128) > 0 );
-    UNITINFO_CANLOAD         : Result := Byte((UseTemplate.UnitTypeMask2 and 256) > 0 );
-    UNITINFO_CANRECLAMATE    : Result := Byte((UseTemplate.UnitTypeMask2 and 1024) > 0 );
-    UNITINFO_CANRESURRECT    : Result := Byte((UseTemplate.UnitTypeMask2 and 2048) > 0 );
-    UNITINFO_CANCAPTURE      : Result := Byte((UseTemplate.UnitTypeMask2 and 4096) > 0 );
-    UNITINFO_CANDGUN         : Result := Byte((UseTemplate.UnitTypeMask2 and 16384) > 0 );
-    UNITINFO_SHOWPLAYERNAME  : Result := Byte((UseTemplate.UnitTypeMask2 and 131072) > 0 );
-    UNITINFO_COMMANDER       : Result := Byte((UseTemplate.UnitTypeMask2 and 262144) > 0 );
-    UNITINFO_CANTBERANSPORTED: Result := Byte((UseTemplate.UnitTypeMask2 and 524288) > 0 );
-    UNITINFO_FOOTPRINTX      : Result := UseTemplate.nFootPrintX;
-    UNITINFO_FOOTPRINTZ      : Result := UseTemplate.nFootPrintZ;
+    uiONOFFABLE       : Result := Byte((UseTemplate.UnitTypeMask2 and 4) > 0 );
+    uiCANSTOP         : Result := Byte((UseTemplate.UnitTypeMask2 and 8) > 0 );
+    uiCANATTACK       : Result := Byte((UseTemplate.UnitTypeMask2 and 16) > 0 );
+    uiCANGUARD        : Result := Byte((UseTemplate.UnitTypeMask2 and 32) > 0 );
+    uiCANPATROL       : Result := Byte((UseTemplate.UnitTypeMask2 and 64) > 0 );
+    uiCANMOVE         : Result := Byte((UseTemplate.UnitTypeMask2 and 128) > 0 );
+    uiCANLOAD         : Result := Byte((UseTemplate.UnitTypeMask2 and 256) > 0 );
+    uiCANRECLAMATE    : Result := Byte((UseTemplate.UnitTypeMask2 and 1024) > 0 );
+    uiCANRESURRECT    : Result := Byte((UseTemplate.UnitTypeMask2 and 2048) > 0 );
+    uiCANCAPTURE      : Result := Byte((UseTemplate.UnitTypeMask2 and 4096) > 0 );
+    uiCANDGUN         : Result := Byte((UseTemplate.UnitTypeMask2 and 16384) > 0 );
+    uiSHOWPLAYERNAME  : Result := Byte((UseTemplate.UnitTypeMask2 and 131072) > 0 );
+    uiCOMMANDER       : Result := Byte((UseTemplate.UnitTypeMask2 and 262144) > 0 );
+    uiCANTBERANSPORTED: Result := Byte((UseTemplate.UnitTypeMask2 and 524288) > 0 );
+    uiFOOTPRINTX      : Result := UseTemplate.nFootPrintX;
+    uiFOOTPRINTZ      : Result := UseTemplate.nFootPrintZ;
   end;
 end;
 
@@ -1231,8 +1288,8 @@ begin
   if UnitInfo <> nil then
   begin
     case fieldType of
-      UNITINFO_SOUNDCTGR : UnitInfo.nSoundCategory := Word(value);
-      UNITINFO_MOVEMENTCLASS_SAFE..UNITINFO_MOVEMENTCLASS :
+      uiSOUNDCTGR : UnitInfo.nSoundCategory := Word(value);
+      uiMOVEMENTCLASS_SAFE..uiMOVEMENTCLASS :
         begin
         // movement class information is stored in both - specific and global template
         // we fix both of them to make TA engine happy
@@ -1244,7 +1301,7 @@ begin
           UnitInfo.nMinWaterDepth := MovementClassStruct.nMinWaterDepth;
           UnitInfo.cMaxSlope := MovementClassStruct.cMaxSlope;
           UnitInfo.cMaxWaterSlope := MovementClassStruct.cMaxWaterSlope;
-          if FieldType = UNITINFO_MOVEMENTCLASS_SAFE then
+          if FieldType = uiMOVEMENTCLASS_SAFE then
           begin
             Z := p_Unit.Turn.Z;
             UNITS_CreateMoveClass(TAUnit.Id2Ptr(Word(UnitID)));
@@ -1253,110 +1310,110 @@ begin
         end else
             Exit;
         end;
-      UNITINFO_MAXHEALTH       : UnitInfo.lMaxHP := Word(value);
-      UNITINFO_HEALTIME        : UnitInfo.nHealTime := Word(value);
+      uiMAXHEALTH       : UnitInfo.lMaxHP := Word(value);
+      uiHEALTIME        : UnitInfo.nHealTime := Word(value);
 
-      UNITINFO_MAXSPEED        : UnitInfo.lMaxSpeedRaw := value;
-      UNITINFO_ACCELERATION    : UnitInfo.lAcceleration := value / 100;
-      UNITINFO_BRAKERATE       : UnitInfo.lBrakeRate := value / 100;
-      UNITINFO_TURNRATE        : UnitInfo.nTurnRate := Word(value);
-      UNITINFO_CRUISEALT       : UnitInfo.nCruiseAlt := Word(value);
-      UNITINFO_MANEUVERLEASH   : UnitInfo.nManeuverLeashLen := Word(value);
-      UNITINFO_ATTACKRUNLEN    : UnitInfo.nAttackRunLength := Word(value);
-      UNITINFO_MAXWATERDEPTH   : UnitInfo.nMaxWaterDepth := SmallInt(value);
-      UNITINFO_MINWATERDEPTH   : UnitInfo.nMinWaterDepth := SmallInt(value);
-      UNITINFO_MAXSLOPE        : UnitInfo.cMaxSlope := ShortInt(value);
-      UNITINFO_MAXWATERSLOPE   : UnitInfo.cMaxWaterSlope := ShortInt(value);
-      UNITINFO_WATERLINE       : UnitInfo.cWaterLine := Byte(value);
+      uiMAXSPEED        : UnitInfo.lMaxSpeedRaw := value;
+      uiACCELERATION    : UnitInfo.lAcceleration := value / 100;
+      uiBRAKERATE       : UnitInfo.lBrakeRate := value / 100;
+      uiTURNRATE        : UnitInfo.nTurnRate := Word(value);
+      uiCRUISEALT       : UnitInfo.nCruiseAlt := Word(value);
+      uiMANEUVERLEASH   : UnitInfo.nManeuverLeashLen := Word(value);
+      uiATTACKRUNLEN    : UnitInfo.nAttackRunLength := Word(value);
+      uiMAXWATERDEPTH   : UnitInfo.nMaxWaterDepth := SmallInt(value);
+      uiMINWATERDEPTH   : UnitInfo.nMinWaterDepth := SmallInt(value);
+      uiMAXSLOPE        : UnitInfo.cMaxSlope := ShortInt(value);
+      uiMAXWATERSLOPE   : UnitInfo.cMaxWaterSlope := ShortInt(value);
+      uiWATERLINE       : UnitInfo.cWaterLine := Byte(value);
 
-      UNITINFO_TRANSPORTSIZE   : UnitInfo.cTransportSize := Byte(value);
-      UNITINFO_TRANSPORTCAP    : UnitInfo.cTransportCap := Byte(value);
+      uiTRANSPORTSIZE   : UnitInfo.cTransportSize := Byte(value);
+      uiTRANSPORTCAP    : UnitInfo.cTransportCap := Byte(value);
 
-      UNITINFO_BANKSCALE       : UnitInfo.lBankScale := value;
-      UNITINFO_KAMIKAZEDIST    : UnitInfo.nKamikazeDistance := Word(value);
-      UNITINFO_DAMAGEMODIFIER  : UnitInfo.lDamageModifier := value;
+      uiBANKSCALE       : UnitInfo.lBankScale := value;
+      uiKAMIKAZEDIST    : UnitInfo.nKamikazeDistance := Word(value);
+      uiDAMAGEMODIFIER  : UnitInfo.lDamageModifier := value;
 
-      UNITINFO_WORKERTIME      : UnitInfo.nWorkerTime := Word(value);
-      UNITINFO_BUILDDIST       : UnitInfo.nBuildDistance := Word(value);
+      uiWORKERTIME      : UnitInfo.nWorkerTime := Word(value);
+      uiBUILDDIST       : UnitInfo.nBuildDistance := Word(value);
 
-      UNITINFO_SIGHTDIST :
+      uiSIGHTDIST :
         begin
         UnitInfo.nSightDistance := Word(value);
         TAUnit.UpdateLos(TAUnit.Id2Ptr(Word(UnitID)));
         end;
-      UNITINFO_RADARDIST :
+      uiRADARDIST :
         begin
         UnitInfo.nRadarDistance := Word(value);
         TAUnit.UpdateLos(TAUnit.Id2Ptr(Word(UnitID)));
         end;
-      UNITINFO_SONARDIST       : UnitInfo.nSonarDistance := Word(value);
-      UNITINFO_MINCLOAKDIST    : UnitInfo.nMinCloakDistance := Word(value);
-      UNITINFO_RADARDISTJAM    : UnitInfo.nRadarDistanceJam := Word(value);
-      UNITINFO_SONARDISTJAM    : UnitInfo.nSonarDistanceJam := Word(value);
+      uiSONARDIST       : UnitInfo.nSonarDistance := Word(value);
+      uiMINCLOAKDIST    : UnitInfo.nMinCloakDistance := Word(value);
+      uiRADARDISTJAM    : UnitInfo.nRadarDistanceJam := Word(value);
+      uiSONARDISTJAM    : UnitInfo.nSonarDistanceJam := Word(value);
 
-      UNITINFO_MAKESMETAL      : UnitInfo.cMakesMetal := Byte(value);
-      UNITINFO_FENERGYMAKE     : UnitInfo.fEnergyMake := value / 100;
-      UNITINFO_FMETALMAKE      : UnitInfo.fMetalMake := value / 100;
-      UNITINFO_FENERGYUSE      : UnitInfo.fEnergyUse := value / 100;
-      UNITINFO_FMETALUSE       : UnitInfo.fMetalUse := value / 100;
-      UNITINFO_FENERGYSTOR     : UnitInfo.lEnergyStorage := value;
-      UNITINFO_FMETALSTOR      : UnitInfo.lEnergyStorage := value;
-      UNITINFO_FWINDGENERATOR  : UnitInfo.fWindGenerator := value / 100;
-      UNITINFO_FTIDALGENERATOR : UnitInfo.fTidalGenerator := value / 100;
-      UNITINFO_FCLOAKCOST      : UnitInfo.fCloakCost := value / 100;
-      UNITINFO_FCLOAKCOSTMOVE  : UnitInfo.fCloakCostMoving := value / 100;
+      uiMAKESMETAL      : UnitInfo.cMakesMetal := Byte(value);
+      uiFENERGYMAKE     : UnitInfo.fEnergyMake := value / 100;
+      uiFMETALMAKE      : UnitInfo.fMetalMake := value / 100;
+      uiFENERGYUSE      : UnitInfo.fEnergyUse := value / 100;
+      uiFMETALUSE       : UnitInfo.fMetalUse := value / 100;
+      uiFENERGYSTOR     : UnitInfo.lEnergyStorage := value;
+      uiFMETALSTOR      : UnitInfo.lEnergyStorage := value;
+      uiFWINDGENERATOR  : UnitInfo.fWindGenerator := value / 100;
+      uiFTIDALGENERATOR : UnitInfo.fTidalGenerator := value / 100;
+      uiFCLOAKCOST      : UnitInfo.fCloakCost := value / 100;
+      uiFCLOAKCOSTMOVE  : UnitInfo.fCloakCostMoving := value / 100;
 
-      UNITINFO_BMCODE          : UnitInfo.cBMCode := value;
+      uiBMCODE          : UnitInfo.cBMCode := value;
 
-      UNITINFO_EXPLODEAS       : UnitInfo.p_ExplodeAs := PLongWord(TAWeapon.WeaponId2Ptr(value));
-      UNITINFO_SELFDSTRAS      : UnitInfo.p_SelfDestructAsAs := PLongWord(TAWeapon.WeaponId2Ptr(value));
+      uiEXPLODEAS       : UnitInfo.p_ExplodeAs := PLongWord(TAWeapon.WeaponId2Ptr(value));
+      uiSELFDSTRAS      : UnitInfo.p_SelfDestructAsAs := PLongWord(TAWeapon.WeaponId2Ptr(value));
 
 // 1 ?
 // 2 standingfireorder
 // 3 ?
 // 4 init_cloaked
 // 5 downloadable
-      UNITINFO_BUILDER         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 6);
-// 7 zbuffer
-      UNITINFO_STEALTH         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 8);
-      UNITINFO_ISAIRBASE       : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 9);
-      UNITINFO_TARGETTINGUPGRADE   : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 10);
-      UNITINFO_CANFLY          : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 11);
-      UNITINFO_CANHOVER        : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 12);
-      UNITINFO_TELEPORTER      : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 13);
-      UNITINFO_HIDEDAMAGE      : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 14);
-      UNITINFO_SHOOTME         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 15);
-      UNITINFO_HASWEAPONS      : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 16);
+      uiBUILDER         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 6);
+// 7 zbuifer
+      uiSTEALTH         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 8);
+      uiISAIRBASE       : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 9);
+      uiTARGETTINGUPGRADE   : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 10);
+      uiCANFLY          : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 11);
+      uiCANHOVER        : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 12);
+      uiTELEPORTER      : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 13);
+      uiHIDEDAMAGE      : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 14);
+      uiSHOOTME         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 15);
+      uiHASWEAPONS      : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 16);
 // 17 armoredstate
 // 18 activatewhenbuilt
-      UNITINFO_FLOATER         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 19);
-      UNITINFO_UPRIGHT         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 20);
-      UNITINFO_AMPHIBIOUS      : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 21);
+      uiFLOATER         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 19);
+      uiUPRIGHT         : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 20);
+      uiAMPHIBIOUS      : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 21);
 // 22 ?
 // 23 internal command reload -> sub_42D1F0. probably reloads cob script
 // 24 isfeature
 // 25 noshadow
-      UNITINFO_IMMUNETOPARALYZER  : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 26);
-      UNITINFO_HOVERATTACK     : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 27);
-      UNITINFO_KAMIKAZE        : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 28);
-      UNITINFO_ANTIWEAPONS     : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 29);
-      UNITINFO_DIGGER          : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 30);
+      uiIMMUNETOPARALYZER  : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 26);
+      uiHOVERATTACK     : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 27);
+      uiKAMIKAZE        : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 28);
+      uiANTIWEAPONS     : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 29);
+      uiDIGGER          : SetUnitTypeMask(UnitID, 0, (value = 1), 1 shl 30);
 // 31 has GUI (does gui file in guis folder exists with name of tested unit) ? sub_42d2e0
 
-      UNITINFO_ONOFFABLE       : SetUnitTypeMask(UnitID, 1, (value = 1), 4);
-      UNITINFO_CANSTOP         : SetUnitTypeMask(UnitID, 1, (value = 1), 8);
-      UNITINFO_CANATTACK       : SetUnitTypeMask(UnitID, 1, (value = 1), 16);
-      UNITINFO_CANGUARD        : SetUnitTypeMask(UnitID, 1, (value = 1), 32);
-      UNITINFO_CANPATROL       : SetUnitTypeMask(UnitID, 1, (value = 1), 64);
-      UNITINFO_CANMOVE         : SetUnitTypeMask(UnitID, 1, (value = 1), 128);
-      UNITINFO_CANLOAD         : SetUnitTypeMask(UnitID, 1, (value = 1), 256);
-      UNITINFO_CANRECLAMATE    : SetUnitTypeMask(UnitID, 1, (value = 1), 1024);
-      UNITINFO_CANRESURRECT    : SetUnitTypeMask(UnitID, 1, (value = 1), 2048);
-      UNITINFO_CANCAPTURE      : begin SetUnitTypeMask(UnitID, 1, (value = 1), $1000); SetUnitTypeMask(UnitID, 1, (value = 1), $2000); end;
-      UNITINFO_CANDGUN         : SetUnitTypeMask(UnitID, 1, (value = 1), $4000);
-      UNITINFO_SHOWPLAYERNAME  : SetUnitTypeMask(UnitID, 1, (value = 1), $20000);
-      UNITINFO_COMMANDER       : SetUnitTypeMask(UnitID, 1, (value = 1), $40000);
-      UNITINFO_CANTBERANSPORTED: SetUnitTypeMask(UnitID, 1, (value = 1), $80000);
+      uiONOFFABLE       : SetUnitTypeMask(UnitID, 1, (value = 1), 4);
+      uiCANSTOP         : SetUnitTypeMask(UnitID, 1, (value = 1), 8);
+      uiCANATTACK       : SetUnitTypeMask(UnitID, 1, (value = 1), 16);
+      uiCANGUARD        : SetUnitTypeMask(UnitID, 1, (value = 1), 32);
+      uiCANPATROL       : SetUnitTypeMask(UnitID, 1, (value = 1), 64);
+      uiCANMOVE         : SetUnitTypeMask(UnitID, 1, (value = 1), 128);
+      uiCANLOAD         : SetUnitTypeMask(UnitID, 1, (value = 1), 256);
+      uiCANRECLAMATE    : SetUnitTypeMask(UnitID, 1, (value = 1), 1024);
+      uiCANRESURRECT    : SetUnitTypeMask(UnitID, 1, (value = 1), 2048);
+      uiCANCAPTURE      : begin SetUnitTypeMask(UnitID, 1, (value = 1), $1000); SetUnitTypeMask(UnitID, 1, (value = 1), $2000); end;
+      uiCANDGUN         : SetUnitTypeMask(UnitID, 1, (value = 1), $4000);
+      uiSHOWPLAYERNAME  : SetUnitTypeMask(UnitID, 1, (value = 1), $20000);
+      uiCOMMANDER       : SetUnitTypeMask(UnitID, 1, (value = 1), $40000);
+      uiCANTBERANSPORTED: SetUnitTypeMask(UnitID, 1, (value = 1), $80000);
     end;
     Result:= True;
   end;
@@ -1724,18 +1781,18 @@ begin
   end;
 end;
 
-class function TAUnits.Distance(Pos1, Pos2 : PPosition) : Cardinal;
+class function TAUnits.Distance(Pos1, Pos2: PPosition): Integer;
 var
   Distance : Extended;
 begin
   Result := 0;
   if (Pos1 <> nil) and (Pos2 <> nil) then
   begin
-    if ((PPosition(Pos1)^.X - PPosition(Pos2)^.X) <> 0) and
-       ((PPosition(Pos1)^.Z - PPosition(Pos2)^.Z) <> 0) then
+    if (Abs(Pos1^.X - Pos2^.X) <> 0) and
+       (Abs(Pos1^.Z - Pos2^.Z) <> 0) then
     begin
-      Distance := Hypot(PPosition(Pos1)^.X - PPosition(Pos2)^.X,
-                        PPosition(Pos1)^.Z - PPosition(Pos2)^.Z);
+      Distance := Hypot(Abs(Pos1^.X - Pos2^.X),
+                        Abs(Pos1^.Z - Pos2^.Z));
       Result := Round(Distance);
     end else
       Result := 0;
@@ -1802,12 +1859,12 @@ begin
 
   if usfExcludeAir in Filter then
   begin
-    if TAUnit.GetUnitInfoField(p_Unit, UNITINFO_CANFLY) = 1 then
+    if TAUnit.GetUnitInfoField(p_Unit, uiCANFLY) = 1 then
       Exit;
   end;
   if usfExcludeSea in Filter then
   begin
-    if TAUnit.GetUnitInfoField(p_Unit, UNITINFO_FLOATER) = 1 then
+    if TAUnit.GetUnitInfoField(p_Unit, uiFLOATER) = 1 then
       Exit
     else
       //subs or pels/hovers currently in sea
@@ -1818,12 +1875,12 @@ begin
   end;
   if usfExcludeBuildings in Filter then
   begin
-    if TAUnit.GetUnitInfoField(p_Unit, UNITINFO_BMCODE) = 0 then
+    if TAUnit.GetUnitInfoField(p_Unit, uiBMCODE) = 0 then
       Exit;
   end;
   if usfExcludeNonWeaponed in Filter then
   begin
-    if TAUnit.GetUnitInfoField(p_Unit, UNITINFO_HASWEAPONS) = 0 then
+    if TAUnit.GetUnitInfoField(p_Unit, uiHASWEAPONS) = 0 then
       Exit;
   end;
 
@@ -1834,39 +1891,106 @@ begin
   Result := True;
 end;
 
-class procedure TAUnit.CancelCurrentOrder(p_Unit: PUnitStruct);
+class procedure TAUnits.CallbackForUnitsInDistance(CenterPos: PPosition;
+  Dist: Cardinal; CallbackRec: TCallbackRec);
 var
-  OldOrder: PUnitOrder;
-  CurrOrder: Pointer;
-  TmpOrder: Pointer;
-  OldestOrder: TUnitOrder;
+  tilesx, tilesy: Integer;
+  left, top, right, bottom: Integer;
+  Left_, Top_, Right_, Bottom_: Integer;
+  PosX, PosZ: Integer;
+  MaxDistPx: Integer;
+  v16, v17: Int64;
+  p_FoundUnit: PUnitStruct;
+  x, z: Integer;
+  CallbackProc : TSearchUnitsCallbackProc;
+  MaxDistance : Integer;
 begin
-  if p_Unit.p_MainOrder <> nil then
+  CallbackProc := CallbackRec.CallbackProc;
+
+  PosX := PInteger(@CenterPos.X_)^;
+  PosZ := PInteger(@CenterPos.Z_)^;
+
+  MaxDistance := MakeLong(0, Dist);
+
+  tilesx := TAData.MainStruct.field_142A3;
+  tilesy := TAData.MainStruct.field_142A7;
+
+  left := (PosX - MaxDistance) shr 23;
+  if ( left >= tilesx ) then
   begin
-    OldOrder := p_Unit.p_MainOrder;
-    OldestOrder := p_Unit.p_MainOrder^;
-    CurrOrder := @p_Unit.p_MainOrder;
+    if ( left >= 0 ) then
+      Left_ := tilesx - 1
+    else
+      Left_ := 0;
+  end else
+    Left_ := left;
 
-    if (OldOrder.lOrder_State and $40000) = $40000 then
-      CurrOrder := @p_Unit.p_SubOrder;
+  top := (PosZ - MaxDistance) shr 23;
+  if ( top >= tilesy )then
+  begin
+    if ( top >= 0 ) then
+      Top_ := tilesy - 1
+    else
+      Top_ := 0;
+  end else
+    Top_ := top;
 
-    TmpOrder := PUnitOrder(CurrOrder^).p_ThisOrder;
-    if CurrOrder <> nil then
+  right := (MaxDistance + PosX) shr 23;
+  if ( right >= tilesx ) then
+  begin
+    if ( right >= 0 ) then
+      Right_ := tilesx - 1
+    else
+      Right_  := 0;
+  end else
+    Right_  := right;
+
+  bottom := (MaxDistance + PosZ) shr 23;
+  if ( bottom >= tilesy ) then
+  begin
+    if ( bottom >= 0 ) then
+      Bottom_ := tilesy - 1
+    else
+      Bottom_ := 0;
+  end else
+    Bottom_ := bottom;
+
+  MaxDistPx := (Dist * Dist) shr 32;
+
+  if ( Top_ > Bottom_ ) then
+  begin
+    z := Bottom_;
+    Bottom_ := Top_;
+    Top_ := z;
+  end;
+
+  if ( Left_ > Right_ ) then
+  begin
+    x := Right_;
+    Right_ := Left_;
+    Left_ := x;
+  end;
+
+  for z := Top_ to Bottom_ do
+  begin
+    for x := Left_ to Right_ do
     begin
-      while TmpOrder <> OldOrder.p_ThisOrder do
+      p_FoundUnit := Pointer(PCardinal(Cardinal(TAData.MainStruct.field_1429F) +
+        10 * (Cardinal(x) + Cardinal(z) * TAData.MainStruct.field_142A3) + 6)^);
+      if ( p_FoundUnit <> nil ) then
       begin
-        CurrOrder := PUnitOrder(TmpOrder).p_NextOrder;
-        if PUnitOrder(TmpOrder).p_NextOrder = nil then
-          Break;
-        TmpOrder := PUnitOrder(TmpOrder).p_NextOrder;
-      end;
-      PPointer(CurrOrder)^ := OldOrder.p_NextOrder;
-      if OldOrder <> OldestOrder.p_ThisOrder then
-        OldOrder.lOrder_State := OldOrder.lOrder_State or $10000;
-      if OldOrder <> nil then
-      begin
-        ORDERS_CancelOrder(0, 0, OldOrder);
-        MEM_Free(OldOrder);
+        while (True) do
+        begin
+          v16 := MakeLong(p_FoundUnit.Position.z_, p_FoundUnit.Position.Z) - PosZ;
+          v17 := MakeLong(p_FoundUnit.Position.x_, p_FoundUnit.Position.X) - PosX;
+          if ( (((v16 * v16) shr 32) + ((v17 * v17) shr 32)) <= MaxDistPx ) then
+          begin
+            CallbackProc(p_FoundUnit, @CallbackRec);
+          end;
+          p_FoundUnit := p_FoundUnit.p_PriorUnit;
+          if ( p_FoundUnit = nil ) then
+            Break;
+        end;
       end;
     end;
   end;

@@ -156,7 +156,7 @@ function ReadINISettings: boolean;
     Result:= Default;
     if IniFile.ValueExists(sect, ident) then
     begin
-      temp:= IniFile.ReadString(sect, ident, '');
+      temp:= UpperCase(IniFile.ReadString(sect, ident, ''));
       if Length(temp) > 1 then
       begin
         if Pos('FALSE', temp) <> 0 then
@@ -404,15 +404,14 @@ function GetPlugin : TPluginData;
 begin
 if IsTAVersion31 and State_INI_Options then
   begin
-	  result := TPluginData.create( false,
-                                'totala.ini reader',
-                                State_INI_Options,
-                                @OnInstallINI_Options, @OnUnInstallINI_Options );
+    Result := TPluginData.create( True,
+                                  'totala.ini settings reader',
+                                  State_INI_Options,
+                                  @OnInstallINI_Options, @OnUnInstallINI_Options );
 
-    IniSettings.read := ReadINISettings;     
-    
+    IniSettings.Read := ReadINISettings;
   end else
-    result := nil;
+    Result := nil;
 end;
 
 end.

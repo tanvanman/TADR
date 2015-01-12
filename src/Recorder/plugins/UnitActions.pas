@@ -29,7 +29,7 @@ procedure UnitActions_AllowOrderType;
 procedure UnitActions_AllowOrderType_Action2IndexWrapper;
 procedure UnitActions_NewOrdersButtonsWrapper;
 procedure UnitActions_TeleportOrderWrapper;
-procedure UnitActions_TeleportReloadWrapper;
+procedure UnitActions_ExtraDataReload;
 procedure UnitActions_TeleportPositionOffset;
 procedure UnitActions_AdvancedDefaultMission;
 procedure UnitActions_DontHealTimeNotBuilt;
@@ -53,95 +53,8 @@ uses
   COB_extensions,
   UnitInfoExpand;
 
-Procedure OnInstallUnitActions;
-begin
-end;
-
-Procedure OnUninstallUnitActions;
-begin
-end;
-
-function GetPlugin : TPluginData;
-begin
-  if IsTAVersion31 and State_UnitActions then
-  begin
-    Result := TPluginData.create( False, 'UnitActions Plugin',
-                                  State_UnitActions,
-                                  @OnInstallUnitActions,
-                                  @OnUninstallUnitActions );
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'Ground transporter overload fix',
-                            @UnitActions_TransportOverloadFix,
-                            $00406789, 3);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'Enable multi air load',
-                            @UnitActions_VTOLTransportCapacityCanLoadTest,
-                            $00411224, 0);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'Enable weight air load',
-                            @UnitActions_VTOLTransportSize,
-                            $0041125F, 3);
-{
-    UnitActionsPlugin.MakeRelativeJmp( State_UnitActions,
-                          'Enable weight air load cursor',
-                          @UnitActions_VTOLTransportSizeCursor,
-                          $00489B0B, 3);
-}
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'Enable resurrect and capture orders fot VTOLs',
-                            @UnitActions_ExtraVTOLOrders,
-                            $00438AE3, 0);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'UnitActions_AssignAISquad',
-                            @UnitActions_AssignAISquad,
-                            $00408846, 0);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'set cursor for new orders',
-                            @UnitActions_AllowOrderType,
-                            $0043E4F5, 4);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'convert cursor type to action type',
-                            @UnitActions_AllowOrderType_Action2IndexWrapper,
-                            $0043F144, 4);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'translate orders buttons to action type',
-                            @UnitActions_NewOrdersButtonsWrapper,
-                            $00419C20, 4);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'complete rebuild of TA teleport order',
-                            @UnitActions_TeleportOrderWrapper,
-                            $00406AAB, 1);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'teleport reloader for units',
-                            @UnitActions_TeleportReloadWrapper,
-                            $0048ADDF, 1);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'multiple teleport, apply position offset',
-                            @UnitActions_TeleportPositionOffset,
-                            $0048D126, 1);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'Default unit mission with position parameter addition',
-                            @UnitActions_AdvancedDefaultMission,
-                            $0043B9DE, 1);
-
-    Result.MakeRelativeJmp( State_UnitActions,
-                            'dont heal time units that are under construction',
-                            @UnitActions_DontHealTimeNotBuilt,
-                            $0048AF58, 1);
-  end else
-    Result := nil;
-end;
+type
+  TSetShieldedProc = procedure(p_Unit: PUnitStruct); stdcall;
 
 procedure BroadcastCommanderStartPosition; stdcall;
 var
@@ -448,7 +361,7 @@ type
   end;
 
 function TeleportGroupOfUnits(Teleporter: PUnitStruct; UnitsFilter: TUnitSearchFilterSet;
-  CenterPosition, TargetPosition: PPosition; Distance: Cardinal): Integer;
+  CenterPosition, TargetPosition: PPosition; Distance: Integer): Integer;
 var
   TargetPositionWithOffset : TPosition;
   nPosX, nPosZ : Word;
@@ -489,7 +402,7 @@ begin
       begin
         if (TestedUnitInfo.cBMCode = 1) and
            ((TestedUnitInfo.UnitTypeMask2 and 2) = 2) and
-           (TAUnit.GetUnitInfoField(TestedUnit, UNITINFO_BUILDER) = 0) then  // can fire
+           (TAUnit.GetUnitInfoField(TestedUnit, uiBUILDER) = 0) then  // can fire
         begin
           GetTPosition(TargetPosition.X + UnitsArr[i].OffX,
                        TargetPosition.Z + UnitsArr[i].OffZ,
@@ -712,7 +625,7 @@ begin
       if (PUnitInfo(CurrentUnit.p_UnitInfo).cBMCode <> 0) then
         Continue;
 
-      if (TAUnit.GetUnitInfoField(CurrentUnit, UNITINFO_BUILDER) = 0) then
+      if (TAUnit.GetUnitInfoField(CurrentUnit, uiBUILDER) = 0) then
          Continue
       else begin
         ORDERS_RemoveAllBuildQueues(CurrentUnit, True);
@@ -1031,28 +944,98 @@ asm
   call PatchNJump;
 end;
 
-procedure UnitActions_TeleportReload(p_Unit: PUnitStruct); stdcall;
+procedure SetShield(p_FoundUnit: PUnitStruct; CallbackRec: PCallbackRec);
 var
-  UnitId : Cardinal;
+  UnitId: Word;
+  bChangedState: Boolean;
+  p_Shield: PUnitStruct;
+begin
+  p_Shield := CallbackRec.p_CallerUnit;
+  if p_FoundUnit <> p_Shield then
+  begin
+    // found unit is other shield
+    if ExtraUnitInfoTags[p_FoundUnit.nUnitInfoID].ShieldRange <> 0 then
+      Exit;
+      
+    UnitId := TAUnit.GetId(p_FoundUnit);
+    if (TAUnit.IsAllied(p_Shield, UnitId) = 1) or
+       (p_Shield = nil) then
+    begin
+      bChangedState := (CustomUnitFieldsArr[UnitId].ShieldedBy <> p_Shield);
+      CustomUnitFieldsArr[UnitId].ShieldedBy := p_Shield;
+
+      if bChangedState then
+        TAData.MainStruct.Active_BottomState[47] := not TAData.MainStruct.Active_BottomState[47];
+
+      if bChangedState and
+         TAData.NetworkLayerEnabled then
+      begin
+        if Assigned(GlobalDPlay) then
+        begin
+          if p_Shield <> nil then
+            GlobalDPlay.Broadcast_ExtraUnitState(UnitID, 1, TAUnit.GetId(p_Shield))
+          else
+            GlobalDPlay.Broadcast_ExtraUnitState(UnitID, 1, 0);
+        end;
+      end;
+    end;
+  end;
+end;
+
+procedure ExtraDataReload(p_Unit: PUnitStruct); stdcall;
+var
+  UnitId: Cardinal;
+  p_Shield: PUnitStruct;
+  ShieldRange: Integer;
+  CallbackRec: TCallbackRec;
+  TeleportReloadMax: Integer;
 begin
   UnitId := TAUnit.GetId(p_Unit);
-  if CustomUnitFieldsArr[UnitId].TeleportReloadMax <> 0 then
-    if CustomUnitFieldsArr[UnitId].TeleportReloadCur < CustomUnitFieldsArr[UnitId].TeleportReloadMax then
+  TeleportReloadMax := CustomUnitFieldsArr[UnitId].TeleportReloadMax;
+  if TeleportReloadMax <> 0 then
+  begin
+    if CustomUnitFieldsArr[UnitId].TeleportReloadCur < TeleportReloadMax then
       Inc(CustomUnitFieldsArr[UnitId].TeleportReloadCur, 1)
     else begin
       CustomUnitFieldsArr[UnitId].TeleportReloadMax := 0;
       CustomUnitFieldsArr[UnitId].TeleportReloadCur := 0;
     end;
+  end;
+
+  p_Shield := CustomUnitFieldsArr[UnitId].ShieldedBy;
+  if p_Shield <> nil then
+  begin
+    ShieldRange := ExtraUnitInfoTags[p_Shield.nUnitInfoID].ShieldRange;
+
+    // shield is not activated or unit is not in range of it anymore
+    if (ShieldRange = 0) or
+       not TAUnit.IsArmored(p_Shield) or
+       (TAUnits.Distance(@p_Shield.Position, @p_Unit.Position) > ShieldRange) then
+    begin
+      CallbackRec.p_CallerUnit := nil;
+      SetShield(p_Unit, @CallbackRec);
+    end;
+  end;
+     
+  ShieldRange := ExtraUnitInfoTags[p_Unit.nUnitInfoID].ShieldRange;
+  if ShieldRange <> 0 then
+  begin
+    CallbackRec.p_CallerUnit := nil;
+    if TAUnit.IsArmored(p_Unit) then
+      CallbackRec.p_CallerUnit := p_Unit;
+    CallbackRec.CallbackProc := @SetShield;
+    TAUnits.CallbackForUnitsInDistance(@p_Unit.Position, ShieldRange, CallbackRec);
+  end;
 end;
 
-procedure UnitActions_TeleportReloadWrapper;
+procedure UnitActions_ExtraDataReload;
 asm
   pushAD
   push    esi
-  call    UnitActions_TeleportReload
+  call    ExtraDataReload
   popAD
-  mov     ecx, [esi+TUnitStruct.p_UnitScriptsData]
-  push $0048ADE5;
+  mov     al, [esi+TUnitStruct.ucRecentDamage]
+  push $0048ADF6;
   call PatchNJump;
 end;
 
@@ -1095,12 +1078,7 @@ begin
                    CustomUnitFieldsArr[UnitID].DefaultMissionPosZ,
                    Position);
       }
-      Position.x_ := 0;
-      Position.z_ := 0;
-      Position.y_ := 0;
-      Position.X  := 0;
-      Position.Z  := 0;
-      Position.Y  := 0;
+      FillChar(Position, SizeOf(TPosition), 0);
     end;
 
     Result := ORDERS_CreateObject(nil, nil, OrderMem, 0,
@@ -1139,6 +1117,219 @@ heal :
 dont_heal :
   push $0048AF97;
   call PatchNJump;
+end;
+
+procedure UnitActions_AntiDamageShield(p_Projectile: PWeaponProjectile; p_AttackerUnit: PUnitStruct; p_TargetUnit: PUnitStruct;
+  Amount: Integer; DamageType: Cardinal; Angle: Word); stdcall;
+var
+  TargetUnitId: Word;
+  p_Shield: PUnitStruct;
+  Distance: Integer;
+begin
+  TargetUnitId := TAUnit.GetId(p_TargetUnit);
+
+  p_Shield := CustomUnitFieldsArr[TargetUnitId].ShieldedBy;
+  if (p_Shield <> nil) then
+  begin
+    if (p_AttackerUnit <> nil) then
+    begin
+      if TAUnit.IsAllied(p_AttackerUnit, TargetUnitId) = 1 then
+        UNITS_MakeDamage(p_AttackerUnit, p_TargetUnit, Amount, DamageType, Angle)
+      else
+      begin
+        Distance := TAUnits.Distance(@p_AttackerUnit.Position,
+          @CustomUnitFieldsArr[TargetUnitId].ShieldedBy.Position);
+//        Distance := TAUnits.Distance(@p_Projectile.Position_Start,
+//          @p_Projectile.Position_Curnt);
+
+        if (TAUnit.GetUnitInfoField(p_AttackerUnit, uiCANFLY) = 0) and
+           (Distance <> 0) and
+           (Distance <= ExtraUnitInfoTags[p_Shield.nUnitInfoID].ShieldRange) then
+        begin
+          UNITS_MakeDamage(p_AttackerUnit, p_TargetUnit, Amount, DamageType, Angle);
+          Exit;
+        end;
+      end;
+    end;
+    Script_RunScript ( 0, 0, LongWord(p_Shield.p_UnitScriptsData),
+                       0, TargetUnitId, TAUnit.GetId(p_AttackerUnit), Amount,
+                       3, 0, 0,
+                       PAnsiChar('Shield') );
+  end else
+    UNITS_MakeDamage(p_AttackerUnit, p_TargetUnit, Amount, DamageType, Angle);
+end;
+
+procedure UnitActions_AntiDamageShieldHook;
+asm
+  push edx
+  call UnitActions_AntiDamageShield
+  push $00499E3C;
+  call PatchNJump;
+end;
+
+procedure UnitActions_FixUnitYPos(p_Unit: PUnitStruct); stdcall;
+var
+  StateMask, TypeMask, UnitTypeMask: Cardinal;
+  bNoMoveClass: Boolean;
+  p_UnitInfo: PUnitInfo;
+  NewStateMask: Cardinal;
+  SeaLevelMinusWaterLine: Integer;
+begin
+  StateMask := p_Unit.lUnitStateMask;
+  TypeMask := p_Unit.p_UNITINFO.UnitTypeMask;
+
+  if ((StateMask and $10000) = $10000) or
+     ((Hi(TypeMask) and $10) = $10) then
+  begin
+    NewStateMask := StateMask and $FFFEFFFF;
+    bNoMoveClass := p_Unit.p_MovementClass = nil;
+    p_Unit.lUnitStateMask := NewStateMask;
+
+    if CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPos then
+    begin
+      PCardinal(@p_Unit.Position.y_)^ :=
+        CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPosVal shl 16;
+      Exit;
+    end;
+
+    if (not bNoMoveClass) and
+       ((NewStateMask and 3) = 1) then
+    begin
+      p_UnitInfo := p_Unit.p_UNITINFO;
+      UnitTypeMask := p_Unit.p_UNITINFO.UnitTypeMask;
+      if ((p_UnitInfo.UnitTypeMask shr 20) and 1) = 1 then// upright
+      begin
+        if ((UnitTypeMask shr 12) and 1) <> 0 then         // canhover
+        begin
+          SeaLevelMinusWaterLine := TAData.MainStruct.TNTMemStruct.SeaLevel - p_UnitInfo.cWaterLine;
+          if (GetPosHeight(@p_Unit.Position) <= SeaLevelMinusWaterLine ) then
+            PCardinal(@p_Unit.Position.y_)^ := SeaLevelMinusWaterLine shl 16 // pelican on sea
+          else                                  // ground height > (sea level - waterline)
+            PCardinal(@p_Unit.Position.y_)^ := GetPosHeight(@p_Unit.Position) shl 16;// pelican on ground
+        end else
+          PCardinal(@p_Unit.Position.y_)^ := GetPosHeight(@p_Unit.Position) shl 16;// upright but not hover, subs
+      end else
+      begin
+        if ((UnitTypeMask shr 19) and 1) = 1 then        // not upright but floater
+          PCardinal(@p_Unit.Position.y_)^ :=
+            (TAData.MainStruct.TNTMemStruct.SeaLevel + 65535 * p_UnitInfo.cWaterLine) shl 16// armcrus etc.
+        else
+          UNITS_FixYPosOtherType(p_Unit);    // not upright, not floater
+      end;
+    end;
+  end;
+end;
+
+Procedure OnInstallUnitActions;
+begin
+end;
+
+Procedure OnUninstallUnitActions;
+begin
+end;
+
+function GetPlugin : TPluginData;
+begin
+  if IsTAVersion31 and State_UnitActions then
+  begin
+    Result := TPluginData.create( False, 'UnitActions Plugin',
+                                  State_UnitActions,
+                                  @OnInstallUnitActions,
+                                  @OnUninstallUnitActions );
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'Ground transporter overload fix',
+                            @UnitActions_TransportOverloadFix,
+                            $00406789, 3);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'Enable multi air load',
+                            @UnitActions_VTOLTransportCapacityCanLoadTest,
+                            $00411224, 0);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'Enable weight air load',
+                            @UnitActions_VTOLTransportSize,
+                            $0041125F, 3);
+{
+    UnitActionsPlugin.MakeRelativeJmp( State_UnitActions,
+                          'Enable weight air load cursor',
+                          @UnitActions_VTOLTransportSizeCursor,
+                          $00489B0B, 3);
+}
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'Enable resurrect and capture orders fot VTOLs',
+                            @UnitActions_ExtraVTOLOrders,
+                            $00438AE3, 0);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'UnitActions_AssignAISquad',
+                            @UnitActions_AssignAISquad,
+                            $00408846, 0);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'set cursor for new orders',
+                            @UnitActions_AllowOrderType,
+                            $0043E4F5, 4);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'convert cursor type to action type',
+                            @UnitActions_AllowOrderType_Action2IndexWrapper,
+                            $0043F144, 4);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'translate orders buttons to action type',
+                            @UnitActions_NewOrdersButtonsWrapper,
+                            $00419C20, 4);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'complete rebuild of TA teleport order',
+                            @UnitActions_TeleportOrderWrapper,
+                            $00406AAB, 1);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'extra unit state and orders reload routine',
+                            @UnitActions_ExtraDataReload,
+                            $0048ADF0, 1);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'multiple teleport, apply position offset',
+                            @UnitActions_TeleportPositionOffset,
+                            $0048D126, 1);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'Default unit mission with position parameter addition',
+                            @UnitActions_AdvancedDefaultMission,
+                            $0043B9DE, 1);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'dont heal time units that are under construction',
+                            @UnitActions_DontHealTimeNotBuilt,
+                            $0048AF58, 1);
+
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'dont make damage on shielded untis',
+                            @UnitActions_AntiDamageShieldHook,
+                            $00499E37, 0);
+    
+    Result.MakeStaticCall( State_UnitActions,
+                           'unit Y position locker - create unit call',
+                           @UnitActions_FixUnitYPos,
+                           $00486109);
+    Result.MakeStaticCall( State_UnitActions,
+                           'unit Y position locker - recreate unit call',
+                           @UnitActions_FixUnitYPos,
+                           $00486306);
+    Result.MakeStaticCall( State_UnitActions,
+                           'unit Y position locker - main thread call',
+                           @UnitActions_FixUnitYPos,
+                           $0048AFB0);
+    Result.MakeStaticCall( State_UnitActions,
+                           'unit Y position locker - send unit pos call',
+                           @UnitActions_FixUnitYPos,
+                           $0048BA4C);
+  end else
+    Result := nil;
 end;
 
 end.
