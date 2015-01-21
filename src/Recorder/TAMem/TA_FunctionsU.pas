@@ -220,30 +220,6 @@ type
 var
   FindSpot_CategorysAry : FindSpot_CategorysAryHandler = FindSpot_CategorysAryHandler($00488C50);
 
-// Displays text to the screen (no parsing for commands)
-type //TextType - 0 = chat, 1 = popup
-  SendTextHandler = function ( Text : PChar;
-                               TextType : Longint) : longint; stdcall;
-var
-  SendText : SendTextHandler = SendTextHandler($46bc70);
-  procedure SendTextLocal(Text: string);
-
-type
-                               // ^PlayerStruct
-                               // , int access, int type
-  ShowTextHandler = procedure ( player : pointer;
-                                Text : PChar;
-                                Unknown1 : Longint; // uses a value of 4
-                                Unknown2 : Longint  // uses a value of 0
-                                ); stdcall;
-var
-  ShowText : ShowTextHandler = ShowTextHandler($463E50);
-
-type
-  ClearChatHandler = function : Integer; cdecl;
-var
-  ClearChat : ClearChatHandler = ClearChatHandler($00463C80);
-
 // providing Player will also check is grid spot in player LOS
 // just like unmapped terrain build spot check works
 type
@@ -358,6 +334,27 @@ type
   ApplySelectUnitMenuHandler = function: Integer; cdecl;
 var
   ApplySelectUnitMenu : ApplySelectUnitMenuHandler = ApplySelectUnitMenuHandler($00495860);
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// Chat messages and text commands
+//////////////////////////////////////////////////////////////////////////////////////////
+
+type //TextType - 0 = chat, 1 = popup
+  ShowReminderMsgHandler = function(Text: PAnsiChar; TextType: Word): Integer; stdcall;
+var
+  ShowReminderMsg : ShowReminderMsgHandler = ShowReminderMsgHandler($0046BC70);
+  procedure SendTextLocal(Text: string);
+
+type
+  ShowChatMessageHandler = procedure(Player: PPlayerStruct; Text: PAnsiChar;
+    Priority: Longint; ToPlayerName: PAnsiChar); stdcall;
+var
+  ShowChatMessage : ShowChatMessageHandler = ShowChatMessageHandler($00463E50);
+
+type
+  ClearChatHandler = procedure; stdcall;
+var
+  ClearChat : ClearChatHandler = ClearChatHandler($00463C80);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Map data
@@ -699,7 +696,7 @@ var
   UNITS_AllocateMovementClass: UNITS_AllocateMovementClassHandler = UNITS_AllocateMovementClassHandler($00485E50);
 
 type
-  UNITS_RebuildLOSHandler = function (p_Unit: Pointer): Byte; stdcall;
+  UNITS_RebuildLOSHandler = procedure(p_Unit: PUnitStruct); stdcall;
 var
   UNITS_RebuildLOS : UNITS_RebuildLOSHandler = UNITS_RebuildLOSHandler($00482AC0);
 
@@ -879,7 +876,11 @@ type
 var
   DrawUnit : DrawUnitHandler = DrawUnitHandler($0045AC20);
 
-// draw filled box  
+type
+  DrawUnitSelectBoxRectHandler = procedure(OFFSCREEN_ptr: Cardinal; p_Unit: PUnitStruct); stdcall;
+var
+  DrawUnitSelectBoxRect : DrawUnitSelectBoxRectHandler = DrawUnitSelectBoxRectHandler($0046A530);
+
 type
   DrawBarHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: Byte) : LongInt; stdcall;
 var
@@ -1329,7 +1330,7 @@ end;
 
 procedure SendTextLocal(Text: string);
 begin
-  SendText(PAnsiChar(Text), 0);
+  ShowReminderMsg(PAnsiChar(Text), 0);
 end;
 
 end.

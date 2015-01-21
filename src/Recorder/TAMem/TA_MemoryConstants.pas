@@ -21,6 +21,8 @@ const
   QueryPrimary = $505284;
   QuerySecondary = $00505274;
   QueryTertiary = $00505264;
+  ImmediateOrders = $0050271C;
+  SpecialOrders = $005026E4;
 
 implementation
 

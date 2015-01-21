@@ -129,6 +129,7 @@ begin
   ExtraUnitInfoTags[UnitInfoID].UseCustomReloadBar := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('customreloadbar')) <> 0;
   ExtraUnitInfoTags[UnitInfoID].DefaultMissionOrgPos := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('defaultmissionorgpos')) <> 0;
   ExtraUnitInfoTags[UnitInfoID].ShieldRange := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('ShieldRange'));
+  ExtraUnitInfoTags[UnitInfoID].SelectBoxType := TdfFile_GetInt(0, 0, TDFHandle, 0, PAnsiChar('SelectBoxType'));
 end;
 
 procedure UnitInfoExpand_NewPropertiesLoadHook;
@@ -147,18 +148,22 @@ asm
 end;
 
 procedure FreeCustomUnitInfo(p_Unit: PUnitStruct); stdcall;
+var
+  UnitID: Word;
 begin
-  if CustomUnitFieldsArr[Word(p_Unit.lUnitInGameIndex)].UnitInfo <> nil then
+  UnitID := TAUnit.GetId(p_Unit);
+  if CustomUnitFieldsArr[UnitID].UnitInfo <> nil then
   begin
-    MEM_Free(CustomUnitFieldsArr[Word(p_Unit.lUnitInGameIndex)].UnitInfo);
-    CustomUnitFieldsArr[Word(p_Unit.lUnitInGameIndex)].UnitInfo := nil;
+    MEM_Free(CustomUnitFieldsArr[UnitID].UnitInfo);
+    CustomUnitFieldsArr[UnitID].UnitInfo := nil;
   end;
-  CustomUnitFields.ElemClear(CustomUnitFieldsArr[Word(p_Unit.lUnitInGameIndex)]);
+  CustomUnitFields.ElemClear(CustomUnitFieldsArr[UnitID]);
+  CustomUnitFieldsArr[UnitID].ShieldRange := ExtraUnitInfoTags[p_Unit.nUnitInfoID].ShieldRange;
 end;
 
 procedure FreeCustomUnitInfoHook;
 asm
-  mov     [esi+92h], edx
+  mov     [esi+TUnitStruct.p_UnitInfo], edx
   pushAD
   push    esi
   call    FreeCustomUnitInfo

@@ -113,6 +113,8 @@ var
   TDFIni : TMemStreamIniFile;
   AiDifficulty : Integer;
   GameType : Integer;
+  SectionKeys: TStringList;
+  i: Integer;
 begin
   MouseLock := False;
   CameraFadeLevel := 0;
@@ -149,6 +151,20 @@ begin
           begin
             MapMissionsUnitsInitialMissions := TStringList.Create;
             TDFIni.ReadSection('unitsmissions', MapMissionsUnitsInitialMissions);
+          end;
+          if TDFIni.SectionExists('textmessages') then
+          begin
+            MapMissionsTextMessages := TStringList.Create;
+            SectionKeys := TStringList.Create;
+            try
+              TDFIni.ReadSection('textmessages', SectionKeys);
+              for i := 0 to SectionKeys.Count - 1 do
+              begin
+                MapMissionsTextMessages.Add(TDFIni.ReadString('textmessages', SectionKeys[i], ''));
+              end;
+            finally
+              SectionKeys.Free;
+            end;
           end;
         finally
           msTDF.Free;

@@ -89,6 +89,8 @@ type
     class function Crc32ToCrc24(CRC: Cardinal) : Cardinal;
     class function MovementClassId2Ptr(index: Word) : Pointer;
     class function FeatureDefId2Ptr(ID : Word) : Pointer;
+    class procedure Position2Grid(Position: TPosition; out GridPosX, GridPosZ: Word);
+    class function PositionInMapArea(Position: TPosition): Boolean;
     class function ProtectMemoryRegion(Address : Cardinal; Writable: Boolean) : Integer;
     class function IsTAVersion31 : Boolean;
   end;
@@ -598,6 +600,24 @@ begin
   StartPos.Y := 65521;
 
   Result := PROJECTILES_FireMapWeap(WeaponPtr, @TargetPos, @StartPos, True);
+end;
+
+class procedure TAMem.Position2Grid(Position: TPosition; out GridPosX, GridPosZ: Word);
+begin
+  GridPosX := Word(PInteger(@Position.x_)^ shr 20);
+  GridPosZ := Word(PInteger(@Position.z_)^ shr 20);
+end;
+
+class function TAMem.PositionInMapArea(Position: TPosition): Boolean;
+var
+  GridPosX, GridPosZ: Word;
+  TNTMemStruct: PTNTMemStruct;
+begin
+  PInteger(@Position.x_)^ := -1;
+  TAMem.Position2Grid(Position, GridPosX, GridPosZ);
+  TNTMemStruct := @TAData.MainStruct.TNTMemStruct;
+  Result := not ((GridPosX < 1) or (GridPosZ < 1) or (GridPosX >= TNTMemStruct.lTilesetMapSizeX) or
+   (GridPosZ >= TNTMemStruct.lTilesetMapSizeY));
 end;
 
 end.

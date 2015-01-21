@@ -33,6 +33,8 @@ Procedure OnUninstallRegPathFix;
 // -----------------------------------------------------------------------------
 
 procedure LoadCommonDataHook;
+procedure LocateMovieInCommonDirHook;
+procedure SetDirAfterMovie;
 
 implementation
 uses
@@ -113,6 +115,16 @@ begin
                           'Load common maps and game data files',
                           @LoadCommonDataHook,
                           $0041D4DB, 0);
+
+    RegPathFixPlugin.MakeRelativeJmp(State_RegPathFix,
+                                     'Load movies from common data dir',
+                                     @LocateMovieInCommonDirHook,
+                                     $004267AB, 1);
+
+    RegPathFixPlugin.MakeRelativeJmp(State_RegPathFix,
+                                     'Sets dir to TA after movie has finished',
+                                     @SetDirAfterMovie,
+                                     $00426878, 0);
 
     Result:= RegPathFixPlugin;
   end else
@@ -260,6 +272,33 @@ asm
     //push $0041D4E0;
     // after ta hpi readings
     push $0041D5F3;
+    call PatchNJump;
+end;
+
+function LocateMovieInCommonDir(FilePath: PAnsiChar): Integer; stdcall;
+var
+  CommonGameData: Boolean;
+begin
+  CommonGameData := (IniSettings.CommonGameDataPath <> '') and
+    IniSettings.UseCommonGameData;
+  if CommonGameData then
+    SetCurrentDir(IniSettings.CommonGameDataPath);
+  Result := HAPIFILE_GetFileLength(FilePath);
+end;
+
+procedure LocateMovieInCommonDirHook;
+asm
+    push edx
+    call LocateMovieInCommonDir;
+    push $004267B1;
+    call PatchNJump;
+end;
+
+procedure SetDirAfterMovie;
+asm
+    call SetCurrentDirectoryToTAPath
+    mov  eax, [TAdynmemStructPtr]
+    push $0042687D;
     call PatchNJump;
 end;
 

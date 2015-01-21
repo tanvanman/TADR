@@ -149,10 +149,11 @@ const
  TEST_BUILD_SPOT = 167;
  PLANT_YARD_OCCUPIED = 168;
  UNIT_REBUILD_YARD = 169;
+ POSITION_TO_GRID = 170;
 
  { Map missions }
  MS_MOVE_CAM_POS = 175;
- MS_MOVE_CAM_UNIT = 176;
+ MS_LOCK_CAM_TO_UNIT = 176;
  MS_SHAKE = 177;
  MS_SCREEN_GAMMA = 178;
  MS_SCREEN_FADE = 179;
@@ -168,6 +169,7 @@ const
  MS_GAME_TIME = 189;
  MS_APPLY_UNIT_SCRIPT = 190;
  MS_FIRE_MAP_WEAPON = 191;
+ MS_SHOW_TEXTMSG = 192;
 
  { Math }
  LOWWORD = 200;
@@ -945,6 +947,10 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       begin
       result := UNITS_RebuildFootPrint(p_Unit);
       end;
+    POSITION_TO_GRID :
+      begin
+//      TAMem.Position2Grid(Position, );
+      end;
     MAP_SEA_LEVEL :
       begin
       result := TAData.MainStruct.TNTMemStruct.SeaLevel;
@@ -1049,7 +1055,7 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       begin
       ScrollView(arg1, arg2, Boolean(arg3));
       end;
-    MS_MOVE_CAM_UNIT :
+    MS_LOCK_CAM_TO_UNIT :
       begin
       if arg1 <> 0 then
         TAMap.SetCameraToUnit(TAUnit.Id2Ptr(arg1))
@@ -1122,6 +1128,24 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     MS_FIRE_MAP_WEAPON :
       begin
       TAWeapon.FireMap_Weapon(TAWeapon.WeaponId2Ptr(arg1), HiWord(arg2), LoWord(arg2));
+      end;
+    MS_SHOW_TEXTMSG :
+      begin
+        case arg1 of
+          0 :
+            begin
+              if arg4 <> 0 then
+                ShowChatMessage(TAPlayer.GetPlayerByIndex(arg2), PAnsiChar(MapMissionsTextMessages[arg3]),
+                  4, @TAPlayer.GetPlayerByIndex(arg4).szSecondName)
+              else
+                ShowChatMessage(TAPlayer.GetPlayerByIndex(arg2), PAnsiChar(MapMissionsTextMessages[arg3]),
+                  4, nil);
+            end;
+          1 :
+            begin
+              ShowReminderMsg(PAnsiChar(MapMissionsTextMessages[arg2]), arg3);
+            end;
+        end;
       end;
     end;
   end;

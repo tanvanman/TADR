@@ -413,7 +413,7 @@ begin
           if TargetPositionWithOffset.Z >= TAData.MainStruct.TNTMemStruct.lMapHeight - 32 then
             Continue;
 
-          TAUnit.Position2Grid(TargetPositionWithOffset, TestedUnit.p_UnitInfo, nPosX, nPosZ);
+          TAUnit.BuildPosition2Grid(TargetPositionWithOffset, TestedUnit.p_UnitInfo, nPosX, nPosZ);
           if (nPosX < PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintX) then
           begin
             nPosX := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintX;
@@ -635,9 +635,31 @@ begin
   end;
 end;
 
-const
-  IMMEDIATEORDERS : AnsiString = 'immediateorders';
-  SPECIALORDERS : AnsiString = 'specialorders';
+procedure CallActionScriptForSelected;
+var
+  Player : PPlayerStruct;
+  PlayerMaxUnitID : Cardinal;
+  CurrentUnit : PUnitStruct;
+  i : Cardinal;
+begin
+  Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
+  PlayerMaxUnitID := Player.nNumUnits;
+  for i := 0 to PlayerMaxUnitID do
+  begin
+    CurrentUnit := Pointer(Cardinal(Player.p_UnitsArray) + i * SizeOf(TUnitStruct));
+    if ((CurrentUnit.lUnitStateMask and UnitSelectState[UnitSelected_State]) = UnitSelectState[UnitSelected_State]) then
+    begin
+      if (CurrentUnit.fBuildTimeLeft <> 0.0) or
+         (CurrentUnit.p_Owner = nil) or
+         (CurrentUnit.p_UnitInfo = nil) then
+        Continue;
+
+      TAUnit.CallCobProcedure(CurrentUnit, 'ActionButtonPressed', nil, nil, nil, nil);
+//      UpdateIngameGUI(0);
+    end;
+  end;
+end;
+
 function UnitActions_NewOrdersButtons(a2, v3, v4: Cardinal) : Integer; stdcall;
 var
   DestStr : array[0..15] of AnsiChar;
@@ -827,6 +849,12 @@ buildspot_state:
       TAData.MainStruct.cBuildSpotState and $F7;
     goto play_immediateorders_return;
   end;
+
+  if ( Pos('ACTIONBUTTON', OrderName) <> 0 ) then
+  begin
+    CallActionScriptForSelected;
+    PlaySound_2D_Name(PAnsiChar(IMMEDIATEORDERS), 0);
+  end;
   Result := 0;
 end;
 
@@ -954,10 +982,10 @@ begin
   if p_FoundUnit <> p_Shield then
   begin
     // found unit is other shield
-    if ExtraUnitInfoTags[p_FoundUnit.nUnitInfoID].ShieldRange <> 0 then
-      Exit;
-      
     UnitId := TAUnit.GetId(p_FoundUnit);
+    if CustomUnitFieldsArr[UnitId].ShieldRange <> 0 then
+      Exit;
+
     if (TAUnit.IsAllied(p_Shield, UnitId) = 1) or
        (p_Shield = nil) then
     begin
@@ -1005,7 +1033,7 @@ begin
   p_Shield := CustomUnitFieldsArr[UnitId].ShieldedBy;
   if p_Shield <> nil then
   begin
-    ShieldRange := ExtraUnitInfoTags[p_Shield.nUnitInfoID].ShieldRange;
+    ShieldRange := CustomUnitFieldsArr[TAUnit.GetId(p_Shield)].ShieldRange;
 
     // shield is not activated or unit is not in range of it anymore
     if (ShieldRange = 0) or
@@ -1016,8 +1044,8 @@ begin
       SetShield(p_Unit, @CallbackRec);
     end;
   end;
-     
-  ShieldRange := ExtraUnitInfoTags[p_Unit.nUnitInfoID].ShieldRange;
+
+  ShieldRange := CustomUnitFieldsArr[UnitId].ShieldRange;
   if ShieldRange <> 0 then
   begin
     CallbackRec.p_CallerUnit := nil;
@@ -1144,7 +1172,7 @@ begin
 
         if (TAUnit.GetUnitInfoField(p_AttackerUnit, uiCANFLY) = 0) and
            (Distance <> 0) and
-           (Distance <= ExtraUnitInfoTags[p_Shield.nUnitInfoID].ShieldRange) then
+           (Distance <= CustomUnitFieldsArr[TAUnit.GetId(p_Shield)].ShieldRange) then
         begin
           UNITS_MakeDamage(p_AttackerUnit, p_TargetUnit, Amount, DamageType, Angle);
           Exit;

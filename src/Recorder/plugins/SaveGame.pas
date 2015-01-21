@@ -62,11 +62,11 @@ begin
                                   State_SaveGame,
                                   @OnInstallSaveGame,
                                   @OnUninstallSaveGame );
-{
+
     Result.MakeReplacement( State_SaveGame,
                             'Create audit file next to .SAV',
                             $00432A5B, CREATE_AUDIT_FILE, 1);
-}
+
     Result.MakeRelativeJmp( State_SaveGame,
                             'Save TADR structures to SAV file',
                             @SaveGame_SaveAdditionHook,

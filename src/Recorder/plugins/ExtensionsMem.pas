@@ -138,6 +138,8 @@ begin
     FreeAndNil(MapMissionsFeatures);
   if MapMissionsUnitsInitialMissions <> nil then
     FreeAndNil(MapMissionsUnitsInitialMissions);
+  if MapMissionsTextMessages <> nil then
+    FreeAndNil(MapMissionsTextMessages);
 
   FillChar(MapMissionsUnit, SizeOf(TUnitStruct), 0);
   FillChar(NanoSpotUnitSt, SizeOf(TUnitStruct), 0);

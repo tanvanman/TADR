@@ -437,7 +437,7 @@ type
     p_WeaponPrimary    : Pointer;
     p_WeaponSecondary  : Pointer;
     p_WeaponTertiary   : Pointer;
-    lMaxHP             : Cardinal;
+    lMaxDamage         : Cardinal;
     nWorkerTime        : Word;
     nHealTime          : Word;
     nSightDistance     : Word;
@@ -1284,13 +1284,6 @@ type
                     Action_WaitForAttack = 67,
                     Action_NoResult = 68 );
 
-  // ---------------------------------------------------------------------------
-  // custom structures used by TADR
-  // ---------------------------------------------------------------------------
-  TCobMethods = ( Activate, Deactivate, Upgrade, Reminder, Cloak );
-
-  TUnitCategories = ( ucsNoChase, ucsPriBadTarget, ucsSecBadTarget, ucsTerBadTarget );
-
   TDmgType = ( dtWeapon = 1,
                dtParalyze = 2,
                dtSelfDestruct = 3,// 30000 self, self
@@ -1300,6 +1293,14 @@ type
                dtDieInLab = 9,    // 30000 builder, builded unit or self, self
                dtHeal = 10,       // one, two or self,self
                dtUnknown1 = 11 ); // maybe net packet unit health confirm
+
+  // ---------------------------------------------------------------------------
+  // custom structures used by TADR
+  // ---------------------------------------------------------------------------
+
+  TCobMethods = ( Activate, Deactivate, Upgrade, Reminder, Cloak );
+
+  TUnitCategories = ( ucsNoChase, ucsPriBadTarget, ucsSecBadTarget, ucsTerBadTarget );
 
   TUnitSearchFilter = ( usfNone,
                         usfOwner,
@@ -1312,104 +1313,98 @@ type
                         usfExcludeNonWeaponed,
                         usfIncludeInBuildState,
                         usfIncludeTransported );
-
   TUnitSearchFilterSet = set of TUnitSearchFilter;
 
   TTeleportMethod = ( tmNone, tmSelf, tmSelfLoS, tmVTOLOthers, tmYardmap, tmLinked );
 
-  TUnitInfoExtensions = ( uiBUILDER = 0,
-                          uiFLOATER = 1,
-                          uiAMPHIBIOUS = 2,
-                          uiSTEALTH = 3,
-                          uiISAIRBASE = 4,
-                          uiTARGETTINGUPGRADE = 5,
-                          uiTELEPORTER = 6,
-                          uiHIDEDAMAGE = 7,
-                          uiSHOOTME = 8,
-                          uiHASWEAPONS = 9,
-                          uiCANFLY = 10,
-                          uiCANHOVER = 11,
-                          uiIMMUNETOPARALYZER = 12,
-                          uiHOVERATTACK = 13,
-                          uiANTIWEAPONS = 14,
-                          uiDIGGER = 15,
-                          uiONOFFABLE = 16,
-                          uiCANSTOP = 17,
-                          uiCANATTACK = 18,
-                          uiCANGUARD = 19,
-                          uiCANPATROL = 20,
-                          uiCANMOVE = 21,
-                          uiCANLOAD = 22,
-                          uiCANRECLAMATE = 23,
-                          uiCANRESURRECT = 24,
-                          uiCANCAPTURE = 25,
-                          uiCANDGUN = 26,
-                          uiKAMIKAZE = 27,
-                          uiCOMMANDER = 28,
-                          uiSHOWPLAYERNAME = 29,
-                          uiCANTBERANSPORTED = 30,
-                          uiUPRIGHT = 31,
-                          uiBMCODE = 32,
+  TUnitInfoExtensions = ( uiEnergyStorage = 1,
+                          uiEnergyMake = 2,
+                          uiEnergyUse = 3,
+                          uiMetalStorage = 4,
+                          uiMetalMake = 5,
+                          uiMetalUse = 6,
+                          uiTidalGenerator = 7,
+                          uiWindGenerator = 8,
+                          uiMakesMetal = 9,
+                          uiBuildCostEnergy = 10,
+                          uiBuildCostMetal = 11,
+                          uiBuildTime = 12,
+                          uiCloakCost = 13,
+                          uiCloakCostMoving = 14,
 
-                          uiSOUNDCTGR = 33,
+                          uiAcceleration = 18,
+                          uiBrakeRate = 19,
+                          uiBankScale = 20,
+                          uiTurnRate = 21,
+                          uiCruiseAlt = 22,
+                          uiMaxSlope = 23,
+                          uiMaxVelocity = 24,
+                          uiMinWaterDepth = 25,
+                          uiMaxWaterDepth = 26,
+                          uiMaxWaterSlope = 27,
+                          uiWaterLine = 28,
+                          uiManeuverLeashLength = 29,
+                          uiAttackRunLength = 30,
+                          uiHoverAttack = 31,
+                          uiUpright = 32,
+                          uiCanFly = 33,
+                          uiCanHover = 34,
+                          uiAmphibious = 35,
+                          uiFloater = 36,
+                          uiMovementClass_Safe = 37,
+                          uiMovementClass = 38,
 
-                          uiMOVEMENTCLASS_SAFE = 34,
-                          uiMOVEMENTCLASS = 35,
+                          uiMaxDamage = 40,
+                          uiDamageModifier = 41,
+                          uiHideDamage = 42,
+                          uiHealTime = 43,
+                          uiBMcode = 44,
+                          uiFootprintX = 45,
+                          uiFootprintZ = 46,
+                          uiBuildDistance = 47,
+                          uiBuilder = 48,
+                          uiWorkerTime = 49,
 
-                          uiMAXHEALTH = 36,
-                          uiHEALTIME = 37,
+                          uiSightDistance = 51,
+                          uiSonarDistance = 52,
+                          uiSonarDistanceJam = 53,
+                          uiRadarDistance = 54,
+                          uiRadarDistanceJam = 55,
+                          uiKamikaze = 56,
+                          uiKamikazeDistance = 57,
+                          uiMinCloakDistance = 58,
+                          uiShieldRange = 59,
 
-                          uiMAXSPEED = 38,
-                          uiACCELERATION = 39,
-                          uiBRAKERATE = 40,
-                          uiTURNRATE = 41,
-                          uiCRUISEALT = 42,
-                          uiMANEUVERLEASH = 43,
-                          uiATTACKRUNLEN = 44,
-                          uiMAXWATERDEPTH = 45,
-                          uiMINWATERDEPTH = 46,
-                          uiMAXSLOPE = 47,
-                          uiMAXWATERSLOPE = 48,
-                          uiWATERLINE = 49,
+                          uiOnOffable = 63,
+                          uiCommander = 64,
+                          uiTransportCapacity = 65,
+                          uiTransportSize = 66,
+                          uiCantBeTransported = 67,
+                          uiIsAirBase = 68,
+                          uiIsTargetingUpgrade = 69,
+                          uiTeleporter = 70,
+                          uiDigger = 71,
+                          uiStealth = 72,
+                          uiImmuneToParalyzer = 73,
+                          uiHasWeapons = 74,
+                          uiAntiWeapons = 75,
 
-                          uiTRANSPORTSIZE = 50,
-                          uiTRANSPORTCAP = 51,
+                          uiCanStop = 81,
+                          uiCanAttack = 82,
+                          uiCanGuard = 83,
+                          uiCanPatrol = 84,
+                          uiCanMove = 85,
+                          uiCanLoad = 86,
+                          uiCanReclamate = 87,
+                          uiCanResurrect = 88,
+                          uiCanCapture = 89,
+                          uiCanDgun = 90,
 
-                          uiBANKSCALE = 52,
-                          uiKAMIKAZEDIST = 53,
-                          uiDAMAGEMODIFIER = 54,
-
-                          uiWORKERTIME = 55,
-                          uiBUILDDIST = 56,
-
-                          uiSIGHTDIST = 57,
-                          uiRADARDIST = 58,
-                          uiSONARDIST = 59,
-                          uiMINCLOAKDIST = 60,
-                          uiRADARDISTJAM = 61,
-                          uiSONARDISTJAM = 62,
-
-                          uiMAKESMETAL = 63,
-                          uiFENERGYMAKE = 64,
-                          uiFMETALMAKE = 65,
-                          uiFENERGYUSE = 66,
-                          uiFMETALUSE = 67,
-                          uiFENERGYSTOR = 68,
-                          uiFMETALSTOR = 69,
-                          uiFWINDGENERATOR = 70,
-                          uiFTIDALGENERATOR = 71,
-                          uiFCLOAKCOST = 72,
-                          uiFCLOAKCOSTMOVE = 73,
-
-                          uiBUILDCOSTMETAL = 74,
-                          uiBUILDCOSTENERGY = 75,
-                          uiBUILDTIME = 76,
-
-                          uiEXPLODEAS = 77,
-                          uiSELFDSTRAS = 78,
-                          uiISFEATURE = 79,
-                          uiFOOTPRINTX = 80,
-                          uiFOOTPRINTZ = 81);
+                          uiExplodeAs = 94,
+                          uiSelfDestructAs = 95,
+                          uiSoundCategory = 96,
+                          uiIsFeature = 97,
+                          uiShowPlayerName = 98);
     
   TStoreUnitsRec = packed record
     Id : Cardinal;
@@ -1425,6 +1420,7 @@ type
     DefaultMissionPosX   : Word;
     DefaultMissionPosZ   : Word;
     ShieldedBy           : PUnitStruct;
+    ShieldRange          : Integer;
     ForcedYPos           : Boolean;
     ForcedYPosVal        : Integer;
     
@@ -1467,6 +1463,7 @@ type
     UseCustomReloadBar      : Boolean;
     DefaultMissionOrgPos    : Boolean;
     ShieldRange             : Integer;
+    SelectBoxType           : Integer;
   end;
 
   TExtraMapOTATagsRec = packed record
@@ -1519,16 +1516,17 @@ var
   LineNanoSpotUnitInfoSt : TUnitInfo;
 
   // map missions
-  MapMissionsUnit : TUnitStruct;
-  MapMissionsUnitInfo : TUnitInfo;
-  MapMissionsCOB : Pointer;
-  MapMissionsSounds : TStringList;
-  MapMissionsFeatures : TStringList;
-  MapMissionsUnitsInitialMissions : TStringList;
-  MouseLock : LongBool;
-  CameraFadeLevel : Integer;
+  MapMissionsUnit: TUnitStruct;
+  MapMissionsUnitInfo: TUnitInfo;
+  MapMissionsCOB: Pointer;
+  MapMissionsSounds: TStringList;
+  MapMissionsFeatures: TStringList;
+  MapMissionsUnitsInitialMissions: TStringList;
+  MapMissionsTextMessages: TStringList;
+  MouseLock: LongBool;
+  CameraFadeLevel: Integer;
 
-  MapsList : TStringList;
+  MapsList: TStringList;
 
   // data that can be shared globally between units
   UnitsSharedData : array[0..1023] of Integer;

@@ -22,7 +22,7 @@ procedure ExtraUnitBars_MainCall;
 procedure GUIEnhancements_DevUnitProbes;
 procedure TrueIncomeHook;
 procedure HealthPercentage;
-//procedure DrawCircleUnitSelectHook;
+procedure DrawUnitSelectBox(OFFSCREEN_ptr: Cardinal; p_Unit: PUnitStruct); stdcall;
 procedure DrawBuildSpot_InitScript;
 procedure DrawBuildSpot_NanoframeHook;
 procedure DrawBuildSpot_QueueNanoframeHook;
@@ -36,7 +36,7 @@ procedure BroadcastNanolatheParticles_MobileBuild;
 procedure BroadcastNanolatheParticles_HelpBuild;
 procedure BroadcastNanolatheParticles_Resurrect;
 procedure BroadcastNanolatheParticles_RepairResurrect;
-//procedure BroadcastNanolatheParticles_RepairUnk2;       // what is this
+//procedure BroadcastNanolatheParticles_RepairUnk2;
 procedure BroadcastNanolatheParticles_VTOL_MobileBuild;
 procedure BroadcastNanolatheParticles_VTOL_HelpBuild;
 procedure BroadcastNanolatheParticles_VTOL_Repair;
@@ -48,14 +48,7 @@ procedure BroadcastNanolatheParticles_VTOLReclaimFeature;
 procedure ScreenFadeControl;
 procedure WeaponProjectileFlameStreamHook;
 procedure DontRadarSonarJammAllies;
-{
-function AddNanoUnit(x, y, color: Integer): LongBool; stdcall;
-function InitNanoUnit: LongBool; stdcall;
 
-exports
-   AddNanoUnit index 12,
-   InitNanoUnit index 13;
-}
 implementation
 uses
   Windows,
@@ -147,18 +140,29 @@ begin
     if IniSettings.CircleUnitSelect then
       GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'DrawCircleUnitSelectHook',
-                            @DrawCircleUnitSelectHook,
+                            @DrawCircle UnitSelectHook,
                             $00467AF1, 0);
+
+
     }
+    GUIEnhancementsPlugin.MakeStaticCall(State_GUIEnhancements,
+                          'Draw unit selection box',
+                          @DrawUnitSelectBox,
+                          $00469B8A);
+    GUIEnhancementsPlugin.MakeStaticCall(State_GUIEnhancements,
+                          'Draw unit selection box 2',
+                          @DrawUnitSelectBox,
+                          $004699EB);
+
     // ---------------------------------
     // nanoframe units
     // ---------------------------------
-
+                              {
     GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'DrawBuildSpot_InitScript',
                             @DrawBuildSpot_InitScript,
                             $00485DE1, 0);
-
+                             }
     GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'DrawBuildSpot_NanoframeHook',
                             @DrawBuildSpot_NanoframeHook,
@@ -397,7 +401,7 @@ begin
 
         if (UnitHealth > 0) then
         begin
-          UnitMaxHP := UnitInfo.lMaxHP;
+          UnitMaxHP := UnitInfo.lMaxDamage;
           HPBackgRectWidth := 34;
           if IniSettings.HBDynamicSize then
           begin
@@ -978,165 +982,7 @@ asm
   push $0046B08E;
   call PatchNJump;
 end;
-{
-function DrawCircleUnitSelect(Unitunk: PPosition; p_Offscreen : Cardinal; Botx1, Boty1, Rx2, Ry2 : Integer; UnitVolume: Cardinal): Integer; stdcall;
-var
-  p_Unit : PUnitStruct;
-  UnitInfo : PUnitInfo;
-  Radius : Extended;
-  ColorsPal : Pointer;
-  CenterX, CenterY : Integer;
-  lSpacing : Cardinal;
-  nRadiusJig : Byte;
-  lRadiusJigTmp : Integer;
-  CurOrder : TTAActionType;
-begin
-  Result := 0;
-  p_Unit := Pointer(UnitVolume - $64);
-  UnitInfo := p_Unit.p_UnitInfo;
 
-  CenterX := Round((Rx2+Botx1)/2);
-  CenterY := Round((Boty1+Ry2)/2);
-
-  Radius := UnitInfo.lWidthHypot div 32768;
-  ////if CustomUnitFieldsArr[TAUnit.GetId(pointer(p_Unit))].CircleSelectTick >= 2 then
-  //begin
-  //  CustomUnitFieldsArr[TAUnit.GetId(pointer(p_Unit))].CircleSelectTick := 0;
-    if CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectProgress = Low(Cardinal) then
-      CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectProgress := High(Cardinal);
-    Dec(CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectProgress);
-  //end else
-  //  Inc(CustomUnitFieldsArr[TAUnit.GetId(pointer(p_Unit))].CircleSelectTick);
-
-  lSpacing := CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectProgress;
-  ColorsPal := Pointer(LongWord(TAData.MainStruct)+$DCB);
-
-  CurOrder := TAUnit.GetCurrentOrderType(p_Unit);
-  if (CurOrder = Action_Ready) or
-     (CurOrder = Action_Standby) or
-     (CurOrder = Action_VTOL_Standby) or
-     (CurOrder = Action_Wait) or
-     (CurOrder = Action_Guard_NoMove) or
-     (CurOrder = Action_NoResult) then
-  begin
-    nRadiusJig := CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectRadJig;
-    lRadiusJigTmp := nRadiusJig - 1;
-    if lRadiusJigTmp > Low(Byte) then
-    begin
-      nRadiusJig := lRadiusJigTmp;
-      CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectRadJig := nRadiusJig;
-    end else
-      nRadiusJig := Low(Byte);
-
-    DrawDotteCircle(p_Offscreen, CenterX, CenterY,
-                              Round(Radius / 2 + nRadiusJig / 16),
-                              PByte(LongWord(ColorsPal)+10)^,
-                              Round(Radius / 2),
-                              lSpacing div 200);
-  end else
-  begin
-    nRadiusJig := CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectRadJig;
-    lRadiusJigTmp := nRadiusJig + 1;
-
-    if lRadiusJigTmp >= 64 then
-    begin
-      nRadiusJig := 64;
-      CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectRadJig := nRadiusJig;
-    end else
-      CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].CircleSelectRadJig := lRadiusJigTmp;
-
-    Result := DrawDotteCircle(p_Offscreen, CenterX, CenterY,
-                              Round(Radius / 2 + nRadiusJig / 16),
-                              PByte(LongWord(ColorsPal)+10)^,
-                              Round(Radius / 2),
-                              lSpacing div 100);
-  end;
-end;
-
-procedure DrawCircleUnitSelectHook;
-label
-  Rectangle,
-  Circle,
-  Return;
-asm
-  push    eax
-  movzx   eax, IniSettings.CircleUnitSelect
-  test    eax, eax
-  pop     eax
-  jnz     Circle
-Rectangle:
-  // BOTTOM
-  push    edi             // Color
-  mov     ecx, [esi+0Ch]
-  mov     edx, [esi+8]
-  mov     eax, [esi+4]
-  push    ecx             // y2
-  mov     ecx, [esi]
-  push    edx             // x2
-  push    eax             // y1
-  push    ecx             // x1
-  push    ebx             // OFFSCREEN_ptr
-  call    DrawLine
-
-  // RIGHT
-  mov     edx, [esi+14h]
-  mov     eax, [esi+10h]
-  mov     ecx, [esi+0Ch]
-  push    edi             // Color
-  push    edx             // y2
-  mov     edx, [esi+8]
-  push    eax             // x2
-  push    ecx             // y1
-  push    edx             // x1
-  push    ebx             // OFFSCREEN_ptr
-  call    DrawLine
-
-  // TOP
-  mov     eax, [esi+1Ch]
-  mov     ecx, [esi+18h]
-  mov     edx, [esi+14h]
-  push    edi             // Color
-  push    eax             // y2
-  mov     eax, [esi+10h]
-  push    ecx             // x2
-  push    edx             // y1
-  push    eax             // x1
-  push    ebx             // OFFSCREEN_ptr
-  call    DrawLine
-
-  // LEFT
-  mov     ecx, [esi+4]
-  mov     edx, [esi]
-  mov     eax, [esi+1Ch]
-  push    edi             // Color
-  push    ecx             // y2
-  mov     ecx, [esi+18h]
-  push    edx             // x2
-  push    eax             // y1
-  push    ecx             // x1
-  push    ebx             // OFFSCREEN_ptr
-  call    DrawLine
-  jmp Return
-Circle:
-  mov     eax, [esp+24h]
-  push    eax
-  mov     ecx, [esi+10h]  // r x2
-  mov     edx, [esi+14h]  // r y2
-  push    edx
-  push    ecx
-  mov     eax, [esi]      // bot x1
-  mov     ecx, [esi+4]    // bot y1
-  push    ecx
-  push    eax
-  push    ebx
-  sub     ebp, 48
-  push    ebp
-  call    DrawCircleUnitSelect
-Return:
-  push $00467B4B;
-  call PatchNJump;
-end;
-}
 procedure PrepareNanoUnit(p_Unit: PUnitStruct);
 var
   UnitInfo : PUnitInfo;
@@ -1167,8 +1013,8 @@ label
   CallInitScript;
 asm
   push    ebx
-  movzx   ebx, word ptr [esi+TUnitStruct.nKills]
-  test    bx, bx
+  mov     ebx, dword ptr [esi+TUnitStruct.lFireTimePlus600]
+  test    ebx, ebx
   pop     ebx
   jnz     CallInitScript
   push    $00508BE0 //"Create"
@@ -1229,9 +1075,9 @@ begin
             NanoSpotUnitSt.Position.Y := 0;
 
         if (TAData.MainStruct.cBuildSpotState and $40 = $40) then
-          NanoSpotUnitSt.nKills := 1
+          NanoSpotUnitSt.lFireTimePlus600 := 1
         else
-          NanoSpotUnitSt.nKills := 2;
+          NanoSpotUnitSt.lFireTimePlus600 := 2;
 
         if UNITS_CreateModelScripts(@NanoSpotUnitSt) <> nil then
         begin
@@ -1252,67 +1098,7 @@ asm
   push $00469F29;
   call PatchNJump;
 end;
-{
-function AddNanoUnit(x, y, color: Integer): LongBool; stdcall;
-var
-  Position : TPosition;
-  i : Integer;
-begin
-  Result := False;
 
-  if (X < 0) or (Y < 0) then
-    Exit;
-
-  SetLength(LineNanoSpotUnitSt, High(LineNanoSpotUnitSt) + 2);
-  i := High(LineNanoSpotUnitSt);
-
-  LineNanoSpotUnitSt[i].nUnitInfoID := TAData.MainStruct.nBuildNum;
-  LineNanoSpotUnitSt[i].p_UnitInfo := TAMem.UnitInfoId2Ptr(LineNanoSpotUnitSt[i].nUnitInfoID);
-  LineNanoSpotUnitInfoSt := PUnitInfo(LineNanoSpotUnitSt[i].p_UnitInfo)^;
-  
-  GetTPosition(X, Y, Position);
-  LineNanoSpotUnitSt[i].p_Owner := TAPlayer.GetPlayerByIndex(TAData.ViewPlayer);
-
-  if UNITS_AllocateUnit(@LineNanoSpotUnitSt[i], X, Position.Y, Y, 0) then
-  begin
-    LineNanoSpotUnitSt[i].p_UnitInfo := @LineNanoSpotUnitInfoSt;
-    PrepareNanoUnit(@LineNanoSpotUnitSt[0]);
-
-    LineNanoSpotUnitSt[i].Position.X := LineNanoSpotUnitSt[i].Position.x_ + LineNanoSpotUnitSt[i].nFootPrintX * 8;
-    LineNanoSpotUnitSt[i].Position.x_ := 0;
-    LineNanoSpotUnitSt[i].Position.Z := LineNanoSpotUnitSt[i].Position.z_ + LineNanoSpotUnitSt[i].nFootPrintZ * 8;
-    LineNanoSpotUnitSt[i].Position.z_ := 0;
-    UNITS_FixYPos(@LineNanoSpotUnitSt[i]);
-
-    if LineNanoSpotUnitInfoSt.cBMCode = 1 then
-    begin
-      UNITS_AllocateMovementClass(@LineNanoSpotUnitSt[i]);
-    end;
-
-    LineNanoSpotUnitSt[i].Turn.Z := 32768;
-    LineNanoSpotUnitSt[i].Position.y_ := 0;
-
-    if (TAData.MainStruct.cBuildSpotState and $40 = $40) then
-      LineNanoSpotUnitSt[i].nKills := 1
-    else
-      LineNanoSpotUnitSt[i].nKills := 2;
-
-    if UNITS_CreateModelScripts(@LineNanoSpotUnitSt[i]) <> nil then
-    begin
-      DrawUnit(0, @LineNanoSpotUnitSt[i]);
-      FreeUnitMem(@LineNanoSpotUnitSt[i]);
-    end;
-  end;
-  Result := True;
-end;
-
-function InitNanoUnit: LongBool; stdcall;
-begin
-  FillChar(LineNanoSpotUnitInfoSt, SizeOf(TUnitInfo), 0);
-  SetLength(LineNanoSpotUnitSt, 0);
-  Result := True;
-end;
-}
 procedure DrawBuildSpotQueueNanoframe(pOffscreen: Cardinal; UnitInfo: PUnitInfo; UnitOrder: PUnitOrder); stdcall;
 var
   X, Z : Integer;
@@ -1354,9 +1140,9 @@ begin
             NanoSpotQueueUnitSt.Position.Y := 0;
 
       if ((PUnitStruct(UnitOrder.p_Unit).lUnitStateMask shr 4) and 1 = 1) then
-        NanoSpotQueueUnitSt.nKills := 1
+        NanoSpotQueueUnitSt.lFireTimePlus600 := 1
       else
-        NanoSpotQueueUnitSt.nKills := 2;
+        NanoSpotQueueUnitSt.lFireTimePlus600 := 2;
 
       if UNITS_CreateModelScripts(@NanoSpotQueueUnitSt) <> nil then
       begin
@@ -1393,8 +1179,8 @@ label
   ComeBack;
 asm
   mov     cx, [edx+0A8h]
-  movzx   ebx, word ptr [edx+TUnitStruct.nKills]
-  test    bx, bx
+  mov     ebx, dword ptr [edx+TUnitStruct.lFireTimePlus600]
+  test    ebx, ebx
   jnz     DrawNonGlitter
   // edx unitstruct
   mov     edx, [TAdynmemStructPtr]
@@ -2060,17 +1846,14 @@ CustomFlameStream :
   push    ebx
   push    ecx
   push    edx
-
   push    ebx // weapon
   call    WeaponProjectileFlameStream
   mov     edi, eax
-
   pop     edx
   pop     ecx
   pop     ebx
   pop     eax
   pop     esi
-
   push $0049C3A4
   call PatchNJump
 end;
@@ -2096,6 +1879,68 @@ NotARadarJammer :
 NextUnit :
   push $0046765A
   call PatchNJump
+end;
+
+procedure DrawUnitSelectBox(OFFSCREEN_ptr: Cardinal; p_Unit: PUnitStruct); stdcall;
+var
+  x, z, y: Integer;
+  CenterX, CenterZ: Integer;
+  ColorsPal: Cardinal;
+  Radius: Integer;
+  InMove: Boolean;
+  Speed, GameTime: Integer;
+  CurOrder: TTAActionType;
+  AnimDelay: Integer;
+begin
+  if ExtraUnitInfoTags[p_Unit.nUnitInfoID].SelectBoxType = 0 then
+    DrawUnitSelectBoxRect(OFFSCREEN_ptr, p_Unit)
+  else
+    if ExtraUnitInfoTags[p_Unit.nUnitInfoID].SelectBoxType = 1 then
+    begin
+      x := p_Unit.Position.x - TAData.MainStruct.lEyeBallMapX;
+      z := p_Unit.Position.z - TAData.MainStruct.lEyeBallMapY;
+      y := p_Unit.Position.y;
+      CenterX := x + 128;
+      CenterZ := z - (y shr 1) + 32;
+      Radius := 1 + p_Unit.p_UnitInfo.lWidthHypot shr 16;
+
+      InMove := False;
+      if p_unit.p_MovementClass <> nil then
+      begin
+        Speed := TAUnit.GetCurrentSpeedPercent(p_Unit);
+        Radius := Round(Radius + (Radius * Speed) / 400);
+        if Speed > 0 then
+          InMove := True;
+      end else
+      begin
+        CurOrder := TAUnit.GetCurrentOrderType(p_Unit);
+        if (CurOrder <> Action_Ready) and
+           (CurOrder <> Action_Standby) and
+           (CurOrder <> Action_VTOL_Standby) and
+           (CurOrder <> Action_Wait) and
+           (CurOrder <> Action_Guard_NoMove) and
+           (CurOrder <> Action_NoResult) then
+        begin
+          InMove := True;
+        end;
+      end;
+      if InMove then
+        AnimDelay := 20
+      else
+        AnimDelay := 40;
+      GameTime := TAData.GameTime mod AnimDelay;
+      if GameTime > (AnimDelay div 2) then
+        AnimDelay := 1
+      else
+        AnimDelay := 0;
+
+      ColorsPal := LongWord(TAData.MainStruct)+$DCB;
+      DrawDotteCircle(OFFSCREEN_ptr, CenterX, CenterZ,
+                      Radius,
+                      PByte(ColorsPal+GetRaceSpecificColor(0))^,
+                      Radius,
+                      AnimDelay);
+    end;
 end;
 
 end.
