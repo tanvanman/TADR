@@ -820,37 +820,31 @@ var
   COBEngine_LoadScriptFromFile : COBEngine_LoadScriptFromFileHandler = COBEngine_LoadScriptFromFileHandler($004B2450);
 
 type
-  // not guaranteed to be called
-  Script_RunScriptHandler = function ( a1: Cardinal;
-                                       a2: Cardinal;
-                                       UnitScriptsData_p: Cardinal;
-                                       v4: Cardinal;
-                                       v3: Cardinal;
-                                       v2: Cardinal;
-                                       v1: Cardinal;
-                                       a8: Cardinal; // amount of out vars ?
-                                       a9: Cardinal;
-                                       a10: Cardinal;
-                                       const Name: PAnsiChar): LongInt; register;
+  COBEngine_StartScriptHandler = procedure(a1: Cardinal;
+                                           a2: Cardinal;
+                                           UnitScriptsData_p: Pointer;
+                                           lArg4: Integer;
+                                           lArg3: Integer;
+                                           lArg2: Integer;
+                                           lArg1: Integer;
+                                           lArgsCount: Cardinal;
+                                           Guaranteed: Boolean;
+                                           p_Callback: Pointer;
+                                           const Name: PAnsiChar); register;
 var
-  Script_RunScript: Script_RunScriptHandler = Script_RunScriptHandler($004B0A70);
+  COBEngine_StartScript: COBEngine_StartScriptHandler = COBEngine_StartScriptHandler($004B0A70);
 
 type
-  COBEngine_CallFuncHandler = function ( a1: Pointer;
-                                         a2: Pointer;
-                                         UnitScriptsData_p: Pointer;
-                                         lArg4: Pointer;
-                                         lArg3: Pointer;
-                                         lArg2: Pointer;
-                                         lArg1: Pointer;
-                                         const Name: PAnsiChar): LongInt; register;
+  COBEngine_QueryScriptHandler = function(a1: Cardinal;
+                                          a2: Cardinal;
+                                          UnitScriptsData_p: Pointer;
+                                          lArg4: PInteger;
+                                          lArg3: PInteger;
+                                          lArg2: PInteger;
+                                          lArg1: PInteger;
+                                          const Name: PAnsiChar): LongInt; register;
 var
-  COBEngine_CallFunc: COBEngine_CallFuncHandler = COBEngine_CallFuncHandler($004B0BC0);
-
-type
-  COBEngine_InitScriptHandler = function (n1eax, n2edx : Pointer; ScriptInstance: Cardinal; COBData_p: Pointer): Integer; register;
-var
-  COBEngine_InitScript : COBEngine_InitScriptHandler = COBEngine_InitScriptHandler($004B0720);
+  COBEngine_QueryScript: COBEngine_QueryScriptHandler = COBEngine_QueryScriptHandler($004B0BC0);
 
 type
   COBEngine_DoScriptsNowHandler = function(COBData_p: Pointer): Integer; stdcall;

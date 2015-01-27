@@ -259,13 +259,10 @@ type
     IsInGame : Boolean;
     trCheckMemoryCheats: TConsoleTimer;
     trCheckProhibitedProcesses: TConsoleTimer;
-    trBroadcastCommanderPos : TConsoleTimer;
     //trTakeScreenshot : TConsoleTimer;
     procedure OnFinishedCheatsCheck(CheatsFound: TTACheats);
     procedure OnMemoryCheckTick(Sender : TObject);
     procedure OnProcessCheckTick(Sender : TObject);
-    procedure OnBroadcastCommanderPos(Sender : TObject);
-    //procedure OnScreenshotTakeTick(Sender : TObject);
     procedure Exiting();
     procedure ResetRecorder;
 
@@ -783,16 +780,6 @@ begin
   trCheckProhibitedProcesses.Enabled:= True;
 end;
 
-procedure TDPlay.OnBroadcastCommanderPos(Sender : TObject);
-begin
-  if not trBroadcastCommanderPos.FirstTick then
-  begin
-    trBroadcastCommanderPos.FirstTick := True;
-    Exit;
-  end;
-  BroadcastCommanderStartPosition;
-  trBroadcastCommanderPos.Enabled:= False;
-end;
 {
 procedure TDPlay.OnScreenshotTakeTick(Sender : TObject);
 begin
@@ -1810,9 +1797,9 @@ begin
         sModInfo:= '';
         SetLength( sModInfo, SizeOf(TRec2Rec_ModInfo_Message) );
         move( Players[PlayerIdx].Id, sModInfo[1], 4 );
-        move( LocalModInfo.ModID, sModInfo[5], 2 );
-        move( LocalModInfo.ModMajorVer, sModInfo[7], 1 );
-        move( LocalModInfo.ModMinorVer, sModInfo[8], 1 );
+        move( LocalModInfo.ModID, sModInfo[5], 4 );
+        move( LocalModInfo.ModMajorVer, sModInfo[9], 1 );
+        move( LocalModInfo.ModMinorVer, sModInfo[10], 1 );
         SendRecorderToRecorderMsg( TANM_Rec2Rec_ModInfo, sModInfo, False );
       end;
     end;
@@ -2481,23 +2468,6 @@ if assigned(chatview) then
               OnTimerEvent := OnProcessCheckTick;
               Enabled := True;
             end;
-
-            trBroadcastCommanderPos := TConsoleTimer.Create;
-            with trBroadcastCommanderPos do
-            begin
-              Interval := 5000;
-              OnTimerEvent := OnBroadcastCommanderPos;
-              Enabled := True;
-            end;
-
-           { trTakeScreenshot := TConsoleTimer.Create;
-            Randomize;
-            with trTakeScreenshot do
-            begin
-              Interval := (Random(350) + 900) * 1000;
-              OnTimerEvent := OnScreenshotTakeTick;
-              Enabled := True;
-            end; }
           end;
         end;
 
@@ -4099,7 +4069,6 @@ destructor TDPlay.Destroy;
 begin
 GlobalDPlay.trCheckMemoryCheats.Free;
 GlobalDPlay.trCheckProhibitedProcesses.Free;
-GlobalDPlay.trBroadcastCommanderPos.Free;
 
 //GlobalDPlay.trTakeScreenshot.Free;
 GlobalDPlay:= nil;

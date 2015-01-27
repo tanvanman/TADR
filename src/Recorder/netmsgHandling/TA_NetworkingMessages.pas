@@ -221,7 +221,7 @@ type
   PRec2Rec_ModInfo_Message = ^TRec2Rec_ModInfo_Message;
   TRec2Rec_ModInfo_Message = packed record
     PlayerID       : TDPID;
-    ModID          : SmallInt;
+    ModID          : Integer;
     ModMajorVer    : AnsiChar;
     ModMinorVer    : AnsiChar;
   end;

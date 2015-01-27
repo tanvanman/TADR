@@ -132,7 +132,7 @@ type
   PPlotGrid = ^TPlotGrid;
   TPlotGrid = packed record
     nYard_color        : Word;
-    field_3            : Word;
+    data2              : Word;
     bHeight            : Byte;
     bHeightAvg1        : Byte;
     bHeightAvg2        : Byte;
@@ -169,13 +169,6 @@ type
     X  : Integer;
     Y  : Integer;
     Z  : Integer;
-  end;
-
-  PPositionLongUns = ^TPositionLongUns;
-  TPositionLongUns = packed record
-    X  : Cardinal;
-    Y  : Cardinal;
-    Z  : Cardinal;
   end;
 
   PNanolathePos = ^TNanolathePos;
@@ -390,18 +383,24 @@ type
     CRC_FBI            : Cardinal;
     CRC_allfiles       : Cardinal;
     p_field_146        : Pointer;
-    nFootPrintX        : Word;
-    nFootPrintZ        : Word;
+    nFootPrintSizeX    : Word;
+    nFootPrintSizeZ    : Word;
     pYardMap           : Pointer;
     lAICanBuildCount   : Cardinal;
     pAICanBuildList    : Pointer;
     lBuildLimit        : Cardinal;
-    lWidthX_           : Integer;
-    lWidthY_           : Integer;
-    lWidthZ_           : Integer;
-    lFootPrintX_       : Integer;
-    lFootPrintY_       : Integer;
-    lFootPrintZ_       : Integer;
+    nWidthX_           : Word;
+    nWidthX            : Word;
+    nWidthY_           : Word;
+    nWidthY            : Word;
+    nWidthZ_           : Word;
+    nWidthZ            : Word;
+    nFootPrintX_       : Word;
+    nFootPrintX        : Word;
+    nFootPrintY_       : Word;
+    nFootPrintY        : Word;
+    nFootPrintZ_       : Word;
+    nFootPrintZ        : Word;
     lRelatedUnitXWidth : Cardinal;
     lRelatedUnitYWidth : Cardinal;
     lRelatedUnitZWidth : Cardinal;
@@ -550,11 +549,22 @@ type
   //0x14B
   PPlayerStruct = ^TPlayerStruct;
   TPlayerStruct = packed record
-    lPlayerActive        : Cardinal;			// 0x00 - is this a char?
-    lDirectPlayID        : Cardinal;			// 0x04 - player localness? I think this is the 0 based player index...
+    lPlayerActive        : Cardinal;  // 0x00 - is this a char?
+    lDirectPlayID        : Cardinal;  // 0x04 - player localness? I think this is the 0 based player index...
     Unknown1             : Cardinal;
-    cPlayerOwnerIndexOne : Byte;	// 0x0C - The 1 based player index for who owns the player. 0 means it is an unused slot... is this accurate? looks like always zero?
-    Unknown2             : array [0..25] of Byte;		// 0x0D
+    cPlayerOwnerIndexOne : Byte; // 0x0C - The 1 based player index for who owns the player. 0 means it is an unused slot... is this accurate? looks like always zero?
+    field_D              : array [0..2] of Byte;
+    field_10             : Cardinal;
+    nPing                : Word;
+    field_16             : Word;
+    field_18             : Word;
+    field_1A             : Word;
+    field_1C             : Word;
+    field_1E             : Word;
+    cMultiLoadProgress   : Byte;
+    field_21             : Word;
+    field_23             : Word;
+    field_25             : Word;
     PlayerInfo           : PPlayerInfoStruct;			// 0x27
     szName               : array [0..29] of AnsiChar;				// 0x2B
     szSecondName         : array [0..29] of AnsiChar;		// 0x49
@@ -851,7 +861,7 @@ type
 
   PWeaponProjectile = ^TWeaponProjectile;
   TWeaponProjectile = packed record
-    Weapon          : PWeaponDef;
+    p_Weapon        : PWeaponDef;
     Position_Curnt  : TPosition;
     Position_Start  : TPosition;
     Position_Target : TPosition;
@@ -863,8 +873,8 @@ type
     CreateTime      : Integer;
     TimeToDeath     : Integer;
     CreatingTime    : Integer;
-    p_TargetUnit    : Pointer;
-    p_AttackerUnit  : Pointer;
+    p_TargetUnit    : PUnitStruct;
+    p_AttackerUnit  : PUnitStruct;
     lInterceptor    : Cardinal;
     field_5A        : Integer;
     field_5E        : Word;
@@ -923,9 +933,9 @@ type
     lUnknown15             : Integer;
     lHeight2               : Integer;
     Unknown16              : array [0..5] of Byte;
-    nMouseMapPosX          : SmallInt; //0x2CAC
+    nMouseMapPosX          : Word; //0x2CAC
     Unknown17              : array [0..5] of Byte;
-    nMouseMapPosY          : SmallInt; //0x2CB4
+    nMouseMapPosY          : Word; //0x2CB4
     Unknown18              : array [0..3] of Byte;
     unMouseOverUnit        : Word; //0x2CBA
     Unknown19              : array [0..6] of Byte;
@@ -1475,12 +1485,12 @@ type
     CustAnim : array of Pointer;
     FlameStream : array of Pointer;
     GafSequence_ShieldIcon : Pointer;
-//    GafSequence_Arm32lt,
-//    GafSequence_Core32lt : Pointer;
+    GafSequence_Arm32lt,
+    GafSequence_Core32lt : Pointer;
   end;
 
   TPlayerModInfo = packed record
-    ModID          : SmallInt;
+    ModID          : Integer;
     ModMajorVer    : AnsiChar;
     ModMinorVer    : AnsiChar;
   end;
@@ -1511,9 +1521,6 @@ var
 
   NanoSpotUnitSt, NanoSpotQueueUnitSt : TUnitStruct;
   NanoSpotUnitInfoSt, NanoSpotQueueUnitInfoSt : TUnitInfo;
-
-  LineNanoSpotUnitSt : array of TUnitStruct;
-  LineNanoSpotUnitInfoSt : TUnitInfo;
 
   // map missions
   MapMissionsUnit: TUnitStruct;

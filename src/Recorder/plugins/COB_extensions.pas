@@ -70,8 +70,8 @@ const
  HEAL_UNIT = 100;
  GET_CLOAKED = 101;
  SET_CLOAKED = 102;
- STATE_UNIT = 103;
- SFX_OCCUPY_STATE = 104;
+ UNIT_BAS_STATE_MASK = 103;
+ UNIT_STATE_MASK = 104;
  SELECTABLE = 105;
  ATTACH_UNIT = 106;
  RANDOM_FREE_PIECE = 107;
@@ -137,8 +137,9 @@ const
  EMIT_SFX = 157;
 
  { Other }
- CALL_COB_PROC = 158;
- LOCAL_SHARED_DATA = 159;
+ COB_QUERY_SCRIPT = 159;
+ COB_START_SCRIPT = 160;
+ LOCAL_SHARED_DATA = 161;
 
  { Map }
  MAP_SEA_LEVEL = 162;
@@ -149,7 +150,6 @@ const
  TEST_BUILD_SPOT = 167;
  PLANT_YARD_OCCUPIED = 168;
  UNIT_REBUILD_YARD = 169;
- POSITION_TO_GRID = 170;
 
  { Map missions }
  MS_MOVE_CAM_POS = 175;
@@ -175,6 +175,7 @@ const
  LOWWORD = 200;
  HIGHWORD = 201;
  MAKEDWORD = 202;
+ MATH_ABS = 203;
 
  DBG_OUTPUT = 300;
 
@@ -452,9 +453,9 @@ else
   result := nil;
 end;
 
-function CustomGetters( index : Cardinal;
-                        p_Unit : PUnitStruct;
-                        arg1, arg2, arg3, arg4 : Cardinal) : Cardinal; stdcall;
+function CustomGetters(index: Cardinal;
+                       p_Unit: PUnitStruct;
+                       arg1, arg2, arg3, arg4: Cardinal): Cardinal; stdcall;
 var
   UnitInfoSt : PUnitInfo;
   Position : TPosition;
@@ -661,16 +662,19 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       else
         TAUnit.SetCloak(p_Unit, arg1);
       end;
-    STATE_UNIT :
+    UNIT_BAS_STATE_MASK :
       begin
-      UNITS_SetStateMask(nil, nil, TAUnit.Id2Ptr(arg1), arg3, arg2);
-      end;
-    SFX_OCCUPY_STATE :
-      begin
-        if arg2 = 0 then
-          result := TAUnit.Id2Ptr(arg1).lSfxOccupy
+        if arg1 <> 0 then
+          result := TAUnit.Id2Ptr(arg1).nUnitStateMaskBas
         else
-          TAUnit.Id2Ptr(arg1).lSfxOccupy := arg2;
+          result := p_Unit.nUnitStateMaskBas;
+      end;
+    UNIT_STATE_MASK :
+      begin
+        if arg1 <> 0 then
+          result := TAUnit.Id2Ptr(arg1).lUnitStateMask
+        else
+          result := p_Unit.lUnitStateMask;
       end;
     CUSTOM_BAR_PROGRESS :
       begin
@@ -908,9 +912,15 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
           3 : ORDERS_NewSubBuildOrder(Ord(Action_BuildingBuild), p_Unit, arg3, arg2);
         end;
       end;
-    CALL_COB_PROC :
+    COB_QUERY_SCRIPT :
       begin
-      result := TAUnit.CallCobWithCallback(TAUnit.Id2Ptr(arg1), GetEnumName(TypeInfo(TCobMethods), Integer(arg2))^, arg3, arg4, 0, 0);
+      result := TAUnit.CobQueryScript(TAUnit.Id2Ptr(arg1),
+        GetEnumName(TypeInfo(TCobMethods), Integer(arg2))^, arg3, arg4, 0, 0);
+      end;
+    COB_START_SCRIPT :
+      begin
+        TAUnit.CobStartScript(TAUnit.Id2Ptr(arg1),
+          GetEnumName(TypeInfo(TCobMethods), Integer(arg2))^, @arg3, @arg4, nil, nil, True);
       end;
     LOCAL_SHARED_DATA :
       begin
@@ -931,6 +941,10 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
       begin
       result := MakeLong(Word(arg1), Word(arg2));
       end;
+    MATH_ABS :
+      begin
+      result := Abs(arg1);
+      end;
     TEST_UNLOAD_POS :
       begin
       result := BoolValues[(TAUnit.TestUnloadPosition(TAUnit.GetUnitInfoPtr(TAUnit.Id2Ptr(arg1)), TAUnit.Id2Ptr(arg1).Position))];
@@ -946,10 +960,6 @@ if ((index >= CUSTOM_LOW) and (index <= CUSTOM_HIGH)) then
     UNIT_REBUILD_YARD :
       begin
       result := UNITS_RebuildFootPrint(p_Unit);
-      end;
-    POSITION_TO_GRID :
-      begin
-//      TAMem.Position2Grid(Position, );
       end;
     MAP_SEA_LEVEL :
       begin

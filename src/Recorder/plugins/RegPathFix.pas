@@ -65,10 +65,14 @@ var
   sRegName : AnsiString;
   baRegName: TByteArray;
   Registry : TRegistry;
+  CurrentProcessHandle : THandle;
+  CommittedBytes : Longword;
+  OldProtect, tmpOldProtect : longword;
+
 begin
   if IsTAVersion31 and State_RegPathFix then
   begin
-    RegPathFixPlugin := TPluginData.create( True,
+    RegPathFixPlugin := TPluginData.create(True,
                             'regfix',
                             State_RegPathFix,
                             @OnInstallRegPathFix,
@@ -80,21 +84,24 @@ begin
       sRegName := LeftPad(sRegName, #0, 21);
 
       Move(sRegName[1], baRegName, Length(sRegName));
+      CurrentProcessHandle := GetCurrentProcess;
 
-      RegPathFixPlugin.MakeReplacement(State_RegPathFix,
-                          'TA Settings Registry Path',
-                          $0050DDFD,
-                          baRegName, Length(sRegName));
+      Win32Check(VirtualProtect(Pointer($0050DDFD), Length(sRegName), PAGE_READWRITE, OldProtect));
+      Win32Check(WriteProcessMemory(CurrentProcessHandle, Pointer($0050DDFD),
+        @baRegName[0], Length(sRegName), CommittedBytes) );
+      FlushInstructionCache(CurrentProcessHandle, Pointer($0050DDFD), Length(sRegName));
+      Win32Check(VirtualProtect(Pointer($0050DDFD), Length(sRegName), OldProtect, tmpOldProtect));
 
-      RegPathFixPlugin.MakeReplacement(State_RegPathFix,
-                          'TA Settings Registry Path 2',
-                          $00509EB8,
-                          baRegName, Length(sRegName));
+      Win32Check(VirtualProtect(Pointer($00509EB8), Length(sRegName), PAGE_READWRITE, OldProtect));
+      Win32Check(WriteProcessMemory(CurrentProcessHandle, Pointer($00509EB8),
+        @baRegName[0], Length(sRegName), CommittedBytes) );
+      FlushInstructionCache(CurrentProcessHandle, Pointer($00509EB8), Length(sRegName));
+      Win32Check(VirtualProtect(Pointer($00509EB8), Length(sRegName), OldProtect, tmpOldProtect));
     end;
 
     Registry := TRegistry.Create(KEY_READ or KEY_WOW64_64KEY);
     try
-      Registry.RootKey := HKEY_CURRENT_USER;
+      Registry.RootKey := HKEY_LOCAL_MACHINE;
       if Registry.KeyExists('Software\TA Patch\') then
         if Registry.OpenKey('Software\TA Patch\', False) then
         begin

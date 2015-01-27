@@ -429,7 +429,9 @@ begin
           begin
             j := j + 1;
             if Teleporter.p_UnitScriptsData <> nil then
-              TAUnit.CallCobProcedure(Teleporter, 'Teleporting', @Word(TargetPositionWithOffset.X), @Word(TargetPositionWithOffset.Z), @Word(TargetPositionWithOffset.Y), @UnitsArr[i].ID);
+              TAUnit.CobStartScript(Teleporter, 'Teleporting', @Word(TargetPositionWithOffset.X),
+                @Word(TargetPositionWithOffset.Z), @Word(TargetPositionWithOffset.Y),
+                @UnitsArr[i].ID, True);
             TAUnit.CreateMainOrder(TestedUnit, Teleporter, Action_Teleport, @TargetPositionWithOffset, 0, 1, 0);
           end else
             TAUnit.CreateMainOrder(TestedUnit, Teleporter, Action_Move_Ground, @TargetPositionWithOffset, 0, 1, 0);
@@ -461,13 +463,13 @@ begin
   UnitPos.Y := MakeLong(0, TeleporterUnit.Position.Y);
   UnitPos.Z := MakeLong(0, TeleporterUnit.Position.Z);
 
-  GridPosX := UnitPos.X + TeleporterUnitInfo.lWidthX_;
-  GridPosY := UnitPos.Y + TeleporterUnitInfo.lWidthY_;
-  GridPosZ := UnitPos.Z + TeleporterUnitInfo.lWidthZ_;
+  GridPosX := UnitPos.X + PInteger(@TeleporterUnitInfo.nWidthX_)^;
+  GridPosY := UnitPos.Y + PInteger(@TeleporterUnitInfo.nWidthY_)^;
+  GridPosZ := UnitPos.Z + PInteger(@TeleporterUnitInfo.nWidthZ_)^;
 
-  FootPrintX := UnitPos.X + TeleporterUnitInfo.lFootPrintX_;
-  FootPrintY := UnitPos.Y + TeleporterUnitInfo.lFootPrintY_;
-  FootPrintZ := UnitPos.Z + TeleporterUnitInfo.lFootPrintZ_;
+  FootPrintX := UnitPos.X + PInteger(@TeleporterUnitInfo.nFootPrintX_)^;
+  FootPrintY := UnitPos.Y + PInteger(@TeleporterUnitInfo.nFootPrintY_)^;
+  FootPrintZ := UnitPos.Z + PInteger(@TeleporterUnitInfo.nFootPrintZ_)^;
 
   CurUnit := TAData.UnitsArray_p;
   if ( Cardinal(CurUnit) <= Cardinal(TAData.EndOfUnitsArray_p) ) then
@@ -654,7 +656,7 @@ begin
          (CurrentUnit.p_UnitInfo = nil) then
         Continue;
 
-      TAUnit.CallCobProcedure(CurrentUnit, 'ActionButtonPressed', nil, nil, nil, nil);
+      TAUnit.CobStartScript(CurrentUnit, 'ActionButtonPressed', nil, nil, nil, nil, True);
 //      UpdateIngameGUI(0);
     end;
   end;
@@ -940,13 +942,15 @@ begin
               TASfx.EmitSfxFromPiece(OrderPtr.p_UnitTarget, p_Unit, 0, 8, True);
             NewZ := 1;
             if p_Unit.p_UnitScriptsData <> nil then
-              TAUnit.CallCobProcedure(p_Unit, 'Teleporting', @Word(TargetPosition.X), @Word(TargetPosition.Z), @Word(TargetPosition.Y), @NewZ);
+              TAUnit.CobStartScript(p_Unit, 'Teleporting', @Word(TargetPosition.X),
+                @Word(TargetPosition.Z), @Word(TargetPosition.Y), @NewZ, True);
             Result := 5
           end else
           begin
             NewZ := 0;
             if p_Unit.p_UnitScriptsData <> nil then
-              TAUnit.CallCobProcedure(p_Unit, 'Teleporting', @Word(TargetPosition.X), @Word(TargetPosition.Z), @Word(TargetPosition.Y), @NewZ);
+              TAUnit.CobStartScript(p_Unit, 'Teleporting', @Word(TargetPosition.X),
+                @Word(TargetPosition.Z), @Word(TargetPosition.Y), @NewZ, True);
             OrderPtr.nPaused := OrderPtr.nPaused or 1;
             OrderPtr.lRecallTime := 10 + TAData.GameTime;
             Result := 2;
@@ -1179,10 +1183,11 @@ begin
         end;
       end;
     end;
-    Script_RunScript ( 0, 0, LongWord(p_Shield.p_UnitScriptsData),
-                       0, TargetUnitId, TAUnit.GetId(p_AttackerUnit), Amount,
-                       3, 0, 0,
-                       PAnsiChar('Shield') );
+    if p_Shield.p_UnitScriptsData <> nil then
+      COBEngine_StartScript(0, 0, p_Shield.p_UnitScriptsData,
+                            0, TargetUnitId, TAUnit.GetId(p_AttackerUnit), Amount,
+                            3, False, nil,
+                            PAnsiChar('Shield'));
   end else
     UNITS_MakeDamage(p_AttackerUnit, p_TargetUnit, Amount, DamageType, Angle);
 end;
@@ -1215,7 +1220,7 @@ begin
 
     if CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPos then
     begin
-      PCardinal(@p_Unit.Position.y_)^ :=
+      PInteger(@p_Unit.Position.y_)^ :=
         CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPosVal shl 16;
       Exit;
     end;
@@ -1231,15 +1236,15 @@ begin
         begin
           SeaLevelMinusWaterLine := TAData.MainStruct.TNTMemStruct.SeaLevel - p_UnitInfo.cWaterLine;
           if (GetPosHeight(@p_Unit.Position) <= SeaLevelMinusWaterLine ) then
-            PCardinal(@p_Unit.Position.y_)^ := SeaLevelMinusWaterLine shl 16 // pelican on sea
+            PInteger(@p_Unit.Position.y_)^ := SeaLevelMinusWaterLine shl 16 // pelican on sea
           else                                  // ground height > (sea level - waterline)
-            PCardinal(@p_Unit.Position.y_)^ := GetPosHeight(@p_Unit.Position) shl 16;// pelican on ground
+            PInteger(@p_Unit.Position.y_)^ := GetPosHeight(@p_Unit.Position) shl 16;// pelican on ground
         end else
-          PCardinal(@p_Unit.Position.y_)^ := GetPosHeight(@p_Unit.Position) shl 16;// upright but not hover, subs
+          PInteger(@p_Unit.Position.y_)^ := GetPosHeight(@p_Unit.Position) shl 16;// upright but not hover, subs
       end else
       begin
         if ((UnitTypeMask shr 19) and 1) = 1 then        // not upright but floater
-          PCardinal(@p_Unit.Position.y_)^ :=
+          PInteger(@p_Unit.Position.y_)^ :=
             (TAData.MainStruct.TNTMemStruct.SeaLevel + 65535 * p_UnitInfo.cWaterLine) shl 16// armcrus etc.
         else
           UNITS_FixYPosOtherType(p_Unit);    // not upright, not floater
@@ -1339,7 +1344,7 @@ begin
                             'dont make damage on shielded untis',
                             @UnitActions_AntiDamageShieldHook,
                             $00499E37, 0);
-    
+
     Result.MakeStaticCall( State_UnitActions,
                            'unit Y position locker - create unit call',
                            @UnitActions_FixUnitYPos,

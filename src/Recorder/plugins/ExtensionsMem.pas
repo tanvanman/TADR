@@ -57,7 +57,7 @@ begin
                             'Init extensions search arrays etc.',
                             @InitExtensionsMemory,
                             $004971B3, 0 );
-
+                              
     Result.MakeRelativeJmp( State_ExtensionsMem,
                             '',
                             @FreeExtensionsMemory,
@@ -66,7 +66,7 @@ begin
     Result.MakeRelativeJmp( State_ExtensionsMem,
                             '',
                             @FreeExtensionsMemory2,
-                            $00491B60, 0 );
+                            $00491BB8, 0 );
 
   end else
     Result := nil;
@@ -164,19 +164,16 @@ asm
   pushAD
   call    ExtensionsFreeMemory
   popAD
-  mov     eax, [TAdynMemStructPtr]
-  push    $00491B65
+  mov     edx, [TAdynMemStructPtr]
+  push    $00491BBE
   call    PatchNJump;
 end;
 
 procedure FreeUnitMem(p_Unit: PUnitStruct);
-var
-  CobScript : Pointer;
 begin
   p_Unit.nKills := 0;
   FreeUnitOrders(p_Unit);
-  CobScript := p_Unit.p_UnitScriptsData;
-  if CobScript <> nil then
+  if p_Unit.p_UnitScriptsData <> nil then
   begin
     FreeUnitScriptData(nil, nil, p_Unit.p_UnitScriptsData, 1);
     p_Unit.p_UnitScriptsData := nil;

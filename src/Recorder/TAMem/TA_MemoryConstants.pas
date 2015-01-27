@@ -12,6 +12,8 @@ const
   COBScriptHandler_End = $00512348;
   MultiplayerMapsList = $005122D4;
 
+  ScoreBoardRoll = $0051F2D8;
+
   // Strings
   Rev31GP3_Name = $005028CC;
   Rev31GP3_31 = $005028D8;

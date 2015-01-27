@@ -27,16 +27,10 @@ Procedure OnUninstallScriptCallsExtend;
 procedure ScriptCallsExtend_AimPrimaryTurret_GetUnit;
 procedure ScriptCallsExtend_AimPrimaryTurret_ExpCall;
 procedure ScriptCallsExtend_AimPrimaryBallistic;
-
-// WeaponHit
 procedure ScriptCallsExtend_WeaponHitTest;
-
-// HitByWeapon
-procedure ScriptCallsExtend_HitByWeaponExpand;
 procedure ScriptCallsExtend_ConfirmedKill;
 procedure ScriptCallsExtend_TookDamage;
-
-// ConfirmVTOLTransport
+procedure ScriptCallsExtend_SetNewMaxReloadTime;
 procedure ScriptCallsExtend_CallAirLoadScript;
 procedure ScriptCallsExtend_CallAirUnLoadScript;
 
@@ -47,7 +41,9 @@ uses
   TA_MemoryStructures,
   TA_MemoryLocations,
   TA_MemUnits,
-  TA_FunctionsU, logging, sysutils;
+  TA_FunctionsU,
+  COB_Extensions,
+  logging, sysutils;
 
 var
   ScriptCallsExtendPlugin: TPluginData;
@@ -69,7 +65,7 @@ begin
                             State_ScriptCallsExtend,
                             @OnInstallScriptCallsExtend,
                             @OnUninstallScriptCallsExtend );
-
+                                               
     ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
                           'ScriptCallsExtend_AimPrimaryTurret_GetUnit',
                           @ScriptCallsExtend_AimPrimaryTurret_GetUnit,
@@ -99,6 +95,11 @@ begin
                           'Unit took damage call',
                           @ScriptCallsExtend_TookDamage,
                           $00489D3F, 1);
+
+    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
+                          'Tell unit whats its new max weapon reload time',
+                          @ScriptCallsExtend_SetNewMaxReloadTime,
+                          $0049E4EC, 1);
 
     ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
                           'Confirmed unit kill',
@@ -195,26 +196,20 @@ ContinueToGame:
     call PatchNJump;
 end;
 
-procedure CallWeaponHit(Projectile: PWeaponProjectile; Hit: Cardinal); stdcall;
+procedure CallWeaponHit(p_Projectile: PWeaponProjectile; Hit: Cardinal); stdcall;
 var
-  WeapID : Cardinal;
+  WeapID: Cardinal;
 begin
-  if PWeaponProjectile(Projectile).p_AttackerUnit <> nil then
+  if p_Projectile.p_AttackerUnit <> nil then
   begin
-    if PUnitStruct(PWeaponProjectile(Projectile).p_AttackerUnit).p_UnitScriptsData <> nil then
+    if p_Projectile.p_AttackerUnit.p_UnitScriptsData <> nil then
     begin
-      WeapID := TAWeapon.GetWeaponID(PWeaponProjectile(Projectile).Weapon);
-      Script_RunScript ( 0, 0, LongWord(PUnitStruct(PWeaponProjectile(Projectile).p_AttackerUnit).p_UnitScriptsData),
-                         Projectile.Position_Curnt.Z, Projectile.Position_Curnt.X, Hit, WeapID,
-                         4,
-                         0, 0,
-                         PAnsiChar('WeaponHit') );
-
-  {    Script_ProcessCallback( nil,
-                              nil,
-                              LongWord(PUnitStruct(PWeaponProjectile(Projectile).p_AttackerUnit).p_UnitScriptsData),
-                              nil, nil, @Hit, @WeapID, PAnsiChar('WeaponHit') );   }
-
+      WeapID := TAWeapon.GetWeaponID(p_Projectile.p_Weapon);
+      COBEngine_StartScript(0, 0,
+                            p_Projectile.p_AttackerUnit.p_UnitScriptsData,
+                            p_Projectile.Position_Curnt.Z, p_Projectile.Position_Curnt.X, Hit, WeapID,
+                            4, True, nil,
+                            PAnsiChar('WeaponHit'));
     end;
   end;
 end;
@@ -250,46 +245,13 @@ DidntHit :
   call PatchNJump;
 end;
 
-{
-.text:00489F32 00C 6A 00                               push    0                           ; a10
-.text:00489F34 010 6A 00                               push    0                           ; a9
-.text:00489F36 014 50                                  push    eax                         ; a8
-.text:00489F37 018 53                                  push    ebx                         ; a7
-.text:00489F38 01C 6A 02                               push    2                           ; a6
-.text:00489F3A 020 6A 00                               push    0                           ; a5
-.text:00489F3C 024 6A 00                               push    0                           ; a4
-.text:00489F3E 028 68 74 8D 50 00                      push    offset aHitbyweapon         ; "HitByWeapon"
-.text:00489F43 02C E8 28 6B 02 00                      call    Script_RunCallBack
-}
-
-procedure HitByWeaponNew(p_Unit : Cardinal; anglex, anglez, damage : Cardinal); stdcall;
+procedure TookDamage(p_Unit: PUnitStruct; DmgType: Cardinal; DmgAmount: Cardinal; AttackerID: Cardinal); stdcall;
 begin
-  if PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData <> nil then
-    COBEngine_CallFunc( nil, nil, PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData,
-                        nil, @damage, @anglez, @anglex,
-                        PAnsiChar('HitByWeapon') );
-end;
-
-procedure ScriptCallsExtend_HitByWeaponExpand;
-asm
-  pushAD
-  movzx   edx, word ptr [edi+5]
-  push    edx
-  push    eax
-  push    ebx
-  push    esi
-  call    HitByWeaponNew
-  popAD
-  push $00489F48;
-  call PatchNJump;
-end;
-
-procedure TookDamage(p_Unit: Pointer; DmgType: Cardinal; DmgAmount: Cardinal; AttackerID: Cardinal); stdcall;
-begin
-  if PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData <> nil then
-    COBEngine_CallFunc( nil, nil, PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData,
-                        nil, @AttackerID, @DmgAmount, @DmgType,
-                        PAnsiChar('TookDamage') );
+  if p_Unit.p_UnitScriptsData <> nil then
+    COBEngine_StartScript(0, 0, p_Unit.p_UnitScriptsData,
+                          0, AttackerID, DmgAmount, DmgType,
+                          3, False, nil,
+                          PAnsiChar('TookDamage'));
 end;
 
 procedure ScriptCallsExtend_TookDamage;
@@ -321,12 +283,39 @@ DontMakeDmg :
   call PatchNJump;
 end;
 
+procedure SetNewMaxReloadTime(p_Unit: PUnitStruct; WeapIdx: Byte; ReloadTime: Word); stdcall;
+begin
+  if p_Unit.p_UnitScriptsData <> nil then
+    COBEngine_StartScript(0, 0,
+                          p_Unit.p_UnitScriptsData,
+                          0, 0, ReloadTime, WeapIdx + WEAPON_PRIMARY,
+                          2, False, nil,
+                          PAnsiChar('SetNewMaxReloadTime') );
+end;
+
+procedure ScriptCallsExtend_SetNewMaxReloadTime;
+asm
+  add     edx, eax
+  mov     [esi-7], dx
+  movzx   eax, byte ptr [esp+18h]
+  pushAD
+  push    edx
+  push    eax
+  push    edi
+  call    SetNewMaxReloadTime;
+  popAD
+  push $0049E4F2;
+  call PatchNJump;
+end;
+
 procedure ConfirmedKill(p_Unit: PUnitStruct; DeathType : Cardinal); stdcall;
 begin
-  if PUnitStruct(Pointer(p_Unit)).p_UnitScriptsData <> nil then
-    COBEngine_CallFunc( nil, nil,
-                        p_Unit.p_UnitScriptsData,
-                        nil, nil, nil, @DeathType, PAnsiChar('ConfirmedKill') );
+  if p_Unit.p_UnitScriptsData <> nil then
+    COBEngine_StartScript(0, 0,
+                          p_Unit.p_UnitScriptsData,
+                          0, 0, 0, DeathType,
+                          1, True, nil,
+                          PAnsiChar('ConfirmedKill') );
 end;
 
 procedure ScriptCallsExtend_ConfirmedKill;
@@ -347,14 +336,16 @@ end;
 
 procedure VTOLLoadUnload(p_Unit: PUnitStruct; TransportedUnit: PUnitStruct; Piece: Cardinal; Loading: Cardinal); stdcall;
 var
-  UnitID : Word;
+  UnitID: Word;
 begin
   if p_Unit.p_UnitScriptsData <> nil then
   begin
     UnitID := TAUnit.GetId(TransportedUnit);
-    COBEngine_CallFunc( nil, nil,
-                        p_Unit.p_UnitScriptsData,
-                        nil, @UnitID, @Piece, @Loading, PAnsiChar('ConfirmVTOLTransport') );
+    COBEngine_StartScript(0, 0,
+                          p_Unit.p_UnitScriptsData,
+                          0, UnitID, Piece, Loading,
+                          3, True, nil,
+                          PAnsiChar('ConfirmVTOLTransport') );
   end;
 end;
 

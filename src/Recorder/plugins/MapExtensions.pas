@@ -190,7 +190,8 @@ begin
       if GameType <> 0 then
       begin
         AiDifficulty := Ord(TAData.AIDifficulty);
-        TAUnit.CallCobProcedure(@MapMissionsUnit, 'MapMission', @GameType, @AiDifficulty, nil, nil);
+        TAUnit.CobStartScript(@MapMissionsUnit, 'MapMission',
+          @GameType, @AiDifficulty, nil, nil, True);
       end;
       MapMissionsUnit.lUnitInGameIndex := MapMissionsUnit.lUnitInGameIndex or $0000FFFF;
     //end;

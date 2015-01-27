@@ -5,64 +5,58 @@ uses PluginEngine, Windows, SysUtils, IniFiles;
 
 type
   TIniSettings = record
-    ModId                : Integer;
-    DemosPrefix          : String;
-    Name                 : String;
-    RegName              : String;
-    Version              : String;
-
-    UnitType             : Integer;
-    WeaponType           : Integer;
-    WeaponIdPatch        : Boolean;
-//    RanksURL             : String;
-    UnitLimit            : Integer;
-    Read                 : Boolean;
-
+    // game mod info
+    ModId                  : Integer;
+    DemosPrefix            : String;
+    Name                   : String;
+    RegName                : String;
+    Version                : String;
+    // limit hack plugins
+    UnitType               : Integer;
+    WeaponType             : Integer;
+    WeaponIdPatch          : Boolean;
+    UnitLimit              : Integer;
+    // paths
     ScriptorPath           : String;
     CommonMapsPath         : String;
     CommonGameDataPath     : String;
     UseCommonMaps          : Boolean;
     UseCommonGameData      : Boolean;
-
+    // multiplayer plugins
+    BattleRoomEnh          : Boolean;
+    BroadcastNanolathe     : Boolean;
+    CreateStatsFile        : Boolean;
+    // AI
     AiNukes                : Boolean;
     AiBuildList            : Boolean;
-    ExpandMinimap          : Boolean;
-
-    CreateStatsFile        : Boolean;
-
-    { GUI Plugins }
+    // GUI
     Colors                 : Boolean;
     CustomColors           : array[0..3] of array[0..28] of Byte;
     Colors_MenuDots        : Byte;
     Colors_DisableMenuDots : Boolean;
-    HBWidth                : Integer;
-    HBDynamicSize          : Boolean;
-    HBCategory1            : Cardinal;
-    HBCategory2            : Cardinal;
-    HBCategory3            : Cardinal;
-    HBCategory4            : Cardinal;
-    HBCategory5            : Cardinal;
-
-    BroadcastNanolathe     : Boolean;
-    ClockPosition          : Byte;
-
+    HealthBarDynamicSize   : Boolean;
+    HealthBarWidth         : Integer;
+    HealthBarCategories    : array [0..4] of Cardinal;
+    UnitSelectBoxType      : Integer;
     MinWeaponReload        : Integer;
+    MinReclaimTime         : Integer;
     Transporters           : Boolean;
     Stockpile              : Boolean;
-    BattleRoomEnh          : Boolean;
-    ScriptSlotsLimit       : Boolean;
-    InterceptsOnlyList     : Boolean;
-
     ForceDrawBuildSpotNano : Boolean;
     BuildSpotNanoShimmer   : Boolean;
     DrawBuildSpotQueueNano : Boolean;
+    ClockPosition          : Byte;
+    ScoreBoard             : Boolean;
+    ExplosionsGameUIExpand : Integer;
+//    ExpandMinimap          : Boolean;
+
+    ScriptSlotsLimit       : Boolean;
+    InterceptsOnlyList     : Boolean;
 
     StopButton             : Boolean;
     ResurrectPatrol        : Boolean;
-    
-    MinReclaimTime         : Integer;
   end;
-  
+
 var
   IniSettings: TIniSettings;
 
@@ -267,7 +261,6 @@ function ReadIniPath(var IniFile: TIniFile; sect: string; ident: string; out pat
 
 var
   IniFile: TIniFile;
-  MultiGameWeapon: Boolean;
   i: integer;
 begin
   Result:= False;
@@ -279,34 +272,32 @@ begin
 
   if GetINIFileName <> #0 then
   begin
-    IniFile:= TIniFile.Create(GetINIFileName);
+    IniFile := TIniFile.Create(GetINIFileName);
     try
       IniSettings.ModId := ReadIniValue(IniFile, 'MOD','ID', -1);
+      IniSettings.DemosPrefix := ReadIniString(IniFile, 'MOD','DemosFileNamePrefix', '');
+      IniSettings.RegName := ReadIniString(IniFile, 'Preferences','RegistryName', '');
       IniSettings.Name := ReadIniString(IniFile, 'MOD','Name', '');
       IniSettings.Version := ReadIniString(IniFile, 'MOD','Version', '');
-      IniSettings.RegName := ReadIniString(IniFile, 'Preferences','RegistryName', '');
-
-      IniSettings.DemosPrefix := ReadIniString(IniFile, 'MOD','DemosFileNamePrefix', '');
-
-//      IniSettings.RanksURL := ReadIniString(IniFile, 'Preferences','RanksURL', '');
 
       IniSettings.UnitType := ReadIniValue(IniFile, 'Preferences', 'UnitType', 512);
       IniSettings.WeaponType := ReadIniValue(IniFile, 'Preferences', 'WeaponType', 256);
-      multiGameWeapon := ReadIniBool(IniFile, 'Preferences','MultiGameWeapon', False);
-      IniSettings.WeaponIdPatch := (IniSettings.WeaponType > 256) and multiGameWeapon;
-
+      IniSettings.WeaponIdPatch := (IniSettings.WeaponType > 256) and
+                                   (ReadIniBool(IniFile, 'Preferences','MultiGameWeapon', False));
       IniSettings.UnitLimit := ReadIniValue(IniFile, 'Preferences', 'UnitLimit', 0);
 
       IniSettings.ScriptorPath := ReadIniString(IniFile, 'Preferences', 'ScriptorIncludePath', '');
       if IniSettings.ScriptorPath <> '' then
         IniSettings.ScriptorPath := IncludeTrailingPathDelimiter(IniSettings.ScriptorPath);
+      IniSettings.UseCommonMaps := ReadIniBool(IniFile, 'Preferences', 'UseCommonMaps', True);
+      IniSettings.UseCommonGameData := ReadIniBool(IniFile, 'Preferences', 'UseCommonGameData', True);
+
+      IniSettings.BattleRoomEnh := ReadIniBool(IniFile, 'Preferences', 'BattleRoomEnhancements', False);
+      IniSettings.BroadcastNanolathe := ReadIniBool(IniFile, 'Preferences', 'BroadcastNanolathe', False);
+      IniSettings.CreateStatsFile := ReadIniBool(IniFile, 'Preferences', 'CreateStats', False);
 
       IniSettings.AiNukes := ReadIniBool(IniFile, 'Preferences', 'AiNukes', False);
       IniSettings.AiBuildList := ReadIniBool(IniFile, 'Preferences', 'AiBuildListExpand', False);
-
-      IniSettings.ExpandMinimap := ReadIniBool(IniFile, 'Preferences', 'ExpandMinimap', False);
-
-      IniSettings.CreateStatsFile := ReadIniBool(IniFile, 'Preferences', 'CreateStats', False);
 
       if IniFile.SectionExists('Colors') or
          IniFile.SectionExists('ColorsSide1') or
@@ -325,33 +316,29 @@ begin
         IniSettings.Colors_DisableMenuDots := ReadIniBool(IniFile, 'Colors', ColorsArray[30].sName, False);
       end;
 
-      IniSettings.HBWidth := ReadIniValue(IniFile, 'Preferences', 'HealthBarWidth', 0);
-      IniSettings.HBDynamicSize := ReadIniBool(IniFile, 'Preferences', 'HealthBarDynamicSize', False);
-      IniSettings.HBCategory1 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat1', 0);
-      IniSettings.HBCategory2 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat2', 0);
-      IniSettings.HBCategory3 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat3', 0);
-      IniSettings.HBCategory4 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat4', 0);
-      IniSettings.HBCategory5 := ReadIniValue(IniFile, 'Preferences', 'HealthBarDynamicCat5', 0);
+      IniSettings.HealthBarDynamicSize := ReadIniBool(IniFile, 'Preferences', 'HealthBarDynamicSize', False);
+      IniSettings.HealthBarWidth := ReadIniValue(IniFile, 'Preferences', 'HealthBarWidth', 0);
+      for i := Low(IniSettings.HealthBarCategories) to High(IniSettings.HealthBarCategories) do
+       IniSettings.HealthBarCategories[i] := ReadIniValue(IniFile, 'Preferences',
+                                               'HealthBarDynamicCat' + IntToStr(i+1), 0);
+      IniSettings.UnitSelectBoxType := ReadIniValue(IniFile, 'Preferences', 'UnitSelectBoxType', 0);
       IniSettings.MinWeaponReload := ReadIniValue(IniFile, 'Preferences', 'MinWeaponReloadTime', 0);
       IniSettings.MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
       IniSettings.Transporters := ReadIniBool(IniFile, 'Preferences', 'TransportersCount', False);
       IniSettings.Stockpile := ReadIniBool(IniFile, 'Preferences', 'StockpileCount', False);
-      IniSettings.ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
       IniSettings.ForceDrawBuildSpotNano := ReadIniBool(IniFile, 'Preferences', 'ForceDrawBuildSpotNano', False);
-      IniSettings.DrawBuildSpotQueueNano := ReadIniBool(IniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);
       IniSettings.BuildSpotNanoShimmer := ReadIniBool(IniFile, 'Preferences', 'BuildSpotNanoShimmer', False);
+      IniSettings.DrawBuildSpotQueueNano := ReadIniBool(IniFile, 'Preferences', 'DrawBuildSpotQueueNano', False);
+      IniSettings.ClockPosition := ReadIniValue(IniFile, 'Preferences', 'ClockPosition', 0);
+      IniSettings.ScoreBoard := ReadIniBool(IniFile, 'Preferences', 'ScoreBoard', False);
+      IniSettings.ExplosionsGameUIExpand := ReadIniValue(IniFile, 'Preferences', 'ExplosionsGameUIExpand', 0);
+//      IniSettings.ExpandMinimap := ReadIniBool(IniFile, 'Preferences', 'ExpandMinimap', False);
 
       IniSettings.StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
       IniSettings.ResurrectPatrol := ReadIniBool(IniFile, 'Preferences', 'ResurrectionPatrol', False);
 
-      IniSettings.BroadcastNanolathe := ReadIniBool(IniFile, 'Preferences', 'BroadcastNanolathe', False);
-      IniSettings.BattleRoomEnh := ReadIniBool(IniFile, 'Preferences', 'BattleRoomEnhancements', False);
-
       IniSettings.ScriptSlotsLimit := ReadIniBool(IniFile, 'Preferences', 'IncScriptSlotsLimit', False);
       IniSettings.InterceptsOnlyList := ReadIniBool(IniFile, 'Preferences', 'UseInterceptsOnlyList', True);
-
-      IniSettings.UseCommonMaps := ReadIniBool(IniFile, 'Preferences', 'UseCommonMaps', True);
-      IniSettings.UseCommonGameData := ReadIniBool(IniFile, 'Preferences', 'UseCommonGameData', True);
     finally
       Result:= True;
       IniFile.Free;
@@ -364,10 +351,7 @@ begin
           IniSettings.Name:= ReadModsIniField('Name')
         else
           if IniSettings.ModId > 0 then
-          begin
-         //   TLog.Add( 0, 'Couldn''t read mod name !' );
             IniSettings.Name:= 'Unknown';
-          end;
       if IniSettings.Version = '' then
         if ReadModsIniField('Version') <> '' then
           IniSettings.Version:= ReadModsIniField('Version');
@@ -376,9 +360,8 @@ begin
           IniSettings.RegName := ReadModsIniField('RegName')
         else
           IniSettings.RegName := 'TA Patch';
-    end else
-      if IniSettings.ModId > 0 then TLog.Add( 0, 'Couldn''t save mod id to mods.ini' );
-
+    end;
+    
     LocalModInfo.ModID := IniSettings.ModID;
     if IniSettings.Version <> '' then
     begin
@@ -409,7 +392,7 @@ if IsTAVersion31 and State_INI_Options then
                                   State_INI_Options,
                                   @OnInstallINI_Options, @OnUnInstallINI_Options );
 
-    IniSettings.Read := ReadINISettings;
+    ReadINISettings;
   end else
     Result := nil;
 end;

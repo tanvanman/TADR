@@ -2,7 +2,7 @@ unit GUIEnhancements;
 
 interface
 uses
-  PluginEngine, TA_MemoryStructures;
+  PluginEngine, TA_MemoryStructures, Classes;
 
 // -----------------------------------------------------------------------------
 
@@ -29,8 +29,10 @@ procedure DrawBuildSpot_QueueNanoframeHook;
 procedure DrawBuildSpot_NanoframeShimmerHook;
 procedure DrawUnitRanges_ShowrangesOnHook;
 procedure DrawUnitRanges_CustomRanges;
-//procedure LoadArmCore32ltGafSequences;
-//procedure DrawScoreboard;
+procedure DrawExplosionsRectExpandHook;
+procedure DrawExplosionsRectExpandHook2;
+procedure LoadArmCore32ltGafSequences;
+procedure DrawScoreboard(p_Offscreen: Cardinal); stdcall;
 procedure BroadcastNanolatheParticles_BuildingBuild;
 procedure BroadcastNanolatheParticles_MobileBuild;
 procedure BroadcastNanolatheParticles_HelpBuild;
@@ -75,31 +77,31 @@ const
   HUGEUNIT : cardinal = 5000;
   EXTRALARGEUNIT : cardinal = 10000;
   VETERANLEVEL_RELOADBOOST = 12; // 30 * 0.2
+  SCOREBOARD_WIDTH = 180;
 
 const
   NanoUnitCreateInit : AnsiString = 'NanoFrameInit';
   Core32Lt : AnsiString = 'Core32Dk';
   Arm32Lt : AnsiString = 'Arm32Dk';
   RaceLogo : AnsiString = 'RaceLogo';
-  SCOREBOARD_WIDTH : Byte = 180;
 
 var
   GUIEnhancementsPlugin: TPluginData;
 
 Procedure OnInstallGUIEnhancements;
 begin
-  if IniSettings.HBDynamicSize then
+  if IniSettings.HealthBarDynamicSize then
   begin
-    if IniSettings.HBCategory1 <> 0 then
-      STANDARDUNIT := IniSettings.HBCategory1;
-    if IniSettings.HBCategory2 <> 0 then
-      MEDIUMUNIT := IniSettings.HBCategory2;
-    if IniSettings.HBCategory3 <> 0 then
-      BIGUNIT := IniSettings.HBCategory3;
-    if IniSettings.HBCategory4 <> 0 then
-      HUGEUNIT := IniSettings.HBCategory4;
-    if IniSettings.HBCategory5 <> 0 then
-      EXTRALARGEUNIT := IniSettings.HBCategory5;
+    if IniSettings.HealthBarCategories[0] <> 0 then
+      STANDARDUNIT := IniSettings.HealthBarCategories[0];
+    if IniSettings.HealthBarCategories[1] <> 0 then
+      MEDIUMUNIT := IniSettings.HealthBarCategories[1];
+    if IniSettings.HealthBarCategories[2] <> 0 then
+      BIGUNIT := IniSettings.HealthBarCategories[2];
+    if IniSettings.HealthBarCategories[3] <> 0 then
+      HUGEUNIT := IniSettings.HealthBarCategories[3];
+    if IniSettings.HealthBarCategories[4] <> 0 then
+      EXTRALARGEUNIT := IniSettings.HealthBarCategories[4];
   end;
 end;
 
@@ -136,15 +138,7 @@ begin
                             'HealthPercentage',
                             @HealthPercentage,
                             $0046B088, 1);
-    {
-    if IniSettings.CircleUnitSelect then
-      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                            'DrawCircleUnitSelectHook',
-                            @DrawCircle UnitSelectHook,
-                            $00467AF1, 0);
 
-
-    }
     GUIEnhancementsPlugin.MakeStaticCall(State_GUIEnhancements,
                           'Draw unit selection box',
                           @DrawUnitSelectBox,
@@ -157,12 +151,12 @@ begin
     // ---------------------------------
     // nanoframe units
     // ---------------------------------
-                              {
+
     GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'DrawBuildSpot_InitScript',
                             @DrawBuildSpot_InitScript,
                             $00485DE1, 0);
-                             }
+
     GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
                             'DrawBuildSpot_NanoframeHook',
                             @DrawBuildSpot_NanoframeHook,
@@ -190,39 +184,34 @@ begin
                             @DrawUnitRanges_CustomRanges,
                             $00439C9B, 1);
 
+    if IniSettings.ExplosionsGameUIExpand > 0 then
+    begin
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @DrawExplosionsRectExpandHook,
+                              $00420C47, 0);
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              '',
+                              @DrawExplosionsRectExpandHook2,
+                              $00420BA2, 0);
+    end;
 
     // ---------------------------------
     // new score board
     // ---------------------------------
-    {
-    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                            'load core and arm logos colored',
-                            @LoadArmCore32ltGafSequences,
-                            $0043190B, 1);
 
-    GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
-                            'new scoreboard :)',
-                            @DrawScoreboard,
-                            $00494A61, 2);
+    if IniSettings.ScoreBoard then
+    begin
+      GUIEnhancementsPlugin.MakeRelativeJmp(State_GUIEnhancements,
+                              'load core and arm logos colored',
+                              @LoadArmCore32ltGafSequences,
+                              $0043190B, 1);
 
-    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
-                            '', $00494996, SCOREBOARD_WIDTH, 1);
-
-    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
-                            '', $004949ED, SCOREBOARD_WIDTH, 1);
-
-    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
-                            '', $00494A06, SCOREBOARD_WIDTH, 1);
-
-    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
-                            '', $00494A23, SCOREBOARD_WIDTH, 1);
-
-    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
-                            '', $00494A39, SCOREBOARD_WIDTH, 1);
-
-    GUIEnhancementsPlugin.MakeReplacement(State_GUIEnhancements,
-                            '', $00494A67, SCOREBOARD_WIDTH, 1);
-    }
+      GUIEnhancementsPlugin.MakeStaticCall(State_GUIEnhancements,
+                              'Draw score board with ping and side logos',
+                              @DrawScoreboard,
+                              $00469F65);
+    end;
 
     // ---------------------------------
     // nanolathe particles broadcast
@@ -403,7 +392,7 @@ begin
         begin
           UnitMaxHP := UnitInfo.lMaxDamage;
           HPBackgRectWidth := 34;
-          if IniSettings.HBDynamicSize then
+          if IniSettings.HealthBarDynamicSize then
           begin
             if UnitMaxHP < STANDARDUNIT then
               HPBackgRectWidth := 28
@@ -424,8 +413,8 @@ begin
                         HPBackgRectWidth := 58;
           end else
           begin
-            if (IniSettings.HBWidth <> 0) then
-              HPBackgRectWidth := IniSettings.HBWidth
+            if (IniSettings.HealthBarWidth <> 0) then
+              HPBackgRectWidth := IniSettings.HealthBarWidth
           end;
 
           if (UnitHealth <= UnitMaxHP) and
@@ -1101,8 +1090,7 @@ end;
 
 procedure DrawBuildSpotQueueNanoframe(pOffscreen: Cardinal; UnitInfo: PUnitInfo; UnitOrder: PUnitOrder); stdcall;
 var
-  X, Z : Integer;
-  Position : TPosition;
+  Position: TPosition;
 begin
   // draw only queued (and not under construction already)
   if UnitOrder.ucState <= 1 then
@@ -1110,44 +1098,45 @@ begin
     if NanoSpotQueueUnitSt.nUnitInfoID <> 0 then
       FreeUnitMem(@NanoSpotQueueUnitSt);
 
-    Position := UnitOrder.Pos;
     NanoSpotQueueUnitSt.nUnitInfoID := UnitInfo.nCategory;
     NanoSpotQueueUnitSt.p_UnitInfo := TAMem.UnitInfoId2Ptr(NanoSpotQueueUnitSt.nUnitInfoID);
-    X := Position.X;
-    Z := Position.Z;
-    GetTPosition(X, Z, Position);
+    GetTPosition(UnitOrder.Pos.X, UnitOrder.Pos.X, Position);
 
     NanoSpotQueueUnitSt.p_Owner := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
-    if UNITS_AllocateUnit(@NanoSpotQueueUnitSt, X, Position.Y, Z, 0) then
+    if UNITS_AllocateUnit(@NanoSpotQueueUnitSt, UnitOrder.Pos.X, Position.Y, UnitOrder.Pos.Z, 0) then
     begin
-      NanoSpotQueueUnitInfoSt := TAMem.UnitInfoId2Ptr(NanoSpotQueueUnitSt.nUnitInfoID)^;
-      NanoSpotQueueUnitSt.p_UnitInfo := @NanoSpotQueueUnitInfoSt;
-
-      NanoSpotQueueUnitSt.Position.X := NanoSpotQueueUnitSt.Position.x_;
-      NanoSpotQueueUnitSt.Position.x_ := 0;
-      NanoSpotQueueUnitSt.Position.Z := NanoSpotQueueUnitSt.Position.z_;
-      NanoSpotQueueUnitSt.Position.z_ := 0;
-
-      if NanoSpotQueueUnitInfoSt.cBMCode = 1 then
+      if (UnitInPlayerLOS(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID), @NanoSpotQueueUnitSt) <> 0) and
+         TAUnit.IsInGameUI(@NanoSpotQueueUnitSt) then
       begin
-        UNITS_AllocateMovementClass(@NanoSpotQueueUnitSt);
-      end;
+        NanoSpotQueueUnitInfoSt := TAMem.UnitInfoId2Ptr(NanoSpotQueueUnitSt.nUnitInfoID)^;
+        NanoSpotQueueUnitSt.p_UnitInfo := @NanoSpotQueueUnitInfoSt;
 
-      NanoSpotQueueUnitSt.Turn.Z := 32768;
-      NanoSpotQueueUnitSt.Position.Y := Position.Y;
-        if NanoSpotQueueUnitInfoSt.nMinWaterDepth <> -10000 then
-          if NanoSpotQueueUnitInfoSt.cWaterLine = 0 then
-            NanoSpotQueueUnitSt.Position.Y := 0;
+        NanoSpotQueueUnitSt.Position.X := NanoSpotQueueUnitSt.Position.x_;
+        NanoSpotQueueUnitSt.Position.x_ := 0;
+        NanoSpotQueueUnitSt.Position.Z := NanoSpotQueueUnitSt.Position.z_;
+        NanoSpotQueueUnitSt.Position.z_ := 0;
 
-      if ((PUnitStruct(UnitOrder.p_Unit).lUnitStateMask shr 4) and 1 = 1) then
-        NanoSpotQueueUnitSt.lFireTimePlus600 := 1
-      else
-        NanoSpotQueueUnitSt.lFireTimePlus600 := 2;
+        if NanoSpotQueueUnitInfoSt.cBMCode = 1 then
+        begin
+          UNITS_AllocateMovementClass(@NanoSpotQueueUnitSt);
+        end;
 
-      if UNITS_CreateModelScripts(@NanoSpotQueueUnitSt) <> nil then
-      begin
-        PrepareNanoUnit(@NanoSpotQueueUnitSt);
-        DrawUnit(pOffscreen, @NanoSpotQueueUnitSt);
+        NanoSpotQueueUnitSt.Turn.Z := 32768;
+        NanoSpotQueueUnitSt.Position.Y := Position.Y;
+          if NanoSpotQueueUnitInfoSt.nMinWaterDepth <> -10000 then
+            if NanoSpotQueueUnitInfoSt.cWaterLine = 0 then
+              NanoSpotQueueUnitSt.Position.Y := 0;
+
+        if ((PUnitStruct(UnitOrder.p_Unit).lUnitStateMask shr 4) and 1 = 1) then
+          NanoSpotQueueUnitSt.lFireTimePlus600 := 1
+        else
+          NanoSpotQueueUnitSt.lFireTimePlus600 := 2;
+
+        if UNITS_CreateModelScripts(@NanoSpotQueueUnitSt) <> nil then
+        begin
+          PrepareNanoUnit(@NanoSpotQueueUnitSt);
+          DrawUnit(pOffscreen, @NanoSpotQueueUnitSt);
+        end;
       end;
     end;
   end;
@@ -1355,7 +1344,36 @@ loc_439CC8 :
   push $00439CC8;
   call PatchNJump;
 end;
-{
+
+function DrawExplosionsRectExpand(Rect: PtagRECT; x, y: Integer): Boolean; stdcall;
+begin
+  Result := (x >= (Rect.Left - IniSettings.ExplosionsGameUIExpand)) and
+            (x <= (Rect.Right + IniSettings.ExplosionsGameUIExpand)) and
+            (y >= (Rect.Top - IniSettings.ExplosionsGameUIExpand)) and
+            (y <= (Rect.Bottom + IniSettings.ExplosionsGameUIExpand));
+end;
+
+procedure DrawExplosionsRectExpandHook;
+asm
+  push    edi                         // y
+  push    ebx                         // x
+  push    eax                         // Rect
+  call    DrawExplosionsRectExpand
+  push $00420C4F;
+  call PatchNJump;
+end;
+
+procedure DrawExplosionsRectExpandHook2;
+asm
+  push    edi                         // y
+  push    esi                         // x
+  push    eax                         // Rect
+  call    DrawExplosionsRectExpand
+  push $00420BAA;
+  call PatchNJump;
+end;
+
+
 procedure LoadArmCore32ltGafSequences;
 asm
   push    eax
@@ -1365,14 +1383,14 @@ asm
   push    Arm32Lt
   push    ecx
   call    GAF_Name2Sequence
-  mov     GafSequence_Arm32lt, eax
+  mov     ExtraGAFAnimations.GafSequence_Arm32lt, eax
 
   mov     eax, [TADynMemStructPtr]
   mov     ecx, [eax+TTAdynmemStruct.p_LogosGaf]
   push    Core32Lt
   push    ecx
   call    GAF_Name2Sequence
-  mov     GafSequence_Core32lt, eax
+  mov     ExtraGAFAnimations.GafSequence_Core32lt, eax
 
   pop     eax
   mov     edx, [TADynMemStructPtr]
@@ -1380,83 +1398,168 @@ asm
   call PatchNJump;
 end;
 
-function DrawNewScoreboard(OFFSCREEN_Ptr: Cardinal): Cardinal; stdcall;
+procedure DrawScoreboard(p_Offscreen: Cardinal); stdcall;
 var
-  ScoreBoardPos : tagRect;
-  PlayersDrawListTop : Integer;
-  Player, PlayerSort : PPlayerStruct;
+  i: Integer;
+  v2, v3, c: Byte;
+  v4, v5, v7, v8, v9: Integer;
+  ScoreBoardPos, LocalPlayerBox: tagRect;
+//  StrExt: Integer;
+  PlayersDrawListTop: Integer;
   cCurActivePlayer, IteratePlayerIdx : Byte;
-  cCurActiveSortPlayer : Byte;
+  cCurActiveSortPlayer: Byte;
   cIterateSort : Byte;
+  PlayerPtr, PlayerSort: PPlayerStruct;
   PlayerType, PlayerSortType: TTAPlayerController;
-  PlayerSide : TTAPlayerSide;
-  LocalPlayerBox : tagRect;
+  PlayerSide: TTAPlayerSide;
+  TextLeftOff : Integer;
   p_ColorLogo : PGAFFrame;
   Counter : Integer;
   PlayerLogoRect, PlayerLogoTransform : TGAFFrameTransform;
-  TextLeftOff : Integer;
+  ScoreBoardWidth: Integer;
+  bDraw: Boolean;
 label
   SortPlayers;
-  //IterateWatcher;
 begin
-  Result := 0;
-  ScoreBoardPos.Left := GetTA_ScreenWidth - SCOREBOARD_WIDTH;//PInteger($0051F2D8)^;
-  ScoreBoardPos.Right := ScoreBoardPos.Left + SCOREBOARD_WIDTH;
+  if ( PCardinal($51F2F4)^ < GameRunSec ) then
+  begin
+    PCardinal($51F2F4)^ := GameRunSec + 1;
+    i := 0;
+    repeat
+      v2 := PByte($51F2C8 + i)^;
+      if (v2 > 0) then
+        PByte($51F2C8 + i)^ := v2 - 2;
+      v3 := PByte($51E810 + i)^;
+      if (v3 > 0) then
+        PByte($51E810 + i)^ := v3 - 2;
+      Inc(i);
+    until ( i = 10 );
+  end;
+
+  if TAData.NetworkLayerEnabled then
+    ScoreBoardWidth := SCOREBOARD_WIDTH
+  else
+    ScoreBoardWidth := 140;
+
+  v4 := PInteger(Cardinal(TAData.MainStruct) + $57D)^;
+  c := 3;
+  if v4 <> -1 then
+    c := PByte(PCardinal(PCardinal(Cardinal(TAData.MainStruct) + $531)^+4)^+347*Cardinal(v4))^;
+  if (((TAData.MainStruct.GameOptionMask and $80) <> 0) or (GetAsyncKeyState(VK_SPACE) <> 0)) and
+     ((v4 = -1) or (c <> 3)) then
+  begin
+    v8 := PInteger(ScoreBoardRoll)^;
+    if ( PInteger(ScoreBoardRoll)^ < ScoreBoardWidth ) then
+    begin
+      if ( PInteger(ScoreBoardRoll)^ <= 0 ) then
+      begin
+        PlaySound_2D_Name(PAnsiChar('Panel'), 0);
+        v8 := PInteger(ScoreBoardRoll)^;
+      end;
+      v9 := (ScoreBoardWidth - v8) div 4;
+      if ( v9 <= 1 ) then
+        v9 := 1;
+      PInteger(ScoreBoardRoll)^ := v9 + v8;
+      if ( v9 + v8 >= ScoreBoardWidth ) then
+      begin
+        PInteger(ScoreBoardRoll)^ := ScoreBoardWidth;
+        PlaySound_2D_Name(PAnsiChar('Options'), 0);
+      end;
+    end;
+  end else
+  begin
+    v5 := PInteger(ScoreBoardRoll)^;
+    if ( PInteger(ScoreBoardRoll)^ <= 0 ) then
+      Exit;
+    if ( PInteger(ScoreBoardRoll)^ = ScoreBoardWidth ) then
+    begin
+      PlaySound_2D_Name(PAnsiChar('Panel'), 0);
+      v5 := PInteger(ScoreBoardRoll)^;
+    end;
+    v7 := v5 div 4;
+    if ( v5 div 4 <= 1 ) then
+      v7 := 1;
+    PInteger(ScoreBoardRoll)^ := v5 - v7;
+    if ( v5 - v7 <= 0 ) then
+    begin
+      PInteger(ScoreBoardRoll)^ := 0;
+      PlaySound_2D_Name(PAnsiChar('Options'), 0);
+    end;
+  end;
+
+  ScoreBoardPos.Left := GetTA_ScreenWidth - PInteger(ScoreBoardRoll)^;
+  ScoreBoardPos.Right := ScoreBoardPos.Left + ScoreBoardWidth;
   ScoreBoardPos.Top := 32;
-  ScoreBoardPos.Bottom := 40 * TAData.ActivePlayersCount + 46;
+  ScoreBoardPos.Bottom := 40 * TAData.MainStruct.nActivePlayersCount + 46;
 
-  DrawTransparentBox(OFFSCREEN_Ptr, @ScoreBoardPos, -23);
+  DrawTransparentBox(p_Offscreen, @ScoreBoardPos, -24);
 
-  DrawText(OFFSCREEN_Ptr, TranslateString(PAnsiChar('Player')), ScoreBoardPos.Left + 5, ScoreBoardPos.Top, 119, 0);
-  DrawText(OFFSCREEN_Ptr, TranslateString(PAnsiChar('K/D')),
-           ScoreBoardPos.Right - GetStrExtent(TranslateString(PAnsiChar('K/D'))) - 2,
+  DrawText(p_Offscreen, TranslateString(PAnsiChar('Kills')),
+    ScoreBoardPos.Left + 5, ScoreBoardPos.Top, 119, 0);
+
+  DrawText(p_Offscreen, TranslateString(PAnsiChar('Losses')),
+           ScoreBoardPos.Right - GetStrExtent(TranslateString(PAnsiChar('Losses'))) - 2,
            ScoreBoardPos.Top, 119, 0);
-
+  {
+  if TAData.NetworkLayerEnabled then
+  begin
+    StrExt := GetStrExtent(TranslateString(PAnsiChar('Ping')));
+    DrawText(p_Offscreen, TranslateString(PAnsiChar('Ping')),
+      ScoreBoardPos.Right - StrExt - 2, ScoreBoardPos.Top, 119, 0);
+  end;
+  }
   PlayersDrawListTop := ScoreBoardPos.Top + 15;
   cCurActivePlayer := 0;
-  if TAData.ActivePlayersCount <> 0 then
+  if TAData.MainStruct.nActivePlayersCount > 0 then
   begin
     repeat
+      PlayerPtr := TAPlayer.GetPlayerByIndex(0);
       IteratePlayerIdx := 0;
-      Player := TAPlayer.GetPlayerByIndex(IteratePlayerIdx);
+      bDraw := True;
       while True do
       begin
-        if TAPlayer.IsActive(Player) then
+        if TAPlayer.IsActive(PlayerPtr) then
         begin
-          PlayerType := TAPlayer.PlayerController(Player);
-          if ( PlayerType = Player_LocalHuman ) or
-             ( PlayerType = Player_LocalAI ) or
-             ( PlayerType = Player_RemotePlayer ) then
+          PlayerType := TAPlayer.PlayerController(PlayerPtr);
+          if (PlayerType = Player_LocalHuman) or
+             (PlayerType = Player_LocalAI) or
+             (PlayerType = Player_RemotePlayer) then
           begin
-            if ( TAPlayer.PlayerIndex(Player) <> 10 ) then
-              if ( (Player.nNumUnits <> 0) or (Player.lUnitsCounter = 0) ) then
-                if ( Player.PlayerInfo.PropertyMask and $40 <> $40 ) then
-                  if ( Player.cPlayerScoreboard = cCurActivePlayer ) then
+            if (PlayerPtr.cPlayerIndex <> 10) then
+              if (PlayerPtr.nNumUnits <> 0) and (PlayerPtr.lUnitsCounter <> 0) then
+                if ((PlayerPtr.PlayerInfo^.PropertyMask and $40) = 0) then
+                  if (PlayerPtr.cPlayerScoreboard = cCurActivePlayer) then
                     Break;
           end;
         end;
         Inc(IteratePlayerIdx);
-        Player := Pointer(Cardinal(Player) + SizeOf(TPlayerStruct));
-        //TAPlayer.GetPlayerByIndex(IteratePlayerIdx);
-        if ( IteratePlayerIdx >= 10 ) then
-          goto SortPlayers;
+        PlayerPtr := TAPlayer.GetPlayerByIndex(IteratePlayerIdx);
+        if IteratePlayerIdx = 10 then
+        begin
+          bDraw := False;
+          Break;
+        end;
       end;
+
+      if not bDraw then goto SortPlayers;
+
       LocalPlayerBox.Left := ScoreBoardPos.Left + 4;
       LocalPlayerBox.Right := ScoreBoardPos.Right - 4;
       LocalPlayerBox.Top := PlayersDrawListTop - 1;
       LocalPlayerBox.Bottom := PlayersDrawListTop + 37;
       if ( IteratePlayerIdx = TAData.LocalPlayerID ) then
-        DrawTransparentBox(OFFSCREEN_Ptr, @LocalPlayerBox, -19)
+        DrawTransparentBox(p_OFFSCREEN, @LocalPlayerBox, -24)
       else
-        DrawTransparentBox(OFFSCREEN_Ptr, @LocalPlayerBox, -24);
+        DrawTransparentBox(p_OFFSCREEN, @LocalPlayerBox, -19);
 
-      PlayerSide := TAPlayer.PlayerSide(Player);
-
+      PlayerSide := TAPlayer.PlayerSide(PlayerPtr);
       case PlayerSide of
         psArm :
-          p_ColorLogo := GAF_SequenceIndex2Frame(GafSequence_Arm32lt, TAPlayer.PlayerLogoIndex(Player));
+          p_ColorLogo := GAF_SequenceIndex2Frame(ExtraGAFAnimations.GafSequence_Arm32lt,
+            TAPlayer.PlayerLogoIndex(PlayerPtr));
         psCore :
-          p_ColorLogo := GAF_SequenceIndex2Frame(GafSequence_Core32lt, TAPlayer.PlayerLogoIndex(Player));
+          p_ColorLogo := GAF_SequenceIndex2Frame(ExtraGAFAnimations.GafSequence_Core32lt,
+            TAPlayer.PlayerLogoIndex(PlayerPtr));
         else p_ColorLogo := nil;
       end;
 
@@ -1464,14 +1567,14 @@ begin
       begin
         TextLeftOff := ScoreBoardPos.Left + 39 + 3;
         PlayerLogoRect.Rect1.Left := ScoreBoardPos.Left + 7;
-        PlayerLogoRect.Rect1.Top := PlayersDrawListTop + 2;       // top
-        PlayerLogoRect.Rect1.Right := ScoreBoardPos.Left + 39;    // width raw + 7
+        PlayerLogoRect.Rect1.Top := PlayersDrawListTop + 2;
+        PlayerLogoRect.Rect1.Right := ScoreBoardPos.Left + 39;
         PlayerLogoRect.Rect1.Bottom := PlayersDrawListTop + 2;
 
-        PlayerLogoRect.Rect2.Left := ScoreBoardPos.Left + 39;     // width raw + 7
-        PlayerLogoRect.Rect2.Top := PlayersDrawListTop + 34;      // height raw
+        PlayerLogoRect.Rect2.Left := ScoreBoardPos.Left + 39;
+        PlayerLogoRect.Rect2.Top := PlayersDrawListTop + 34;
         PlayerLogoRect.Rect2.Right := ScoreBoardPos.Left + 7;
-        PlayerLogoRect.Rect2.Bottom := PlayersDrawListTop + 34;   // height raw
+        PlayerLogoRect.Rect2.Bottom := PlayersDrawListTop + 34;
 
         PlayerLogoTransform.Rect1.Left := 0;
         PlayerLogoTransform.Rect1.Top := 0;
@@ -1483,32 +1586,45 @@ begin
         PlayerLogoTransform.Rect2.Right := 0;
         PlayerLogoTransform.Rect2.Bottom := p_ColorLogo.Height - 1;
 
-        GAF_DrawTransformed(OFFSCREEN_Ptr, p_ColorLogo, @PlayerLogoRect, @PlayerLogoTransform);
+        GAF_DrawTransformed(p_Offscreen, p_ColorLogo, @PlayerLogoRect, @PlayerLogoTransform);
       end else
       begin
         TextLeftOff := ScoreBoardPos.Left + 7 + 3;
       end;
-
-      DrawText(OFFSCREEN_Ptr, Player.szName, TextLeftOff, PlayersDrawListTop + 1, SCOREBOARD_WIDTH-6, 0);
+      DrawText(p_Offscreen, PlayerPtr.szName,
+        TextLeftOff, PlayersDrawListTop + 1, ScoreBoardWidth-6, 0);
+      if ( TAData.MainStruct.bAlterKills = 2 ) then
+        Counter := PlayerPtr.nKills_Last
+      else
+        Counter := PlayerPtr.nKills;
+      DrawText(p_Offscreen, PAnsiChar(IntToStr(Counter)),
+        TextLeftOff, PlayersDrawListTop + 21, 119, PByte($51F2C8 + IteratePlayerIdx)^);
 
       if ( TAData.MainStruct.bAlterKills = 2 ) then
-        Counter := Player.nKills_Last
+        Counter := PlayerPtr.nLosses_Last
       else
-        Counter := Player.nKills;
-      DrawText(OFFSCREEN_Ptr, PAnsiChar(IntToStr(Counter)), TextLeftOff, PlayersDrawListTop + 22, 119, PByte($51F2C8 + IteratePlayerIdx)^);
-
-      if ( TAData.MainStruct.bAlterKills = 2 ) then
-        Counter := Player.nLosses_Last
-      else
-        Counter := Player.nLosses;
-      DrawText(OFFSCREEN_Ptr, PAnsiChar(IntToStr(Counter)), ScoreBoardPos.Left + SCOREBOARD_WIDTH-6 - GetStrExtent(PAnsiChar(IntToStr(Counter))) - 2, PlayersDrawListTop + 22, 119, PByte($51E810 + IteratePlayerIdx)^);
-
+        Counter := PlayerPtr.nLosses;
+      DrawText(p_Offscreen, PAnsiChar(IntToStr(Counter)),
+        ScoreBoardPos.Left + ScoreBoardWidth-6 - GetStrExtent(PAnsiChar(IntToStr(Counter))) - 2,
+        PlayersDrawListTop + 21, 119, PByte($51E810 + IteratePlayerIdx)^);
+{      if TAData.NetworkLayerEnabled then
+      begin
+        if ( IteratePlayerIdx = TAData.LocalPlayerID ) then
+        begin
+          StrExt := GetStrExtent(PAnsiChar('n/a'));
+          DrawText(p_Offscreen, PAnsiChar('n/a'),
+            ScoreBoardPos.Left + ScoreBoardWidth-6 - StrExt - 2,
+            PlayersDrawListTop + 21, 119, 0);
+        end else
+        begin
+          Counter := PlayerPtr.nPing;
+          StrExt := GetStrExtent(PAnsiChar(IntToStr(Counter)));
+          DrawText(p_Offscreen, PAnsiChar(IntToStr(Counter)),
+            ScoreBoardPos.Left + ScoreBoardWidth-6 - StrExt - 2,
+            PlayersDrawListTop + 21, 119, 0);
+        end;
+      end;  }
       PlayersDrawListTop := PlayersDrawListTop + 40;
-// drawings
-     { if (PlayerSide <> psArm) and
-         (PlayerSide <> psCore) then
-      goto IterateWatcher;
-// end drawings
 SortPlayers:
       if ( IteratePlayerIdx = 10 ) then
       begin
@@ -1519,15 +1635,15 @@ SortPlayers:
           if ( TAPlayer.IsActive(PlayerSort) ) then
           begin
             PlayerSortType := TAPlayer.PlayerController(PlayerSort);
-            if ( PlayerSortType = Player_LocalHuman ) or
-               ( PlayerSortType = Player_LocalAI ) or
-               ( PlayerSortType = Player_RemotePlayer ) then
+            if (PlayerSortType = Player_LocalHuman) or
+               (PlayerSortType = Player_LocalAI) or
+               (PlayerSortType = Player_RemotePlayer) then
             begin
-              if ( PlayerSort.cPlayerIndex <> 10 ) and
-                 ( (PlayerSort.nNumUnits <> 0) or (PlayerSort.lUnitsCounter = 0) ) then
-                if ( PlayerSort.PlayerInfo.PropertyMask and $40 <> $40 ) then
-                  if ( PlayerSort.cPlayerScoreboard > cCurActivePlayer ) then
-                    PlayerSort.cPlayerScoreboard := PlayerSort.cPlayerScoreboard - 1;
+              if (PlayerSort.cPlayerIndex <> 10) then
+                if (PlayerSort.nNumUnits <> 0) then
+                  if ((PlayerSort.PlayerInfo^.PropertyMask and $40) = 0) then
+                    if (PlayerSort.cPlayerScoreboard > cCurActivePlayer) then
+                      PlayerSort.cPlayerScoreboard := PlayerSort.cPlayerScoreboard - 1;
             end;
           end;
           Inc(cCurActiveSortPlayer);
@@ -1536,33 +1652,54 @@ SortPlayers:
         until ( cIterateSort = 0 );
       end;
       Inc(cCurActivePlayer);
-      Result := cCurActivePlayer;
-    until (cCurActivePlayer >= TAData.ActivePlayersCount);
+    until cCurActivePlayer = TAData.MainStruct.nActivePlayersCount;
 
     // now draw watchers
     for IteratePlayerIdx := 0 to 9 do
     begin
-      Player := TAPlayer.GetPlayerByIndex(IteratePlayerIdx);
-      if TAPlayer.IsActive(Player) then
-//        if ( TAPlayer.IsWatcher(Player) ) then
-//        begin
-          Result := Result + 1;
-//          goto DrawPlayerScoreBoard;
+      PlayerPtr := TAPlayer.GetPlayerByIndex(IteratePlayerIdx);
+      if TAPlayer.IsActive(PlayerPtr) then
+      begin
+        PlayerType := TAPlayer.PlayerController(PlayerPtr);
+        if (PlayerType = Player_LocalHuman) or
+           (PlayerType = Player_LocalAI) or
+           (PlayerType = Player_RemotePlayer) then
+        begin
+          if (PlayerPtr.nNumUnits = 0) then
+          begin
+            TextLeftOff := ScoreBoardPos.Left + 7 + 3;
+
+            DrawText(p_Offscreen, PlayerPtr.szName,
+              TextLeftOff, PlayersDrawListTop + 1, ScoreBoardWidth-6, 0);
+
+            DrawText(p_Offscreen, TranslateString(PAnsiChar('Watcher')),
+              TextLeftOff, PlayersDrawListTop + 21, 119, 0);
+            {
+            if TAData.NetworkLayerEnabled then
+            begin
+              if ( IteratePlayerIdx = TAData.LocalPlayerID ) then
+              begin
+                StrExt := GetStrExtent(PAnsiChar('n/a'));
+                DrawText(p_Offscreen, PAnsiChar('n/a'),
+                  ScoreBoardPos.Left + ScoreBoardWidth-6 - StrExt - 2,
+                  PlayersDrawListTop + 21, 119, 0);
+              end else
+              begin
+                Counter := PlayerPtr.nPing;
+                StrExt := GetStrExtent(PAnsiChar(IntToStr(Counter)));
+                DrawText(p_Offscreen, PAnsiChar(IntToStr(Counter)),
+                  ScoreBoardPos.Left + ScoreBoardWidth-6 - StrExt - 2,
+                  PlayersDrawListTop + 21, 119, 0);
+              end;
+            end;
+            }
+            PlayersDrawListTop := PlayersDrawListTop + 40;
+          end;
         end;
-IterateWatcher :
-      Continue;
+      end;
     end;
   end;
 end;
-
-procedure DrawScoreboard;
-asm
-  push    ebp
-  call    DrawNewScoreboard
-  push $00494E5D;
-  call PatchNJump;
-end;
-}
 
 procedure BroadcastNanolatheParticles(PosStart: PPosition;
   PosTarget: PNanolathePos; Reverse: Integer); stdcall;
@@ -1587,7 +1724,7 @@ end;
 
 procedure BroadcastNanolatheParticles_MobileBuild;
 asm
-  add     edi, [eax+TUnitInfo.lFootPrintY_]
+  add     edi, [eax+TUnitInfo.nFootPrintY_]
   mov     [esp+44h], edi
   pushAD
   push    0
@@ -1891,11 +2028,15 @@ var
   Speed, GameTime: Integer;
   CurOrder: TTAActionType;
   AnimDelay: Integer;
+  IsMobileUnit: Boolean;
 begin
-  if ExtraUnitInfoTags[p_Unit.nUnitInfoID].SelectBoxType = 0 then
+  IsMobileUnit := TAMem.UnitInfoId2Ptr(p_Unit.nUnitInfoID).cBMCode = 1;
+  if ((IniSettings.UnitSelectBoxType = 1) and not IsMobileUnit) then
     DrawUnitSelectBoxRect(OFFSCREEN_ptr, p_Unit)
   else
-    if ExtraUnitInfoTags[p_Unit.nUnitInfoID].SelectBoxType = 1 then
+    if (ExtraUnitInfoTags[p_Unit.nUnitInfoID].SelectBoxType = 1) or
+       ((IniSettings.UnitSelectBoxType = 1) and IsMobileUnit) or
+       (IniSettings.UnitSelectBoxType = 2) then
     begin
       x := p_Unit.Position.x - TAData.MainStruct.lEyeBallMapX;
       z := p_Unit.Position.z - TAData.MainStruct.lEyeBallMapY;
@@ -1908,7 +2049,7 @@ begin
       if p_unit.p_MovementClass <> nil then
       begin
         Speed := TAUnit.GetCurrentSpeedPercent(p_Unit);
-        Radius := Round(Radius + (Radius * Speed) / 400);
+        Radius := Round(Radius + (Radius * Speed) / 500);
         if Speed > 0 then
           InMove := True;
       end else
@@ -1935,12 +2076,11 @@ begin
         AnimDelay := 0;
 
       ColorsPal := LongWord(TAData.MainStruct)+$DCB;
-      DrawDotteCircle(OFFSCREEN_ptr, CenterX, CenterZ,
-                      Radius,
-                      PByte(ColorsPal+GetRaceSpecificColor(0))^,
-                      Radius,
-                      AnimDelay);
-    end;
+      DrawDotteCircle(OFFSCREEN_ptr, CenterX, CenterZ, Radius,
+        PByte(ColorsPal+GetRaceSpecificColor(0))^, Radius, AnimDelay);
+    end else
+      if (ExtraUnitInfoTags[p_Unit.nUnitInfoID].SelectBoxType = 0) then
+        DrawUnitSelectBoxRect(OFFSCREEN_ptr, p_Unit);
 end;
 
 end.

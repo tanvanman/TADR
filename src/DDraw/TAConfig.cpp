@@ -101,6 +101,17 @@ TADRConfig::TADRConfig ()
 	}
 
 
+	char ModRegName[21]={0};
+	GetIniStr ( "RegistryName", ModRegName, 21, NULL);
+	if (NULL!=ModRegName[0])
+	{
+		ModRegistryName = "Software\\";
+		ModRegistryName += ModRegName;
+		ModRegistryName = ModRegistryName.erase(ModRegistryName.length()-1);
+	} else {
+		ModRegistryName = "Software\\TA Patch";
+	}
+
 	LPVOID Data;
 	LPCSTR Name_p;
 
@@ -216,7 +227,7 @@ HKEY TADRConfig::TARegPath_HKEY (void)
 	HKEY Rtn;
 	HKEY tmp;
 
-	RegCreateKeyEx ( HKEY_CURRENT_USER, CompanyName_CCSTR, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &tmp, &dwDisposition);
+	RegCreateKeyEx ( HKEY_CURRENT_USER, ModRegistryName.c_str(), NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &tmp, &dwDisposition);
 	RegCreateKeyEx ( tmp, GameName_CCSTR, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &Rtn, &dwDisposition);
 	RegCloseKey ( tmp);
 	return Rtn;

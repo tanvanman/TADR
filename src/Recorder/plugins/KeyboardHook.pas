@@ -24,7 +24,6 @@ var
 
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
 procedure SetInGameHotkeysLevel;
-//procedure CtrlFDontSelectNotLabs;
 
 // -----------------------------------------------------------------------------
 // actions for keys
@@ -80,12 +79,7 @@ begin
                                 'Keyboard Hook',
                                 State_KeyboardHook,
                                 @OnInstallKeyboardHook, @OnUnInstallKeyboardHook );
-    {
-    Result.MakeRelativeJmp( State_KeyboardHook,
-                            '',
-                            @CtrlFDontSelectNotLabs,
-                            $0048DB72, 1);
-    }
+
     Result.MakeRelativeJmp( State_KeyboardHook,
                             'set ingame hotkeys level',
                             @SetInGameHotkeysLevel,
@@ -123,6 +117,9 @@ end;
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
 var
   UnitAtMouse: PUnitStruct;
+{$IFDEF Debug}
+  Position: TPosition;
+{$ENDIF}
 begin
   if nCode < 1 then
     CallNextHookEx(hKeyboardHook, nCode, wParam, lParam)
@@ -197,21 +194,20 @@ begin
                   Exit;
                 end;
               end;
+       {$IFDEF Debug}
        $51 : begin     // left alt + shift + q
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
                   if TAData.DevMode then
                   begin
+                    GetTPosition(TAData.MainStruct.nMouseMapPosX,
+                                 TAData.MainStruct.nMouseMapPosY, Position);
+                    SendTextLocal(IntToStr(TAUnit.AtPosition(@Position)));
                     UnitAtMouse := TAUnit.AtMouse;
                     if (UnitAtMouse <> nil) then
                     begin
                       ClearChat;
-//                      PCardinal(Cardinal(TAData.MainStruct) + $391B9)^ := 1;
-//                      PWord(Cardinal(TAData.MainStruct) + $391BD)^ := Word(PUnitStruct(UnitAtMouse).lUnitInGameIndex);
-//                      Offscreen := PCardinal(Cardinal(TAData.MainStruct) + $37E1B)^;
-//                      SendTextLocal(IntToStr(UnitBuilderProbe(Offscreen)));
-//                      TAUnit.MakeDamage(UnitAtMouse, UnitAtMouse, dtUnknown1, 200);
                       SendTextLocal('ptr  : ' + IntToHex(Cardinal(UnitAtMouse), 8));
                       SendTextLocal('id  : ' + IntToHex(TAUnit.GetLongId(UnitAtMouse), 8));
                       SendTextLocal('pos : X:' + IntToStr(TAUnit.GetUnitX(UnitAtMouse)) + ' Z:' + IntToStr(TAUnit.GetUnitZ(UnitAtMouse)) + ' H:' + IntToStr(TAUnit.GetUnitY(UnitAtMouse)));
@@ -222,7 +218,6 @@ begin
                       SendTextLocal('prior unit : ' + IntToStr(TAUnit.GetID(PUnitStruct(UnitAtMouse).p_PriorUnit)));
                       SendTextLocal('unitstate  : ' + IntToHex(PUnitStruct(UnitAtMouse).lUnitStateMask, 8));
                       SendTextLocal('unitstatebas : ' + IntToHex(PUnitStruct(UnitAtMouse).nUnitStateMaskBas, 8));
-
                       SendTextLocal('sfx occupy  : ' + IntToHex(PUnitStruct(UnitAtMouse).lSfxOccupy, 8));
                       SendTextLocal('owner id       : ' + IntToStr(TAUnit.GetOwnerIndex(UnitAtMouse)));
                       if PUnitStruct(UnitAtMouse).UnitWeapons[0].p_Weapon <> nil then
@@ -239,6 +234,7 @@ begin
                   end;
                 end;
               end;
+        {$ENDIF}
         $57 : begin     // left alt + shift + w
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
@@ -297,19 +293,6 @@ begin
   // don't block key
   Result:= 0;
 end;
-
-{
-.text:0048DB6E 020 8B 4C 24 24                           mov     ecx, [esp+20h+arg_0]
-.text:0048DB72 020 8B 86 AC 00 00 00                     mov     eax, [esi+0ACh]
-.text:0048DB78 020 3B C1                                 cmp     eax, ecx
-.text:0048DB7A 020 75 44                                 jnz     short loc_48DBC0
-}
-{procedure CtrlFDontSelectNotLabs;
-asm
-    mov     eax, [esi+0ACh]
-    push $0048DB78;
-    call PatchNJump;
-end;    }
 
 {
 Switch share energy to 0 or latest value

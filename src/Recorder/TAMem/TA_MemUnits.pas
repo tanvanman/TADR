@@ -47,7 +47,8 @@ type
 
     { position stuff }
     class function AtMouse: Pointer;
-    class function AtPosition(Position: PPosition) : Cardinal;
+    class function AtPosition(Position: PPosition): Cardinal;
+    class function IsInGameUI(p_Unit: PUnitStruct): Boolean;
     class function BuildPosition2Grid(Position: TPosition; UnitInfo: PUnitInfo; out GridPosX, GridPosZ: Word ) : Boolean;
     class function GetCurrentSpeedPercent(p_Unit: PUnitStruct) : Cardinal;
     class function GetCurrentSpeedVal(p_Unit: PUnitStruct) : Cardinal;
@@ -77,8 +78,8 @@ type
 
     { COB }
     class Function GetCOBDataPtr(p_Unit: PUnitStruct) : Pointer;
-    class function CallCobProcedure(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: PLongWord) : Cardinal;
-    class function CallCobWithCallback(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: LongWord) : Cardinal;
+    class procedure CobStartScript(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: PInteger; Guaranteed: Boolean);
+    class function CobQueryScript(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: Integer): Integer;
     class function GetCobString(p_Unit: PUnitStruct) : String;
 
     { id, owner, unit type etc. }
@@ -573,7 +574,56 @@ begin
   if Position <> nil then
   begin
     PlotGrid := Position2GridPlot(Position);
-    Result := Word(PCardinal(PlotGrid)^);
+    if PlotGrid.nYard_color <> 0 then
+      Result := PlotGrid.nYard_color
+    else
+      if PlotGrid.data2 <> 0 then
+        Result := PlotGrid.data2;
+  end;
+end;
+
+class function TAUnit.IsInGameUI(p_Unit: PUnitStruct): Boolean;
+var
+  UnitInfo: PUnitInfo;
+  x, z, y,
+  zpos, ypos: Integer;
+  Top, Right, Bottom: Integer;
+  PlotGrid: PPlotGrid;
+  GameUIRect: tagRect;
+begin
+  Result := False;
+  if p_Unit.p_UNITINFO <> nil then
+  begin
+    UnitInfo := p_Unit.p_UNITINFO;
+    x := p_Unit.Position.X_ + UnitInfo.nWidthX_ - TAData.MainStruct.lEyeBallMapX;
+    z := p_Unit.Position.Z_ + UnitInfo.nWidthZ_ - TAData.MainStruct.lEyeBallMapY;
+    y := p_Unit.Position.Y_ + UnitInfo.nWidthY_;
+
+    Right := p_Unit.Position.X_ + UnitInfo.nFootPrintX_ - TAData.MainStruct.lEyeBallMapX;
+    Bottom := p_Unit.Position.Z_ + UnitInfo.nFootPrintZ_ - TAData.MainStruct.lEyeBallMapY;
+    Top := p_Unit.Position.Y_ + UnitInfo.nFootPrintY_;
+
+    if (p_Unit.lUnitStateMask and 3) <> 1 then
+    begin
+      PlotGrid := Position2GridPlot(@p_Unit.Position);
+      if ( PlotGrid <> nil ) then
+      begin
+        if y > PlotGrid.bHeight then
+          y := PlotGrid.bHeight;
+      end;
+    end;
+
+    zpos := z - (Top shr 1) + 32;
+    ypos := Bottom - (y shr 1) + 32;
+    GameUIRect := TAData.MainStruct.GameUI_Rect;
+
+    if (x + 128 <= GameUIRect.Right) and
+       (Right + 128 >= GameUIRect.Left) and
+       (zpos <= GameUIRect.Bottom) and
+       (ypos >= GameUIRect.Top) then
+    begin
+      Result := True;
+    end;
   end;
 end;
 
@@ -888,61 +938,55 @@ begin
 result := p_Unit.p_UnitScriptsData;
 end;
 
-class function TAUnit.CallCobProcedure(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: PLongWord) : Cardinal;
+class procedure TAUnit.CobStartScript(p_Unit: PUnitStruct; ProcName: String;
+  Par1, Par2, Par3, Par4: PInteger; Guaranteed: Boolean);
 var
-  ParamsCount: LongWord;
-  UnitSt: PUnitStruct;
-  lPar1, lPar2, lPar3, lPar4: LongWord;
+  ParamsCount: Integer;
+  lPar1, lPar2, lPar3, lPar4: Integer;
 begin
-  Result := 0;
-  if p_Unit <> nil then
+  if p_Unit.p_UnitScriptsData <> nil then
   begin
-    ParamsCount:= 0;
+    ParamsCount := 0;
     if Par1 <> nil then
     begin
-      lPar1 := PLongWord(Par1)^;
+      lPar1 := Par1^;
       Inc(ParamsCount);
     end else
       lPar1 := 0;
     if Par2 <> nil then
     begin
-      lPar2 := PLongWord(Par2)^;
+      lPar2 := Par2^;
       Inc(ParamsCount);
     end else
       lPar2 := 0;
     if Par3 <> nil then
     begin
-      lPar3 := PLongWord(Par3)^;
+      lPar3 := Par3^;
       Inc(ParamsCount);
     end else
       lPar3 := 0;
     if Par4 <> nil then
     begin
-      lPar4 := PLongWord(Par4)^;
+      lPar4 := Par4^;
       Inc(ParamsCount);
     end else
       lPar4 := 0;
 
-    UnitSt:= p_Unit;
-    Result := Script_RunScript ( 0, 0, LongWord(UnitSt.p_UnitScriptsData),
-                                 lPar4, lPar3, lPar2, lPar1,
-                                 ParamsCount,
-                                 0, 0,
-                                 PAnsiChar(ProcName) );
+    COBEngine_StartScript(0, 0, p_Unit.p_UnitScriptsData,
+                          lPar4, lPar3, lPar2, lPar1,
+                          ParamsCount, Guaranteed, nil,
+                          PAnsiChar(ProcName));
   end;
 end;
 
-class function TAUnit.CallCobWithCallback(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: LongWord) : Cardinal;
-var
-  UnitSt: PUnitStruct;
+class function TAUnit.CobQueryScript(p_Unit: PUnitStruct; ProcName: String; Par1, Par2, Par3, Par4: Integer): Integer;
 begin
   Result := 0;
-  if p_Unit <> nil then
+  if p_Unit.p_UnitScriptsData <> nil then
   begin
-    UnitSt := p_Unit;
-    Result := COBEngine_CallFunc( nil, nil, UnitSt.p_UnitScriptsData,
-                                  @Par4, @Par3, @Par2, @Par1,
-                                  PAnsiChar(ProcName) );
+    Result := COBEngine_QueryScript(0, 0, p_Unit.p_UnitScriptsData,
+                                    @Par4, @Par3, @Par2, @Par1,
+                                    PAnsiChar(ProcName));
     if Result = 1 then
       Result := Par1;
   end;
@@ -1162,7 +1206,9 @@ begin
     uiUpright            : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 20)) > 0 );
     uiCanFly             : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 11)) > 0 );
     uiCanHover           : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 12)) > 0 );
-
+    uiAmphibious         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 21)) > 0 );
+    uiFloater            : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 19)) > 0 );
+    
     uiMaxDamage          : Result := UseTemplate.lMaxDamage;
     uiDamageModifier     : Result := UseTemplate.lDamageModifier;
     uiHideDamage         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 14)) > 0 );
@@ -1170,8 +1216,8 @@ begin
     uiBMcode             : Result := UseTemplate.cBMCode;
     uiFootprintX         : Result := UseTemplate.nFootPrintX;
     uiFootprintZ         : Result := UseTemplate.nFootPrintZ;
-    uiBuilder            : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 6)) > 0 );
     uiBuildDistance      : Result := UseTemplate.nBuildDistance;
+    uiBuilder            : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 6)) > 0 );
     uiWorkerTime         : Result := UseTemplate.nWorkerTime;
 
     uiSightDistance      : Result := UseTemplate.nSightDistance;
@@ -1185,7 +1231,6 @@ begin
     uiShieldRange        : Result := CustomUnitFieldsArr[UnitID].ShieldRange;
 
     uiOnOffable          : Result := Byte((UseTemplate.UnitTypeMask2 and 4) > 0 );
-    uiAmphibious         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 21)) > 0 );
     uiCommander          : Result := Byte((UseTemplate.UnitTypeMask2 and 262144) > 0 );
     uiTransportCapacity  : Result := UseTemplate.cTransportCap;
     uiTransportSize      : Result := UseTemplate.cTransportSize;
@@ -1194,7 +1239,6 @@ begin
     uiIsTargetingUpgrade : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 10)) > 0 );
     uiTeleporter         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 13)) > 0 );
     uiDigger             : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 30)) > 0 );
-    uiFloater            : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 19)) > 0 );
     uiStealth            : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 8)) > 0 );
     uiImmuneToParalyzer  : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 26)) > 0 );
     uiHasWeapons         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 16)) > 0 );

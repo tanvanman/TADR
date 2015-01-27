@@ -184,7 +184,7 @@ begin
     if WeaponType2 <> '' then
     begin
       CurrentProjectile := PWeaponProjectile(Projectile);
-      CurrentProjectile.Weapon := WEAPONS_Name2Ptr(PAnsiChar(WeaponType2));
+      CurrentProjectile.p_Weapon := WEAPONS_Name2Ptr(PAnsiChar(WeaponType2));
     end;
   end;
 end;
@@ -554,7 +554,7 @@ begin
     while ( True ) do
     begin
       if ( Projectile.cOwnerID <> UnitStruct.ucOwnerID ) then
-        if ( (Projectile.Weapon.lWeaponTypeMask shr 29) and 1 = 1 ) then
+        if ( (Projectile.p_Weapon.lWeaponTypeMask shr 29) and 1 = 1 ) then
         begin
           if ( PInteger(@UnitStruct.Position.x_)^ - PInteger(@Projectile.Position_Target2.x_)^ + Coverage <= (2 * Coverage) ) and
              ( PInteger(@UnitStruct.Position.z_)^ - PInteger(@Projectile.Position_Target2.z_)^ + Coverage <= (2 * Coverage) ) then
@@ -567,7 +567,7 @@ begin
               bAllowShoot := False;
               for i := 0 to ExtraWeaponDefTags[WeapIdx].Intercepts.Count - 1 do
               begin
-                if ExtraWeaponDefTags[WeapIdx].Intercepts[i] = String(PWeaponDef(Projectile.Weapon).szWeaponName) then
+                if ExtraWeaponDefTags[WeapIdx].Intercepts[i] = String(PWeaponDef(Projectile.p_Weapon).szWeaponName) then
                 begin
                   bAllowShoot := True;
                   Break;
@@ -621,8 +621,8 @@ begin
         ScriptName := Pointer(QueryPrimary);
     end;
     PieceIdx := 0;
-    COBEngine_CallFunc(nil, nil, p_Unit.p_UnitScriptsData,
-                       nil, nil, nil, @PieceIdx, ScriptName);
+    COBEngine_QueryScript(0, 0, p_Unit.p_UnitScriptsData,
+                          nil, nil, nil, @PieceIdx, ScriptName);
   end;
 
   Result := (PieceIdx <> -2);
@@ -709,12 +709,6 @@ begin
                             @WeaponAimNTrajectory_SearchForEnemyNukes,
                             $00408945);
     end;
-{
-    WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
-                          'WeaponAimNTrajectory_InterceptorTest',
-                          @WeaponAimNTrajectory_InterceptorTest,
-                          $0049D16A, 1);
-}
 {
     WeaponAimNTrajectoryPlugin.MakeRelativeJmp( State_WeaponAimNTrajectory,
                           'Sprayangle for twophase weapons',

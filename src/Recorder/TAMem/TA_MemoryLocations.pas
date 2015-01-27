@@ -17,6 +17,7 @@ type
     class procedure SetShootAll(ANewState: Boolean);
 
     class Function GetLocalPlayerID : Byte;
+    class Function GetViewPlayerID : Byte;
     class function GetActivePlayersCount : Byte;
     class function GetGameTime : Integer;
     class Function GetGameSpeed : Byte;
@@ -40,9 +41,10 @@ type
 
     class function GetGameingType : TGameingType;
     class function GetGUICallbackState : TGUICallbackState;
+    class function GetGameUIRect : tagRect;
     class function GetAIDifficulty : TAIDifficulty;
     class procedure SetCameraFadeLevel(FadePercent : Integer);
-    class function GetViewPlayerRaceSide: TTAPlayerSide;
+    class function GetControlPlayerRaceSide: TTAPlayerSide;
 
     class Function GetPausedState : Boolean;
     class Procedure SetPausedState( value : Boolean);
@@ -56,6 +58,7 @@ type
     Property Paused : Boolean read GetPausedState write SetPausedState;
 
     property LocalPlayerID : Byte read GetLocalPlayerId;
+    property ViewPlayerID : Byte read GetViewPlayerID;
     property ActivePlayersCount : Byte read GetActivePlayersCount;
     property GameTime : Integer read GetGameTime;
     Property GameSpeed : Byte read GetGameSpeed;
@@ -78,8 +81,9 @@ type
 
     Property GameingType : TGameingType read GetGameingType;
     Property GUICallbackState : TGUICallbackState read GetGUICallbackState;
+    Property GameUIRect : tagRect read GetGameUIRect;
     Property AIDifficulty : TAIDifficulty read GetAIDifficulty;
-    Property RaceSide : TTAPlayerSide read GetViewPlayerRaceSide;
+    Property RaceSide : TTAPlayerSide read GetControlPlayerRaceSide;
     class procedure ShakeCam(X, Y, Duration : Cardinal);
 
     class function ScriptActionName2Index(ActionName: PAnsiChar) : Integer;
@@ -219,9 +223,14 @@ begin
     TAData.SwitchesMask := TAData.SwitchesMask and not SwitchesMasks[SwitchesMask_ShootAll];
 end;
 
-class Function TAMem.GetLocalPlayerId : Byte;
+class Function TAMem.GetLocalPlayerId: Byte;
 begin
-result := TAData.MainStruct.cControlPlayerID;
+  Result := TAData.MainStruct.cControlPlayerID;
+end;
+
+class Function TAMem.GetViewPlayerID: Byte;
+begin
+  Result := TAData.MainStruct.cViewPlayerID;
 end;
 
 class Function TAMem.GetActivePlayersCount : Byte;
@@ -435,12 +444,17 @@ begin
   Result := TGUICallbackState(TAData.MainStruct.lGUICallbackState);
 end;
 
+class function TAMem.GetGameUIRect: tagRect;
+begin
+  Result := TAData.MainStruct.GameUI_Rect;
+end;
+
 class function TAMem.GetAIDifficulty: TAIDifficulty;
 begin
   Result := TAIDifficulty(TAData.MainStruct.lCurrenTAIProfile);
 end;
 
-class function TAMem.GetViewPlayerRaceSide: TTAPlayerSide;
+class function TAMem.GetControlPlayerRaceSide: TTAPlayerSide;
 begin
   Result := TTAPlayerSide(PPlayerInfoStruct(PPlayerStruct(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID)).PlayerInfo).Raceside);
 end;
@@ -533,13 +547,13 @@ begin
   UnitPos.Y := MakeLong(0, Targetp_Unit.Position.Y);
   UnitPos.Z := MakeLong(0, Targetp_Unit.Position.Z);
 
-  TargetNanoBase.Pos1.X := UnitPos.X + BuildingUnitInfo.lWidthX_;
-  TargetNanoBase.Pos1.Y := UnitPos.Y + BuildingUnitInfo.lWidthY_;
-  TargetNanoBase.Pos1.Z := UnitPos.Z + BuildingUnitInfo.lWidthZ_;
+  TargetNanoBase.Pos1.X := UnitPos.X + PInteger(@BuildingUnitInfo.nWidthX_)^;
+  TargetNanoBase.Pos1.Y := UnitPos.Y + PInteger(@BuildingUnitInfo.nWidthY_)^;
+  TargetNanoBase.Pos1.Z := UnitPos.Z + PInteger(@BuildingUnitInfo.nWidthZ_)^;
 
-  TargetNanoBase.Pos2.X := UnitPos.X + BuildingUnitInfo.lFootPrintX_;
-  TargetNanoBase.Pos2.Y := UnitPos.Y + BuildingUnitInfo.lFootPrintY_;
-  TargetNanoBase.Pos2.Z := UnitPos.Z + BuildingUnitInfo.lFootPrintZ_;
+  TargetNanoBase.Pos2.X := UnitPos.X + PInteger(@BuildingUnitInfo.nFootPrintX_)^;
+  TargetNanoBase.Pos2.Y := UnitPos.Y + PInteger(@BuildingUnitInfo.nFootPrintY_)^;
+  TargetNanoBase.Pos2.Z := UnitPos.Z + PInteger(@BuildingUnitInfo.nFootPrintZ_)^;
 
   case SfxType of
     6 : Result := EmitSfx_NanoParticles(@PiecePos, @TargetNanoBase, 6);
