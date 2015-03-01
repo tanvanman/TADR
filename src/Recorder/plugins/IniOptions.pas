@@ -344,6 +344,12 @@ begin
       IniFile.Free;
     end;
 
+    if IniSettings.RegName = '' then
+      if ReadModsIniField('RegName') <> '' then
+        IniSettings.RegName := ReadModsIniField('RegName')
+      else
+        IniSettings.RegName := 'TA Patch';
+
     if FixModsINI then
     begin
       if IniSettings.Name = '' then
@@ -355,11 +361,6 @@ begin
       if IniSettings.Version = '' then
         if ReadModsIniField('Version') <> '' then
           IniSettings.Version:= ReadModsIniField('Version');
-      if IniSettings.RegName = '' then
-        if ReadModsIniField('RegName') <> '' then
-          IniSettings.RegName := ReadModsIniField('RegName')
-        else
-          IniSettings.RegName := 'TA Patch';
     end;
     
     LocalModInfo.ModID := IniSettings.ModID;

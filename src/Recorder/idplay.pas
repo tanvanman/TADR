@@ -2446,7 +2446,6 @@ if assigned(chatview) then
       begin
         IsInGame := True;
         TAStatus := InGame;
-        BroadcastCommanderStartPosition;
         if NotViewingRecording and
            compatibleTA and
            not TAPlayer.IsKilled(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID)) then

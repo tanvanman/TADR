@@ -634,11 +634,11 @@ begin
  // Result := False;
   try
     PosX := MakeLong(Position.x_, Position.X);
-    GridPosX := (PosX - (SmallInt(UnitInfo.nFootPrintX shl 19)) + $80000) shr 20;
-    //GridPosX := (PosX - (PUnitInfo(UnitInfo).nFootPrintX shl 19) + $80000) shr 20;
+    GridPosX := (PosX - (SmallInt(UnitInfo.nFootPrintSizeX shl 19)) + $80000) shr 20;
+    //GridPosX := (PosX - (PUnitInfo(UnitInfo).nFootPrintSizeX shl 19) + $80000) shr 20;
     PosZ := MakeLong(0, Position.Z);
-    GridPosZ := (PosZ - (SmallInt(UnitInfo.nFootPrintZ shl 19)) + $80000) shr 20;
-    //GridPosZ := (PosZ - (PUnitInfo(UnitInfo).nFootPrintZ shl 19) + $80000) shr 20;
+    GridPosZ := (PosZ - (SmallInt(UnitInfo.nFootPrintSizeZ shl 19)) + $80000) shr 20;
+    //GridPosZ := (PosZ - (PUnitInfo(UnitInfo).nFootPrintSizeZ shl 19) + $80000) shr 20;
   finally
     Result := True;
   end;
@@ -1214,8 +1214,8 @@ begin
     uiHideDamage         : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 14)) > 0 );
     uiHealTime           : Result := UseTemplate.nHealTime;
     uiBMcode             : Result := UseTemplate.cBMCode;
-    uiFootprintX         : Result := UseTemplate.nFootPrintX;
-    uiFootprintZ         : Result := UseTemplate.nFootPrintZ;
+    uiFootprintX         : Result := UseTemplate.nFootPrintSizeX;
+    uiFootprintZ         : Result := UseTemplate.nFootPrintSizeZ;
     uiBuildDistance      : Result := UseTemplate.nBuildDistance;
     uiBuilder            : Result := Byte((UseTemplate.UnitTypeMask and (1 shl 6)) > 0 );
     uiWorkerTime         : Result := UseTemplate.nWorkerTime;
@@ -1453,8 +1453,8 @@ begin
     CallerPosition := UnitSt.Position;
     CallerTurn := UnitSt.Turn;
 
-    ModelDiagonal[0] := Round(Hypot(CallerUnitInfoSt.nFootPrintX, CallerUnitInfoSt.nFootPrintZ) * 14);
-    ModelDiagonal[1] := Round(Hypot(UnitInfoSt.nFootPrintX, UnitInfoSt.nFootPrintZ) * 14);
+    ModelDiagonal[0] := Round(Hypot(CallerUnitInfoSt.nFootPrintSizeX, CallerUnitInfoSt.nFootPrintSizeZ) * 14);
+    ModelDiagonal[1] := Round(Hypot(UnitInfoSt.nFootPrintSizeX, UnitInfoSt.nFootPrintSizeZ) * 14);
     SpawnRange := Round((ModelDiagonal[0] + ModelDiagonal[1]) *1.4);
 
     //Retries:= 0;
@@ -1479,8 +1479,8 @@ begin
               TAUnit.BuildPosition2Grid(TestPosition, UnitInfoSt, GridPos[0], GridPos[1]);
               SetLength(ToBeSpawned, High(ToBeSpawned) + 2);
               ToBeSpawned[High(ToBeSpawned)] := TestPosition;
-              ToBeSpawned[High(ToBeSpawned)].X := Round(TestPosition.X + (UnitInfoSt.nFootPrintX / 2) * 16);
-              ToBeSpawned[High(ToBeSpawned)].Z := Round(TestPosition.Z + (UnitInfoSt.nFootPrintZ / 2) * 16);
+              ToBeSpawned[High(ToBeSpawned)].X := Round(TestPosition.X + (UnitInfoSt.nFootPrintSizeX / 2) * 16);
+              ToBeSpawned[High(ToBeSpawned)].Z := Round(TestPosition.Z + (UnitInfoSt.nFootPrintSizeZ / 2) * 16);
               if DestIsAir then
               begin
                 if (UnitInfoSt.nCruiseAlt > 0) then
@@ -1631,12 +1631,12 @@ begin
         1 : begin
               Rx:= UnitSt.nGridPosX;
               Ry:= UnitSt.nGridPosZ;
-              dx:= UnitInfoSt.nFootPrintX;
-              dy:= UnitInfoSt.nFootPrintZ;
+              dx:= UnitInfoSt.nFootPrintSizeX;
+              dy:= UnitInfoSt.nFootPrintSizeZ;
               PosX:= MakeLong(CheckedUnitSt.Position.x_, CheckedUnitSt.Position.X);
-              Px:= (PosX - (SmallInt(CheckedUnitInfoSt.nFootPrintX shl 19)) + $80000) shr 20;
+              Px:= (PosX - (SmallInt(CheckedUnitInfoSt.nFootPrintSizeX shl 19)) + $80000) shr 20;
               PosY:= MakeLong(CheckedUnitSt.Position.z_, CheckedUnitSt.Position.Z);
-              Py:= (PosY - (SmallInt(CheckedUnitInfoSt.nFootPrintZ shl 19)) + $80000) shr 20;
+              Py:= (PosY - (SmallInt(CheckedUnitInfoSt.nFootPrintSizeZ shl 19)) + $80000) shr 20;
               if MaxDistance = 0 then // here used as "sensitivity" switcher
                 Condition:= (Rx < Px) and (Px < Rx + dx) and (Ry < Py) and (Py < Ry + dy)
               else

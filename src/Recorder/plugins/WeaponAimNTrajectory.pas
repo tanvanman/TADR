@@ -19,19 +19,6 @@ Procedure OnUninstallWeaponAimNTrajectory;
 
 // -----------------------------------------------------------------------------
 
-procedure WeaponAimNTrajectory_HighTrajectory;
-procedure WeaponAimNTrajectory_PreserveAccuracy;
-procedure WeaponAimNTrajectory_WeaponType2;
-procedure WeaponAimNTrajectory_NoAirWeapon;
-procedure WeaponAimNTrajectory_NoAirWeapon_Cursor;
-function WeaponAimNTrajectory_SearchForEnemyNukes(UnitStruct: PUnitStruct;
-  WeapStructIndex: Byte): PWeaponProjectile; stdcall;
-
-//procedure WeaponAimNTrajectory_SecondPhaseSpray;
-//procedure WeaponAimNTrajectory_WaterToGroundCheck_GrantFire;
-//procedure WeaponAimNTrajectory_WaterToGroundCheck_Trajectory;
-
-
 implementation
 uses
   IniOptions,
@@ -724,7 +711,7 @@ begin
                           'WaterToGroundCheck 1',
                           @WeaponAimNTrajectory_WaterToGroundCheck_Trajectory,
                           $0049B9EB, 0);        }
-
+{
     WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
                                                'query unit weapon pos - fire callback 3',
                                                @COB_GetQueryWeaponPosition,
@@ -733,7 +720,8 @@ begin
                                                 'abort fire callback 3',
                                                 @COB_AbortFireCallback3,
                                                 $0049D9E5, 3);
-
+}
+{
     WeaponAimNTrajectoryPlugin.MakeStaticCall( State_WeaponAimNTrajectory,
                                                'query unit weapon pos - fire callback 0',
                                                @COB_GetQueryWeaponPosition,
@@ -746,6 +734,7 @@ begin
                                                'query unit weapon pos - fire callback 2',
                                                @COB_GetQueryWeaponPosition,
                                                $0049DD80);
+}
     Result:= WeaponAimNTrajectoryPlugin;
   end else
     Result := nil;

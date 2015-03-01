@@ -2,7 +2,8 @@ unit UnitActions;
 
 interface
 uses
-  PluginEngine;
+  PluginEngine, TA_NetworkingMessages, TA_MemoryConstants, TA_MemoryStructures,
+  TA_MemoryLocations, TA_MemPlayers, TA_MemUnits, TA_MemPlotData, TA_FunctionsU;
 
 // -----------------------------------------------------------------------------
 
@@ -19,22 +20,6 @@ Procedure OnUninstallUnitActions;
 // -----------------------------------------------------------------------------
 
 procedure RemoveBuildQueuesFromSelected;
-procedure UnitActions_AssignAISquad;
-procedure UnitActions_TransportOverloadFix;
-procedure UnitActions_VTOLTransportCapacityCanLoadTest;
-procedure UnitActions_VTOLTransportSize;
-//procedure UnitActions_VTOLTransportSizeCursor;
-procedure UnitActions_ExtraVTOLOrders;
-procedure UnitActions_AllowOrderType;
-procedure UnitActions_AllowOrderType_Action2IndexWrapper;
-procedure UnitActions_NewOrdersButtonsWrapper;
-procedure UnitActions_TeleportOrderWrapper;
-procedure UnitActions_ExtraDataReload;
-procedure UnitActions_TeleportPositionOffset;
-procedure UnitActions_AdvancedDefaultMission;
-procedure UnitActions_DontHealTimeNotBuilt;
-
-procedure BroadcastCommanderStartPosition; stdcall;
 
 implementation
 uses
@@ -42,37 +27,11 @@ uses
   Windows,
   idplay,
   sysutils,
-  TA_NetworkingMessages,
-  TA_MemoryConstants,
-  TA_MemoryStructures,
-  TA_MemoryLocations,
-  TA_MemPlayers,
-  TA_MemUnits,
-  TA_MemPlotData,
-  TA_FunctionsU,
   COB_extensions,
   UnitInfoExpand;
 
 type
   TSetShieldedProc = procedure(p_Unit: PUnitStruct); stdcall;
-
-procedure BroadcastCommanderStartPosition; stdcall;
-var
-  Player : PPlayerStruct;
-  p_Unit : PUnitStruct;
-begin
-  if TAData.NetworkLayerEnabled then
-  begin
-    Player := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
-    p_Unit := Player.p_UnitsArray;
-    if p_Unit <> nil then
-      UNITS_NewUnitPosition( p_Unit,
-                             PCardinal(@p_Unit.Position.x_)^,
-                             PCardinal(@p_Unit.Position.y_)^,
-                             PCardinal(@p_Unit.Position.z_)^,
-                             1 );
-  end;
-end;
 
 function OverloadBugFix(p_Unit: PUnitStruct): LongBool; stdcall;
 begin
@@ -221,7 +180,7 @@ label
 asm
 FootSizeCompare :
   movzx   dx, [edi+TUnitInfo.cTransportSize]
-  cmp     [esi+TUnitInfo.nFootPrintX], dx
+  cmp     [esi+TUnitInfo.nFootPrintSizeX], dx
   jle     ContinueTransportedTest
 RefuseLoad :
   push $00489B1C;
@@ -414,15 +373,15 @@ begin
             Continue;
 
           TAUnit.BuildPosition2Grid(TargetPositionWithOffset, TestedUnit.p_UnitInfo, nPosX, nPosZ);
-          if (nPosX < PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintX) then
+          if (nPosX < PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintSizeX) then
           begin
-            nPosX := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintX;
-            TargetPositionWithOffset.X := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintX * 16;
+            nPosX := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintSizeX;
+            TargetPositionWithOffset.X := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintSizeX * 16;
           end;
-          if (nPosZ < PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintZ) then
+          if (nPosZ < PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintSizeZ) then
           begin
-            nPosZ := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintZ;
-            TargetPositionWithOffset.Z := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintZ * 16;
+            nPosZ := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintSizeZ;
+            TargetPositionWithOffset.Z := PUnitInfo(TestedUnit.p_UnitInfo).nFootPrintSizeZ * 16;
           end;
 
           if TAUnit.TestAttachAtGridSpot(TestedUnit.p_UnitInfo, nPosX, nPosZ) then
@@ -1200,57 +1159,35 @@ asm
   call PatchNJump;
 end;
 
-procedure UnitActions_FixUnitYPos(p_Unit: PUnitStruct); stdcall;
-var
-  StateMask, TypeMask, UnitTypeMask: Cardinal;
-  bNoMoveClass: Boolean;
-  p_UnitInfo: PUnitInfo;
-  NewStateMask: Cardinal;
-  SeaLevelMinusWaterLine: Integer;
+function FixUnitYPos(p_Unit: PUnitStruct): Integer; stdcall;
 begin
-  StateMask := p_Unit.lUnitStateMask;
-  TypeMask := p_Unit.p_UNITINFO.UnitTypeMask;
-
-  if ((StateMask and $10000) = $10000) or
-     ((Hi(TypeMask) and $10) = $10) then
+  Result := 0;
+  if (p_Unit <> nil) and
+     CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPos then
   begin
-    NewStateMask := StateMask and $FFFEFFFF;
-    bNoMoveClass := p_Unit.p_MovementClass = nil;
-    p_Unit.lUnitStateMask := NewStateMask;
-
-    if CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPos then
-    begin
-      PInteger(@p_Unit.Position.y_)^ :=
-        CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPosVal shl 16;
-      Exit;
-    end;
-
-    if (not bNoMoveClass) and
-       ((NewStateMask and 3) = 1) then
-    begin
-      p_UnitInfo := p_Unit.p_UNITINFO;
-      UnitTypeMask := p_Unit.p_UNITINFO.UnitTypeMask;
-      if ((p_UnitInfo.UnitTypeMask shr 20) and 1) = 1 then// upright
-      begin
-        if ((UnitTypeMask shr 12) and 1) <> 0 then         // canhover
-        begin
-          SeaLevelMinusWaterLine := TAData.MainStruct.TNTMemStruct.SeaLevel - p_UnitInfo.cWaterLine;
-          if (GetPosHeight(@p_Unit.Position) <= SeaLevelMinusWaterLine ) then
-            PInteger(@p_Unit.Position.y_)^ := SeaLevelMinusWaterLine shl 16 // pelican on sea
-          else                                  // ground height > (sea level - waterline)
-            PInteger(@p_Unit.Position.y_)^ := GetPosHeight(@p_Unit.Position) shl 16;// pelican on ground
-        end else
-          PInteger(@p_Unit.Position.y_)^ := GetPosHeight(@p_Unit.Position) shl 16;// upright but not hover, subs
-      end else
-      begin
-        if ((UnitTypeMask shr 19) and 1) = 1 then        // not upright but floater
-          PInteger(@p_Unit.Position.y_)^ :=
-            (TAData.MainStruct.TNTMemStruct.SeaLevel + 65535 * p_UnitInfo.cWaterLine) shl 16// armcrus etc.
-        else
-          UNITS_FixYPosOtherType(p_Unit);    // not upright, not floater
-      end;
-    end;
+    PInteger(@p_Unit.Position.y_)^ :=
+      CustomUnitFieldsArr[TAUnit.GetId(p_Unit)].ForcedYPosVal shl 16;
+    Result := 1;
   end;
+end;
+
+procedure UnitActions_FixUnitYPos; stdcall;
+label
+  dont_fix;
+asm
+  pushAD
+  push   esi
+  call   FixUnitYPos
+  test   eax, eax
+  jnz    dont_fix
+  popAD
+  mov    ecx, [esi+TUnitStruct.p_unitInfo]
+  push $0048A8BF;
+  call PatchNJump;
+dont_fix :
+  popAD
+  push $0048A96F; 
+  call PatchNJump;
 end;
 
 Procedure OnInstallUnitActions;
@@ -1345,22 +1282,10 @@ begin
                             @UnitActions_AntiDamageShieldHook,
                             $00499E37, 0);
 
-    Result.MakeStaticCall( State_UnitActions,
-                           'unit Y position locker - create unit call',
-                           @UnitActions_FixUnitYPos,
-                           $00486109);
-    Result.MakeStaticCall( State_UnitActions,
-                           'unit Y position locker - recreate unit call',
-                           @UnitActions_FixUnitYPos,
-                           $00486306);
-    Result.MakeStaticCall( State_UnitActions,
-                           'unit Y position locker - main thread call',
-                           @UnitActions_FixUnitYPos,
-                           $0048AFB0);
-    Result.MakeStaticCall( State_UnitActions,
-                           'unit Y position locker - send unit pos call',
-                           @UnitActions_FixUnitYPos,
-                           $0048BA4C);
+    Result.MakeRelativeJmp( State_UnitActions,
+                            'fix unit y pos for surfacing subs',
+                            @UnitActions_FixUnitYPos,
+                            $0048A8B9, 1);
   end else
     Result := nil;
 end;

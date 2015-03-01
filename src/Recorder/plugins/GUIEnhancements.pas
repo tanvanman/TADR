@@ -1088,7 +1088,8 @@ asm
   call PatchNJump;
 end;
 
-procedure DrawBuildSpotQueueNanoframe(pOffscreen: Cardinal; UnitInfo: PUnitInfo; UnitOrder: PUnitOrder); stdcall;
+procedure DrawBuildSpotQueueNanoframe(pOffscreen: Cardinal;
+  UnitInfo: PUnitInfo; UnitOrder: PUnitOrder); stdcall;
 var
   Position: TPosition;
 begin
@@ -1100,7 +1101,7 @@ begin
 
     NanoSpotQueueUnitSt.nUnitInfoID := UnitInfo.nCategory;
     NanoSpotQueueUnitSt.p_UnitInfo := TAMem.UnitInfoId2Ptr(NanoSpotQueueUnitSt.nUnitInfoID);
-    GetTPosition(UnitOrder.Pos.X, UnitOrder.Pos.X, Position);
+    GetTPosition(UnitOrder.Pos.X, UnitOrder.Pos.Z, Position);
 
     NanoSpotQueueUnitSt.p_Owner := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
     if UNITS_AllocateUnit(@NanoSpotQueueUnitSt, UnitOrder.Pos.X, Position.Y, UnitOrder.Pos.Z, 0) then
@@ -1122,10 +1123,12 @@ begin
         end;
 
         NanoSpotQueueUnitSt.Turn.Z := 32768;
+        NanoSpotQueueUnitSt.Position.y_ := 0;
+        UNITS_FixYPos(@NanoSpotQueueUnitSt);
         NanoSpotQueueUnitSt.Position.Y := Position.Y;
-          if NanoSpotQueueUnitInfoSt.nMinWaterDepth <> -10000 then
-            if NanoSpotQueueUnitInfoSt.cWaterLine = 0 then
-              NanoSpotQueueUnitSt.Position.Y := 0;
+        if NanoSpotQueueUnitInfoSt.nMinWaterDepth <> -10000 then
+          if NanoSpotQueueUnitInfoSt.cWaterLine = 0 then
+            NanoSpotQueueUnitSt.Position.Y := 0;
 
         if ((PUnitStruct(UnitOrder.p_Unit).lUnitStateMask shr 4) and 1 = 1) then
           NanoSpotQueueUnitSt.lFireTimePlus600 := 1
