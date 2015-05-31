@@ -18,7 +18,6 @@ const
   TADemoVersion_99b3_beta2 = 5;
   //used to record OTA demos
   TADemoVersion_99b3_beta3 = 6;
-  //used only to record demos with more than 256 weapon IDs
   TADemoVersion_4 = 7;
 
   TADemoVersion_99b3 = TADemoVersion_99b3_beta3;

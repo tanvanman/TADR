@@ -1,7 +1,8 @@
 unit IniOptions;
 
 interface
-uses PluginEngine, Windows, SysUtils, IniFiles;
+uses
+  PluginEngine, Windows, SysUtils, IniFiles;
 
 type
   TIniSettings = record
@@ -13,8 +14,6 @@ type
     Version                : String;
     // limit hack plugins
     UnitType               : Integer;
-    WeaponType             : Integer;
-    WeaponIdPatch          : Boolean;
     UnitLimit              : Integer;
     // paths
     ScriptorPath           : String;
@@ -28,7 +27,6 @@ type
     CreateStatsFile        : Boolean;
     // AI
     AiNukes                : Boolean;
-    AiBuildList            : Boolean;
     // GUI
     Colors                 : Boolean;
     CustomColors           : array[0..3] of array[0..28] of Byte;
@@ -38,6 +36,8 @@ type
     HealthBarWidth         : Integer;
     HealthBarCategories    : array [0..4] of Cardinal;
     UnitSelectBoxType      : Integer;
+    UnitSelectBoxAnimType  : Integer;
+    UnitSelectBoxZoomRatio : Integer;
     MinWeaponReload        : Integer;
     MinReclaimTime         : Integer;
     Transporters           : Boolean;
@@ -52,9 +52,7 @@ type
 
     ScriptSlotsLimit       : Boolean;
     InterceptsOnlyList     : Boolean;
-
     StopButton             : Boolean;
-    ResurrectPatrol        : Boolean;
   end;
 
 var
@@ -188,6 +186,31 @@ function ReadINISettings: boolean;
     end;
   end;
 
+  function ReadIniFloat(var IniFile: TIniFile; sect: String; ident: String; default: Single): Single;
+  var
+    temp: string;
+    tmpval: Single;
+  begin
+    Result := default;
+    if IniFile.ValueExists(sect, ident) then
+    begin
+      temp:= IniFile.ReadString(sect, ident, '');
+      if Length(temp) >= 1 then
+      begin
+        try
+          if Pos(';', temp) <> 0 then
+            temp:= LeftStr(temp, Length(temp) - 1);
+          Trim(temp);
+          if TryStrToFloat(temp, tmpval) then
+            Result := tmpval;
+        except
+          Exit;
+        end;
+      end else
+        Result := Default;
+    end;
+  end;
+
   function ReadIniString(var IniFile: TIniFile; sect: string; ident: string; default: string): String;
   var
     temp: string;
@@ -212,7 +235,7 @@ function ReadINISettings: boolean;
     end;
   end;
 
-function ReadIniPath(var IniFile: TIniFile; sect: string; ident: string; out path: string): boolean;
+  function ReadIniPath(var IniFile: TIniFile; sect: string; ident: string; out path: string): boolean;
   var
     temp: string;
   begin
@@ -267,8 +290,7 @@ begin
 
   IniSettings.ModId := -1;
   IniSettings.DemosPrefix := '';
-  IniSettings.WeaponIdPatch := False;
-  IniSettings.UnitLimit := 1500;
+  IniSettings.UnitLimit := 1000;
 
   if GetINIFileName <> #0 then
   begin
@@ -281,10 +303,7 @@ begin
       IniSettings.Version := ReadIniString(IniFile, 'MOD','Version', '');
 
       IniSettings.UnitType := ReadIniValue(IniFile, 'Preferences', 'UnitType', 512);
-      IniSettings.WeaponType := ReadIniValue(IniFile, 'Preferences', 'WeaponType', 256);
-      IniSettings.WeaponIdPatch := (IniSettings.WeaponType > 256) and
-                                   (ReadIniBool(IniFile, 'Preferences','MultiGameWeapon', False));
-      IniSettings.UnitLimit := ReadIniValue(IniFile, 'Preferences', 'UnitLimit', 0);
+      IniSettings.UnitLimit := ReadIniValue(IniFile, 'Preferences', 'UnitLimit', 1000);
 
       IniSettings.ScriptorPath := ReadIniString(IniFile, 'Preferences', 'ScriptorIncludePath', '');
       if IniSettings.ScriptorPath <> '' then
@@ -297,7 +316,6 @@ begin
       IniSettings.CreateStatsFile := ReadIniBool(IniFile, 'Preferences', 'CreateStats', False);
 
       IniSettings.AiNukes := ReadIniBool(IniFile, 'Preferences', 'AiNukes', False);
-      IniSettings.AiBuildList := ReadIniBool(IniFile, 'Preferences', 'AiBuildListExpand', False);
 
       if IniFile.SectionExists('Colors') or
          IniFile.SectionExists('ColorsSide1') or
@@ -320,8 +338,10 @@ begin
       IniSettings.HealthBarWidth := ReadIniValue(IniFile, 'Preferences', 'HealthBarWidth', 0);
       for i := Low(IniSettings.HealthBarCategories) to High(IniSettings.HealthBarCategories) do
        IniSettings.HealthBarCategories[i] := ReadIniValue(IniFile, 'Preferences',
-                                               'HealthBarDynamicCat' + IntToStr(i+1), 0);
+         'HealthBarDynamicCat' + IntToStr(i+1), 0);
       IniSettings.UnitSelectBoxType := ReadIniValue(IniFile, 'Preferences', 'UnitSelectBoxType', 0);
+      IniSettings.UnitSelectBoxAnimType := ReadIniValue(IniFile, 'Preferences', 'UnitSelectBoxAnimType', 1);
+      IniSettings.UnitSelectBoxZoomRatio := ReadIniValue(IniFile, 'Preferences', 'UnitSelectBoxZoomRatio', 520);
       IniSettings.MinWeaponReload := ReadIniValue(IniFile, 'Preferences', 'MinWeaponReloadTime', 0);
       IniSettings.MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
       IniSettings.Transporters := ReadIniBool(IniFile, 'Preferences', 'TransportersCount', False);
@@ -335,8 +355,6 @@ begin
 //      IniSettings.ExpandMinimap := ReadIniBool(IniFile, 'Preferences', 'ExpandMinimap', False);
 
       IniSettings.StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
-      IniSettings.ResurrectPatrol := ReadIniBool(IniFile, 'Preferences', 'ResurrectionPatrol', False);
-
       IniSettings.ScriptSlotsLimit := ReadIniBool(IniFile, 'Preferences', 'IncScriptSlotsLimit', False);
       IniSettings.InterceptsOnlyList := ReadIniBool(IniFile, 'Preferences', 'UseInterceptsOnlyList', True);
     finally
@@ -386,12 +404,13 @@ end;
 
 function GetPlugin : TPluginData;
 begin
-if IsTAVersion31 and State_INI_Options then
+  if IsTAVersion31 and State_INI_Options then
   begin
-    Result := TPluginData.create( True,
+    Result := TPluginData.Create( True,
                                   'totala.ini settings reader',
                                   State_INI_Options,
-                                  @OnInstallINI_Options, @OnUnInstallINI_Options );
+                                  @OnInstallINI_Options,
+                                  @OnUnInstallINI_Options );
 
     ReadINISettings;
   end else
@@ -399,3 +418,4 @@ if IsTAVersion31 and State_INI_Options then
 end;
 
 end.
+

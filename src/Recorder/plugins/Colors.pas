@@ -52,7 +52,7 @@ const
     (sName: 'MainMenuDotsDisabled'; lOffset: $00426440; cSwapType: 0; cDefaultVal: 0;));
 
 const
-  State_Colors : boolean = true;
+  State_Colors: Boolean = True;
 
 function GetPlugin : TPluginData;
 
@@ -69,19 +69,14 @@ Const
 // -----------------------------------------------------------------------------
 
 function GetRaceSpecificColor(ColorNr: Byte) : Byte;
-procedure Colors_ApplyPerRaceColors;
 
 implementation
 uses
-  IniOptions,
-  TADemoConsts,
-  TA_MemoryLocations,
+  Windows,
   SysUtils,
-  TA_FunctionsU,
-  windows;
-
-var
-  ColorsPlugin: TPluginData;
+  IniOptions,
+  TA_MemoryLocations,
+  TA_FunctionsU;
 
 function GetRaceSpecificColor(ColorNr: Byte) : Byte;
 begin
@@ -98,13 +93,13 @@ end;
 
 Procedure InstallColors(RaceSpecific: Boolean); stdcall;
 var
-  cColor : Byte;
-  nColor : Word;
-  nCurColor : Word;
+  cColor: Byte;
+  nColor: Word;
+  nCurColor: Word;
   i: integer;
-  CurrentProcessHandle : THandle;
-  CommittedBytes : Longword;
-  OldProtect, tmpOldProtect : longword;
+  CurrentProcessHandle: THandle;
+  CommittedBytes: Longword;
+  OldProtect, tmpOldProtect: longword;
 begin
   CurrentProcessHandle := GetCurrentProcess;
   for i := 0 to 28 do
@@ -145,45 +140,6 @@ begin
   end;
 end;
 
-Procedure OnInstallColors;
-begin
-  InstallColors(False);
-end;
-
-Procedure OnUninstallColors;
-begin
-end;
-
-function GetPlugin : TPluginData;
-begin
-if IsTAVersion31 and State_Colors then
-  begin
-
-  ColorsPlugin := TPluginData.create( false,
-                                'Colors',
-                                State_Colors,
-                                @OnInstallColors, @OnUnInstallColors );
-
-  ColorsPlugin.MakeRelativeJmp(State_Colors,
-                               'Apply per race specific colors at game load',
-                               @Colors_ApplyPerRaceColors,
-                               $00497581, 0);
-
-  if IniSettings.Colors_DisableMenuDots then
-    ColorsPlugin.MakeNOPReplacement( State_Colors, '',
-                                     ColorsArray[30].lOffset, 7);
-
-  if IniSettings.Colors_MenuDots <> 0 then
-    ColorsPlugin.MakeReplacement( State_Colors, '',
-                                  ColorsArray[29].lOffset,
-                                  IniSettings.Colors_MenuDots, 1);
-
-  Result:= ColorsPlugin;
-  end
-else
-  result := nil;  
-end;
-
 procedure ApplyPerRaceColors; stdcall;
 begin
   InstallColors(True);
@@ -197,6 +153,43 @@ asm
   call    LoadGameData_Main
   push $00497586;
   call PatchNJump;
+end;
+
+Procedure OnInstallColors;
+begin
+  InstallColors(False);
+end;
+
+Procedure OnUninstallColors;
+begin
+end;
+
+function GetPlugin : TPluginData;
+begin
+  if IsTAVersion31 and State_Colors then
+  begin
+    Result := TPluginData.create( False, 'Colors',
+                                  State_Colors,
+                                  @OnInstallColors,
+                                  @OnUnInstallColors );
+
+    Result.MakeRelativeJmp( State_Colors,
+                            'Apply per race specific colors at game load',
+                            @Colors_ApplyPerRaceColors,
+                            $00497581, 0 );
+
+    if IniSettings.Colors_DisableMenuDots then
+      Result.MakeNOPReplacement( State_Colors,
+                                 '',
+                                 ColorsArray[30].lOffset, 7);
+
+    if IniSettings.Colors_MenuDots <> 0 then
+      Result.MakeReplacement( State_Colors,
+                              '',
+                              ColorsArray[29].lOffset,
+                              IniSettings.Colors_MenuDots, 1);
+  end else
+    Result := nil;
 end;
 
 end.

@@ -14,6 +14,8 @@ const
 
   ScoreBoardRoll = $0051F2D8;
 
+  OFFSCREEN_off = -$1F0;  
+
   // Strings
   Rev31GP3_Name = $005028CC;
   Rev31GP3_31 = $005028D8;
@@ -25,6 +27,7 @@ const
   QueryTertiary = $00505264;
   ImmediateOrders = $0050271C;
   SpecialOrders = $005026E4;
+  FIXEDLOC = $00505598;
 
 implementation
 

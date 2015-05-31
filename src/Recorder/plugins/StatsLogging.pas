@@ -101,7 +101,7 @@ end;
 
 procedure StatLog_ReclaimFeatureLocal(PlayerPtr: PPlayerStruct; FeaturePtr: PFeatureDefStruct); stdcall;
 begin
-  if IniSettings.CreateStatsFile and not IniSettings.WeaponIdPatch then
+  if IniSettings.CreateStatsFile then
     statslog.FeatureDestroyed_StatEvent(TAPlayer.GetPlayerByDPID(PlayerPtr.lDirectPlayID),$FF,0,0,
                                         FeaturePtr,
                                         TAData.GameTime);
@@ -173,7 +173,7 @@ end;
 procedure TStatsLogging.NewUnit_StatEvent(player:longword; unitid:word; typeid:word; tid:longword);
 begin
   Add(IntToStr(Ord(etNewUnit)) + ';' + IntToStr(tid) + ';' + IntToStr(player) + ';' + IntToStr(unitid) + ';' +
-      PUnitInfo(TAMem.UnitInfoId2Ptr(typeid)).szName);
+      TAMem.UnitInfoId2Ptr(typeid).szName);
 end;
 
 var
@@ -208,7 +208,7 @@ end;
 procedure TStatsLogging.FeatureDestroyed_StatEvent(sender:word; weapid:byte; x,z: word; featureptr: pointer; tid:longword);
 var
   Position : TPosition;
-  FeatureTypeID : SmallInt;
+  FeatureTypeID : Word;
   FeatureDefPtr : PFeatureDefStruct;
   Ukn : Cardinal;
 begin
@@ -217,8 +217,8 @@ begin
   begin
     Position.X := x * 16;
     Position.Z := z * 16;
-    FeatureTypeID := GetFeatureTypeOfPos(@Position, nil, @Ukn);
-    if FeatureTypeID <> -1 then
+    FeatureTypeID := GetFeatureTypeFromOrder(@Position, nil, @Ukn);
+    if FeatureTypeID <> Word(-1) then
       FeatureDefPtr := TAMem.FeatureDefId2Ptr(FeatureTypeID);
     if FeatureDefPtr = nil then
       Exit;
@@ -230,8 +230,8 @@ begin
     $FF : begin
             Add(IntToStr(Ord(etReclaim)) + ';' + IntToStr(tid) + ';' + IntToStr(sender) + ';' +
                 FeatureDefPtr.Name + ';' +
-                FloatToStrF(FeatureDefPtr.metal, ffGeneral, 12, 4) + ';' +
-                FloatToStrF(FeatureDefPtr.energy, ffGeneral, 12, 4));
+                FloatToStrF(FeatureDefPtr.fMetal, ffGeneral, 12, 4) + ';' +
+                FloatToStrF(FeatureDefPtr.fEnergy, ffGeneral, 12, 4));
           end;
   end;
 end;
@@ -246,7 +246,7 @@ begin
     if KilledUnit.p_UNITINFO <> nil then
       Add(IntToStr(Ord(etUnitKill)) + ';' + IntToStr(tid) + ';' +
           IntToStr(killer) + ';' + IntToStr(killed) + ';' +
-          PUnitInfo(KilledUnit.p_UNITINFO).szName)
+          KilledUnit.p_UNITINFO.szName)
     else
       Add(IntToStr(Ord(etUnitKill)) + ';' + IntToStr(tid) + ';' +
           IntToStr(killer) + ';' + IntToStr(killed));

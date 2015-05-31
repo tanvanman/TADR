@@ -10,7 +10,9 @@ uses
 // -----------------------------------------------------------------------------
 
 const
-  State_RegPathFix : boolean = true;
+  State_RegPathFix: Boolean = True;
+
+const
   KEY_WOW64_64KEY = $0100;
 
 type
@@ -32,10 +34,6 @@ Procedure OnUninstallRegPathFix;
 
 // -----------------------------------------------------------------------------
 
-procedure LoadCommonDataHook;
-procedure LocateMovieInCommonDirHook;
-procedure SetDirAfterMovie;
-
 implementation
 uses
   Windows,
@@ -48,95 +46,6 @@ uses
   TA_FunctionsU,
   TA_MemoryLocations,
   TADemoConsts;
-
-var
-  RegPathFixPlugin: TPluginData;
-
-Procedure OnInstallRegPathFix;
-begin
-end;
-
-Procedure OnUninstallRegPathFix;
-begin
-end;
-
-function GetPlugin : TPluginData;
-var
-  sRegName : AnsiString;
-  baRegName: TByteArray;
-  Registry : TRegistry;
-  CurrentProcessHandle : THandle;
-  CommittedBytes : Longword;
-  OldProtect, tmpOldProtect : longword;
-
-begin
-  if IsTAVersion31 and State_RegPathFix then
-  begin
-    RegPathFixPlugin := TPluginData.create(True,
-                            'regfix',
-                            State_RegPathFix,
-                            @OnInstallRegPathFix,
-                            @OnUninstallRegPathFix );
-
-    if IniSettings.RegName <> '' then
-    begin
-      sRegName := Copy(IniSettings.RegName, 1, 21);
-      sRegName := LeftPad(sRegName, #0, 21);
-
-      Move(sRegName[1], baRegName, Length(sRegName));
-      CurrentProcessHandle := GetCurrentProcess;
-
-      Win32Check(VirtualProtect(Pointer($0050DDFD), Length(sRegName), PAGE_READWRITE, OldProtect));
-      Win32Check(WriteProcessMemory(CurrentProcessHandle, Pointer($0050DDFD),
-        @baRegName[0], Length(sRegName), CommittedBytes) );
-      FlushInstructionCache(CurrentProcessHandle, Pointer($0050DDFD), Length(sRegName));
-      Win32Check(VirtualProtect(Pointer($0050DDFD), Length(sRegName), OldProtect, tmpOldProtect));
-
-      Win32Check(VirtualProtect(Pointer($00509EB8), Length(sRegName), PAGE_READWRITE, OldProtect));
-      Win32Check(WriteProcessMemory(CurrentProcessHandle, Pointer($00509EB8),
-        @baRegName[0], Length(sRegName), CommittedBytes) );
-      FlushInstructionCache(CurrentProcessHandle, Pointer($00509EB8), Length(sRegName));
-      Win32Check(VirtualProtect(Pointer($00509EB8), Length(sRegName), OldProtect, tmpOldProtect));
-    end;
-
-    Registry := TRegistry.Create(KEY_READ or KEY_WOW64_64KEY);
-    try
-      Registry.RootKey := HKEY_LOCAL_MACHINE;
-      if Registry.KeyExists('Software\TA Patch\') then
-        if Registry.OpenKey('Software\TA Patch\', False) then
-        begin
-          IniSettings.CommonMapsPath := Registry.ReadString('CommonMapsPath');
-          if IniSettings.CommonMapsPath <> '' then
-            IniSettings.CommonMapsPath := IncludeTrailingPathDelimiter(IniSettings.CommonMapsPath);
-
-          IniSettings.CommonGameDataPath := Registry.ReadString('CommonGameDataPath');
-          if IniSettings.CommonGameDataPath <> '' then
-            IniSettings.CommonGameDataPath := IncludeTrailingPathDelimiter(IniSettings.CommonGameDataPath);
-        end;
-    finally
-      Registry.CloseKey;
-      Registry.Free;
-    end;
-    
-    RegPathFixPlugin.MakeRelativeJmp( State_RegPathFix,
-                          'Load common maps and game data files',
-                          @LoadCommonDataHook,
-                          $0041D4DB, 0);
-
-    RegPathFixPlugin.MakeRelativeJmp(State_RegPathFix,
-                                     'Load movies from common data dir',
-                                     @LocateMovieInCommonDirHook,
-                                     $004267AB, 1);
-
-    RegPathFixPlugin.MakeRelativeJmp(State_RegPathFix,
-                                     'Sets dir to TA after movie has finished',
-                                     @SetDirAfterMovie,
-                                     $00426878, 0);
-
-    Result:= RegPathFixPlugin;
-  end else
-    Result := nil;
-end;
 
 procedure LoadCommonMaps;
 var
@@ -272,14 +181,14 @@ end;
 
 procedure LoadCommonDataHook;
 asm
-    pushAD
-    call LoadCommonMaps
-    popAD
-    // before rev31
-    //push $0041D4E0;
-    // after ta hpi readings
-    push $0041D5F3;
-    call PatchNJump;
+  pushAD
+  call LoadCommonMaps
+  popAD
+  // before rev31
+  //push $0041D4E0;
+  // after ta hpi readings
+  push $0041D5F3;
+  call PatchNJump;
 end;
 
 function LocateMovieInCommonDir(FilePath: PAnsiChar): Integer; stdcall;
@@ -295,18 +204,101 @@ end;
 
 procedure LocateMovieInCommonDirHook;
 asm
-    push edx
-    call LocateMovieInCommonDir;
-    push $004267B1;
-    call PatchNJump;
+  push edx
+  call LocateMovieInCommonDir;
+  push $004267B1;
+  call PatchNJump;
 end;
 
 procedure SetDirAfterMovie;
 asm
-    call SetCurrentDirectoryToTAPath
-    mov  eax, [TAdynmemStructPtr]
-    push $0042687D;
-    call PatchNJump;
+  call SetCurrentDirectoryToTAPath
+  mov  eax, [TAdynmemStructPtr]
+  push $0042687D;
+  call PatchNJump;
+end;
+
+Procedure OnInstallRegPathFix;
+begin
+end;
+
+Procedure OnUninstallRegPathFix;
+begin
+end;
+
+function GetPlugin : TPluginData;
+var
+  sRegName : AnsiString;
+  baRegName: TByteArray;
+  Registry : TRegistry;
+  CurrentProcessHandle : THandle;
+  CommittedBytes : Longword;
+  OldProtect, tmpOldProtect : longword;
+
+begin
+  if IsTAVersion31 and State_RegPathFix then
+  begin
+    Result := TPluginData.create( True, '',
+                                  State_RegPathFix,
+                                  @OnInstallRegPathFix,
+                                  @OnUninstallRegPathFix );
+
+    if IniSettings.RegName <> '' then
+    begin
+      sRegName := Copy(IniSettings.RegName, 1, 21);
+      sRegName := LeftPad(sRegName, #0, 21);
+
+      Move(sRegName[1], baRegName, Length(sRegName));
+      CurrentProcessHandle := GetCurrentProcess;
+
+      Win32Check(VirtualProtect(Pointer($0050DDFD), Length(sRegName), PAGE_READWRITE, OldProtect));
+      Win32Check(WriteProcessMemory(CurrentProcessHandle, Pointer($0050DDFD),
+        @baRegName[0], Length(sRegName), CommittedBytes) );
+      FlushInstructionCache(CurrentProcessHandle, Pointer($0050DDFD), Length(sRegName));
+      Win32Check(VirtualProtect(Pointer($0050DDFD), Length(sRegName), OldProtect, tmpOldProtect));
+
+      Win32Check(VirtualProtect(Pointer($00509EB8), Length(sRegName), PAGE_READWRITE, OldProtect));
+      Win32Check(WriteProcessMemory(CurrentProcessHandle, Pointer($00509EB8),
+        @baRegName[0], Length(sRegName), CommittedBytes) );
+      FlushInstructionCache(CurrentProcessHandle, Pointer($00509EB8), Length(sRegName));
+      Win32Check(VirtualProtect(Pointer($00509EB8), Length(sRegName), OldProtect, tmpOldProtect));
+    end;
+
+    Registry := TRegistry.Create(KEY_READ or KEY_WOW64_64KEY);
+    try
+      Registry.RootKey := HKEY_LOCAL_MACHINE;
+      if Registry.KeyExists('Software\TA Patch\') then
+        if Registry.OpenKey('Software\TA Patch\', False) then
+        begin
+          IniSettings.CommonMapsPath := Registry.ReadString('CommonMapsPath');
+          if IniSettings.CommonMapsPath <> '' then
+            IniSettings.CommonMapsPath := IncludeTrailingPathDelimiter(IniSettings.CommonMapsPath);
+
+          IniSettings.CommonGameDataPath := Registry.ReadString('CommonGameDataPath');
+          if IniSettings.CommonGameDataPath <> '' then
+            IniSettings.CommonGameDataPath := IncludeTrailingPathDelimiter(IniSettings.CommonGameDataPath);
+        end;
+    finally
+      Registry.CloseKey;
+      Registry.Free;
+    end;
+    
+    Result.MakeRelativeJmp( State_RegPathFix,
+                            'Load common maps and game data files',
+                            @LoadCommonDataHook,
+                            $0041D4DB, 0 );
+
+    Result.MakeRelativeJmp( State_RegPathFix,
+                            'Load movies from common data dir',
+                            @LocateMovieInCommonDirHook,
+                            $004267AB, 1 );
+
+    Result.MakeRelativeJmp( State_RegPathFix,
+                            'Sets dir to TA after movie has finished',
+                            @SetDirAfterMovie,
+                            $00426878, 0 );
+  end else
+    Result := nil;
 end;
 
 end.

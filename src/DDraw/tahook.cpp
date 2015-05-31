@@ -85,15 +85,6 @@ CTAHook::CTAHook(BOOL VidMem)
 	int *PTR = (int*)0x00511de8;
 	TAdynmem = (TAdynmemStruct*)(*PTR);
 
-	LPSTR TplayxDllName= reinterpret_cast<LPSTR> (0x004FF9E4);
-	HMODULE hTPlayxDLL = GetModuleHandle(TplayxDllName);
-
-	if (hTPlayxDLL != NULL)
-	{
-		(FARPROC &)TPlayxAddNanoUnit = GetProcAddress(hTPlayxDLL, "AddNanoUnit");
-		(FARPROC &)TPlayxInitNanoUnit = GetProcAddress(hTPlayxDLL, "InitNanoUnit");
-	}
-
 	IDDrawSurface::OutptTxt ( "New CTAHook");
 }
 
@@ -721,48 +712,29 @@ void CTAHook::OptimizeDTRows()
 void CTAHook::VisualizeRow()
 {
 	int i=0;
-	bool ready_to_draw;
-	if (TPlayxInitNanoUnit != NULL)
+
+	while(XMatrix[i] != -1 && YMatrix[i]!=-1)
 	{
-		ready_to_draw = TPlayxInitNanoUnit();
-	} 
-	else 
-	{
-		ready_to_draw = TRUE;
-	}
+		int BakX= TAdynmem->MouseMapPos.X;
+		int BakY= TAdynmem->MouseMapPos.Y;
 
-	if (ready_to_draw)
-	{
-		while(XMatrix[i] != -1 && YMatrix[i]!=-1)
-		{
-			int BakX= TAdynmem->MouseMapPos.X;
-			int BakY= TAdynmem->MouseMapPos.Y;
+		TAdynmem->MouseMapPos.X = XMatrix[i];
+		TAdynmem->MouseMapPos.Y = YMatrix[i];
 
-			TAdynmem->MouseMapPos.X = XMatrix[i];
-			TAdynmem->MouseMapPos.Y = YMatrix[i];
+		TAdynmem->BuildSpotState=70;
 
-			TAdynmem->BuildSpotState=70;
+		TestBuildSpot ( );
 
-			TestBuildSpot ( );
+		int color = TAdynmem->BuildSpotState==70 ? 234 : 214; 
 
-			int color = TAdynmem->BuildSpotState==70 ? 234 : 214; 
-
-			DrawBuildRect( (TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
-				(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz/2),
-				GetFootX()*16,
-				GetFootY()*16,
-				color);
-
-			if (TPlayxAddNanoUnit != NULL)
-			{
-				ready_to_draw = TPlayxAddNanoUnit( TAdynmem->CircleSelect_Pos1TAx, 
-					TAdynmem->CircleSelect_Pos1TAy,
-					color);
-			}
-			i++;
-			TAdynmem->MouseMapPos.X= BakX;
-			TAdynmem->MouseMapPos.Y= BakY;
-		}
+		DrawBuildRect( (TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
+			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz/2),
+			GetFootX()*16,
+			GetFootY()*16,
+			color);
+		i++;
+		TAdynmem->MouseMapPos.X= BakX;
+		TAdynmem->MouseMapPos.Y= BakY;
 	}
 
 	/*  DDBLTFX ddbltfx;

@@ -53,13 +53,11 @@ uses
   ConsoleTimer in 'ConsoleTimer.pas',
   StopWatch in 'StopWatch.pas',
   RegPathFix in 'plugins\RegPathFix.pas',
-  ResurrectPatrol in 'plugins\ResurrectPatrol.pas',
   ClockPosition in 'plugins\ClockPosition.pas',
   WeaponAimNTrajectory in 'plugins\WeaponAimNTrajectory.pas',
   KillDamage in 'plugins\KillDamage.pas',
   ScriptCallsExtend in 'plugins\ScriptCallsExtend.pas',
   UnitActions in 'plugins\UnitActions.pas',
-  TAExceptionsLog in 'plugins\TAExceptionsLog.pas',
   GUIEnhancements in 'plugins\GUIEnhancements.pas',
   statslogging in 'plugins\StatsLogging.pas',
   MinimapExpand in 'plugins\MinimapExpand.pas',
@@ -75,7 +73,15 @@ uses
   TA_MemPlayers in 'TAMem\TA_MemPlayers.pas',
   TA_MemUnits in 'TAMem\TA_MemUnits.pas',
   TA_MemPlotData in 'TAMem\TA_MemPlotData.pas',
-  SideDataExpand in 'plugins\SideDataExpand.pas';
+  SideDataExpand in 'plugins\SideDataExpand.pas',
+  MaxScriptSlots in 'plugins\MaxScriptSlots.pas',
+  SkirmishEnhancements in 'plugins\SkirmishEnhancements.pas',
+  UnitSearchHandlers in 'plugins\UnitSearchHandlers.pas',
+  Transporters in 'plugins\Transporters.pas',
+  OrdersOverride in 'plugins\OrdersOverride.pas',
+  Developers in 'plugins\Developers.pas',
+  BroadcastNanolathe in 'plugins\BroadcastNanolathe.pas',
+  NanoFrameUnits in 'plugins\NanoFrameUnits.pas';
 
 {$R *.res}
 

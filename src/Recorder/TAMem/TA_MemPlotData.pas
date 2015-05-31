@@ -30,10 +30,9 @@ end;
 class function TAMap.PlaceFeatureOnMap(FeatureName: String;
   Position: TPosition; Turn: TTurn): Boolean;
 var
-  FeatureId : SmallInt;
-  GridPlot : PPlotGrid;
-  x, z : Integer;
-  //FeatureDef : PFeatureDefStruct;
+  FeatureId: SmallInt;
+  GridPlot: PPlotGrid;
+  X, Z: Word;
 begin
   Result := False;
   FeatureId := FeatureName2ID(PAnsiChar(FeatureName));
@@ -43,10 +42,8 @@ begin
 
   if FeatureId <> -1 then
   begin
-    //FeatureDef := TAmem.FeatureDefId2Ptr(FeatureId);
-    z := Position.Z div 16;
-    x := Position.X div 16;
-    GridPlot := GetGridPosPLOT(x, z);
+    TAMem.Position2Grid(Position, X, Z);
+    GridPlot := GetGridPosPLOT(X, Z);
     Result := (SpawnFeatureOnMap(GridPlot, FeatureId, @Position, @Turn, 10) <> nil);
   end;
 end;
@@ -63,14 +60,14 @@ end;
 class function TAMap.PositionInLOS(Player: PPlayerStruct;
   Position: PPosition): Boolean;
 var
-  X, Z : Integer;
+  X, Z: Integer;
   Pos : Cardinal;
 begin
   Result := False;
   if PositionInPlayerMapped(Player, Position) then
   begin
-    X := Position.X div 32;
-    Z := (Position.Z - (Position.Y div 2)) div 32;
+    X := SHiWord(Position.X) div 32;
+    Z := (SHiWord(Position.Z) - (SHiWord(Position.Y) div 2)) div 32;
     if (X < Player.lLOS_Width) and
        (Z < Player.lLOS_Height) then
     begin

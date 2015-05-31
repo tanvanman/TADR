@@ -2,14 +2,14 @@ unit SideDataExpand;
 
 interface
 uses
-  PluginEngine, TA_MemoryStructures;
+  PluginEngine;
 
 // -----------------------------------------------------------------------------
 
 const
-  State_SideDataExpand : boolean = true;
+  State_SideDataExpand: Boolean = True;
 
-function GetPlugin : TPluginData;
+function GetPlugin: TPluginData;
 
 // -----------------------------------------------------------------------------
 
@@ -17,47 +17,15 @@ Procedure OnInstallSideDataExpand;
 Procedure OnUninstallSideDataExpand;
 
 // -----------------------------------------------------------------------------
-
-procedure SideDataExpand_LoadHook;
 
 implementation
 uses
   IniOptions,
   TA_MemoryConstants,
+  TA_MemoryStructures,
   TA_FunctionsU,
   TA_MemoryLocations,
   TA_MemUnits;
-
-var
-  SideDataExpandPlugin: TPluginData;
-
-Procedure OnInstallSideDataExpand;
-begin
-end;
-
-Procedure OnUninstallSideDataExpand;
-begin
-end;
-
-function GetPlugin : TPluginData;
-begin
-  if IsTAVersion31 and State_SideDataExpand then
-  begin
-    SideDataExpandPlugin := TPluginData.create( True,
-                            '',
-                            State_SideDataExpand,
-                            @OnInstallSideDataExpand,
-                            @OnUnInstallSideDataExpand );
-
-    SideDataExpandPlugin.MakeRelativeJmp( State_SideDataExpand,
-                          '',
-                          @SideDataExpand_LoadHook,
-                          $00432487, 0);
-
-    Result := SideDataExpandPlugin;
-  end else
-    Result := nil;
-end;
 
 procedure SideDataExpand_Load(TDFHandle: Cardinal; p_SideData: PRaceSideData); stdcall;
 
@@ -92,16 +60,40 @@ end;
 
 procedure SideDataExpand_LoadHook;
 asm
-    lea     esi, [esp+10h]
-    pushAD
-    push    ebp
-    push    esi
-    call    SideDataExpand_Load
-    popAD
+  lea     esi, [esp+10h]
+  pushAD
+  push    ebp
+  push    esi
+  call    SideDataExpand_Load
+  popAD
+  mov     esi, 1
+  push $0043248C;
+  call PatchNJump;
+end;
 
-    mov     esi, 1
-    push $0043248C;
-    call PatchNJump;
+Procedure OnInstallSideDataExpand;
+begin
+end;
+
+Procedure OnUninstallSideDataExpand;
+begin
+end;
+
+function GetPlugin: TPluginData;
+begin
+  if IsTAVersion31 and State_SideDataExpand then
+  begin
+    Result := TPluginData.Create( True, 'Load more data from SIDEDATA.TDF',
+                                  State_SideDataExpand,
+                                  @OnInstallSideDataExpand,
+                                  @OnUnInstallSideDataExpand );
+
+    Result.MakeRelativeJmp( State_SideDataExpand,
+                            '',
+                            @SideDataExpand_LoadHook,
+                            $00432487, 0);
+  end else
+    Result := nil;
 end;
 
 end.

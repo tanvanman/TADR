@@ -1,10 +1,5 @@
 unit ScriptCallsExtend;
 
-// to extend calls from TA to COB scripts
-// 1) AimPrimary / AimSecondary / AimTertiary - by including target unit ID
-// 2) WeaponHit - called when weapon fired from unit hit the target (or not), includes also weapon ID
-// 3) ConfirmVTOLTransport - vtol loads or unloads a unit
-
 interface
 uses
   PluginEngine;
@@ -12,7 +7,7 @@ uses
 // -----------------------------------------------------------------------------
 
 const
-  State_ScriptCallsExtend : boolean = true;
+  State_ScriptCallsExtend: Boolean = True;
 
 function GetPlugin : TPluginData;
 
@@ -22,104 +17,15 @@ Procedure OnInstallScriptCallsExtend;
 Procedure OnUninstallScriptCallsExtend;
 
 // -----------------------------------------------------------------------------
-
-// AimPrimary / AimSecondary / AimTertiary
-procedure ScriptCallsExtend_AimPrimaryTurret_GetUnit;
-procedure ScriptCallsExtend_AimPrimaryTurret_ExpCall;
-procedure ScriptCallsExtend_AimPrimaryBallistic;
-procedure ScriptCallsExtend_WeaponHitTest;
-procedure ScriptCallsExtend_ConfirmedKill;
-procedure ScriptCallsExtend_TookDamage;
-procedure ScriptCallsExtend_SetNewMaxReloadTime;
-procedure ScriptCallsExtend_CallAirLoadScript;
-procedure ScriptCallsExtend_CallAirUnLoadScript;
 
 implementation
 uses
   IniOptions,
-  TA_MemoryConstants,
   TA_MemoryStructures,
   TA_MemoryLocations,
   TA_MemUnits,
   TA_FunctionsU,
-  COB_Extensions,
-  logging, sysutils;
-
-var
-  ScriptCallsExtendPlugin: TPluginData;
-
-Procedure OnInstallScriptCallsExtend;
-begin
-end;
-
-Procedure OnUninstallScriptCallsExtend;
-begin
-end;
-
-function GetPlugin : TPluginData;
-begin
-  if IsTAVersion31 and State_ScriptCallsExtend then
-  begin
-    ScriptCallsExtendPlugin := TPluginData.create( false,
-                            'ScriptCallsExtend Plugin',
-                            State_ScriptCallsExtend,
-                            @OnInstallScriptCallsExtend,
-                            @OnUninstallScriptCallsExtend );
-                                               
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'ScriptCallsExtend_AimPrimaryTurret_GetUnit',
-                          @ScriptCallsExtend_AimPrimaryTurret_GetUnit,
-                          $0049E21E, 1);
-
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'ScriptCallsExtend_AimPrimaryTurret_ExpCall',
-                          @ScriptCallsExtend_AimPrimaryTurret_ExpCall,
-                          $0049E2E8, 3);
-
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'ScriptCallsExtend_AimPrimaryBallistic',
-                          @ScriptCallsExtend_AimPrimaryBallistic,
-                          $0049E35D, 0);
-
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'Did weapon hit the target ?',
-                          @ScriptCallsExtend_WeaponHitTest,
-                          $00406F5B, 2);
- {
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'Include damage value for HitByWeapon',
-                          @ScriptCallsExtend_HitByWeaponExpand,
-                          $00489F32, 0);     }
-
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'Unit took damage call',
-                          @ScriptCallsExtend_TookDamage,
-                          $00489D3F, 1);
-
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'Tell unit whats its new max weapon reload time',
-                          @ScriptCallsExtend_SetNewMaxReloadTime,
-                          $0049E4EC, 1);
-
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'Confirmed unit kill',
-                          @ScriptCallsExtend_ConfirmedKill,
-                          $004864B6, 0);
-
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'call air load',
-                          @ScriptCallsExtend_CallAirLoadScript,
-                          $004114A0, 1);
-
-    ScriptCallsExtendPlugin.MakeRelativeJmp( State_ScriptCallsExtend,
-                          'call air unload',
-                          @ScriptCallsExtend_CallAirUnLoadScript,
-                          $00411799, 1);
-
-    Result:= ScriptCallsExtendPlugin;
-  end else
-    Result := nil;
-end;
+  COB_Extensions;
 
 var
   TargetUnit_Turret: Cardinal;
@@ -128,40 +34,40 @@ label
   ShootingGround,
   GoBack;
 asm
-    push    ebx
-    pushf
-    mov     bx, word [edi+$4+2]
-    test    bh, $80
-    movzx   ebx, word [edi+$4]
-    mov     TargetUnit_Turret, ebx
-    jnz     GoBack
+  push    ebx
+  pushf
+  mov     bx, word [edi+$4+2]
+  test    bh, $80
+  movzx   ebx, word [edi+$4]
+  mov     TargetUnit_Turret, ebx
+  jnz     GoBack
 ShootingGround:
-    mov     TargetUnit_Turret, 0
+  mov     TargetUnit_Turret, 0
 GoBack:
-    popf
-    pop     ebx
-    mov     ecx, [ebp+111h]
-    push $0049E224
-    call PatchNJump
+  popf
+  pop     ebx
+  mov     ecx, [ebp+111h]
+  push $0049E224
+  call PatchNJump
 end;
 
 procedure ScriptCallsExtend_AimPrimaryTurret_ExpCall;
 asm
-    push    0 // par4
-    and     ecx, 0FFFFh
-    shr     edx, 2
-    push    TargetUnit_Turret       // target unit long ID, instead of 0
-    and     eax, 0FFFFh
-    push    ecx
-    and     edx, 3
-    push    eax
-    mov     dword ptr [esi-13h], 0
-    mov     eax, $509688[edx*4]    // AimPrimary / AimSecondary / AimTertiary
-    push    3                      // par count
-    lea     ecx, [esi-17h]
-    push    0
-    push $0049E314
-    call PatchNJump
+  push    0 // par4
+  and     ecx, 0FFFFh
+  shr     edx, 2
+  push    TargetUnit_Turret       // target unit long ID, instead of 0
+  and     eax, 0FFFFh
+  push    ecx
+  and     edx, 3
+  push    eax
+  mov     dword ptr [esi-13h], 0
+  mov     eax, $509688[edx*4]    // AimPrimary / AimSecondary / AimTertiary
+  push    3                      // par count
+  lea     ecx, [esi-17h]
+  push    0
+  push $0049E314
+  call PatchNJump
 end;
 
 procedure ScriptCallsExtend_AimPrimaryBallistic;
@@ -169,31 +75,31 @@ label
    GroundTarget,
    ContinueToGame;
 asm
-    push    ebx
-    pushf
-    mov     bx, word [edi+$4+2]
-    test    bh, $80
-    jz      GroundTarget
-    movzx   ebx, word [edi+$4]
-    mov     edx, ebx
-    popf
-    pop     ebx
-    jmp ContinueToGame
+  push    ebx
+  pushf
+  mov     bx, word [edi+$4+2]
+  test    bh, $80
+  jz      GroundTarget
+  movzx   ebx, word [edi+$4]
+  mov     edx, ebx
+  popf
+  pop     ebx
+  jmp ContinueToGame
 GroundTarget:
-    popf
-    pop     ebx
-    mov     edx, 0
+  popf
+  pop     ebx
+  mov     edx, 0
 ContinueToGame:
-    push    edx                       // target unit long ID or 0
-    shr     eax, 2
-    push    0
-    and     eax, 3
-    push    0
-    mov     dword ptr [esi-13h], 0
-    mov     edx, $509688[eax*4]
-    push    3
-    push $0049E379;
-    call PatchNJump;
+  push    edx                       // target unit long ID or 0
+  shr     eax, 2
+  push    0
+  and     eax, 3
+  push    0
+  mov     dword ptr [esi-13h], 0
+  mov     edx, $509688[eax*4]
+  push    3
+  push $0049E379;
+  call PatchNJump;
 end;
 
 procedure CallWeaponHit(p_Projectile: PWeaponProjectile; Hit: Cardinal); stdcall;
@@ -205,11 +111,11 @@ begin
     if p_Projectile.p_AttackerUnit.p_UnitScriptsData <> nil then
     begin
       WeapID := TAWeapon.GetWeaponID(p_Projectile.p_Weapon);
-      COBEngine_StartScript(0, 0,
-                            p_Projectile.p_AttackerUnit.p_UnitScriptsData,
-                            p_Projectile.Position_Curnt.Z, p_Projectile.Position_Curnt.X, Hit, WeapID,
-                            4, True, nil,
-                            PAnsiChar('WeaponHit'));
+
+      TAUnit.CobStartScript(p_Projectile.p_AttackerUnit, 'WeaponHit',
+                            @WeapID, @Hit,
+                            @p_Projectile.Position_Curnt.X, @p_Projectile.Position_Curnt.Z,
+                            True);
     end;
   end;
 end;
@@ -245,13 +151,12 @@ DidntHit :
   call PatchNJump;
 end;
 
-procedure TookDamage(p_Unit: PUnitStruct; DmgType: Cardinal; DmgAmount: Cardinal; AttackerID: Cardinal); stdcall;
+procedure TookDamage(p_Unit: PUnitStruct;
+  DmgType: Cardinal; DmgAmount: Cardinal; AttackerID: Cardinal); stdcall;
 begin
-  if p_Unit.p_UnitScriptsData <> nil then
-    COBEngine_StartScript(0, 0, p_Unit.p_UnitScriptsData,
-                          0, AttackerID, DmgAmount, DmgType,
-                          3, False, nil,
-                          PAnsiChar('TookDamage'));
+  TAUnit.CobStartScript( p_Unit, 'TookDamage',
+                         @DmgType, @DmgAmount, @AttackerID, nil,
+                         False );
 end;
 
 procedure ScriptCallsExtend_TookDamage;
@@ -283,14 +188,13 @@ DontMakeDmg :
   call PatchNJump;
 end;
 
-procedure SetNewMaxReloadTime(p_Unit: PUnitStruct; WeapIdx: Byte; ReloadTime: Word); stdcall;
+procedure SetNewMaxReloadTime(p_Unit: PUnitStruct;
+  WeapIdx: Byte; ReloadTime: Word); stdcall;
 begin
-  if p_Unit.p_UnitScriptsData <> nil then
-    COBEngine_StartScript(0, 0,
-                          p_Unit.p_UnitScriptsData,
-                          0, 0, ReloadTime, WeapIdx + WEAPON_PRIMARY,
-                          2, False, nil,
-                          PAnsiChar('SetNewMaxReloadTime') );
+  Inc(WeapIdx, WEAPON_PRIMARY);
+  TAUnit.CobStartScript( p_Unit, 'SetNewMaxReloadTime',
+                         @WeapIdx, @ReloadTime, nil, nil,
+                         False );
 end;
 
 procedure ScriptCallsExtend_SetNewMaxReloadTime;
@@ -308,14 +212,12 @@ asm
   call PatchNJump;
 end;
 
-procedure ConfirmedKill(p_Unit: PUnitStruct; DeathType : Cardinal); stdcall;
+procedure ConfirmedKill(p_Unit: PUnitStruct;
+  DeathType: Cardinal); stdcall;
 begin
-  if p_Unit.p_UnitScriptsData <> nil then
-    COBEngine_StartScript(0, 0,
-                          p_Unit.p_UnitScriptsData,
-                          0, 0, 0, DeathType,
-                          1, True, nil,
-                          PAnsiChar('ConfirmedKill') );
+  TAUnit.CobStartScript( p_Unit, 'ConfirmedKill',
+                         @DeathType, nil, nil, nil,
+                         True );
 end;
 
 procedure ScriptCallsExtend_ConfirmedKill;
@@ -334,18 +236,19 @@ asm
   call PatchNJump;
 end;
 
-procedure VTOLLoadUnload(p_Unit: PUnitStruct; TransportedUnit: PUnitStruct; Piece: Cardinal; Loading: Cardinal); stdcall;
+procedure VTOLLoadUnload(p_Unit: PUnitStruct;
+  TransportedUnit: PUnitStruct; Piece: Cardinal; Loading: Cardinal); stdcall;
 var
   UnitID: Word;
 begin
-  if p_Unit.p_UnitScriptsData <> nil then
+  if (p_Unit <> nil) and
+     (TransportedUnit <> nil) then
   begin
     UnitID := TAUnit.GetId(TransportedUnit);
-    COBEngine_StartScript(0, 0,
-                          p_Unit.p_UnitScriptsData,
-                          0, UnitID, Piece, Loading,
-                          3, True, nil,
-                          PAnsiChar('ConfirmVTOLTransport') );
+
+    TAUnit.CobStartScript(p_Unit, 'ConfirmVTOLTransport',
+                        @Loading, @Piece, @UnitID, nil,
+                        True);
   end;
 end;
 
@@ -387,5 +290,75 @@ asm
   call PatchNJump;
 end;
 
+Procedure OnInstallScriptCallsExtend;
+begin
+end;
+
+Procedure OnUninstallScriptCallsExtend;
+begin
+end;
+
+function GetPlugin : TPluginData;
+begin
+  if IsTAVersion31 and State_ScriptCallsExtend then
+  begin
+    Result := TPluginData.Create( False,
+                                  'ScriptCallsExtend Plugin',
+                                  State_ScriptCallsExtend,
+                                  @OnInstallScriptCallsExtend,
+                                  @OnUninstallScriptCallsExtend );
+
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'ScriptCallsExtend_AimPrimaryTurret_GetUnit',
+                            @ScriptCallsExtend_AimPrimaryTurret_GetUnit,
+                            $0049E21E, 1 );
+
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'ScriptCallsExtend_AimPrimaryTurret_ExpCall',
+                            @ScriptCallsExtend_AimPrimaryTurret_ExpCall,
+                            $0049E2E8, 3 );
+
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'ScriptCallsExtend_AimPrimaryBallistic',
+                            @ScriptCallsExtend_AimPrimaryBallistic,
+                            $0049E35D, 0 );
+
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'Did weapon hit the target ?',
+                            @ScriptCallsExtend_WeaponHitTest,
+                            $00406F5B, 2 );
+ {
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'Include damage value for HitByWeapon',
+                            @ScriptCallsExtend_HitByWeaponExpand,
+                            $00489F32, 0 );     }
+
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'Unit took damage call',
+                            @ScriptCallsExtend_TookDamage,
+                            $00489D3F, 1 );
+
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'Tell unit whats its new max weapon reload time',
+                            @ScriptCallsExtend_SetNewMaxReloadTime,
+                            $0049E4EC, 1 );
+
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'Confirmed unit kill',
+                            @ScriptCallsExtend_ConfirmedKill,
+                            $004864B6, 0 );
+
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'call air load',
+                            @ScriptCallsExtend_CallAirLoadScript,
+                            $004114A0, 1 );
+
+    Result.MakeRelativeJmp( State_ScriptCallsExtend,
+                            'call air unload',
+                            @ScriptCallsExtend_CallAirUnLoadScript,
+                            $00411799, 1 );
+  end else
+    Result := nil;
+end;
 
 end.

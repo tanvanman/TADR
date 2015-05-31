@@ -736,7 +736,6 @@ int ExternQuickKey::InitExternTypeMask (void)
 	UnitDefStruct * Begin= TAMainStruct_Ptr->UnitDef;
 	UnitDefStruct * Current;
 	int TypeCount= TAMainStruct_Ptr->UNITINFOCount;
-	unsigned long NoWeaponPtr= reinterpret_cast<unsigned long> (NowCrackLimit->NowIncreaseWeaponTypeLimit->CurtPtr);
 
 	int Inited= 0;
 
@@ -798,9 +797,9 @@ int ExternQuickKey::InitExternTypeMask (void)
 	for (int i= 0; i<TypeCount; ++i)
 	{
 		Current= &Begin[i];
-		if((NoWeaponPtr!=reinterpret_cast<unsigned long>(Current->weapon1)&&(NULL!=Current->weapon1)&&(0==(stockpile_mask&(Current->weapon1->WeaponTypeMask))))
-			|| (NoWeaponPtr!=reinterpret_cast<unsigned long>(Current->weapon2)&&(NULL!=Current->weapon2)&&(0==(stockpile_mask&(Current->weapon2->WeaponTypeMask))))
-			|| (NoWeaponPtr!=reinterpret_cast<unsigned long>(Current->weapon3)&&(NULL!=Current->weapon3)&&(0==(stockpile_mask&(Current->weapon3->WeaponTypeMask))))
+		if(((NULL!=Current->weapon1) && (0==(stockpile_mask&(Current->weapon1->WeaponTypeMask))))
+			||((NULL!=Current->weapon2) && (0==(stockpile_mask&(Current->weapon2->WeaponTypeMask))))
+			||((NULL!=Current->weapon3) && (0==(stockpile_mask&(Current->weapon3->WeaponTypeMask))))
 			)
 		{
 			if ((NULL!=CommanderMask)&&
@@ -892,9 +891,9 @@ int ExternQuickKey::InitExternTypeMask (void)
 	{
 		Current= &Begin[i];
 	
-		if((NoWeaponPtr!=reinterpret_cast<unsigned long>(Current->weapon1)&&(NULL!=Current->weapon1)&&(0==(stockpile_mask&(Current->weapon1->WeaponTypeMask))))
-			|| (NoWeaponPtr!=reinterpret_cast<unsigned long>(Current->weapon2)&&(NULL!=Current->weapon2)&&(0==(stockpile_mask&(Current->weapon2->WeaponTypeMask))))
-			|| (NoWeaponPtr!=reinterpret_cast<unsigned long>(Current->weapon3)&&(NULL!=Current->weapon3)&&(0==(stockpile_mask&(Current->weapon3->WeaponTypeMask))))
+		if(((NULL!=Current->weapon1)&&(0==(stockpile_mask&(Current->weapon1->WeaponTypeMask))))
+			|| ((NULL!=Current->weapon2)&&(0==(stockpile_mask&(Current->weapon2->WeaponTypeMask))))
+			|| ((NULL!=Current->weapon3)&&(0==(stockpile_mask&(Current->weapon3->WeaponTypeMask))))
 			)
 		{
 

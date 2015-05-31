@@ -1,7 +1,7 @@
 unit TA_MemoryStructures;
 
 interface
-uses Classes, Types;
+uses Classes, Types, logging;
 
 const
   BUTTON_ORDER_STOP = 1;
@@ -53,7 +53,7 @@ type
   PScriptsData = ^TScriptsData;
   TScriptsData = packed record //0x544
     pSciprt_vtbl      : Pointer; //004FD698
-    field_4           : Pointer;
+    lTickToSecScale   : Integer;
     pCOB              : Pointer; //pointer to COB file data (Directly points to the method count)
     pCOBFileNode      : Pointer;
     pStatic_Variables : Pointer;
@@ -76,6 +76,19 @@ type
     ScriptSlots       : array[0..63] of TScriptSlot; // 0000001C  64 * 0xA4 = 0x2900
     lStartRunningNow  : Cardinal;                    // 0000291C
     pObject3D         : Pointer;                     // 00002920
+  end;
+
+  PActionhandler = ^TActionHandler;
+  TActionHandler = packed record
+    Flags: Cardinal;
+    p_Order: Pointer;
+    p_ShiftOrder: Pointer; // drawing proc when user presses shift key
+    DrawTypeMask: Byte;
+    unk1: Byte;
+    unk2: Word;
+    Cursor: Byte;
+    flags3: array[1..4] of Byte;
+    p_ActionName: PAnsiChar;
   end;
 
   PMoveInfoClassStruct = ^TMoveInfoClassStruct;
@@ -131,14 +144,14 @@ type
 
   PPlotGrid = ^TPlotGrid;
   TPlotGrid = packed record
-    nYard_color        : Word;
+    nOccupyData        : Word;
     data2              : Word;
     bHeight            : Byte;
     bHeightAvg1        : Byte;
     bHeightAvg2        : Byte;
     bMetalExtract      : Byte;
     nFeatureDefIndex   : Word;
-    nWreckageInfoIndex : Word;
+    nFeatureAnimIndex  : Word;
     bYard_type         : Byte;
   end;
 
@@ -150,12 +163,9 @@ type
 
   PPosition = ^TPosition;
   TPosition = packed record
-    x_ : Word;
-    X  : Word;
-    y_ : Word;
-    Y  : Word;
-    z_ : Word;
-    Z  : Word;
+    X : Integer;
+    Y : Integer;
+    Z : Integer;
   end;
 
   PTurn = ^TTurn;
@@ -165,16 +175,10 @@ type
     Y  : Word;
   end;
 
-  TPositionLong = packed record
-    X  : Integer;
-    Y  : Integer;
-    Z  : Integer;
-  end;
-
   PNanolathePos = ^TNanolathePos;
   TNanolathePos = packed record
-    Pos1 : TPositionLong;
-    Pos2 : TPositionLong;
+    Pos1 : TPosition;
+    Pos2 : TPosition;
   end;
 
   PBaseObject = ^TBaseObject;
@@ -280,33 +284,6 @@ type
   PUnitStruct = ^TUnitStruct;
   PUnitInfo = ^TUnitInfo;
   
-  TUnitOrder = packed record
-    p_PriorOrder_uosp : Pointer;
-    cOrderType        : Byte;
-    ucState           : Byte;
-    nPaused           : Word;
-    field_8           : Word;
-    lRecallTime       : Cardinal;  // when current stage will be called again (for result = 2)
-    p_Unit            : PUnitStruct;
-    field_12          : Cardinal;
-    p_UnitTarget      : Pointer;
-    field_1A          : Cardinal;
-    p_ThisOrder       : Pointer;   // Just a pointer to this order.
-    Pos               : TPosition;
-    unknow_5          : Cardinal;
-    field_32          : Word;
-    nFootPrint        : Word;
-    lPar1             : Integer;  // for lab build queue = unit type
-    lPar2             : Integer;  // for lab build queue = amount of units
-    lUnitOrderFlags   : Cardinal;
-    lOrder_State      : Cardinal;  // reclaim - going to 00103801 / start reclaim 00503801
-    lStartTime        : Cardinal;
-    p_NextOrder       : Pointer;
-    lMask             : Cardinal;
-    p_Order_CallBack  : Pointer;
-  end;  
-
-  // 0x118
   TUnitStruct = packed record
     p_MovementClass   : PMoveClass;
     UnitWeapons       : array[0..2] of TUnitWeapon;
@@ -367,6 +344,31 @@ type
     nUnitStateMaskBas : Word;      // cloak, activate, armored state
     lUnitStateMask    : Cardinal;
     Unknown_16        : Cardinal; //((TemplatePtr.UnitTypeMask_0 shr 7) and 1) or  $FE;
+  end;  
+  
+  TUnitOrder = packed record
+    p_PriorOrder_uosp : Pointer;
+    cOrderType        : Byte;
+    ucState           : Byte;
+    lPauseState       : Cardinal;
+    lRecallTime       : Cardinal;  // when current stage will be called again (for result = 2)
+    p_Unit            : PUnitStruct;
+    field_12          : Cardinal;
+    p_UnitTarget      : PUnitStruct;
+    field_1A          : Cardinal;
+    p_ThisOrder       : Pointer;   // Just a pointer to this order.
+    Position          : TPosition;
+    unknow_5          : Cardinal;
+    field_32          : Word;
+    nFootPrint        : Word;
+    lPar1             : Integer;  // for lab build queue = unit type
+    lPar2             : Integer;  // for lab build queue = amount of units
+    lUnitOrderFlags   : Cardinal;
+    lOrder_State      : Cardinal;  // reclaim - going to 00103801 / start reclaim 00503801
+    lStartTime        : Cardinal;
+    p_NextOrder       : Pointer;
+    lMask             : Cardinal;
+    p_Order_CallBack  : Pointer;
   end;
 
   // 0x249
@@ -389,18 +391,12 @@ type
     lAICanBuildCount   : Cardinal;
     pAICanBuildList    : Pointer;
     lBuildLimit        : Cardinal;
-    nWidthX_           : Word;
-    nWidthX            : Word;
-    nWidthY_           : Word;
-    nWidthY            : Word;
-    nWidthZ_           : Word;
-    nWidthZ            : Word;
-    nFootPrintX_       : Word;
-    nFootPrintX        : Word;
-    nFootPrintY_       : Word;
-    nFootPrintY        : Word;
-    nFootPrintZ_       : Word;
-    nFootPrintZ        : Word;
+    lModelWidthX       : Integer;
+    lModelWidthY       : Integer;
+    lModelHeight       : Integer;
+    lFootPrintX        : Integer;
+    lFootPrintY        : Integer;
+    lFootPrintZ        : Integer;
     lRelatedUnitXWidth : Cardinal;
     lRelatedUnitYWidth : Cardinal;
     lRelatedUnitZWidth : Cardinal;
@@ -477,7 +473,7 @@ type
   TTAPlayerSide = (psArm, psCore, psWatch);
 
   PAlliedState = ^TAlliedState;
-  TAlliedState = array [ 0..9 ] of Byte;
+  TAlliedState = array [0..9] of Byte;
 
   PPlayerResourcesStruct = ^TPlayerResourcesStruct;
   TPlayerResourcesStruct = packed record
@@ -545,8 +541,8 @@ type
     field_unk3      : Cardinal;
     field_unk4      : Cardinal;
   end;
-  
-  //0x14B
+   
+type
   PPlayerStruct = ^TPlayerStruct;
   TPlayerStruct = packed record
     lPlayerActive        : Cardinal;  // 0x00 - is this a char?
@@ -565,24 +561,24 @@ type
     field_21             : Word;
     field_23             : Word;
     field_25             : Word;
-    PlayerInfo           : PPlayerInfoStruct;			// 0x27
-    szName               : array [0..29] of AnsiChar;				// 0x2B
-    szSecondName         : array [0..29] of AnsiChar;		// 0x49
-    p_UnitsArray         : Pointer;			// 0x67
-    p_LastUnit           : PUnitStruct;			// 0x6B the last unit in the array
+    PlayerInfo           : PPlayerInfoStruct; // 0x27
+    szName               : array [0..29] of AnsiChar; // 0x2B
+    szSecondName         : array [0..29] of AnsiChar; // 0x49
+    p_UnitsArray         : Pointer; // 0x67
+    p_LastUnit           : Pointer; // 0x6B the last unit in the array
     nUnitsIndexBegin     : Word;
     nUnitsIndexEnd       : Word;
-    cPlayerController    : TTAPlayerController;			// 0x73
+    cPlayerController    : TTAPlayerController;  // 0x73
     p_AIConfig           : Cardinal;
-    SQUADS_p             : Pointer;			// 0x78
-    LOS_MEMORY           : Pointer;		// 0x7C
-    lLOS_Width           : Integer;			// 0x80
-    lLOS_Height          : Integer;			// 0x84
-    lLOSLength           : Integer;		// 0x88
-    PlayerResources      : TPlayerResourcesStruct;		// 0x8C
-    fShareLimitMetal     : Single;		// 0xE4 //are these in the right order (metal/energy)?
-    fShareLimitEnergy    : Single;		// 0xE8
-    p_Unknown4           : Cardinal;			// 0xEC
+    SQUADS_p             : Pointer;  // 0x78
+    LOS_MEMORY           : Pointer;  // 0x7C
+    lLOS_Width           : Integer;  // 0x80
+    lLOS_Height          : Integer;  // 0x84
+    lLOSLength           : Integer;  // 0x88
+    Resources            : TPlayerResourcesStruct;// 0x8C
+    fShareLimitMetal     : Single;  // 0xE4 //are these in the right order (metal/energy)?
+    fShareLimitEnergy    : Single; // 0xE8
+    p_Unknown4           : Cardinal;  // 0xEC
     lUpdateTime          : Cardinal;
     lWinLoseTime         : Cardinal;
     lDisplayTimer        : Cardinal;
@@ -593,73 +589,109 @@ type
     nLosses_Last         : Word;
     cAllyFlagArray       : TAlliedState;
     Unknown5             : array [0..44] of Byte;
-    cAllyTeam            : Byte;	 //0x13F
+    cAllyTeam            : Byte;  //0x13F
     lUnitsCounter        : Cardinal;
-    nNumUnits            : Word;				// 0x144
-    cPlayerIndex         : Byte;		// 0x146 - zero based index of the player. AI 1, 2, 3 etc.
-    Unknown6             : Byte;			// 0x147
+    nNumUnits            : Word;  // 0x144
+    cPlayerIndex         : Byte;  // 0x146 - zero based index of the player. AI 1, 2, 3 etc.
+    Unknown6             : Byte;  // 0x147
     cPlayerScoreboard    : Byte;
     AddPlayerStorage     : Word;
   end;
 
-  TFoundUnits = array of Cardinal;
-
+const
+  FeatureMaskArr: array[0..11] of Word = (1, 2, 4, 8, $10, $20, $40, $80, $100, $200, $400, $800);
+type
+  TFeatureInfo = ( fiHasObject,
+                   fiAnimating,
+                   fiAnimTrans,
+                   fiShadTrans,
+                   fiFlamable,
+                   fiGeothermal,
+                   fiBlocking,
+                   fiReclaimable,
+                   fiAutoReclaimable,
+                   fiIndestructible,
+                   fiNoDisplayInfo,
+                   fiNoDrawUnderGray,
+                   fiFootPrintX,
+                   fiFootPrintZ,
+                   fiHeight,
+                   fiDamage,
+                   fiMetal,
+                   fiEnergy,
+                   fiIsWreckage );
+  TFeatureInfoSet = set of TFeatureInfo;
+                   
   // 0x100
   PFeatureDefStruct = ^TFeatureDefStruct;
   TFeatureDefStruct = packed record
     Name                   : Array[0..31] of AnsiChar;
     data1                  : Array[0..95] of AnsiChar;
     Description            : Array[0..19] of AnsiChar;
-    footprintx             : Word;
-    footprintz             : Word;
-    objects3d              : Pointer;
+    nFootPrintX            : Word;
+    nFootPrintZ            : Word;
+    p_Objects3D            : Pointer;
     field_9C               : Word;
     field_9E               : Cardinal;
     field_A2               : Array[0..5] of Byte;
-    p_anims                : Pointer;
-    p_seqname              : Pointer;
-    p_seqnameshad          : Pointer;
-    p_burnName2Sequence    : Pointer;
-    p_seqnameburnshad      : Pointer;
-    p_seqnamedie           : Pointer;
-    p_seqnamedieshad       : Pointer;
-    p_seqnamereclamate     : Pointer;
-    p_seqnamereclamateshad : Pointer;
+    p_Anims                : Pointer;
+    p_Seqname              : Pointer;
+    p_Seqnameshad          : Pointer;
+    p_BurnName2Sequence    : Pointer;
+    p_Seqnameburnshad      : Pointer;
+    p_Seqnamedie           : Pointer;
+    p_Seqnamedieshad       : Pointer;
+    p_Seqnamereclamate     : Pointer;
+    p_Seqnamereclamateshad : Pointer;
     field_CC               : Word;
     field_CE               : Word;
-    equals0                : Cardinal;
+    field_D0               : Cardinal;
     field_D4               : Cardinal;
     field_D8               : Word;
     field_DA               : Word;
     field_DC               : Cardinal;
     field_E0               : Cardinal;
     field_E4               : Cardinal;
-    sparktime              : Word;
-    damage                 : Word;
-    energy                 : Single;
-    metal                  : Single;
+    nSparkTime             : Word;
+    nDamage                : Word;
+    fEnergy                : Single;
+    fMetal                 : Single;
     field_F4               : Array[0..5] of Byte;
-    height                 : Byte;
-    spreadchance           : Byte;
-    reproduce              : Byte;
-    reproducearea          : Byte;
-    FeatureMask            : Word;
-  end; {FeatureDefStruct}
+    ucHeight               : Byte;
+    ucSpreadChance         : Byte;
+    ucReproduce            : Byte;
+    ucReproduceArea        : Byte;
+    nMask                  : Word;
+  end;
+
+  PFeatureAnimData = ^TFeatureAnimData;
+  TFeatureAnimData = record
+    NextAnimId       : Word;
+    PreviousAnimId   : Word; 
+    field_4          : Pointer;
+    Position         : TPosition;
+    field_14         : TPosition;
+    Turn             : TTurn;
+    Damage           : Word;
+    GridX            : Word;
+    GridZ            : Word;
+    nFeatureDefIndex : Word;
+    field_2E         : Word;
+  end;
 
   //0x54
   TExplosion = packed record
     p_Debris: Pointer;
     nFrame: Word;
-    Unknown1: array [0..5] of Byte;
+    nUnk: Word;
+    p_Unknown1: Pointer;
     p_FXGAF: Pointer;
-    Unknown2: array [0..11] of Byte;
-    lXPos: Integer;
-    lZPos: Integer;
-    lYPos: Integer;
+    p_Unknown2: Pointer;
+    p_Unknown3: Pointer;
+    p_Unknown4: Pointer;
+    Position: TPosition;
     Unknown3: array [0..35] of Byte;
-    nXTurn: SmallInt; //0x4C
-    nZTurn: SmallInt;
-    nYTurn: SmallInt;
+    Turn: TTurn;
     Unknown4: array [0..1] of Byte;
   end;
 
@@ -828,8 +860,8 @@ type
     field_1C               : Cardinal;
     field_20               : Cardinal;
     field_24               : Cardinal;
-    lMapWidth              : Cardinal;
-    lMapHeight             : Cardinal;
+    lMapWidth              : Integer;
+    lMapHeight             : Integer;
     lRadarPictureWidth     : Integer;
     lRadarPictureHeight    : Integer;
     lTilesetMapSizeX       : Cardinal; //0x14233 - this is the map width in units of 16 (multiply by 16 to get pixels)
@@ -844,7 +876,7 @@ type
     field_5C               : Cardinal;
     lMinWindSpeed          : Single;
     lMaxWindSpeed          : Single;
-    lGravity               : Single;
+    lGravity               : Integer;
     lTidalStrength         : Single;
     p_TedGeneratedPic      : Pointer;
     p_FeatureDefs          : Pointer; //0x1426F
@@ -876,14 +908,15 @@ type
     p_TargetUnit    : PUnitStruct;
     p_AttackerUnit  : PUnitStruct;
     lInterceptor    : Cardinal;
-    field_5A        : Integer;
-    field_5E        : Word;
+    nGridPosX       : Word;
+    nGridPosZ       : Word;
+    nHeight         : Word;
     nBurst          : Word;
     nObjectPiece    : Word;
     nPropellerSpeed : Word;
     cOwnerID        : Byte;
     field_67        : Word;
-    Mask            : Byte;
+    ucState         : Byte;
     data3           : Byte;
   end;
 
@@ -931,7 +964,7 @@ type
     lHeight                : Integer;
     lBuildPosRealY         : Integer;
     lUnknown15             : Integer;
-    lHeight2               : Integer;
+    lBuildPosRealH         : Integer;
     Unknown16              : array [0..5] of Byte;
     nMouseMapPosX          : Word; //0x2CAC
     Unknown17              : array [0..5] of Byte;
@@ -1014,31 +1047,31 @@ type
     Animation_Counts       : Integer;
     Animation_Files        : Pointer;
     field_147B3            : array [0..7] of Byte;
-    cannonshell            : Pointer;
-    plasmasm               : Pointer;
-    plasmamd               : Pointer;
-    ultrashell             : Pointer;
-    plasmasm_              : Pointer;
-    smoke_1                : Pointer;
-    smoke_2                : Pointer;
-    fire1                  : Pointer;
-    alfboom1               : Pointer;
-    radlogo                : Pointer;
-    radlogohigh            : Pointer;
-    nuclogo                : Pointer;
-    h2oboom2               : Pointer;
-    lavasplash             : Pointer;
-    flamestream            : Pointer;
-    explosion              : Pointer;
-    explode2               : Pointer;
-    explode3               : Pointer;
-    explode4               : Pointer;
-    explode5               : Pointer;
-    nuke1                  : Pointer;
-    shadow                 : Pointer;
-    igvictory              : Pointer;
-    igdefeat               : Pointer;
-    igpaused               : Pointer;
+    cannonshell            : PGAFSequence;
+    plasmasm               : PGAFSequence;
+    plasmamd               : PGAFSequence;
+    ultrashell             : PGAFSequence;
+    plasmasm_              : PGAFSequence;
+    smoke_1                : PGAFSequence;
+    smoke_2                : PGAFSequence;
+    fire1                  : PGAFSequence;
+    alfboom1               : PGAFSequence;
+    radlogo                : PGAFSequence;
+    radlogohigh            : PGAFSequence;
+    nuclogo                : PGAFSequence;
+    h2oboom2               : PGAFSequence;
+    lavasplash             : PGAFSequence;
+    flamestream            : PGAFSequence;
+    explosion              : PGAFSequence;
+    explode2               : PGAFSequence;
+    explode3               : PGAFSequence;
+    explode4               : PGAFSequence;
+    explode5               : PGAFSequence;
+    nuke1                  : PGAFSequence;
+    shadow                 : PGAFSequence;
+    igvictory              : PGAFSequence;
+    igdefeat               : PGAFSequence;
+    igpaused               : PGAFSequence;
     PANELTOP               : array [0..4] of Cardinal;
     PANELBOT               : array [0..4] of Cardinal;
     PANELSIDE              : Cardinal;
@@ -1078,7 +1111,7 @@ type
     p_GafSequence_32xlogos : Pointer;
     Unknown36              : array [0..59] of Byte;
     lNumExplosions         : Cardinal; //0x1491B
-    Explosions             : array [0..299] of TExplosion; //0x1491F
+    Explosions             : array [1..300] of TExplosion; //0x1491F
     pUnknown36             : Pointer; //0x1AB8F
     Unknown37              : array [0..102011] of Byte;
     lGUITextSound          : Cardinal; //0x33A0F
@@ -1195,10 +1228,10 @@ type
     field_39090            : array[0..282] of Byte;
     field_391AB            : Cardinal;
     field_391AF            : Cardinal;
-    field_391B3            : Cardinal;
-    field_391B7            : Word;
-    field_391B9            : Cardinal;
-    field_391BD            : Word;
+    UnitStateProbeUnitEnab : Cardinal;
+    UnitStateProbeUnitID   : Word;
+    BuilderProbeEnab       : Cardinal;
+    BuilderProbeUnitID     : Word;
     Showranges             : Cardinal;
     bps                    : Cardinal;
     field_391C7            : Cardinal;
@@ -1208,8 +1241,8 @@ type
     Unknown52              : array [0..3] of Byte; //0x391ED - there's references to [p_TAMemory + 0x391ED] in ta.exe, so this is definitely something
     lGUICallbackState      : Cardinal; //0x391F1
     lGUICallback           : Cardinal; //0x391F5
-    lengthOfCOMIXFnt       : Cardinal;
-    lengthOFsmlfontFnt     : Cardinal;
+    p_Font_COMIX           : Pointer;
+    p_Font_SMLFONT         : Pointer;
     Unknown53              : array [0..23] of Byte;
     lSingleCommanderDeath  : Cardinal; //0x39219
     lSingleMapping         : Cardinal;
@@ -1223,6 +1256,24 @@ type
     nGameState             : Word; //0x3923B
     Unknown55              : array [0..3522] of Byte; //to get size to 0x3A000 (what xpoy's IDA db says the size of this struct is
   end;
+
+type
+  PUnitSearchUnitsArray = ^TUnitSearchUnitsArray;
+  TUnitSearchUnitsArray = packed record
+    field_0: Integer;
+    p_ArrayBegin: Pointer;
+    p_ArrayEnd: Pointer;
+    p_Unk: Pointer;
+  end;
+
+type
+  PUnitSearchCallbackRec = ^TUnitSearchCallbackRec;
+  TUnitSearchCallbackRec = packed record
+    p_CallbackProc: Pointer;
+    p_OwnerPtr: PPlayerStruct;
+    p_RetArray: PUnitSearchUnitsArray;
+    p_CallerUnit: PUnitStruct;
+  end;  
 
   TTAActionType = ( Action_Ready = 0,
                     Action_Activate = 1,
@@ -1300,9 +1351,10 @@ type
                dtGiveUnit = 4,    // 30000 nil, target
                dtReclaim = 5,
                dtUnitDeath = 6,   // or 3 (differs if unit died because of enemy unit or aoe of owner weapon) dmg 30000
-               dtDieInLab = 9,    // 30000 builder, builded unit or self, self
+               dtTransformToFeature = 7,
+               dtBuildFinished = 9,    // 30000 builder, builded unit or self, self
                dtHeal = 10,       // one, two or self,self
-               dtUnknown1 = 11 ); // maybe net packet unit health confirm
+               dtLava = 11 );
 
   // ---------------------------------------------------------------------------
   // custom structures used by TADR
@@ -1322,10 +1374,11 @@ type
                         usfExcludeBuildings,
                         usfExcludeNonWeaponed,
                         usfIncludeInBuildState,
-                        usfIncludeTransported );
+                        usfIncludeTransported,
+                        usfExcludeNotInLos);
   TUnitSearchFilterSet = set of TUnitSearchFilter;
 
-  TTeleportMethod = ( tmNone, tmSelf, tmSelfLoS, tmVTOLOthers, tmYardmap, tmLinked );
+  TTeleportMethod = ( tmNone, tmSelf, tmVTOLOthers, tmYardmap, tmLinked );
 
   TUnitInfoExtensions = ( uiEnergyStorage = 1,
                           uiEnergyMake = 2,
@@ -1422,8 +1475,9 @@ type
   end;
   TUnitSearchArr = array of TStoreUnitsRec;
   TSpawnedMinionsArr = array of TStoreUnitsRec;
+  TFoundUnits = array of Cardinal;
 
-  TCustomUnitFieldsRec = packed record
+  TUnitsCustomFieldsRec = packed record
     TeleportReloadMax    : Integer;
     TeleportReloadCur    : Integer;
     UnitInfo             : PUnitInfo;
@@ -1433,23 +1487,23 @@ type
     ShieldRange          : Integer;
     ForcedYPos           : Boolean;
     ForcedYPosVal        : Integer;
-    
     { GUI }
-    CustomWeapReload     : Boolean;
     CustomWeapReloadMax  : Integer;
     CustomWeapReloadCur  : Integer;
+    SelectAnimStartTime  : Integer;
   end;
-  TCustomUnitFieldsArr = array of TCustomUnitFieldsRec;
+  TUnitsCustomFields = array of TUnitsCustomFieldsRec;
 
   TExtraWeaponDefTagsRec = packed record
-    HighTrajectory   : Integer;
+    HighTrajectory   : Boolean;
+    MaxBarrelAngle   : Single;
     PreserveAccuracy : Integer;
     NotAirWeapon     : Integer;
     WeaponType2      : array[0..63] of AnsiChar;
     Intercepts       : TStringList;
   end;
 
-  TExtraUnitInfoTagsRec = packed record
+  TUnitInfoCustomFieldsRec = packed record
     MultiAirTransport       : Integer;
     ExtraVTOLOrders         : Integer;
     TransportWeightCapacity : Integer;
@@ -1474,6 +1528,9 @@ type
     DefaultMissionOrgPos    : Boolean;
     ShieldRange             : Integer;
     SelectBoxType           : Integer;
+    SelectAnimation         : Integer;
+    SelectAnimationAlpha    : Boolean;
+    CustomGUIIdx            : Integer;
   end;
 
   TExtraMapOTATagsRec = packed record
@@ -1495,33 +1552,38 @@ type
     ModMinorVer    : AnsiChar;
   end;
 
-  PCallbackRec = ^TCallbackRec;
-  TSearchUnitsCallbackProc = procedure(p_FoundUnit: PUnitStruct; CallbackRec: PCallbackRec);
-
-  TCallbackRec = record
-    CallbackProc : TSearchUnitsCallbackProc;
-    p_CallerUnit : PUnitStruct;
+  TFonts = record
+    p_ArmBrief: Pointer;
+    p_ArmBut: Pointer;
+    p_ArmContr: Pointer;
+    p_ArmFont: Pointer;
+    p_ArmFont827: Pointer;
+    p_Buttons: Pointer;
+    p_Console: Pointer;
+    p_CorButt: Pointer;
+    p_CorButtX: Pointer;
+    p_CorContr: Pointer;
+    p_CoreFont: Pointer;
+    p_CoreFont827: Pointer;
+    p_Courier: Pointer;
+    p_Hatt12: Pointer;
+    p_Hatt14: Pointer;
+    p_MScript: Pointer;
+    p_Roman10: Pointer;
+    p_Roman12: Pointer;
   end;
-  
+
 var
-  ExtraGAFAnimations : TExtraGAFAnimations;
-
-  CustomUnitFieldsArr : TCustomUnitFieldsArr;
-
-  ExtraUnitInfoTags : array of TExtraUnitInfoTagsRec;
-  ExtraWeaponDefTags : array of TExtraWeaponDefTagsRec;
-  ExtraMapOTATags : TExtraMapOTATagsRec;
-
-  LocalModInfo : TPlayerModInfo;
-
-  ExtraSideData : array of TExtraSideData;
-
-  // pointer to ddraw's weapon array
-  WeaponLimitPatchArr : Pointer;
-
-  NanoSpotUnitSt, NanoSpotQueueUnitSt : TUnitStruct;
-  NanoSpotUnitInfoSt, NanoSpotQueueUnitInfoSt : TUnitInfo;
-
+  ExtraGAFAnimations: TExtraGAFAnimations;
+  UnitsCustomFields: TUnitsCustomFields;
+  UnitInfoCustomFields: array of TUnitInfoCustomFieldsRec;
+  ExtraWeaponDefTags: array of TExtraWeaponDefTagsRec;
+  ExtraMapOTATags: TExtraMapOTATagsRec;
+  LocalModInfo: TPlayerModInfo;
+  ExtraSideData: array of TExtraSideData;
+  // nanoframe units
+  NanoSpotUnitSt, NanoSpotQueueUnitSt: TUnitStruct;
+  NanoSpotUnitInfoSt, NanoSpotQueueUnitInfoSt: TUnitInfo;
   // map missions
   MapMissionsUnit: TUnitStruct;
   MapMissionsUnitInfo: TUnitInfo;
@@ -1532,14 +1594,12 @@ var
   MapMissionsTextMessages: TStringList;
   MouseLock: LongBool;
   CameraFadeLevel: Integer;
-
+  //
   MapsList: TStringList;
-
-  // data that can be shared globally between units
-  UnitsSharedData : array[0..1023] of Integer;
-
-const
-  MAX_SCRIPT_SLOTS : Byte = 64;
+  //
+  UnitsSharedData: array[0..1023] of Integer;
+  //
+  Fonts: TFonts;
   
 implementation
 

@@ -7,9 +7,9 @@ uses
 // -----------------------------------------------------------------------------
 
 const
-  State_BattleRoomEnhancements : boolean = true;
+  State_BattleRoomEnhancements: Boolean = True;
 
-function GetPlugin : TPluginData;
+function GetPlugin: TPluginData;
 
 // -----------------------------------------------------------------------------
 
@@ -17,128 +17,38 @@ Procedure OnInstallBattleRoomEnhancements;
 Procedure OnUninstallBattleRoomEnhancements;
 
 // -----------------------------------------------------------------------------
-
-procedure BattleRoomEnhancements_GetMemory;
-procedure BattleRoom_FIXEDLOC;
-procedure BattleRoom_OverrideButtonsHook;
-procedure BattleRoom_NewButtonsPressHook;
-procedure BattleRoom_EnterBattleRoomHook;
-procedure BattleRoom_BattleRoomHostToGameHook;
-procedure BattleRoom_BattleRoomToGameHook;
-procedure BattleRoom_HostButtonsHook;
-procedure BattleRoom_DrawModVersionOverLogo;
-procedure BattleRoom_BroadcastModInfoHook;
 
 implementation
 uses
-  Windows,
   Classes,
-  IniOptions,
   SysUtils,
+  IniOptions,
   PlayerDataU,
   idplay,
-  TA_MemoryLocations,
-  TA_MemPlayers,
+  TADemoConsts,
   TA_MemoryStructures,
   TA_MemoryConstants,
-  TADemoConsts,
-  TA_FunctionsU;
+  TA_FunctionsU,
+  TA_MemoryLocations,
+  TA_MemPlayers;
 
 type
-  DWORDLONG = UInt64;
-
   PMemoryStatusEx = ^TMemoryStatusEx;
   TMemoryStatusEx = packed record
-    dwLength: DWORD;
-    dwMemoryLoad: DWORD;
-    ullTotalPhys: DWORDLONG;
-    ullAvailPhys: DWORDLONG;
-    ullTotalPageFile: DWORDLONG;
-    ullAvailPageFile: DWORDLONG;
-    ullTotalVirtual: DWORDLONG;
-    ullAvailVirtual: DWORDLONG;
-    ullAvailExtendedVirtual: DWORDLONG;
+    dwLength: Cardinal;
+    dwMemoryLoad: Cardinal;
+    ullTotalPhys: UInt64;
+    ullAvailPhys: UInt64;
+    ullTotalPageFile: UInt64;
+    ullAvailPageFile: UInt64;
+    ullTotalVirtual: UInt64;
+    ullAvailVirtual: UInt64;
+    ullAvailExtendedVirtual: UInt64;
   end;
 
-var
-  BattleRoomEnhancementsPlugin: TPluginData;
-  
-function GlobalMemoryStatusEx(var lpBuffer: TMemoryStatusEx): BOOL; stdcall; external kernel32;
+function GlobalMemoryStatusEx(var lpBuffer: TMemoryStatusEx): Boolean; stdcall; external 'kernel32.dll';
 
-Procedure OnInstallBattleRoomEnhancements;
-begin
-end;
-
-Procedure OnUninstallBattleRoomEnhancements;
-begin
-end;
-
-function GetPlugin : TPluginData;
-begin
-  if IsTAVersion31 and State_BattleRoomEnhancements then
-  begin
-    BattleRoomEnhancementsPlugin := TPluginData.create( false,
-                            '',
-                            State_BattleRoomEnhancements,
-                            @OnInstallBattleRoomEnhancements,
-                            @OnUnInstallBattleRoomEnhancements );
-
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          '',
-                          @BattleRoomEnhancements_GetMemory,
-                          $004643B0, 0);
-                            
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          'Handle new state of FIXEDLOC button',
-                          @BattleRoom_FIXEDLOC,
-                          $0044868F, 2);
-
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          'Override state of GUI buttons that are used by engine and TADR',
-                          @BattleRoom_OverrideButtonsHook,
-                          $0044AF2C, 1);
-
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          '',
-                          @BattleRoom_NewButtonsPressHook,
-                          $00448674, 0);
-
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          'Load settings',
-                          @BattleRoom_EnterBattleRoomHook,
-                          $0044A660, 1);
-
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          'Set and Save AI difficulty [host only]',
-                          @BattleRoom_BattleRoomHostToGameHook,
-                          $00448A0B, 3);
-
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          'Save Race side [players and host]',
-                          @BattleRoom_BattleRoomToGameHook,
-                          $00497FF6, 0);
-
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          'Disable host buttons only for players',
-                          @BattleRoom_HostButtonsHook,
-                          $0044600D, 0);
-
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          'Draw Mod Version instead of internal version',
-                          @BattleRoom_DrawModVersionOverLogo,
-                          $0044AF11, 0);
-                            {
-    BattleRoomEnhancementsPlugin.MakeRelativeJmp( State_BattleRoomEnhancements,
-                          '',
-                          @BattleRoom_BroadcastModInfoHook,
-                          $00450FDC, 0);
-                           }
-    Result:= BattleRoomEnhancementsPlugin;
-  end else
-    Result := nil;
-end;
-
-function GetMemory : Word; cdecl;
+function GetInstalledRAM: Word; cdecl;
 var
   MemStatus: TMemoryStatusEx;
   lTotalRAM : Integer;
@@ -154,7 +64,6 @@ begin
   except
     Exit;
   end;
-    
   if lTotalRAM > High(Word) then
     Result := High(Word)
   else
@@ -165,37 +74,36 @@ procedure BattleRoomEnhancements_GetMemory;
 label
   OrginalTAMemRead;
 asm
-    push    eax
-    push    edx
-    push    ecx
-    call GetMemory
-    test    eax, eax
-    je OrginalTAMemRead
-    pop     ecx
-    mov     [ecx+99h], ax
-    pop     edx
-    pop     eax
-    push $004643C3;
-    call PatchNJump;
+  push    eax
+  push    edx
+  push    ecx
+  call GetInstalledRAM
+  test    eax, eax
+  je OrginalTAMemRead
+  pop     ecx
+  mov     [ecx+99h], ax
+  pop     edx
+  pop     eax
+  push $004643C3;
+  call PatchNJump;
 OrginalTAMemRead :
-    pop     ecx
-    pop     edx
-    pop     eax
-    and     edx, 0FFFFFh
-    push $004643B6;
-    call PatchNJump;
+  pop     ecx
+  pop     edx
+  pop     eax
+  and     edx, 0FFFFFh
+  push $004643B6;
+  call PatchNJump;
 end;
-
 
 function GetRandomMapEx: String;
 var
-  st    :string;
-  nr    :integer;
-  tot   :integer;
-  i     :integer;
-  currchar :char;
+  st: String;
+  nr: Integer;
+  tot: Integer;
+  i: Integer;
+  currchar: Char;
   pos: Cardinal;
-  mapname :string;
+  mapname: String;
 begin
   Result := '';
   if IsLocalPlayerHost then
@@ -229,10 +137,7 @@ begin
         end;
       end;
     end;
-
-    if MapsList.Count = 0 then
-      Exit;
-
+    if MapsList.Count = 0 then Exit;
     nr := Random(tot-1);
     st := MapsList.strings[nr];
     Result := st;
@@ -253,47 +158,45 @@ label
   LocFixedOrRandom,
   LocManual;
 asm
-    push    $505598 // 'FIXEDLOC'
-    push    esi
-    call    GUIGADGET_GetStatus
-    cmp     eax, 2
-    jz      LocManual
+  push    FIXEDLOC
+  push    esi
+  call    GUIGADGET_GetStatus
+  cmp     eax, 2
+  jz      LocManual
 LocFixedOrRandom :
-    push    0
-    call    CommanderWarpButtonState
-    mov     eax, [esp+10h]
-    mov     ecx, [eax+27h]
-    push $00448696;
-    call PatchNJump;
+  push    0
+  call    CommanderWarpButtonState
+  mov     eax, [esp+10h]
+  mov     ecx, [eax+27h]
+  push $00448696;
+  call PatchNJump;
 LocManual :
-    push    1
-    call    CommanderWarpButtonState
-    push $00448B98;
-    call PatchNJump;
+  push    1
+  call    CommanderWarpButtonState
+  push $00448B98;
+  call PatchNJump;
 end;
 
-procedure BattleRoom_OverrideButtons(GUI: Pointer); stdcall;
+procedure OverrideButtonsState(GUI: Pointer); stdcall;
 begin
   if GlobalDPlay.CommanderWarp = 1 then
-    GUIGADGET_SetStatus(GUI, PAnsiChar($505598), 2);
+    GUIGADGET_SetStatus(GUI, PAnsiChar(FIXEDLOC), 2);
 end;
 
-procedure BattleRoom_OverrideButtonsHook;
+procedure BattleRoom_OverrideButtonsState;
 asm
-    add     ecx, TTAdynmemStruct.p_TAGUIObject
-    pushAD
-    push    ecx
-    call    BattleRoom_OverrideButtons
-    popAD
-    push $0044AF32;
-    call PatchNJump;
+  add     ecx, TTAdynmemStruct.p_TAGUIObject
+  pushAD
+  push    ecx
+  call    OverrideButtonsState
+  popAD
+  push $0044AF32;
+  call PatchNJump;
 end;
 
-function BattleRoom_NewButtonsPress(GUIHandle: Pointer): LongBool; stdcall;
+function NewButtonsClicked(GUIHandle: Pointer): LongBool; stdcall;
 var
-  sMapName : String;
-//  LocalPlayer, Player: PPlayerStruct;
-//  i: Integer;
+  sMapName: String;
 begin
   Result := False;
   if GUIGADGET_WasPressed(GUIHandle, PAnsiChar('AUTOPAUSE')) then
@@ -320,68 +223,36 @@ begin
   if GUIGADGET_WasPressed(GUIHandle, PAnsiChar('RANDMAP')) then
   begin
     Result := True;
-
     sMapName := GetRandomMapEx;
     if GlobalDPlay.Players.Count > 1 then
       GlobalDPlay.SendChat('The randomly selected map is: ' + sMapName)
     else
       SendTextLocal('The randomly selected map is: ' + sMapName);
-{    LocalPlayer := TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID);
-
-    sub_435D30(nil, nil, TAData.MainStruct.p_MapOTAFile, 0);
-
-    LoadMap(nil, nil,
-            TAData.MainStruct.p_MapOTAFile,
-            PAnsiChar(sMapName));
-
-    LocalPlayer.PlayerInfo.lCRC_OTA :=
-      CalculateOTACRC(nil, nil, TAData.MainStruct.p_MapOTAFile);
-    TAData.MainStruct.p_MapOTAFile.pCurrentMapName :=
-      @TAData.MainStruct.p_MapOTAFile.pMapName;
-
-    FillChar(LocalPlayer.PlayerInfo.MapName, 32, 0);
-    StrPLCopy(LocalPlayer.PlayerInfo.MapName, sMapName, 32);
-    GUIGADGET_SetText(GUIHandle, PAnsiChar('MAPNAME'), @LocalPlayer.PlayerInfo.MapName, 0);
-
-    LocalPlayer.PlayerInfo.lCRC_OTA :=
-      CalculateOTACRC(nil, nil, TAData.MainStruct.p_MapOTAFile);
-
-    Send_PacketPlayerInfo();
-    REPORTER_PlayerInfo(5);
-    UpdateGameInfo();
-
-    for i:= 0 to 10 do
-    begin
-      Player := TAPlayer.GetPlayerByIndex(i);
-      if (TAPlayer.PlayerController(Player) = Player_LocalHuman) or
-         (TAPlayer.PlayerController(Player) = Player_LocalAI) then
-        Player.PlayerInfo.PropertyMask := Player.PlayerInfo.PropertyMask and $FFDF;
-    end;  }
   end;
 
   if Result then
     PlaySound_2D_Name(PAnsiChar('Multi'), 0);
 end;
 
-procedure BattleRoom_NewButtonsPressHook;
+procedure BattleRoom_NewButtonsPress;
 label
   ButtonHandled;
 asm
-    pushAD
-    push    esi
-    call    BattleRoom_NewButtonsPress
-    test    eax, eax
-    popAD
-    jnz     ButtonHandled
-    push    $505598
-    push $00448679;
-    call PatchNJump;
+  pushAD
+  push    esi
+  call    NewButtonsClicked
+  test    eax, eax
+  popAD
+  jnz     ButtonHandled
+  push    $505598
+  push $00448679;
+  call PatchNJump;
 ButtonHandled:
-    push $00448B98;
-    call PatchNJump;
+  push $00448B98;
+  call PatchNJump;
 end;
 
-procedure BattleRoom_EnterBattleRoom; stdcall;
+procedure EnterBattleRoom; stdcall;
 var
   Player: PPlayerStruct;
   Buffer: Integer;
@@ -395,7 +266,6 @@ begin
       if TAData.MainStruct.RaceSideData[Buffer].Name <> #0 then
         Player.PlayerInfo.Raceside := Buffer;
     end;
-
     if IsLocalPlayerHost then
     begin
       if REGISTRY_ReadInteger(PAnsiChar('Total Annihilation'),
@@ -403,7 +273,6 @@ begin
         GlobalDPlay.AIDifficulty := Buffer
       else
         GlobalDPlay.AIDifficulty := 1;
-
       GUIGADGET_SetStatus(@TAData.MainStruct.p_TAGUIObject,
           PAnsiChar('AIDIFF'), GlobalDPlay.AIDifficulty);
     end;
@@ -411,17 +280,17 @@ begin
   end;
 end;
 
-procedure BattleRoom_EnterBattleRoomHook;
+procedure BattleRoom_EnterBattleRoom;
 asm
-    pushAD
-    call    BattleRoom_EnterBattleRoom
-    popAD
-    add     edx, 519h
-    push $0044A666;
-    call PatchNJump;
+  pushAD
+  call    EnterBattleRoom
+  popAD
+  add     edx, 519h
+  push $0044A666;
+  call PatchNJump;
 end;
 
-procedure BattleRoom_HostBattleRoomToGame; stdcall;
+procedure HostBattleRoomToGame; stdcall;
 begin
   TAData.MainStruct.lCurrentAIProfile := 2;
   if GlobalDPlay.AIDifficulty <> 0 then
@@ -432,16 +301,16 @@ begin
   end;
 end;
 
-procedure BattleRoom_BattleRoomHostToGameHook;
+procedure BattleRoom_BattleRoomHostToGame;
 asm
-    pushAD
-    call    BattleRoom_HostBattleRoomToGame
-    popAD
-    push $00448A15;
-    call PatchNJump;
+  pushAD
+  call    HostBattleRoomToGame
+  popAD
+  push $00448A15;
+  call PatchNJump;
 end;
 
-procedure BattleRoom_BattleRoomToGame; stdcall;
+procedure BattleRoomToGame; stdcall;
 var
   Player: PPlayerStruct;
 begin
@@ -460,27 +329,26 @@ begin
   end;
 end;
 
-procedure BattleRoom_BattleRoomToGameHook;
+procedure BattleRoom_BattleRoomToGame;
 asm
-    pushAD
-    call    BattleRoom_BattleRoomToGame
-    popAD
-    call    REGISTRY_SaveSettings
-    push $00497FFB;
-    call PatchNJump;
+  pushAD
+  call    BattleRoomToGame
+  popAD
+  call    REGISTRY_SaveSettings
+  push $00497FFB;
+  call PatchNJump;
 end;
 
-procedure BattleRoom_HostButtons; stdcall;
+procedure DisableHostButtons; stdcall;
 var
-  cGrayed : Byte;
-  cStatus : Byte;
+  cGrayed: Byte;
+  cStatus: Byte;
 begin
   cStatus := 0;
   if IsLocalPlayerHost then
     cGrayed := 0
   else
     cGrayed := 1;
-
   GUIGADGET_SetGrayedOut(@TAData.MainStruct.p_TAGUIObject,
     PAnsiChar('AUTOPAUSE'), cGrayed);
   GUIGADGET_SetGrayedOut(@TAData.MainStruct.p_TAGUIObject,
@@ -489,7 +357,6 @@ begin
     PAnsiChar('SPEEDLOCK'), cGrayed);
   GUIGADGET_SetGrayedOut(@TAData.MainStruct.p_TAGUIObject,
     PAnsiChar('RANDMAP'), cGrayed);
-
   if cGrayed = 1 then
   begin
     if GlobalDPlay.AutoPauseAtStart then
@@ -507,27 +374,26 @@ begin
   end;
 end;
 
-procedure BattleRoom_HostButtonsHook;
+procedure BattleRoom_DisableHostButtons;
 asm
-    pushAD
-    call    BattleRoom_HostButtons
-    popAD
-    call    GUIGADGET_SetStatus
-    push $00446012;
-    call PatchNJump;
+  pushAD
+  call    DisableHostButtons
+  popAD
+  call    GUIGADGET_SetStatus
+  push $00446012;
+  call PatchNJump;
 end;
 
-function DrawModVersionOverLogo(PlayerIdx: Integer; OFFSCREEN_ptr: Cardinal;
+procedure DrawModVersionOverLogo(PlayerIdx: Integer; p_Offscreen: Pointer;
   const str: PAnsiChar; left: Integer; top: Integer; MaxLen: Integer;
-  Background: Integer) : LongInt; stdcall;
+  Background: Integer); stdcall;
 var
   Player: PPlayerStruct;
   NewStr: String;
   StrExt: Integer;
 begin
   Player := TAPlayer.GetPlayerByIndex(PlayerIdx);
-  PlayerIdx := GlobalDPlay.Players.ConvertId(Player.lDirectPlayID,ZI_Everyone,false);
-
+  PlayerIdx := GlobalDPlay.Players.ConvertId(Player.lDirectPlayID, ZI_Everyone, False);
   if (GlobalDPlay.Players[PlayerIdx].ModInfo.ModID > 1) and
      (GlobalDPlay.Players[PlayerIdx].ModInfo.ModMajorVer <> '0') then
   begin
@@ -549,31 +415,81 @@ begin
   StrExt := 0;
   if GetStrExtent(PAnsiChar(NewStr)) > 14 then
     StrExt := 1;
-  Result := DrawText(OFFSCREEN_ptr, PAnsiChar(NewStr), left - StrExt, top, MaxLen + 2, Background);
+  DrawText(p_Offscreen, PAnsiChar(NewStr), left - StrExt, top, MaxLen + 2, Background);
 end;
 
 procedure BattleRoom_DrawModVersionOverLogo;
 asm
-    push    edi
-    call    DrawModVersionOverLogo
-    push $0044AF16;
-    call PatchNJump;
-end;
- 
-procedure BattleRoom_BroadcastModInfo(Player: PPlayerStruct); stdcall;
-begin
-  GlobalDPlay.BroadcastModInfo;
+  push    edi
+  call    DrawModVersionOverLogo
+  push $0044AF16;
+  call PatchNJump;
 end;
 
-procedure BattleRoom_BroadcastModInfoHook;
-asm
-  pushAD
-  push      ebp
-  call      BattleRoom_BroadcastModInfo
-  popAD
-  mov       ecx, 2Eh
-  push $00450FE1;
-  call PatchNJump;
+Procedure OnInstallBattleRoomEnhancements;
+begin
+end;
+
+Procedure OnUninstallBattleRoomEnhancements;
+begin
+end;
+
+function GetPlugin: TPluginData;
+begin
+  if IsTAVersion31 and State_BattleRoomEnhancements then
+  begin
+    Result := TPluginData.Create( False,
+                                  '',
+                                  State_BattleRoomEnhancements,
+                                  @OnInstallBattleRoomEnhancements,
+                                  @OnUnInstallBattleRoomEnhancements );
+
+    Result.MakeRelativeJmp( State_BattleRoomEnhancements,
+                            'Get more accurate installed RAM value (max 64GB)',
+                            @BattleRoomEnhancements_GetMemory,
+                            $004643B0, 0 );
+
+    Result.MakeRelativeJmp( State_BattleRoomEnhancements,
+                            'Handle new state of FIXEDLOC button',
+                            @BattleRoom_FIXEDLOC,
+                            $0044868F, 2 );
+
+    Result.MakeRelativeJmp( State_BattleRoomEnhancements,
+                            'Override state of GUI buttons that are used by engine and TADR',
+                            @BattleRoom_OverrideButtonsState,
+                            $0044AF2C, 1 );
+
+    Result.MakeRelativeJmp( State_BattleRoomEnhancements,
+                            'Handle click events for new buttons',
+                            @BattleRoom_NewButtonsPress,
+                            $00448674, 0 );
+
+    Result.MakeRelativeJmp( State_BattleRoomEnhancements,
+                            'Load extra battle room settings from registry',
+                            @BattleRoom_EnterBattleRoom,
+                            $0044A660, 1 );
+
+    Result.MakeRelativeJmp( State_BattleRoomEnhancements,
+                            'Set and save AI difficulty to registry [host only]',
+                            @BattleRoom_BattleRoomHostToGame,
+                            $00448A0B, 3 );
+
+    Result.MakeRelativeJmp( State_BattleRoomEnhancements,
+                            'Save race side to registry [players and host]',
+                            @BattleRoom_BattleRoomToGame,
+                            $00497FF6, 0 );
+
+    Result.MakeRelativeJmp( State_BattleRoomEnhancements,
+                            'Disable host buttons for non host player',
+                            @BattleRoom_DisableHostButtons,
+                            $0044600D, 0 );
+
+    Result.MakeRelativeJmp( State_BattleRoomEnhancements,
+                            'Draw game mod version instead of internal TA version',
+                            @BattleRoom_DrawModVersionOverLogo,
+                            $0044AF11, 0 );
+  end else
+    Result := nil;
 end;
 
 end.

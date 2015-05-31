@@ -9,7 +9,7 @@ uses
 // -----------------------------------------------------------------------------
 
 const
-  State_KeyboardHook : boolean = true;
+  State_KeyboardHook: Boolean = True;
   
 function GetPlugin : TPluginData;
   
@@ -44,6 +44,7 @@ uses
   TA_MemoryStructures,
   TA_MemoryConstants,
   TA_FunctionsU,
+  GUIEnhancements,
   //BattleRoomScroll,
   SaveUnitsWeaponsList,
   UnitActions,
@@ -66,7 +67,7 @@ end;
 
 Procedure OnUninstallKeyboardHook;
 begin
-  CloseHandle(Semaphore_IdleFactory);
+ CloseHandle(Semaphore_IdleFactory);
   if (hKeyboardHook <> 0) then
     UnhookWindowsHookEx(hKeyboardHook);
 end;
@@ -96,30 +97,9 @@ asm
   call PatchNJump;
 end;
 
-procedure MeteorsTest;
-var
-  StartPos, TargetPos: TPosition;
-begin
-  StartPos.X := TAData.MainStruct.nMouseMapPosX;
-  StartPos.Z := TAData.MainStruct.nMouseMapPosY;
-
-  TargetPos.x_ := 0;
-  TargetPos.X := 0;
-  TargetPos.z_ := 0;
-  TargetPos.Z := 0;
-
-  StartPos.Y := 1350;
-  TargetPos.Y := 65521;
-
-  PROJECTILES_FireMapWeap(WEAPONS_Name2Ptr(PAnsiChar('METEOR')), @StartPos, @TargetPos, True);
-end;
-
 function KeyboardHookFunction(nCode: Integer; wParam: Word; lParam: LongInt): LRESULT; stdcall;
 var
   UnitAtMouse: PUnitStruct;
-{$IFDEF Debug}
-  Position: TPosition;
-{$ENDIF}
 begin
   if nCode < 1 then
     CallNextHookEx(hKeyboardHook, nCode, wParam, lParam)
@@ -178,8 +158,8 @@ begin
                   if (UnitAtMouse <> nil) then
                     if TAUnit.IsOnThisComp(UnitAtMouse, False) then
                     begin
-                      PUnitOrder(UnitAtMouse.p_MainOrder).p_NextOrder := nil;
-                      PUnitStruct(UnitAtMouse).p_SubOrder := nil;
+                      UnitAtMouse.p_MainOrder.p_NextOrder := nil;
+                      UnitAtMouse.p_SubOrder := nil;
                       Result := 1;
                       Exit;
                     end;
@@ -194,44 +174,20 @@ begin
                   Exit;
                 end;
               end;
-       {$IFDEF Debug}
-       $51 : begin     // left alt + shift + q
+        {$IFDEF Debug}
+        $51 : begin     // left alt + shift + q
                 if ( ((GetAsyncKeyState(VK_MENU) and $8000) > 0) and
                      ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) ) then
                 begin
-                  if TAData.DevMode then
+                  UnitAtMouse := TAUnit.AtMouse;
+                  if (UnitAtMouse <> nil) then
                   begin
-                    GetTPosition(TAData.MainStruct.nMouseMapPosX,
-                                 TAData.MainStruct.nMouseMapPosY, Position);
-                    SendTextLocal(IntToStr(TAUnit.AtPosition(@Position)));
-                    UnitAtMouse := TAUnit.AtMouse;
-                    if (UnitAtMouse <> nil) then
-                    begin
-                      ClearChat;
-                      SendTextLocal('ptr  : ' + IntToHex(Cardinal(UnitAtMouse), 8));
-                      SendTextLocal('id  : ' + IntToHex(TAUnit.GetLongId(UnitAtMouse), 8));
-                      SendTextLocal('pos : X:' + IntToStr(TAUnit.GetUnitX(UnitAtMouse)) + ' Z:' + IntToStr(TAUnit.GetUnitZ(UnitAtMouse)) + ' H:' + IntToStr(TAUnit.GetUnitY(UnitAtMouse)));
-                      SendTextLocal('turn Z: ' + IntToStr(TAUnit.GetTurnZ(UnitAtMouse)));
-                      SendTextLocal('unit type id  : ' + IntToStr(PUnitStruct(UnitAtMouse).nUnitInfoID));
-                      SendTextLocal('transported by : ' + IntToStr(TAUnit.GetID(PUnitStruct(UnitAtMouse).p_TransporterUnit)));
-                      SendTextLocal('transporting : ' + IntToStr(TAUnit.GetID(PUnitStruct(UnitAtMouse).p_TransportedUnit)));
-                      SendTextLocal('prior unit : ' + IntToStr(TAUnit.GetID(PUnitStruct(UnitAtMouse).p_PriorUnit)));
-                      SendTextLocal('unitstate  : ' + IntToHex(PUnitStruct(UnitAtMouse).lUnitStateMask, 8));
-                      SendTextLocal('unitstatebas : ' + IntToHex(PUnitStruct(UnitAtMouse).nUnitStateMaskBas, 8));
-                      SendTextLocal('sfx occupy  : ' + IntToHex(PUnitStruct(UnitAtMouse).lSfxOccupy, 8));
-                      SendTextLocal('owner id       : ' + IntToStr(TAUnit.GetOwnerIndex(UnitAtMouse)));
-                      if PUnitStruct(UnitAtMouse).UnitWeapons[0].p_Weapon <> nil then
-                        if PWeaponDef(PUnitStruct(UnitAtMouse).UnitWeapons[0].p_Weapon).lWeaponTypeMask and (1 shl 28) = 1 shl 28 then
-                        begin
-                          PUnitStruct(UnitAtMouse).UnitWeapons[0].cStock := PUnitStruct(UnitAtMouse).UnitWeapons[0].cStock + 1;
-                          SendTextLocal('Increased stockpile');
-                        end;
-                      SendTextLocal('');
-                    end else
-                    begin
-                      MeteorsTest;
-                    end;
                   end;
+                end;
+              end;
+        $72 : begin     // shift + F3
+                if ((GetAsyncKeyState(VK_SHIFT) and $8000) > 0) then
+                begin
                 end;
               end;
         {$ENDIF}
@@ -312,15 +268,15 @@ end;
 
 procedure UpdateSelectUnitEffect;
 begin
-	TAData.MainStruct.DesktopGUIState := TAData.MainStruct.DesktopGUIState or $10;
-	TAData.MainStruct.ShowRangeUnitIndex := 0;
+  TAData.MainStruct.DesktopGUIState := TAData.MainStruct.DesktopGUIState or $10;
+  TAData.MainStruct.ShowRangeUnitIndex := 0;
 end;
 
 procedure ApplySelectUnitMenu_Wrapper;
 var
-  old : Byte;
+  old: Byte;
 begin
-	old := TAData.MainStruct.ucPrepareOrderType;
+  old := TAData.MainStruct.ucPrepareOrderType;
   ApplySelectUnitMenu;
   TAData.MainStruct.ucPrepareOrderType := old;
 end;
@@ -329,19 +285,17 @@ procedure ScrollCenterView(X, Z : Integer; Smooth: Boolean);
 var
   MaxX, MaxZ : Integer;
 begin
-	X := X - (TAData.MainStruct.ScreenWidth-128) div 2;
-	Z := Z - (TAData.MainStruct.ScreenHeight-64) div 2;
+  X := X - (TAData.MainStruct.ScreenWidth-128) div 2;
+  Z := Z - (TAData.MainStruct.ScreenHeight-64) div 2;
 
-	if X < 0 then
-		X := 0
+  if X < 0 then X := 0
   else begin
     MaxX := TAData.MainStruct.TNTMemStruct.lRadarPictureWidth - ((TAData.MainStruct.ScreenWidth-128));
     if (X > MaxX) then
       X := MaxX;
   end;
 
-	if Z < 0 then
-		Z := 0
+  if Z < 0 then Z := 0
   else begin
     MaxZ := TAData.MainStruct.TNTMemStruct.lRadarPictureHeight - ((TAData.MainStruct.ScreenHeight-64));
     if (Z > MaxZ) then
@@ -390,7 +344,7 @@ Retry:
             if CurrentUnit.p_UNITINFO.cBMCode = 0 then
               if TAUnit.GetUnitInfoField(CurrentUnit, uiBUILDER) <> 0 then
               begin
-                if ExtraUnitInfoTags[CurrentUnit.p_UNITINFO.nCategory].NotLab then
+                if UnitInfoCustomFields[CurrentUnit.p_UNITINFO.nCategory].NotLab then
                 begin
                   Inc(j);
                   Continue;

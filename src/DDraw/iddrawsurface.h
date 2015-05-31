@@ -73,8 +73,6 @@ typedef struct DataShare_
 	int ta3d;
 	//int IsWatch;
 	int LosViewOn;
-	int WeaponIDLimit;
-	int MultiWeaponID;
 	int PlayerDotColors[10];
 	unsigned int IniCRC;
 }*DataSharePTR;

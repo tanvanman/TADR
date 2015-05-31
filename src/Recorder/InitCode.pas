@@ -17,7 +17,6 @@ uses
   logging,
   Dplayx_exports,
   FreeListU,
-  PluginCommandHandlerU,
 {$IFDEF ThreadLogging}
   threadlogging,
 {$ENDIF}  
@@ -25,8 +24,6 @@ uses
   TA_MemoryLocations,
   Plugins,
   IniOptions;
-
-
 
 {$IFNDEF Debug}
 (*
@@ -134,8 +131,6 @@ if not OnMainRun then
     TLog.Add( 0, 'Not running Total Annihilation 3.1' );
   if iniSettings.modid <> -1 then
     TLog.Add( 0, 'MOD ID: ' +IntToStr(iniSettings.modid) );
-  if iniSettings.weaponidpatch then
-    TLog.Add( 0, 'Using weapon ID patch.');
 {$IFNDEF NoDplayExports}
   // load the actual dplayx.dll, we dont bother unloading it,as we only dont need it when TA is closing
   if DPlayxHandleInvalid then

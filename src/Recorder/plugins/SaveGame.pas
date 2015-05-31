@@ -17,7 +17,6 @@ type
 
 const
   State_SaveGame : boolean = true;
-  CREATE_AUDIT_FILE : Byte = 1;
 
 function GetPlugin : TPluginData;
 
@@ -42,6 +41,7 @@ uses
   TA_MemoryLocations,
   TA_FunctionsU,
   ExtensionsMem,
+  MaxScriptSlots,
   COB_Extensions;
 
 Procedure OnInstallSaveGame;
@@ -62,10 +62,6 @@ begin
                                   State_SaveGame,
                                   @OnInstallSaveGame,
                                   @OnUninstallSaveGame );
-
-    Result.MakeReplacement( State_SaveGame,
-                            'Create audit file next to .SAV',
-                            $00432A5B, CREATE_AUDIT_FILE, 1);
 
     Result.MakeRelativeJmp( State_SaveGame,
                             'Save TADR structures to SAV file',
@@ -220,7 +216,7 @@ begin
   begin
     HAPIBANK_OpenAccount(nil, nil, HAPIBANK, PAnsiChar('TADR Extensions'));
     HAPIBANK_AccessSafeDeposit(nil, nil, HAPIBANK, PAnsiChar('UnitsSharedData'));
-    HAPIBANK_WriteBinData(nil, nil, HAPIBANK, 1024, @UnitsSharedData);
+    HAPIBANK_WriteBinData(nil, nil, HAPIBANK, 1024, @UnitsSharedData[0]);
 
     if not UnitSearchResults.IsVoid then
     begin
@@ -270,48 +266,44 @@ begin
   if HAPIBANK_OpenAccount(nil, nil, HAPIBANK, PAnsiChar('TADR Extensions')) then
   begin
     if HAPIBANK_AccessSafeDeposit(nil, nil, HAPIBANK, PAnsiChar('UnitsSharedData')) then
-      HAPIBANK_ReadBinData(nil, nil, HAPIBANK, 1024, @UnitsSharedData);
+      HAPIBANK_ReadBinData(nil, nil, HAPIBANK, 1024, @UnitsSharedData[0]);
 
-    if not UnitSearchResults.IsVoid then
+
+    if HAPIBANK_AccessSafeDeposit(nil, nil, HAPIBANK, PAnsiChar('UnitSearch')) then
     begin
-      if HAPIBANK_AccessSafeDeposit(nil, nil, HAPIBANK, PAnsiChar('UnitSearch')) then
-      begin
-        Stream := TMemoryStream.Create;
-        try
-          StreamSize := HAPIBANK_GetItemSize(nil, nil, HAPIBANK);
-          if StreamSize > 0 then
-          begin
-            Stream.SetSize(StreamSize);
-            HAPIBANK_ReadBinData(nil, nil, HAPIBANK, StreamSize, Stream.Memory);
-            Stream.Position := 0;
+      Stream := TMemoryStream.Create;
+      try
+        StreamSize := HAPIBANK_GetItemSize(nil, nil, HAPIBANK);
+        if StreamSize > 0 then
+        begin
+          Stream.SetSize(StreamSize);
+          HAPIBANK_ReadBinData(nil, nil, HAPIBANK, StreamSize, Stream.Memory);
+          Stream.Position := 0;
+          if not UnitSearchResults.IsVoid then
             UnitSearchResults.LoadFromStream(Stream);
-          end;
-        finally
-          Stream.Free;
         end;
+      finally
+        Stream.Free;
       end;
     end;
 
-    if not SpawnedMinions.IsVoid then
+    if HAPIBANK_AccessSafeDeposit(nil, nil, HAPIBANK, PAnsiChar('SpawnedMinions')) then
     begin
-      if HAPIBANK_AccessSafeDeposit(nil, nil, HAPIBANK, PAnsiChar('SpawnedMinions')) then
-      begin
-        Stream := TMemoryStream.Create;
-        try
-          StreamSize := HAPIBANK_GetItemSize(nil, nil, HAPIBANK);
-          if StreamSize > 0 then
-          begin
-            Stream.SetSize(StreamSize);
-            HAPIBANK_ReadBinData(nil, nil, HAPIBANK, StreamSize, Stream.Memory);
-            Stream.Position := 0;
+      Stream := TMemoryStream.Create;
+      try
+        StreamSize := HAPIBANK_GetItemSize(nil, nil, HAPIBANK);
+        if StreamSize > 0 then
+        begin
+          Stream.SetSize(StreamSize);
+          HAPIBANK_ReadBinData(nil, nil, HAPIBANK, StreamSize, Stream.Memory);
+          Stream.Position := 0;
+          if not SpawnedMinions.IsVoid then
             SpawnedMinions.LoadFromStream(Stream);
-          end;
-        finally
-          Stream.Free;
         end;
+      finally
+        Stream.Free;
       end;
     end;
-
   end;
 end;
 
@@ -330,14 +322,14 @@ procedure SaveGame_LoadNoScriptsFix;
 label
   AvoidLoad;
 asm
-   mov     ecx, [esi+TUnitStruct.p_UnitScriptsData]
-   test    ecx, ecx
-   jz      AvoidLoad
-   push $004875FF
-   call PatchNJump;
+  mov     ecx, [esi+TUnitStruct.p_UnitScriptsData]
+  test    ecx, ecx
+  jz      AvoidLoad
+  push $004875FF
+  call PatchNJump;
 AvoidLoad:
-   push $00487605
-   call PatchNJump;
+  push $00487605
+  call PatchNJump;
 end;
 
 end.

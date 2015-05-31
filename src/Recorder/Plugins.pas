@@ -25,85 +25,90 @@ uses
   UnitInfoExpand,
   Builders,
   ScriptCallsExtend,
-  ResurrectPatrol,
   UnitActions,
+  Transporters,
+  OrdersOverride,
   WeaponAimNTrajectory,
-  //KillDamage,
   GAFSequences,
-  {$IFDEF DEBUG}
-  TAExceptionsLog,
-  {$ENDIF}
   MapExtensions,
   SideDataExpand,
-  //MinimapExpand,
   Colors,
   ClockPosition,
   GUIEnhancements,
+  NanoFrameUnits,
+  BroadcastNanolathe,
   BattleRoomEnhancements,
+  SkirmishEnhancements,
   ExtensionsMem,
   COB_extensions,
-  SaveGame,
+  MaxScriptSlots,
+  //KillDamage,
+  //MinimapExpand,
   //PlayersSlotsExpand,
+  SaveGame,
+  {$IFDEF Debug}Developers,{$ENDIF}
   StatsLogging;
 
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
 begin
-// only register once
-if OnMainRun then
+  // only register once
+  if OnMainRun then
   begin
-  RegisterPlugin( ErrorLog_ExtraData.GetPlugin() );
-  RegisterPlugin( Thread_marshaller.GetPlugin() );
-  RegisterPlugin( InputHook.GetPlugin() );
-  RegisterPlugin( IniOptions.GetPlugin() );
-  RegisterPlugin( SpeedHack.GetPlugin() );
-  RegisterPlugin( PauseLock.GetPlugin() );
-  RegisterPlugin( UnitLimit.GetPlugin() );
+    RegisterPlugin( ErrorLog_ExtraData.GetPlugin() );
+    RegisterPlugin( Thread_marshaller.GetPlugin() );
+    RegisterPlugin( IniOptions.GetPlugin() );
+    RegisterPlugin( InputHook.GetPlugin() );
+    RegisterPlugin( SpeedHack.GetPlugin() );
+    RegisterPlugin( PauseLock.GetPlugin() );
+    RegisterPlugin( UnitLimit.GetPlugin() );
 
-  RegisterPlugin( LOS_extensions.GetPlugin() );
-  RegisterPlugin( MultiAILimit.GetPlugin() );
-  RegisterPlugin( KeyboardHook.GetPlugin() );
-  //RegisterPlugin( BattleRoomScroll.GetPlugin() );
-  RegisterPlugin( WeaponsExpand.GetPlugin() );
-  RegisterPlugin( UnitInfoExpand.GetPlugin() );
-  RegisterPlugin( SideDataExpand.GetPlugin() );
-  RegisterPlugin( RegPathFix.GetPlugin() );
-  if IniSettings.ModId > 1 then
-  begin
-    //RegisterPlugin( PlayersSlotsExpand.GetPlugin() );
-    RegisterPlugin( Builders.GetPlugin() );
-    RegisterPlugin( ScriptCallsExtend.GetPlugin() );
-    if IniSettings.ResurrectPatrol then
-      RegisterPlugin( ResurrectPatrol.GetPlugin() );
-    RegisterPlugin( UnitActions.GetPlugin() );
-    RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
-    //RegisterPlugin( KillDamage.GetPlugin() );
-    RegisterPlugin( GAFSequences.GetPlugin() );
-    {$IFDEF DEBUG}
-    RegisterPlugin( TAExceptionsLog.GetPlugin() );
-    {$ENDIF}
-    RegisterPlugin( MapExtensions.GetPlugin() );
-//    if IniSettings.ExpandMinimap then
-//      RegisterPlugin( MinimapExpand.GetPlugin() );
+    RegisterPlugin( LOS_extensions.GetPlugin() );
+    RegisterPlugin( MultiAILimit.GetPlugin() );
+    RegisterPlugin( KeyboardHook.GetPlugin() );
+    RegisterPlugin( WeaponsExpand.GetPlugin() );
+    RegisterPlugin( UnitInfoExpand.GetPlugin() );
+    RegisterPlugin( SideDataExpand.GetPlugin() );
+    RegisterPlugin( RegPathFix.GetPlugin() );
+    if IniSettings.ModId > 1 then
+    begin
+      //RegisterPlugin( PlayersSlotsExpand.GetPlugin() );
+      RegisterPlugin( Builders.GetPlugin() );
+      RegisterPlugin( ScriptCallsExtend.GetPlugin() );
+      RegisterPlugin( OrdersOverride.GetPlugin() );
+      RegisterPlugin( UnitActions.GetPlugin() );
+      RegisterPlugin( Transporters.GetPlugin() );
+      RegisterPlugin( WeaponAimNTrajectory.GetPlugin() );
+      //RegisterPlugin( KillDamage.GetPlugin() );
+      RegisterPlugin( GAFSequences.GetPlugin() );
+      RegisterPlugin( MapExtensions.GetPlugin() );
+      //if IniSettings.ExpandMinimap then
+      //  RegisterPlugin( MinimapExpand.GetPlugin() );
+    end;
+    if IniSettings.Colors then
+      RegisterPlugin( Colors.GetPlugin() );
+    RegisterPlugin( ClockPosition.GetPlugin() );
+    RegisterPlugin( GUIEnhancements.GetPlugin() );
+    RegisterPlugin( NanoFrameUnits.GetPlugin() );
+    if IniSettings.BroadcastNanolathe then
+      RegisterPlugin( BroadcastNanolathe.GetPlugin() );
+    if IniSettings.BattleRoomEnh then
+      RegisterPlugin( BattleRoomEnhancements.GetPlugin() );
+    RegisterPlugin( SkirmishEnhancements.GetPlugin() );
+    RegisterPlugin( ExtensionsMem.GetPlugin() );
+    RegisterPlugin( COB_extensions.GetPlugin() );
+    RegisterPlugin( MaxScriptSlots.GetPlugin() );
+    if IniSettings.CreateStatsFile then
+      RegisterPlugin( StatsLogging.GetPlugin() );
+    RegisterPlugin( SaveGame.GetPlugin() );
+    {$IFDEF Debug}RegisterPlugin( Developers.GetPlugin() );{$ENDIF}
   end;
-  if IniSettings.Colors then
-    RegisterPlugin( Colors.GetPlugin() );
-  RegisterPlugin( ClockPosition.GetPlugin() );
-  RegisterPlugin( GUIEnhancements.GetPlugin() );
-  if IniSettings.BattleRoomEnh then
-    RegisterPlugin( BattleRoomEnhancements.GetPlugin() );
-  RegisterPlugin( ExtensionsMem.GetPlugin() );
-  RegisterPlugin( COB_extensions.GetPlugin() );
-  if IniSettings.CreateStatsFile then
-    RegisterPlugin( StatsLogging.GetPlugin() );
-  RegisterPlugin( SaveGame.GetPlugin() );
-  end;
-// Run the code injection engine
-InstallPlugins( OnMainRun );
+  // Run the code injection engine
+  InstallPlugins( OnMainRun );
 end;
 
 Procedure UninstallCodeInjections;
 begin
-UnInstallPlugins;
+  UnInstallPlugins;
 end;
 
 end.

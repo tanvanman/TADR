@@ -2,7 +2,7 @@ unit MapExtensions;
 
 interface
 uses
-  SysUtils, Classes, PluginEngine, IniFiles, Windows;
+  Windows, SysUtils, Classes, PluginEngine, IniFiles;
 
 // -----------------------------------------------------------------------------
 
@@ -13,7 +13,7 @@ type
   end;
 
 const
-  State_MapExtensions : boolean = true;
+  State_MapExtensions: Boolean = True;
 
 function GetPlugin : TPluginData;
 
@@ -25,13 +25,6 @@ Procedure OnUninstallMapExtensions;
 // -----------------------------------------------------------------------------
 
 procedure SwapTNT(Idx: Byte);
-procedure LoadingMapSchema;
-procedure RunMapMissionScript;
-procedure CheckMouseForLock;
-procedure SolarEnergy;
-procedure LoadOTATagsHook;
-
-procedure InitMapMissions; stdcall;
 
 implementation
 uses
@@ -43,63 +36,6 @@ uses
   TA_MemPlayers,
   TA_MemUnits,
   TA_FunctionsU;
-
-Procedure OnInstallMapExtensions;
-begin
-end;
-
-Procedure OnUninstallMapExtensions;
-begin
-end;
-
-function GetPlugin : TPluginData;
-//var
-//  Replacement : array[0..4] of Byte;
-begin
-  if IsTAVersion31 and State_MapExtensions then
-  begin
-    Result := TPluginData.Create( False,
-                                  '',
-                                  State_MapExtensions,
-                                  @OnInstallMapExtensions,
-                                  @OnUnInstallMapExtensions );
-
-    Result.MakeRelativeJmp(State_MapExtensions,
-                           'Init map script',
-                           @LoadingMapSchema,
-                           $00497B4A, 0 );
-
-    Result.MakeRelativeJmp(State_MapExtensions,
-                           'Keep running map script (no more "sleep" freeze)',
-                           @RunMapMissionScript,
-                           //$0048ADEB, 0 );
-                           $0048B028, 0 );
-
-    Result.MakeRelativeJmp(State_MapExtensions,
-                           'Locking mouse functionality',
-                           @CheckMouseForLock,
-                           $004B5E35, 1 );
-    
-    Result.MakeRelativeJmp(State_MapExtensions,
-                           '',
-                           @SolarEnergy,
-                           $00401429, 1 );
-
-    Result.MakeRelativeJmp(State_MapExtensions,
-                           '',
-                           @LoadOTATagsHook,
-                           $00436556, 4 );
-
-
-    // do not release TDF Features vector after loading the list
-  {  FillMemory(@Replacement[0], 5, $90);
-    Result.MakeReplacement(State_MapExtensions,
-                           '',
-                           $004918DE,
-                           Replacement ); }
-  end else
-    Result := nil;
-end;
 
 procedure InitMapMissions; stdcall;
 var
@@ -263,10 +199,10 @@ UseSolarEnergy:
   fld     ExtraMapOTATags.SolarStrength
   mov     ecx, [esi+TUnitStruct.p_UNITINFO]
   movzx   eax, word ptr [ecx+TUnitInfo.nCategory]
-  mov     ecx, type TExtraUnitInfoTagsRec
-  mov     edx, [ExtraUnitInfoTags]
+  mov     ecx, type TUnitInfoCustomFieldsRec
+  mov     edx, [UnitInfoCustomFields]
   imul    eax, ecx
-  fld     qword ptr [edx+eax+TExtraUnitInfoTagsRec.SolarGenerator]
+  fld     qword ptr [edx+eax+TUnitInfoCustomFieldsRec.SolarGenerator]
   fmul    st(0), st(1)
   // new value must be in st(0)
   fstp    st(1)
@@ -442,6 +378,83 @@ begin
   //LoadFeatureAnimData(TNTFile);
   //LoadMetalSpots;
   FreeMemory(TNTFile);
+end;
+
+procedure DrawFade(p_Offscreen: Pointer); stdcall;
+begin
+  if CameraFadeLevel <> 0 then
+    DrawTransparentBox(p_Offscreen, nil, CameraFadeLevel - 31);
+end;
+
+procedure ScreenFadeControl;
+asm
+  lea     ecx, [esp+224h-$1F0]
+  push    ecx
+  call    DrawFade
+  lea     ecx, [esp+224h-$1F0]
+  push    ecx
+  push $0046A2E7
+  call PatchNJump
+end;
+
+Procedure OnInstallMapExtensions;
+begin
+end;
+
+Procedure OnUninstallMapExtensions;
+begin
+end;
+
+function GetPlugin : TPluginData;
+begin
+  if IsTAVersion31 and State_MapExtensions then
+  begin
+    Result := TPluginData.Create( False,
+                                  '',
+                                  State_MapExtensions,
+                                  @OnInstallMapExtensions,
+                                  @OnUnInstallMapExtensions );
+
+    Result.MakeRelativeJmp( State_MapExtensions,
+                            'Init map script',
+                            @LoadingMapSchema,
+                            $00497B4A, 0 );
+
+    Result.MakeRelativeJmp( State_MapExtensions,
+                            'Keep running map script (no more "sleep" freeze)',
+                            @RunMapMissionScript,
+                            $0048B028, 0 );
+
+    Result.MakeRelativeJmp( State_MapExtensions,
+                            'Locking mouse functionality',
+                            @CheckMouseForLock,
+                            $004B5E35, 1 );
+    
+    Result.MakeRelativeJmp( State_MapExtensions,
+                            '',
+                            @SolarEnergy,
+                            $00401429, 1 );
+
+    Result.MakeRelativeJmp( State_MapExtensions,
+                            '',
+                            @LoadOTATagsHook,
+                            $00436556, 4 );
+
+    Result.MakeRelativeJmp( State_MapExtensions,
+                            'Control game screen fade level',
+                            @ScreenFadeControl,
+                            $0046A2E2, 0 );
+    {
+    // do not release TDF Features vector after loading the list
+    // this allows to place features on map that weren't loaded with the map data
+    FillMemory(@Replacement[0], 5, $90);
+    Result.MakeReplacement(State_MapExtensions,
+                           '',
+                           $004918DE,
+                           Replacement );
+    }
+  end else
+    Result := nil;
 end;
 
 end.

@@ -192,8 +192,8 @@ end; {Add2}
 
 class procedure TLog.Add (aVerboseLoggingLevel : Integer;const s :String );
 begin
-if Log_ = nil then
-  Log_ := TLog.Create( logFilename, True, VerboseLoggingLevelc );
+if Log_ = nil then Exit;
+//  Log_ := TLog.Create( logFilename, True, VerboseLoggingLevelc );
 Log_.cs.Acquire;
 try
   Log_.Add2( aVerboseLoggingLevel, s );

@@ -263,7 +263,6 @@
     <ClCompile Include="GameRedrawer.cpp" />
     <ClCompile Include="MapParse.cpp" />
     <ClCompile Include="MenuResolution.cpp" />
-    <ClCompile Include="MultiGameWeaponID.cpp" />
     <ClCompile Include="rings.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -321,11 +320,6 @@
     <ClCompile Include="UnicodeSupport.cpp" />
     <ClCompile Include="LimitCrack.cpp" />
     <ClCompile Include="UnitMinimap.cpp" />
-    <ClCompile Include="unitrotate.cpp">
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
     <ClCompile Include="whiteboard.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -386,7 +380,6 @@
     <ClInclude Include="MenuResolution.h" />
     <ClInclude Include="minimaphandler.h" />
     <ClInclude Include="MixingBuffers.h" />
-    <ClInclude Include="MultiGameWeaponID.h" />
     <ClInclude Include="oddraw.h" />
     <ClInclude Include="PCX.H" />
     <ClInclude Include="pcxread.h" />
@@ -403,7 +396,6 @@
     <ClInclude Include="UnicodeSupport.h" />
     <ClInclude Include="UnitDrawer.h" />
     <ClInclude Include="UnitLimit.h" />
-    <ClInclude Include="unitrotate.h" />
     <ClInclude Include="UnitTypeLimit.h" />
     <ClInclude Include="WeaponIDLimit.h" />
     <ClInclude Include="whiteboard.h" />

@@ -247,7 +247,6 @@ type
     UnitId        : Word;
     WeaponIdx     : Byte;
     NewWeaponID   : Cardinal;
-    RequiresPatch : Boolean;
   end;
 
 // Used to signal that unit with custom template has been modified
@@ -277,9 +276,9 @@ type
   PRec2Rec_NewUnitLocation_Message = ^TRec2Rec_NewUnitLocation_Message;
   TRec2Rec_NewUnitLocation_Message = packed record
     UnitID         : Word;
-    NewX           : Cardinal;
-    NewY           : Cardinal;
-    NewZ           : Cardinal;
+    NewX           : Integer;
+    NewY           : Integer;
+    NewZ           : Integer;
   end;
 
 const

@@ -22,6 +22,9 @@ Procedure OnUninstallTAExceptionsLog;
 procedure TAExceptionsLog_COBCallbackEmptyCOB;
 procedure TAExceptionsLog_COBRunScriptEmptyCOB;
 procedure TAExceptionsLog_COBRunScriptEmptyCOB2;
+procedure TAExceptionsLog_CancelOrderNoUnit;
+procedure TAExceptionsLog_CancelOrderNoUnit2;
+
 procedure TAExceptionsLog_AIBuildUnitInfoTooHigh;
 //procedure TAExceptionsLog_MissingObjectState;
 
@@ -62,7 +65,7 @@ begin
                           @TAExceptionsLog_LogHAPINET,
                           $004C9740, 0);
     }
-    TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
+{    TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
                           'prevent crash when pointer to COB is nil',
                           @TAExceptionsLog_COBCallbackEmptyCOB,
                           $004B0BC0, 0);
@@ -75,13 +78,25 @@ begin
     TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
                           'prevent crash when pointer to COB is nil2',
                           @TAExceptionsLog_COBRunScriptEmptyCOB2,
-                          $004B094D, 0);
+                          $004B094D, 0);   }
 
+    TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
+                          '',
+                          @TAExceptionsLog_CancelOrderNoUnit,
+                          $0043A264, 0);
+
+    TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
+                          '',
+                          @TAExceptionsLog_CancelOrderNoUnit2,
+                          $0043A227, 3); 
+
+
+ {
     if IniSettings.AiNukes then
       TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
                             'AI build probability unit type too high',
                             @TAExceptionsLog_AIBuildUnitInfoTooHigh,
-                            $0040BDE1, 0);
+                            $0040BDE1, 0);  }
 
  {   TAExceptionsLogPlugin.MakeRelativeJmp( State_TAExceptionsLog,
                           'prevent crash when pointer to COB is nil',
@@ -238,6 +253,36 @@ CorrectCOBCall :
     mov     eax, [edi+8]
     mov     edx, [eax+4]
     push $004B0953;
+    call PatchNJump;
+end;
+
+procedure TAExceptionsLog_CancelOrderNoUnit;
+label
+  Woops;
+asm
+    mov     edx, [esi+TUnitOrder.p_Unit]
+    test    edx, edx
+    jz      Woops
+    mov     eax, [edx]
+    push $0043A269;
+    call PatchNJump;
+Woops :
+    push $0043A2C6;
+    call PatchNJump;
+end;
+
+procedure TAExceptionsLog_CancelOrderNoUnit2;
+label
+  Woops;
+asm
+    mov     edi, [esi+TUnitOrder.p_Unit]
+    test    edi, edi
+    jz      Woops
+    push    offset $00505104        // "StopBuilding"
+    push $0043A22F;
+    call PatchNJump;
+Woops :
+    push $0043A2C6;
     call PatchNJump;
 end;
 

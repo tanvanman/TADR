@@ -225,7 +225,7 @@ type
     procedure Broadcast_UnitGrantUnitInfo(UnitID: Word; ANewState: Byte; Dest: TDPID = 0);
     procedure Broadcast_UnitInfoEdit(UnitID: Word; FieldType: Cardinal; NewValue: Integer; Dest: TDPID = 0);
     procedure Broadcast_UnitInfoSwap(UnitID: Word; UnitInfoCrc: Cardinal; Dest: TDPID = 0);
-    procedure Broadcast_NewUnitLocation(UnitID: Word; X, Y, Z: Cardinal; Dest: TDPID = 0);
+    procedure Broadcast_NewUnitLocation(UnitID: Word; Position: TPosition; Dest: TDPID = 0);
     procedure Broadcast_EmitSFXToUnit(UnitID: Word; ToUnitID: Word; FromPieceIdx: SmallInt; SfxType: Byte; Dest: TDPID = 0);
     procedure Broadcast_SetNanolatheParticles(PosFrom: TPosition; PosTo: TNanolathePos; Reverse: Byte; Dest: TDPID = 0);
     procedure Broadcast_ExtraUnitState(UnitID: Word; FieldType: Cardinal; NewValue: Integer; Dest: TDPID = 0);
@@ -671,7 +671,6 @@ begin
   Move( UnitID, customPacket[1], SizeOf(Word));
   Move( UnitWeaponIdx, customPacket[3], SizeOf(Byte));
   Move( WeaponID, customPacket[4], SizeOf(Cardinal));
-  Move( IniSettings.WeaponIdPatch, customPacket[8], SizeOf(Boolean));
   SendRecorderToRecorderMsg( TANM_Rec2Rec_UnitWeapon, customPacket, False, Dest );
 end;
 
@@ -710,15 +709,15 @@ begin
 end;
 
 procedure TDPlay.Broadcast_NewUnitLocation(UnitID: Word;
-  X, Y, Z: Cardinal; Dest: TDPID = 0);
+  Position: TPosition; Dest: TDPID = 0);
 var
   customPacket : AnsiString;
 begin
   SetLength( customPacket, SizeOf(TRec2Rec_NewUnitLocation_Message));
   Move( UnitID, customPacket[1], SizeOf(Word));
-  Move( X, customPacket[3], SizeOf(Cardinal));
-  Move( Z, customPacket[7], SizeOf(Cardinal));
-  Move( Y, customPacket[11], SizeOf(Cardinal));
+  Move( Position.X, customPacket[3], SizeOf(Integer));
+  Move( Position.Z, customPacket[7], SizeOf(Integer));
+  Move( Position.Y, customPacket[11], SizeOf(Integer));
   SendRecorderToRecorderMsg( TANM_Rec2Rec_NewUnitLocation, customPacket, False, Dest );
 end;
 
@@ -1141,10 +1140,6 @@ if fixfacexps then
 else
   result:=result+'-';
 if protectdt then
-  result:=result+'T'
-else
-  result:=result+'-';
-if IniSettings.weaponidpatch then
   result:=result+'T'
 else
   result:=result+'-';
@@ -2167,7 +2162,8 @@ if assigned(chatview) then
             Players[1].ClickedIn := true;
             end;
           //Identifierar rec som klarar av enemy-chat
-          if IniSettings.weaponidpatch then tmp[182] := char(TADemoVersion_4) else tmp[182] := char(TADemoVersion_99b3_beta3); //version
+          // todo: depending on weapon id patch
+          tmp[182] := char(TADemoVersion_4); //version
           datachanged := true;
           end
         else
@@ -2236,7 +2232,7 @@ if assigned(chatview) then
 
 // This is to be enabled when they do a .sonar        
         // allow sharelos to see everyone
-        Players[0].SharingLos := true;
+        Players[TAData.LocalPlayerID].SharingLos := true;
 // todo : fibbers require preventing sonar jamming from effecting allies
         end;
 
@@ -2778,8 +2774,8 @@ if assigned(chatview) then
           end;
         #$0F :
           begin //feature destroyed
+          // todo: apply weapon id patch
           if (statslog <> nil) and
-             not IniSettings.WeaponIdPatch and
              not FromPlayer.IsSelf then
             begin
             pw:=@tmp[3];
@@ -2949,7 +2945,6 @@ if assigned(chatview) then
                      TAUnit.SetWeapon(Pointer(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId)),
                                               PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WeaponIdx,
                                               PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID);
-                                              //PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.RequiresPatch);
                    end;
                  end;
                TANM_Rec2Rec_UnitInfoSwap :
@@ -3026,7 +3021,7 @@ if assigned(chatview) then
                      case PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.FieldType of
                       1 :
                         begin
-                          CustomUnitFieldsArr[PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.UnitId].ShieldedBy :=
+                          UnitsCustomFields[PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.UnitId].ShieldedBy :=
                             TAUnit.Id2Ptr(PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.NewValue);
                         end;
                      end;
@@ -3208,7 +3203,8 @@ try
   player := Players.Add( lpName^.lpszLongName, idPlayer );
   if Players.Count = 1 then
     begin
-    if IniSettings.weaponidpatch then player.InternalVersion := TADemoVersion_4 else player.InternalVersion := TADemoVersion_99b3_beta3;
+    // todo: depending on weapon id patch
+    player.InternalVersion := TADemoVersion_4;
     player.EnemyChat := true;
     player.RecConnect := true;
     player.Uses_Rec2Rec_Notification := True;

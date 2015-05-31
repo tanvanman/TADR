@@ -10,9 +10,9 @@ type
     fPath   : String;
     fStream : TStringList;
   public
-    constructor Create(aPath : String);
-    procedure WriteDefinition(sName : String; aIndex : Cardinal);
-    procedure WriteComment(sText : String);
+    constructor Create(aPath: String);
+    procedure WriteDefinition(sName: String; aIndex: Cardinal);
+    procedure WriteComment(sText: String);
     procedure WriteNewLine;
 
     procedure Save;
@@ -27,18 +27,18 @@ uses
   IniOptions,
   TADemoConsts;
 
-constructor TScriptorFile.Create(aPath : String);
+constructor TScriptorFile.Create(aPath: String);
 begin
   Self.fPath := aPath;
   fStream := TStringList.Create;
 end;
 
-procedure TScriptorFile.WriteDefinition(sName : String; aIndex : Cardinal);
+procedure TScriptorFile.WriteDefinition(sName: String; aIndex: Cardinal);
 begin
   fStream.Add('#define ' + sName + #32 + IntToStr(aIndex));
 end;
 
-procedure TScriptorFile.WriteComment(sText : String);
+procedure TScriptorFile.WriteComment(sText: String);
 begin
   fStream.Add('// ' + sText);
 end;
@@ -55,16 +55,13 @@ end;
 
 procedure SaveUnitsWeaponsListToScriptorFile;
 var
-  ScriptorFile : TScriptorFile;
-  sPath : String;
-
-  UnitsMax : Integer;
-  WeapsMax : Integer;
-
-  UnitInfo : PUnitInfo;
-  WeapInfo : PWeaponDef;
-
-  i : Integer;
+  ScriptorFile: TScriptorFile;
+  sPath: String;
+  UnitsMax: Integer;
+  WeapsMax: Integer;
+  UnitInfo: PUnitInfo;
+  WeapInfo: PWeaponDef;
+  i: Integer;
 begin
   if IniSettings.ScriptorPath <> '' then
     sPath := IniSettings.ScriptorPath + 'unitsweaps.h'
@@ -93,7 +90,7 @@ begin
 
     ScriptorFile.WriteNewLine;
     ScriptorFile.WriteComment('Weapons :');
-    WeapsMax := IniSettings.WeaponType;
+    WeapsMax := 256;
     for i := 0 to WeapsMax - 1 do
     begin
       WeapInfo := TAWeapon.WeaponId2Ptr(i);

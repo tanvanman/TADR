@@ -132,9 +132,6 @@
     <ClCompile Include="tahook.cpp">
       <Filter>Source Files\Functions\OrginalTadr</Filter>
     </ClCompile>
-    <ClCompile Include="unitrotate.cpp">
-      <Filter>Source Files\Functions\OrginalTadr</Filter>
-    </ClCompile>
     <ClCompile Include="ElementHandler.cpp">
       <Filter>Source Files\Functions\misc</Filter>
     </ClCompile>
@@ -158,9 +155,6 @@
     </ClCompile>
     <ClCompile Include="hook\etc.cpp">
       <Filter>Source Files\Functions\misc</Filter>
-    </ClCompile>
-    <ClCompile Include="MultiGameWeaponID.cpp">
-      <Filter>Source Files\Functions\externFromChina\LimitCrack</Filter>
     </ClCompile>
     <ClCompile Include="TABugFix.cpp">
       <Filter>Source Files\Functions\externFromChina</Filter>
@@ -287,9 +281,6 @@
     <ClInclude Include="tahook.h">
       <Filter>Header Files\Functions\OrginalTadr</Filter>
     </ClInclude>
-    <ClInclude Include="unitrotate.h">
-      <Filter>Header Files\Functions\OrginalTadr</Filter>
-    </ClInclude>
     <ClInclude Include="minimaphandler.h">
       <Filter>Header Files\Functions\OrginalTadr</Filter>
     </ClInclude>
@@ -315,9 +306,6 @@
       <Filter>Header Files\Functions\externFromChina\LimitCrack</Filter>
     </ClInclude>
     <ClInclude Include="MixingBuffers.h">
-      <Filter>Header Files\Functions\externFromChina\LimitCrack</Filter>
-    </ClInclude>
-    <ClInclude Include="MultiGameWeaponID.h">
       <Filter>Header Files\Functions\externFromChina\LimitCrack</Filter>
     </ClInclude>
     <ClInclude Include="SwitchAlt.h">

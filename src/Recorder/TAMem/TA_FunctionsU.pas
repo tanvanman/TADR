@@ -4,10 +4,6 @@ interface
 uses
   TA_MemoryStructures;
 
-//////////////////////////////////////////////////////////////////////////////////////////
-/// Working.
-//////////////////////////////////////////////////////////////////////////////////////////
-
 const
   access = 1;
 
@@ -15,11 +11,6 @@ type
   GetTAProgramStructHandler = function : Pointer; register;
 var
   GetTAProgramStruct : GetTAProgramStructHandler = GetTAProgramStructHandler($004B6220);
-
-type
-  GameRunSecHandler = function : Cardinal; cdecl;
-var
-  GameRunSec : GameRunSecHandler = GameRunSecHandler($004B6340);
 
 type
   GetGameingTypeHandler = function(a1, a2, a3: Cardinal): Cardinal; register;
@@ -30,7 +21,7 @@ type
   Game_SetLOSStateHandler = function (flags : integer) : integer; stdcall;
 var
   // called by to setup the LOS tables
-  Game_SetLOSState : Game_SetLOSStateHandler = Game_SetLOSStateHandler($4816A0);
+  Game_SetLOSState : Game_SetLOSStateHandler = Game_SetLOSStateHandler($004816A0);
 
 type
   TA_UpdateLOSHandler = function (FillFeatureMap_b: LongWord): LongWord; stdcall;
@@ -49,7 +40,7 @@ var
   Mouse_SetDrawMouse : Mouse_SetDrawMouseHandler = Mouse_SetDrawMouseHandler($004C22D0);
 
 type
-  DrawOptionsTabHandler = function (Offscreenp: Cardinal): Cardinal; stdcall;
+  DrawOptionsTabHandler = function (p_Offscreen: Pointer): Cardinal; stdcall;
 var
   DrawOptionsTab : DrawOptionsTabHandler = DrawOptionsTabHandler($0045FFB0);
 
@@ -134,6 +125,11 @@ type
 var
   TA_AttachDetachUnit : TA_AttachDetachUnitHandler = TA_AttachDetachUnitHandler($0048AAC0);
 
+type
+  TerminateProcess_WithWarningHandler = procedure(TerminateMessage: PAnsiChar); stdcall;
+var
+  TerminateProcess_WithWarning : TerminateProcess_WithWarningHandler = TerminateProcess_WithWarningHandler($004B6290);
+
 // used by TA to load terrain TNT file (sets also terrain load progress)
 // but can be also used to allocate, load HPI file into memory and retrieve pointer to it
 type
@@ -147,23 +143,38 @@ var
   GetTA_ScreenWidth : GetTA_ScreenWidthHandler = GetTA_ScreenWidthHandler($004B6700);
 
 type
-  CorrecLinetPositionHandler = function(OFFSCREEN_ptr: Cardinal;
-                                        x1: Pointer;
-                                        y1: Pointer;
-                                        x2: Pointer;
-                                        y2: Pointer) : LongInt; stdcall;
+  CorrecLinetPositionHandler = function( p_Offscreen: Pointer;
+                                         x1: Pointer;
+                                         y1: Pointer;
+                                         x2: Pointer;
+                                         y2: Pointer): LongInt; stdcall;
 var
   CorrecLinetPosition : CorrecLinetPositionHandler = CorrecLinetPositionHandler($004BEA20);
 
 type
-  GetFontColorHandler = function: Integer; cdecl;
+  GetFontTypeHandler = function: Pointer; stdcall;
 var
-  GetFontColor : GetFontColorHandler = GetFontColorHandler($004C13F0);
+  GetFontType : GetFontTypeHandler = GetFontTypeHandler($004C1440);
 
 type
-  SetFontColorHandler = function(a5: LongInt; a4: LongInt) : LongInt; stdcall;
+  GetFontBackgroundColorHandler = function: Cardinal; stdcall;
+var
+  GetFontBackgroundColor : GetFontBackgroundColorHandler = GetFontBackgroundColorHandler($004C13F0);
+
+type
+  SetFontColorHandler = procedure(Color: Integer; FontAlpha: Integer); stdcall;
 var
   SetFontColor : SetFontColorHandler = SetFontColorHandler($004C13A0);
+
+type
+  SetFontTypeHandler = procedure(p_FontHandle: Pointer); stdcall;
+var
+  SetFontType : SetFontTypeHandler = SetFontTypeHandler($004C1420);
+
+type
+  GetFontCharWidthHandler = function: Integer; stdcall;
+var
+  GetFontCharWidth : GetFontCharWidthHandler = GetFontCharWidthHandler($004C1450);
 
 type
   Msg_ReminderHandler = function(Msg_Str: PAnsiChar; Msg_Type: Word) : Integer; stdcall;
@@ -224,7 +235,7 @@ var
 // just like unmapped terrain build spot check works
 type
   TestGridSpotHandler = function ( BuildUnit : Pointer;
-                                    Pos : Cardinal;
+                                    Pos : Integer;
                                     unk : Word; //unk=zero
                                     Player : Pointer
                                     ): Integer; stdcall;
@@ -244,10 +255,10 @@ var
   TestBuildSpot : TestBuildSpotHandler = TestBuildSpotHandler($004197D0);
 
 type
-  CanAttachAtGridSpotHandler = function ( UnitInfo : PUnitInfo;
-                                          UnitID : Word;
-                                          GridPos : Cardinal;
-                                          State : Integer): Boolean; stdcall;
+  CanAttachAtGridSpotHandler = function ( UnitInfo: PUnitInfo;
+                                          UnitID: Word;
+                                          GridPos: Integer;
+                                          State: Integer): Boolean; stdcall;
 var
   CanAttachAtGridSpot : CanAttachAtGridSpotHandler = CanAttachAtGridSpotHandler($0047DB70);
 
@@ -281,9 +292,9 @@ var
   TextCommand_LOS : TextCommand_LOSHandler = TextCommand_LOSHandler($416D50);
 
 Type
-  rand_Handler = function(Range : Integer): Integer; cdecl;
+  rand2Handler = function: Integer; cdecl;
 var
-  rand_ : rand_Handler = rand_Handler($004B6C30);
+  rand2 : rand2Handler = rand2Handler($004E4870);
 
 Type
   TA_Atan2Handler = function(y, x : Integer): Integer; cdecl;
@@ -301,9 +312,16 @@ var
   LoadGameData_Main : LoadGameData_MainHandler = LoadGameData_MainHandler($004917D0);
 
 type
-  CopyGafToContextHandler = function(OFFSCREEN_ptr: Pointer; GafFrame: Pointer; Off_X, Off_Y: Integer): Pointer; stdcall;
+  CopyGafToContextHandler = function( p_Offscreen: Pointer;
+                                      GafFrame: Pointer;
+                                      Off_X, Off_Y: Integer ): Pointer; stdcall;
 var
   CopyGafToContext : CopyGafToContextHandler = CopyGafToContextHandler($004B7F90);
+
+type
+  AlphaCompsteBuf2OFFScreenHandler = function(p_Offscreen: Pointer; GafFrame: Pointer; Off_X, Off_Y: Integer): Pointer; stdcall;
+var
+  AlphaCompsteBuf2OFFScreen : AlphaCompsteBuf2OFFScreenHandler = AlphaCompsteBuf2OFFScreenHandler($004B8500);
 
 type
   InitRadarHandler = function(): Integer; cdecl;
@@ -316,7 +334,7 @@ var
   CompositeBuffer : CompositeBufferHandler = CompositeBufferHandler($4B8DA0);
 
 type
-  CompositeBuf2_OFFSCREENHandler = function(OFFSCREEN_ptr: Pointer; CompositeBuf_ptr : Pointer): Pointer; stdcall;
+  CompositeBuf2_OFFSCREENHandler = function(p_Offscreen: Pointer; CompositeBuf_ptr : Pointer): Pointer; stdcall;
 var
   CompositeBuf2_OFFSCREEN : CompositeBuf2_OFFSCREENHandler = CompositeBuf2_OFFSCREENHandler($004B8A80);
 
@@ -350,6 +368,12 @@ type
     Priority: Longint; ToPlayerName: PAnsiChar); stdcall;
 var
   ShowChatMessage : ShowChatMessageHandler = ShowChatMessageHandler($00463E50);
+
+type
+  NewChatTextHandler = procedure(Source: PAnsiChar; Access: Byte;
+    Priority: Word; FromPlayerIdx: Byte); stdcall;
+var
+  NewChatText : NewChatTextHandler = NewChatTextHandler($00463CA0);
 
 type
   ClearChatHandler = procedure; stdcall;
@@ -438,9 +462,16 @@ var
   GetGridPosPLOT : GetGridPosPLOTHandler = GetGridPosPLOTHandler($00481550);
 
 type
-  GetFeatureTypeOfPosHandler = function ( OrderPos: Pointer; Order: Pointer; Unknown: Pointer ): SmallInt; stdcall;
+  GetFeatureTypeFromOrderHandler = function( p_Pos: PPosition;
+                                             p_Order: PUnitOrder;
+                                             p_FeatureSize: Pointer ): Word; stdcall;
 var
-  GetFeatureTypeOfPos : GetFeatureTypeOfPosHandler = GetFeatureTypeOfPosHandler($00421DA0);
+  GetFeatureTypeFromOrder : GetFeatureTypeFromOrderHandler = GetFeatureTypeFromOrderHandler($00421DA0);
+
+type
+  GetGridPosFeatureHandler = function (PlotGrid: PPlotGrid): SmallInt; stdcall;
+var
+  GetGridPosFeature : GetGridPosFeatureHandler = GetGridPosFeatureHandler($00421E60);
 
 type
   FeatureName2IDHandler = function ( FeatureName: PAnsiChar ): SmallInt; stdcall;
@@ -554,6 +585,28 @@ var
   GetPrepareOrderName: GetPrepareOrderNameHandler = GetPrepareOrderNameHandler($0049FED0);
 
 type
+  ScriptAction_Name2IndexHandler = procedure ( uneax, unedx: Pointer;
+                                               RtnIndex: PByte;
+                                               ActionName: PAnsiChar ); register;
+var
+  ScriptAction_Name2Index: ScriptAction_Name2IndexHandler = ScriptAction_Name2IndexHandler($00438760);
+
+type
+  ScriptAction_Index2HandlerHandler = function ( uneax, unedx: Pointer;
+                                                 RtnIndex: PByte ): Pointer; register;
+var
+  ScriptAction_Index2Handler: ScriptAction_Index2HandlerHandler = ScriptAction_Index2HandlerHandler($00438830);
+
+type
+  ScriptAction_Type2IndexHandler = procedure ( p_RtnIndex_ptr: Pointer;
+                                               Action_ID: Byte;
+                                               p_OrderUnit: PUnitStruct;
+                                               p_TargetUnit: PUnitStruct;
+                                               p_Position: PPosition ); stdcall;
+var
+  ScriptAction_Type2Index: ScriptAction_Type2IndexHandler = ScriptAction_Type2IndexHandler($0043F0E0);
+
+type
   MOUSE_EVENT_2UnitOrderHandler = function ( CurtMouseEvent_ptr: Pointer; ActionType: Cardinal;
                                              ActionIndex: Cardinal; Position_DWORD_p: Cardinal;
                                              lPar1: Cardinal; lPar2: Cardinal): Cardinal; stdcall;
@@ -591,9 +644,9 @@ var
   ORDERS_NewSubBuildOrder: ORDERS_NewSubBuildOrderHandler = ORDERS_NewSubBuildOrderHandler($0043B0B0);
 
 type
-  UnitSubBuildClickHandler = function ( UnitInfoName: PAnsiChar;
+  UnitSubBuildClickHandler = procedure( UnitInfoName: PAnsiChar;
                                         BuilderPtr: PUnitStruct;
-                                        QueueAmount: Integer): Word; stdcall;
+                                        QueueAmount: Integer ); stdcall;
 var
   UnitSubBuildClick: UnitSubBuildClickHandler = UnitSubBuildClickHandler($00419B00);
 
@@ -608,9 +661,14 @@ var
   GetUnitFirstOrderTargat: GetUnitFirstOrderTargatHandler = GetUnitFirstOrderTargatHandler($439DD0);
 
 type
-  ORDERS_CreateObjectHandler = function ( uneax, unedx: Pointer; OrderObject: Pointer;
-    Flags: Cardinal; lPar2: Cardinal; lPar1: Cardinal;
-    TargetPosition: PPosition; TargetUnit: PUnitStruct; ActionType: Cardinal): PUnitOrder; register;
+  ORDERS_CreateObjectHandler = function ( uneax, unedx: Cardinal;
+                                          p_Memory: Pointer;
+                                          Flags: Cardinal;
+                                          lPar2: Cardinal;
+                                          lPar1: Cardinal;
+                                          TargetPosition: PPosition;
+                                          TargetUnit: PUnitStruct;
+                                          ActionType: Cardinal ): PUnitOrder; register;
 var
   ORDERS_CreateObject: ORDERS_CreateObjectHandler = ORDERS_CreateObjectHandler($0043A0C0);
 
@@ -624,6 +682,49 @@ type
   ORDERS_CancelOrderHandler = procedure(eax, edx: Cardinal; p_UnitOrder: PUnitOrder); register;
 var
   ORDERS_CancelOrder: ORDERS_CancelOrderHandler = ORDERS_CancelOrderHandler($0043A1F0);
+
+type
+  ORDERS_MovementRelatedHandler = procedure( eax, edx: Cardinal;
+                                             p_UnitOrder: PUnitOrder;
+                                             Dist: Integer;
+                                             p_Position: PPosition ); register;
+var
+  ORDERS_MovementRelated: ORDERS_MovementRelatedHandler = ORDERS_MovementRelatedHandler($00438930);
+
+type
+  ORDERS_ChaseUnitToBeRepairedHandler = function( p_Builder: PUnitStruct;
+                                                  p_TargetUnit: PUnitStruct;
+                                                  TestedStateMask: Cardinal ): LongBool; stdcall;
+var
+  ORDERS_ChaseUnitToBeRepaired: ORDERS_ChaseUnitToBeRepairedHandler = ORDERS_ChaseUnitToBeRepairedHandler($0043B400);
+
+type
+  ORDERS_DelayCallbackHandler = procedure( eax, edx: Cardinal;
+                                           p_UnitOrder: PUnitOrder;
+                                           Delay: Integer ); register;
+var
+  ORDERS_DelayCallback: ORDERS_DelayCallbackHandler = ORDERS_DelayCallbackHandler($00439E80);
+
+type
+  ORDERS_RecoverMainOrderHandler = procedure( p_Unit: PUnitStruct;
+                                              p_UnitOrder: PUnitOrder ); stdcall;
+var
+  ORDERS_RecoverMainOrder: ORDERS_RecoverMainOrderHandler = ORDERS_RecoverMainOrderHandler($0043A020);
+
+
+type
+  ORDERS_BackupMainOrderHandler = procedure( eax, edx: Cardinal;
+                                             p_UnitOrder: PUnitOrder;
+                                             p_OrderCallBack: Pointer ); register;
+var
+  ORDERS_BackupMainOrder: ORDERS_BackupMainOrderHandler = ORDERS_BackupMainOrderHandler($004388D0);
+
+type
+  ORDERS_PushOrderHandler = procedure( p_Unit: PUnitStruct;
+                                       p_UnitOrder: PUnitOrder ); stdcall;
+var
+  ORDERS_PushOrder: ORDERS_PushOrderHandler = ORDERS_PushOrderHandler($0043ACB0);
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Units
@@ -662,7 +763,9 @@ var
   UNITS_FixYPosOtherType : UNITS_FixYPosOtherTypeHandler = UNITS_FixYPosOtherTypeHandler($0048A490);
 
 type
-  UNITS_NewUnitPositionHandler = function (p_Unit : Pointer; NewX, NewY, NewZ: Cardinal; State: Cardinal) : Cardinal; stdcall;
+  UNITS_NewUnitPositionHandler = function (p_Unit: Pointer;
+                                           NewX, NewY, NewZ: Integer;
+                                           State: Cardinal): Cardinal; stdcall;
 var
   UNITS_NewUnitPosition : UNITS_NewUnitPositionHandler = UNITS_NewUnitPositionHandler($0048A9F0);
 
@@ -683,9 +786,9 @@ var
 
 type
   UNITS_AllocateUnitHandler = function ( p_Unit : Pointer;
-                                         PosX: Cardinal;
-                                         PosY: Cardinal;
-                                         PosZ: Cardinal;
+                                         PosX: Integer;
+                                         PosY: Integer;
+                                         PosZ: Integer;
                                          FullHp: Integer ): LongBool; stdcall;
 var
   UNITS_AllocateUnit: UNITS_AllocateUnitHandler = UNITS_AllocateUnitHandler($00485A40);
@@ -771,6 +874,23 @@ type
   AutoAimHandler = procedure(p_Unit: PUnitStruct); stdcall;
 var
   AutoAim : AutoAimHandler = AutoAimHandler($0049E1A0);
+
+type
+  CallbackForUnitsInDistanceHandler = procedure( p_Position: PPosition;
+                                                 Distance: Integer;
+                                                 UnitSearchCallbackRec: PUnitSearchCallbackRec ); stdcall;
+var
+  CallbackForUnitsInDistance: CallbackForUnitsInDistanceHandler = CallbackForUnitsInDistanceHandler($0047E890);
+
+type
+  SearchForReclamateFeaturesHandler = function( p_Position: PPosition;
+                                                Distance: Integer;
+                                                p_FoundPosition: PPosition;
+                                                p_OutFeatureEnergy: PSingle;
+                                                p_Unk: PPosition;
+                                                p_Unk2: PSingle ): LongBool; stdcall;
+var
+  SearchForReclamateFeatures: SearchForReclamateFeaturesHandler = SearchForReclamateFeaturesHandler($0047EA40);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Network and multiplayer games related stuff
@@ -861,98 +981,149 @@ var
   DrawGameScreen : DrawGameScreenHandler = DrawGameScreenHandler($00468CF0);
 
 type
-  DrawHealthBarsHandler = function (OFFSCREEN_ptr: LongWord; UnitInGame: LongWord; PosX: LongWord; PosY: LongWord) : LongInt; stdcall;
+  DrawHealthBarsHandler = procedure( p_Offscreen: Pointer;
+                                     p_Unit: PUnitStruct;
+                                     PosX: Integer;
+                                     PosY: Integer ); stdcall;
 var
   DrawHealthBars : DrawHealthBarsHandler = DrawHealthBarsHandler($0046A430);
 
 type
-  DrawUnitHandler = function (OFFSCREEN_ptr: Cardinal; p_Unit : Pointer) : LongInt; stdcall;
+  DrawUnitHandler = procedure( p_Offscreen: Pointer;
+                               p_Unit: PUnitStruct ); stdcall;
 var
   DrawUnit : DrawUnitHandler = DrawUnitHandler($0045AC20);
 
 type
-  DrawUnitSelectBoxRectHandler = procedure(OFFSCREEN_ptr: Cardinal; p_Unit: PUnitStruct); stdcall;
+  DrawUnitSelectBoxRectHandler = procedure( p_Offscreen: Pointer;
+                                            p_Unit: PUnitStruct ); stdcall;
 var
   DrawUnitSelectBoxRect : DrawUnitSelectBoxRectHandler = DrawUnitSelectBoxRectHandler($0046A530);
 
 type
-  DrawBarHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: Byte) : LongInt; stdcall;
+  DrawBarHandler = procedure( p_Offscreen: Pointer;
+                              p_TagRect: PtagRECT;
+                              ColorOffset: Byte ); stdcall;
 var
   DrawBar : DrawBarHandler = DrawBarHandler($004BF6F0);
 
 type
-  DrawTranspRectangleHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: Byte) : LongInt; stdcall;
+  DrawTranspRectangleHandler = procedure( p_Offscreen: Pointer;
+                                          Position: Pointer;
+                                          ColorOffset: Byte ); stdcall;
 var
   DrawTranspRectangle : DrawTranspRectangleHandler = DrawTranspRectangleHandler($004BF8C0);
 
 type
-  DrawPointHandler = function (OFFSCREEN_ptr: Cardinal; X, Y : Integer; ColorOffset: Byte) : LongInt; stdcall;
+  DrawPointHandler = procedure( p_Offscreen: Pointer;
+                                X, Y : Integer;
+                                ColorOffset: Byte ); stdcall;
 var
   DrawPoint : DrawPointHandler = DrawPointHandler($004BEE60);
 
 type
-  DrawUnk1Handler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; ColorOffset: Byte) : LongInt; stdcall;
+  DrawUnk1Handler = procedure( p_Offscreen: Pointer;
+                               Position: Pointer;
+                               ColorOffset: Byte ); stdcall;
 var
   DrawUnk1 : DrawUnk1Handler = DrawUnk1Handler($004BFD60);
 
 type
-  DrawLineHandler = function (OFFSCREEN_ptr: Cardinal; X, Y, X2, Y2 : Integer; ColorOffset: Byte) : LongInt; stdcall;
+  DrawLineHandler = procedure( p_Offscreen: Pointer;
+                               X, Y, X2, Y2: Integer;
+                               ColorOffset: Byte ); stdcall;
 var
   DrawLine : DrawLineHandler = DrawLineHandler($004BE950);
 
 type
-  DrawLightHandler = function (OFFSCREEN_ptr: Cardinal; X, Y, X2, Y2 : Integer; ColorOffset: Byte) : LongInt; stdcall;
+  DrawLightHandler = procedure( p_Offscreen: Pointer;
+                                X, Y, X2, Y2: Integer;
+                                ColorOffset: Byte ); stdcall;
 var
   DrawLight : DrawLightHandler = DrawLightHandler($004BEC70);
 
 type
-  DrawAlphaHandler = function (OFFSCREEN_ptr: Cardinal; X, Y, X2, Y2 : Integer; ColorOffset: Byte) : LongInt; stdcall;
+  DrawAlphaHandler = procedure( p_Offscreen: Pointer;
+                                X, Y, X2, Y2: Integer;
+                                ColorOffset: Byte ); stdcall;
 var
   DrawAlpha : DrawAlphaHandler = DrawAlphaHandler($004BED70);
 
 type
-  DrawLine2Handler = function (OFFSCREEN_ptr: Cardinal; x1, y1, x2, y2 : Integer; Color: Byte) : LongInt; cdecl;
+  DrawLine2Handler = procedure( p_Offscreen: Pointer;
+                                x1, y1, x2, y2: Integer;
+                                Color: Byte ); stdcall;
 var
   DrawLine2 : DrawLine2Handler = DrawLine2Handler($004CC7AB);
 
 type
-  DrawCircleHandler = function (OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer; ColorOffset: Byte) : LongInt; stdcall;
+  DrawCircleHandler = procedure( p_Offscreen: Pointer;
+                                 CenterX, CenterY, Radius : Integer;
+                                 ColorOffset: Byte ); stdcall;
 var
   DrawCircle : DrawCircleHandler = DrawCircleHandler($004C0070);
 
 type
-  DrawDotteCircleHandler = function (OFFSCREEN_ptr: Cardinal; CenterX, CenterY, Radius : Integer; ColorOffset: Integer; Spacing: Word; Dotte_b : Integer) : LongInt; stdcall;
+  DrawDotteCircleHandler = procedure( p_Offscreen: Pointer;
+                                      CenterX, CenterY, Radius: Integer;
+                                      ColorOffset: Integer;
+                                      Spacing: Word;
+                                      Dotte_b: Integer); stdcall;
 var
   DrawDotteCircle : DrawDotteCircleHandler = DrawDotteCircleHandler($004C01A0);
 
 type
-  DrawRangeCircleHandler = function (OFFSCREEN_ptr: Cardinal; CirclePointer: Cardinal; Position: PPosition;
-    Radius : Integer; ColorOffset: Integer; Text: PAnsiChar; Priority: Integer) : Cardinal; stdcall;
+  DrawRangeCircleHandler = procedure( p_Offscreen: Pointer;
+                                      CirclePointer: Cardinal;
+                                      Position: PPosition;
+                                      Radius : Integer;
+                                      ColorOffset: Integer;
+                                      Text: PAnsiChar;
+                                      Priority: Integer ); stdcall;
 var
   DrawRangeCircle : DrawRangeCircleHandler = DrawRangeCircleHandler($00438EA0);
 
 type
-  DrawProgressBarHandler = function (OFFSCREEN_ptr: Cardinal; Position: Pointer; BarPosition: Integer) : LongInt; stdcall;
+  DrawProgressBarHandler = procedure( p_Offscreen: Pointer;
+                                      Position: Pointer;
+                                      BarPosition: Integer ); stdcall;
 var
   DrawProgressBar : DrawProgressBarHandler = DrawProgressBarHandler($00468310);
 
 type
-  DrawTransparentBoxHandler = function (OFFSCREEN_ptr: Cardinal; Position: PtagRECT; Transp: Integer) : LongInt; stdcall;
+  DrawTransparentBoxHandler = procedure( p_Offscreen: Pointer;
+                                         Position: PtagRECT;
+                                         Transp: Integer ); stdcall;
 var
   DrawTransparentBox : DrawTransparentBoxHandler = DrawTransparentBoxHandler($004BF4D0);
 
 type
-  DrawText_HeavyHandler = function (OFFSCREEN_ptr: Cardinal; const str: PAnsiChar; left: Integer; top: Integer; MaxWidth: Integer) : LongInt; stdcall;
+  DrawTextCustomFontHandler = procedure( p_Offscreen: Pointer;
+                                         const Str: PAnsiChar;
+                                         Left: Integer;
+                                         Top: Integer;
+                                         MaxWidth: Integer ); stdcall;
 var
-  DrawText_Heavy : DrawText_HeavyHandler = DrawText_HeavyHandler($004C14F0);
+  DrawTextCustomFont: DrawTextCustomFontHandler = DrawTextCustomFontHandler($004C14F0);
 
 type
-  DrawTextHandler = function (OFFSCREEN_ptr: Cardinal; const str: PAnsiChar; left: Integer; top: Integer; MaxLen: Integer; Background: Integer) : LongInt; stdcall;
+  DrawTextHandler = procedure( p_Offscreen: Pointer;
+                               const Str: PAnsiChar;
+                               Left: Integer;
+                               Top: Integer;
+                               MaxLen: Integer;
+                               Background: Integer); stdcall;
 var
   DrawText : DrawTextHandler = DrawTextHandler($004A50E0);
 
 type
-  DrawText_ThinHandler = function (OFFSCREEN_ptr: Cardinal; const str: PAnsiChar; left: Integer; top: Integer; MaxLen: Integer; a6: Integer; Background: Integer) : LongInt; stdcall;
+  DrawText_ThinHandler = procedure( p_Offscreen: Pointer;
+                                    const Str: PAnsiChar;
+                                    Left: Integer;
+                                    Top: Integer;
+                                    MaxLen: Integer;
+                                    a6: Integer;
+                                    Background: Integer); stdcall;
 var
   DrawText_Thin : DrawText_ThinHandler = DrawText_ThinHandler($004A51D0);
 
@@ -962,12 +1133,12 @@ var
   SetFONTLENGTH_ptr : SetFONTLENGTH_ptrHandler = SetFONTLENGTH_ptrHandler($004C1420);
 
 type
-  GAF_Name2SequenceHandler = function (GafStruct: Pointer; SequenceName : PAnsiChar) : Pointer; stdcall;
+  GAF_Name2SequenceHandler = function (GafStruct: Pointer; SequenceName: PAnsiChar): PGAFSequence; stdcall;
 var
   GAF_Name2Sequence : GAF_Name2SequenceHandler = GAF_Name2SequenceHandler($004B8D40);
 
 type
-  GAF_SequenceIndex2FrameHandler = function (ParsedGaf: Pointer; Index : Integer) : Pointer; stdcall;
+  GAF_SequenceIndex2FrameHandler = function (p_GAFSequence: PGAFSequence; Index: Integer): PGAFFrame; stdcall;
 var
   GAF_SequenceIndex2Frame : GAF_SequenceIndex2FrameHandler = GAF_SequenceIndex2FrameHandler($004B7F30);
 
@@ -977,14 +1148,22 @@ var
   GAF_OpenAnimsFile : GAF_OpenAnimsFileHandler = GAF_OpenAnimsFileHandler($00429700);
 
 type
-  GAF_DrawTransformedHandler = function (OFFSCREEN_Ptr: Cardinal; GafSequence: Pointer; Position: PGAFFrameTransform; Pos2: PGAFFrameTransform) : Pointer; stdcall;
+  GAF_DrawTransformedHandler = function (p_Offscreen: Pointer; GafSequence: Pointer; Position: PGAFFrameTransform; Pos2: PGAFFrameTransform) : Pointer; stdcall;
 var
   GAF_DrawTransformed : GAF_DrawTransformedHandler = GAF_DrawTransformedHandler($004C7580);
 
 type
-  ShowExplodeGafHandler = function (Position: PPosition; p_GAFAnim: Cardinal; AddGlow: LongInt; AddSmoke: LongInt) : Byte; stdcall;
+  ShowExplodeGafHandler = procedure( Position: PPosition;
+                                     p_GAFAnim: PGAFSequence;
+                                     AddGlow: Integer;
+                                     AddSmoke: Integer ); stdcall;
 var
   ShowExplodeGaf : ShowExplodeGafHandler = ShowExplodeGafHandler($00420A30);
+
+type
+  sub_4B8B30Handler = procedure(p_Exp: Pointer; p_GAFAnim: Pointer; StartingFrame: LongInt); stdcall;
+var
+  sub_4B8B30 : sub_4B8B30Handler = sub_4B8B30Handler($4B8B30);
 
 type
   EmitSfx_SmokeInfiniteHandler = function (Position: PPosition; nPrior: Integer) : Byte; stdcall;
@@ -1111,6 +1290,16 @@ type
 var
   GetStrExtent : GetStrExtentHandler = GetStrExtentHandler($004A5030);
 
+type
+  GetCustomFontCharWidthHandler = function: Integer; stdcall;
+var
+  GetCustomFontCharWidth : GetCustomFontCharWidthHandler = GetCustomFontCharWidthHandler($004C1450);
+
+type
+  GetCustomFontStrExtentHandler = function(FontHandle: Pointer; Str: PAnsiChar): Integer; stdcall;
+var
+  GetCustomFontStrExtent : GetCustomFontStrExtentHandler = GetCustomFontStrExtentHandler($004C1480);
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // Engine registry and INI options
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1151,6 +1340,16 @@ type
 var
   MEM_Free : MEM_FreeHandler = MEM_FreeHandler($004D85A0);
 
+type
+  MEM_Free_PointerHandler = procedure(Memory: Pointer); cdecl;
+var
+  MEM_Free_Pointer : MEM_Free_PointerHandler = MEM_Free_PointerHandler($004D8670);
+
+type
+  MEM_Free_PPointerHandler = procedure(Memory: Pointer); cdecl;
+var
+  MEM_Free_PPointer : MEM_Free_PPointerHandler = MEM_Free_PPointerHandler($004B4F20);
+
 Type
   MEM_AllowReadWriteHandler = function(Address : Cardinal): Integer; cdecl;
 var
@@ -1186,6 +1385,19 @@ Type
   HAPIFILE_FindCloseHandler = function(SearchHandle: Integer): Integer; stdcall;
 var
   HAPIFILE_FindClose : HAPIFILE_FindCloseHandler = HAPIFILE_FindCloseHandler($004BC8D0);
+
+Type
+  HAPIFILE_ReadFileHandler = function(FilePath: PAnsiChar; StartOffset: Integer): Pointer; stdcall;
+var
+  HAPIFILE_ReadFile : HAPIFILE_ReadFileHandler = HAPIFILE_ReadFileHandler($004BBE50);
+
+Type
+  GetLocalizedFilePathHandler = procedure( Buffer: Pointer;
+                                           FileDir: PAnsiChar;
+                                           FileName: PAnsiChar;
+                                           FileExt: PAnsiChar ); stdcall;
+var
+  GetLocalizedFilePath : GetLocalizedFilePathHandler = GetLocalizedFilePathHandler($004290F0);
 
 Type
   HAPIFILE_InsertToArrayHandler = function(Filename: PAnsiChar;
@@ -1315,6 +1527,9 @@ var
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+function SHiWord(A: Integer): SmallInt; overload;
+function SHiWord(A: Cardinal): SmallInt; overload;
+
 implementation
 
 procedure InterpretInternalCommand(CommandText: string);
@@ -1325,6 +1540,16 @@ end;
 procedure SendTextLocal(Text: string);
 begin
   ShowReminderMsg(PAnsiChar(Text), 0);
+end;
+
+function SHiWord(A: Cardinal): SmallInt; overload;
+begin
+  Result := SmallInt(A div 65536);
+end;
+
+function SHiWord(A: Integer): SmallInt; overload;
+begin
+  Result := SmallInt(Cardinal(A) div 65536);
 end;
 
 end.
