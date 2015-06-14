@@ -1,6 +1,4 @@
 unit idplay;
-{.$DEFINE DebuggerHooks}
-
 // causes the $2c packets to be logged
 {.$DEFINE PacketLogging}
 
@@ -43,8 +41,6 @@ type
     dp3 :IDirectPlay3;
     cs : TCriticalSection;
     hMemMap      :Cardinal;
-
-//    asmstorage   : array[1..1000] of char;
     crcattempts  : integer;
   protected
     TAStatus     : TTAStatus;
@@ -1842,6 +1838,8 @@ var
   FromPlayer : TPlayerData;
   ToPlayer : TPlayerData;
   TimeStamp : Longword;
+
+  PacketType: Byte;
 {
   function GetKnownPlayerList : string;
   var i : Integer;
@@ -1880,66 +1878,63 @@ var
 //var
 //  PacketHandlerFunc : TPacketHandlerFunc;
 begin
-Result := '';
-TimeStamp := timeGetTime;
-FromPlayer := Players.Convert( FromPlayerDPID , ZI_HostPlayer, false );
-ToPlayer := Players.Convert( ToPlayerDPID, ZI_Everyone, false );
+  Result := input;
+  TimeStamp := timeGetTime;
+  FromPlayer := Players.Convert( FromPlayerDPID , ZI_HostPlayer, false );
+  ToPlayer := Players.Convert( ToPlayerDPID, ZI_Everyone, false );
+  //  AdjustSpeeds (false);
 
-//  AdjustSpeeds (false);
-if assigned(chatview) then
+  if Assigned(chatview) then
   begin
-  if (chatview^.myCheats<>oldMyCheats) and (TAStatus = Ingame) then
+    if (chatview^.myCheats<>oldMyCheats) and (TAStatus = InGame) then
     begin
-    oldMyCheats:=chatview^.myCheats;
-    Players[1].OtherCheats := oldMyCheats;
+      oldMyCheats := chatview^.myCheats;
+      Players[1].OtherCheats := oldMyCheats;
 
-    s := '$$$$'; //show that we are ready
-    PRec2Rec_CheatsDetected_Message(@s[1])^.CheatsDetected := oldMyCheats;
-    SendRecorderToRecorderMsg( TANM_Rec2Rec_CheatDetection, s );
-    if ListCheats(oldMyCheats) <> '' then
-      SendChat(Players[1].Name+' has cheats enabled: ' + ListCheats(oldMyCheats));
+      s := '$$$$'; //show that we are ready
+      PRec2Rec_CheatsDetected_Message(@s[1])^.CheatsDetected := oldMyCheats;
+      SendRecorderToRecorderMsg( TANM_Rec2Rec_CheatDetection, s );
+      if ListCheats(oldMyCheats) <> '' then
+        SendChat(Players[1].Name+' has cheats enabled: ' + ListCheats(oldMyCheats));
     end;
-  if (chatview^.NewData = 1) then
-    SendClipboard();
-  if (chatview^.toAlliesLength > 0) then
-    SendAlliedChat();
-
-  if (chatview^.fromAlliesLength = 0) and (AlliedMarkerQueue.Count > 0) then
+    if (chatview^.NewData = 1) then
+      SendClipboard();
+    if (chatview^.toAlliesLength > 0) then
+      SendAlliedChat();
+    if (chatview^.fromAlliesLength = 0) and (AlliedMarkerQueue.Count > 0) then
     begin
-    tmps := AlliedMarkerQueue.DeQueue;
-    for b := 1 to Length (tmps) do
-      chatview^.fromAllies[b] := tmps[b];
-    chatview^.fromAlliesLength := length (tmps);
+      tmps := AlliedMarkerQueue.DeQueue;
+      for b := 1 to Length (tmps) do
+        chatview^.fromAllies[b] := tmps[b];
+      chatview^.fromAlliesLength := length (tmps);
     end;
-
-  if (chatview^.commanderWarp = 2) then
+    if (chatview^.commanderWarp = 2) then
     begin
-    if not Players[1].WarpDone then
+      if not Players[1].WarpDone then
       begin
-      //show that we are ready
-      SendRecorderToRecorderMsg( TANM_Rec2Rec_CmdWarp, '' );
-      Players[1].WarpDone := true;
+        //show that we are ready
+        SendRecorderToRecorderMsg( TANM_Rec2Rec_CmdWarp, '' );
+        Players[1].WarpDone := true;
       end;
-    b:=1;
-    for a:=1 to Players.Count do
-      if not Players[a].warpdone then
+      b:=1;
+      for a:=1 to Players.Count do
+        if not Players[a].warpdone then
         begin
-        b:=0;
-        Break;
+          b:=0;
+          Break;
         end;
-    if b=1 then
+      if b=1 then
       begin
-      CommanderWarp := 3;
-      SendLocal( #$19#$00#$00, 0, true, True)
+        CommanderWarp := 3;
+        SendLocal( #$19#$00#$00, 0, true, True)
 //      s:= ;
 //      sendlocal(s,0,false,true);
 //      sendlocal(s,0,true,false);
       end;
     end;
-  end;
+  end; {Assigned(chatview)}
 
-
-// every x seconds make sure the file logs are flushed
+  // every x seconds make sure the file logs are flushed
   if TimeStamp - LastFlushTimeStamp  > FlushDeltaTime then
   begin
     LastFlushTimeStamp := TimeStamp;
@@ -1948,10 +1943,9 @@ if assigned(chatview) then
       logsave.Flush;
   end;
 
-  result:=input;
+  // set last message timestamp for packet sender player
   if FromPlayer <> nil then
     FromPlayer.LastMsgTimeStamp := timeGetTime;
-
 
   // decompress & decrypt the packet
   packet := TPacket.Create( input );
@@ -1960,475 +1954,461 @@ if assigned(chatview) then
        (FromPlayer <> nil) then
       PacketLostHandler(packet.Timestamp,FromPlayer);
     c := packet.RawData2;
-    result:=#3#0#0 + Copy (packet.FData, 4, 4);
+    result := #3#0#0 + Copy (packet.FData, 4, 4);
   finally
     packet.Free;
   end;
-  datachanged:=false;
+  datachanged := False;
 
   if TAStatus = InBattleRoom then
-  begin       //in lobby
+  begin
     repeat
-      s:=TPacket.split2(c,False,  TPLayers.Name(FromPlayer), TPLayers.Name(ToPlayer));
-      tmp:=s;
-      if (s[1]=#$5) then
-        begin          //chat
-        ChatMsgHandler(s,FromPlayerDPID);
-        if datachanged then
-          tmp:='';
-        end;
+      s := TPacket.Split2(c, False, TPlayers.Name(FromPlayer), TPlayers.Name(ToPlayer));
+      tmp := s;
+      PacketType := Byte(tmp[1]);
       {$IFDEF Debug}
       if PacketsToFilter <> nil then
+      begin
         for a := Low(PacketsToFilter) to High(PacketsToFilter) do
-          if (byte(tmp[1])=PacketsToFilter[a]) then
-            begin
+        begin
+          if (PacketType = PacketsToFilter[a]) then
+          begin
             // remove the packet so nothing happens
             tmp := #$2a'd';
-            datachanged := true;
-            break;
-            end;
-       if datachanged then
-         begin
-         result:=result+tmp;
-         Continue;
-         end;
-      {$ENDIF}
-      if s[1]=#$1b then // player rejected/dropped/disconnection
+            datachanged := True;
+            Break;
+          end;
+        end;
+        if datachanged then
         begin
-        RejectionMsg := PRejectionMessage(@tmp[1]);
-//        LogRejection;
-        // if our client has detected a rejection, remove the player!
-        // or if a player kicks someone
-        if FromPlayer.IsSelf then
-          begin
-          if FromPlayer.IsServer then
-            begin
-            case RejectionMsg^.Reason  of
-              PlayerDidnotProperlyClose :
-                begin
-                res := DestroyPlayer( RejectionMsg^.DPlayPlayerID );
-                if res <> DP_OK then
-                  TLog.add( 0, Errorstring(res) );
-                end;
-              // make sure we cleanup the player even if they exit cleanly
-              PlayerDidProperlyClose :
-                begin
-                res := DestroyPlayer( RejectionMsg^.DPlayPlayerID );
-                if res <> DP_OK then
-                  TLog.add( 0, Errorstring(res) );
-                end;
-            end;
-            end
-{
-          else if (RejectionMsg^.Reason = PlayerDidnotProperlyClose) or
-                  (RejectionMsg^.Reason = PlayerDidProperlyClose) then
-            begin
-            res := DestroyPlayer( RejectionMsg^.DPlayPlayerID );
-            if res <> DP_OK then
-              TLog.add( 0, Errorstring(res) );
-            end;
-}            
-          end;
-        end;
-      if s[1]=#$1a then
-        begin
-        handleunitdata(s,FromPlayerDPID,ToPlayerDPID);
-
-        //Hantering av sy-enheten
-        currnr := @s[7];
-        if currnr^ = SY_UNIT then
-          begin
-          currnr := @tmp[11];
-          if s[2] = #$2 then
-            begin
-            currnr^ := Random (400000000); //unlikely that it could be enabled :)
-            datachanged := true;
-            end;
-          end;
-        end;
-      if s[1]=#$02 then
-        begin       //ping
-//        TLog.add( 4, 'Packet '+DataToHex( Copy( s, 1, TPacket.PacketLength( s,1)) ) );
-        ip:=@s[6];
-        a:=ip^;
-        if a<>0 then
-          begin
-          ip:=@s[2];
-          a:=ip^;
-          if ((a>0) and (a<101)) then
-            sentpings[a] :=timeGetTime
-{$IFDEF DebuggerHooks}
-//          else
-//            asm int 3 end;
-{$ENDIF}
-          end;
-        end;
-      if s[1]=#$18 then
-//      if s[1]=#$26 then
-         if FromPlayer <> nil then
-           ServerPlayer := FromPlayer;
-      if ((s[1]=#$20) and (length(s)>170)) then
-        begin                 //status packet
-//        TLog.add( 4, 'status packet' );
-//        s[159] :=#$0e;
-        if FromPlayer <> nil then
-          begin
-          packet := TPacket.sjcreatenew(s);
-          try
-            FromPlayer.LastStatusMsg := packet.tadata;
-          finally
-            packet.Free;
-          end;
-          if (byte(s[157]) and $40)=$40 then
-            FromPlayer.Side := 2
-          else
-            FromPlayer.Side := byte(s[151]);
-          end;
-
-        if FromPlayer.IsServer then
-          begin
-          mapname:=copy(s,2,pos(#0,s)-2);
-          if assigned(chatview) then
-            begin
-            for a:=1 to length(mapname) do
-              chatview^.mapname[a] :=mapname[a];
-            chatview^.mapname[length(mapname)+1] :=#0;
-            end;
-          amaxunits := word(byte(s[167]))+word(byte(s[168]))*256;
-          if amaxunits <> maxunits then
-            begin
-            maxunits := amaxunits;
-            if chatview <> nil then
-              chatview^.unitCount := maxunits;
-            if maxunits > 500 then
-              begin // check for versions which are broken
-              if NotViewingRecording and EmitBuggyVersionWarnings then
-              for i := 2 to Players.Count do
-                if not Players[i].HasWarnedOnUnitLimit and
-                   (Players[i].InternalVersion <> TADemoVersion_OTA) and
-                   (Players[i].InternalVersion <= TADemoVersion_99b2) then
-                  begin
-                  Players[i].HasWarnedOnUnitLimit := True;
-                  SendChat( 'Warning: ' + Players[i].Name + ' is using a broken recorder');
-                  SendChat( 'This player is unable to handle more than 500 units per side');
-                  SendChat( 'Visit www.tauniverse.com to download a different version');
-                  end;
-              end;
-            if 10*maxunits+1 > Length(UnitStatus) then
-              begin
-              a := high(UnitStatus);
-              if a = -1 then
-                a := 0;
-              SetLength( UnitStatus, 10*maxunits+1 );
-              for i := a to maxunits do
-                begin
-                UnitStatus[i].lastdead := 0;
-                UnitStatus[i].health := 42;
-                UnitStatus[i].DoneStatus := 1000;
-                UnitStatus[i].unitalive := false;
-                end;
-              end;
-            end;
-          end;
-        if forcego and ((byte(s[157]) and $40)=$40) then
-          begin
-          tmp[157] :=char(byte(tmp[157]) or (byte('!')-1));
-          datachanged:=true;
-          end;
-        if assigned(chatview) and (FromPlayer <> nil) and ( (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) ) then
-          chatview^.playerColors[FromPlayer.PlayerIndex] := integer(tmp[152]);
-        if fakecd then
-          begin
-          tmp[159] :=#$04;
-          datachanged:=true;
-          end;
-        if fakewatch and
-           not FromPlayer.IsSelf then
-          begin
-          tmp[158] := char(byte(s[158]) or $20);
-          datachanged:=true;
-          end;
-
-        if FromPlayer.IsSelf then
-          begin
-          if ((byte(tmp[157]) and $20) <> 0) and (not Players[1].ClickedIn) then
-            begin
-            if (ai <> '') and AutoRecording then
-              SendChat( 'Warning: A custom AI (' + ai + ') is enabled');
-//            if yxdetected {and cmdcont} then
-//              SendChatLocal ('Yxan detected make sure its cmd ends.');
-
-//            SendChat( 'You just clicked in');
-            Players[1].ClickedIn := true;
-            end;
-          //Identifierar rec som klarar av enemy-chat
-          // todo: depending on weapon id patch
-          tmp[182] := char(TADemoVersion_4); //version
-          datachanged := true;
-          end
-        else
-          begin
-          InternalVersion := byte(s[182]);
-          FromPlayer.InternalVersion := InternalVersion;
-          FromPlayer.EnemyChat := InternalVersion > TADemoVersion_OTA;
-          FromPlayer.RecConnect := InternalVersion > TADemoVersion_97;
-          FromPlayer.Uses_Rec2Rec_Notification := InternalVersion >= TADemoVersion_99b3_beta2;
-
-          BroadcastModInfo;
-
-          // send extra battleroom settings (autopause, cmdwarp, syncon)
-          if ImServer and
-             (not FromPlayer.ReceivedBRSettings) and
-             (not FromPlayer.IsServer) then
-            begin
-              if FromPlayer.Uses_Rec2Rec_Notification then
-               begin
-                 BroadcastExtraBattleRoomSettings(FromPlayer.ID);
-               end else
-               begin
-
-                { if CommanderWarp = 1 then SendLocal('.cmdwarp',FromPlayer.Id,false,true);
-                if SpeedLock = 1 then SendLocal('.cmdwarp',FromPlayer.Id,false,true); }
-
-               end;
-             FromPlayer.ReceivedBRSettings:= True;
-           end;
-
-          // warn about older versions
-          if  EmitBuggyVersionWarnings and
-              (InternalVersion <> TADemoVersion_OTA) and
-              (InternalVersion < TADemoVersion_98b1) and
-              (not FromPlayer.HasBrokenRecorder) then
-            begin
-            SendChat( 'Warning: ' + FromPlayer.Name + ' is using a broken recorder');
-            SendChat( 'This may give him/her advantages such as permanent LOS');
-            SendChat( 'Visit www.tauniverse.com to download a different version');
-
-            FromPlayer.HasBrokenRecorder := true;
-{            tmps:=$1b'1234'#$06;
-            ip:=@tmps[2];
-            ip^:=from;
-            sendlocal(tmps,0,false,true); }
-            end
-          else if EmitBuggyVersionWarnings and
-                  (InternalVersion <> TADemoVersion_OTA) and
-                  (InternalVersion <= TADemoVersion_99b2) and
-                  (maxunits > 500) and NotViewingRecording and
-                  not FromPlayer.HasWarnedOnUnitLimit then
-            begin
-            FromPlayer.HasBrokenRecorder := True;
-            FromPlayer.HasWarnedOnUnitLimit := True;
-            SendChat( 'Warning: ' + FromPlayer.Name + ' is using a broken recorder');
-            SendChat( 'This player is unable to handle more than 500 units per side');
-            SendChat( 'Visit www.tauniverse.com to download a different version');
-            end;
-          end;
-        end;
-      if s[1] = #$fa then
-        begin
-        TLog.Add(0,'Entering recording replay mode');
-// todo : hook +shareall to activate LOS sharing, send .sharelos to older recorders
-        NotViewingRecording := False;
-
-// This is to be enabled when they do a .sonar        
-        // allow sharelos to see everyone
-        Players[TAData.LocalPlayerID].SharingLos := true;
-// todo : fibbers require preventing sonar jamming from effecting allies
-        end;
-
-      if s[1] = #$fb then
-      begin
-        Rec2Rec := PRecorderToRecorderMessage(@tmp[1]);
-        Rec2Rec_Data := Pointer(Longword(Rec2Rec)+SizeOf(TRecorderToRecorderMessage) );
-        case Rec2Rec^.MsgSubType of
-          TANM_Rec2Rec_GameStateInfo :
-          begin
-            assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_GameStateInfo_Message) );
-            if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.AutopauseState = 1 then
-              SetAutoPauseAtStart(True)
-            else
-              SetAutoPauseAtStart(False);
-
-            SetF1Disable(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.F1Disable);
-            SetCommanderWarp(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.CommanderWarp);
-
-            if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SpeedLockNative = 1 then
-              SetSpeedLockNative(True)
-            else
-              SetSpeedLockNative(False);
-
-            if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SpeedLock = 1 then
-              SetSpeedLock(True)
-            else
-              SetSpeedLock(False);
-
-            SetSlowSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SlowSpeed);
-            SetFastSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.FastSpeed);
-            SetAIDifficulty(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.AIDifficulty);
-          end;
-          TANM_Rec2Rec_ModInfo :
-          begin
-            assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_ModInfo_Message) );
-            uc := Players.ConvertId(PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.PlayerID,ZI_Everyone,false);
-            Players[uc].ModInfo.ModID := PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.ModID;
-            Players[uc].ModInfo.ModMajorVer := PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.ModMajorVer;
-            Players[uc].ModInfo.ModMinorVer := PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.ModMinorVer;
-          end;
-        end;
-        tmp := #$2a'd';          //Remove packets, so nothing happens
-        datachanged := true;
-        end;
-
-      //ally-packet
-      if s[1] = #$23 then
-        begin // todo : fix replay server to emit ally-packets correctly
-        AllyMessage := PAllyMessage(@s[1]);
-        Player1 := Players.Convert(AllyMessage^.PlayerID_1,ZI_InvalidPlayer,false);
-        Player2 := Players.Convert(AllyMessage^.PlayerID_2,ZI_InvalidPlayer,false);
-        if (Player1 <> nil) and (Player2 <> nil) then
-        if Player2.IsSelf then
-          begin
-          Player1.CanTake := AllyMessage^.Allied <> 0;
-          Player1.IsAllied := AllyMessage^.Allied <> 0;
-          if (chatview <> nil) and ( (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) ) then
-            chatview^.allies[Player1.PlayerIndex] := AllyMessage^.Allied;
-          end;
-        end;
-
-
-      if s[1]=#$8 then
-        begin //börja ladda
-        TLog.add(3,'loading started');
-        TAStatus := InLoading;
-        keyboardHookLevel:= 0;
-
-        if assigned(chatview) then
-          begin
-          if (not NotViewingRecording) then
-            chatview^.playingDemo:=1;
-          if use3d then
-            begin
-            if NotViewingRecording then
-              begin
-              if Players[1].Side = 2 then
-                chatview^.ta3d := 1;
-              end
-            else
-              chatview^.ta3d := 1;
-            end;
-          if (auto3d) and (not NotViewingRecording) then
-            chatview^.ta3d := 1;
-
-          chatview^.TAStatus:=2;
-          end;
-
-        if (filename<>'') and (filename<>'none') then
-          begin
-          filename := RemoveInvalid (filename);
-          createlogfile();
-          prevtime:=timeGetTime;
-          end;
-        //autorecording
-        if (filename = '') and AutoRecording and NotViewingRecording then
-          begin
-          //filename := DateToStr (now);
-          filename := FormatDateTime('yyyy-mm-dd',Date);
-          if IniSettings.demosprefix <> '' then filename := filename + ' - ' + IniSettings.demosprefix + ' - ' else filename:= filename + ' - ';
-          filename := filename + mapname;
-          if RecordPlayerNames then
-            begin
-            filename := filename + ' - ';
-            for a := 1 to Players.Count do
-              begin
-              filename := filename +Players[a].Name;
-              if a < Players.Count then
-                filename := filename + ', ';
-              end;
-            end;
-          filename := RemoveInvalid (filename);
-          //Lägg till default sökväg
-          if demodir <> '' then
-          begin
-            if IniSettings.modid > 0 then
-            begin
-              if (IniSettings.Name <> '') and
-                  (IniSettings.Version <> '') then
-              begin
-                filename := IncludeTrailingPathDelimiter(demodir) +
-                          IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)) +
-                          IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.Version)) +
-                          filename;
-              end else
-                if (IniSettings.Name <> '') then
-                  filename := IncludeTrailingPathDelimiter(demodir) +
-                            IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)) +
-                            filename
-                else
-                  filename := IncludeTrailingPathDelimiter(demodir) + filename;
-            end else
-              filename := IncludeTrailingPathDelimiter(demodir) + filename;
-          end;
-
-          if fileexists (filename + '.tad') then
-            begin
-            a := 1;
-            repeat
-              inc (a);
-            until not fileexists (filename + ' - nr ' + inttostr (a) + '.tad');
-            filename := filename + ' - nr ' + inttostr (a);
-            end;
-          filename := filename + '.tad';
-          createlogfile();
-          prevtime:=timeGetTime;
-        end;
-
-        //Fyll i StartInfo.ID mha DPID'sen
-
-        playerlist := TList.Create;
-        try
-        for a := 1 to Players.Count do
-          playerlist.Add (Players[a]);
-        playerlist.Sort(compare);
-
-        b := 0;
-        for a := 1 to Players.Count do
-          begin
-          player := TPlayerData(playerlist.items[a - 1]);
-          TLog.add (3,'setting ' + inttostr(player.id) + ' to ' + inttostr (b));
-          player.StartInfo.ID := b;
-          player.IsFirstPlayerWithb3 := (a = 1) and (player.InternalVersion >= TADemoVersion_99b3_beta2);
-          Inc( b, MaxUnits );
-          end;
-
-        if statslog <> nil then
-        begin
-          statslog.Init_StatEvent;
-          for a := 1 to Players.Count do
-          begin
-            statslog.AddPlayer_StatEvent(Players[a].PlayerIndex,
-                                         Players[a].Side,
-                                         Players[a].Name,
-                                         Players[a].StartInfo.ID);
-          end;
-        end;
-
-        finally
-          playerlist.Free;
+          Result := Result+tmp;
+          Continue;
         end;
       end;
-      result:=result+tmp;
-    until c='';
-    c:=#6;
-  end;
+      {$ENDIF}
+      case PacketType of
+        TANM_ChatMessage : // chat
+          begin
+            ChatMsgHandler(s, FromPlayerDPID);
+            if datachanged then
+              tmp := '';
+          end;
+        TANM_Rejection : // player rejected/dropped/disconnection
+          begin
+            RejectionMsg := PRejectionMessage(@tmp[1]);
+            // LogRejection;
+            // if our client has detected a rejection, remove the player!
+            // or if a player kicks someone
+            if FromPlayer.IsSelf then
+            begin
+              if FromPlayer.IsServer then
+              begin
+                case RejectionMsg^.Reason of
+                  PlayerDidnotProperlyClose :
+                    begin
+                      res := DestroyPlayer( RejectionMsg^.DPlayPlayerID );
+                      if res <> DP_OK then
+                        TLog.add( 0, Errorstring(res) );
+                    end;
+                  // make sure we cleanup the player even if they exit cleanly
+                  PlayerDidProperlyClose :
+                    begin
+                      res := DestroyPlayer( RejectionMsg^.DPlayPlayerID );
+                      if res <> DP_OK then
+                        TLog.add( 0, Errorstring(res) );
+                    end;
+                end;
+              end
+    {
+              else if (RejectionMsg^.Reason = PlayerDidnotProperlyClose) or
+                      (RejectionMsg^.Reason = PlayerDidProperlyClose) then
+                begin
+                res := DestroyPlayer( RejectionMsg^.DPlayPlayerID );
+                if res <> DP_OK then
+                  TLog.add( 0, Errorstring(res) );
+                end;
+    }
+            end;
+          end;
+        TANM_UnitTypesSync :
+          begin
+            handleunitdata(s, FromPlayerDPID, ToPlayerDPID);
+            //Hantering av sy-enheten
+            currnr := @s[7];
+            if currnr^ = SY_UNIT then
+            begin
+              currnr := @tmp[11];
+              if s[2] = #$2 then
+              begin
+                currnr^ := Random(400000000); //unlikely that it could be enabled :)
+                datachanged := True;
+              end;
+            end;
+          end;
+        TANM_Ping :
+          begin
+            ip := @s[6];
+            a := ip^;
+            if a<>0 then
+            begin
+              ip := @s[2];
+              a := ip^;
+              if ((a>0) and (a<101)) then
+                Sentpings[a] := timeGetTime;
+            end;
+          end;
+        TANM_HostMigration :
+          begin
+            if FromPlayer <> nil then
+              ServerPlayer := FromPlayer;
+          end;
+        TANM_PlayerInfo :
+          begin
+            if (length(s)>170) then
+            begin
+              //        s[159] :=#$0e;
+              if FromPlayer <> nil then
+              begin
+                packet := TPacket.sjcreatenew(s);
+                try
+                  FromPlayer.LastStatusMsg := packet.tadata;
+                finally
+                  packet.Free;
+                end;
+                if (byte(s[157]) and $40)=$40 then
+                  FromPlayer.Side := 2
+                else
+                  FromPlayer.Side := byte(s[151]);
+                end;
 
-//  if (TAStatus = Loading) then
-//    TADemoRecorderOff := True;
-//  if not TADemoRecorderOff then
+                if FromPlayer.IsServer then
+                begin
+                  mapname:=copy(s,2,pos(#0,s)-2);
+                  if assigned(chatview) then
+                  begin
+                    for a:=1 to length(mapname) do
+                      chatview^.mapname[a] :=mapname[a];
+                    chatview^.mapname[length(mapname)+1] :=#0;
+                  end;
+                  amaxunits := word(byte(s[167]))+word(byte(s[168]))*256;
+                  if amaxunits <> maxunits then
+                  begin
+                    maxunits := amaxunits;
+                    if chatview <> nil then
+                      chatview^.unitCount := maxunits;
+                    if maxunits > 500 then
+                    begin // check for versions which are broken
+                      if NotViewingRecording and EmitBuggyVersionWarnings then
+                        for i := 2 to Players.Count do
+                        begin
+                          if not Players[i].HasWarnedOnUnitLimit and
+                             (Players[i].InternalVersion <> TADemoVersion_OTA) and
+                             (Players[i].InternalVersion <= TADemoVersion_99b2) then
+                          begin
+                            Players[i].HasWarnedOnUnitLimit := True;
+                            SendChat( 'Warning: ' + Players[i].Name + ' is using a broken recorder');
+                            SendChat( 'This player is unable to handle more than 500 units per side');
+                            SendChat( 'Visit www.tauniverse.com to download a different version');
+                          end;
+                        end;
+                    end;
+                    if 10*maxunits+1 > Length(UnitStatus) then
+                    begin
+                      a := high(UnitStatus);
+                      if a = -1 then
+                        a := 0;
+                      SetLength( UnitStatus, 10*maxunits+1 );
+                      for i := a to maxunits do
+                      begin
+                        UnitStatus[i].lastdead := 0;
+                        UnitStatus[i].health := 42;
+                        UnitStatus[i].DoneStatus := 1000;
+                        UnitStatus[i].unitalive := false;
+                      end;
+                    end;
+                  end;
+                end;
+
+                if forcego and ((byte(s[157]) and $40)=$40) then
+                begin
+                  tmp[157] := char(byte(tmp[157]) or (byte('!')-1));
+                  datachanged:=true;
+                end;
+                if assigned(chatview) and (FromPlayer <> nil) and
+                   ( (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) ) then
+                  chatview^.playerColors[FromPlayer.PlayerIndex] := integer(tmp[152]);
+                if fakecd then
+                begin
+                  tmp[159] := #$04;
+                  datachanged:=true;
+                end;
+                if fakewatch and
+                   not FromPlayer.IsSelf then
+                begin
+                  tmp[158] := char(byte(s[158]) or $20);
+                  datachanged:=true;
+                end;
+
+                if FromPlayer.IsSelf then
+                begin
+                  if ((byte(tmp[157]) and $20) <> 0) and (not Players[1].ClickedIn) then
+                  begin
+                    if (ai <> '') and AutoRecording then
+                      SendChat( 'Warning: A custom AI (' + ai + ') is enabled');
+                    Players[1].ClickedIn := True;
+                  end;
+                  //Identifierar rec som klarar av enemy-chat
+                  // todo: depending on weapon id patch
+                  tmp[182] := char(TADemoVersion_4); //version
+                  datachanged := True;
+                end else
+                begin
+                  InternalVersion := byte(s[182]);
+                  FromPlayer.InternalVersion := InternalVersion;
+                  FromPlayer.EnemyChat := InternalVersion > TADemoVersion_OTA;
+                  FromPlayer.RecConnect := InternalVersion > TADemoVersion_97;
+                  FromPlayer.Uses_Rec2Rec_Notification := InternalVersion >= TADemoVersion_99b3_beta2;
+
+                  // send extra battleroom settings (autopause, cmdwarp, syncon)
+                  BroadcastModInfo;
+                  if ImServer and
+                     (not FromPlayer.ReceivedBRSettings) and
+                     (not FromPlayer.IsServer) then
+                  begin
+                    if FromPlayer.Uses_Rec2Rec_Notification then
+                       BroadcastExtraBattleRoomSettings(FromPlayer.ID);
+                    FromPlayer.ReceivedBRSettings := True;
+                  end;
+
+                  // warn about older versions
+                  if  EmitBuggyVersionWarnings and
+                    (InternalVersion <> TADemoVersion_OTA) and
+                    (InternalVersion < TADemoVersion_98b1) and
+                    (not FromPlayer.HasBrokenRecorder) then
+                  begin
+                    SendChat( 'Warning: ' + FromPlayer.Name + ' is using a broken recorder');
+                    SendChat( 'This may give him/her advantages such as permanent LOS');
+                    SendChat( 'Visit www.tauniverse.com to download a different version');
+
+                    FromPlayer.HasBrokenRecorder := true;
+                  { tmps:=$1b'1234'#$06;
+                    ip:=@tmps[2];
+                    ip^:=from;
+                    sendlocal(tmps,0,false,true); }
+                  end else
+                  begin
+                    if EmitBuggyVersionWarnings and
+                       (InternalVersion <> TADemoVersion_OTA) and
+                       (InternalVersion <= TADemoVersion_99b2) and
+                       (maxunits > 500) and NotViewingRecording and
+                       not FromPlayer.HasWarnedOnUnitLimit then
+                    begin
+                      FromPlayer.HasBrokenRecorder := True;
+                      FromPlayer.HasWarnedOnUnitLimit := True;
+                      SendChat( 'Warning: ' + FromPlayer.Name + ' is using a broken recorder');
+                      SendChat( 'This player is unable to handle more than 500 units per side');
+                      SendChat( 'Visit www.tauniverse.com to download a different version');
+                    end;
+                  end;
+                end;
+            end;
+          end;
+        TANM_ReplayerServer :
+          begin
+            TLog.Add(0,'Entering recording replay mode');
+            // todo : hook +shareall to activate LOS sharing, send .sharelos to older recorders
+            NotViewingRecording := False;
+            // This is to be enabled when they do a .sonar
+            // allow sharelos to see everyone
+            Players[TAData.LocalPlayerID+1].SharingLos := true;
+            // todo : fibbers require preventing sonar jamming from effecting allies
+          end;
+        TANM_RecorderToRecorder :
+          begin
+            Rec2Rec := PRecorderToRecorderMessage(@tmp[1]);
+            Rec2Rec_Data := Pointer(Longword(Rec2Rec)+SizeOf(TRecorderToRecorderMessage) );
+            case Rec2Rec^.MsgSubType of
+              TANM_Rec2Rec_GameStateInfo :
+                begin
+                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_GameStateInfo_Message) );
+                  if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.AutopauseState = 1 then
+                    SetAutoPauseAtStart(True)
+                  else
+                    SetAutoPauseAtStart(False);
+                  SetF1Disable(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.F1Disable);
+                  SetCommanderWarp(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.CommanderWarp);
+                  if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SpeedLockNative = 1 then
+                    SetSpeedLockNative(True)
+                  else
+                    SetSpeedLockNative(False);
+                  if PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SpeedLock = 1 then
+                    SetSpeedLock(True)
+                  else
+                    SetSpeedLock(False);
+                  SetSlowSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.SlowSpeed);
+                  SetFastSpeed(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.FastSpeed);
+                  SetAIDifficulty(PRec2Rec_GameStateInfo_Message(Rec2Rec_Data)^.AIDifficulty);
+                end;
+              TANM_Rec2Rec_ModInfo :
+                begin
+                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_ModInfo_Message) );
+                  uc := Players.ConvertId(PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.PlayerID,ZI_Everyone,false);
+                  Players[uc].ModInfo.ModID := PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.ModID;
+                  Players[uc].ModInfo.ModMajorVer := PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.ModMajorVer;
+                  Players[uc].ModInfo.ModMinorVer := PRec2Rec_ModInfo_Message(Rec2Rec_Data)^.ModMinorVer;
+                end;
+            end;
+            tmp := #$2a'd';          //Remove packets, so nothing happens
+            datachanged := True;
+          end;
+        TANM_Ally :
+          begin
+            // todo : fix replay server to emit ally-packets correctly
+            AllyMessage := PAllyMessage(@s[1]);
+            Player1 := Players.Convert(AllyMessage^.PlayerID_1,ZI_InvalidPlayer,false);
+            Player2 := Players.Convert(AllyMessage^.PlayerID_2,ZI_InvalidPlayer,false);
+            if (Player1 <> nil) and (Player2 <> nil) then
+            begin
+              if Player2.IsSelf then
+              begin
+                Player1.CanTake := AllyMessage^.Allied <> 0;
+                Player1.IsAllied := AllyMessage^.Allied <> 0;
+                if (chatview <> nil) and ( (FromPlayer.PlayerIndex >= 1) and
+                   (FromPlayer.PlayerIndex <= 10) ) then
+                  chatview^.allies[Player1.PlayerIndex] := AllyMessage^.Allied;
+              end;
+            end;
+          end;
+        TANM_LoadingStarted :
+          begin
+            TLog.add(3,'loading started');
+            TAStatus := InLoading;
+            keyboardHookLevel := 0;
+            // set TA Status in chatview
+            if assigned(chatview) then
+            begin
+              if (not NotViewingRecording) then
+                chatview^.playingDemo := 1;
+              if use3d then
+              begin
+                if NotViewingRecording then
+                begin
+                  if Players[1].Side = 2 then
+                    chatview^.ta3d := 1;
+                end else
+                  chatview^.ta3d := 1;
+              end;
+              if (auto3d) and (not NotViewingRecording) then
+                chatview^.ta3d := 1;
+              chatview^.TAStatus := 2;
+            end;
+
+            if (filename<>'') and (filename<>'none') then
+            begin
+              filename := RemoveInvalid (filename);
+              createlogfile();
+              prevtime := timeGetTime;
+            end;
+
+            //autorecording
+            if (filename = '') and AutoRecording and NotViewingRecording then
+            begin
+              //filename := DateToStr (now);
+              filename := FormatDateTime('yyyy-mm-dd',Date);
+              if IniSettings.demosprefix <> '' then
+                filename := filename + ' - ' + IniSettings.demosprefix + ' - '
+              else
+                filename:= filename + ' - ';
+              filename := filename + mapname;
+              if RecordPlayerNames then
+              begin
+                filename := filename + ' - ';
+                for a := 1 to Players.Count do
+                begin
+                  filename := filename +Players[a].Name;
+                  if a < Players.Count then
+                    filename := filename + ', ';
+                end;
+              end;
+              filename := RemoveInvalid (filename);
+              //Lägg till default sökväg
+              if demodir <> '' then
+              begin
+                if IniSettings.modid > 0 then
+                begin
+                  if (IniSettings.Name <> '') and
+                     (IniSettings.Version <> '') then
+                  begin
+                    filename := IncludeTrailingPathDelimiter(demodir) +
+                                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)) +
+                                IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.Version)) +
+                                filename;
+                  end else
+                    if (IniSettings.Name <> '') then
+                      filename := IncludeTrailingPathDelimiter(demodir) +
+                                  IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)) +
+                                  filename
+                    else
+                      filename := IncludeTrailingPathDelimiter(demodir) + filename;
+                end else
+                  filename := IncludeTrailingPathDelimiter(demodir) + filename;
+              end;
+
+              if fileexists (filename + '.tad') then
+              begin
+                a := 1;
+                repeat
+                  inc (a);
+                until not fileexists (filename + ' - nr ' + inttostr (a) + '.tad');
+                filename := filename + ' - nr ' + inttostr (a);
+              end;
+              filename := filename + '.tad';
+              createlogfile();
+              prevtime := timeGetTime;
+            end;
+
+            //Fyll i StartInfo.ID mha DPID'sen
+            playerlist := TList.Create;
+            try
+              for a := 1 to Players.Count do
+                playerlist.Add (Players[a]);
+              playerlist.Sort(compare);
+
+              b := 0;
+              for a := 1 to Players.Count do
+              begin
+                player := TPlayerData(playerlist.items[a - 1]);
+                TLog.add (3,'setting ' + inttostr(player.id) + ' to ' + inttostr (b));
+                player.StartInfo.ID := b;
+                player.IsFirstPlayerWithb3 := (a = 1) and (player.InternalVersion >= TADemoVersion_99b3_beta2);
+                Inc( b, MaxUnits );
+              end;
+
+              if statslog <> nil then
+              begin
+                statslog.Init_StatEvent;
+                for a := 1 to Players.Count do
+                begin
+                  statslog.AddPlayer_StatEvent(Players[a].PlayerIndex,
+                    Players[a].Side, Players[a].Name, Players[a].StartInfo.ID);
+                end;
+              end;
+            finally
+              playerlist.Free;
+            end;
+          end;
+      end;
+      Result := Result + tmp;
+    until c = '';
+    c := #6;
+  end; {TAStatus = InBattleRoom}
+
   if TAStatus = InLoading then
   begin
-    tmp:=c;
+    tmp := c;
     repeat
-      s:=TPacket.split2(tmp,False, TPLayers.Name(FromPlayer), TPLayers.Name(ToPlayer));
+      s := TPacket.Split2(tmp, False, TPlayers.Name(FromPlayer), TPlayers.Name(ToPlayer));
+      PacketType := Byte(s[1]);
 {      if s[1]=#$2a then
         if s[2]<>#100 then begin
           s[2] :=char(100-byte(s[2]));
@@ -2437,313 +2417,312 @@ if assigned(chatview) then
       {if s[1]=#21 then
         if CreateStatsFile then
           statslog.PlayerLoaded_StatEvent(FromPlayer.PlayerIndex);}
-      // first unit move or orders to new units indicate that we are done loading
-      if (s[1]=',') or (s[1]=#9) and not IsInGame then
+
+      // first unit action indicate that we are done loading
+      if not IsInGame then
       begin
-        IsInGame := True;
-        TAStatus := InGame;
-        if NotViewingRecording and
-           compatibleTA and
-           not TAPlayer.IsKilled(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID)) then
+        // todo: this can be modified to use internal TA global (work status mask)
+        if (PacketType = TANM_UnitStatAndMove) or
+           (PacketType = TANM_UnitBuildStarted) then
         begin
-          if (not Assigned(trCheckMemoryCheats)) then
+          IsInGame := True;
+          TAStatus := InGame;
+          if NotViewingRecording and
+             compatibleTA and
+             not TAPlayer.IsKilled(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID)) then
           begin
-            trCheckMemoryCheats := TConsoleTimer.Create;
-            with trCheckMemoryCheats do
+            if (not Assigned(trCheckMemoryCheats)) then
             begin
-              Interval := 3000;
-              OnTimerEvent := OnMemoryCheckTick;
-              Enabled := True;
-            end;
+              trCheckMemoryCheats := TConsoleTimer.Create;
+              with trCheckMemoryCheats do
+              begin
+                Interval := 3000;
+                OnTimerEvent := OnMemoryCheckTick;
+                Enabled := True;
+              end;
 
-            trCheckProhibitedProcesses := TConsoleTimer.Create;
-            with trCheckProhibitedProcesses do
-            begin
-              Interval := 14000;
-              OnTimerEvent := OnProcessCheckTick;
-              Enabled := True;
+              trCheckProhibitedProcesses := TConsoleTimer.Create;
+              with trCheckProhibitedProcesses do
+              begin
+                Interval := 14000;
+                OnTimerEvent := OnProcessCheckTick;
+                Enabled := True;
+              end;
             end;
           end;
-        end;
 
-        if assigned(chatview) then
+          if Assigned(chatview) then
           begin
-          chatview^.TAStatus:=3;
-          if (chatview^.commanderWarp=1) or AutoPauseAtStart then
-            sendlocal( #$19#$00#$01, 0, true,true);
-//            s:=#;
-//            sendlocal(s,0,false,true);
-//            sendlocal(s,0,true,false);
+            chatview^.TAStatus := 3;
+            if (chatview^.commanderWarp=1) or AutoPauseAtStart then
+              sendlocal( #$19#$00#$01, 0, true,true);
           end;
-        prevtime:=timeGetTime;
-        starttime:=timeGetTime;
-//        s2:='asmstorage';
-//        for a:=1 to 8 do
-//          asmstorage[a] :=s2[a];
-        // emit shareLOS for the older TADR versions
-        for i := 1 to Players.Count do
+          prevtime := timeGetTime;
+          starttime := timeGetTime;
+
+          // emit shareLOS for the older TADR versions
+          for i := 1 to Players.Count do
           begin
-          if Players[i].InternalVersion < TADemoVersion_99b3_beta3 then
+            if Players[i].InternalVersion < TADemoVersion_99b3_beta3 then
             begin
-            if Players[i].Uses_Rec2Rec_Notification then
-              SendRecorderToRecorderMsg( TANM_Rec2Rec_Sharelos, #$01 )
-            else
-              SendLocal('.sharelos',Players[i].Id,false,true);
+              if Players[i].Uses_Rec2Rec_Notification then
+                SendRecorderToRecorderMsg( TANM_Rec2Rec_Sharelos, #$01 )
+              else
+                SendLocal('.sharelos',Players[i].Id,false,true);
             end
           end;
         end;
-      Result := result + s;
-    until tmp='';
-  end;
+      end;
+      Result := Result + s;
+    until tmp = '';
+  end; {TAStatus = InLoading}
 
   if TAStatus = InGame then
   begin
     s := c;
-    dtfix:=0;
+    dtfix := 0;
     repeat
-      tmp := TPacket.Split2 (s, False, TPLayers.Name(FromPlayer), TPLayers.Name(ToPlayer));
-
-      case tmp[1] of
-
-        #$18 :
-          begin // server migration
-          if FromPlayer <> nil then
-            ServerPlayer := FromPlayer;
+      tmp := TPacket.Split2(s, False, TPlayers.Name(FromPlayer), TPlayers.Name(ToPlayer));
+      PacketType := Byte(tmp[1]);
+      case PacketType of
+        TANM_HostMigration :
+          begin
+            if FromPlayer <> nil then
+              ServerPlayer := FromPlayer;
           end;
-        #$05 :begin //chat
-                ChatSent:=true;
-//                RequireGuarantiedMsgDelivery := True;
-                ChatMsgHandler (tmp, FromPlayerDPID);
-                //skicka riktade msgs till alla som hanterar enemy-chat
-                if ToPlayerDPID <> 0 then
-                begin
-                  if ( (Pos ('->', tmp) > 0) and
-                       ( (Pos ('->Allies', tmp) > 0) or (Pos ('->Enemies', tmp) > 0) ) and
-                       (Pos ('->', tmp) < Pos ('> ', tmp))
-                     ) or
-                     ( (Pos ('->', tmp) = 0)
-                     ) then
-                  begin
-
-                    for w := 2 to Players.Count do
-                    begin
-                      if Players[w].EnemyChat and (ToPlayerDPID <> Players[w].ID) then
-                      begin
-                         //först från och sen till
-                        s2 := #$F9 + '####' + '>>>>' + Copy (tmp, 2, 100);
-                        Setlongword (@s2[2], FromPlayerDPID);
-                        Setlongword (@s2[6], ToPlayerDPID);
-                        SendLocal( s2, Players[w].ID, false, true);
-                      end;
-                    end;
-                  end;
-                end;
-
-                if datachanged then
-                  tmp := #$2a'd';
-
-                if fakewatch and FromPlayer.IsSelf then
-                  begin
-                  ToPlayerDPID := 0;
-                  ToPlayer := players.EveryonePlayer;
-                  end;
-              end;
-        #$09 :begin // unit build started
-//yx bas
-                pw:=@tmp[2];
-                w:=pw^;
-                w2:=w;
-                Assert( (Integer(w) >= Low(UnitStatus)) and ( w <= High(UnitStatus) ) );
-                pw:=@tmp[4];
-                w:=pw^;
-                if statslog <> nil then begin
-                  statslog.NewUnit_StatEvent(FromPlayer.PlayerIndex,w,w2,TAData.GameTime);
-                end;
-// kefft sätt att sätta StartInfo.ID.. damnusj
-
-                UnitStatus[w - 1].DoneStatus := 255;
-                if not UnitStatus[w-1].Unitalive then
-                  begin
-                  UnitStatus[w-1].Unitalive := true;
-                  UnitCountChange(FromPlayer,1);
-                  end;
-//                SendChat (Players.Name[FromPlayerID] + ' unit ' + inttostr (w - (StartInfo.ID [FromPlayerID] + 1)) + ' is started');
-
-
-               FromPlayer.StartInfo.ID :=w-w mod maxunits;
-                if w-FromPlayer.StartInfo.ID=2 then
-                  begin
-//                  TLog.add(3,'getting start coordinates');
-                  pw:=@tmp[8];
-                  FromPlayer.StartInfo.X:=pw^;
-                  pw:=@tmp[12];
-                  FromPlayer.StartInfo.Z:=pw^;
-                  pw:=@tmp[16];
-                  FromPlayer.StartInfo.Y:=pw^;
-//                  TLog.add(inttostr(StartInfo.X)+' '+inttostr(StartInfo.Y));
-                  pw:=@tmp[2];
-                  w:=pw^;
-                  end;
-
-                if FromPlayer.IsSelf and  (integer(w)-integer(Players[1].StartInfo.ID)=1) then
-                  begin
-                  if (w<$25) and (w>$20) then Players[1].Side :=0;
-                  if (w<$a9) and (w>$a3) then Players[1].Side :=1;
-                  end;
-              end;
-        #$19 :
-          begin   //speed
-          // make sure pause/speed changes get to where they should
-          RequireGuarantiedMsgDelivery := True;
-          SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
-
-          if (SimulationSpeedChange^.Marker = TANM_SimulationSpeedChange ) and
-             (SimulationSpeedChange^.SimSpeedChangeType = PauseChange) and
-             (SimulationSpeedChange^.PauseState = 0) then
+        TANM_ChatMessage :
+          begin
+            ChatSent:=true;
+            // RequireGuarantiedMsgDelivery := True;
+            ChatMsgHandler (tmp, FromPlayerDPID);
+            //skicka riktade msgs till alla som hanterar enemy-chat
+            if ToPlayerDPID <> 0 then
             begin
-            if AutoPauseAtStart  then
+              if ( (Pos ('->', tmp) > 0) and
+                   ( (Pos ('->Allies', tmp) > 0) or (Pos ('->Enemies', tmp) > 0) ) and
+                   (Pos ('->', tmp) < Pos ('> ', tmp)) ) or
+                 (Pos ('->', tmp) = 0) then
               begin
-              if not FromPlayer.IsServer then
+                for w := 2 to Players.Count do
                 begin
-                // inject the pause override packet
-                tmp := #$19#$00#$01;
-//                SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
-//                SimulationSpeedChange^.Marker := TANM_SimulationSpeedChange;
-//                SimulationSpeedChange^.SimSpeedChangeType := PauseChange;
-//                SimulationSpeedChange^.PauseState := 1;
-                SendLocal( tmp, 0, true, true);
-                // send a message back to the player that the pause is locked
-                SendChat( '***'+FromPlayer.Name+' tried to unpause.' );
-                //Remove packets, so nothing happens
-                tmp := #$2a'd';
-                datachanged := True;
-                end
-              else // disable the pause lock
-                AutoPauseAtStart := False;
+                  if Players[w].EnemyChat and (ToPlayerDPID <> Players[w].ID) then
+                  begin
+                     //först från och sen till
+                    s2 := #$F9 + '####' + '>>>>' + Copy (tmp, 2, 100);
+                    Setlongword (@s2[2], FromPlayerDPID);
+                    Setlongword (@s2[6], ToPlayerDPID);
+                    SendLocal( s2, Players[w].ID, false, true);
+                  end;
+                end;
               end;
-            // reset the ready status if the pause lock is disabled
-            if not AutoPauseAtStart then
-              for i :=1 to Players.Count do
-                Players[i].UnpauseReady := False;
             end;
-          if not notime and
+
+            if datachanged then
+              tmp := #$2a'd';
+
+            if fakewatch and FromPlayer.IsSelf then
+            begin
+              ToPlayerDPID := 0;
+              ToPlayer := players.EveryonePlayer;
+            end;
+          end;
+        TANM_UnitBuildStarted :
+          begin
+            //yx bas
+            pw:=@tmp[2];
+            w:=pw^;
+            w2:=w;
+            Assert( (Integer(w) >= Low(UnitStatus)) and ( w <= High(UnitStatus) ) );
+            pw:=@tmp[4];
+            w:=pw^;
+            if statslog <> nil then
+              statslog.NewUnit_StatEvent(FromPlayer.PlayerIndex,w,w2,TAData.GameTime);
+            // kefft sätt att sätta StartInfo.ID.. damnusj
+
+            UnitStatus[w - 1].DoneStatus := 255;
+            if not UnitStatus[w-1].Unitalive then
+            begin
+              UnitStatus[w-1].Unitalive := True;
+              UnitCountChange(FromPlayer, 1);
+            end;
+
+            // SendChat (Players.Name[FromPlayerID] + ' unit ' + inttostr (w - (StartInfo.ID [FromPlayerID] + 1)) + ' is started');
+            FromPlayer.StartInfo.ID :=w-w mod maxunits;
+            if w-FromPlayer.StartInfo.ID=2 then
+            begin
+              // TLog.add(3,'getting start coordinates');
+              pw:=@tmp[8];
+              FromPlayer.StartInfo.X:=pw^;
+              pw:=@tmp[12];
+              FromPlayer.StartInfo.Z:=pw^;
+              pw:=@tmp[16];
+              FromPlayer.StartInfo.Y:=pw^;
+              // TLog.add(inttostr(StartInfo.X)+' '+inttostr(StartInfo.Y));
+              pw:=@tmp[2];
+              w:=pw^;
+            end;
+
+            if FromPlayer.IsSelf and  (integer(w)-integer(Players[1].StartInfo.ID)=1) then
+            begin
+              if (w<$25) and (w>$20) then Players[1].Side :=0;
+              if (w<$a9) and (w>$a3) then Players[1].Side :=1;
+            end;
+          end;
+        TANM_SimulationSpeedChange :
+          begin
+            // make sure pause/speed changes get to where they should
+            RequireGuarantiedMsgDelivery := True;
+            SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
+
+            if (SimulationSpeedChange^.Marker = TANM_SimulationSpeedChange ) and
+               (SimulationSpeedChange^.SimSpeedChangeType = PauseChange) and
+               (SimulationSpeedChange^.PauseState = 0) then
+            begin
+              if AutoPauseAtStart then
+              begin
+                if not FromPlayer.IsServer then
+                begin
+                  // inject the pause override packet
+                  tmp := #$19#$00#$01;
+                  // SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
+                  // SimulationSpeedChange^.Marker := TANM_SimulationSpeedChange;
+                  // SimulationSpeedChange^.SimSpeedChangeType := PauseChange;
+                  // SimulationSpeedChange^.PauseState := 1;
+                  SendLocal( tmp, 0, true, true);
+                  // send a message back to the player that the pause is locked
+                  SendChat( '***'+FromPlayer.Name+' tried to unpause.' );
+                  //Remove packets, so nothing happens
+                  tmp := #$2a'd';
+                  datachanged := True;
+                end else // host disables the pause lock
+                  AutoPauseAtStart := False;
+              end;
+              // reset the ready status if the pause lock is disabled
+              if not AutoPauseAtStart then
+                for i :=1 to Players.Count do
+                  Players[i].UnpauseReady := False;
+            end;
+            if not notime and
              (SimulationSpeedChange^.SimSpeedChangeType <> PauseChange) then    //User speed set
             begin
-            if tmp[3] > char(SpeedHack.Upperlimit) then
+              if tmp[3] > char(SpeedHack.Upperlimit) then
               begin
-              // inject the speed override packet
-              tmp := #19#0#0;
-              SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
-              SimulationSpeedChange^.SimSpeedChangeType := SpeedChange;
-              SimulationSpeedChange^.PauseState := SpeedHack.Upperlimit;
-              SendLocal( tmp, 0, true, true);
-              //Remove packets, so nothing happens
-              tmp := #$2a'd';
-              datachanged := true;
-              end
-            else if tmp[3] < char(SpeedHack.LowerLimit) then
+                // inject the speed override packet
+                tmp := #19#0#0;
+                SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
+                SimulationSpeedChange^.SimSpeedChangeType := SpeedChange;
+                SimulationSpeedChange^.PauseState := SpeedHack.Upperlimit;
+                SendLocal( tmp, 0, true, true);
+                //Remove packets, so nothing happens
+                tmp := #$2a'd';
+                datachanged := true;
+              end else
               begin
-              // inject the speed override packet
-              tmp := #19#0#0;
-              SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
-              SimulationSpeedChange^.SimSpeedChangeType := SpeedChange;
-              SimulationSpeedChange^.PauseState := SpeedHack.LowerLimit;
-              SendLocal( tmp, 0, true, true);
-              //Remove packets, so nothing happens
-              tmp := #$2a'd';
-              datachanged := true;
+                if tmp[3] < char(SpeedHack.LowerLimit) then
+                begin
+                  // inject the speed override packet
+                  tmp := #19#0#0;
+                  SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
+                  SimulationSpeedChange^.SimSpeedChangeType := SpeedChange;
+                  SimulationSpeedChange^.PauseState := SpeedHack.LowerLimit;
+                  SendLocal( tmp, 0, true, true);
+                  //Remove packets, so nothing happens
+                  tmp := #$2a'd';
+                  datachanged := true;
+                end;
               end;
             end;
-          SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
-          if (SimulationSpeedChange^.Marker = TANM_SimulationSpeedChange ) and
-             (SimulationSpeedChange^.SimSpeedChangeType = PauseChange) then
+            SimulationSpeedChange := PSimulationSpeedChangeMessage(@tmp[1]);
+            if (SimulationSpeedChange^.Marker = TANM_SimulationSpeedChange ) and
+               (SimulationSpeedChange^.SimSpeedChangeType = PauseChange) then
             begin
-            if (SimulationSpeedChange^.PauseState = 0) then
+              if (SimulationSpeedChange^.PauseState = 0) then
               begin
-              if NotViewingRecording then
-                SendChatLocal( '***'+FromPlayer.Name+' unpaused the game' );
-              if assigned(chatview) then
-                CommanderWarp := 0;
-              end
-            else if NotViewingRecording then
-              SendChatLocal( '***'+FromPlayer.Name+' paused the game' );
+                if NotViewingRecording then
+                  SendChatLocal( '***'+FromPlayer.Name+' unpaused the game' );
+                if assigned(chatview) then
+                  CommanderWarp := 0;
+              end else
+                if NotViewingRecording then
+                  SendChatLocal( '***'+FromPlayer.Name+' paused the game' );
             end;
           end;
-        #$2c :begin   //unitstat+move
-                currnr := @tmp[4];
-                FromPlayer.LastTimeStamp := currnr^;
+        TANM_UnitStatAndMove :
+          begin
+            currnr := @tmp[4];
+            FromPlayer.LastTimeStamp := currnr^;
 
-                if FromPlayer.StartInfo.ID <> High(longword) then
-                  begin
-                  a := (currnr^ mod maxunits) + FromPlayer.StartInfo.ID;
-                  if tmp[2] = #$0b then
-                    begin
-                    UnitStatus[a].DoneStatus := 1000;
-                    if UnitStatus[a].UnitAlive then
-                      begin
-                      UnitStatus[a].UnitAlive := false;
-                      UnitCountChange(FromPlayer,-1);
-                      end;
-                    end;
-                  pw := @tmp[8];
+            if FromPlayer.StartInfo.ID <> High(longword) then
+            begin
+              a := (currnr^ mod maxunits) + FromPlayer.StartInfo.ID;
+              if tmp[2] = #$0b then
+              begin
+                UnitStatus[a].DoneStatus := 1000;
+                if UnitStatus[a].UnitAlive then
+                begin
+                  UnitStatus[a].UnitAlive := False;
+                  UnitCountChange(FromPlayer,-1);
+                end;
+              end;
 {                  TLog.add (3,'currnr :   ' + inttostr (currnr^));
                   TLog.add (3,'maxunits : ' + inttostr (maxunits));
                   TLog.add (3,'convid   : ' + inttostr (FromPlayerID));
                   TLog.add (3,'StartInfo.ID :  ' + inttostr (StartInfo.ID [FromPlayerID]));}
-                  if (pw^ = $ffff) and (Length (tmp) > 13) then
-                    begin
-                    if not UnitStatus[a].UnitAlive then
-                      begin
-                      UnitStatus[a].UnitAlive := true;
-                      UnitCountChange(FromPlayer,1);
-                      end;
-                    UnitStatus[a].health := BinToInt(tmp, 11, 2, 16);
-                    b := UnitStatus[a].DoneStatus;
-                    UnitStatus[a].DoneStatus := BinToInt(tmp, 13, 2, 8);
-                    if (UnitStatus[a].DoneStatus = 0) and (b > 0) then
-                      begin end;
-//                      SendChat (FromPlayer.Name + ' unit ' + inttostr (currnr^ mod maxunits) + ' is done (confirmed)');
-//                      SendChat( 'yo');
-                    end;
-                  end;
-//                else
-//                  TLog.add (3,'skipped a health packet');
-{                if currnr^ mod maxunits = 0 then
-                  SendChat (FromPlayer.Name + ' cmd health: ' + inttostr (health [FromPlayer.PlayerIndex]));}
-                if (FromPlayer.UnitsAliveCount > 0) and (chatview <> nil) and
-                   (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) then
-                  chatview^.deathtimes[FromPlayer.PlayerIndex] := FromPlayer.LastMsgTimeStamp
-                else
-                  begin // zero players alive!
-                  end;
+              pw := @tmp[8];
+              if (pw^ = $ffff) and (Length (tmp) > 13) then
+              begin
+                if not UnitStatus[a].UnitAlive then
+                begin
+                  UnitStatus[a].UnitAlive := true;
+                  UnitCountChange(FromPlayer,1);
+                end;
+                UnitStatus[a].health := BinToInt(tmp, 11, 2, 16);
+                b := UnitStatus[a].DoneStatus;
+                UnitStatus[a].DoneStatus := BinToInt(tmp, 13, 2, 8);
+                if (UnitStatus[a].DoneStatus = 0) and (b > 0) then
+                begin
+                  // SendChat (FromPlayer.Name + ' unit ' + inttostr (currnr^ mod maxunits) + ' is done (confirmed)');
+                  // SendChat( 'yo');
+                end;
               end;
-        #$23 :
-          begin  //ally
-          AllyMessage := PAllyMessage(@tmp[1]);
-//          LogAlliedMessage;
-          Player1 := Players.Convert(AllyMessage^.PlayerID_1,ZI_InvalidPlayer,false);
-          Player2 := Players.Convert(AllyMessage^.PlayerID_2,ZI_InvalidPlayer,false);
-          if (Player1 <> nil) and (Player2 <> nil) then
-            begin
-          if Player2.IsSelf then
-            begin
-            Player1.CanTake := AllyMessage^.Allied <> 0;
-            Player1.IsAllied := AllyMessage^.Allied <> 0;
-            if (chatview <> nil) and ( (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) ) then
-              chatview^.allies[Player1.PlayerIndex] := AllyMessage^.Allied;
             end;
+            if (FromPlayer.UnitsAliveCount > 0) and (chatview <> nil) and
+               (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) then
+            begin
+              chatview^.deathtimes[FromPlayer.PlayerIndex] := FromPlayer.LastMsgTimeStamp
+            end else
+            begin // zero players alive!
             end;
+          end;
+        TANM_Ally :
+          begin
+            AllyMessage := PAllyMessage(@tmp[1]);
+            // LogAlliedMessage;
+            Player1 := Players.Convert(AllyMessage^.PlayerID_1,ZI_InvalidPlayer,false);
+            Player2 := Players.Convert(AllyMessage^.PlayerID_2,ZI_InvalidPlayer,false);
+            if (Player1 <> nil) and (Player2 <> nil) then
+            begin
+              if Player2.IsSelf then
+              begin
+                Player1.CanTake := AllyMessage^.Allied <> 0;
+                Player1.IsAllied := AllyMessage^.Allied <> 0;
+                if (chatview <> nil) and ( (FromPlayer.PlayerIndex >= 1) and
+                   (FromPlayer.PlayerIndex <= 10) ) then
+                  chatview^.allies[Player1.PlayerIndex] := AllyMessage^.Allied;
               end;
-        #$12 :begin //unit build done
-                pw:=@tmp[2];
-                w:=pw^;
-                if statslog <> nil then
-                  statslog.UnitFinished_StatEvent(FromPlayer.PlayerIndex,w,TAData.GameTime);
-                UnitStatus[w - 1].DoneStatus := 0;
-//                SendChat (Players.Name[FromPlayerID] + ' unit ' + inttostr (w - (StartInfo.ID [FromPlayerID] + 1)) + ' is done');
-              end;
-        #$0c :
-          begin //unit is dead
+            end;
+          end;
+        TANM_UnitBuildFinished :
+          begin
+            pw:=@tmp[2];
+            w:=pw^;
+            if statslog <> nil then
+              statslog.UnitFinished_StatEvent(FromPlayer.PlayerIndex,w,TAData.GameTime);
+            UnitStatus[w - 1].DoneStatus := 0;
+            // SendChat (Players.Name[FromPlayerID] + ' unit ' + inttostr (w - (StartInfo.ID [FromPlayerID] + 1)) + ' is done');
+          end;
+        TANM_UnitKilled :
+          begin
             pw:=@tmp[2];
             w:=pw^;
             if statslog <> nil then
@@ -2759,215 +2738,226 @@ if assigned(chatview) then
               UnitCountChange(FromPlayer,-1);
             end;
           end;
-        #$0b :
-          begin //unit damage
-          if statslog <> nil then
+        TANM_UnitTakeDamage :
+          begin
+            if statslog <> nil then
             begin
-            pw:=@tmp[2];
-            w:=pw^;
-            pw:=@tmp[4];
-            w2:=pw^;
-            pw:=@tmp[6];
-            w3:=pw^;
-            statslog.Damage_StatEvent(w,w2,w3,Byte(tmp[9]),TAData.GameTime);
+              pw:=@tmp[2];
+              w:=pw^;
+              pw:=@tmp[4];
+              w2:=pw^;
+              pw:=@tmp[6];
+              w3:=pw^;
+              statslog.Damage_StatEvent(w,w2,w3,Byte(tmp[9]),TAData.GameTime);
             end;
           end;
-        #$0F :
-          begin //feature destroyed
-          // todo: apply weapon id patch
-          if (statslog <> nil) and
-             not FromPlayer.IsSelf then
+        TANM_FeatureAction :
+          begin
+            // todo: apply weapon id patch
+            if (statslog <> nil) and
+               not FromPlayer.IsSelf then
             begin
-            pw:=@tmp[3];
-            w:=pw^;
-            pw:=@tmp[5];
-            w2:=pw^;
-            statslog.FeatureDestroyed_StatEvent(FromPlayer.PlayerIndex,Byte(tmp[2]),w,w2,nil,TAData.GameTime);
+              pw:=@tmp[3];
+              w:=pw^;
+              pw:=@tmp[5];
+              w2:=pw^;
+              statslog.FeatureDestroyed_StatEvent(FromPlayer.PlayerIndex,Byte(tmp[2]),w,w2,nil,TAData.GameTime);
             end;
           end;
-        #$1b :
-          begin // ingame rejection
-          RejectionMsg := PRejectionMessage(@tmp[1]);
-//          LogRejection;
-          player := players.Convert(RejectionMsg^.DPlayPlayerID, ZI_InvalidPlayer, false);
-          // remove the pause lock if the host crash & burns
-          if AutoPauseAtStart and (player <> nil) and (player.IsServer) then
-            AutoPauseAtStart := False;
+        TANM_Rejection :
+          begin
+            RejectionMsg := PRejectionMessage(@tmp[1]);
+            // LogRejection;
+            player := players.Convert(RejectionMsg^.DPlayPlayerID, ZI_InvalidPlayer, false);
+            // remove the pause lock if the host crash & burns
+            if AutoPauseAtStart and (player <> nil) and (player.IsServer) then
+              AutoPauseAtStart := False;
 
-          // Fixup take status
-          case TakeStatus of
-            NoOneTaking, SelfTaking :
-              begin
-              if (FromPlayer.Name = TakePlayer) then
-                FromPlayer.CanTake := False;
-              end;
-            OtherPlayerTaking_OldVersion_Pre99b2 :
-              begin
-              // reset the take status & ref count
-              TakeRef := 0;
-              TakeStatus := NoOneTaking;
-              TakePlayer := '';
-              SendLocal( killunits, 0, true, true);
-              SendChatLocal( 'Sending killing packets');
-              end;
-            OtherPlayerTaking_OldVersion_99b2, OtherPlayerTaking :
-              begin
-              SendChatLocal(TakePlayer+' take claim released');
-              // make sure the take status is reset
-              TakeRef := 0;
-              TakeStatus := NoOneTaking;
-              TakePlayer := '';
-              end;
+            // Fixup take status
+            case TakeStatus of
+              NoOneTaking, SelfTaking :
+                begin
+                  if (FromPlayer.Name = TakePlayer) then
+                    FromPlayer.CanTake := False;
+                end;
+              OtherPlayerTaking_OldVersion_Pre99b2 :
+                begin
+                  // reset the take status & ref count
+                  TakeRef := 0;
+                  TakeStatus := NoOneTaking;
+                  TakePlayer := '';
+                  SendLocal( killunits, 0, true, true);
+                  SendChatLocal( 'Sending killing packets');
+                end;
+              OtherPlayerTaking_OldVersion_99b2, OtherPlayerTaking :
+                begin
+                  SendChatLocal(TakePlayer+' take claim released');
+                  // make sure the take status is reset
+                  TakeRef := 0;
+                  TakeStatus := NoOneTaking;
+                  TakePlayer := '';
+                end;
             else
               begin
-              SendChat( Players[1].Name+' has invalid take status ' +
-                        IntToStr(ord(TakeStatus))+' resetting to '+
-                       IntToStr(ord(NoOneTaking)));
-              TakeStatus := NoOneTaking;
+                SendChat( Players[1].Name+' has invalid take status ' +
+                          IntToStr(ord(TakeStatus))+' resetting to '+
+                          IntToStr(ord(NoOneTaking)));
+                TakeStatus := NoOneTaking;
               end;
+            end;
           end;
+        TANM_PlayerResourcesInfo :
+          begin
+            a:=FromPlayer.LastTimeStamp-FromPlayer.Economy.LastTimeStamp;
+            if a<180 then
+              a:=120;
+            pf:=@tmp[47];
+            f:=pf^;
+            f3:=(f-FromPlayer.Economy.LastTotalMetal);
+            if f3>0 then
+            begin
+              FromPlayer.Economy.LastSharedMetal:=FromPlayer.Economy.SharedMetal;
+              FromPlayer.Economy.SharedMetal := 0;
+              FromPlayer.Economy.IncomeMetal := f3 / a*30;
+              FromPlayer.Economy.LastTotalMetal := f;
+            end;
+            pf:=@tmp[35];
+            f:=pf^;
+            f3:=(f-FromPlayer.Economy.LastTotalEnergy);
+            if f3>0 then
+            begin
+              FromPlayer.Economy.LastSharedEnergy := FromPlayer.Economy.SharedEnergy;
+              FromPlayer.Economy.SharedEnergy := 0;
+              FromPlayer.Economy.IncomeEnergy := f3 / a*30;
+              FromPlayer.Economy.LastTotalEnergy := f;
+            end;
+            FromPlayer.Economy.LastTimeStamp := FromPlayer.LastTimeStamp;
+            pf:=@tmp[19];
+            f:=pf^;
+            pf:=@tmp[23];
+            f2:=pf^;
+            pf:=@tmp[27];
+            f3:=pf^;
+            pf:=@tmp[31];
+            f4:=pf^;
+            b:=a;
+            if assigned(chatview) and ( (FromPlayer.PlayerIndex >= 1) and
+              (FromPlayer.PlayerIndex <= 10) ) then
+            begin
+              chatview^.incomeM[FromPlayer.PlayerIndex] := FromPlayer.Economy.IncomeMetal -FromPlayer.Economy.LastSharedMetal/b*30;
+              chatview^.incomeE[FromPlayer.PlayerIndex] := FromPlayer.Economy.IncomeEnergy-FromPlayer.Economy.LastSharedEnergy/b*30;
+              chatview^.totalM[FromPlayer.PlayerIndex] := FromPlayer.Economy.LastTotalMetal-FromPlayer.Economy.TotalSharedMetal;
+              chatview^.totalE[FromPlayer.PlayerIndex] := FromPlayer.Economy.LastTotalEnergy-FromPlayer.Economy.TotalSharedEnergy;
+              chatview^.storedM[FromPlayer.PlayerIndex] :=f;
+              chatview^.storedE[FromPlayer.PlayerIndex] :=f2;
+              chatview^.storageM[FromPlayer.PlayerIndex] :=f3;
+              chatview^.storageE[FromPlayer.PlayerIndex] :=f4;
+            end;
+            if statslog <> nil then
+            begin
+              statslog.Stats_StatEvent(FromPlayer.PlayerIndex,f,f2,f3,f4,
+                                       FromPlayer.Economy.IncomeMetal,
+                                       FromPlayer.Economy.IncomeEnergy,
+                                       TAPlayer.GetPlayerByIndex(FromPlayer.PlayerIndex-1).nKills,
+                                       TAPlayer.GetPlayerByIndex(FromPlayer.PlayerIndex-1).nLosses,
+                                       TAData.GameTime);
+            end;
           end;
-        #$28 :begin  // player resources status
-               a:=FromPlayer.LastTimeStamp-FromPlayer.Economy.LastTimeStamp;
-               if a<180 then
-                 a:=120;
-               pf:=@tmp[47];
-               f:=pf^;
-               f3:=(f-FromPlayer.Economy.LastTotalMetal);
-               if f3>0 then begin
-                 FromPlayer.Economy.LastSharedMetal:=FromPlayer.Economy.SharedMetal;
-                 FromPlayer.Economy.SharedMetal:=0;
-                 FromPlayer.Economy.IncomeMetal := f3 / a*30;
-                 FromPlayer.Economy.LastTotalMetal :=f;
-               end;
-               pf:=@tmp[35];
-               f:=pf^;
-               f3:=(f-FromPlayer.Economy.LastTotalEnergy);
-               if f3>0 then begin
-                 FromPlayer.Economy.LastSharedEnergy := FromPlayer.Economy.SharedEnergy;
-                 FromPlayer.Economy.SharedEnergy :=0;
-                 FromPlayer.Economy.IncomeEnergy := f3 / a*30;
-                 FromPlayer.Economy.LastTotalEnergy :=f;
-               end;
-               FromPlayer.Economy.LastTimeStamp := FromPlayer.LastTimeStamp;
-               pf:=@tmp[19];
-               f:=pf^;
-               pf:=@tmp[23];
-               f2:=pf^;
-               pf:=@tmp[27];
-               f3:=pf^;
-               pf:=@tmp[31];
-               f4:=pf^;
-               b:=a;
-               if assigned(chatview) and ( (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) ) then
-                 begin
-                 chatview^.incomeM[FromPlayer.PlayerIndex] := FromPlayer.Economy.IncomeMetal -FromPlayer.Economy.LastSharedMetal/b*30;
-                 chatview^.incomeE[FromPlayer.PlayerIndex] := FromPlayer.Economy.IncomeEnergy-FromPlayer.Economy.LastSharedEnergy/b*30;
-                 chatview^.totalM[FromPlayer.PlayerIndex] := FromPlayer.Economy.LastTotalMetal-FromPlayer.Economy.TotalSharedMetal;
-                 chatview^.totalE[FromPlayer.PlayerIndex] := FromPlayer.Economy.LastTotalEnergy-FromPlayer.Economy.TotalSharedEnergy;
-                 chatview^.storedM[FromPlayer.PlayerIndex] :=f;
-                 chatview^.storedE[FromPlayer.PlayerIndex] :=f2;
-                 chatview^.storageM[FromPlayer.PlayerIndex] :=f3;
-                 chatview^.storageE[FromPlayer.PlayerIndex] :=f4;
-                 end;
-               if statslog <> nil then
-                 statslog.Stats_StatEvent( FromPlayer.PlayerIndex,f,f2,f3,f4,
-                           FromPlayer.Economy.IncomeMetal,
-                           FromPlayer.Economy.IncomeEnergy,
-                           PPlayerStruct(TAPlayer.GetPlayerByIndex(FromPlayer.PlayerIndex-1)).nKills,
-                           PPlayerStruct(TAPlayer.GetPlayerByIndex(FromPlayer.PlayerIndex-1)).nLosses,
-                           TAData.GameTime);
-              end;
-        #$16 :begin //share packet
-               ResourcesSent:=true;
-               // todo : WARNING THIS READS OFF THE EDGE OF THE PACKET
-               pf:=@tmp[14];
-               f:=pf^;
-               if tmp[2]=#2 then begin
-                 FromPlayer.Economy.SharedMetal := FromPlayer.Economy.SharedMetal+f;
-                 FromPlayer.Economy.TotalSharedMetal := FromPlayer.Economy.TotalSharedMetal+f;
-               end else begin
-                 FromPlayer.Economy.SharedEnergy := FromPlayer.Economy.SharedEnergy+f;
-                 FromPlayer.Economy.TotalSharedEnergy := FromPlayer.Economy.TotalSharedEnergy+f;
-               end;
-               if statslog <> nil then
-               begin
-                 plw:=@tmp[6];
-                 lw:=plw^;
-                 plw:=@tmp[10];
-                 lw2:=plw^;
-                 statslog.ResourcesShare_StatEvent( TAPlayer.GetPlayerByDPID(lw),
-                                                    TAPlayer.GetPlayerByDPID(lw2), f, Byte(tmp[2]),
-                                                    TAData.GameTime);
-               end;
-               if FromPlayer.IsSelf then
-                 begin // make sure everyone gets told about this share packet
-                 ToPlayerDPID := 0;
-                 ToPlayer := Players.EveryonePlayer;
-                 end;
-              end;
-        #$fb :begin //recorder to recorder packet
-              Rec2Rec := PRecorderToRecorderMessage(@tmp[1]);
-              Rec2Rec_Data := Pointer(Longword(Rec2Rec)+SizeOf(TRecorderToRecorderMessage) );
-              case Rec2Rec^.MsgSubType of
-               TANM_Rec2Rec_MarkerData:
-                 begin
-                 if (not FromPlayer.IsSelf) and ((not NotViewingRecording) or FromPlayer.CanTake) then
-                   begin
-//                   tmps := '';
-                   tmps := copy(tmp,4,integer (tmp[2]));
-//                   for b := 1 to integer (tmp[2]) do
-//                     tmps := tmps + tmp[b+3];
-                   AlliedMarkerQueue.EnQueue(tmps);
-                   end;
-                 end;
-               TANM_Rec2Rec_CmdWarp:
-                 begin
-                 FromPlayer.WarpDone := true;
-                 end;
-               TANM_Rec2Rec_CheatDetection:
-                 begin
-                 assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_CheatsDetected_Message) );
-                 FromPlayer.otherCheats := PRec2Rec_CheatsDetected_Message(Rec2Rec_Data)^.CheatsDetected;
-                 if (date>36983) and (ListCheats(FromPlayer.otherCheats) <> '') then
-                   SendChat(FromPlayer.Name+' has cheats enabled: ' + ListCheats(FromPlayer.otherCheats));
-                 end;
-               TANM_Rec2Rec_Sharelos :
-                 begin
-                 assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_Sharelos_Message) );
-                 FromPlayer.SharingLos := PRec2Rec_Sharelos_Message(Rec2Rec_Data)^.ShareLosState <> 0;
-                 end;
-               TANM_Rec2Rec_UnitWeapon :
-                 begin
+        TANM_ShareResources :
+          begin
+            ResourcesSent := True;
+            // todo : WARNING THIS READS OFF THE EDGE OF THE PACKET
+            pf:=@tmp[14];
+            f:=pf^;
+            if tmp[2]=#2 then
+            begin
+              FromPlayer.Economy.SharedMetal := FromPlayer.Economy.SharedMetal+f;
+              FromPlayer.Economy.TotalSharedMetal := FromPlayer.Economy.TotalSharedMetal+f;
+            end else
+            begin
+              FromPlayer.Economy.SharedEnergy := FromPlayer.Economy.SharedEnergy+f;
+              FromPlayer.Economy.TotalSharedEnergy := FromPlayer.Economy.TotalSharedEnergy+f;
+            end;
+            if statslog <> nil then
+            begin
+              plw:=@tmp[6];
+              lw:=plw^;
+              plw:=@tmp[10];
+              lw2:=plw^;
+              statslog.ResourcesShare_StatEvent(TAPlayer.GetPlayerByDPID(lw),
+                                                TAPlayer.GetPlayerByDPID(lw2), f, Byte(tmp[2]),
+                                                TAData.GameTime);
+            end;
+            if FromPlayer.IsSelf then
+            begin // make sure everyone gets told about this share packet
+              ToPlayerDPID := 0;
+              ToPlayer := Players.EveryonePlayer;
+            end;
+          end;
+        TANM_RecorderToRecorder :
+          begin
+            Rec2Rec := PRecorderToRecorderMessage(@tmp[1]);
+            Rec2Rec_Data := Pointer(Longword(Rec2Rec)+SizeOf(TRecorderToRecorderMessage) );
+            case Rec2Rec^.MsgSubType of
+              TANM_Rec2Rec_MarkerData:
+                begin
+                  if (not FromPlayer.IsSelf) and
+                     ((not NotViewingRecording) or FromPlayer.CanTake) then
+                  begin
+                    // tmps := '';
+                    tmps := copy(tmp,4,integer (tmp[2]));
+                    // for b := 1 to integer (tmp[2]) do
+                    //   tmps := tmps + tmp[b+3];
+                    AlliedMarkerQueue.EnQueue(tmps);
+                  end;
+                end;
+              TANM_Rec2Rec_CmdWarp:
+                begin
+                  FromPlayer.WarpDone := true;
+                end;
+              TANM_Rec2Rec_CheatDetection:
+                begin
+                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_CheatsDetected_Message) );
+                  FromPlayer.otherCheats := PRec2Rec_CheatsDetected_Message(Rec2Rec_Data)^.CheatsDetected;
+                  if (date>36983) and (ListCheats(FromPlayer.otherCheats) <> '') then
+                    SendChat(FromPlayer.Name+' has cheats enabled: ' + ListCheats(FromPlayer.otherCheats));
+                end;
+              TANM_Rec2Rec_Sharelos :
+                begin
+                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_Sharelos_Message) );
+                  FromPlayer.SharingLos := PRec2Rec_Sharelos_Message(Rec2Rec_Data)^.ShareLosState <> 0;
+                end;
+              TANM_Rec2Rec_UnitWeapon :
+                begin
                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitWeapon_Message) );
                    if not TAUnit.IsOnThisComp(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId), True) then
                    begin
-                     TAUnit.SetWeapon(Pointer(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId)),
-                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WeaponIdx,
-                                              PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID);
+                     TAUnit.SetWeapon(TAUnit.Id2Ptr(PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.UnitId),
+                                      PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.WeaponIdx,
+                                      PRec2Rec_UnitWeapon_Message(Rec2Rec_Data)^.NewWeaponID);
                    end;
-                 end;
-               TANM_Rec2Rec_UnitInfoSwap :
-                 begin
-                   if (not FromPlayer.IsSelf) then
-                   begin
-                     assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitInfoSwap_Message) );
-                     TAUnit.SetUnitInfo( TAUnit.Id2Ptr(PRec2Rec_UnitInfoSwap_Message(Rec2Rec_Data)^.UnitID),
-                                         TAMem.UnitInfoCrc2Ptr(PRec2Rec_UnitInfoSwap_Message(Rec2Rec_Data)^.UnitInfoCRC) );
-                   end;
-                 end;
-               TANM_Rec2Rec_UnitGrantUnitInfo :
-                 begin
-                   if (not FromPlayer.IsSelf) then
-                   begin
-                     assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitGrantUnitInfo_Message) );
-                     TAUnit.GrantUnitInfo( TAUnit.Id2Ptr(PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.UnitId),
-                                           PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.NewState,
-                                           False );
-                   end;
-                 end;
-               TANM_Rec2Rec_UnitInfoEdit :
-                 begin
+                end;
+              TANM_Rec2Rec_UnitInfoSwap :
+                begin
+                  if (not FromPlayer.IsSelf) then
+                  begin
+                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitInfoSwap_Message) );
+                    TAUnit.SetUnitInfo(TAUnit.Id2Ptr(PRec2Rec_UnitInfoSwap_Message(Rec2Rec_Data)^.UnitID),
+                                       TAMem.UnitInfoCrc2Ptr(PRec2Rec_UnitInfoSwap_Message(Rec2Rec_Data)^.UnitInfoCRC));
+                  end;
+                end;
+              TANM_Rec2Rec_UnitGrantUnitInfo :
+                begin
+                  if (not FromPlayer.IsSelf) then
+                  begin
+                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitGrantUnitInfo_Message) );
+                    TAUnit.GrantUnitInfo( TAUnit.Id2Ptr(PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.UnitId),
+                                          PRec2Rec_UnitGrantUnitInfo_Message(Rec2Rec_Data)^.NewState,
+                                          False );
+                  end;
+                end;
+              TANM_Rec2Rec_UnitInfoEdit :
+                begin
                    if (not FromPlayer.IsSelf) then
                    begin
                      assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_UnitInfoEdit_Message) );
@@ -2976,94 +2966,93 @@ if assigned(chatview) then
                                               PRec2Rec_UnitInfoEdit_Message(Rec2Rec_Data)^.NewValue );
                    end;
                  end;
-               TANM_Rec2Rec_NewUnitLocation :
-                 begin
-                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_NewUnitLocation_Message) );
-                   if (not FromPlayer.IsSelf) then
-                   begin
-                     UNITS_NewUnitPosition( TAUnit.Id2Ptr(PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.UnitId),
-                                            PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewX,
-                                            PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewY,
-                                            PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewZ,
-                                            1 );
-                   end;
-                 end;
-               TANM_Rec2Rec_EmitSFXToUnit :
-                 begin
-                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_EmitSFXToUnit_Message) );
-                   if not FromPlayer.IsSelf then
-                   begin
-                     TASfx.EmitSfxFromPiece( TAUnit.Id2Ptr(PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.FromUnitID),
-                                             TAUnit.Id2Ptr(PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.ToUnitID),
-                                             PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.FromPieceIdx,
-                                             PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.SfxType,
-                                             False );
-                   end;
-                 end;
-               TANM_Rec2Rec_SetNanolatheParticles :
-                 begin
-                   assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_SetNanolatheParticles_Message) );
-                   if not FromPlayer.IsSelf then
-                   begin
-                     if PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.Reverse = 0 then
-                       TASfx.NanoParticles(PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosFrom,
-                                           PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosTo)
-                     else
-                       TASfx.NanoReverseParticles(PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosFrom,
-                                                  PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosTo);
-                   end;
-                 end;
-               TANM_Rec2Rec_ExtraUnitState :
-                 begin
-                   if (not FromPlayer.IsSelf) then
-                   begin
-                     assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_ExtraUnitState_Message) );
-                     case PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.FieldType of
-                      1 :
-                        begin
-                          UnitsCustomFields[PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.UnitId].ShieldedBy :=
-                            TAUnit.Id2Ptr(PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.NewValue);
-                        end;
-                     end;
-                   end;
-                 end;
-
-               end;
-               tmp := #$2a'd';          //Remove packets, so nothing happens
-               datachanged := true;
-             end;
-        #$fc :
-          begin //map position
-          if shareMapPos and Assigned(chatview) and ( (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) ) then
-            begin
-            ShareMapPosMsg := PShareMapPosMessage(@tmp[1]);
-            if (FromPlayer.UnitsAliveCount > 0) then
-              begin
-              chatview^.otherMapX[FromPlayer.PlayerIndex] := ShareMapPosMsg^.MapX;
-              chatview^.otherMapY[FromPlayer.PlayerIndex] := ShareMapPosMsg^.MapY;
-              end
-            else
-              begin // prevent dead player's from having thier view port seen
-              chatview^.otherMapX[FromPlayer.PlayerIndex] := -1;
-              chatview^.otherMapY[FromPlayer.PlayerIndex] := -1;
-              end;
-            //Remove packets, so nothing happens
-            tmp := #$2a'd';
-            datachanged := true;
+              TANM_Rec2Rec_NewUnitLocation :
+                begin
+                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_NewUnitLocation_Message) );
+                  if (not FromPlayer.IsSelf) then
+                  begin
+                    UNITS_NewUnitPosition( TAUnit.Id2Ptr(PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.UnitId),
+                                           PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewX,
+                                           PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewY,
+                                           PRec2Rec_NewUnitLocation_Message(Rec2Rec_Data)^.NewZ,
+                                           1 );
+                  end;
+                end;
+              TANM_Rec2Rec_EmitSFXToUnit :
+                begin
+                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_EmitSFXToUnit_Message) );
+                  if not FromPlayer.IsSelf then
+                  begin
+                    TASfx.EmitSfxFromPiece( TAUnit.Id2Ptr(PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.FromUnitID),
+                                            TAUnit.Id2Ptr(PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.ToUnitID),
+                                            PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.FromPieceIdx,
+                                            PRec2Rec_EmitSFXToUnit_Message(Rec2Rec_Data)^.SfxType,
+                                            False );
+                  end;
+                end;
+              TANM_Rec2Rec_SetNanolatheParticles :
+                begin
+                  assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_SetNanolatheParticles_Message) );
+                  if not FromPlayer.IsSelf then
+                  begin
+                    if PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.Reverse = 0 then
+                      TASfx.NanoParticles(PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosFrom,
+                                          PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosTo)
+                    else
+                      TASfx.NanoReverseParticles(PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosFrom,
+                                                 PRec2Rec_SetNanolatheParticles_Message(Rec2Rec_Data)^.PosTo);
+                  end;
+                end;
+              TANM_Rec2Rec_ExtraUnitState :
+                begin
+                  if (not FromPlayer.IsSelf) then
+                  begin
+                    assert( Rec2Rec^.MsgSize = SizeOf(TRec2Rec_ExtraUnitState_Message) );
+                    case PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.FieldType of
+                     1 :
+                       begin
+                         UnitsCustomFields[PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.UnitId].ShieldedBy :=
+                           TAUnit.Id2Ptr(PRec2Rec_ExtraUnitState_Message(Rec2Rec_Data)^.NewValue);
+                       end;
+                    end;
+                  end;
+                end;
             end;
-         end;
+            tmp := #$2a'd';          //Remove packets, so nothing happens
+            datachanged := true;
+          end;
+        TANM_ShareMapPos :
+          begin
+            if shareMapPos and Assigned(chatview) and
+               ( (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) ) then
+            begin
+              ShareMapPosMsg := PShareMapPosMessage(@tmp[1]);
+              if (FromPlayer.UnitsAliveCount > 0) then
+              begin
+                chatview^.otherMapX[FromPlayer.PlayerIndex] := ShareMapPosMsg^.MapX;
+                chatview^.otherMapY[FromPlayer.PlayerIndex] := ShareMapPosMsg^.MapY;
+              end else
+              begin // prevent dead player's from having thier view port seen
+                chatview^.otherMapX[FromPlayer.PlayerIndex] := -1;
+                chatview^.otherMapY[FromPlayer.PlayerIndex] := -1;
+              end;
+              //Remove packets, so nothing happens
+              tmp := #$2a'd';
+              datachanged := true;
+            end;
+          end;
       end;
 
-      {$IFNDEF release}
+      {$IFDEF Debug}
       if PacketsToFilter <> nil then
         for a := Low(PacketsToFilter) to High(PacketsToFilter) do
           if (byte(tmp[1])=PacketsToFilter[a]) then
-            begin
+          begin
             //Remove packets, so nothing happens
             tmp := #$2a'd';
             datachanged := true;
             break;
-            end;
+          end;
       {$ENDIF}
 
       //Hantera exploderande byggen
@@ -3072,64 +3061,65 @@ if assigned(chatview) then
 
       //Kolla om det finns DT att skydda
       if protectdt then
-        begin
+      begin
         if tmp[1] = #$12 then
-          begin
+        begin
           pw := @tmp[2];
           dtfix := pw^;
-          end
-        else if (tmp[1]=#$0c) and (dtfix<>0) then
+        end else
+          if (tmp[1]=#$0c) and (dtfix<>0) then
           begin
-          pw := @tmp[2];
-          if dtfix = pw^ then
-            RequireGuarantiedMsgDelivery := true;
-         end;
-        end;
+            pw := @tmp[2];
+            if dtfix = pw^ then
+              RequireGuarantiedMsgDelivery := true;
+          end;
+      end;
 
       if (fakewatch and FromPlayer.IsSelf) then
-        begin
+      begin
         if (timeGetTime>starttime+5000) or (timeGetTime<starttime-1000) then
-          begin
+        begin
           datachanged := true;
           if ((tmp[1]<>#5) and (tmp[1]<>#$2c)) then
             tmp:=#$2a'd'
-          else if tmp[1] = #$2c then
-            tmp:=#$2c#$b#0+copy(tmp,4,4)+#$ff#$ff#1#0
-          end;
+          else
+            if tmp[1] = #$2c then
+              tmp:=#$2c#$b#0+copy(tmp,4,4)+#$ff#$ff#1#0
         end;
+      end;
 
       Result := Result + tmp;
     until s = '';
 
     if IsRecording then
-      begin
+    begin
       if shareMapPos and (chatview <> nil) and
          ( (chatview^.mapX <> OldMapX) or (chatview^.mapY <> OldMapY) ) then
-        begin
+      begin
         a := Length(c);
         SetLength( c, a+SizeOf(TShareMapPosMessage));
         ShareMapPosMsg := PShareMapPosMessage(@c[a+1]);
-        ShareMapPosMsg^.Marker := $fc;
+        ShareMapPosMsg^.Marker := TANM_ShareMapPos;
         if FromPlayer.IsSelf then
-          begin
+        begin
           ShareMapPosMsg^.MapX := Word( chatview^.Mapx );
           ShareMapPosMsg^.MapY := Word( chatview^.Mapy );
-          end
-        else if (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) then
-          begin
-          ShareMapPosMsg^.MapX := Word( chatview^.otherMapx[FromPlayer.PlayerIndex] );
-          ShareMapPosMsg^.MapY := Word( chatview^.othermapy[FromPlayer.PlayerIndex] );
-          end;
-//        c:=c+#$fc+char(a and $ff)+char((a and $ff00) shr 8)+char(b and $ff)+char((b and $ff00) shr 8);
-        end;
-
-//      c := SmartPak( Copy (Result, 8, Length (Result)), from);
-assert(FromPlayer <> nil);
-assert(ToPlayer <> nil);
-      c := SmartPak( c, FromPlayer.Name, ToPlayer.Name ); //, from);from:TDPid;
-
-      if length(c)>1 then
+        end else
         begin
+          if (FromPlayer.PlayerIndex >= 1) and (FromPlayer.PlayerIndex <= 10) then
+          begin
+            ShareMapPosMsg^.MapX := Word( chatview^.otherMapx[FromPlayer.PlayerIndex] );
+            ShareMapPosMsg^.MapY := Word( chatview^.othermapy[FromPlayer.PlayerIndex] );
+          end;
+        end;
+      end;
+      // c:=c+#$fc+char(a and $ff)+char((a and $ff00) shr 8)+char(b and $ff)+char((b and $ff00) shr 8);
+      // c := SmartPak( Copy (Result, 8, Length (Result)), from);
+      assert(FromPlayer <> nil);
+      assert(ToPlayer <> nil);
+      c := SmartPak( c, FromPlayer.Name, ToPlayer.Name );
+      if length(c)>1 then
+      begin
         SetLength( s, 5 );
         a:=integer(timeGetTime);
         b:=a-integer(prevtime);
@@ -3143,35 +3133,34 @@ assert(ToPlayer <> nil);
         s[1] := char(length(s) and $ff);          //fyll i storlek
         s[2] := char(length(s) shr 8);
         logsave.add(s);                            //write a packet
-        end;
       end;
     end;
+  end; {TAStatus = InGame}
 
   if shareMapPos and (chatview <> nil ) and (TAStatus = InGame) and FromPlayer.IsSelf and
      ( (chatview^.mapX <> OldMapX) or (chatview^.mapY <> OldMapY) ) then
-    begin
+  begin
     OldMapX := chatview^.mapX;
     OldMapY := chatview^.mapY;
     datachanged:=true;
     a := Length(Result);
     SetLength( Result, a+SizeOf(TShareMapPosMessage));
     ShareMapPosMsg := PShareMapPosMessage(@Result[a+1]);
-    ShareMapPosMsg^.Marker := $fc;
+    ShareMapPosMsg^.Marker := TANM_ShareMapPos;
     ShareMapPosMsg^.MapX := chatview^.mapX;
     ShareMapPosMsg^.MapY := chatview^.mapY;
+    // result:=result+#$fc+char(chatview^.mapX and $ff)+char((chatview^.mapX and $ff00) shr 8)+char(chatview^.mapY and $ff)+char((chatview^.mapY and $ff00) shr 8);
+  end;
 
-//    result:=result+#$fc+char(chatview^.mapX and $ff)+char((chatview^.mapX and $ff00) shr 8)+char(chatview^.mapY and $ff)+char((chatview^.mapY and $ff00) shr 8);
-    end;
   if datachanged then
-    begin
+  begin
     //Empty packet is changed to non-empty packet
     if length(result)=7 then
       result:=result+#$2a'd';
     if UseCompression then
       Result := TPacket.Compress( Result );
     Result := TPacket.Encrypt( Result );
-//      SendChat( 'Changed data');
-    end;
+  end;
 end;
 
 // -----------------------------------------------------------------------------
@@ -3853,31 +3842,34 @@ try
   UseCompression := reg.ReadBool( 'Options', 'usecomp', False );
   RecordPlayerNames := reg.ReadBool( 'Options', 'playernames', True );
   serverdir := IncludeTrailingPathDelimiter(reg.ReadString ( 'Options', 'serverdir', ''));
-  demodir := IncludeTrailingPathDelimiter(reg.ReadString('Options', 'defdir', ''));
+  demodir := reg.ReadString('Options', 'defdir', '');
   // any running copy of TA when TADir is empty
   // will be set as "backward compatibility" in Replayer
   if reg.ReadString('Options', 'TADir', '') = '' then
     reg.WriteString('Options', 'TADir', ParamStr(0));
     
   if demodir <> '' then
-  try
-    if IniSettings.modid > 0 then
-    begin
-      if IniSettings.name <> '' then
-        ForceDirectories(IncludeTrailingPathDelimiter(demodir)+IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)))
-      else
+  begin
+    demodir := IncludeTrailingPathDelimiter(demodir);
+    try
+      if IniSettings.modid > 0 then
+      begin
+        if IniSettings.name <> '' then
+          ForceDirectories(demodir+IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)))
+        else
+          ForceDirectories(demodir);
+      end else
         ForceDirectories(demodir);
-    end else
-      ForceDirectories(demodir);
-  except
-    on e : EInOutError do
-      demodir := '';
+    except
+      on e : EInOutError do
+        demodir := '';
+    end;
   end;
   if demodir = '' then
-    begin
+  begin
     demodir := GetMyDocs();
     if demodir <> '' then
-      begin
+    begin
       demodir := IncludeTrailingPathDelimiter(demodir)+'My Games\Total Annihilation\demos\';
       try
         ForceDirectories( demodir );
@@ -3887,8 +3879,8 @@ try
       end;
       if demodir <> '' then
         reg.WriteString( 'Options', 'defdir', demodir );
-      end;
     end;
+  end;
 
   crash := false;
   TADemoRecorderOff := false;
