@@ -283,7 +283,7 @@ begin
       if ( Projectile.cOwnerID <> UnitStruct.ucOwnerID ) then
         if ( (Projectile.p_Weapon.lWeaponTypeMask shr 29) and 1 = 1 ) then
         begin
-          if TAMem.DistanceBetweenPosCompare(@UnitStruct.Position, @Projectile.Position_Target2, Coverage) then
+          if TAMem.DistanceBetweenPosCompare(@UnitStruct.Position, @Projectile.Position_Target, Coverage) then
           begin
             // if tag is empty = intercept all
             bAllowShoot := True;
@@ -293,7 +293,7 @@ begin
               bAllowShoot := False;
               for i := 0 to ExtraWeaponDefTags[WeapIdx].Intercepts.Count - 1 do
               begin
-                if ExtraWeaponDefTags[WeapIdx].Intercepts[i] = String(PWeaponDef(Projectile.p_Weapon).szWeaponName) then
+                if ExtraWeaponDefTags[WeapIdx].Intercepts[i] = String(Projectile.p_Weapon.szWeaponName) then
                 begin
                   bAllowShoot := True;
                   Break;

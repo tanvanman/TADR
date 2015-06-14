@@ -489,7 +489,7 @@ begin
 
       FileSearch(DirName, '*.pcx', '', True);
       FileSearch(DirName, '*.ac', '', True);
-      DrawGameScreen(0, 0);
+      DrawGameScreen(1, 1);
       TakeScreenshotOrg(PAnsiChar(DirName), PAnsiChar(FileName));
       TAData.MainStruct.RandNum_ := GameRunSec;
       Sleep(10000);

@@ -10,7 +10,7 @@ type
     class procedure SetCameraToUnit(p_Unit: PUnitStruct);
     class function PlaceFeatureOnMap(FeatureName: String;
       Position: TPosition; Turn: TTurn) : Boolean;
-    class function RemoveMapFeature(X, Z: Integer; Method: Boolean) : Boolean;
+    class procedure RemoveMapFeature(X, Z: Integer; Method: Boolean);
     class function PositionInLOS(Player: PPlayerStruct; Position: PPosition) : Boolean;
   end;
 
@@ -48,13 +48,13 @@ begin
   end;
 end;
 
-class function TAMap.RemoveMapFeature(X, Z: Integer;
-  Method: Boolean): Boolean;
+class procedure TAMap.RemoveMapFeature(X, Z: Integer;
+  Method: Boolean);
 var
   GridPlot : PPlotGrid;
 begin
   GridPlot := GetGridPosPLOT(X div 16, Z div 16);
-  Result := FEATURES_Destroy(GridPlot, Method);
+  FEATURES_Destroy(GridPlot, Method);
 end;
 
 class function TAMap.PositionInLOS(Player: PPlayerStruct;

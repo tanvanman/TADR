@@ -982,7 +982,7 @@ try
         end;
       MS_REMOVE_FEATURE :
         begin
-        Result := BoolValues[TAMap.RemoveMapFeature(arg1, arg2, (arg3 = 1))];
+        TAMap.RemoveMapFeature(arg1, arg2, (arg3 = 1));
         end;
       MS_VIEW_PLAYER_ID :
         begin

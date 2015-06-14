@@ -100,7 +100,6 @@ type
     class function MovementClassId2Ptr(index: Word): Pointer;
     class function FeatureDefId2Ptr(ID: Word): PFeatureDefStruct;
     class function FeatureAnimId2Ptr(ID: Word): PFeatureAnimData;
-    class function FeatureMaskToSet(Mask: Word): TFeatureInfoSet;
     class function GetFeatureInfo(FeatureDef: PFeatureDefStruct; FieldType: Byte): Cardinal;
     class procedure Position2Grid(Position: TPosition; out GridPosX, GridPosZ: Word);
     class function PositionInMapArea(Position: TPosition): Boolean;
@@ -144,6 +143,7 @@ uses
   Math,
   IniOptions,
   idplay,
+  WeaponsExpand,
   TAMemManipulations,
   TA_MemoryConstants,
   TA_MemPlayers,
@@ -206,12 +206,12 @@ end;
 
 Class function TAMem.GetShareEnergy: Boolean;
 begin
-  Result := SharedState_SharedEnergy in PPlayerStruct(TAData.PlayersStructPtr).PlayerInfo.SharedBits;
+  Result := PlayerState_ShareEnergy in TAData.MainStruct.Players[TAData.LocalPlayerID].PlayerInfo.SharedBits;
 end;
 
 Class function TAMem.GetShareMetal: Boolean;
 begin
-  Result := SharedState_SharedMetal in PPlayerStruct(TAData.PlayersStructPtr).PlayerInfo.SharedBits;
+  Result := PlayerState_ShareMetal in TAData.MainStruct.Players[TAData.LocalPlayerID].PlayerInfo.SharedBits;
 end;
 
 Class function TAMem.GetShootAll: Boolean;
@@ -310,8 +310,10 @@ end;
 
 class function TAMem.GetWeaponTypeDefArrayPtr: Pointer;
 begin
-// todo: if custom weap array <> nil then use it instead of internal
-  result := @TAData.MainStruct.Weapons[0];
+  if p_WeaponsPatchMainStruct <> nil then
+    Result := @WeaponsPatchMainStruct.Weapons[0]
+  else
+    Result := @TAData.MainStruct.Weapons[0];
 end;
 
 class function TAMem.GetFeatureTypeDefArrayPtr: Pointer;
@@ -420,25 +422,13 @@ begin
     Result := TAData.ActualUnitLimit * MAXPLAYERCOUNT;
 end;
 
-class function TAMem.FeatureMaskToSet(Mask: Word): TFeatureInfoSet;
-var
-  c: Byte;
-begin
-  Result := [];
-  for c := Low(FeatureMaskArr) to High(FeatureMaskArr) do
-  begin
-    if (Mask and FeatureMaskArr[c]) = FeatureMaskArr[c] then
-      Result := Result + [TFeatureInfo(c)];
-  end;
-end;
-
 class function TAMem.GetFeatureInfo(FeatureDef: PFeatureDefStruct; FieldType: Byte): Cardinal;
 begin
   Result := 0;
   if FeatureDef = nil then Exit;
-  if FieldType <= High(FeatureMaskArr) then
+  if FieldType <= Integer(fiNoDrawUnderGray) then
   begin
-    if (FeatureDef.nMask and FeatureMaskArr[FieldType]) = FeatureMaskArr[FieldType] then
+    if (FeatureDef.nMask and FeatureMaskArr[TFeatureMaskInfo(FieldType)]) = FeatureMaskArr[TFeatureMaskInfo(FieldType)] then
       Result := 1;
   end else
   begin
@@ -481,7 +471,7 @@ begin
   if (Pos1 <> nil) and (Pos2 <> nil) then
   begin
     x := Abs(Pos1.X - Pos2.X) div 65536;
-    z := Abs(Pos1.Z - Pos2.Z) div 56635;
+    z := Abs(Pos1.Z - Pos2.Z) div 65536;
     Result := Round(Hypot(x, z));
   end;
 end;
@@ -689,5 +679,4 @@ begin
 
   Result := PROJECTILES_FireMapWeap(WeaponPtr, @TargetPos, @StartPos, True);
 end;
-
 end.

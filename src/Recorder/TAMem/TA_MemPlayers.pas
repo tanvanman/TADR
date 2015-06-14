@@ -100,15 +100,15 @@ end;
 
 Class function TAPlayer.GetShareRadar(Player: PPlayerStruct) : Boolean;
 begin
-  Result := SharedState_SharedRadar in Player.PlayerInfo.SharedBits;
+  Result := PlayerState_ShareRadar in Player.PlayerInfo.SharedBits;
 end;
 
 Class Procedure TAPlayer.SetShareRadar(Player: PPlayerStruct; ANewState: Boolean);
 begin
   if ANewState then
-    Include(PPlayerStruct(Player).PlayerInfo.SharedBits, SharedState_SharedRadar)
+    Include(Player.PlayerInfo.SharedBits, PlayerState_ShareRadar)
   else
-    Exclude(PPlayerStruct(Player).PlayerInfo.SharedBits, SharedState_SharedRadar);
+    Exclude(Player.PlayerInfo.SharedBits, PlayerState_ShareRadar);
 end;
 
 Class function TAPlayer.IsKilled(Player: PPlayerStruct) : Boolean;

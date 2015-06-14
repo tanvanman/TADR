@@ -2,7 +2,7 @@ unit TA_FunctionsU;
 
 interface
 uses
-  TA_MemoryStructures;
+  TA_MemoryStructures, DPlay;
 
 const
   access = 1;
@@ -113,9 +113,14 @@ var
   UnitAutoAim_CheckUnitWeapon : UnitAutoAim_CheckUnitWeaponHandler = UnitAutoAim_CheckUnitWeaponHandler($0049ABB0);
 
 type
-  TranslateStringHandler = function ( const Str : PAnsiChar ): PAnsiChar; stdcall;
+  TranslateStringHandler = function ( const Str: PAnsiChar ): PAnsiChar; stdcall;
 var
   TranslateString : TranslateStringHandler = TranslateStringHandler($004C5740);
+
+type
+  _strcmpiHandler = function( const Str1: PAnsiChar; const Str2: PAnsiChar ): Integer; cdecl;
+var
+  _strcmpi : _strcmpiHandler = _strcmpiHandler($004F8A70);
 
 type
   TA_AttachDetachUnitHandler = procedure ( Transportedp_Unit : Pointer;
@@ -300,6 +305,16 @@ Type
   TA_Atan2Handler = function(y, x : Integer): Integer; cdecl;
 var
   TA_Atan2 : TA_Atan2Handler = TA_Atan2Handler($004B715A);
+
+Type
+  TurnXLookupHandler = function(a1: Word; a2: Integer): Integer; stdcall;
+var
+  TurnXLookup : TurnXLookupHandler = TurnXLookupHandler($004B70EF);
+
+Type
+  TurnZLookupHandler = function(a1: Word; a2: Integer): Integer; stdcall;
+var
+  TurnZLookup : TurnZLookupHandler = TurnZLookupHandler($004B7123);
 
 Type
   LoadTNTFileHandler = function(lpFileName: PAnsiChar): PTNTHeaderStruct; stdcall;
@@ -504,14 +519,27 @@ var
   SpawnFeatureOnMap : SpawnFeatureOnMapHandler = SpawnFeatureOnMapHandler($00423C50);
 
 type
-  FEATURES_Destroy_3DHandler = function ( X: Integer; Z: Integer; bReclamateOrDie: LongBool ): Cardinal; stdcall;
+  FEATURES_Destroy_3DHandler = procedure ( X: Integer; Z: Integer; bReclamateOrDie: LongBool ); stdcall;
 var
   FEATURES_Destroy_3D : FEATURES_Destroy_3DHandler = FEATURES_Destroy_3DHandler($00423550);
 
 type
-  FEATURES_DestroyHandler = function ( GridPlot: PPlotGrid; bMethod: Boolean ): Boolean; stdcall;
+  FEATURES_DestroyHandler = procedure ( GridPlot: PPlotGrid; bMethod: Boolean ); stdcall;
 var
   FEATURES_Destroy : FEATURES_DestroyHandler = FEATURES_DestroyHandler($004246B0);
+
+type
+  FEATURES_StartBurnHandler = procedure ( X: Integer; Z: Integer; bFromNetworkPacket: LongBool ); stdcall;
+var
+  FEATURES_StartBurn : FEATURES_StartBurnHandler = FEATURES_StartBurnHandler($004233A0);
+
+type
+  FEATURES_TakeWeaponDamageHandler = procedure( p_lotGrid: PPlotGrid;
+                                                X: Integer;
+                                                Y: Integer;
+                                                p_Weapon: PWeaponDef ); stdcall;
+var
+  FEATURES_TakeWeaponDamage : FEATURES_TakeWeaponDamageHandler = FEATURES_TakeWeaponDamageHandler($004244B0);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Weapons and projectiles
@@ -529,6 +557,12 @@ type
                                               bBroadcast: LongBool): LongBool; stdcall;
 var
   PROJECTILES_FireMapWeap: PROJECTILES_FireMapWeapHandler = PROJECTILES_FireMapWeapHandler($49DF10);
+
+type
+  WEAPONS_ProjectileDamageHandler = procedure( p_WeaponProjectile: PWeaponProjectile;
+                                               p_TargetUnit: PUnitStruct ); stdcall;
+var
+  WEAPONS_ProjectileDamage : WEAPONS_ProjectileDamageHandler = WEAPONS_ProjectileDamageHandler($00499EB0);
 
 type
   fire_callbackHandler = function ( Attacker_p_Unit: Pointer;
@@ -549,31 +583,42 @@ var
   fire_callback0 : fire_callback0Handler = fire_callback0Handler($0049D580);
 
 type
-  CreateProjectile_0_3Handler = function ( UnitWeapon: Pointer;
-                                           Attacker_p_Unit: Pointer;
-                                           Position_Start: PPosition;
-                                           Position_Target: PPosition ): LongBool; stdcall;
+  UNITS_FireProjectile_0_3Handler = function ( p_UnitWeapon: PUnitWeapon;
+                                               p_AttackerUnit: PUnitStruct;
+                                               p_Position_Start: PPosition;
+                                               p_Position_Target: PPosition;
+                                               p_TargetUnit: PUnitStruct ): LongBool; stdcall;
 var
-  CreateProjectile_0_3 : CreateProjectile_0_3Handler = CreateProjectile_0_3Handler($0049C9C0);
+  UNITS_FireProjectile_0_3 : UNITS_FireProjectile_0_3Handler = UNITS_FireProjectile_0_3Handler($0049C9C0);
 
 type
-  CreateProjectile_1Handler = function ( UnitWeapon: Pointer;
-                                         Attacker_p_Unit: Pointer;
-                                         Position_Start: PPosition;
-                                         Position_Target: PPosition;
-                                         Targetp_Unit: Pointer;
-                                         Interceptor: Integer ): LongBool; stdcall;
+  UNITS_FireProjectile_1Handler = function ( p_UnitWeapon: PUnitWeapon;
+                                             p_AttackerUnit: PUnitStruct;
+                                             p_Position_Start: PPosition;
+                                             p_Position_Target: PPosition;
+                                             p_TargetUnit: PUnitStruct;
+                                             p_Interceptor: PWeaponProjectile ): LongBool; stdcall;
 var
-  CreateProjectile_1 : CreateProjectile_1Handler = CreateProjectile_1Handler($0049CC20);
+  UNITS_FireProjectile_1 : UNITS_FireProjectile_1Handler = UNITS_FireProjectile_1Handler($0049CC20);
 
 type
-  CreateProjectile_0Handler = function ( UnitWeapon: Pointer;
-                                         Attacker_p_Unit: Pointer;
-                                         Position_Start: PPosition;
-                                         Position_Target: PPosition;
-                                         Targetp_Unit: Pointer ): LongBool; stdcall;
+  UNITS_FireProjectile_0Handler = function ( p_UnitWeapon: PUnitWeapon;
+                                             p_AttackerUnit: PUnitStruct;
+                                             p_Position_Start: PPosition;
+                                             p_Position_Target: PPosition;
+                                             p_TargetUnit: PUnitStruct ): LongBool; stdcall;
 var
-  CreateProjectile_0 : CreateProjectile_0Handler = CreateProjectile_0Handler($0049CDE0);
+  UNITS_FireProjectile_0 : UNITS_FireProjectile_0Handler = UNITS_FireProjectile_0Handler($0049CDE0);
+
+type
+  InitProjectileHandler = procedure ( p_WeaponProjectile: PWeaponProjectile;
+                                      p_WeaponDef: PWeaponDef;
+                                      p_Position_Start: PPosition;
+                                      p_Position_Target: PPosition;
+                                      FireTime: Integer;
+                                      p_AttackerUnit: PUnitStruct ); stdcall;
+var
+  InitProjectile : InitProjectileHandler = InitProjectileHandler($0049C740);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Units Orders
@@ -780,9 +825,19 @@ var
   UNITS_StartWeaponsScripts : UNITS_StartWeaponsScriptsHandler = UNITS_StartWeaponsScriptsHandler($0049E070);
 
 type
-  UNITS_RecreateHandler = function ( PlayerIndex: Byte; p_Unit: Pointer): Cardinal; stdcall;
+  UNITS_QueryWeaponPositionHandler = procedure( p_Unit: PUnitStruct;
+                                                out OutPosition: TPosition;
+                                                cWeapIdx: Byte;
+                                                PieceIdx: Integer ); stdcall;
 var
-  UNITS_Recreate: UNITS_RecreateHandler = UNITS_RecreateHandler($004861D0);
+  UNITS_QueryWeaponPosition : UNITS_QueryWeaponPositionHandler = UNITS_QueryWeaponPositionHandler($0043E240);
+
+type
+  UNITS_CallAimScriptsHandler = procedure( p_Unit: PUnitStruct;
+                                           out OutPosition: TPosition;
+                                           cWeapIdx: Byte ); stdcall;
+var
+  UNITS_CallAimScripts : UNITS_CallAimScriptsHandler = UNITS_CallAimScriptsHandler($0043E2E0);
 
 type
   UNITS_AllocateUnitHandler = function ( p_Unit : Pointer;
@@ -901,10 +956,32 @@ Type
 var
   HAPINET_guaranteepackets : HAPINET_guaranteepacketsHandler = HAPINET_guaranteepacketsHandler($004C9790);
 
+Type
+  HAPI_BroadcastMessageHandler = function(FromPID: TDPID;
+    p_Buffer: Pointer; BufferSize: Cardinal): LongBool; stdcall;
+var
+  HAPI_BroadcastMessage : HAPI_BroadcastMessageHandler = HAPI_BroadcastMessageHandler($00451DF0);
+
+Type
+  HAPI_SendMessageHandler = function(FromPID: TDPID;
+    ToPID: TDPID; p_Buffer: Pointer; BufferSize: Cardinal): LongBool; stdcall;
+var
+  HAPI_SendMessage : HAPI_SendMessageHandler = HAPI_SendMessageHandler($00451BC0);
+
 type
   DirectID2PlayerAryHandler = function ( a1: LongInt ): Byte; stdcall;
 var
   DirectID2PlayerAry : DirectID2PlayerAryHandler = DirectID2PlayerAryHandler($44FE40);
+
+type
+  GetLocalPlayerDPIDHandler = function: TDPID; cdecl;
+var
+  GetLocalPlayerDPID : GetLocalPlayerDPIDHandler = GetLocalPlayerDPIDHandler($0044FDB0);
+
+type
+  GetSharedPlayerDPIDHandler = function: TDPID; cdecl;
+var
+  GetSharedPlayerDPID : GetSharedPlayerDPIDHandler = GetSharedPlayerDPIDHandler($00450030);
 
 type
   IsLocalPlayerHostHandler = function: LongBool; cdecl;
@@ -948,7 +1025,7 @@ type
                                            lArg2: Integer;
                                            lArg1: Integer;
                                            lArgsCount: Cardinal;
-                                           Guaranteed: Boolean;
+                                           Guaranteed: LongBool;
                                            p_Callback: Pointer;
                                            const Name: PAnsiChar); register;
 var
@@ -1398,6 +1475,21 @@ Type
                                            FileExt: PAnsiChar ); stdcall;
 var
   GetLocalizedFilePath : GetLocalizedFilePathHandler = GetLocalizedFilePathHandler($004290F0);
+
+Type
+  Open3DOFileHandler = function(FileName: PAnsiChar): Pointer; stdcall;
+var
+  Open3DOFile : Open3DOFileHandler = Open3DOFileHandler($004CB560);
+
+Type
+  Parse3DOFileHandler = procedure(p_3DO: Pointer); stdcall;
+var
+  Parse3DOFile : Parse3DOFileHandler = Parse3DOFileHandler($004CB590);
+
+Type
+  TextureMatch3DOHandler = procedure(p_3DO: Pointer; ModelName: PAnsiChar); stdcall;
+var
+  TextureMatch3DO : TextureMatch3DOHandler = TextureMatch3DOHandler($0042A140);
 
 Type
   HAPIFILE_InsertToArrayHandler = function(Filename: PAnsiChar;

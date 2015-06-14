@@ -25,7 +25,8 @@ uses
   TA_MemoryLocations,
   TA_MemoryStructures,
   IniOptions,
-  TADemoConsts;
+  TADemoConsts,
+  WeaponsExpand;
 
 constructor TScriptorFile.Create(aPath: String);
 begin
@@ -90,7 +91,7 @@ begin
 
     ScriptorFile.WriteNewLine;
     ScriptorFile.WriteComment('Weapons :');
-    WeapsMax := 256;
+    WeapsMax := GetMaxWeapons;
     for i := 0 to WeapsMax - 1 do
     begin
       WeapInfo := TAWeapon.WeaponId2Ptr(i);

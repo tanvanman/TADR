@@ -1149,16 +1149,20 @@ begin
           BarTagRect.Right := BarTagRect.Left + 100;
           BarTagRect.Bottom := PlayersDrawListTop + 47;
           DrawBar(p_Offscreen, @BarTagRect, 0);
-          BarTagRect.Right := BarTagRect.Left +
-            Round((PlayerPtr.Resources.fCurrentMetal / PlayerPtr.Resources.fMetalStorageMax) * 100);
+          if PlayerPtr.Resources.fMetalStorageMax > 0 then
+            BarTagRect.Right := BarTagRect.Left + Round((PlayerPtr.Resources.fCurrentMetal / PlayerPtr.Resources.fMetalStorageMax) * 100)
+          else
+            BarTagRect.Right := BarTagRect.Left + 1;
           DrawBar(p_Offscreen, @BarTagRect, 128);
 
           BarTagRect.Top := PlayersDrawListTop + 60;
           BarTagRect.Right := BarTagRect.Left + 100;
           BarTagRect.Bottom := PlayersDrawListTop + 63;
           DrawBar(p_Offscreen, @BarTagRect, 0);
-          BarTagRect.Right := BarTagRect.Left +
-            Round((PlayerPtr.Resources.fCurrentEnergy / PlayerPtr.Resources.fEnergyStorageMax) * 100);
+          if PlayerPtr.Resources.fEnergyStorageMax > 0 then
+            BarTagRect.Right := BarTagRect.Left + Round((PlayerPtr.Resources.fCurrentEnergy / PlayerPtr.Resources.fEnergyStorageMax) * 100)
+          else
+            BarTagRect.Right := BarTagRect.Left + 1;
           DrawBar(p_Offscreen, @BarTagRect, 193);
 
           DrawLine(p_Offscreen, ScoreBoardPos.Left + 7, PlayersDrawListTop + 72,
@@ -1454,7 +1458,7 @@ begin
         if Speed > 0 then
         begin
           InMove := True;
-          Radius := Round(Radius + (Radius * Speed) / IniSettings.UnitSelectBoxZoomRatio);
+          Radius := Round(Radius + (Radius * Speed) / IniSettings.UnitSelectZoomRatio);
         end;
       end else
       begin
@@ -1475,17 +1479,17 @@ begin
         AnimDelay := 320;
 
       ColorOffset := PByte(Cardinal(TAData.ColorsPalette)+GetRaceSpecificColor(0))^;
-      if (IniSettings.UnitSelectBoxAnimType and 1) = 1 then
+      if (IniSettings.UnitSelectCircAnimType and 1) = 1 then
       begin
-        if (IniSettings.UnitSelectBoxAnimType and 4) = 4 then
+        if (IniSettings.UnitSelectCircAnimType and 4) = 4 then
           Angle := (p_Unit.Turn.Z div 182) mod 360
         else
           Angle := 360 - (360 * (TAData.GameTime mod AnimDelay) div AnimDelay);
         DrawDashCircle(p_Offscreen, CenterX, CenterZ, Radius, Angle, ColorOffset);
       end;
-      if (IniSettings.UnitSelectBoxAnimType and 2) = 2 then
+      if (IniSettings.UnitSelectCircAnimType and 2) = 2 then
       begin
-        if (IniSettings.UnitSelectBoxAnimType and 8) = 8 then
+        if (IniSettings.UnitSelectCircAnimType and 8) = 8 then
           Angle := 360 - (p_Unit.Turn.Z div 182) mod 360
         else
           Angle := 360 * (TAData.GameTime mod AnimDelay) div AnimDelay;
@@ -1541,9 +1545,9 @@ begin
   begin
     Result := TPluginData.Create( True,
                                   'GUIEnhancements',
-                                   State_GUIEnhancements,
-                                   @OnInstallGUIEnhancements,
-                                   @OnUninstallGUIEnhancements );
+                                  State_GUIEnhancements,
+                                  @OnInstallGUIEnhancements,
+                                  @OnUninstallGUIEnhancements );
 
     Result.MakeRelativeJmp( State_GUIEnhancements,
                             'ExtraUnitBars_MainCall',

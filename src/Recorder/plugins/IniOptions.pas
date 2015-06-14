@@ -36,8 +36,8 @@ type
     HealthBarWidth         : Integer;
     HealthBarCategories    : array [0..4] of Cardinal;
     UnitSelectBoxType      : Integer;
-    UnitSelectBoxAnimType  : Integer;
-    UnitSelectBoxZoomRatio : Integer;
+    UnitSelectCircAnimType : Integer;
+    UnitSelectZoomRatio    : Integer;
     MinWeaponReload        : Integer;
     MinReclaimTime         : Integer;
     Transporters           : Boolean;
@@ -49,6 +49,8 @@ type
     ScoreBoard             : Boolean;
     ExplosionsGameUIExpand : Integer;
 //    ExpandMinimap          : Boolean;
+
+    WeaponsIDPatch         : Boolean;
 
     ScriptSlotsLimit       : Boolean;
     InterceptsOnlyList     : Boolean;
@@ -340,8 +342,8 @@ begin
        IniSettings.HealthBarCategories[i] := ReadIniValue(IniFile, 'Preferences',
          'HealthBarDynamicCat' + IntToStr(i+1), 0);
       IniSettings.UnitSelectBoxType := ReadIniValue(IniFile, 'Preferences', 'UnitSelectBoxType', 0);
-      IniSettings.UnitSelectBoxAnimType := ReadIniValue(IniFile, 'Preferences', 'UnitSelectBoxAnimType', 1);
-      IniSettings.UnitSelectBoxZoomRatio := ReadIniValue(IniFile, 'Preferences', 'UnitSelectBoxZoomRatio', 520);
+      IniSettings.UnitSelectCircAnimType := ReadIniValue(IniFile, 'Preferences', 'UnitSelectCircAnimType', 1);
+      IniSettings.UnitSelectZoomRatio := ReadIniValue(IniFile, 'Preferences', 'UnitSelectZoomRatio', 520);
       IniSettings.MinWeaponReload := ReadIniValue(IniFile, 'Preferences', 'MinWeaponReloadTime', 0);
       IniSettings.MinReclaimTime := ReadIniValue(IniFile, 'Preferences', 'MinReclaimTime', 0);
       IniSettings.Transporters := ReadIniBool(IniFile, 'Preferences', 'TransportersCount', False);
@@ -357,8 +359,9 @@ begin
       IniSettings.StopButton := ReadIniBool(IniFile, 'Preferences', 'StopButtonRemovesQueue', False);
       IniSettings.ScriptSlotsLimit := ReadIniBool(IniFile, 'Preferences', 'IncScriptSlotsLimit', False);
       IniSettings.InterceptsOnlyList := ReadIniBool(IniFile, 'Preferences', 'UseInterceptsOnlyList', True);
+      IniSettings.WeaponsIDPatch := ReadIniBool(IniFile, 'Preferences', 'WeaponsIDPatch', False);
     finally
-      Result:= True;
+      Result := True;
       IniFile.Free;
     end;
 

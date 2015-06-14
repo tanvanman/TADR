@@ -118,7 +118,7 @@ type
     field_14        : Cardinal;
     field_18        : Cardinal;
     field_1C        : Cardinal;
-    lCurrentSpeed   : Cardinal;
+    lCurrentSpeed   : Integer;
     field_24        : Word;               
     field_26        : Cardinal;
     field_2A        : Cardinal;
@@ -272,7 +272,7 @@ type
     p_AutoAimCallback : Pointer;   //$4FD6F0
     lState            : Cardinal;  //1 if can shoot
     p_Weapon          : PWeaponDef;
-    unknow            : Cardinal;
+    ZAngle            : Integer;
     nReloadTime       : Word;
     nAngle            : Word;
     nTrajectoryResult : Word;
@@ -429,9 +429,7 @@ type
     lEnergyStorage     : Cardinal;
     lMetalStorage      : Cardinal;
     lBuildTime         : Cardinal;
-    p_WeaponPrimary    : Pointer;
-    p_WeaponSecondary  : Pointer;
-    p_WeaponTertiary   : Pointer;
+    Weapons            : array[0..2] of PWeaponDef;
     lMaxDamage         : Cardinal;
     nWorkerTime        : Word;
     nHealTime          : Word;
@@ -495,11 +493,12 @@ type
     fMetalStoragePlayer  : single;
   end;
 
-  TPlayerSharedStates = ( SharedState_SharedMetal = 2,
-                          SharedState_SharedEnergy = 4,
-                          SharedState_SharedLOS = 8,
-                          SharedState_SharedMappings = $20,
-                          SharedState_SharedRadar = $40 );
+  TPlayerSharedStates = ( PlayerState_Watcher = 1,
+                          PlayerState_ShareMetal = 2,
+                          PlayerState_ShareEnergy = 4,
+                          PlayerState_ShareLOS = 8,
+                          PlayerState_ShareMappings = $20,
+                          PlayerState_ShareRadar = $40 );
   TPlayerSharedStatesSet = set of TPlayerSharedStates;
 
   TSwitchesMask = ( SwitchesMask_Drop,
@@ -598,30 +597,31 @@ type
     AddPlayerStorage     : Word;
   end;
 
-const
-  FeatureMaskArr: array[0..11] of Word = (1, 2, 4, 8, $10, $20, $40, $80, $100, $200, $400, $800);
 type
-  TFeatureInfo = ( fiHasObject,
-                   fiAnimating,
-                   fiAnimTrans,
-                   fiShadTrans,
-                   fiFlamable,
-                   fiGeothermal,
-                   fiBlocking,
-                   fiReclaimable,
-                   fiAutoReclaimable,
-                   fiIndestructible,
-                   fiNoDisplayInfo,
-                   fiNoDrawUnderGray,
-                   fiFootPrintX,
+  TFeatureMaskInfo = ( fiHasObject,
+                       fiAnimating,
+                       fiAnimTrans,
+                       fiShadTrans,
+                       fiFlamable,
+                       fiGeothermal,
+                       fiBlocking,
+                       fiReclaimable,
+                       fiAutoReclaimable,
+                       fiIndestructible,
+                       fiNoDisplayInfo,
+                       fiNoDrawUnderGray );
+type
+  TFeatureInfo = ( fiFootPrintX = 12,
                    fiFootPrintZ,
                    fiHeight,
                    fiDamage,
                    fiMetal,
                    fiEnergy,
                    fiIsWreckage );
-  TFeatureInfoSet = set of TFeatureInfo;
-                   
+const
+  FeatureMaskArr: array[TFeatureMaskInfo] of Word = (1, 2, 4, 8, $10, $20, $40, $80, $100, $200, $400, $800);
+
+type
   // 0x100
   PFeatureDefStruct = ^TFeatureDefStruct;
   TFeatureDefStruct = packed record
@@ -674,7 +674,7 @@ type
     Turn             : TTurn;
     Damage           : Word;
     GridX            : Word;
-    GridZ            : Word;
+    GridY            : Word;
     nFeatureDefIndex : Word;
     field_2E         : Word;
   end;
@@ -896,11 +896,10 @@ type
     p_Weapon        : PWeaponDef;
     Position_Curnt  : TPosition;
     Position_Start  : TPosition;
+    MoveStep        : TPosition;
     Position_Target : TPosition;
-    Position_Target2: TPosition;
-    field_34        : Word;
     Turn            : TTurn;
-    data2           : Word;
+    Velocity        : Pointer;
     field_3E        : Integer;
     CreateTime      : Integer;
     TimeToDeath     : Integer;
@@ -916,8 +915,7 @@ type
     nPropellerSpeed : Word;
     cOwnerID        : Byte;
     field_67        : Word;
-    ucState         : Byte;
-    data3           : Byte;
+    nState          : Word;
   end;
 
   PTAdynmemStruct = ^TTAdynmemStruct;
@@ -977,7 +975,7 @@ type
     cBuildSpotState        : Byte; //0x40=notoktobuild
     Unknown20              : array [0..43] of Byte;
     Weapons                : array [0..255] of TWeaponDef; //0x2CF3 size=0x11500
-    lNumProjectiles        : Integer;
+    lNumProjectiles        : Cardinal;
     p_Projectiles          : Pointer; //0x141F7
     TNTMemStruct           : TTNTMemStruct;
     field_1428F            : Pointer;
@@ -1571,6 +1569,16 @@ type
     p_MScript: Pointer;
     p_Roman10: Pointer;
     p_Roman12: Pointer;
+  end;
+
+const
+  MAX_WEAPONS = 256;
+  MAX_WEAPONS_PATCHED = 4096;
+
+type
+  TWeaponsPatchMainStruct = packed record
+    Header: array[0..11506] of Byte;
+    Weapons: array[0..MAX_WEAPONS_PATCHED-1] of TWeaponDef;
   end;
 
 var

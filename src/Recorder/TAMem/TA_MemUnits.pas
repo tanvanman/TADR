@@ -88,7 +88,7 @@ type
     class Function GetOwnerIndex(p_Unit: PUnitStruct) : Integer;
     class Function GetId(p_Unit: PUnitStruct) : Word;
     class Function GetLongId(p_Unit: PUnitStruct) : Cardinal;
-    class Function Id2Ptr(LongUnitId: Cardinal) : PUnitStruct;
+    class Function Id2Ptr(UnitId: Word): PUnitStruct;
     class Function Id2LongId(UnitId: Word) : Cardinal;
     class function GetUnitInfoId(p_Unit: PUnitStruct) : Word;
     class function GetUnitInfoCrc(p_Unit: PUnitStruct) : Cardinal;
@@ -588,7 +588,6 @@ end;
 
 class function TAUnit.IsInGameUI(p_Unit: PUnitStruct): Boolean;
 var
-  UnitInfo: PUnitInfo;
   x, z, y,
   zpos, ypos: Integer;
   Top, Right, Bottom: Integer;
@@ -598,14 +597,13 @@ begin
   Result := False;
   if p_Unit.p_UNITINFO <> nil then
   begin
-    UnitInfo := p_Unit.p_UNITINFO;
-    x := SHiWord(p_Unit.Position.X + UnitInfo.lModelWidthX - TAData.MainStruct.lEyeBallMapX shl 16);
-    z := SHiWord(p_Unit.Position.Z + UnitInfo.lModelWidthY - TAData.MainStruct.lEyeBallMapY shl 16);
-    y := SHiWord(p_Unit.Position.Y + UnitInfo.lModelHeight);
+    x := SHiWord(p_Unit.Position.X + p_Unit.p_UNITINFO.lModelWidthX - TAData.MainStruct.lEyeBallMapX shl 16);
+    z := SHiWord(p_Unit.Position.Z + p_Unit.p_UNITINFO.lModelWidthY - TAData.MainStruct.lEyeBallMapY shl 16);
+    y := SHiWord(p_Unit.Position.Y + p_Unit.p_UNITINFO.lModelHeight);
 
-    Right := SHiWord(p_Unit.Position.X + UnitInfo.lFootPrintX - TAData.MainStruct.lEyeBallMapX shl 16);
-    Bottom := SHiWord(p_Unit.Position.Z + UnitInfo.lFootPrintZ - TAData.MainStruct.lEyeBallMapY shl 16);
-    Top := SHiWord(p_Unit.Position.Y + UnitInfo.lFootPrintY);
+    Right := SHiWord(p_Unit.Position.X + p_Unit.p_UNITINFO.lFootPrintX - TAData.MainStruct.lEyeBallMapX shl 16);
+    Bottom := SHiWord(p_Unit.Position.Z + p_Unit.p_UNITINFO.lFootPrintZ - TAData.MainStruct.lEyeBallMapY shl 16);
+    Top := SHiWord(p_Unit.Position.Y + p_Unit.p_UNITINFO.lFootPrintY);
 
     if (p_Unit.lUnitStateMask and 3) <> 1 then
     begin
@@ -658,14 +656,14 @@ begin
   result := 0;
   if p_Unit.p_MovementClass <> nil then
   begin
-    result := (PMoveClass(p_Unit.p_MovementClass).lCurrentSpeed);
+    result := p_Unit.p_MovementClass.lCurrentSpeed;
   end;
 end;
 
 class procedure TAUnit.SetCurrentSpeed(p_Unit: PUnitStruct; NewSpeed: Cardinal); // percentage
 begin
   if p_Unit.p_MovementClass <> nil then
-    PMoveClass(p_Unit.p_MovementClass).lCurrentSpeed := NewSpeed;
+    p_Unit.p_MovementClass.lCurrentSpeed := NewSpeed;
 end;
 
 class function TAUnit.TestUnloadPosition(UnitInfo: PUnitInfo; Position: TPosition): Boolean;
@@ -1024,14 +1022,12 @@ begin
   Result := p_Unit.lUnitInGameIndex;
 end;
 
-class Function TAUnit.Id2Ptr(LongUnitId: Cardinal) : PUnitStruct;
+class Function TAUnit.Id2Ptr(UnitId: Word): PUnitStruct;
 begin
-  Result := nil;
-  if LongUnitId <> 0 then
-  begin
-    if (Word(LongUnitId) <= TAData.MaxUnitsID) then
-      result := Pointer(LongWord(TAData.UnitsArray_p) + SizeOf(TUnitStruct)*Word(LongUnitId));
-  end;
+  if (UnitId <= TAData.MaxUnitsID) then
+    Result := Pointer(Cardinal(TAData.UnitsArray_p) + (SizeOf(TUnitStruct)*UnitId))
+  else
+    Result := nil;
 end;
 
 class Function TAUnit.Id2LongId(UnitId: Word) : Cardinal;

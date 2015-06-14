@@ -25,7 +25,7 @@ This message is triggered when ever a player is kicked/drops/leaves from the bat
 }
 
 Const
-  TANM_Rejection = $1b;
+  TANM_Rejection = $1B;
 // Rejection reasons
   PlayerDidProperlyClose = $01;
   PlayerDidnotProperlyClose = $06;
@@ -52,6 +52,15 @@ type
     Unknown    : Longword; // unknown
   end;
 
+const
+  TANM_Team = $24;
+type
+  PTeamMessage = ^TTeamMessage;
+  TTeamMessage = packed record
+    Marker     : Byte;
+    PlayerDPID : TDPID;
+    TeamId     : Byte; // max 5 teams
+  end;
 
 {
 todo : document
@@ -73,44 +82,101 @@ unitstat + move.
 Bit packed structure
 }
 Const
-  TANM_UnitStatAndMove_Message = $2c;
+  TANM_UnitStatAndMove = $2C;
 type
   PUnitStatAndMoveMessage = ^TUnitStatAndMoveMessage;
   TUnitStatAndMoveMessage = packed record
-    Marker   : byte; // TANM_UnitStatAndMove_Message
+    Marker   : Byte; // TANM_UnitStatAndMove_Message
     Size     : Word; // the size of the bit encoded structure
     Timstamp : Longword; // the timestamp for the player
   end;
 
 Const
-  TANM_WeaponProjectile_Message = $0D;
+  TANM_ChatMessage = $05;
+  TANM_LoadingStarted = $08;
+  TANM_UnitBuildStarted = $09;
+  TANM_UnitTakeDamage = $0B;
+  TANM_UnitKilled = $0C;
+  TANM_UnitStartScript = $10;
+  TANM_UnitState = $11;
+  TANM_UnitBuildFinished = $12;
+  TANM_PlaySound = $13;
+  TANM_GiveUnit = $14;
+  // TANM_ = $15; // loading state (?)
+  TANM_ShareResources = $16;
+  TANM_PlayerResourcesInfo = $28;
+  // TANM_ = $29; // field_12A pplayerstruct
+  TANM_UnitTypesSync = $1A;
+  // TANM_ = $1D; // obsolete, calls nullsub
+  // TANM_ = $21; // response with $22
+  TANM_HostMigration = $18;
+  TANM_PlayerInfo = $20;
+
+Const
+  TANM_WeaponFired = $0D;
 type
-  PWeaponProjectileMessage = ^TWeaponProjectileMessage;
-  TWeaponProjectileMessage = packed record
-    PacketType : Byte;
-    Position_Start : TPosition;
+  PWeaponFiredMessage = ^TWeaponFiredMessage;
+  TWeaponFiredMessage = packed record
+    Marker          : Byte;
+    Position_Start  : TPosition;
     Position_Target : TPosition;
-    WeaponID : Byte;
-    field_1A : Byte;
-    field_1B : Word;
-    field_1D : Word;
-    Attacker_ID : Word;
-    Victim_ID : Word;
-    field_23 : Byte;
+    WeaponID        : Byte;
+    Interceptor     : Byte;
+    Angle           : Word;
+    Trajectory      : Word;
+    TargetUnitId    : Word;
+    AttackerUnitId  : Word;
+    WeapIdx         : Byte;
   end;
 
-  PWeaponProjectileMessagePatched = ^TWeaponProjectileMessagePatched;
-  TWeaponProjectileMessagePatched = packed record
-    PacketType : Byte;
-    Position_Start : TPosition;
+  PWeaponFiredMessagePatched = ^TWeaponFiredMessagePatched;
+  TWeaponFiredMessagePatched = packed record
+    Marker          : Byte;
+    Position_Start  : TPosition;
     Position_Target : TPosition;
-    WeaponID : Cardinal;
-    field_1A : Byte;
-    field_1B : Word;
-    field_1D : Word;
-    Attacker_ID : Word;
-    Victim_ID : Word;
-    field_23 : Byte;
+    WeaponID        : Cardinal;
+    Interceptor     : Byte;
+    Angle           : Word;
+    Trajectory      : Word;
+    TargetUnitId    : Word;
+    AttackerUnitId  : Word;
+    WeapIdx         : Byte;
+  end;
+
+Const
+  TANM_AreaOfEffect = $0E;
+type
+  PAreaOfEffectMessage = ^TAreaOfEffectMessage;
+  TAreaOfEffectMessage = packed record
+    Marker     : Byte;
+    Position   : TPosition;
+    WeaponID   : Byte;
+  end;
+
+  PAreaOfEffectMessagePatched = ^TAreaOfEffectMessagePatched;
+  TAreaOfEffectMessagePatched = packed record
+    Marker     : Byte;
+    Position   : TPosition;
+    WeaponID   : Cardinal;
+  end;
+
+Const
+  TANM_FeatureAction = $0F;
+type
+  PFeatureActionMessage = ^TFeatureActionMessage;
+  TFeatureActionMessage = packed record
+    Marker     : Byte;
+    WeaponID   : Byte;
+    X          : Word;
+    Y          : Word;
+  end;
+
+  PFeatureActionMessagePatched = ^TFeatureActionMessagePatched;
+  TFeatureActionMessagePatched = packed record
+    Marker     : Byte;
+    WeaponID   : Cardinal;
+    X          : Word;
+    Y          : Word;
   end;
 
 {
@@ -119,26 +185,26 @@ Recorder sends to everyone else when the player private chats to someone
 Note: old versions can send more than the expected size!!! Upto 100 characters
 }
 const
-  TANM_EnemyChat = $f9;
+  TANM_EnemyChat = $F9;
 type
   // size = 73
   PEnemyChatMessage = ^TEnemyChatMessage;
   TEnemyChatMessage = packed record
-    Marker  : byte;  // TANM_EnemyChat
+    Marker     : Byte;  // TANM_EnemyChat
     FromPlayer : TDPID;
-    ToPlayer : TDPID;
-    Text : array [0..64-1] of char; 
+    ToPlayer   : TDPID;
+    Text       : array [0..64-1] of char;
   end;
 
 {
 Replayer message to anounce that this is a replayer mode game (single byte)
 }
 const
-  TANM_ReplayerServer = $fa;
+  TANM_ReplayerServer = $FA;
 type
   PReplayerServerMessage = ^TReplayerServerMessage;
   TReplayerServerMessage = packed record
-    Marker  : byte;  // TANM_ReplayerServer
+    Marker  : Byte;  // TANM_ReplayerServer
   end;
 {
 Used to transfer data between recorders.
@@ -146,12 +212,12 @@ Unknown message subtypes are ignored by versions which dont understand them (thi
 }
 // recorder to recorder packet
 const
-  TANM_RecorderToRecorder = $fb;
+  TANM_RecorderToRecorder = $FB;
 type
   PRecorderToRecorderMessage = ^TRecorderToRecorderMessage;
   TRecorderToRecorderMessage = packed record
-    Marker  : byte;  // TANM_RecorderToRecorder
-    MsgSize : Byte;  // size of the data message
+    Marker     : Byte; // TANM_RecorderToRecorder
+    MsgSize    : Byte; // size of the data message
     MsgSubType : Byte; // The Recorder to Recorder message subtype
   end;
 
@@ -162,7 +228,7 @@ const
 type
   PRec2Rec_MarkerData_Message = ^TRec2Rec_MarkerData_Message;
   TRec2Rec_MarkerData_Message = packed record
-    PacketCount : byte;
+    PacketCount : Byte;
     // variable data structure
   end;  
 
@@ -179,7 +245,7 @@ const
 type
   PRec2Rec_CheatsDetected_Message = ^TRec2Rec_CheatsDetected_Message;
   TRec2Rec_CheatsDetected_Message = packed record
-    CheatsDetected : Longword;
+    CheatsDetected : Cardinal;
   end;
 
 {
@@ -370,7 +436,7 @@ Used by TA demo recorder to transmite the map view point of a player to other pl
 }
 
 const
-  TANM_ShameMapPos = $fc;
+  TANM_ShareMapPos = $FC;
 
 type
   PShareMapPosMessage = ^TShareMapPosMessage;
