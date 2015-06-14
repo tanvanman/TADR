@@ -7,7 +7,6 @@
 #include "hook\hook.h"
 #include "hook\etc.h"
 #include "ExternQuickKey.h"
-#include "WeaponIDLimit.h"
 #include "tahook.h"
 #include <vector>
 using namespace std;

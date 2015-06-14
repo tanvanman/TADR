@@ -397,7 +397,6 @@
     <ClInclude Include="UnitDrawer.h" />
     <ClInclude Include="UnitLimit.h" />
     <ClInclude Include="UnitTypeLimit.h" />
-    <ClInclude Include="WeaponIDLimit.h" />
     <ClInclude Include="whiteboard.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>

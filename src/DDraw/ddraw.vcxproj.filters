@@ -314,9 +314,6 @@
     <ClInclude Include="UnitTypeLimit.h">
       <Filter>Header Files\Functions\externFromChina\LimitCrack</Filter>
     </ClInclude>
-    <ClInclude Include="WeaponIDLimit.h">
-      <Filter>Header Files\Functions\externFromChina\LimitCrack</Filter>
-    </ClInclude>
     <ClInclude Include="LimitCrack.h">
       <Filter>Header Files\Functions\externFromChina\LimitCrack</Filter>
     </ClInclude>
