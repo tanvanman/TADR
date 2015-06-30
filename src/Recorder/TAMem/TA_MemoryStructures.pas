@@ -753,6 +753,8 @@ type
     rectRealMIncome    : tagRect;
     rectRealEIncome    : tagRect;
     rectShieldIcon     : tagRect;
+    logoGAF            : String;
+    p_LogoGAF          : Pointer;
   end;
 
   PRaceSideData = ^TRaceSideData;
@@ -1540,8 +1542,6 @@ type
     CustAnim : array of Pointer;
     FlameStream : array of Pointer;
     GafSequence_ShieldIcon : Pointer;
-    GafSequence_Arm32lt,
-    GafSequence_Core32lt : Pointer;
   end;
 
   TPlayerModInfo = packed record

@@ -616,6 +616,126 @@ begin
   end;
 end;
 
+procedure BroadcastFireMapWeapon(p_Weapon: PWeaponDef;
+  p_StartPos: PPosition; p_TargetPos: PPosition); stdcall;
+var
+  Buffer: TWeaponFiredMessagePatched;
+begin
+  if TAData.NetworkLayerEnabled then
+  begin
+    FillChar(Buffer, SizeOf(Buffer), 0);
+    Buffer.Marker := TANM_WeaponFired;
+    Buffer.WeaponID := p_Weapon.lWeaponIDCrack;
+    Buffer.Position_Start := p_StartPos^;
+    Buffer.Position_Target := p_TargetPos^;
+    HAPI_BroadcastMessage(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID).lDirectPlayID, @Buffer, SizeOf(Buffer));
+  end;
+end;
+
+procedure FireMapWeaponBroadcast;
+asm
+  push    eax
+  push    edi
+  push    ebx
+  call    BroadcastFireMapWeapon
+  push $0049DFFB;
+  call PatchNJump;
+end;
+
+procedure ResurrectBroadcastFeatureAction(DPID: Cardinal;
+  p_FeatureActionMessage: PFeatureActionMessage; BufferSize: Cardinal); stdcall;
+var
+  Buffer: TFeatureActionMessagePatched;
+begin
+  Buffer.Marker := TANM_FeatureAction;
+  Buffer.WeaponID := MAX_WEAPONS_PATCHED-1;
+  Buffer.X := p_FeatureActionMessage.X;
+  Buffer.Y := p_FeatureActionMessage.Y;
+  HAPI_BroadcastMessage(DPID, @Buffer, SizeOf(Buffer));
+end;
+
+procedure UnitWeaponPower;
+label
+  NoWeapID;
+asm
+  mov     eax, [esi+TWeaponDef.lWeaponIDCrack]
+  test    eax, eax
+  jz      NoWeapID
+  push $00409557;
+  call PatchNJump;
+NoWeapID:
+  push $00409590;
+  call PatchNJump;
+end;
+
+procedure UnitWeaponCost;
+label
+  NoWeapID;
+asm
+  mov     eax, [esi+TWeaponDef.lWeaponIDCrack]
+  test    eax, eax
+  jz      NoWeapID
+  push $0040968C;
+  call PatchNJump;
+NoWeapID:
+  push $004096C9;
+  call PatchNJump;
+end;
+
+procedure UnitWeaponRange;
+label
+  NoWeapID;
+asm
+  mov     eax, [esi+TWeaponDef.lWeaponIDCrack]
+  test    eax, eax
+  jz      NoWeapID
+  push $0040994A;
+  call PatchNJump;
+NoWeapID:
+  push $00409983;
+  call PatchNJump;
+end;
+
+procedure SendFireWeap(DPID: Cardinal;
+  WeaponFiredMessage: PWeaponFiredMessage; p_Weapon: PWeaponDef); stdcall;
+var
+  Buffer: TWeaponFiredMessagePatched;
+begin
+  Buffer.Marker := TANM_FeatureAction;
+  Buffer.WeaponID := p_Weapon.lWeaponIDCrack;
+  Buffer.Position_Start := WeaponFiredMessage.Position_Start;
+  Buffer.Position_Target := WeaponFiredMessage.Position_Target;
+  Buffer.Interceptor := WeaponFiredMessage.Interceptor;
+  Buffer.Angle := WeaponFiredMessage.Angle;
+  Buffer.Trajectory := WeaponFiredMessage.Trajectory;
+  Buffer.TargetUnitId := WeaponFiredMessage.TargetUnitId;
+  Buffer.AttackerUnitId := WeaponFiredMessage.AttackerUnitId;
+  Buffer.WeapIdx := WeaponFiredMessage.WeapIdx;
+  HAPI_BroadcastMessage(DPID, @Buffer, SizeOf(Buffer));
+end;
+
+procedure SendFireWeapHook;
+asm
+  mov     ebx, ecx
+  mov     ecx, [ecx+111h]
+  mov     al, [esp+1Eh]
+  shr     ecx, 1Eh
+  xor     cl, al
+  and     cl, 1
+  xor     al, cl
+  mov     ecx, [edx+96h]
+  mov     [esp+22h], al
+  lea     eax, [esp+8]
+  mov     edx, [ecx+4]
+  push    ebx
+  push    eax
+  push    edx
+  call    SendFireWeap
+  pop     esi
+  add     esp, 24h
+  ret     14h
+end;
+
 Procedure OnInstallWeaponsExpand;
 begin
   SetLength(ExtraWeaponDefTags, GetMaxWeapons);
@@ -750,38 +870,34 @@ begin
                              @ReceiveWeaponFiredPatched,
                              $00455433 );
 
-      { todo :
-        0049DFA9 - fire map weapon id to packet
-        v9 = WeaponType_Ptr->ID;
-        if ( *(*&TAMainStructPtr + offsetof(TAMainStruct, WorkStatusMask)) & 1 )
-        begin
-          v10 = Postion_Start->y;
-          PacketBuf.start.x = Postion_Start->x;
-          v11 = Postion_Start->z;
-          PacketBuf.start.y = v10;
-          v12 = TargetPostion->x;
-          PacketBuf.start.z = v11;
-          v13 = TargetPostion->y;
-          PacketBuf.end.x = v12;
-          v14 = TargetPostion->z;
-          PacketBuf.PacketType = 13;
-          PacketBuf.end.y = v13;
-          PacketBuf.end.z = v14;
-          PacketBuf.WeaponID = v9;
-          v15 = LocalPlayer_DirectID();
-          HAPI_BroadcastMessage(v15, &PacketBuf, 36);
-        end
+      Result.MakeRelativeJmp( State_WeaponsExpand, '',
+                              @FireMapWeaponBroadcast,
+                              $0049DFA3, 1 );
 
-        0040954D - ai related 1
-        00409682 - ai related 2
-        00409940 - ai related 3
+      Result.MakeStaticCall( State_WeaponsExpand, '',
+                             @ResurrectBroadcastFeatureAction,
+                             $00405210 );
 
-        00487A1C - Save game unit weapons write, fix ID offset and hapi account size
-        00487622 - Load game unit weapons
-        00499B02 - send fire weapon packet
-        00405210 - resurrect order
-      }
-    end;   
+      Result.MakeRelativeJmp( State_WeaponsExpand, '',
+                              @UnitWeaponPower,
+                              $0040954D, 1 );
+      Result.MakeRelativeJmp( State_WeaponsExpand, '',
+                              @UnitWeaponCost,
+                              $00409682, 1 );
+      Result.MakeRelativeJmp( State_WeaponsExpand, '',
+                              @UnitWeaponRange,
+                              $00409940, 1 );
+
+      Result.MakeRelativeJmp( State_WeaponsExpand, 'send fire weap (no xrefs)',
+                              @SendFireWeapHook,
+                              $00499B61, 1 );
+
+      Result.MakeReplacement( State_WeaponsExpand, 'loading savegame',
+                              $00487622, [$8B, $4F, $EC, $83, $C0, $1C, $89, $8A, $BC, $00, $00, $00] );
+
+      Result.MakeReplacement( State_WeaponsExpand, 'saving savegame',
+                              $00487A1C, [$8B, $91, $BC, $00, $00, $00] );
+    end;
   end else
     Result := nil;
 end;

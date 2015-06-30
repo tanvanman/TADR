@@ -45,7 +45,7 @@ type
     class function GetGUICallbackState: TGUICallbackState;
     class function GetGameUIRect: tagRect;
     class function GetAIDifficulty: TAIDifficulty;
-    class function GetControlPlayerRaceSide: TTAPlayerSide;
+    class function GetControlPlayerRaceSide: Byte;
 
     class Function GetPausedState: Boolean;
     class Procedure SetPausedState( value: Boolean);
@@ -85,7 +85,7 @@ type
     Property GUICallbackState: TGUICallbackState read GetGUICallbackState;
     Property GameUIRect: tagRect read GetGameUIRect;
     Property AIDifficulty: TAIDifficulty read GetAIDifficulty;
-    Property RaceSide: TTAPlayerSide read GetControlPlayerRaceSide;
+    Property RaceSide: Byte read GetControlPlayerRaceSide;
     Property ColorsPalette: Pointer read GetColorsPalette;
 
     class procedure ShakeCam(X, Y, Duration: Cardinal);
@@ -528,9 +528,9 @@ begin
   Result := TAIDifficulty(TAData.MainStruct.lCurrenTAIProfile);
 end;
 
-class function TAMem.GetControlPlayerRaceSide: TTAPlayerSide;
+class function TAMem.GetControlPlayerRaceSide: Byte;
 begin
-  Result := TTAPlayerSide(PPlayerInfoStruct(PPlayerStruct(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID)).PlayerInfo).Raceside);
+  Result := PPlayerInfoStruct(PPlayerStruct(TAPlayer.GetPlayerByIndex(TAData.LocalPlayerID)).PlayerInfo).Raceside;
 end;
 
 class procedure TAMem.ShakeCam(X, Y, Duration: Cardinal);

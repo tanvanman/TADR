@@ -126,6 +126,9 @@ end;
 procedure FreeUnitMem(p_Unit: PUnitStruct);
 begin
   p_Unit.nKills := 0;
+  p_Unit.ucOwningPlayerID := 10;
+  p_Unit.p_Attacker := nil;
+  p_Unit.lUnitStateMask := p_Unit.lUnitStateMask or $40;
   FreeUnitOrders(p_Unit);
   if p_Unit.p_UnitScriptsData <> nil then
   begin

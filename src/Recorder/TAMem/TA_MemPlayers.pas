@@ -15,7 +15,9 @@ type
     class function PlayerIndex(Player: PPlayerStruct) : Byte;
     class Function PlayerController(Player: PPlayerStruct) : TTAPlayerController;
     class Function PlayerSide(Player: PPlayerStruct) : TTAPlayerSide;
+    class Function PlayerSideIdx(Player: PPlayerStruct) : Byte;
     class function PlayerLogoIndex(Player: PPlayerStruct) : Byte;
+    class function PlayerSideLogoSequence(Player: PPlayerStruct): PGAFSequence;
 
     class function GetShareRadar(Player: PPlayerStruct) : Boolean;
     class Procedure SetShareRadar(Player: PPlayerStruct; ANewState: Boolean);
@@ -93,9 +95,29 @@ begin
   Result := TTAPlayerSide(Player.PlayerInfo.Raceside);
 end;
 
+class function TAPlayer.PlayerSideIdx(Player: PPlayerStruct): Byte;
+begin
+  Result := Player.PlayerInfo.Raceside;
+end;
+
 class Function TAPlayer.PlayerLogoIndex(Player: PPlayerStruct) : Byte;
 begin
   Result := Player.PlayerInfo.PlayerLogoColor;
+end;
+
+class function TAPlayer.PlayerSideLogoSequence(Player: PPlayerStruct): PGAFSequence;
+var
+  PlayerSideIdx: Byte;
+begin
+  PlayerSideIdx := TAPlayer.PlayerSideIdx(Player);
+  if PlayerSideIdx <= High(ExtraSideData) then
+  begin
+    if ExtraSideData[PlayerSideIdx].p_LogoGAF <> nil then
+      Result := ExtraSideData[PlayerSideIdx].p_LogoGAF
+    else
+      Result := TAData.MainStruct.p_GafSequence_32xlogos;
+  end else
+    Result := TAData.MainStruct.p_GafSequence_32xlogos;
 end;
 
 Class function TAPlayer.GetShareRadar(Player: PPlayerStruct) : Boolean;

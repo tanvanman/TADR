@@ -380,7 +380,7 @@ try
         end;
       PLAYER_SIDE :
         begin
-        result := Ord(TAPlayer.PlayerSide(TAPlayer.GetPlayerByIndex(arg1)));
+        result := TAPlayer.PlayerSideIdx(TAPlayer.GetPlayerByIndex(arg1));
         end;
       PLAYER_KILLS :
         begin
@@ -1266,7 +1266,7 @@ end;
 
 Procedure COB_Extensions_Handling;
 label
-  DoReturn,
+  DoReturn, DoReturnWithBreak,
   GeneralCaseGetter;
 asm
   // function prolog
@@ -1274,7 +1274,7 @@ asm
   sub     esp, 24h
   push    esi
   test    eax, eax
-  jz      DoReturn
+  jz      DoReturnWithBreak
   // start of case statement
   mov     esi, [eax+0Ch]
   lea     eax, [ecx-1]    // switch 20 cases
@@ -1298,18 +1298,25 @@ DoReturn:
   pop     esi;
   add     esp, 24h;
   ret 14h;
+DoReturnWithBreak:
+  xor     eax, eax
+  pop     esi;
+  add     esp, 24h;
+  ret 14h;
 end;
 
 Procedure COB_ExtensionsSetters_Handling;
 
 label
-  DoReturn,
+  DoReturn, DoReturnWithBreak,
   GeneralCaseSetter;
 asm
   // function prolog
   mov     ecx, [esp+4]//[esp+SetterIdx]
   push    esi
   // start of case statement
+  test    eax, eax
+  jz      DoReturnWithBreak
   mov     esi, [eax+0Ch]
   lea     eax, [ecx-1]    // switch 20 cases
   cmp     eax, 13h
@@ -1325,6 +1332,10 @@ GeneralCaseSetter:
   push    eax;             // index
   call    CustomSetters;
 DoReturn:
+  pop esi;
+  ret 8h;
+DoReturnWithBreak:
+  xor     eax, eax
   pop esi;
   ret 8h;
 end;

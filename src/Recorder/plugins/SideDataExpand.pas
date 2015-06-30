@@ -34,7 +34,7 @@ procedure SideDataExpand_Load(TDFHandle: Cardinal; p_SideData: PRaceSideData); s
   var
     OldTDFRoot: Cardinal;
   begin
-    OldTDFRoot := PCardinal(TDFHandle + 4)^;
+    OldTDFRoot := TdfFile_GetRoot(0, 0, TDFHandle);
     if TdfFile_SectionExists(0, 0, TDFHandle, PAnsiChar(SectionName)) then
     begin
       p_tagRect^.Left := TdfFile_GetInt(0, 0, PCardinal(TDFHandle + 4)^, 0, PAnsiChar('x1'));
@@ -42,16 +42,13 @@ procedure SideDataExpand_Load(TDFHandle: Cardinal; p_SideData: PRaceSideData); s
       p_tagRect^.Right := TdfFile_GetInt(0, 0, PCardinal(TDFHandle + 4)^, 0, PAnsiChar('x2'));
       p_tagRect^.Bottom := TdfFile_GetInt(0, 0, PCardinal(TDFHandle + 4)^, 0, PAnsiChar('y2'));
     end;
-    PCardinal(TDFHandle + 4)^ := OldTDFRoot;
+    TdfFile_SetRoot(0, 0, TDFHandle, OldTDFRoot);
   end;
 
 var
   SideIdx: Integer;
 begin
   SideIdx := p_SideData.lSideIdx;
-  if High(ExtraSideData) < (SideIdx + 1) then
-    SetLength(ExtraSideData, SideIdx + 1);
-
   TdfFile_GetTagRect(TDFHandle, 'DAMAGEVAL', @ExtraSideData[SideIdx].rectDamageVal);
   TdfFile_GetTagRect(TDFHandle, 'REALMETALINCOME', @ExtraSideData[SideIdx].rectRealMIncome);
   TdfFile_GetTagRect(TDFHandle, 'REALENERGYINCOME', @ExtraSideData[SideIdx].rectRealEIncome);
@@ -68,6 +65,37 @@ asm
   popAD
   mov     esi, 1
   push $0043248C;
+  call PatchNJump;
+end;
+
+procedure SideDataExpand_LoadGaf(TDFHandle: Cardinal; SideDataIdx: Integer); stdcall;
+
+  function TdfFile_GetString(TDFHandle: Cardinal; SectionName: String): String;
+  const
+    BufferSize = 32;
+  var
+    Buff: array[0..BufferSize-1] of AnsiChar;
+  begin
+    Result := '';
+    if TdfFile_GetStr(0, 0, TDFHandle, Pointer(Null_str), BufferSize, PAnsiChar(SectionName), @Buff) <> 0 then
+      SetString(Result, PChar(@Buff[0]), Length(Buff));
+  end;
+
+begin
+  if High(ExtraSideData) < (SideDataIdx + 1) then
+    SetLength(ExtraSideData, SideDataIdx + 1);
+  ExtraSideData[SideDataIdx].logoGAF := TdfFile_GetString(TDFHandle, 'logogaf');
+end;
+
+procedure SideDataExpand_LoadGafHook;
+asm
+  pushAD
+  push    edi
+  push    ecx
+  call    SideDataExpand_LoadGaf
+  popAD
+  push    offset Null_Str
+  push $00429F66;
   call PatchNJump;
 end;
 
@@ -92,6 +120,11 @@ begin
                             '',
                             @SideDataExpand_LoadHook,
                             $00432487, 0);
+
+    Result.MakeRelativeJmp( State_SideDataExpand,
+                            '',
+                            @SideDataExpand_LoadGafHook,
+                            $00429F61, 0);
   end else
     Result := nil;
 end;

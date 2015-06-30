@@ -41,11 +41,6 @@ const
   VETERANLEVEL_RELOADBOOST = 12; // 30 * 0.2
   SCOREBOARD_WIDTH = 180;
 
-const
-  Core32Lt : AnsiString = 'Core32Dk';
-  Arm32Lt : AnsiString = 'Arm32Dk';
-  RaceLogo : AnsiString = 'RaceLogo';
-
 procedure DrawUnitState(p_Offscreen: Pointer;
   Unit_p: PUnitStruct; CenterPosX: Integer; CenterPosZ: Integer); stdcall;
 var
@@ -74,7 +69,7 @@ var
   { weapons }
   MaxReloadTime : Integer;
   CurReloadTime : Integer;
-  BarProgress : Integer;
+  BarProgress : Cardinal;
   StockPile : Byte;
   WeapReloadColor : Byte;
   CustomReloadBar : Boolean;
@@ -89,7 +84,7 @@ var
   { reclaim, resurrect feature }
   CurOrder : TTAActionType;
   OrderStateCorrect : Boolean;
-  FeatureDefPtr : Pointer;
+  p_FeatureDef : PFeatureDefStruct;
   FeatureDefID : Word;
   ActionUnitType : Word;
   ActionUnit : PUnitStruct;
@@ -169,7 +164,6 @@ begin
 
             RectDrawPos.Right := Round(RectDrawPos.Left + ((HPBackgRectWidth-2) * UnitHealth) / UnitMaxHP);
             HealthState := UnitMaxHP div 3;
-
 
             if UnitHealth <= (HealthState * 2) then
             begin
@@ -293,15 +287,7 @@ begin
               begin
                 BarProgress := Round((CurReloadTime / MaxReloadTime) * 100);
                 WeapReloadColor := GetRaceSpecificColor(26);
-                case BarProgress of
-                   0..15 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor)^);
-                  16..30 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 1)^);
-                  31..47 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 2)^);
-                  48..64 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 3)^);
-                  65..80 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 4)^);
-                  81..94 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 5)^);
-                 95..100 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - 6)^);
-                end;
+                DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+WeapReloadColor - (BarProgress div 15))^);
               end;
             end;
           end;
@@ -336,14 +322,14 @@ begin
                 case CurOrder of
                   Action_Reclaim :
                   begin
-                    FeatureDefPtr := TAMem.FeatureDefId2Ptr(FeatureDefID);
-                    MaxActionVal := Trunc( (PFeatureDefStruct(FeatureDefPtr).fMetal + PFeatureDefStruct(FeatureDefPtr).fEnergy) / 2 + 15);
+                    p_FeatureDef := TAMem.FeatureDefId2Ptr(FeatureDefID);
+                    MaxActionVal := Trunc( (p_FeatureDef.fMetal + p_FeatureDef.fEnergy) / 2 + 15);
                     CurActionVal := TAUnit.GetCurrentOrderParams(Unit_p, 1);
                   end;
                   Action_VTOL_Reclaim :
                   begin
-                    FeatureDefPtr := TAMem.FeatureDefId2Ptr(FeatureDefID);
-                    MaxActionVal := Trunc( (PFeatureDefStruct(FeatureDefPtr).fMetal + PFeatureDefStruct(FeatureDefPtr).fEnergy) / 2 + 30);
+                    p_FeatureDef := TAMem.FeatureDefId2Ptr(FeatureDefID);
+                    MaxActionVal := Trunc( (p_FeatureDef.fMetal + p_FeatureDef.fEnergy) / 2 + 30);
                     CurActionVal := TAUnit.GetCurrentOrderParams(Unit_p, 1);
                   end;
                   Action_Capture:
@@ -369,7 +355,7 @@ begin
                   end;
                   Action_Resurrect :
                   begin
-                    FeatureDefPtr := TAMem.FeatureDefId2Ptr(FeatureDefID);
+                    // p_FeatureDef := TAMem.FeatureDefId2Ptr(FeatureDefID);
                     ActionUnitType := TAUnit.GetCurrentOrderParams(Unit_p, 1);
                     if ActionUnitType <> 0 then
                     begin
@@ -401,13 +387,7 @@ begin
 
                   BarProgress := Round((CurActionVal / MaxActionVal) * 100);
                   ReclaimColor := GetRaceSpecificColor(27);
-                  case BarProgress of
-                    0..20 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor)^);
-                   21..40 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 1)^);
-                   41..60 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 2)^);
-                   61..80 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 3)^);
-                  81..100 : DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + 4)^);
-                  end;
+                  DrawBar(p_Offscreen, @RectDrawPos, PByte(LongWord(ColorsPal)+ReclaimColor + (BarProgress div 25))^);
                 end;
               end;
             end;
@@ -843,25 +823,23 @@ asm
   call PatchNJump;
 end;
 
+procedure LoadSideSpecificLogos; stdcall;
+var
+  i: Integer;
+begin
+  for i := Low(ExtraSideData) to High(ExtraSideData) do
+  begin
+    if Trim(ExtraSideData[i].logoGAF) <> '' then
+      ExtraSideData[i].p_LogoGAF := GAF_Name2Sequence(TAData.MainStruct.p_LogosGaf,
+                                                      PAnsiChar(ExtraSideData[i].logoGAF))
+  end;
+end;
+
 procedure LoadArmCore32ltGafSequences;
 asm
-  push    eax
-
-  mov     eax, [TADynMemStructPtr]
-  mov     ecx, [eax+TTAdynmemStruct.p_LogosGaf]
-  push    Arm32Lt
-  push    ecx
-  call    GAF_Name2Sequence
-  mov     ExtraGAFAnimations.GafSequence_Arm32lt, eax
-
-  mov     eax, [TADynMemStructPtr]
-  mov     ecx, [eax+TTAdynmemStruct.p_LogosGaf]
-  push    Core32Lt
-  push    ecx
-  call    GAF_Name2Sequence
-  mov     ExtraGAFAnimations.GafSequence_Core32lt, eax
-
-  pop     eax
+  pushAD
+  call    LoadSideSpecificLogos
+  popAD
   mov     edx, [TADynMemStructPtr]
   push $00431911;
   call PatchNJump;
@@ -912,7 +890,6 @@ var
   cIterateSort : Byte;
   PlayerPtr, PlayerSort: PPlayerStruct;
   PlayerType, PlayerSortType: TTAPlayerController;
-  PlayerSide: TTAPlayerSide;
   TextLeftOff : Integer;
   p_ColorLogo : PGAFFrame;
   Counter : Integer;
@@ -1068,17 +1045,8 @@ begin
       else
         DrawTransparentBox(p_OFFSCREEN, @LocalPlayerBox, -19);
 
-      PlayerSide := TAPlayer.PlayerSide(PlayerPtr);
-      case PlayerSide of
-        psArm :
-          p_ColorLogo := GAF_SequenceIndex2Frame(ExtraGAFAnimations.GafSequence_Arm32lt,
-            TAPlayer.PlayerLogoIndex(PlayerPtr));
-        psCore :
-          p_ColorLogo := GAF_SequenceIndex2Frame(ExtraGAFAnimations.GafSequence_Core32lt,
-            TAPlayer.PlayerLogoIndex(PlayerPtr));
-        else p_ColorLogo := nil;
-      end;
-
+      p_ColorLogo := GAF_SequenceIndex2Frame(TAPlayer.PlayerSideLogoSequence(PlayerPtr),
+                                             TAPlayer.PlayerLogoIndex(PlayerPtr));
       if p_ColorLogo <> nil then
       begin
         TextLeftOff := ScoreBoardPos.Left + 39 + 3;

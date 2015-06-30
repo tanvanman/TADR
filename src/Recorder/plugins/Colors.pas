@@ -45,7 +45,7 @@ const
     (sName: 'UnitHealthBarGood'; lOffset: 0; cSwapType: 0; cDefaultVal: 10;),
     (sName: 'UnitHealthBarMedium '; lOffset: 0; cSwapType: 0; cDefaultVal: 14;),
     (sName: 'UnitHealthBarLow'; lOffset: 0; cSwapType: 0; cDefaultVal: 12;),
-    (sName: 'WeaponReloadBar'; lOffset: 0; cSwapType: 0; cDefaultVal: 143;),
+    (sName: 'WeaponReloadBar'; lOffset: 0; cSwapType: 0; cDefaultVal: 144;),
     (sName: 'ReclaimBar'; lOffset: 0; cSwapType: 0; cDefaultVal: 17;),
     (sName: 'StockpileBar'; lOffset: 0; cSwapType: 0; cDefaultVal: 14;),
     (sName: 'MainMenuDots'; lOffset: $00425C56; cSwapType: 0; cDefaultVal: 0;),
@@ -82,7 +82,7 @@ function GetRaceSpecificColor(ColorNr: Byte) : Byte;
 begin
   if IniSettings.Colors then
   begin
-    Result := IniSettings.CustomColors[Ord(TAData.RaceSide) + 1][ColorNr];
+    Result := IniSettings.CustomColors[TAData.RaceSide + 1][ColorNr];
     if Result = 0 then
       Result := IniSettings.CustomColors[0][ColorNr];
     if Result = 0 then

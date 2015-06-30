@@ -1603,6 +1603,21 @@ type
 var
   TdfFile_GetFloat : TdfFile_GetFloatHandler = TdfFile_GetFloatHandler($004C4760);
 
+type
+  TdfFile_GetRootHandler = function ( Eax : Cardinal;
+                                      Edx : Cardinal;
+                                      TDFhandle : Cardinal): Cardinal; register;
+var
+  TdfFile_GetRoot : TdfFile_GetRootHandler = TdfFile_GetRootHandler($004C3E20);
+
+type
+  TdfFile_SetRootHandler = procedure ( Eax : Cardinal;
+                                       Edx : Cardinal;
+                                       TDFhandle : Cardinal;
+                                       NewRoot: Cardinal); register;
+var
+  TdfFile_SetRoot : TdfFile_SetRootHandler = TdfFile_SetRootHandler($004C3E30);
+
 Type
   SetCurrentDirectoryToTAPathHandler = function: Boolean; cdecl;
 var

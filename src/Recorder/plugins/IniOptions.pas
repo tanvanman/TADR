@@ -292,7 +292,34 @@ begin
 
   IniSettings.ModId := -1;
   IniSettings.DemosPrefix := '';
+  IniSettings.RegName := '';
   IniSettings.UnitLimit := 1000;
+  IniSettings.UnitType := 512;
+  IniSettings.UseCommonMaps := False;
+  IniSettings.UseCommonGameData := False;
+  IniSettings.BattleRoomEnh := False;
+  IniSettings.BroadcastNanolathe := False;
+  IniSettings.CreateStatsFile := False;
+  IniSettings.AiNukes := False;
+  IniSettings.HealthBarDynamicSize := False;
+  IniSettings.HealthBarWidth := 0;
+  IniSettings.UnitSelectBoxType := 0;
+  IniSettings.UnitSelectCircAnimType := 1;
+  IniSettings.UnitSelectZoomRatio := 520;
+  IniSettings.MinWeaponReload := 0;
+  IniSettings.MinReclaimTime := 0;
+  IniSettings.Transporters := False;
+  IniSettings.Stockpile := False;
+  IniSettings.ForceDrawBuildSpotNano := False;
+  IniSettings.BuildSpotNanoShimmer := False;
+  IniSettings.DrawBuildSpotQueueNano := False;
+  IniSettings.ClockPosition := 0;
+  IniSettings.ScoreBoard := False;
+  IniSettings.ExplosionsGameUIExpand := 0;
+  IniSettings.StopButton := False;
+  IniSettings.ScriptSlotsLimit := False;
+  IniSettings.InterceptsOnlyList := False;
+  IniSettings.WeaponsIDPatch := False;
 
   if GetINIFileName <> #0 then
   begin
