@@ -879,11 +879,11 @@ var
   UNITS_KillUnit : UNITS_KillUnitHandler = UNITS_KillUnitHandler($004864B0);
 
 type
-  UNITS_MakeDamageHandler = function ( Attackerp_Unit: Pointer;
-                                       Targetp_Unit: Pointer;
-                                       Amount: LongInt;
-                                       DamageType: Cardinal;
-                                       a5: Word ): Pointer; stdcall;
+  UNITS_MakeDamageHandler = procedure ( p_AttackerUnit: PUnitStruct;
+                                        p_TargetUnit: PUnitStruct;
+                                        Amount: Integer;
+                                        DamageType: Cardinal;
+                                        Angle: Word ); stdcall;
 var
   UNITS_MakeDamage: UNITS_MakeDamageHandler = UNITS_MakeDamageHandler($00489BB0);
 

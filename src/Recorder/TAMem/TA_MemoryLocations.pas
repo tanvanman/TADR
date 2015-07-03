@@ -95,8 +95,7 @@ type
     class function ScriptActionIndex2Handler(ActionIndex: Byte): PActionHandler;
     class function GetModelPtr(index: Word): Pointer;
     class function UnitInfoId2Ptr(ID: Word): PUnitInfo;
-    class function UnitInfoCrc2Ptr(CRC: Cardinal): PUnitInfo;
-    class function Crc32ToCrc24(CRC: Cardinal): Cardinal;
+    class function UnitInfoCrc2Ptr(CRC: Integer): PUnitInfo;
     class function MovementClassId2Ptr(index: Word): Pointer;
     class function FeatureDefId2Ptr(ID: Word): PFeatureDefStruct;
     class function FeatureAnimId2Ptr(ID: Word): PFeatureAnimData;
@@ -371,7 +370,7 @@ begin
   Result := Pointer(Cardinal(TAData.UnitInfosPtr) + ID * SizeOf(TUnitInfo));
 end;
 
-class function TAMem.UnitInfoCrc2Ptr(CRC: Cardinal): PUnitInfo;
+class function TAMem.UnitInfoCrc2Ptr(CRC: Integer): PUnitInfo;
 var
   i, Max: Integer;
   CheckedUnitInfo: PUnitInfo;
@@ -385,18 +384,13 @@ begin
     CheckedUnitInfo := TAMem.UnitInfoId2Ptr(i);
     if CheckedUnitInfo <> nil then
     begin
-      if TAMem.Crc32ToCrc24(CheckedUnitInfo.CRC_FBI) = CRC then
+      if CheckedUnitInfo.CRC_FBI = CRC then
       begin
         Result := CheckedUnitInfo;
         Break;
       end;
     end;
   end;
-end;
-
-class function TAMem.Crc32ToCrc24(CRC: Cardinal): Cardinal;
-begin
-  Result := CRC and not $FF000000;
 end;
 
 class function TAMem.MovementClassId2Ptr(index: Word): Pointer;

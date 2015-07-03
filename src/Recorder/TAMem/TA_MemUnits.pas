@@ -9,7 +9,7 @@ type
   public
     class Function GetHealth(p_Unit: PUnitStruct) : Word;
     class function MakeDamage(p_DmgMakerUnit, p_DmgTakerUnit: PUnitStruct;
-      DamageType: TDmgType; Amount: Cardinal) : Word;
+      DamageType: TDmgType; Amount: Integer) : Word;
     class Function GetCloak(p_Unit: PUnitStruct) : LongWord;
     class procedure SetCloak(p_Unit: PUnitStruct; cloak: Word);
 
@@ -52,7 +52,7 @@ type
     class procedure BuildPosition2Grid(Position: TPosition; UnitInfo: PUnitInfo; out GridPosX, GridPosZ: Word);
     class procedure Position2BuildPosition(Position: TPosition; UnitInfo: PUnitInfo; out PosX, PosZ: Word);
     class function GetCurrentSpeedPercent(p_Unit: PUnitStruct): Cardinal;
-    class function GetCurrentSpeedVal(p_Unit: PUnitStruct): Cardinal;
+    class function GetCurrentSpeedVal(p_Unit: PUnitStruct): Integer;
     class procedure SetCurrentSpeed(p_Unit: PUnitStruct; NewSpeed: Cardinal);
     class function TestUnloadPosition(Unitinfo: PUnitInfo; Position: TPosition): Boolean;
 
@@ -61,7 +61,7 @@ type
     class function IsPlantYardOccupied(BuilderPtr: PUnitStruct; State: Integer): Boolean;
     class function TestAttachAtGridSpot(UnitInfo : Pointer; nPosX, nPosZ: Word): Boolean;
     class function CreateUnit(OwnerIndex: LongWord; UnitInfo: PUnitInfo; Position: TPosition; Turn: PTurn; TurnZOnly, RandomTurnZ: Boolean; UnitState: LongWord) : Pointer;
-    class Function GetBuildPercentLeft(p_Unit: PUnitStruct) : Cardinal;
+    class Function GetBuildPercentLeft(p_Unit: PUnitStruct) : Integer;
     class Function GetMissingHealth(p_Unit: PUnitStruct) : Cardinal;
     class procedure Kill(p_Unit: PUnitStruct; deathtype: byte);
     class procedure SwapByKill(p_Unit: PUnitStruct; newUnitInfo: Pointer);
@@ -91,7 +91,7 @@ type
     class Function Id2Ptr(UnitId: Word): PUnitStruct;
     class Function Id2LongId(UnitId: Word) : Cardinal;
     class function GetUnitInfoId(p_Unit: PUnitStruct) : Word;
-    class function GetUnitInfoCrc(p_Unit: PUnitStruct) : Cardinal;
+    class function GetUnitInfoCrc(p_Unit: PUnitStruct): Integer;
     class Function IsOnThisComp(p_Unit: PUnitStruct; IncludeAI: Boolean) : Boolean;
     class function IsAllied(p_Unit: PUnitStruct; UnitId: LongWord) : Byte;
 
@@ -141,7 +141,7 @@ result := p_Unit.nHealth;
 end;
 
 class function TAUnit.MakeDamage(p_DmgMakerUnit, p_DmgTakerUnit: PUnitStruct;
-  DamageType: TDmgType; Amount: Cardinal): Word;
+  DamageType: TDmgType; Amount: Integer): Word;
 var
   UnitInfoSt: PUnitInfo;
   Angle: Word;
@@ -250,7 +250,7 @@ begin
   p_Unit.p_UNITINFO := NewUnitInfo;
 
   if Broadcast and TAData.NetworkLayerEnabled then
-    GlobalDPlay.Broadcast_UnitInfoSwap(TAUnit.GetID(p_Unit), TAMem.Crc32ToCrc24(NewUnitInfo.CRC_FBI));
+    GlobalDPlay.Broadcast_UnitInfoSwap(TAUnit.GetID(p_Unit), NewUnitInfo.CRC_FBI);
 end;
 
 class function TAUnit.GetWeapon(p_Unit: PUnitStruct; index: Cardinal) : Cardinal;
@@ -651,7 +651,7 @@ begin
   end;
 end;
 
-class function TAUnit.GetCurrentSpeedVal(p_Unit: PUnitStruct) : Cardinal;
+class function TAUnit.GetCurrentSpeedVal(p_Unit: PUnitStruct): Integer;
 begin
   result := 0;
   if p_Unit.p_MovementClass <> nil then
@@ -749,7 +749,7 @@ begin
   end;
 end;
 
-class Function TAUnit.GetBuildPercentLeft(p_Unit: PUnitStruct) : Cardinal;
+class Function TAUnit.GetBuildPercentLeft(p_Unit: PUnitStruct): Integer;
 begin
   if ( p_Unit.fBuildTimeLeft = 0.0 ) then
     Result := 0
@@ -1048,7 +1048,7 @@ begin
 result:= p_Unit.nUnitInfoID;
 end;
 
-class function TAUnit.GetUnitInfoCrc(p_Unit: PUnitStruct) : Cardinal;
+class function TAUnit.GetUnitInfoCrc(p_Unit: PUnitStruct): Integer;
 begin
   Result := 0;
   if p_Unit.p_UNITINFO <> nil then

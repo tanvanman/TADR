@@ -244,9 +244,8 @@ begin
     Result := nil;
 end;
 
-function CustomGetters(index: Cardinal;
-                       p_Unit: PUnitStruct;
-                       arg1, arg2, arg3, arg4: Cardinal): Cardinal; stdcall;
+function CustomGetters(index: Cardinal; p_Unit: PUnitStruct;
+  arg1, arg2, arg3, arg4: Integer): Integer; stdcall;
 var
   UnitInfoSt: PUnitInfo;
   Position: TPosition;
@@ -261,7 +260,7 @@ var
   s: String;
   {$ENDIF}
 begin
-result := 0;
+  Result := 0;
 {$IFDEF DEBUG}
 try
 {$ENDIF}
@@ -325,9 +324,9 @@ try
       UNIT_TYPE_CRC :
         begin
         if arg1 <> 0 then
-          result := TAMem.Crc32ToCrc24(TAUnit.GetUnitInfoCrc(TAUnit.Id2Ptr(arg1)))
+          result := TAUnit.GetUnitInfoCrc(TAUnit.Id2Ptr(arg1))
         else
-          result := TAMem.Crc32ToCrc24(TAUnit.GetUnitInfoCrc(p_Unit));
+          result := TAUnit.GetUnitInfoCrc(p_Unit);
         end;
       UNIT_TYPE_CRC_TO_ID :
         begin
@@ -336,7 +335,7 @@ try
         end;
       UNIT_TYPE_ID_TO_CRC :
         begin
-        result := TAMem.Crc32ToCrc24(TAMem.UnitInfoId2Ptr(arg1).CRC_FBI);
+        result := TAMem.UnitInfoId2Ptr(arg1).CRC_FBI;
         end;
       UNIT_TYPE_IN_CATEGORY :
         begin
@@ -405,7 +404,7 @@ try
         end;
       POSITION_IN_PLAYER_LOS :
         begin
-        if GetTPosition(HiWord(arg2), LoWord(arg2), Position) <> nil then
+        if GetTPosition(HiWord(Cardinal(arg2)), LoWord(Cardinal(arg2)), Position) <> nil then
           result := BoolValues[TAMap.PositionInLOS(TAPlayer.GetPlayerByIndex(arg1), @Position)];
         end;
     end;
@@ -430,11 +429,17 @@ try
         end;
       UNITY :
         begin
-        result := TAUnit.GetUnitY(p_Unit);
+        if arg1 <> 0 then
+          result := TAUnit.GetUnitY(TAUnit.Id2Ptr(arg1))
+        else
+          result := TAUnit.GetUnitY(p_Unit);
         end;
       TURNX :
         begin
-        result := Word(TAUnit.GetTurnX(p_Unit));
+        if arg1 <> 0 then
+          result := Word(TAUnit.GetTurnX(TAUnit.Id2Ptr(arg1)))
+        else
+          result := Word(TAUnit.GetTurnX(p_Unit));
         end;
       TURNZ :
         begin
@@ -445,7 +450,10 @@ try
         end;
       TURNY :
         begin
-        result := Word(TAUnit.GetTurnY(p_Unit));
+        if arg1 <> 0 then
+          result := Word(TAUnit.GetTurnY(TAUnit.Id2Ptr(arg1)))
+        else
+          result := Word(TAUnit.GetTurnY(p_Unit));
         end;
       UNIT_GRID_XZ :
         begin
@@ -607,7 +615,7 @@ try
         begin
           if ExtensionsNotForDemos then
           begin
-            if GetTPosition(HiWord(arg2), LoWord(arg2), Position) <> nil then
+            if GetTPosition(HiWord(Cardinal(arg2)), LoWord(Cardinal(arg2)), Position) <> nil then
             begin
               UnitinfoSt := TAMem.UnitInfoCrc2Ptr(arg1);
               if (UnitInfoSt.nCruiseAlt <> 0) and (arg4 = 6) then
@@ -738,7 +746,7 @@ try
         begin
           if ExtensionsNotForDemos then
           begin
-            if GetTPosition(HiWord(arg3), LoWord(arg3), Position) <> nil then
+            if GetTPosition(HiWord(Cardinal(arg3)), LoWord(Cardinal(arg3)), Position) <> nil then
               result := TAUnit.CreateMainOrder(p_Unit, nil, TTAActionType(arg1), @Position, arg2, LoWord(arg4), HiWord(arg4));
           end;
         end;
@@ -751,7 +759,7 @@ try
         begin
           if ExtensionsNotForDemos then
           begin
-            if GetTPosition(HiWord(arg3), LoWord(arg3), Position) <> nil then
+            if GetTPosition(HiWord(Cardinal(arg3)), LoWord(Cardinal(arg3)), Position) <> nil then
               result := TAUnit.CreateMainOrder(TAUnit.Id2Ptr(arg2), nil, TTAActionType(arg1), @Position, LoWord(arg4), HiWord(arg4), 0);
           end;
         end;
@@ -759,7 +767,7 @@ try
         begin
           if ExtensionsNotForDemos then
           begin
-            if GetTPosition(HiWord(arg3), LoWord(arg3), Position) <> nil then
+            if GetTPosition(HiWord(Cardinal(arg3)), LoWord(Cardinal(arg3)), Position) <> nil then
               result := TAUnit.CreateMainOrder(p_Unit, TAUnit.Id2Ptr(arg2), TTAActionType(arg1), @Position, LoWord(arg4), HiWord(arg4), 0);
           end;
         end;
@@ -819,7 +827,7 @@ try
         begin
         if ExtensionsNotForDemos then
         begin
-          if GetTPosition(HiWord(arg2), LoWord(arg2), Position) <> nil then
+          if GetTPosition(HiWord(Cardinal(arg2)), LoWord(Cardinal(arg2)), Position) <> nil then
             result := TASfx.Play3DSound(arg1, Position, arg3 = 1);
         end;
         end;
@@ -877,7 +885,7 @@ try
         end;
       UNIT_AT_POSITION :
         begin
-        if GetTPosition(HiWord(arg1), LoWord(arg1), Position) <> nil then
+        if GetTPosition(HiWord(Cardinal(arg1)), LoWord(Cardinal(arg1)), Position) <> nil then
           result := TAUnit.AtPosition(@Position);
         end;
       TEST_UNLOAD_POS :
@@ -964,7 +972,7 @@ try
         end;
       MS_EMIT_SMOKE :
         begin
-          GetTPosition(arg2, arg3, Position);
+          GetTPosition(Cardinal(arg2), Cardinal(arg3), Position);
           case arg1 of
             0 : EmitSfx_SmokeInfinite(@Position, 4);
             1 : EmitSfx_GraySmoke(@Position, 9);
@@ -976,7 +984,7 @@ try
         end;
       MS_PLACE_FEATURE :
         begin
-        GetTPosition(arg2, arg3, Position);
+        GetTPosition(Cardinal(arg2), Cardinal(arg3), Position);
         Turn.Z := arg4;
         Result := BoolValues[TAMap.PlaceFeatureOnMap(MapMissionsFeatures[arg1], Position, Turn)];
         end;
@@ -1086,7 +1094,8 @@ end;
 {$ENDIF}
 end;
 
-procedure CustomSetters( index: longword; p_Unit : PUnitStruct; arg1: longword); stdcall;
+procedure CustomSetters(index: Cardinal;
+  p_Unit: PUnitStruct; arg1: Integer); stdcall;
 var
   ExtensionsNotForDemos: Boolean;
   {$IFDEF DEBUG}
@@ -1121,7 +1130,7 @@ try
         SwapTNT(arg1);
       UNITY :
         begin
-          if arg1 <> $FFFFFFFF then
+          if arg1 <> -1 then
           begin
             UnitsCustomFields[TAUnit.GetId(p_Unit)].ForcedYPos := True;
             UnitsCustomFields[TAUnit.GetId(p_Unit)].ForcedYPosVal := arg1;

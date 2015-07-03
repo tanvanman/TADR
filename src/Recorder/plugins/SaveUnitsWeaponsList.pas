@@ -84,7 +84,7 @@ begin
         if UnitInfo.szUnitName <> 'None' then
         begin
           ScriptorFile.WriteComment(UnitInfo.szName + ' - ' + UnitInfo.szUnitDescription);
-          ScriptorFile.WriteDefinition(UpperCase(UnitInfo.szUnitName), TAMem.Crc32ToCrc24(UnitInfo.CRC_FBI));
+          ScriptorFile.WriteDefinition(UpperCase(UnitInfo.szUnitName), UnitInfo.CRC_FBI);
         end;
       end;
     end;

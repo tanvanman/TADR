@@ -382,8 +382,8 @@ type
     Unknown1           : array [0..19] of Byte;
     AIWeight           : array [0..63] of Byte;
     AILimit            : array [0..63] of Byte;
-    CRC_FBI            : Cardinal;
-    CRC_allfiles       : Cardinal;
+    CRC_FBI            : Integer;
+    CRC_allfiles       : Integer;
     p_field_146        : Pointer;
     nFootPrintSizeX    : Word;
     nFootPrintSizeZ    : Word;

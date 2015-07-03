@@ -883,7 +883,6 @@ var
   v2, v3, c: Byte;
   v4, v5, v7, v8, v9: Integer;
   ScoreBoardPos, LocalPlayerBox: tagRect;
-//  StrExt: Integer;
   PlayersDrawListTop: Integer;
   cCurActivePlayer, IteratePlayerIdx : Byte;
   cCurActiveSortPlayer: Byte;
@@ -896,9 +895,7 @@ var
   PlayerLogoRect, PlayerLogoTransform : TGAFFrameTransform;
   ScoreBoardWidth: Integer;
   bDraw: Boolean;
-  ucAlliedPlayersCount: Byte;
   p_OldFont: Pointer;
-  NextTop: Integer;
   BarTagRect: tagRECT;
 label
   SortPlayers;
@@ -972,21 +969,9 @@ begin
   ScoreBoardPos.Left := GetTA_ScreenWidth - PInteger(ScoreBoardRoll)^;
   ScoreBoardPos.Right := ScoreBoardPos.Left + ScoreBoardWidth;
   ScoreBoardPos.Top := 32;
-  ucAlliedPlayersCount := 0;
-  if TAData.GameingType = gtSkirmish then
-  begin
-    for i := 0 to 9 do
-    begin
-      if TAData.LocalPlayerID = i then Continue;
-      PlayerPtr := TAPlayer.GetPlayerByIndex(i);
-      if TAPlayer.GetAlliedState(PlayerPtr, TAData.LocalPlayerID) then
-       Inc(ucAlliedPlayersCount);
-    end;
-  end;
-  ScoreBoardPos.Bottom := 40 * (TAData.MainStruct.nActivePlayersCount - ucAlliedPlayersCount) + 46 +
-    (75 * ucAlliedPlayersCount);
+  ScoreBoardPos.Bottom := 40 * (TAData.MainStruct.nActivePlayersCount) + 46;
+  DrawTransparentBox(p_Offscreen, @ScoreBoardPos, -26);
 
-  DrawTransparentBox(p_Offscreen, @ScoreBoardPos, -24);
   DrawText(p_Offscreen, TranslateString(PAnsiChar('Kills')),
     ScoreBoardPos.Left + 5, ScoreBoardPos.Top, 119, 0);
 
@@ -1041,9 +1026,7 @@ begin
       LocalPlayerBox.Top := PlayersDrawListTop - 1;
       LocalPlayerBox.Bottom := PlayersDrawListTop + 37;
       if ( IteratePlayerIdx = TAData.LocalPlayerID ) then
-        DrawTransparentBox(p_OFFSCREEN, @LocalPlayerBox, -24)
-      else
-        DrawTransparentBox(p_OFFSCREEN, @LocalPlayerBox, -19);
+        DrawTransparentBox(p_OFFSCREEN, @LocalPlayerBox, -22);
 
       p_ColorLogo := GAF_SequenceIndex2Frame(TAPlayer.PlayerSideLogoSequence(PlayerPtr),
                                              TAPlayer.PlayerLogoIndex(PlayerPtr));
@@ -1092,7 +1075,6 @@ begin
         ScoreBoardPos.Left + ScoreBoardWidth-6 - GetStrExtent(PAnsiChar(IntToStr(Counter))) - 2,
         PlayersDrawListTop + 21, 119, PByte($51E810 + IteratePlayerIdx)^);
 
-      NextTop := 40;
       if TAData.GameingType = gtSkirmish then
       begin
         p_OldFont := GetFontType;
@@ -1101,21 +1083,26 @@ begin
         if TAPlayer.GetAlliedState(PlayerPtr, TAData.LocalPlayerID) and
            (TAData.LocalPlayerID <> PlayerPtr.cPlayerIndex) then
         begin
-          NextTop := 75;
+          BarTagRect.Left := ScoreBoardPos.Left - 200;
+          BarTagRect.Top := PlayersDrawListTop;
+          BarTagRect.Right := BarTagRect.Left + 200;
+          BarTagRect.Bottom := PlayersDrawListTop + 40;
+          DrawTransparentBox(p_Offscreen, @BarTagRect, -25);
+          
           DrawShadowedText(p_Offscreen, GetStorageText(PlayerPtr.Resources.fCurrentMetal),
-            ScoreBoardPos.Left + 37, PlayersDrawListTop + 42, 30, 145, True);
+            BarTagRect.Left + 34, PlayersDrawListTop + 8, 30, 145, True);
           DrawShadowedText(p_Offscreen, GetStorageText(PlayerPtr.Resources.fCurrentEnergy),
-            ScoreBoardPos.Left + 37, PlayersDrawListTop + 58, 30, 145, True);
+            BarTagRect.Left + 34, PlayersDrawListTop + 24, 30, 145, True);
 
           DrawShadowedText(p_Offscreen, Format('+%.1f', [PlayerPtr.Resources.fMetalProduction], FormatSettings),
-            ScoreBoardPos.Left + 150, PlayersDrawListTop + 42, 50, 145, False);
+            BarTagRect.Left + 150, PlayersDrawListTop + 8, 50, 145, False);
           DrawShadowedText(p_Offscreen, Format('+%.0f', [PlayerPtr.Resources.fEnergyProduction], FormatSettings),
-            ScoreBoardPos.Left + 150, PlayersDrawListTop + 58, 50, 145, False);
+            BarTagRect.Left + 150, PlayersDrawListTop + 24, 50, 145, False);
 
-          BarTagRect.Left := ScoreBoardPos.Left + 39 + 3;
-          BarTagRect.Top := PlayersDrawListTop + 44;
+          BarTagRect.Left := BarTagRect.Left + 39 + 3;
+          BarTagRect.Top := PlayersDrawListTop + 10;
           BarTagRect.Right := BarTagRect.Left + 100;
-          BarTagRect.Bottom := PlayersDrawListTop + 47;
+          BarTagRect.Bottom := PlayersDrawListTop + 13;
           DrawBar(p_Offscreen, @BarTagRect, 0);
           if PlayerPtr.Resources.fMetalStorageMax > 0 then
             BarTagRect.Right := BarTagRect.Left + Round((PlayerPtr.Resources.fCurrentMetal / PlayerPtr.Resources.fMetalStorageMax) * 100)
@@ -1123,19 +1110,15 @@ begin
             BarTagRect.Right := BarTagRect.Left + 1;
           DrawBar(p_Offscreen, @BarTagRect, 128);
 
-          BarTagRect.Top := PlayersDrawListTop + 60;
+          BarTagRect.Top := PlayersDrawListTop + 26;
           BarTagRect.Right := BarTagRect.Left + 100;
-          BarTagRect.Bottom := PlayersDrawListTop + 63;
+          BarTagRect.Bottom := PlayersDrawListTop + 29;
           DrawBar(p_Offscreen, @BarTagRect, 0);
           if PlayerPtr.Resources.fEnergyStorageMax > 0 then
             BarTagRect.Right := BarTagRect.Left + Round((PlayerPtr.Resources.fCurrentEnergy / PlayerPtr.Resources.fEnergyStorageMax) * 100)
           else
             BarTagRect.Right := BarTagRect.Left + 1;
           DrawBar(p_Offscreen, @BarTagRect, 193);
-
-          DrawLine(p_Offscreen, ScoreBoardPos.Left + 7, PlayersDrawListTop + 72,
-            ScoreBoardPos.Left + ScoreBoardWidth-7, PlayersDrawListTop + 72, 120);
-
         end;
         SetFontType(p_OldFont);
       end;
@@ -1156,7 +1139,7 @@ begin
             PlayersDrawListTop + 21, 119, 0);
         end;
       end;  }
-      PlayersDrawListTop := PlayersDrawListTop + NextTop;
+      PlayersDrawListTop := PlayersDrawListTop + 40;
 SortPlayers:
       if ( IteratePlayerIdx = 10 ) then
       begin
@@ -1225,14 +1208,7 @@ SortPlayers:
               end;
             end;
             }
-            NextTop := 40;
-            if TAData.GameingType = gtSkirmish then
-            begin
-              if TAPlayer.GetAlliedState(PlayerPtr, TAData.LocalPlayerID) and
-                 (TAData.LocalPlayerID <> PlayerPtr.cPlayerIndex) then
-                NextTop := 75;
-            end;
-            PlayersDrawListTop := PlayersDrawListTop + NextTop;
+            PlayersDrawListTop := PlayersDrawListTop + 40;
           end;
         end;
       end;

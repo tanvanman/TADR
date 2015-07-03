@@ -333,7 +333,7 @@ type
   PRec2Rec_UnitInfoSwap_Message = ^TRec2Rec_UnitInfoSwap_Message;
   TRec2Rec_UnitInfoSwap_Message = packed record
     UnitID         : Word;
-    UnitInfoCRC    : Cardinal;
+    UnitInfoCRC    : Integer;
   end;
 
 const
