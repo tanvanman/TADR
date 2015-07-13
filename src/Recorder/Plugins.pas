@@ -46,7 +46,7 @@ uses
   //MinimapExpand,
   //PlayersSlotsExpand,
   SaveGame,
-  {$IFDEF Debug}Developers,{$ENDIF}
+  Developers,
   StatsLogging;
 
 procedure Do_LoadTime_CodeInjections( OnMainRun : boolean );
@@ -100,7 +100,7 @@ begin
     if IniSettings.CreateStatsFile then
       RegisterPlugin( StatsLogging.GetPlugin() );
     RegisterPlugin( SaveGame.GetPlugin() );
-    {$IFDEF Debug}RegisterPlugin( Developers.GetPlugin() );{$ENDIF}
+    RegisterPlugin( Developers.GetPlugin() );
   end;
   // Run the code injection engine
   InstallPlugins( OnMainRun );

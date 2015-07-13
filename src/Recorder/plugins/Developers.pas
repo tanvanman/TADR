@@ -173,10 +173,16 @@ begin
                                   @OnInstallDevelopers,
                                   @OnUninstallDevelopers );
 
+    {$IFDEF Debug}
     Result.MakeReplacement( State_Developers,
                             'Don''t freeze game when minimized',
                             $004B5D1F,
                             [1] );
+
+    Result.MakeReplacement( State_Developers,
+                            'Create audit file next to .SAV',
+                            $00432A5B, [1] );
+    {$ENDIF}
 
     Result.MakeRelativeJmp( State_Developers,
                             'Developers_DevUnitProbes',
@@ -196,10 +202,6 @@ begin
                             'Developers_DevBottomState',
                             @Developers_DevBottomState,
                             $0046AB96, 5 );
-
-    Result.MakeReplacement( State_Developers,
-                            'Create audit file next to .SAV',
-                            $00432A5B, [1] );
 
   end else
     Result := nil;
