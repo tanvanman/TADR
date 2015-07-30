@@ -379,7 +379,7 @@ begin
   if CRC = 0 then
     Exit;
   Max := TAData.UnitInfosCount;
-  for i := 0 to Max do
+  for i := 0 to Max-1 do
   begin
     CheckedUnitInfo := TAMem.UnitInfoId2Ptr(i);
     if CheckedUnitInfo <> nil then
@@ -649,7 +649,10 @@ end;
 
 class function TAWeapon.GetWeaponID(WeaponPtr: PWeaponDef): Cardinal;
 begin
-  Result := WeaponPtr.ucID;
+  if p_WeaponsPatchMainStruct <> nil then
+    Result := WeaponPtr.lWeaponIDCrack
+  else
+    Result := WeaponPtr.ucID;
 end;
 
 class function TAWeapon.WeaponId2Ptr(ID: Cardinal): PWeaponDef;

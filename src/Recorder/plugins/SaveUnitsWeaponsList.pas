@@ -11,7 +11,7 @@ type
     fStream : TStringList;
   public
     constructor Create(aPath: String);
-    procedure WriteDefinition(sName: String; aIndex: Cardinal);
+    procedure WriteDefinition(sName: String; aIndex: Integer);
     procedure WriteComment(sText: String);
     procedure WriteNewLine;
 
@@ -34,7 +34,7 @@ begin
   fStream := TStringList.Create;
 end;
 
-procedure TScriptorFile.WriteDefinition(sName: String; aIndex: Cardinal);
+procedure TScriptorFile.WriteDefinition(sName: String; aIndex: Integer);
 begin
   fStream.Add('#define ' + sName + #32 + IntToStr(aIndex));
 end;
