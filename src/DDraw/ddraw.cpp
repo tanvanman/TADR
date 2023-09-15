@@ -203,8 +203,8 @@ void GetSysDir()
 	char Buff[MAX_PATH];
 	GetSystemDirectory(Buff, MAX_PATH);
 
-	lstrcpyA(SystemDDraw,Buff);
-	lstrcatA(SystemDDraw, "\\ddraw.dll");
+	//lstrcpyA(SystemDDraw,Buff);
+	lstrcatA(SystemDDraw, "ddraw_custom.dll");
 	SDDraw = LoadLibrary(SystemDDraw);
 
 }
