@@ -30,12 +30,8 @@ jobs:
     - name: Build tdraw.dll
       run: |
         msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=x86
-        Compress-Archive -Path src\DDraw\Public\tdraw.dll src\DDraw\Settings.ini src\DDraw\tdraw.txt src\DDraw\Public\tdraw.zip
+        Compress-Archive -Path src\DDraw\Public\tdraw.dll,src\DDraw\Settings.ini,src\DDraw\tdraw.txt -Destination src\DDraw\Public\tdraw.zip
       working-directory: ${{ github.workspace }}
-
-    - name: build Package
-      run: |
-        Compress-Archive -Path src\DDraw\Public\tdraw.dll src\DDraw\Settings.ini src\DDraw\tdraw.txt src\DDraw\Public\tdraw.zip
 
     - name: Upload artifacts
       uses: softprops/action-gh-release@v1
