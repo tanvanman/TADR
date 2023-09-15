@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - '*'
 
 jobs:
   build:
@@ -23,25 +25,11 @@ jobs:
         msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=x86
       working-directory: ${{ github.workspace }}
 
-    - name: Copy tdraw.dll
-      run: |
-        mkdir -p releases
-        cp src/DDraw/Public/tdraw.dll releases/
-      working-directory: ${{ github.workspace }}
-
-    - name: Create Release
-      id: create_release
+    - name: Upload artifacts
       uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
-          releases/tdraw.dll
-        token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Upload Release Asset
-      run: |
-        echo "Uploading release asset..."
-        curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Content-Type: application/octet-stream" \
-          --data-binary "@releases/tdraw.dll" \
-          "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=tdraw.dll"
-      working-directory: ${{ github.workspace }}
+          src/DDraw/Public/tdraw.dll
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
