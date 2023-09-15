@@ -1,0 +1,4 @@
+Drop tdraw.dll into your TA directory.
+Ensure the following files are also present in your TA directory:
+- ddraw_custom.dll (available from https://github.com/FunkyFr3sh/cnc-ddraw)
+- Settings.ini
