@@ -16,8 +16,8 @@ jobs:
     - name: Set up MSVC
       uses: ilammy/msvc-dev-cmd@v1
       with:
-        msvc-version: 2019
-        architecture: x86
+        vsversion: 2019
+        arch: x86
 
     - name: Build tdraw.dll
       run: |
