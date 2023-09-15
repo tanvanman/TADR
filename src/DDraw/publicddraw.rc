@@ -51,8 +51,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 4,0,0,0
- PRODUCTVERSION 4,0,0,0
+ FILEVERSION 2023,1,0, 0
+ PRODUCTVERSION 2023, 1, 0, 0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -69,15 +69,17 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Swedish Yankspankers & TA Universe community"
             VALUE "FileDescription", "TA Unofficial Patch - Demo Recorder Component"
-            VALUE "FileVersion", "4.0.0.0"
+            VALUE "FileVersion", "2023.1.0"
             VALUE "InternalName", "Swedish Eye"
+            VALUE "LegalCopyright", "Copyright 2023"
             VALUE "OriginalFilename", "tdraw.dll"
-            VALUE "ProductVersion", "4.0.0.x"
+            VALUE "ProductName", "TA PATCH"
+            VALUE "ProductVersion", "2023.1.0"
         END
     END
     BLOCK "VarFileInfo"
     BEGIN
-        VALUE "Translation", 0x409, 1200
+        VALUE "Translation", 0x41d, 1200
     END
 END
 
