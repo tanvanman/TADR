@@ -1,0 +1,48 @@
+name: Build and Release tdraw.dll
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up MSVC
+      uses: microsoft/setup-msvc@v2
+      with:
+        msvc-version: 2019
+        architecture: x86
+
+    - name: Build tdraw.dll
+      run: |
+        msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=x86
+      working-directory: ${{ github.workspace }}
+
+    - name: Copy tdraw.dll
+      run: |
+        mkdir -p releases
+        cp src/DDraw/Public/tdraw.dll releases/
+      working-directory: ${{ github.workspace }}
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          releases/tdraw.dll
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Release Asset
+      run: |
+        echo "Uploading release asset..."
+        curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary "@releases/tdraw.dll" \
+          "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=tdraw.dll"
+      working-directory: ${{ github.workspace }}
