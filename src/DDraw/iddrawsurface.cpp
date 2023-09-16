@@ -738,11 +738,9 @@ HRESULT __stdcall IDDrawSurface::UpdateOverlayZOrder(DWORD arg1, LPDIRECTDRAWSUR
 void IDDrawSurface::OutptTxt(char *string)
 {
 #ifdef DEBUG_INFO
-	if(!Log)
-		return;
 	//AnsiString CPath = "c:\\taddrawlog.txt";
 
-	HANDLE file = CreateFileA("C:\\taddrawlog.txt", GENERIC_WRITE, 0, NULL, OPEN_ALWAYS	, 0, NULL);
+	HANDLE file = CreateFileA("C:\\temp\\taddrawlog.txt", GENERIC_WRITE, 0, NULL, OPEN_ALWAYS	, 0, NULL);
 	DWORD tempWritten;
 	SetFilePointer ( file, 0, 0, FILE_END);
 	WriteFile ( file, string, strlen(string), &tempWritten, NULL);

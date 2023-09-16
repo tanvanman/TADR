@@ -30,6 +30,7 @@ CElementHandler::~CElementHandler()
 					//delete Curt_GElemPtr;
 					delete (*iter);
 					iter = map[y][x].erase ( iter);
+                    allElements.erase(*iter);
 				}
 				//Curt_GElemPtr= map[y][x].back();
 				//delete ;
@@ -59,6 +60,12 @@ void CElementHandler::AddElement(GraphicElement *ge)
 	int y=(ge->y1>>HASH_SQUARE_SIZE) & (ELEMENT_HASH_SIZE-1);
 
 	map[y][x].push_back(ge);
+    allElements.insert(ge);
+}
+
+bool CElementHandler::IsElement(GraphicElement* ge)
+{
+    return ge && (allElements.count(ge) > 0);
 }
 
 void CElementHandler::DeleteOn(int x, int y)
@@ -95,6 +102,7 @@ void CElementHandler::DeleteBetween(int x1, int y1, int x2, int y2)
 			while(!toBeDeleted.empty()){
 				delete toBeDeleted.back();
 				map[y][x].remove(toBeDeleted.back());
+                allElements.erase(toBeDeleted.back());
 				toBeDeleted.pop_back();
 			}
 		}
@@ -184,18 +192,19 @@ GraphicElement* CElementHandler::GetClosestElement(int x, int y)
 
 GraphicElement* CElementHandler::MoveTextElement(GraphicElement* GE, int x, int y)
 {
-
 	try
 	{
 		//add a new identical element then remove the old
-		GraphicText *ge = (GraphicText*)GE;
+        GraphicText *ge = (GraphicText*)GE;
 		GraphicText *Nge = new GraphicText(x, y, ge->text, ge->Color);
 
 		int mx=(ge->x1>>HASH_SQUARE_SIZE) & (ELEMENT_HASH_SIZE-1);
 		int my=(ge->y1>>HASH_SQUARE_SIZE) & (ELEMENT_HASH_SIZE-1);
 		map[my][mx].remove(ge);
-		if(ge)
-			delete ge;
+        allElements.erase(ge);
+        if (ge) {
+            delete ge;
+        }
 
 		AddElement(Nge);
 

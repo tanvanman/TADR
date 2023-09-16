@@ -6,7 +6,6 @@
 
 #define DDRAW_INIT_STRUCT(ddstruct) { memset(&ddstruct,0,sizeof(ddstruct)); ddstruct.dwSize=sizeof(ddstruct); }
 
-extern bool Log;
 //---------------------------------------------------------------------------
 //public TComInterface<IDirectDraw>, public TComInterfaceBase<IUnknown>
 class IDDraw : public IDirectDraw

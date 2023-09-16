@@ -2,6 +2,8 @@
 #ifndef iddrawsurfaceH
 #define iddrawsurfaceH
 
+#include <ddraw.h>
+
 // shall to reduce internation between class
 //class ExternQuickKey;
 //---------------------------------------------------------------------------
@@ -115,7 +117,6 @@ typedef struct LocalShare_
 }*LocalSharePTR;
 extern LocalShare_* LocalShare;
 
-extern bool Log;
 extern HINSTANCE HInstance;
 
 LRESULT CALLBACK WinProc(HWND winprocwnd, UINT msg, WPARAM wparam, LPARAM lparam);

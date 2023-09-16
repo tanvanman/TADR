@@ -253,7 +253,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 					Rtn_Bool= true;
 					break;
 				}
-				else if(CurrentElement)
+				else if(ElementHandler.IsElement(CurrentElement))
 				{
 					Move = true;
 					Rtn_Bool= true;
@@ -279,7 +279,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		{
 			IDDrawSurface::OutptTxt ( "Get Mark Text");
 			CurrentElement = GetTextElementAt(*MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32, 5);
-			if(CurrentElement)
+			if(ElementHandler.IsElement(CurrentElement))
 				lstrcpyA(Text, ((GraphicText*)CurrentElement)->text);
 
 			InputShown = true;
@@ -330,7 +330,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		break;
 
 	case WM_RBUTTONUP:
-		if(WBKeyDown)
+        if(WBKeyDown)
 		{
 			Rtn_Bool= true;
 			break;
@@ -372,7 +372,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 			}
 			if(Move)
 			{
-				if(CurrentElement)
+				if(ElementHandler.IsElement(CurrentElement))
 				{
 					PacketHandler.push_back(new GraphicMoveText(CurrentElement->x1, CurrentElement->y1, *MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32, *PlayerColor));
 					CurrentElement = ElementHandler.MoveTextElement(CurrentElement, *MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32);
@@ -414,7 +414,7 @@ void AlliesWhiteboard::DrawTextInput(LPDIRECTDRAWSURFACE DestSurf)
 	int BFHalfX = (LocalShare->ScreenWidth-128)/2 + 128;
 	int BFHalfY = (LocalShare->ScreenHeight-64)/2 + 32;
 
-	if(CurrentElement)
+	if(ElementHandler.IsElement(CurrentElement))
 		DialogPTR->DrawText(DestSurf, BFHalfX-InputBoxWidth/2+5, BFHalfY-InputBoxHeight/2-13, "Edit Textmarker");
 	else
 		DialogPTR->DrawText(DestSurf, BFHalfX-InputBoxWidth/2+5, BFHalfY-InputBoxHeight/2-13, "Add Textmarker");
@@ -448,7 +448,7 @@ void AlliesWhiteboard::TextInputKeyDown(int Key)
 	switch(Key)
 	{
 	case 13: //enter
-		if(CurrentElement)
+		if(ElementHandler.IsElement(CurrentElement))
 		{
 			if (NULL!=((GraphicText*)CurrentElement)->text)
 			{
@@ -740,7 +740,7 @@ void AlliesWhiteboard::ReceiveMarkers()
 			Data += sizeof(Pts);
 
 			GraphicText *GT = (GraphicText*)GetTextElementAt(pts->x, pts->y, 1);
-			if(GT)
+			if(ElementHandler.IsElement(GT))
 			{
 				delete GT->text;
 				GT->text = new char[strlen(Data)+1];
@@ -751,8 +751,9 @@ void AlliesWhiteboard::ReceiveMarkers()
 		{
 			PtL *ptl = (PtL*)Data;
 			GraphicText *GT = (GraphicText*)GetTextElementAt(ptl->x, ptl->y, 1);
-			if(GT)
-				GT = (GraphicText*)ElementHandler.MoveTextElement(GT, ptl->x2, ptl->y2);
+            if (ElementHandler.IsElement(GT)) {
+                GT = (GraphicText*)ElementHandler.MoveTextElement(GT, ptl->x2, ptl->y2);
+            }
 			Data += sizeof(PtL);
 		}
 		else //unknown type skip packet
