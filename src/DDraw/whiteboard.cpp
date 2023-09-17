@@ -554,8 +554,8 @@ void AlliesWhiteboard::DrawMarkers(LPDIRECTDRAWSURFACE DestSurf)
 
 void AlliesWhiteboard::DrawMinimapMarkers(char *VidBuf, int Pitch, bool Receive)
 {
-	if(Receive)
-		ReceiveMarkers();
+    if (Receive)
+        ReceiveMarkers();
 
 	if(MinimapMarkerHandler.empty())
 		return;
@@ -685,8 +685,11 @@ void AlliesWhiteboard::MouseMove(int XStart, int XEnd, int YStart, int YEnd)
 
 void AlliesWhiteboard::ReceiveMarkers()
 {
-	if(DataShare->FromAlliesLength==0)
-		return;
+    if (LocalShare->GuiThreadId != GetCurrentThreadId())
+        return;
+
+    if (DataShare->FromAlliesLength == 0)
+        return;
 
 	char *NumPackets = DataShare->FromAllies;
 	char *Data = DataShare->FromAllies + 1;
@@ -768,8 +771,11 @@ void AlliesWhiteboard::ReceiveMarkers()
 
 void AlliesWhiteboard::SendMarkers()
 {
-	if(DataShare->ToAlliesLength>0 || PacketHandler.empty())
-		return;
+    if (LocalShare->GuiThreadId != GetCurrentThreadId())
+        return;
+
+    if (DataShare->ToAlliesLength > 0 || PacketHandler.empty())
+        return;
 
 	char *NumPackets = DataShare->ToAllies;
 	char *Data = DataShare->ToAllies + 1;

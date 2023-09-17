@@ -110,10 +110,13 @@ typedef struct LocalShare_
 
 	UINT LocalPlayerID;
 	UINT OrgLocalPlayerID;
+    DWORD GuiThreadId;
 
 	LPSTR ModRegName;
 	//extern for unicode font;
 	//LPVOID TAUnicodeSupport;
+
+    LocalShare_() : GuiThreadId(0) {}
 }*LocalSharePTR;
 extern LocalShare_* LocalShare;
 
@@ -162,7 +165,7 @@ public:
 	void CreateDir(char *Dir);
 	void CorrectName(char *Name);
 
-	static void OutptTxt(char *string);
+	static void OutptTxt(const char *string);
 	static void OutptInt(int Int_I);
 	void Set(bool EnableVSync);
 	void FrontSurface (LPDIRECTDRAWSURFACE lpTASurf);

@@ -2,6 +2,7 @@
 #pragma hdrstop
 
 #include "oddraw.h"
+#include <mutex>
 #include <vector>
 using namespace std;
 
@@ -45,6 +46,12 @@ using namespace std;
 extern HINSTANCE HInstance;
 short MouseX,MouseY;
 bool StartedInRect;
+
+// uncomment to synchronise some IDDrawSurface functions (mainly IDdrawSurface::lock) with the windows message queue WinProc
+//#define SYNCHRONISE_THREADS
+#ifdef SYNCHRONISE_THREADS
+std::recursive_mutex WinProcMutex;
+#endif
 
 //#define XPOYDEBG
 
@@ -218,7 +225,7 @@ ULONG __stdcall IDDrawSurface::AddRef()
 
 ULONG __stdcall IDDrawSurface::Release()
 {
-	OutptTxt("DDrawSurface::Release");
+    OutptTxt("[DDrawSurface::Release] ...");
 	if(lpDDClipper)
 	{
 		lpDDClipper->Release();
@@ -230,6 +237,9 @@ ULONG __stdcall IDDrawSurface::Release()
 		result= lpFront->Release();
 	}
 	
+#ifdef SYNCHRONISE_THREADS
+    std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
+#endif
 
 	if (ScreenRegion)
 	{
@@ -332,7 +342,10 @@ HRESULT __stdcall IDDrawSurface::GetAttachedSurface(LPDDSCAPS arg1, LPDIRECTDRAW
 	OutptTxt("GetAttachedSurface");
 	HRESULT result = lpFront->GetAttachedSurface(arg1, arg2);
 
-	lpBack = *arg2;
+#ifdef SYNCHRONISE_THREADS
+    std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
+#endif
+    lpBack = *arg2;
 	LocalShare->TADirectDrawBackSurface = *arg2;
 	CreateClipplist ( );
 	
@@ -427,7 +440,10 @@ HRESULT __stdcall IDDrawSurface::Lock(LPRECT arg1, LPDDSURFACEDESC arg2, DWORD a
 
 	HRESULT result = lpBack->Lock ( arg1, arg2, arg3, arg4);
 
-	TAHook->TABlit();
+#ifdef SYNCHRONISE_THREADS
+    std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
+#endif
+    TAHook->TABlit();
 
 	if(result == DD_OK)
 		SurfaceMemory = arg2->lpSurface;
@@ -484,7 +500,11 @@ HRESULT __stdcall IDDrawSurface::SetPalette(LPDIRECTDRAWPALETTE arg1)
 
 HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 {
-	OutptTxt("Unlock");
+    IDDrawSurface::OutptTxt("[IDDrawSurface::Unlock] ...");
+#ifdef SYNCHRONISE_THREADS
+    std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
+#endif
+
 	HRESULT result;
 	UpdateTAProcess ( );
 
@@ -735,15 +755,18 @@ HRESULT __stdcall IDDrawSurface::UpdateOverlayZOrder(DWORD arg1, LPDIRECTDRAWSUR
 	return lpFront->UpdateOverlayZOrder(arg1, arg2);
 }
 
-void IDDrawSurface::OutptTxt(char *string)
+void IDDrawSurface::OutptTxt(const char *string)
 {
 #ifdef DEBUG_INFO
 	//AnsiString CPath = "c:\\taddrawlog.txt";
+    DWORD t = GetTickCount();
+
+    std::string s = std::to_string(t) + " " + std::to_string(GetCurrentThreadId()) + " ---  " + string;
 
 	HANDLE file = CreateFileA("C:\\temp\\taddrawlog.txt", GENERIC_WRITE, 0, NULL, OPEN_ALWAYS	, 0, NULL);
 	DWORD tempWritten;
 	SetFilePointer ( file, 0, 0, FILE_END);
-	WriteFile ( file, string, strlen(string), &tempWritten, NULL);
+	WriteFile ( file, s.c_str(), s.size(), &tempWritten, NULL);
 	WriteFile ( file, "\r\n", 2, &tempWritten, NULL);
 
 	CloseHandle ( file);
@@ -967,10 +990,11 @@ void IDDrawSurface::DeInterlace()
 }
 
 
-LRESULT CALLBACK WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
-	__try
+    __try
 	{
+
 		UpdateTAProcess ( );
 		if (NULL!=FixTABug)
 		{
@@ -1066,4 +1090,11 @@ LRESULT CALLBACK WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 	return LocalShare->TAWndProc(WinProcWnd, Msg, wParam, lParam);
 }
 
-
+LRESULT CALLBACK WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+    IDDrawSurface::OutptTxt("[WinProc] ...");
+#ifdef SYNCHRONISE_THREADS
+    std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
+#endif
+    return _WinProc(WinProcWnd, Msg, wParam, lParam);
+}
