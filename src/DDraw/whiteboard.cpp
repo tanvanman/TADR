@@ -356,30 +356,51 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		}
 		break;
 	case WM_MOUSEMOVE:
-		if(WBKeyDown)
+		if (WBKeyDown)
 		{
-			if(Paint)
+			if (Paint)
 			{
-				MouseMove(LastMouseX-128, LOWORD(lParam)-128, LastMouseY-32, HIWORD(lParam)-32);
+				MouseMove(LastMouseX - 128, LOWORD(lParam) - 128, LastMouseY - 32, HIWORD(lParam) - 32);
 				LastMouseX = LOWORD(lParam);
 				LastMouseY = HIWORD(lParam);
 				MarkerX = *MapX;
 				MarkerY = *MapY;
 			}
-			else if((wParam&MK_RBUTTON)>0)
+			else if ((wParam & MK_RBUTTON) > 0)
 			{
-				EreaseArea(LOWORD(lParam)-128, HIWORD(lParam)-32);
+				EreaseArea(LOWORD(lParam) - 128, HIWORD(lParam) - 32);
 			}
-			if(Move)
+			if (Move)
 			{
-				if(ElementHandler.IsElement(CurrentElement))
+				if (ElementHandler.IsElement(CurrentElement))
 				{
-					PacketHandler.push_back(new GraphicMoveText(CurrentElement->x1, CurrentElement->y1, *MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32, *PlayerColor));
-					CurrentElement = ElementHandler.MoveTextElement(CurrentElement, *MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32);
+					bool isNewMove = true;
+
+					for (size_t i = 0; i < PacketHandler.size(); i++)
+					{
+						if (PacketHandler[i]->ID == CurrentElement->ID && PacketHandler[i]->Type == ClassTextMoved)
+						{
+							GraphicMoveText* gmt = (GraphicMoveText*)PacketHandler[i];
+
+							gmt->x2 = *MapX + LOWORD(lParam) - 128;
+							gmt->y2 = *MapY + HIWORD(lParam) - 32;
+
+							isNewMove = false;
+							break;
+						}
+					}
+
+					if (isNewMove)
+					{
+						PacketHandler.push_back(new GraphicMoveText(CurrentElement->x1, CurrentElement->y1, *MapX + LOWORD(lParam) - 128, *MapY + HIWORD(lParam) - 32, *PlayerColor, CurrentElement->ID));
+					}
+
+					CurrentElement = ElementHandler.MoveTextElement(CurrentElement, *MapX + LOWORD(lParam) - 128, *MapY + HIWORD(lParam) - 32);
 				}
 			}
 		}
 		break;
+
 	}
 
 	return Rtn_Bool;
