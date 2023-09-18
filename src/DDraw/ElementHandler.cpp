@@ -197,6 +197,7 @@ GraphicElement* CElementHandler::MoveTextElement(GraphicElement* GE, int x, int 
 		//add a new identical element then remove the old
         GraphicText *ge = (GraphicText*)GE;
 		GraphicText *Nge = new GraphicText(x, y, ge->text, ge->Color);
+		Nge->ID = ge->ID;
 
 		int mx=(ge->x1>>HASH_SQUARE_SIZE) & (ELEMENT_HASH_SIZE-1);
 		int my=(ge->y1>>HASH_SQUARE_SIZE) & (ELEMENT_HASH_SIZE-1);

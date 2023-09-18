@@ -9,9 +9,11 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
+#include <Windows.h>
 #include <list>
 #include <set>
 #include <vector>
+#include "iddrawsurface.h"
 
 #define ClassGraphicLine 1
 #define ClassGraphicMarker 2
@@ -20,14 +22,20 @@
 #define ClassTextMoved 5
 #define ClassTextEdited 6
 
-class GraphicElement 
+class GraphicElement
 {
 public:
 	int x1;
 	int y1;
-   int Type;
-   char Color;
-	GraphicElement(int x,int y, int T, char C):x1(x),y1(y),Type(T),Color(C){};
+	int Type;
+	char Color;
+	int ID;
+	GraphicElement(int x, int y, int T, char C, int id) :x1(x), y1(y), Type(T), Color(C), ID(id) {};
+	GraphicElement(int x, int y, int T, char C)
+		:x1(x), y1(y), Type(T), Color(C)
+	{
+		ID = InterlockedIncrement(&LocalShare->GraphicElementCount);
+	};
 	virtual ~GraphicElement() {};
 	void virtual Draw() {};
 };
@@ -74,8 +82,9 @@ public:
 class GraphicMoveText : public GraphicElement
 {
 public:
-	GraphicMoveText(int x1,int y1,int x2,int y2, char cC):GraphicElement(x1,y1,ClassTextMoved,cC),x2(x2),y2(y2){};
-	int x2,y2;
+	GraphicMoveText(int x1, int y1, int x2, int y2, char cC, int id)
+		:GraphicElement(x1, y1, ClassTextMoved, cC, id), x2(x2), y2(y2) { };
+	int x2, y2;
 };
 
 class GraphicTextEdited : public GraphicElement
