@@ -10,6 +10,7 @@
 #endif // _MSC_VER > 1000
 
 #include <list>
+#include <set>
 #include <vector>
 
 #define ClassGraphicLine 1
@@ -52,9 +53,10 @@ public:
 	GraphicText(int x,int y,char* intext,char cC)
 		:GraphicElement(x,y,ClassGraphicText,cC)
 		{
-			size_t temp_Size= strlen(intext)+1;
+			size_t temp_Size= strnlen(intext, 16)+1;
 			text=new char[temp_Size];
-			strcpy_s(text,temp_Size, intext);
+            memcpy(text, intext, temp_Size);
+            text[temp_Size - 1] = 0;
 		}
 	void virtual Draw() {};
 	char* text;
@@ -102,7 +104,8 @@ public:
 	void DeleteBetween(int x1,int y1,int x2,int y2);
 	void DeleteOn(int x,int y);
 	void AddElement(GraphicElement* ge);
-   GraphicElement* MoveTextElement(GraphicElement* GE, int x, int y); 
+    bool IsElement(GraphicElement* ge);
+    GraphicElement* MoveTextElement(GraphicElement* GE, int x, int y);
 	CElementHandler();
 	virtual ~CElementHandler();
 
@@ -110,6 +113,7 @@ private:
 	typedef std::list<GraphicElement*> ElementList;
 
 	ElementList map[ELEMENT_HASH_SIZE][ELEMENT_HASH_SIZE];
+    std::set<GraphicElement*> allElements;
 };
 
 #endif // !defined(AFX_ELEMENTHANDLER_H__7B55B501_0A7A_11D5_AD55_0080ADA84DE3__INCLUDED_)

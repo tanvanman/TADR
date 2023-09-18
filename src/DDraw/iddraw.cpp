@@ -4,6 +4,7 @@
 #include "iddraw.h"           
 #include "iddrawsurface.h"
 #include <stdio.h>
+#include <string>
 //---------------------------------------------------------------------------
 //#pragma package(smart_init)
 
@@ -165,12 +166,18 @@ HRESULT __stdcall IDDraw::RestoreDisplayMode()
 HRESULT __stdcall IDDraw::SetCooperativeLevel(HWND arg1, DWORD arg2)
 {
 	OutptTxt("SetCooperativeLevel");
-	if(Windowed == false)
-		return lpDD->SetCooperativeLevel(arg1, arg2);
-	else
-	{
-		return lpDD->SetCooperativeLevel(arg1, DDSCL_NORMAL);
-	}
+    if (arg1) {
+        LocalShare->GuiThreadId = GetWindowThreadProcessId(arg1, NULL);
+        std::string log = "SetCooperativeLevel, GUI theadid = " + std::to_string(LocalShare->GuiThreadId);
+        OutptTxt(log.c_str());
+    }
+
+    if (Windowed == false) {
+        return lpDD->SetCooperativeLevel(arg1, arg2);
+    }
+    else {
+        return lpDD->SetCooperativeLevel(arg1, DDSCL_NORMAL);
+    }
 }
 
 HRESULT __stdcall IDDraw::SetDisplayMode(DWORD arg1, DWORD arg2,DWORD arg3)
