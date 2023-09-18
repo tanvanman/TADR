@@ -9,6 +9,8 @@
 //////////////////////////////////////////////////////////////////////
 #define OutptTxt IDDrawSurface::OutptTxt
 
+LONG GraphicElement::ObjectCount = 0;
+
 CElementHandler::CElementHandler()
 {
 

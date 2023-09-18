@@ -93,7 +93,6 @@ typedef struct LocalShare_
 	int ScreenWidth;
 	int ScreenHeight;
 	bool CompatibleVersion;
-	LONG GraphicElementCount;
 	LPVOID DDrawSurfClass;
 	LPVOID TADirectDraw;
 	LPVOID DDrawClass;

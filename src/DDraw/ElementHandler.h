@@ -13,7 +13,6 @@
 #include <list>
 #include <set>
 #include <vector>
-#include "iddrawsurface.h"
 
 #define ClassGraphicLine 1
 #define ClassGraphicMarker 2
@@ -25,19 +24,22 @@
 class GraphicElement
 {
 public:
+	
 	int x1;
 	int y1;
 	int Type;
 	char Color;
-	int ID;
-	GraphicElement(int x, int y, int T, char C, int id) :x1(x), y1(y), Type(T), Color(C), ID(id) {};
+	LONG ID;
+	GraphicElement(int x, int y, int T, char C, LONG id) :x1(x), y1(y), Type(T), Color(C), ID(id) {};
 	GraphicElement(int x, int y, int T, char C)
 		:x1(x), y1(y), Type(T), Color(C)
 	{
-		ID = InterlockedIncrement(&LocalShare->GraphicElementCount);
+		ID = InterlockedIncrement(&ObjectCount);
 	};
 	virtual ~GraphicElement() {};
 	void virtual Draw() {};
+private:
+	static LONG ObjectCount;
 };
 
 class GraphicLine : public GraphicElement
@@ -82,7 +84,7 @@ public:
 class GraphicMoveText : public GraphicElement
 {
 public:
-	GraphicMoveText(int x1, int y1, int x2, int y2, char cC, int id)
+	GraphicMoveText(int x1, int y1, int x2, int y2, char cC, LONG id)
 		:GraphicElement(x1, y1, ClassTextMoved, cC, id), x2(x2), y2(y2) { };
 	int x2, y2;
 };
