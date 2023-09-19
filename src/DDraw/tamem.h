@@ -486,8 +486,8 @@ struct TAdynmemStruct{
 	int MultiMapping   ;
 	int MultiLineOfSight;
 	int LOSTypeOptions ;
-	int field_39239     ;
-	int GameStateMask ;
+	short NetStateMask0;//  maybe another game state mask
+	short GameStateMask;
 
 };
 
@@ -1296,7 +1296,7 @@ typedef struct _TAProgramStruct
 	int MainMenuWidth;
 	int MainMenuHeight;
 	__int16 IsFullScreen;
-	int Font_Length;
+	unsigned char* Font_Height;
 	int field_208;
 	int field_20C;
 	int field_210;

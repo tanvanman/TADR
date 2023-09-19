@@ -168,6 +168,15 @@ void MegamapTAStuff::LockBlit_TA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight
 	}
 	DrawPopupButtomDialog ( &OffScreen);
 
+	if ((*TAmainStruct_PtrPtr)->GameStateMask == gameingstate::SKIRMISH || 
+		(*TAmainStruct_PtrPtr)->GameStateMask == gameingstate::MULTI)
+	{
+		char Textbuf[0x100];
+		int offY = 3 * (*((*TAProgramStruct_PtrPtr)->Font_Height)) - 10;
+		sprintf_s(Textbuf, "FRATE: %d\n", getFrate());
+		DrawTextInScreen(&OffScreen, Textbuf, 131, offY, -1);
+	}
+
 	if (! GUIBackup)
 	{
 		OffScreen.ScreenRect.left= 0;
