@@ -443,7 +443,9 @@ HRESULT __stdcall IDDrawSurface::Lock(LPRECT arg1, LPDDSURFACEDESC arg2, DWORD a
 #ifdef SYNCHRONISE_THREADS
     std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
 #endif
-    TAHook->TABlit();
+    if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
+        TAHook->TABlit();
+    }
 
 	if(result == DD_OK)
 		SurfaceMemory = arg2->lpSurface;

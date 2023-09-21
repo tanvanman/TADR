@@ -5,3 +5,6 @@
 **/Public
 **/*.aps
 **/*.sbr
+**/*.log
+**/*.tlog
+**/*.res

@@ -1144,44 +1144,16 @@ void CTAHook::DrawBuildRect(int posx, int posy, int sizex, int sizey, int color)
 
 void CTAHook::EnableTABuildRect()
 {
-	/*char ops = 0x53;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EB6, &ops, 1, NULL);
-
-	ops = 0x52;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EBB, &ops, 1, NULL);
-	ops = 0x50;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EBC, &ops, 1, NULL);
-
-	ops = 0xe8;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC5, &ops, 1, NULL);
-	ops = 0xf6;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC6, &ops, 1, NULL);
-	ops = 0x59;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC7, &ops, 1, NULL);
-	ops = 0x05;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC8, &ops, 1, NULL);
-	ops = 0x00;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC9, &ops, 1, NULL);*/
-
-	int ops = 0x5368EC83;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x4BF8C0, &ops, 4, NULL);//enable TA buildrectangel
-
+    // Patch DrawGameScreen
+    std::uint8_t ops = 0x85;    // test eax, eax ; a genuine test whether or not to DrawTranspRectangle
+    WriteProcessMemory(GetCurrentProcess(), (void*)0x469e0b, &ops, 1, NULL);
 }
 
 void CTAHook::DisableTABuildRect()
 {
-	/*
-	int ops = 0x90909090;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EB6, &ops, 1, NULL);
-
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EBB, &ops, 2, NULL);
-
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC5, &ops, 4, NULL);
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x469EC9, &ops, 1, NULL);
-	*/
-	int ops = 0xcc2;
-	WriteProcessMemory(GetCurrentProcess(), (void*)0x4BF8C0, &ops, 4, NULL);//disable TA buildrectangel
-
+    // Patch DrawGameScreen
+    std::uint8_t ops = 0x31;    // xor eax, eax ; never DrawTranspRectangle
+    WriteProcessMemory(GetCurrentProcess(), (void*)0x469e0b, &ops, 1, NULL);
 }
 
 void CTAHook::PaintMinimapRect()
