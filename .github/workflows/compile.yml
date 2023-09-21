@@ -43,6 +43,8 @@ jobs:
         title: "Development Build"
         files: |
           src\DDraw\Public\tdraw.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Create release
       uses: "marvinpinto/action-automatic-releases@latest"
@@ -52,3 +54,5 @@ jobs:
         prerelease: false
         files: |
           src\DDraw\Public\tdraw.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
