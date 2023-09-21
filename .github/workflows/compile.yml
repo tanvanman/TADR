@@ -3,7 +3,7 @@ name: Build and Release tdraw.dll
 on:
   push:
     branches:
-      - master
+      - try
     tags:
       - '*'
 
