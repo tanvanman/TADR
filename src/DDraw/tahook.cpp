@@ -5,6 +5,7 @@
 #include "whiteboard.h"
 //#include "font.h"              
 #include <stdio.h>
+#include <sstream>
 #include "pcxread.h"
 #include "rings.h"
 #include "hook\etc.h"
@@ -72,7 +73,6 @@ CTAHook::CTAHook(BOOL VidMem)
 
 
 
-	ShowText = (void (__stdcall *)(PlayerStruct *Player, char *Text, int Unk1, int Unk2))0x463E50;
 	InterpretCommand = (void (__stdcall *)(char *Command, int Unk1))0x417B50;
 	TAMapClick = (void (__stdcall *)(void *msgstruct))0x498F70;
 	TestBuildSpot = (void (__stdcall *)(void))0x4197D0;
@@ -80,7 +80,6 @@ CTAHook::CTAHook(BOOL VidMem)
 	FindMouseUnit = (unsigned short (__stdcall *)(void))0x48CD80;
 	SendText = (int (__stdcall *)(char*, int))0x46bc70;
 	ShowText = (void (__stdcall *)(PlayerStruct *Player, char *Text, int Unk1, int Unk2))0x463E50;
-	//	void (__stdcall *sShowText)(PlayerStruct *Player, char *text, int access, int type) = 0x463E50;
 
 	int *PTR = (int*)0x00511de8;
 	TAdynmem = (TAdynmemStruct*)(*PTR);
@@ -348,49 +347,18 @@ void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullR
 
 void CTAHook::WriteShareMacro()
 {
-
-	char buf[1000];
-
-	int lasti = 0;
-
-	for(size_t i=0; i<=strlen(ShareText); i++)
-	{
-		if(ShareText[i] == 13 || ShareText[i] == 0)
-		{
-			size_t j;
-			for(j=0; j<i-lasti; j++)
-			{
-				buf[j] = ShareText[lasti+j];
-			}
-			buf[j] = 0;
-			ShowText(&TAdynmem->Players[0], buf, 4, 0);
-
-			if(buf[0] == '+')
-				InterpretCommand(buf+1, 1);
-
-			lasti=i+1;
-		}
-	}
-
-	/*  if(QueuePos>0)
-	return;
-
-	QueueStatus = ShareMacro;
-
-	QueueLength = 0;
-	QueuePos = 0;
-	QueueMessage(WM_CHAR, 13, 0);
-	QueueMessage(WM_CHAR, 13, 0);
-	for(int i=0; i<strlen(ShareText); i++)
-	{
-	QueueMessage(WM_CHAR, ShareText[i], 0);
-	if(ShareText[i] == 13)
-	{
-	QueueMessage(WM_CHAR, ShareText[i], 0);
-	QueueMessage(WM_CHAR, ShareText[i], 0);
-	}
-	}
-	QueueMessage(WM_CHAR, 13, 0);*/
+    if (ShareText != NULL) {
+        std::stringstream ss(ShareText);
+        std::string line;
+        while (std::getline(ss, line, '\r')) {
+            if (line.size() > 1 && line[0] == '+') {
+                std::string msg = "<Player> " + line;
+                std::string command = line.substr(1);
+                SendText(const_cast<char*>(msg.c_str()), 0);
+                InterpretCommand(const_cast<char*>(command.c_str()), 1);
+            }
+        }
+    }
 }
 
 void CTAHook::Blit(LPDIRECTDRAWSURFACE DestSurf)
