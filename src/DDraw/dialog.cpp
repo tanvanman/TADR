@@ -480,6 +480,7 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			{
 				posX += LOWORD(lParam)-X;
 				posY += HIWORD(lParam)-Y;
+                CorrectPos();
 				X = LOWORD(lParam);
 				Y = HIWORD(lParam);
 				return true;

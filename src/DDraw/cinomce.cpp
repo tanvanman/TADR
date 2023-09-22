@@ -14,7 +14,6 @@
 
 #include "dialog.h"
 
-
 int X,Y;
 
 CIncome::CIncome(BOOL VidMem)
@@ -476,6 +475,7 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			{
 				posX += LOWORD(lParam)-X;
 				posY += HIWORD(lParam)-Y;
+                CorrectPos();
 				X = LOWORD(lParam);
 				Y = HIWORD(lParam);
 				return true;
@@ -598,13 +598,13 @@ void CIncome::CorrectPos()
 {
 	if(posX<0)
 		posX = 0;
-	if(posX>(LocalShare->ScreenWidth-PlayerWidth))
-		posX = LocalShare->ScreenWidth-PlayerWidth;
+    if (posX > LocalShare->ScreenWidth - LocalShare->Width)
+        posX = LocalShare->ScreenWidth - LocalShare->Width;
 
 	if(posY<0)
 		posY = 0;
-	if(posY>(LocalShare->ScreenHeight-(PlayerHight*2))) //always two players inside screen
-		posY = LocalShare->ScreenHeight-(PlayerHight*2);
+    if (posY > LocalShare->ScreenHeight - LocalShare->Height)
+        posY = LocalShare->ScreenHeight - LocalShare->Height;
 
 }
 
