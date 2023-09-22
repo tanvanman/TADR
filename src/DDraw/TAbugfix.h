@@ -37,7 +37,7 @@ private:
 	InlineSingleHook *  LeaveUnitLoop;
 	InlineSingleHook *  LeaveUnitLoop2;
 	
-
+    SingleHook* SinglePlayerStartButton;
 
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
