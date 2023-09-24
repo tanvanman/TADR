@@ -1,7 +1,6 @@
 #include "oddraw.h"
 #include "cincome.h"
 #include "iddrawsurface.h"
-#include <stdio.h>
 #include "font.h"
 #include "tamem.h"
 #include "tafunctions.h"
@@ -13,6 +12,12 @@
 #include "MegamapControl.h"
 
 #include "dialog.h"
+
+#ifdef min
+  #undef min
+#endif
+#include <algorithm>
+#include <stdio.h>
 
 int X,Y;
 
@@ -596,17 +601,25 @@ bool CIncome::IsShow (RECT * Rect_p)
 
 void CIncome::CorrectPos()
 {
-    RECT& gameRegion = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
+    RECT bounds;
+    if (DataShare->TAProgress == TAInGame) {
+        std::memcpy(&bounds, &(*TAmainStruct_PtrPtr)->GameSreen_Rect, sizeof(bounds));
+    }
+    else {
+        bounds.left = bounds.top = 0;
+        bounds.right = (*TAProgramStruct_PtrPtr)->ScreenWidth;
+        bounds.bottom = (*TAProgramStruct_PtrPtr)->ScreenHeight;
+    }
 
-    if (posX < gameRegion.left)
-        posX = gameRegion.left;
-    if (posX > gameRegion.right - DialogWidth)
-        posX = gameRegion.right - DialogWidth;
+    if (posX < bounds.left)
+        posX = bounds.left;
+    if (posX > bounds.right - LocalShare->Width)
+        posX = bounds.right - LocalShare->Width;
 
-    if (posY < gameRegion.top)
-        posY = gameRegion.top;
-    if (posY > gameRegion.bottom - DialogHeight)
-        posY = gameRegion.bottom - DialogHeight;
+    if (posY < bounds.top)
+        posY = bounds.top;
+    if (posY > bounds.bottom - LocalShare->Height)
+        posY = bounds.bottom - LocalShare->Height;
 }
 
 unsigned char CIncome::GetPlayerColor(int Player)

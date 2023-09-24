@@ -21,10 +21,15 @@
 
 #include "MegamapControl.h"
 
+#ifdef min
+  #undef min
+#endif
+#include <algorithm>
 #include <vector>
 
 #include "UnicodeSupport.h"
 #include "TAConfig.h"
+
 
 Dialog::Dialog(BOOL Vidmem_a)
 {
@@ -294,14 +299,12 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	{
 		if(!DialogVisible)
 		{
-			if(Msg == WM_KEYDOWN)
-				if(wParam == 113)
-					if((GetAsyncKeyState(17)&0x8000)>0/*ctrl*/)
-					{
-						ShowDialog();
-						return true;
-					}
-					return false;
+            if (DataShare->TAProgress == TAInGame &&
+                Msg == WM_KEYDOWN && wParam == 113 && (GetAsyncKeyState(17) & 0x8000) > 0 /*ctrl*/) {
+                ShowDialog();
+                return true;
+            }
+			return false;
 		}
 
 		switch(Msg)
@@ -1010,17 +1013,25 @@ void Dialog::WritePos()
 
 void Dialog::CorrectPos()
 {
-    RECT& gameRegion = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
+    RECT bounds;
+    if (DataShare->TAProgress == TAInGame) {
+        std::memcpy(&bounds, &(*TAmainStruct_PtrPtr)->GameSreen_Rect, sizeof(bounds));
+    }
+    else {
+        bounds.left = bounds.top = 0;
+        bounds.right = (*TAProgramStruct_PtrPtr)->ScreenWidth;
+        bounds.bottom = (*TAProgramStruct_PtrPtr)->ScreenHeight;
+    }
 
-    if(posX < gameRegion.left)
-		posX = gameRegion.left;
-	if(posX > gameRegion.right - DialogWidth)
-		posX = gameRegion.right - DialogWidth;
+    if(posX < bounds.left)
+		posX = bounds.left;
+	if(posX > bounds.right - DialogWidth)
+		posX = bounds.right - DialogWidth;
 
-	if(posY < gameRegion.top)
-		posY = gameRegion.top;
-	if(posY > gameRegion.bottom - DialogHeight)
-		posY = gameRegion.bottom - DialogHeight;
+	if(posY < bounds.top)
+		posY = bounds.top;
+	if(posY > bounds.bottom - DialogHeight)
+		posY = bounds.bottom - DialogHeight;
 }
 
 void Dialog::DrawTinyText(char *String, int posx, int posy, char Color)
@@ -1423,13 +1434,13 @@ bool Dialog::IsShow (LPRECT rect_p)
 }
 int __stdcall EnterOption (PInlineX86StackBuffer X86StrackBuffer)
 {
-	((Dialog*)LocalShare->Dialog)->ShowDialog ( );
+    ((Dialog*)LocalShare->Dialog)->ShowDialog();
 	return 0;
 }
 
 int __stdcall PressInOption (PInlineX86StackBuffer X86StrackBuffer)
 {
-	((Dialog*)LocalShare->Dialog)->SetAll ( );
-	((Dialog*)LocalShare->Dialog)->HideDialog ( );
+    ((Dialog*)LocalShare->Dialog)->SetAll();
+    ((Dialog*)LocalShare->Dialog)->HideDialog();
 	return 0;
 }
