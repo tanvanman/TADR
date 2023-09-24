@@ -351,11 +351,8 @@ void CTAHook::WriteShareMacro()
         std::stringstream ss(ShareText);
         std::string line;
         while (std::getline(ss, line, '\r')) {
-            if (line.size() > 1 && line[0] == '+') {
-                std::string msg = "<Player> " + line;
-                std::string command = line.substr(1);
-                SendText(const_cast<char*>(msg.c_str()), 0);
-                InterpretCommand(const_cast<char*>(command.c_str()), 1);
+            if (line.size() > 1 && line.at(0) == '+') {
+                ChatText(line.c_str());
             }
         }
     }
