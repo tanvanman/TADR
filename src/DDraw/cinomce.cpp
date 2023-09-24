@@ -596,16 +596,17 @@ bool CIncome::IsShow (RECT * Rect_p)
 
 void CIncome::CorrectPos()
 {
-	if(posX<0)
-		posX = 0;
-    if (posX > LocalShare->ScreenWidth - LocalShare->Width)
-        posX = LocalShare->ScreenWidth - LocalShare->Width;
+    RECT& gameRegion = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
 
-	if(posY<0)
-		posY = 0;
-    if (posY > LocalShare->ScreenHeight - LocalShare->Height)
-        posY = LocalShare->ScreenHeight - LocalShare->Height;
+    if (posX < gameRegion.left)
+        posX = gameRegion.left;
+    if (posX > gameRegion.right - DialogWidth)
+        posX = gameRegion.right - DialogWidth;
 
+    if (posY < gameRegion.top)
+        posY = gameRegion.top;
+    if (posY > gameRegion.bottom - DialogHeight)
+        posY = gameRegion.bottom - DialogHeight;
 }
 
 unsigned char CIncome::GetPlayerColor(int Player)

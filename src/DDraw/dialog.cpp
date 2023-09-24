@@ -1010,15 +1010,17 @@ void Dialog::WritePos()
 
 void Dialog::CorrectPos()
 {
-	if(posX<0)
-		posX = 0;
-	if(posX>(LocalShare->ScreenWidth-DialogWidth))
-		posX = LocalShare->ScreenWidth-DialogWidth;
+    RECT& gameRegion = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
 
-	if(posY<0)
-		posY = 0;
-	if(posY>(LocalShare->ScreenHeight-DialogHeight))
-		posY = LocalShare->ScreenHeight-DialogHeight;
+    if(posX < gameRegion.left)
+		posX = gameRegion.left;
+	if(posX > gameRegion.right - DialogWidth)
+		posX = gameRegion.right - DialogWidth;
+
+	if(posY < gameRegion.top)
+		posY = gameRegion.top;
+	if(posY > gameRegion.bottom - DialogHeight)
+		posY = gameRegion.bottom - DialogHeight;
 }
 
 void Dialog::DrawTinyText(char *String, int posx, int posy, char Color)
