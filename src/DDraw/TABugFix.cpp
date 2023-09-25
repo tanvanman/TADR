@@ -40,6 +40,9 @@ BYTE CrackCD2Bits[]= {0};
 unsigned int CrackCd3Addr= 0x41D6B0;
 BYTE CrackCD3Bits[]= {0x90, 0x90, 0xB0, 0x2E};
 
+unsigned int LosTypeShouldBeACheatCodeAddr = 0x501df4;  // command level for +lostype handler
+BYTE LosTypeShouldBeACheatCodeBits[] = { 2 };           // 1=normal; 2=cheat; 7=debug
+
 unsigned int GUIErrorLengthAry[GUIERRORCOUNT]=
 {
 	0x04AEBBE,
@@ -130,6 +133,8 @@ TABugFixing::TABugFixing ()
 		GUIErrorLengthHookAry[i]= new SingleHook ( GUIErrorLengthAry[i], sizeof(GUIErrorLengthBits), INLINE_UNPROTECTEVINMENT, GUIErrorLengthBits);
 	}
 
+    LosTypeShouldBeACheatCode = new SingleHook(LosTypeShouldBeACheatCodeAddr, sizeof(LosTypeShouldBeACheatCodeBits), INLINE_UNPROTECTEVINMENT, LosTypeShouldBeACheatCodeBits);
+
 	HMODULE Audiere_hm= GetModuleHandleA ( "audiere.dll");
 	CDMusic_TAB= NULL;
 	CDMusic_Menu_Pause= NULL;
@@ -207,6 +212,11 @@ TABugFixing::~TABugFixing ()
 		delete CrackCd3;
 
 	}
+    if (NULL != LosTypeShouldBeACheatCode)
+    {
+        delete LosTypeShouldBeACheatCode;
+    }
+
 
 	if (NULL!=CircleRadius)
 	{
