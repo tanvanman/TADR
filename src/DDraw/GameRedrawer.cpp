@@ -6,6 +6,9 @@
 #include "iddrawsurface.h"
 #include "gameredrawer.h"
 #include "fullscreenminimap.h"
+
+#include <initializer_list>
+
 #ifdef USEMEGAMAP
 
 TAGameAreaReDrawer::TAGameAreaReDrawer()
@@ -75,38 +78,25 @@ TAGameAreaReDrawer::~TAGameAreaReDrawer()
 
 void TAGameAreaReDrawer::Cls (void)
 {
-	if (NULL!=GameAreaSurfaceBack_ptr)
-	{
-		if ( DD_OK!=GameAreaSurfaceBack_ptr->IsLost ( ))
-		{
-			GameAreaSurfaceBack_ptr->Restore ( );
-		}
+    for (LPDIRECTDRAWSURFACE GameAreaSurface_ptr : {GameAreaSurfaceBack_ptr, GameAreaSurfaceFront_ptr})
+    {
+        if (NULL != GameAreaSurface_ptr)
+        {
+            if (DD_OK != GameAreaSurface_ptr->IsLost())
+            {
+                GameAreaSurface_ptr->Restore();
+            }
 
-		DDBLTFX ddbltfx;
-		DDRAW_INIT_STRUCT(ddbltfx);
-		ddbltfx.dwFillColor= 245;
+            DDBLTFX ddbltfx;
+            DDRAW_INIT_STRUCT(ddbltfx);
+            ddbltfx.dwFillColor = 95;
 
-		if(GameAreaSurfaceBack_ptr->Blt ( NULL, NULL, NULL, DDBLT_ASYNC| DDBLT_COLORFILL, &ddbltfx)!=DD_OK)
-		{
-			GameAreaSurfaceBack_ptr->Blt ( NULL, NULL, NULL, DDBLT_WAIT| DDBLT_COLORFILL , &ddbltfx);
-		}
-	}
-	if (NULL!=GameAreaSurfaceFront_ptr)
-	{
-		if ( DD_OK!=GameAreaSurfaceFront_ptr->IsLost ( ))
-		{
-			GameAreaSurfaceFront_ptr->Restore ( );
-		}
-
-		DDBLTFX ddbltfx;
-		DDRAW_INIT_STRUCT(ddbltfx);
-		ddbltfx.dwFillColor= 245;
-
-		if(GameAreaSurfaceFront_ptr->Blt ( NULL, NULL, NULL, DDBLT_ASYNC| DDBLT_COLORFILL, &ddbltfx)!=DD_OK)
-		{
-			GameAreaSurfaceFront_ptr->Blt ( NULL, NULL, NULL, DDBLT_WAIT| DDBLT_COLORFILL , &ddbltfx);
-		}
-	}
+            if (GameAreaSurface_ptr->Blt(NULL, NULL, NULL, DDBLT_ASYNC | DDBLT_COLORFILL, &ddbltfx) != DD_OK)
+            {
+                GameAreaSurface_ptr->Blt(NULL, NULL, NULL, DDBLT_WAIT | DDBLT_COLORFILL, &ddbltfx);
+            }
+        }
+    }
 }
 
 
