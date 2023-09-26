@@ -37,7 +37,8 @@ private:
 	InlineSingleHook *  LeaveUnitLoop;
 	InlineSingleHook *  LeaveUnitLoop2;
 	
-
+    InlineSingleHook* SavePlayerColor;
+    InlineSingleHook* RestorePlayerColor;
 
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
@@ -62,8 +63,8 @@ int __stdcall UnitIDOutRange_Proc (PInlineX86StackBuffer X86StrackBuffer);
 
 int __stdcall UnitDeath_BeforeUpdateUI_Proc  (PInlineX86StackBuffer X86StrackBuffer);
 
-
-
-
 int __stdcall LeaveProc  (PInlineX86StackBuffer X86StrackBuffer);
 int __stdcall EnterProc  (PInlineX86StackBuffer X86StrackBuffer);
+
+int __stdcall SavePlayerColorProc(PInlineX86StackBuffer X86StrackBuffer);
+int __stdcall RestorePlayerColorProc(PInlineX86StackBuffer X86StrackBuffer);

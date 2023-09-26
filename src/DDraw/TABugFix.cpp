@@ -74,6 +74,9 @@ unsigned int EnterUnitLoopAddr= 0x0464F80;
 unsigned int LeaveUnitLoopAddr= 0x046563B;
 unsigned int LeaveUnitLoop2Addr= 0x04655F4;
  
+unsigned int SavePlayerColorHookAddr = 0x454927;
+unsigned int RestorePlayerColorHookAddr = 0x45493c;
+
 
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
@@ -145,7 +148,8 @@ TABugFixing::TABugFixing ()
 		
 	}
 
-
+    SavePlayerColor = new InlineSingleHook(SavePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, SavePlayerColorProc);
+    RestorePlayerColor = new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc);
 	
 	//UnitVolumeYequZero= new InlineSingleHook ( UnitVolumeYequZero_Addr, 5, INLINE_5BYTESLAGGERJMP, UnitVolumeYequZero_Proc);
 
@@ -247,6 +251,15 @@ TABugFixing::~TABugFixing ()
 	{
 		delete UnitDeath_BeforeUpdateUI;
 	}
+
+    if (SavePlayerColor)
+    {
+        delete SavePlayerColor;
+    }
+    if (RestorePlayerColor)
+    {
+        delete RestorePlayerColor;
+    }
 // 
 // 	EnterCriticalSection (&UnitLoop_cris);
 // 	EnterCriticalSection (&DrawPlayer_MAPPEDMEM_cris);
@@ -419,3 +432,19 @@ int __stdcall LeaveProc  (PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+static char* SavePlayerColorColorPtr = NULL;
+static char SavePlayerColorColor;
+int __stdcall SavePlayerColorProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    SavePlayerColorColorPtr = &((PlayerInfoStruct*)(X86StrackBuffer->Edi))->PlayerLogoColor;
+    SavePlayerColorColor = ((PlayerInfoStruct*)(X86StrackBuffer->Edi))->PlayerLogoColor;
+    return 0;
+}
+
+int __stdcall RestorePlayerColorProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    if (DataShare->TAProgress == TAInGame && SavePlayerColorColorPtr != NULL) {
+        *SavePlayerColorColorPtr = SavePlayerColorColor;
+    }
+    return 0;
+}
