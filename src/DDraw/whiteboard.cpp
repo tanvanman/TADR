@@ -50,6 +50,7 @@ AlliesWhiteboard::AlliesWhiteboard(BOOL VidMem)
 	int *cPTR = (int*)(*PTR+0x1b8a);
 
 	PlayerColor = (char*)((*cPTR) + 0x96);
+    PlayerColorAtLaunch = *PlayerColor;
 
 	SizeX = LocalShare->ScreenWidth;
 	SizeY = LocalShare->ScreenHeight-32;
@@ -177,12 +178,13 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 {
 	bool Rtn_Bool= false;
 
-	if(DataShare->TAProgress != TAInGame)
-		return Rtn_Bool;
+    if (DataShare->TAProgress != TAInGame) {
+        PlayerColorAtLaunch = *PlayerColor;
+        return Rtn_Bool;
+    }
 
 	static bool Move = false;
 	static bool Paint = false;
-
 
 #ifdef USEMEGAMAP
 	if (GUIExpander
@@ -307,7 +309,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 			if(GetTextElementAt(*MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32, 5)==0)
 			{
 				ElementHandler.AddElement(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", *PlayerColor));
-				PacketHandler.push_back(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", *PlayerColor));
+				PacketHandler.push_back(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", PlayerColorAtLaunch));
 			}
 		}
 		break;
@@ -392,7 +394,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 
 					if (isNewMove)
 					{
-						PacketHandler.push_back(new GraphicMoveText(CurrentElement->x1, CurrentElement->y1, *MapX + LOWORD(lParam) - 128, *MapY + HIWORD(lParam) - 32, *PlayerColor, CurrentElement->ID));
+						PacketHandler.push_back(new GraphicMoveText(CurrentElement->x1, CurrentElement->y1, *MapX + LOWORD(lParam) - 128, *MapY + HIWORD(lParam) - 32, PlayerColorAtLaunch, CurrentElement->ID));
 					}
 
 					CurrentElement = ElementHandler.MoveTextElement(CurrentElement, *MapX + LOWORD(lParam) - 128, *MapY + HIWORD(lParam) - 32);
@@ -478,7 +480,7 @@ void AlliesWhiteboard::TextInputKeyDown(int Key)
 			((GraphicText*)CurrentElement)->text = new char[strlen(Text)+1];
 			lstrcpyA(((GraphicText*)CurrentElement)->text, Text);
 
-			PacketHandler.push_back(new GraphicTextEdited(CurrentElement->x1, CurrentElement->y1, Text, *PlayerColor));
+			PacketHandler.push_back(new GraphicTextEdited(CurrentElement->x1, CurrentElement->y1, Text, PlayerColorAtLaunch));
 		}
 		else
 			AddTextMarker();
@@ -523,7 +525,7 @@ void AlliesWhiteboard::AddTextMarker()
 
 	ElementHandler.AddElement(new GraphicText(PosX, PosY, Text, *PlayerColor));
 
-	PacketHandler.push_back(new GraphicText(PosX, PosY, Text, *PlayerColor));
+	PacketHandler.push_back(new GraphicText(PosX, PosY, Text, PlayerColorAtLaunch));
 }
 
 void AlliesWhiteboard::AddTextMarker(int X, int Y, char *cText, char C)
@@ -701,7 +703,7 @@ void AlliesWhiteboard::MouseMove(int XStart, int XEnd, int YStart, int YEnd)
 	ElementHandler.AddElement(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, *PlayerColor));
 	//ElementHandler.AddElement(new GraphicLine(10, 10, 100, 100, *PlayerColor));
 
-	PacketHandler.push_back(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, *PlayerColor));
+	PacketHandler.push_back(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, PlayerColorAtLaunch));
 }
 
 void AlliesWhiteboard::ReceiveMarkers()

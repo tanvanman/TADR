@@ -92,6 +92,7 @@ class AlliesWhiteboard
     bool WBKeyDown;
     int DBLClickTime;
     char *PlayerColor;
+    char PlayerColorAtLaunch;   // may differ from PlayerColor if player uses +logo
 
     CElementHandler ElementHandler;
     GraphicElement *CurrentElement;
