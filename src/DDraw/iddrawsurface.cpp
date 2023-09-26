@@ -1000,23 +1000,6 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 			FixTABug->AntiCheat ( );
 		}
 
-        if (DataShare->TAProgress == TAInGame)
-        {
-            //static int playerColors[10];
-            //static bool grabbedColors = false;
-            //if (!grabbedColors) {
-            //    std::memcpy(playerColors, DataShare->PlayerColors, sizeof(playerColors));
-            //    grabbedColors = true;
-            //}
-            //TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
-            //for (int i = 0; i < 10; ++i) {
-            //    //Ptr->Players[i].PlayerInfo->PlayerLogoColor = playerColors[i];
-            //}
-
-            char ops = 0x25; WriteProcessMemory(GetCurrentProcess(), (void*)(0x454934+1), &ops, 1, NULL);
-            ops = 0x90; WriteProcessMemory(GetCurrentProcess(), (void*)(0x45493b), &ops, 1, NULL);
-        }
-
 		if(DataShare->ehaOff == 1 && !DataShare->PlayingDemo)
 		{
 			return LocalShare->TAWndProc ( WinProcWnd, Msg, wParam, lParam);
