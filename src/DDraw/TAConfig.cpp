@@ -109,7 +109,7 @@ TADRConfig::TADRConfig ()
 		ModRegistryName += ModRegName;
 		ModRegistryName = ModRegistryName.erase(ModRegistryName.length()-1);
 	} else {
-		ModRegistryName = "Software\\TA Patch";
+		ModRegistryName = "Software\\Cavedog Entertainment";
 	}
 
 	LPVOID Data;
