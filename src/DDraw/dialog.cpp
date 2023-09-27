@@ -154,8 +154,8 @@ void Dialog::ShowDialog()
 	ShareBoxFocus= false;
 	MegmapFocus= false;
 
-	posX= 640- DialogWidth;
-	posY= 30;
+    posX = 1024 - DialogWidth;
+    posY = 30;
 	CorrectPos(); //make sure dialog is inside screen
 
 	OKButtonPushed = false;
