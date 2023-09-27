@@ -12,6 +12,8 @@ private:
 	SingleHook * CrackCd;
 	SingleHook * CrackCd2;
 	SingleHook * CrackCd3;
+    SingleHook* SinglePlayerStartButton;
+    SingleHook* LosTypeShouldBeACheatCode;
 	InlineSingleHook * BadModelHunter_ISH;
 
 	SingleHook * GUIErrorLengthHookAry[GUIERRORCOUNT];
@@ -36,8 +38,6 @@ private:
 	InlineSingleHook *  EnterUnitLoop;
 	InlineSingleHook *  LeaveUnitLoop;
 	InlineSingleHook *  LeaveUnitLoop2;
-	
-    SingleHook* SinglePlayerStartButton;
 
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
