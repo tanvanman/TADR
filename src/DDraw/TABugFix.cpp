@@ -41,6 +41,9 @@ BYTE CrackCD2Bits[]= {0};
 unsigned int CrackCd3Addr= 0x41D6B0;
 BYTE CrackCD3Bits[]= {0x90, 0x90, 0xB0, 0x2E};
 
+unsigned int LosTypeShouldBeACheatCodeAddr = 0x501df4;  // command level for +lostype handler
+BYTE LosTypeShouldBeACheatCodeBits[] = { 2 };           // 1=normal; 2=cheat; 7=debug
+
 unsigned int GUIErrorLengthAry[GUIERRORCOUNT]=
 {
 	0x04AEBBE,
@@ -84,6 +87,9 @@ unsigned int DisplayModeMinHeight768RegAddr = 0x42FA83;
 unsigned int DisplayModeMinWidth1024DefAddr = 0x42FA42;
 BYTE DisplayModeMinWidth1024DefBits[] = { 0x00, 0x04 };
 unsigned int DisplayModeMinWidth1024RegAddr = 0x42FA2E;
+
+unsigned int SinglePlayerStartButtonAddr = 0x456780;
+BYTE SinglePlayerStartButtonBits[] = { 0x02, 0x7d };
 
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
@@ -134,7 +140,9 @@ TABugFixing::TABugFixing ()
 		DisplayModeMinWidth1024Reg = new InlineSingleHook(DisplayModeMinWidth1024RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeWidthReg);
 	}
 
-	NullUnitDeathVictim = new SingleHook ( NullUnitDeathVictimAddr, sizeof(NullUnitDeathVictimBits), INLINE_UNPROTECTEVINMENT, NullUnitDeathVictimBits);
+  SinglePlayerStartButton = new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits);
+
+	NullUnitDeathVictim= new SingleHook ( NullUnitDeathVictimAddr, sizeof(NullUnitDeathVictimBits), INLINE_UNPROTECTEVINMENT, NullUnitDeathVictimBits);
 
 	CircleRadius=  new SingleHook ( CircleRadiusAddr, sizeof(CircleRadiusBits), INLINE_UNPROTECTEVINMENT, CircleRadiusBits);
 
@@ -149,6 +157,8 @@ TABugFixing::TABugFixing ()
 	{
 		GUIErrorLengthHookAry[i]= new SingleHook ( GUIErrorLengthAry[i], sizeof(GUIErrorLengthBits), INLINE_UNPROTECTEVINMENT, GUIErrorLengthBits);
 	}
+
+    LosTypeShouldBeACheatCode = new SingleHook(LosTypeShouldBeACheatCodeAddr, sizeof(LosTypeShouldBeACheatCodeBits), INLINE_UNPROTECTEVINMENT, LosTypeShouldBeACheatCodeBits);
 
 	HMODULE Audiere_hm= GetModuleHandleA ( "audiere.dll");
 	CDMusic_TAB= NULL;
@@ -216,6 +226,10 @@ TABugFixing::~TABugFixing ()
 	{
 		delete DisplayModeMinWidth1024Def;
 	}
+    if (NULL != SinglePlayerStartButton)
+    {
+        delete SinglePlayerStartButton;
+    }
 	if (NULL!=NullUnitDeathVictim)
 	{
 		delete NullUnitDeathVictim;
@@ -239,6 +253,11 @@ TABugFixing::~TABugFixing ()
 		delete CrackCd3;
 
 	}
+    if (NULL != LosTypeShouldBeACheatCode)
+    {
+        delete LosTypeShouldBeACheatCode;
+    }
+
 
 	if (NULL!=CircleRadius)
 	{

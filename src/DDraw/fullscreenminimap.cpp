@@ -512,11 +512,8 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 					if ((CursorY!=-1)
 						&&(CursorX!=-1))
 					{
-						if (Controler==NULL||(! Controler->IsDrawRect ( TRUE)))
-						{
-							TAStuff->DrawCursor ( ddsd.lpSurface, ddsd.dwWidth, ddsd.dwHeight, ddsd.lPitch,
-								CursorX, CursorY);
-						}
+						TAStuff->DrawCursor ( ddsd.lpSurface, ddsd.dwWidth, ddsd.dwHeight, ddsd.lPitch,
+							CursorX, CursorY);
 					}
 				}
 				DestSurf->Unlock ( NULL);
