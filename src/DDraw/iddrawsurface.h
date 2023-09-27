@@ -111,12 +111,13 @@ typedef struct LocalShare_
 	UINT LocalPlayerID;
 	UINT OrgLocalPlayerID;
     DWORD GuiThreadId;
+    LPVOID PlayerColorsByInitialColor[10];
 
 	LPSTR ModRegName;
 	//extern for unicode font;
 	//LPVOID TAUnicodeSupport;
 
-    LocalShare_() : GuiThreadId(0) {}
+    LocalShare_() : GuiThreadId(0) { }
 }*LocalSharePTR;
 extern LocalShare_* LocalShare;
 

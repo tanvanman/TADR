@@ -161,7 +161,11 @@ void AlliesWhiteboard::LockBlit(char *VidBuf, int Pitch)
 		GraphicLine *MarkerPTR = (GraphicLine*)ElementPTR[i];
 		if(MarkerPTR->Type == ClassGraphicLine)
 		{
-			DrawLine(MarkerPTR->x1 + 128, MarkerPTR->y1 + 32, MarkerPTR->x2 + 128, MarkerPTR->y2 + 32, MarkerPTR->Color, VidBuf, Pitch);
+            char color = MarkerPTR->Color;
+            if (LocalShare->PlayerColorsByInitialColor[MarkerPTR->Color]) {
+                color = *(char*)LocalShare->PlayerColorsByInitialColor[MarkerPTR->Color];
+            }
+			DrawLine(MarkerPTR->x1 + 128, MarkerPTR->y1 + 32, MarkerPTR->x2 + 128, MarkerPTR->y2 + 32, color, VidBuf, Pitch);
 		}
 	}
 
@@ -179,7 +183,15 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 	bool Rtn_Bool= false;
 
     if (DataShare->TAProgress != TAInGame) {
-        PlayerColorAtLaunch = *PlayerColor;
+        for (int n = 0; n < 10; ++n) {
+            char* ColorPtr = &(*TAmainStruct_PtrPtr)->Players[n].PlayerInfo->PlayerLogoColor;
+            if (ColorPtr) {
+                LocalShare->PlayerColorsByInitialColor[*ColorPtr] = ColorPtr;
+            }
+        }
+        if (PlayerColor) {
+            PlayerColorAtLaunch = *PlayerColor;
+        }
         return Rtn_Bool;
     }
 
@@ -308,7 +320,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		{
 			if(GetTextElementAt(*MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32, 5)==0)
 			{
-				ElementHandler.AddElement(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", *PlayerColor));
+				ElementHandler.AddElement(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", PlayerColorAtLaunch));
 				PacketHandler.push_back(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", PlayerColorAtLaunch));
 			}
 		}
@@ -523,7 +535,7 @@ void AlliesWhiteboard::AddTextMarker()
 	int PosX = MarkerX + (LastMouseX-128);
 	int PosY = MarkerY + (LastMouseY-32);
 
-	ElementHandler.AddElement(new GraphicText(PosX, PosY, Text, *PlayerColor));
+	ElementHandler.AddElement(new GraphicText(PosX, PosY, Text, PlayerColorAtLaunch));
 
 	PacketHandler.push_back(new GraphicText(PosX, PosY, Text, PlayerColorAtLaunch));
 }
@@ -569,9 +581,14 @@ void AlliesWhiteboard::DrawMarkers(LPDIRECTDRAWSURFACE DestSurf)
 
 	for(size_t i=0; i<ElementPTR.size(); i++)
 	{
-		GraphicText *MarkerPTR = (GraphicText*)ElementPTR[i];
-		if(MarkerPTR->Type == ClassGraphicText)
-			DrawTextMarker (DestSurf, MarkerPTR->x1, MarkerPTR->y1, MarkerPTR->text, MarkerPTR->Color);
+        GraphicText *MarkerPTR = (GraphicText*)ElementPTR[i];
+        char color = MarkerPTR->Color;
+        if (LocalShare->PlayerColorsByInitialColor[MarkerPTR->Color]) {
+            color = *(char*)LocalShare->PlayerColorsByInitialColor[MarkerPTR->Color];
+        }
+
+        if(MarkerPTR->Type == ClassGraphicText)
+			DrawTextMarker (DestSurf, MarkerPTR->x1, MarkerPTR->y1, MarkerPTR->text, color);
 	}
 }
 
@@ -700,7 +717,7 @@ void AlliesWhiteboard::EreaseArea(int x, int y)
 
 void AlliesWhiteboard::MouseMove(int XStart, int XEnd, int YStart, int YEnd)
 {
-	ElementHandler.AddElement(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, *PlayerColor));
+	ElementHandler.AddElement(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, PlayerColorAtLaunch));
 	//ElementHandler.AddElement(new GraphicLine(10, 10, 100, 100, *PlayerColor));
 
 	PacketHandler.push_back(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, PlayerColorAtLaunch));
