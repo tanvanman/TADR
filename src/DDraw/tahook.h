@@ -73,13 +73,22 @@ class CTAHook
 	void DisableTABuildRect();
 	void PaintMinimapRect();
 
-	void (__stdcall *ShowText)(PlayerStruct *Player, char *Text, int Unk1, int Unk2);
+    /**
+     * @brief display text to local player only
+     * @param Type 0: display as a chat line; 1: display as a popup dialog; and others?
+     */
+    int(__stdcall* SendText)(char* Text, int Type);
+
+    /**
+     * @brief display text to local and remote players
+     */
+    void (__stdcall *ShowText)(PlayerStruct *Player, char *Text, int Unk1, int Unk2);
+
 	void (__stdcall *InterpretCommand)(char *Command, int Access);
 	void (__stdcall *TAMapClick)(void *msgstruct);
 	void (__stdcall *TestBuildSpot)(void);
 	void (__stdcall *TADrawRect)(tagRECT *unk, tagRECT *rect, int color);
 	unsigned short (__stdcall *FindMouseUnit)(void);
-	int (__stdcall *SendText)(char *Text, int Type);
 
 
 
