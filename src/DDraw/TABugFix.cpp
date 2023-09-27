@@ -9,6 +9,7 @@
 #include "tamem.h"
 #include "tafunctions.h"
 #include "TAbugfix.h"
+#include "TAConfig.h"
 
 
 #include "ddraw.h"
@@ -77,6 +78,16 @@ unsigned int EnterUnitLoopAddr= 0x0464F80;
 unsigned int LeaveUnitLoopAddr= 0x046563B;
 unsigned int LeaveUnitLoop2Addr= 0x04655F4;
 
+unsigned int DisplayModeMinHeight768EnumAddr = 0x45E589;
+BYTE DisplayModeMinHeight768EnumBits[] = { 0x00, 0x03 };
+unsigned int DisplayModeMinHeight768DefAddr = 0x42FA97;
+BYTE DisplayModeMinHeight768DefBits[] = { 0x00, 0x03 };
+unsigned int DisplayModeMinHeight768RegAddr = 0x42FA83;
+
+unsigned int DisplayModeMinWidth1024DefAddr = 0x42FA42;
+BYTE DisplayModeMinWidth1024DefBits[] = { 0x00, 0x04 };
+unsigned int DisplayModeMinWidth1024RegAddr = 0x42FA2E;
+
 unsigned int SinglePlayerStartButtonAddr = 0x456780;
 BYTE SinglePlayerStartButtonBits[] = { 0x02, 0x7d };
 
@@ -119,7 +130,17 @@ TABugFixing::TABugFixing ()
 
 	UnitDeath_BeforeUpdateUI= NULL;
 
-    SinglePlayerStartButton = new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits);
+	if (MyConfig->GetIniBool("DisplayModeMinHeight768", FALSE))
+	{
+		DisplayModeMinHeight768Enum = new SingleHook(DisplayModeMinHeight768EnumAddr, sizeof(DisplayModeMinHeight768EnumBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinHeight768EnumBits);
+		DisplayModeMinHeight768Def = new SingleHook(DisplayModeMinHeight768DefAddr, sizeof(DisplayModeMinHeight768DefBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinHeight768DefBits);
+		DisplayModeMinHeight768Reg = new InlineSingleHook(DisplayModeMinHeight768RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeHeightReg);
+	
+		DisplayModeMinWidth1024Def = new SingleHook(DisplayModeMinWidth1024DefAddr, sizeof(DisplayModeMinWidth1024DefBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinWidth1024DefBits);
+		DisplayModeMinWidth1024Reg = new InlineSingleHook(DisplayModeMinWidth1024RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeWidthReg);
+	}
+
+  SinglePlayerStartButton = new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits);
 
 	NullUnitDeathVictim= new SingleHook ( NullUnitDeathVictimAddr, sizeof(NullUnitDeathVictimBits), INLINE_UNPROTECTEVINMENT, NullUnitDeathVictimBits);
 
@@ -193,6 +214,18 @@ TABugFixing::TABugFixing ()
 TABugFixing::~TABugFixing ()
 {
 	RemoveVectoredExceptionHandler  ( VectoredHandler);
+	if (NULL != DisplayModeMinHeight768Enum)
+	{
+		delete DisplayModeMinHeight768Enum;
+	}
+	if (NULL != DisplayModeMinHeight768Def)
+	{
+		delete DisplayModeMinHeight768Def;
+	}
+	if (NULL != DisplayModeMinWidth1024Def)
+	{
+		delete DisplayModeMinWidth1024Def;
+	}
     if (NULL != SinglePlayerStartButton)
     {
         delete SinglePlayerStartButton;
@@ -434,6 +467,26 @@ int __stdcall EnterProc  (PInlineX86StackBuffer X86StrackBuffer)
 int __stdcall LeaveProc  (PInlineX86StackBuffer X86StrackBuffer)
 {
 	LeaveCriticalSection ((LPCRITICAL_SECTION)X86StrackBuffer->myInlineHookClass_Pish->ParamOfHook);
+	return 0;
+}
+
+int __stdcall CheckDisplayModeHeightReg(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (X86StrackBuffer->Eax < 768)
+	{
+		X86StrackBuffer->Eax = 768;
+	}
+
+	return 0;
+}
+
+int __stdcall CheckDisplayModeWidthReg(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (X86StrackBuffer->Eax < 1024)
+	{
+		X86StrackBuffer->Eax = 1024;
+	}
+
 	return 0;
 }
 
