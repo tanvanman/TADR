@@ -37,6 +37,9 @@ private:
 	InlineSingleHook *  LeaveUnitLoop;
 	InlineSingleHook *  LeaveUnitLoop2;
 	
+	SingleHook * DisplayModeMinHeight768Enum;
+	InlineSingleHook * DisplayModeMinHeight768Reg;
+	SingleHook * DisplayModeMinHeight768Def;
 
 
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
@@ -67,3 +70,5 @@ int __stdcall UnitDeath_BeforeUpdateUI_Proc  (PInlineX86StackBuffer X86StrackBuf
 
 int __stdcall LeaveProc  (PInlineX86StackBuffer X86StrackBuffer);
 int __stdcall EnterProc  (PInlineX86StackBuffer X86StrackBuffer);
+
+int __stdcall CheckDisplayModeHeightReg(PInlineX86StackBuffer X86StrackBuffer);
