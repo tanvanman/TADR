@@ -2,7 +2,7 @@
 
 #define USEMEGAMAP
 
-#define MEGAMAPFPS (30)
+#define MEGAMAPFPS (60)
 
 #define MAXCURSORWIDTH (0x30)
 #define MAXCURSORHEIGHT (0x30)
