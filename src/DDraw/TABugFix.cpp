@@ -76,7 +76,9 @@ unsigned int LeaveDrawPlayer_MAPPEDMEMAddr= 0x0465572;
 unsigned int EnterUnitLoopAddr= 0x0464F80;
 unsigned int LeaveUnitLoopAddr= 0x046563B;
 unsigned int LeaveUnitLoop2Addr= 0x04655F4;
- 
+
+unsigned int SinglePlayerStartButtonAddr = 0x456780;
+BYTE SinglePlayerStartButtonBits[] = { 0x02, 0x7d };
 
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
@@ -116,6 +118,8 @@ TABugFixing::TABugFixing ()
 	UnitIDOutRange= NULL;
 
 	UnitDeath_BeforeUpdateUI= NULL;
+
+    SinglePlayerStartButton = new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits);
 
 	NullUnitDeathVictim= new SingleHook ( NullUnitDeathVictimAddr, sizeof(NullUnitDeathVictimBits), INLINE_UNPROTECTEVINMENT, NullUnitDeathVictimBits);
 
@@ -189,6 +193,10 @@ TABugFixing::TABugFixing ()
 TABugFixing::~TABugFixing ()
 {
 	RemoveVectoredExceptionHandler  ( VectoredHandler);
+    if (NULL != SinglePlayerStartButton)
+    {
+        delete SinglePlayerStartButton;
+    }
 	if (NULL!=NullUnitDeathVictim)
 	{
 		delete NullUnitDeathVictim;
