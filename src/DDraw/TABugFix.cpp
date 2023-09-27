@@ -81,6 +81,10 @@ unsigned int DisplayModeMinHeight768DefAddr = 0x42FA97;
 BYTE DisplayModeMinHeight768DefBits[] = { 0x00, 0x03 };
 unsigned int DisplayModeMinHeight768RegAddr = 0x42FA83;
 
+unsigned int DisplayModeMinWidth1024DefAddr = 0x42FA42;
+BYTE DisplayModeMinWidth1024DefBits[] = { 0x00, 0x04 };
+unsigned int DisplayModeMinWidth1024RegAddr = 0x42FA2E;
+
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
@@ -125,6 +129,9 @@ TABugFixing::TABugFixing ()
 		DisplayModeMinHeight768Enum = new SingleHook(DisplayModeMinHeight768EnumAddr, sizeof(DisplayModeMinHeight768EnumBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinHeight768EnumBits);
 		DisplayModeMinHeight768Def = new SingleHook(DisplayModeMinHeight768DefAddr, sizeof(DisplayModeMinHeight768DefBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinHeight768DefBits);
 		DisplayModeMinHeight768Reg = new InlineSingleHook(DisplayModeMinHeight768RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeHeightReg);
+	
+		DisplayModeMinWidth1024Def = new SingleHook(DisplayModeMinWidth1024DefAddr, sizeof(DisplayModeMinWidth1024DefBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinWidth1024DefBits);
+		DisplayModeMinWidth1024Reg = new InlineSingleHook(DisplayModeMinWidth1024RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeWidthReg);
 	}
 
 	NullUnitDeathVictim = new SingleHook ( NullUnitDeathVictimAddr, sizeof(NullUnitDeathVictimBits), INLINE_UNPROTECTEVINMENT, NullUnitDeathVictimBits);
@@ -204,6 +211,10 @@ TABugFixing::~TABugFixing ()
 	if (NULL != DisplayModeMinHeight768Def)
 	{
 		delete DisplayModeMinHeight768Def;
+	}
+	if (NULL != DisplayModeMinWidth1024Def)
+	{
+		delete DisplayModeMinWidth1024Def;
 	}
 	if (NULL!=NullUnitDeathVictim)
 	{
@@ -445,6 +456,16 @@ int __stdcall CheckDisplayModeHeightReg(PInlineX86StackBuffer X86StrackBuffer)
 	if (X86StrackBuffer->Eax < 768)
 	{
 		X86StrackBuffer->Eax = 768;
+	}
+
+	return 0;
+}
+
+int __stdcall CheckDisplayModeWidthReg(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (X86StrackBuffer->Eax < 1024)
+	{
+		X86StrackBuffer->Eax = 1024;
 	}
 
 	return 0;
