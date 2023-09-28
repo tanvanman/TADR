@@ -47,10 +47,7 @@ AlliesWhiteboard::AlliesWhiteboard(BOOL VidMem)
 	lpInputBox = CreateSurfPCXResource(13, VidMem);
 	lpSmallCircle = CreateSurfPCXResource(14, VidMem);
 
-	int *cPTR = (int*)(*PTR+0x1b8a);
-
-	PlayerColor = (char*)((*cPTR) + 0x96);
-    PlayerColorAtLaunch = *PlayerColor;
+	LocalPlayerColorAtLaunch = -1;
 
 	SizeX = LocalShare->ScreenWidth;
 	SizeY = LocalShare->ScreenHeight-32;
@@ -122,11 +119,80 @@ AlliesWhiteboard::~AlliesWhiteboard()
 
 }
 
+PlayerStruct* AlliesWhiteboard::GetPlayer(int n)
+{
+	if (n < 0 || n >= 10) {
+		return NULL;
+	}
+
+	TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+	if (Ptr) {
+		return &Ptr->Players[n];
+	}
+	else {
+		return NULL;
+	}
+}
+
+char AlliesWhiteboard::GetLocalPlayerColor()
+{
+	int* PTR = (int*)0x00511de8;
+	int* cPTR = (int*)(*PTR + 0x1b8a);
+	if (cPTR) {
+		char* PlayerColor = (char*)((*cPTR) + 0x96);
+		if (PlayerColor) {
+			return *PlayerColor;
+		}
+	}
+	return -1;
+}
+
+char AlliesWhiteboard::LookupPlayerCurrentColor(char colorAtLaunch)
+{
+	GameingState* GameingState_P = (*TAmainStruct_PtrPtr)->GameingState_Ptr;
+	if (GameingState_P && gameingstate::MULTI == GameingState_P->State) {
+		if (colorAtLaunch >= 0 && colorAtLaunch < 10) {
+			int playerNumber = PlayerNumbersByInitialColor[colorAtLaunch];
+			PlayerStruct* player = GetPlayer(playerNumber);
+			if (player && player->PlayerInfo) {
+				return player->PlayerInfo->PlayerLogoColor;
+			}
+		}
+		return colorAtLaunch;
+	}
+	else {
+		return GetLocalPlayerColor();
+	}
+}
+
+void AlliesWhiteboard::DebugPlayerNumberFromInitialColor()
+{
+	char buff[128];
+	for (int c = 0; c < 10; ++c)
+	{
+		int n = PlayerNumbersByInitialColor[c];
+		PlayerStruct* player = GetPlayer(n);
+		if (player) {
+			sprintf(buff, "initialColor:%d, playerNumber:%d, playerName:%s, nowColor:%d",
+				c, n, player->Name, int(player->PlayerInfo->PlayerLogoColor)
+			);
+			IDDrawSurface::OutptTxt(buff);
+		}
+	}
+	sprintf(buff, "LocalPlayerColorAtLaunch:%d", int(LocalPlayerColorAtLaunch));
+	IDDrawSurface::OutptTxt(buff);
+}
+
 void AlliesWhiteboard::Blit(LPDIRECTDRAWSURFACE DestSurf)
 {
 	if(lpInputBox->IsLost() != DD_OK)
 	{
 		RestoreAll();
+	}
+
+	if (DataShare->TAProgress != TAInGame)
+	{
+		InitialisePlayerNumberFromInitialColor();
 	}
 
 	ReceiveMarkers();
@@ -136,6 +202,23 @@ void AlliesWhiteboard::Blit(LPDIRECTDRAWSURFACE DestSurf)
 
 	if(InputShown)
 		DrawTextInput(DestSurf);
+}
+
+void AlliesWhiteboard::InitialisePlayerNumberFromInitialColor()
+{
+	for (int c = 0; c < 10; ++c) {
+		PlayerNumbersByInitialColor[c] = -1;
+	}
+	for (int n = 0; n < 10; ++n) {
+		PlayerStruct* player = GetPlayer(n);
+		if (player && player->PlayerInfo && player->PlayerActive) {
+			int c = player->PlayerInfo->PlayerLogoColor;
+			if (c >= 0 && c < 10) {
+				PlayerNumbersByInitialColor[c] = n;
+			}
+		}
+	}
+	LocalPlayerColorAtLaunch = GetLocalPlayerColor();
 }
 
 void AlliesWhiteboard::LockBlit(char *VidBuf, int Pitch)
@@ -161,10 +244,7 @@ void AlliesWhiteboard::LockBlit(char *VidBuf, int Pitch)
 		GraphicLine *MarkerPTR = (GraphicLine*)ElementPTR[i];
 		if(MarkerPTR->Type == ClassGraphicLine)
 		{
-            char color = MarkerPTR->Color;
-            if (LocalShare->PlayerColorsByInitialColor[MarkerPTR->Color]) {
-                color = *(char*)LocalShare->PlayerColorsByInitialColor[MarkerPTR->Color];
-            }
+            char color = this->LookupPlayerCurrentColor(MarkerPTR->Color);
 			DrawLine(MarkerPTR->x1 + 128, MarkerPTR->y1 + 32, MarkerPTR->x2 + 128, MarkerPTR->y2 + 32, color, VidBuf, Pitch);
 		}
 	}
@@ -183,15 +263,6 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 	bool Rtn_Bool= false;
 
     if (DataShare->TAProgress != TAInGame) {
-        for (int n = 0; n < 10; ++n) {
-            char* ColorPtr = &(*TAmainStruct_PtrPtr)->Players[n].PlayerInfo->PlayerLogoColor;
-            if (ColorPtr) {
-                LocalShare->PlayerColorsByInitialColor[*ColorPtr] = ColorPtr;
-            }
-        }
-        if (PlayerColor) {
-            PlayerColorAtLaunch = *PlayerColor;
-        }
         return Rtn_Bool;
     }
 
@@ -320,8 +391,8 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		{
 			if(GetTextElementAt(*MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32, 5)==0)
 			{
-				ElementHandler.AddElement(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", PlayerColorAtLaunch));
-				PacketHandler.push_back(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", PlayerColorAtLaunch));
+				ElementHandler.AddElement(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", LocalPlayerColorAtLaunch));
+				PacketHandler.push_back(new GraphicText(*MapX + (LOWORD(lParam)-128), *MapY + (HIWORD(lParam)-32), "", LocalPlayerColorAtLaunch));
 			}
 		}
 		break;
@@ -406,7 +477,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 
 					if (isNewMove)
 					{
-						PacketHandler.push_back(new GraphicMoveText(CurrentElement->x1, CurrentElement->y1, *MapX + LOWORD(lParam) - 128, *MapY + HIWORD(lParam) - 32, PlayerColorAtLaunch, CurrentElement->ID));
+						PacketHandler.push_back(new GraphicMoveText(CurrentElement->x1, CurrentElement->y1, *MapX + LOWORD(lParam) - 128, *MapY + HIWORD(lParam) - 32, LocalPlayerColorAtLaunch, CurrentElement->ID));
 					}
 
 					CurrentElement = ElementHandler.MoveTextElement(CurrentElement, *MapX + LOWORD(lParam) - 128, *MapY + HIWORD(lParam) - 32);
@@ -492,7 +563,7 @@ void AlliesWhiteboard::TextInputKeyDown(int Key)
 			((GraphicText*)CurrentElement)->text = new char[strlen(Text)+1];
 			lstrcpyA(((GraphicText*)CurrentElement)->text, Text);
 
-			PacketHandler.push_back(new GraphicTextEdited(CurrentElement->x1, CurrentElement->y1, Text, PlayerColorAtLaunch));
+			PacketHandler.push_back(new GraphicTextEdited(CurrentElement->x1, CurrentElement->y1, Text, LocalPlayerColorAtLaunch));
 		}
 		else
 			AddTextMarker();
@@ -535,9 +606,9 @@ void AlliesWhiteboard::AddTextMarker()
 	int PosX = MarkerX + (LastMouseX-128);
 	int PosY = MarkerY + (LastMouseY-32);
 
-	ElementHandler.AddElement(new GraphicText(PosX, PosY, Text, PlayerColorAtLaunch));
+	ElementHandler.AddElement(new GraphicText(PosX, PosY, Text, LocalPlayerColorAtLaunch));
 
-	PacketHandler.push_back(new GraphicText(PosX, PosY, Text, PlayerColorAtLaunch));
+	PacketHandler.push_back(new GraphicText(PosX, PosY, Text, LocalPlayerColorAtLaunch));
 }
 
 void AlliesWhiteboard::AddTextMarker(int X, int Y, char *cText, char C)
@@ -578,17 +649,13 @@ void AlliesWhiteboard::DrawMarkers(LPDIRECTDRAWSURFACE DestSurf)
 		y1=0;
 
 	ElementPTR = ElementHandler.GetArea(x1, y1, *MapX+SizeX+75, *MapY+SizeY+75);
-
 	for(size_t i=0; i<ElementPTR.size(); i++)
 	{
         GraphicText *MarkerPTR = (GraphicText*)ElementPTR[i];
-        char color = MarkerPTR->Color;
-        if (LocalShare->PlayerColorsByInitialColor[MarkerPTR->Color]) {
-            color = *(char*)LocalShare->PlayerColorsByInitialColor[MarkerPTR->Color];
-        }
-
-        if(MarkerPTR->Type == ClassGraphicText)
-			DrawTextMarker (DestSurf, MarkerPTR->x1, MarkerPTR->y1, MarkerPTR->text, color);
+		if (MarkerPTR->Type == ClassGraphicText) {
+			char color = this->LookupPlayerCurrentColor(MarkerPTR->Color);
+			DrawTextMarker(DestSurf, MarkerPTR->x1, MarkerPTR->y1, MarkerPTR->text, color);
+		}
 	}
 }
 
@@ -717,10 +784,10 @@ void AlliesWhiteboard::EreaseArea(int x, int y)
 
 void AlliesWhiteboard::MouseMove(int XStart, int XEnd, int YStart, int YEnd)
 {
-	ElementHandler.AddElement(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, PlayerColorAtLaunch));
+	ElementHandler.AddElement(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, LocalPlayerColorAtLaunch));
 	//ElementHandler.AddElement(new GraphicLine(10, 10, 100, 100, *PlayerColor));
 
-	PacketHandler.push_back(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, PlayerColorAtLaunch));
+	PacketHandler.push_back(new GraphicLine(MarkerX+XStart, MarkerY+YStart, MarkerX+XEnd, MarkerY+YEnd, LocalPlayerColorAtLaunch));
 }
 
 void AlliesWhiteboard::ReceiveMarkers()

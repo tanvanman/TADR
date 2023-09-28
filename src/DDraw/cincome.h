@@ -1,6 +1,7 @@
 #ifndef cincomeH
 #define cincomeH
 
+#include "tamem.h"
 
 #define EnergyBar 1
 #define MetalBar 2
@@ -33,9 +34,7 @@ class CIncome
     void ReadPos();
     void WritePos();
     void CorrectPos();
-    unsigned char GetPlayerColor(int Player);
 
-	
     bool StartedInRect;
   public:
     CIncome(BOOL VidMem);

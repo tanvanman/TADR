@@ -1,9 +1,9 @@
 #include "oddraw.h"
 #include "maprect.h"
 #include "iddrawsurface.h"
+#include "tafunctions.h"
 #include "tamem.h"
 #include "whiteboard.h"
-
 
 CMapRect::CMapRect(BOOL VidMem)
 {
@@ -124,9 +124,7 @@ void CMapRect::LockBlit(char *VidBuf, int Pitch)
 						((AlliesWhiteboard*)LocalShare->Whiteboard)->ScrollToCenter(DataShare->OtherMapX[i], DataShare->OtherMapY[i]);
 				}
 
-				char C;
-
-				C = DataShare->PlayerDotColors[DataShare->PlayerColors[i]];
+				char C = GetPlayerDotColor(i);
 
 				WhiteBoard->DrawFreeLine(Dest.left, Dest.top, Dest.right, Dest.top, C, VidBuf, Pitch);
 				WhiteBoard->DrawFreeLine(Dest.right, Dest.top, Dest.right, Dest.bottom, C, VidBuf, Pitch);
