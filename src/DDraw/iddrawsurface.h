@@ -121,6 +121,7 @@ typedef struct LocalShare_
 extern LocalShare_* LocalShare;
 
 extern HINSTANCE HInstance;
+extern HINSTANCE SDDraw;
 
 LRESULT CALLBACK WinProc(HWND winprocwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 

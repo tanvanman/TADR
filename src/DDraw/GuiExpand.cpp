@@ -8,6 +8,7 @@ using namespace std;
 #include "MenuResolution.h"
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
+#include "iddrawsurface.h"
 
 
 
@@ -29,8 +30,12 @@ GUIExpand::GUIExpand ()
 #ifdef USEMEGAMAP
 	myMinimap= new FullScreenMinimap ( MyConfig->GetIniBool ( "FullScreenMinimap", FALSE) );
 #endif
-	int i= MyConfig->GetIniInt ( "MenuWidth", 0);
-	if (0!=i)
+
+	if (GetProcAddress(SDDraw, "GameHandlesClose"))
+	{
+		SyncMenuResolution = new MenuResolution(0, 0);
+	}
+	else if (MyConfig->GetIniInt("MenuWidth", 0))
 	{
 		SyncMenuResolution= new MenuResolution ( MyConfig->GetIniInt ( "MenuWidth", 0), MyConfig->GetIniInt ( "MenuHeight", 0));
 	}
