@@ -2,7 +2,6 @@
 
 #define USEMEGAMAP
 
-#define MEGAMAPFPS (30)
 
 #define MAXCURSORWIDTH (0x30)
 #define MAXCURSORHEIGHT (0x30)
@@ -25,6 +24,7 @@ typedef struct tagInlineX86StackBuffer * PInlineX86StackBuffer;
 class FullScreenMinimap
 {
 public:
+	int megamapFps;
 	TAGameAreaReDrawer * GameDrawer;
 	UnitsMinimap * UnitsMap;
 	TNTtoMiniMap * MyMinimap_p;
@@ -40,7 +40,7 @@ public:
 
 	RECT TAMAPTAPos;
 public:
-	FullScreenMinimap (BOOL Doit);
+	FullScreenMinimap (BOOL Doit, int FPSlimit= 60);
 	~FullScreenMinimap (void);
 
 	void InitMinimap (tagTNTHeaderStruct * TNTPtr, RECT *  GameScreen= NULL);

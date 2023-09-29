@@ -28,7 +28,7 @@ GUIExpand::GUIExpand ()
 		myShareDialog = new ShareDialogExpand(TRUE);
 	}
 #ifdef USEMEGAMAP
-	myMinimap= new FullScreenMinimap ( MyConfig->GetIniBool ( "FullScreenMinimap", FALSE) );
+	myMinimap= new FullScreenMinimap ( MyConfig->GetIniBool ( "FullScreenMinimap", FALSE), MyConfig->GetIniInt("MegamapFpsLimit", 60));
 #endif
 
 	/* 
