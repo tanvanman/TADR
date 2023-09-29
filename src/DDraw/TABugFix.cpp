@@ -432,19 +432,25 @@ int __stdcall LeaveProc  (PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
-static PlayerInfoStruct* SavePlayerColorPtr = NULL;
-static char SavePlayerColor;
+static PlayerInfoStruct* SavePlayerColorPtr[10] = { NULL };
+static char SavePlayerColor[10] = { 0 };
 int __stdcall SavePlayerColorProc(PInlineX86StackBuffer X86StrackBuffer)
 {
-    SavePlayerColorPtr = (PlayerInfoStruct*)(*(unsigned*)(X86StrackBuffer->Eax + 0x1b8a));
-    SavePlayerColor = SavePlayerColorPtr->PlayerLogoColor;
-    return 0;
+	unsigned char playerNumber = *(unsigned char*)(X86StrackBuffer->Esp + 0x44);
+	if (playerNumber < 10) {
+		SavePlayerColorPtr[playerNumber] = (PlayerInfoStruct*)(*(unsigned*)(X86StrackBuffer->Eax + 0x1b8a));
+		SavePlayerColor[playerNumber] = SavePlayerColorPtr[playerNumber]->PlayerLogoColor;
+	}
+	return 0;
 }
 
 int __stdcall RestorePlayerColorProc(PInlineX86StackBuffer X86StrackBuffer)
 {
-    if (DataShare->TAProgress == TAInGame && SavePlayerColorPtr != NULL) {
-        SavePlayerColorPtr->PlayerLogoColor = SavePlayerColor;
-    }
-    return 0;
+	if (DataShare->TAProgress == TAInGame && SavePlayerColorPtr != NULL) {
+		unsigned char playerNumber = *(unsigned char*)(X86StrackBuffer->Esp + 0x44);
+		if (playerNumber < 10) {
+			SavePlayerColorPtr[playerNumber]->PlayerLogoColor = SavePlayerColor[playerNumber];
+		}
+	}
+	return 0;
 }
