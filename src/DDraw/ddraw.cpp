@@ -44,8 +44,6 @@ void *TAHookpMapView;
 
 
 
-char SystemDDraw[MAX_PATH];
-
 HINSTANCE SDDraw = NULL;
 
 bool Windowed;
@@ -140,7 +138,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 	if(reason==DLL_PROCESS_ATTACH)
 	{
 		IDDrawSurface::OutptTxt("Process Attached");
-		GetSysDir();
+		SDDraw = LoadLibrary("ddraw.dll");
 		SetupFileMap();
 		DataShare = reinterpret_cast<DataSharePTR>(pMapView);
 		SetupLocalFileMap();
@@ -198,23 +196,12 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 }
 //---------------------------------------------------------------------------
 
-void GetSysDir()
-{
-	char Buff[MAX_PATH];
-	GetSystemDirectory(Buff, MAX_PATH);
-
-	//lstrcpyA(SystemDDraw,Buff);
-	lstrcatA(SystemDDraw, "ddraw_custom.dll");
-	SDDraw = LoadLibrary(SystemDDraw);
-
-}
-
 HRESULT WINAPI DirectDrawCreate(GUID FAR *lpGUID, LPDIRECTDRAW FAR *lplpDD, IUnknown FAR *pUnkOuter)
 {
 	IDDrawSurface::OutptTxt("DirectDrawCreate");
 	if(SDDraw == NULL)
 	{
-		GetSysDir();
+		SDDraw = LoadLibrary("ddraw.dll");
 		SetupFileMap();
 		DataShare = reinterpret_cast<DataSharePTR>(pMapView);
 	}

@@ -32,7 +32,6 @@ bool SetupFileMap();
 void ShutdownFileMap();
 bool SetupLocalFileMap();
 void ShutdownLocalFileMap();
-void GetSysDir();
 
 void SetupTAHookFileMap();
 void ShutDownTAHookFileMap();
