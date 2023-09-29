@@ -13,14 +13,11 @@ jobs:
 
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Get release tag from GITHUB_REF
-      id: vars
-      run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+      uses: actions/checkout@v3
 
     - name: Set up MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -30,13 +27,30 @@ jobs:
     - name: Build tdraw.dll
       run: |
         msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=x86
-        Compress-Archive -Path src\DDraw\Public\tdraw.dll,src\DDraw\Settings.ini,src\DDraw\tdraw.txt -Destination src\DDraw\Public\tdraw.zip
-      working-directory: ${{ github.workspace }}
 
-    - name: Upload artifacts
-      uses: softprops/action-gh-release@v1
+    - name: Create archive
+      run: |
+        Compress-Archive -Path src\DDraw\Public\tdraw.dll,src\DDraw\Settings.ini,src\DDraw\tdraw.txt -Destination src\DDraw\Public\tdraw.zip
+
+    - name: Create pre-release
+      uses: "marvinpinto/action-automatic-releases@latest"
+      if: github.ref == 'refs/heads/try'
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          src/DDraw/Public/tdraw.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create release
+      uses: "marvinpinto/action-automatic-releases@latest"
       if: startsWith(github.ref, 'refs/tags/')
       with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        prerelease: false
         files: |
           src/DDraw/Public/tdraw.zip
       env:
