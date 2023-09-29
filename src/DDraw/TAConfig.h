@@ -49,7 +49,6 @@ private:
 public:
 	TADRConfig ();
 	~TADRConfig ();
-	std::string ModRegistryName;
 
 	BOOL GetIniBool (LPCSTR ConfigName, BOOL Default);
 	int GetIniInt (LPCSTR ConfigName, int DefaultValue);
