@@ -63,7 +63,7 @@ ExternQuickKey::ExternQuickKey ()
 	DWORD dwDisposition;
 	DWORD Size;
 
-	RegCreateKeyEx(HKEY_CURRENT_USER, MyConfig->ModRegistryName.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
+	RegCreateKeyEx(HKEY_CURRENT_USER, CompanyName_CCSTR, NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 
 	RegCreateKeyEx(hKey, "Eye", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
 

@@ -893,7 +893,7 @@ void Dialog::ReadPos()
 	DWORD dwDisposition;
 	DWORD Size = sizeof(int);
 
-	std::string SubKey = MyConfig->ModRegistryName;
+	std::string SubKey = CompanyName_CCSTR;
 	SubKey += "\\Eye";
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, SubKey.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
@@ -910,7 +910,7 @@ void Dialog::WriteSettings()
 	HKEY hKey1;
 	DWORD dwDisposition;
 
-	RegCreateKeyEx(HKEY_CURRENT_USER, MyConfig->ModRegistryName.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
+	RegCreateKeyEx(HKEY_CURRENT_USER, CompanyName_CCSTR, NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
 
 	RegCreateKeyEx(hKey1, "Eye", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 
@@ -936,7 +936,7 @@ void Dialog::ReadSettings()
 
 	//VSyncEnabled= false;
 
-	std::string SubKey = MyConfig->ModRegistryName;
+	std::string SubKey = CompanyName_CCSTR;
 	SubKey += "\\Eye";
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, SubKey.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
@@ -1000,7 +1000,7 @@ void Dialog::WritePos()
 	HKEY hKey1;
 	DWORD dwDisposition;
 
-	RegCreateKeyEx(HKEY_CURRENT_USER, MyConfig->ModRegistryName.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
+	RegCreateKeyEx(HKEY_CURRENT_USER, CompanyName_CCSTR, NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
 
 	RegCreateKeyEx(hKey1, "Eye", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 

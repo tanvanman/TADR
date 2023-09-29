@@ -105,7 +105,7 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	DisableDeInterlace = false;
 
 	// TADRREGPATH
-	std::string SubKey = MyConfig->ModRegistryName;
+	std::string SubKey = CompanyName_CCSTR;
 	SubKey += "\\Eye";
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, SubKey.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
