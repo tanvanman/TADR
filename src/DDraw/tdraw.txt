@@ -1,4 +1,9 @@
 Drop tdraw.dll into your TA directory.
 Ensure the following files are also present in your TA directory:
-- ddraw_custom.dll (available from https://github.com/FunkyFr3sh/cnc-ddraw)
-- Settings.ini
+- ddraw.dll (available from https://github.com/FunkyFr3sh/cnc-ddraw)
+- totala.ini
+
+You might need to rename totala.ini to whatever .ini file name your mod is using.
+e.g. ProTA4.5 is using ta.ini and ESC is using TAESC.ini
+
+Same applies for tdraw.dll, you may need to rename it for some mods.
