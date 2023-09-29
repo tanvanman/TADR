@@ -21,10 +21,15 @@
 
 #include "MegamapControl.h"
 
+#ifdef min
+  #undef min
+#endif
+#include <algorithm>
 #include <vector>
 
 #include "UnicodeSupport.h"
 #include "TAConfig.h"
+
 
 Dialog::Dialog(BOOL Vidmem_a)
 {
@@ -149,8 +154,8 @@ void Dialog::ShowDialog()
 	ShareBoxFocus= false;
 	MegmapFocus= false;
 
-	posX= 640- DialogWidth;
-	posY= 30;
+    posX = 1024 - DialogWidth;
+    posY = 30;
 	CorrectPos(); //make sure dialog is inside screen
 
 	OKButtonPushed = false;
@@ -294,14 +299,12 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	{
 		if(!DialogVisible)
 		{
-			if(Msg == WM_KEYDOWN)
-				if(wParam == 113)
-					if((GetAsyncKeyState(17)&0x8000)>0/*ctrl*/)
-					{
-						ShowDialog();
-						return true;
-					}
-					return false;
+            if (DataShare->TAProgress == TAInGame &&
+                Msg == WM_KEYDOWN && wParam == 113 && (GetAsyncKeyState(17) & 0x8000) > 0 /*ctrl*/) {
+                ShowDialog();
+                return true;
+            }
+			return false;
 		}
 
 		switch(Msg)
@@ -480,6 +483,7 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			{
 				posX += LOWORD(lParam)-X;
 				posY += HIWORD(lParam)-Y;
+                CorrectPos();
 				X = LOWORD(lParam);
 				Y = HIWORD(lParam);
 				return true;
@@ -889,7 +893,7 @@ void Dialog::ReadPos()
 	DWORD dwDisposition;
 	DWORD Size = sizeof(int);
 
-	std::string SubKey = MyConfig->ModRegistryName;
+	std::string SubKey = CompanyName_CCSTR;
 	SubKey += "\\Eye";
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, SubKey.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
@@ -906,7 +910,7 @@ void Dialog::WriteSettings()
 	HKEY hKey1;
 	DWORD dwDisposition;
 
-	RegCreateKeyEx(HKEY_CURRENT_USER, MyConfig->ModRegistryName.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
+	RegCreateKeyEx(HKEY_CURRENT_USER, CompanyName_CCSTR, NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
 
 	RegCreateKeyEx(hKey1, "Eye", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 
@@ -932,7 +936,7 @@ void Dialog::ReadSettings()
 
 	//VSyncEnabled= false;
 
-	std::string SubKey = MyConfig->ModRegistryName;
+	std::string SubKey = CompanyName_CCSTR;
 	SubKey += "\\Eye";
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, SubKey.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
@@ -996,7 +1000,7 @@ void Dialog::WritePos()
 	HKEY hKey1;
 	DWORD dwDisposition;
 
-	RegCreateKeyEx(HKEY_CURRENT_USER, MyConfig->ModRegistryName.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
+	RegCreateKeyEx(HKEY_CURRENT_USER, CompanyName_CCSTR, NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
 
 	RegCreateKeyEx(hKey1, "Eye", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 
@@ -1009,15 +1013,25 @@ void Dialog::WritePos()
 
 void Dialog::CorrectPos()
 {
-	if(posX<0)
-		posX = 0;
-	if(posX>(LocalShare->ScreenWidth-DialogWidth))
-		posX = LocalShare->ScreenWidth-DialogWidth;
+    RECT bounds;
+    if (DataShare->TAProgress == TAInGame) {
+        std::memcpy(&bounds, &(*TAmainStruct_PtrPtr)->GameSreen_Rect, sizeof(bounds));
+    }
+    else {
+        bounds.left = bounds.top = 0;
+        bounds.right = (*TAProgramStruct_PtrPtr)->ScreenWidth;
+        bounds.bottom = (*TAProgramStruct_PtrPtr)->ScreenHeight;
+    }
 
-	if(posY<0)
-		posY = 0;
-	if(posY>(LocalShare->ScreenHeight-DialogHeight))
-		posY = LocalShare->ScreenHeight-DialogHeight;
+    if(posX < bounds.left)
+		posX = bounds.left;
+	if(posX > bounds.right - DialogWidth)
+		posX = bounds.right - DialogWidth;
+
+	if(posY < bounds.top)
+		posY = bounds.top;
+	if(posY > bounds.bottom - DialogHeight)
+		posY = bounds.bottom - DialogHeight;
 }
 
 void Dialog::DrawTinyText(char *String, int posx, int posy, char Color)
@@ -1420,13 +1434,13 @@ bool Dialog::IsShow (LPRECT rect_p)
 }
 int __stdcall EnterOption (PInlineX86StackBuffer X86StrackBuffer)
 {
-	((Dialog*)LocalShare->Dialog)->ShowDialog ( );
+    ((Dialog*)LocalShare->Dialog)->ShowDialog();
 	return 0;
 }
 
 int __stdcall PressInOption (PInlineX86StackBuffer X86StrackBuffer)
 {
-	((Dialog*)LocalShare->Dialog)->SetAll ( );
-	((Dialog*)LocalShare->Dialog)->HideDialog ( );
+    ((Dialog*)LocalShare->Dialog)->SetAll();
+    ((Dialog*)LocalShare->Dialog)->HideDialog();
 	return 0;
 }

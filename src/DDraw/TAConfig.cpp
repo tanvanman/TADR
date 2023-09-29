@@ -45,7 +45,7 @@ TADRConfig::TADRConfig ()
 		}
 		GetModuleFileNameA ( NULL, TAexePath, MAX_PATH);
 		_splitpath_s ( TAexePath, IniFilePath_cstr, 3, &IniFilePath_cstr[2], MAX_PATH, TAexeName, MAX_PATH, NULL, 0);
-		strcat_s ( IniFilePath_cstr, 0x100, "Settings.ini");
+		strcat_s ( IniFilePath_cstr, 0x100, TAIniStr);
 	
 		File= CreateFileA ( IniFilePath_cstr, FILE_READ_ACCESS, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (INVALID_HANDLE_VALUE==File)
@@ -98,18 +98,6 @@ TADRConfig::TADRConfig ()
 	if (INVALID_HANDLE_VALUE!=File)
 	{
 		CloseHandle ( File);
-	}
-
-
-	char ModRegName[21]={0};
-	GetIniStr ( "RegistryName", ModRegName, 21, NULL);
-	if (NULL!=ModRegName[0])
-	{
-		ModRegistryName = "Software\\";
-		ModRegistryName += ModRegName;
-		ModRegistryName = ModRegistryName.erase(ModRegistryName.length()-1);
-	} else {
-		ModRegistryName = "Software\\TA Patch";
 	}
 
 	LPVOID Data;
@@ -227,7 +215,7 @@ HKEY TADRConfig::TARegPath_HKEY (void)
 	HKEY Rtn;
 	HKEY tmp;
 
-	RegCreateKeyEx ( HKEY_CURRENT_USER, ModRegistryName.c_str(), NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &tmp, &dwDisposition);
+	RegCreateKeyEx ( HKEY_CURRENT_USER, CompanyName_CCSTR, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &tmp, &dwDisposition);
 	RegCreateKeyEx ( tmp, GameName_CCSTR, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &Rtn, &dwDisposition);
 	RegCloseKey ( tmp);
 	return Rtn;

@@ -1,7 +1,6 @@
 #include "oddraw.h"
 #include "cincome.h"
 #include "iddrawsurface.h"
-#include <stdio.h>
 #include "font.h"
 #include "tamem.h"
 #include "tafunctions.h"
@@ -14,6 +13,11 @@
 
 #include "dialog.h"
 
+#ifdef min
+  #undef min
+#endif
+#include <algorithm>
+#include <stdio.h>
 
 int X,Y;
 
@@ -397,7 +401,7 @@ void CIncome::ReadPos()
 	DWORD dwDisposition;
 	DWORD Size = sizeof(int);
 
-	std::string SubKey = MyConfig->ModRegistryName;
+	std::string SubKey = CompanyName_CCSTR;
 	SubKey += "\\Eye";
 
 	RegCreateKeyEx(HKEY_CURRENT_USER, SubKey.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
@@ -429,7 +433,7 @@ void CIncome::WritePos()
 	HKEY hKey1;
 	DWORD dwDisposition;
 
-	RegCreateKeyEx(HKEY_CURRENT_USER, MyConfig->ModRegistryName.c_str(), NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
+	RegCreateKeyEx(HKEY_CURRENT_USER, CompanyName_CCSTR, NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey1, &dwDisposition);
 
 	RegCreateKeyEx(hKey1, "Eye", NULL, TADRCONFIGREGNAME, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 
@@ -476,6 +480,7 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			{
 				posX += LOWORD(lParam)-X;
 				posY += HIWORD(lParam)-Y;
+                CorrectPos();
 				X = LOWORD(lParam);
 				Y = HIWORD(lParam);
 				return true;
@@ -596,16 +601,25 @@ bool CIncome::IsShow (RECT * Rect_p)
 
 void CIncome::CorrectPos()
 {
-	if(posX<0)
-		posX = 0;
-	if(posX>(LocalShare->ScreenWidth-PlayerWidth))
-		posX = LocalShare->ScreenWidth-PlayerWidth;
+    RECT bounds;
+    if (DataShare->TAProgress == TAInGame) {
+        std::memcpy(&bounds, &(*TAmainStruct_PtrPtr)->GameSreen_Rect, sizeof(bounds));
+    }
+    else {
+        bounds.left = bounds.top = 0;
+        bounds.right = (*TAProgramStruct_PtrPtr)->ScreenWidth;
+        bounds.bottom = (*TAProgramStruct_PtrPtr)->ScreenHeight;
+    }
 
-	if(posY<0)
-		posY = 0;
-	if(posY>(LocalShare->ScreenHeight-(PlayerHight*2))) //always two players inside screen
-		posY = LocalShare->ScreenHeight-(PlayerHight*2);
+    if (posX < bounds.left)
+        posX = bounds.left;
+    if (posX > bounds.right - LocalShare->Width)
+        posX = bounds.right - LocalShare->Width;
 
+    if (posY < bounds.top)
+        posY = bounds.top;
+    if (posY > bounds.bottom - LocalShare->Height)
+        posY = bounds.bottom - LocalShare->Height;
 }
 
 void CIncome::DrawPlayerRect(int posx, int posy, char Color)

@@ -376,17 +376,16 @@ int DrawDotteCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int 
 
 	return TADrawDotteCircle ( &OffScreen,  CenterX,  CenterY,  Radius,  color, Spacing, Dotte_b);
 }
-int ChatText (LPSTR str)
+
+int ChatText (LPCSTR str)
 {
-	if ('+'==str[0])
+    SendText(str, 0);
+    if ('+'==str[0])
 	{
 		CallInternalCommandHandler ( &str[1], 1);
 	}
-	
-	ShowText (  &((*TAmainStruct_PtrPtr)->Players[(*TAmainStruct_PtrPtr)->LocalHumanPlayer_PlayerID]), str, 4, 0);
-	 return strlen ( str);
+	return strlen ( str);
 }
-
 
 BOOL IsPlayerAllyUnit (int UnitID,int PlayerLosID)
 {

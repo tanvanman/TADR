@@ -40,7 +40,7 @@ int __stdcall LoadMap_Routine (PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
-FullScreenMinimap::FullScreenMinimap (BOOL Doit)
+FullScreenMinimap::FullScreenMinimap(BOOL Doit, int FPSlimit)
 {
 	IDDrawSurface::OutptTxt ( "FullScreenMinimap init");
 	LoadMap_hook= NULL;
@@ -62,7 +62,7 @@ FullScreenMinimap::FullScreenMinimap (BOOL Doit)
 	Blit_b= FALSE;
 	Flipping= FALSE;
 
-	
+
 
 	Controler= NULL;
 
@@ -88,16 +88,18 @@ FullScreenMinimap::FullScreenMinimap (BOOL Doit)
 	MaxIconWidth= ICONMAXWIDTH;
 	MaxIconHeight= ICONMAXHEIGHT;
 
-	
+
 
 	memset ( &MegamapRect, 0, sizeof(RECT) );
 	memset ( &MegaMapInscren, 0, sizeof(RECT) );
 	memset ( &TAMAPTAPos, 0, sizeof(RECT) );
-	
+
 	MegamapWidth= 0;
 	MegamapHeight= 0;
 
 	Do_b= Doit;
+
+	megamapFps = FPSlimit;
 	if (Doit)
 	{
 		
@@ -399,7 +401,7 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 			CurrentTick= GetTickCount ( );
 			//i++;
 
-			if ((LastTick+ 1000/MEGAMAPFPS)<CurrentTick)
+			if (!megamapFps || (LastTick+ 1000/megamapFps)<CurrentTick)
 			{//
 				if (!Flipping)
 				{
@@ -512,11 +514,8 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 					if ((CursorY!=-1)
 						&&(CursorX!=-1))
 					{
-						if (Controler==NULL||(! Controler->IsDrawRect ( TRUE)))
-						{
-							TAStuff->DrawCursor ( ddsd.lpSurface, ddsd.dwWidth, ddsd.dwHeight, ddsd.lPitch,
-								CursorX, CursorY);
-						}
+						TAStuff->DrawCursor ( ddsd.lpSurface, ddsd.dwWidth, ddsd.dwHeight, ddsd.lPitch,
+							CursorX, CursorY);
 					}
 				}
 				DestSurf->Unlock ( NULL);

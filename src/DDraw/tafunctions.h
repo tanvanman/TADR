@@ -29,7 +29,7 @@ extern _TAMapClick TAMapClick;
 typedef void (__stdcall *_TestBuildSpot)(void);
 extern _TestBuildSpot TestBuildSpot;
 //Type - 0 = chat, 1 = popup
-typedef int (__stdcall *_SendText)(char *Text, int Type);
+typedef int (__stdcall *_SendText)(const char *Text, int Type);
 extern _SendText SendText;
 typedef void (__stdcall *_ShowText)(PlayerStruct *Player, char *Text, int Unk1, int Unk2);
 extern _ShowText ShowText;
@@ -71,7 +71,7 @@ extern _SetValue_GUI5ID SetValue_GUI5ID;
 typedef int (__stdcall * _IsPressCommand)(GUIInfo * TAUI_p, char * ControlName);
 extern _IsPressCommand IsPressCommand;
 
-typedef int (__stdcall * _CallInternalCommandHandler)(char *Command_ptr, int CommandLevel);
+typedef int (__stdcall * _CallInternalCommandHandler)(const char *Command_ptr, int CommandLevel);
 extern _CallInternalCommandHandler CallInternalCommandHandler;
 
 typedef int (__stdcall *_ChangeGameSpeed)(int NewSpeed, int TellOther_B);
@@ -198,7 +198,7 @@ void freeTAMem (LPVOID MemAddress);
 LPDWORD GetUnitIDMaskAryByCategory (LPSTR CategoryName_cstrp);
 void UpdateSelectUnitEffect (void);
 void ApplySelectUnitMenu_Wapper (void);
-int ChatText (LPSTR str);
+int ChatText (LPCSTR str);
 bool SetIDMaskInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[]);
 bool CleanIDMaskInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[]);
 bool MatchInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[]);
