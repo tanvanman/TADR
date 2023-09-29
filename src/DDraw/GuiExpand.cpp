@@ -31,6 +31,11 @@ GUIExpand::GUIExpand ()
 	myMinimap= new FullScreenMinimap ( MyConfig->GetIniBool ( "FullScreenMinimap", FALSE) );
 #endif
 
+	/* 
+		Detect cnc-ddraw: 
+		GameHandlesClose is a unique export added for c&c games, it can't be found in any other wrapper 
+	*/
+
 	if (GetProcAddress(SDDraw, "GameHandlesClose"))
 	{
 		SyncMenuResolution = new MenuResolution(0, 0);
