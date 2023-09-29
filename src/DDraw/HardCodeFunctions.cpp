@@ -163,7 +163,22 @@ LPDWORD GetUnitIDMaskAryByCategory (LPSTR CategoryName_cstrp)
 	return NULL;
 }
 
+unsigned char GetPlayerDotColor(int n)
+{
+	if (n < 0 || n >= 10) {
+		return 0u;
+	}
 
+	TAdynmemStruct* Ptr = *TAmainStruct_PtrPtr;
+	char c;
+	if (Ptr && Ptr->Players[n].PlayerInfo) {
+		c = Ptr->Players[n].PlayerInfo->PlayerLogoColor;
+	}
+	else {
+		c = DataShare->PlayerColors[n];
+	}
+	return DataShare->PlayerDotColors[c];
+}
 
 bool SetIDMaskInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[])
 {

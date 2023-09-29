@@ -1,6 +1,8 @@
 #ifndef tafunctionsH
 #define tafunctionsH
 
+#include "tamem.h"
+
 class InlineSingleHook;
 struct msgstruct{
 	int xpos;
@@ -202,6 +204,7 @@ bool CleanIDMaskInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[]);
 bool MatchInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[]);
 int GetMaxScrollY();
 int GetMaxScrollX();
+unsigned char GetPlayerDotColor(int Player);	// 0..255
 void ScrollToCenter(int x, int y);
 
 int CountSelectedUnits (void);

@@ -91,7 +91,12 @@ class AlliesWhiteboard
     int VirtualKeyCode;
     bool WBKeyDown;
     int DBLClickTime;
-    char *PlayerColor;
+
+	// Markers/lines received from remote peers have no player ID, only a color. We'll assume its their initial color at launch,
+	// which is true if peer uses this version of dll, or previous versions but haven't issued a +logo command.
+	// Then we can use that initial colour as a lookup for the current colour
+	int PlayerNumbersByInitialColor[10];
+	char LocalPlayerColorAtLaunch;	// 0..10
 
     CElementHandler ElementHandler;
     GraphicElement *CurrentElement;
@@ -107,15 +112,14 @@ class AlliesWhiteboard
     char Text[100];
 
     int SizeX;
-	 int SizeY;
-	 int MidX;
-	 int MidY;
+	int SizeY;
+	int MidX;
+	int MidY;
 
-	 int PerPlayerMarkerWidth;
-	 int PerPlayerMarkerHeight;
-	 CHAR PlayerMarkerPcx[256];
-	 int PlayerMarkerBackground;
-
+	int PerPlayerMarkerWidth;
+	int PerPlayerMarkerHeight;
+	CHAR PlayerMarkerPcx[256];
+	int PlayerMarkerBackground;
 
     std::deque<GraphicElement*> PacketHandler;
     std::deque<MMHS> MinimapMarkerHandler;
@@ -129,7 +133,7 @@ class AlliesWhiteboard
     void RestoreAll();
     void EchoMarker(char *cText);
     void EreaseArea(int x, int y);
-    GraphicElement *GetTextElementAt(int x, int y, int Area);
+	GraphicElement *GetTextElementAt(int x, int y, int Area);
 
     void DrawRotateRect(int x, int y, int Rotation, char *VidBuf, int Pitch);
 
@@ -140,6 +144,12 @@ class AlliesWhiteboard
 
     void DrawMarkers(LPDIRECTDRAWSURFACE DestSurf);
     void DrawTextMarker(LPDIRECTDRAWSURFACE DestSurf, int X, int Y, char *cText, char Color);
+
+	PlayerStruct* GetPlayer(int n);
+	char GetLocalPlayerColor();	// 0..10
+	char LookupPlayerCurrentColor(char colorAtLaunch /* 0..10 */);	// 0..10
+	void DebugPlayerNumberFromInitialColor();
+	void InitialisePlayerNumberFromInitialColor();
 
   public:
     AlliesWhiteboard(BOOL VidMem);

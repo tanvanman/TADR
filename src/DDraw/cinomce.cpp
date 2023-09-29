@@ -229,7 +229,7 @@ void CIncome::ShowPlayerIncome(int Player, int posx, int posy)
 	float ValueF;
 	char Value[100];
 
-	char C = GetPlayerColor(Player);
+	char C = GetPlayerDotColor(Player);
 
 	static unsigned char LockColor= 20;
 	static unsigned char LosViewColor= 20^ 0x20;
@@ -620,11 +620,6 @@ void CIncome::CorrectPos()
         posY = bounds.top;
     if (posY > bounds.bottom - LocalShare->Height)
         posY = bounds.bottom - LocalShare->Height;
-}
-
-unsigned char CIncome::GetPlayerColor(int Player)
-{
-	return DataShare->PlayerDotColors[DataShare->PlayerColors[Player]];
 }
 
 void CIncome::DrawPlayerRect(int posx, int posy, char Color)

@@ -77,6 +77,9 @@ unsigned int LeaveDrawPlayer_MAPPEDMEMAddr= 0x0465572;
 unsigned int EnterUnitLoopAddr= 0x0464F80;
 unsigned int LeaveUnitLoopAddr= 0x046563B;
 unsigned int LeaveUnitLoop2Addr= 0x04655F4;
+ 
+unsigned int SavePlayerColorHookAddr = 0x454927;
+unsigned int RestorePlayerColorHookAddr = 0x45493c;
 
 unsigned int DisplayModeMinHeight768EnumAddr = 0x45E589;
 BYTE DisplayModeMinHeight768EnumBits[] = { 0x00, 0x03 };
@@ -175,7 +178,8 @@ TABugFixing::TABugFixing ()
 		
 	}
 
-
+    SavePlayerColor = new InlineSingleHook(SavePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, SavePlayerColorProc);
+    RestorePlayerColor = new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc);
 	
 	//UnitVolumeYequZero= new InlineSingleHook ( UnitVolumeYequZero_Addr, 5, INLINE_5BYTESLAGGERJMP, UnitVolumeYequZero_Proc);
 
@@ -298,6 +302,15 @@ TABugFixing::~TABugFixing ()
 	{
 		delete UnitDeath_BeforeUpdateUI;
 	}
+
+    if (SavePlayerColor)
+    {
+        delete SavePlayerColor;
+    }
+    if (RestorePlayerColor)
+    {
+        delete RestorePlayerColor;
+    }
 // 
 // 	EnterCriticalSection (&UnitLoop_cris);
 // 	EnterCriticalSection (&DrawPlayer_MAPPEDMEM_cris);
@@ -470,6 +483,29 @@ int __stdcall LeaveProc  (PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+static PlayerInfoStruct* SavePlayerColorPtr[10] = { NULL };
+static char SavePlayerColor[10] = { 0 };
+int __stdcall SavePlayerColorProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	unsigned char playerNumber = *(unsigned char*)(X86StrackBuffer->Esp + 0x44);
+	if (playerNumber < 10) {
+		SavePlayerColorPtr[playerNumber] = (PlayerInfoStruct*)(*(unsigned*)(X86StrackBuffer->Eax + 0x1b8a));
+		SavePlayerColor[playerNumber] = SavePlayerColorPtr[playerNumber]->PlayerLogoColor;
+	}
+	return 0;
+}
+
+int __stdcall RestorePlayerColorProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (DataShare->TAProgress == TAInGame && SavePlayerColorPtr != NULL) {
+		unsigned char playerNumber = *(unsigned char*)(X86StrackBuffer->Esp + 0x44);
+		if (playerNumber < 10) {
+			SavePlayerColorPtr[playerNumber]->PlayerLogoColor = SavePlayerColor[playerNumber];
+		}
+	}
+	return 0;
+}
+
 int __stdcall CheckDisplayModeHeightReg(PInlineX86StackBuffer X86StrackBuffer)
 {
 	if (X86StrackBuffer->Eax < 768)
@@ -489,4 +525,3 @@ int __stdcall CheckDisplayModeWidthReg(PInlineX86StackBuffer X86StrackBuffer)
 
 	return 0;
 }
-

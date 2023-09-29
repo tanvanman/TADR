@@ -75,7 +75,7 @@ typedef struct DataShare_
 	int ta3d;
 	//int IsWatch;
 	int LosViewOn;
-	int PlayerDotColors[10];
+	int PlayerDotColors[10];	// 0..255
 	unsigned int IniCRC;
 }*DataSharePTR;
 
@@ -116,7 +116,7 @@ typedef struct LocalShare_
 	//extern for unicode font;
 	//LPVOID TAUnicodeSupport;
 
-    LocalShare_() : GuiThreadId(0) {}
+    LocalShare_() : GuiThreadId(0) { }
 }*LocalSharePTR;
 extern LocalShare_* LocalShare;
 

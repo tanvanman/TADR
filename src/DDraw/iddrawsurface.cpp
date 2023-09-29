@@ -4,6 +4,7 @@
 #include "oddraw.h"
 #include <mutex>
 #include <vector>
+#include <memoryapi.h>
 using namespace std;
 
 #include "tamem.h"
@@ -991,12 +992,10 @@ void IDDrawSurface::DeInterlace()
 		PlayingMovie = false;
 }
 
-
 LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
     __try
 	{
-
 		UpdateTAProcess ( );
 		if (NULL!=FixTABug)
 		{
