@@ -34,7 +34,7 @@ jobs:
 
     - name: Create pre-release
       uses: "marvinpinto/action-automatic-releases@latest"
-      if: github.ref == 'refs/heads/try'
+      if: github.ref == 'refs/heads/master'
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "latest"
