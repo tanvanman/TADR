@@ -3,7 +3,7 @@ name: Build and Release tdraw.dll
 on:
   push:
     branches:
-      - try
+      - master
     tags:
       - '*'
 
@@ -28,17 +28,9 @@ jobs:
       run: |
         msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=x86
 
-    - name: debug dir 1
-      run: |
-        dir ${{ github.workspace }}\src\DDraw\Public\
-
     - name: Create archive
       run: |
         Compress-Archive -Path src\DDraw\Public\tdraw.dll,src\DDraw\Settings.ini,src\DDraw\tdraw.txt -Destination src\DDraw\Public\tdraw.zip
-
-    - name: debug dir 2
-      run: |
-        dir ${{ github.workspace }}\src\DDraw\Public\
 
     - name: Create pre-release
       uses: "marvinpinto/action-automatic-releases@latest"
