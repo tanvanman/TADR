@@ -45,7 +45,7 @@ TADRConfig::TADRConfig ()
 		}
 		GetModuleFileNameA ( NULL, TAexePath, MAX_PATH);
 		_splitpath_s ( TAexePath, IniFilePath_cstr, 3, &IniFilePath_cstr[2], MAX_PATH, TAexeName, MAX_PATH, NULL, 0);
-		strcat_s ( IniFilePath_cstr, 0x100, "Settings.ini");
+		strcat_s ( IniFilePath_cstr, 0x100, TAIniStr);
 	
 		File= CreateFileA ( IniFilePath_cstr, FILE_READ_ACCESS, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (INVALID_HANDLE_VALUE==File)
