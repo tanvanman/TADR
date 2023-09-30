@@ -15,8 +15,7 @@ public:
 	void LockBlit_TA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch);
 	void LockBlit_MEGA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch);
 
-	void UpdateTAGameStuff (BOOL DrawTAStuff, BOOL DrawOrder);
-	void BlitTAGameStuff(LPDIRECTDRAWSURFACE DestSurf);
+	void BlitTAGameStuff(LPDIRECTDRAWSURFACE DestSurf, BOOL DrawMegamapTAStuff, BOOL DrawSelectAndOrder);
 	void DrawCursor(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch
 		, unsigned int X, unsigned int Y);
 	void DrawCursor (LPDIRECTDRAWSURFACE DestSurf, unsigned int X, unsigned int Y);
@@ -79,6 +78,4 @@ private:
 	_GAFFrame * LastCursor_GAFp;
 	LPDIRECTDRAWSURFACE Cursor_Surfc[0x15];
 	int CursorPerLine;
-
-	LPDIRECTDRAWSURFACE TAStuff_Surfc;
 };

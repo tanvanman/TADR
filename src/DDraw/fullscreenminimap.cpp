@@ -478,7 +478,6 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 							}
 						}
 
-						TAStuff->UpdateTAGameStuff ( DrawMegamapTAStuff, DrawSelectAndOrder);
 						//}
 
 						GameDrawer->Flip ( );
@@ -494,7 +493,7 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 			}
 			if (DrawMegamapTAStuff||DrawSelectAndOrder)
 			{
-				TAStuff->BlitTAGameStuff ( DestSurf);
+				TAStuff->BlitTAGameStuff (DestSurf, DrawMegamapTAStuff, DrawSelectAndOrder);
 			}
 
 			if (DrawMegamapCursor)
