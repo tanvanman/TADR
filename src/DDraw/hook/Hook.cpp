@@ -108,7 +108,7 @@ void SingleHook::InitHookClass (LPBYTE AddrToHook_Pvoid, DWORD Len_Dw, int HookM
 		m_NewBytes_Pbyte= NewBytes_Pbyte;
 		m_LenToModify_Dw= Len_Dw;
 
-		//ºÍdafaultµÄÉêÇëorg byteÊÇÒ»ÑùµÄ¡£
+		//å’Œdafaultçš„ç”³è¯·org byteæ˜¯ä¸€æ ·çš„ã€‚
 		m_OrgBytes_Pbyte= new BYTE[Len_Dw];
 		memcpy ( m_OrgBytes_Pbyte, AddrToHook_Pvoid, Len_Dw);
 	}

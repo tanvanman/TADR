@@ -1,4 +1,4 @@
-//ÓÃÀ´´ÓTNTµØÍ¼ÉÏ´´½¨Ò»¸öËæÒâ´óÐ¡µÄÐ¡µØÍ¼³öÀ´¡£
+//ç”¨æ¥ä»ŽTNTåœ°å›¾ä¸Šåˆ›å»ºä¸€ä¸ªéšæ„å¤§å°çš„å°åœ°å›¾å‡ºæ¥ã€‚
 #include "oddraw.h"
 //#include "ddraw.h"
 #include "tamem.h"

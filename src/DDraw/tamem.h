@@ -461,7 +461,7 @@ struct TAdynmemStruct{
 	bool IsGamePaused;
 	unsigned char field_38A52;
 
-	char  Image_Output_Dir[256];  // 0x38a47+c= TA½ØÍ¼Ä¿Â¼µÄ×Ö·û´®£¬¼´TAÄ¿Â¼+µ±Ç°ÓÃ»§Ãû 
+	char  Image_Output_Dir[256];  // 0x38a47+c= TAæˆªå›¾ç›®å½•çš„å­—ç¬¦ä¸²ï¼Œå³TAç›®å½•+å½“å‰ç”¨æˆ·å 
 	char  Movie_Shot_Output_Dir[256];
 	char data_33[0x56c];
 	unsigned int  Showranges;
@@ -821,9 +821,9 @@ struct ParticleSystemStruct{
 	LPVOID DrawFunc; //4FD5F8 wake or smoke?; 4FD638 - Smoke1, 4FD618 - Smoke2; 4FD5B8, 4FD5A8 - Nanolath; 4FD5D8 - fire; //?
 	char data1[8];
 	int Type; //1 smoke, 2 wake, 6 nano, 7 fire
-	SmokeGraphics* firstDraw;		//0 om denna partikel ej är aktiv (?)
+	SmokeGraphics* firstDraw;		//0 om denna partikel ej é‹œ aktiv (?)
 	SmokeGraphics* lastDraw;			//rita alla fram till men inte denna ?
-	LPVOID *Unk;				//? inte för sista ?
+	LPVOID *Unk;				//? inte fé° sista ?
 	char data2[48];
 };//76
 
@@ -834,7 +834,7 @@ struct ParticleBase{
 	ParticleSystemStruct **ParticlePTRArray;
 	int SmokeParticleStructSize; //? 76
 	int maxParticles; //? 1000
-	int curParticles;			//antalet aktiva i arrayen men de är inte nödvändigtvis i ordning
+	int curParticles;			//antalet aktiva i arrayen men de é‹œ inte né°€vé‹˜digtvis i ordning
 };
 
 struct SmokeGraphics{

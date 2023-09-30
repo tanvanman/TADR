@@ -1,4 +1,4 @@
-//À©Õ¹µÄ¿ì½İ¼ü
+//æ‰©å±•çš„å¿«æ·é”®
 
 #include "oddraw.h"
 #include "iddrawsurface.h"
@@ -575,7 +575,7 @@ int ExternQuickKey::SelectUnitInRect (TAUnitType NeededType, RECT * rect, bool s
 				//ID= ;
 				if ((NULL!=Current->Owner_PlayerPtr1))//&&(Player_LocalHuman==Current->ValidOwner_PlayerPtr->My_PlayerType))
 				{
-					//Õâ¶ùÊÇ¹ıÂË  filter:
+					//è¿™å„¿æ˜¯è¿‡æ»¤  filter:
 					DoSelect_b= false;
 
 					if ((rect->left<Current->XPos)
@@ -646,7 +646,7 @@ int ExternQuickKey::FilterSelectedUnit (void)
 	}
 	return CountSelectedUnits( ) ;
 }
-int ExternQuickKey::FilterSelectedUnitProc (TAUnitType NeededType) //Ö»»áÔÚÒÑÑ¡ÖĞµÄµ¥Î»ÖĞÑ¡Ôñ!!!!ËÙ¶ÈºÜÂı£¬È«²¿µ¥Î»¶¼Ã¶¾ÙÒ»±é!
+int ExternQuickKey::FilterSelectedUnitProc (TAUnitType NeededType) //åªä¼šåœ¨å·²é€‰ä¸­çš„å•ä½ä¸­é€‰æ‹©!!!!é€Ÿåº¦å¾ˆæ…¢ï¼Œå…¨éƒ¨å•ä½éƒ½æšä¸¾ä¸€é!
 {
 // 	if (INVALIDTYPE==NeededType)
 // 	{
@@ -674,7 +674,7 @@ int ExternQuickKey::FilterSelectedUnitProc (TAUnitType NeededType) //Ö»»áÔÚÒÑÑ¡Ö
 				//ID= ;
 				if ((NULL!=Current->Owner_PlayerPtr1))//&&(Player_LocalHuman==Current->ValidOwner_PlayerPtr->My_PlayerType))
 				{
-					//Õâ¶ùÊÇ¹ıÂË  filter:
+					//è¿™å„¿æ˜¯è¿‡æ»¤  filter:
 					DoSelect_b= false;
 
 					if (0!=(COMMANDER& NeededType)&&

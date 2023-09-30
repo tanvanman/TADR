@@ -162,7 +162,7 @@ void inline TNTtoMiniMap::CopyTileToTAPos_Inline (LPBYTE PixelBitsBuf, POINT * T
 	int PiexelPerLine_I= ArgcTNTHeader->Width* 32;
 	LPBYTE begin_PixelBits= &PixelBitsBuf[(TAPos->y* 32)* PiexelPerLine_I+ TAPos->x* 32];
 	LPBYTE begin_TilesPixelBits= &(ArgcTNTHeader->PTRtilegfx[ArgcTNTHeader->PTRmapdata[(TAPos->y)* ArgcTNTHeader->Width+ TAPos->x] * 32* 32]);
-	//TAPos��Width���ǰ�tiles����λ�ģ�һ��tiles�Ĵ�С��32 width,32 height,���Եõ���tiles������󣬻�Ҫ*32* 32���ܵõ���ʵ��TilesPixelBits�е�λ�á�
+	//TAPos和Width都是按tiles作单位的，一个tiles的大小是32 width,32 height,所以得到了tiles的坐标后，还要*32* 32才能得到在实际TilesPixelBits中的位置。
 	
 	for (int yCount= 0; yCount<32; ++yCount)
 	{
@@ -171,7 +171,7 @@ void inline TNTtoMiniMap::CopyTileToTAPos_Inline (LPBYTE PixelBitsBuf, POINT * T
 }
 
 LPBYTE TNTtoMiniMap::DrawRectMapToBuf (LPBYTE * RectPixelBitsBuf_PtrToPB, PTNTHeaderStruct Argc_PTNTH, RECT * TAPosRect)
-{//����ǰ���TNTHeader�е������Ƶģ����RectPixelBitsBeginBuf_PtrToPB�᷵��malloc������Ķ�Ӧ��Rect��С��ͼƬ��
+{//这个是按照TNTHeader中的来绘制的，这个RectPixelBitsBeginBuf_PtrToPB会返回malloc来申请的对应于Rect大小的图片。
 	RECT DescRect;
 	DescRect.left= 0;
 	DescRect.right= (TAPosRect->right- TAPosRect->left)* 32;

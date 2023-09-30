@@ -50,7 +50,7 @@
 		BOOL UnicodeValid;
 
 		SIZE FontExtent;
-	//*公共函数 *//
+	//*鍏叡鍑芥暟 *//
 	public:	
 		UnicodeSupport(LPCSTR FontName, DWORD Color, DWORD Background, BOOL VidMem_a= TRUE);
 		UnicodeSupport (BOOL VidMem_a= TRUE);
@@ -62,7 +62,7 @@
 		bool Blt (LPDIRECTDRAWSURFACE DescSurface);
 		
 		void Set (BOOL VidMem_a);
-	//*内部变量 *//
+	//*鍐呴儴鍙橀噺 *//
 	private:
 
 		BOOL VidMem;
@@ -116,7 +116,7 @@
 
 		BOOL LMouseDown;
 		
-	//*内部函数 *//
+	//*鍐呴儴鍑芥暟 *//
 	private:
 		PSpecScreenSurface NewSpecScreenSurface (OFFSCREEN * OFFSCREEN_Ptr);
 		void FreeSpecScreenSurface (PSpecScreenSurface ForFree_PSSS);

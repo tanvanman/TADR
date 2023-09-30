@@ -2,7 +2,7 @@
 #include "hook.h"
 #include "etc.h"
 //InlineSingleHook:
-//½ûÖ¹µô¸ñÊ½×ª»¯µÄwarnÌáÊ¾£¬Õâ¸öµÄÔ­ÒòÊÇÈ·¶¨ÁË×ª»¯Ã»ÎÊÌâµÄ:
+//ç¦æ­¢æ‰æ ¼å¼è½¬åŒ–çš„warnæç¤ºï¼Œè¿™ä¸ªçš„åŸå› æ˜¯ç¡®å®šäº†è½¬åŒ–æ²¡é—®é¢˜çš„:
 #pragma warning(disable:4311)
 #pragma warning(disable:4312)
 //
@@ -12,11 +12,11 @@ defPX86CurrentThreadStackBuffer Global_PX86CurrentThreadStackBuffer= X86CurrentT
 const int Global_OffOfEnteredFlagFromInlineX86StackBuffer= (int)&((PInlineX86StackBuffer)0)->EnteredFlag_I;
 
 void __declspec(naked) X86InlineHookRouter (void)
-{//¶àÏß³ÌµÄÊ±ºò¾Í³ö´íÁË¡£ĞèÒª±£´æµÄ¶ÑÕ»×ö³É¶¯Ì¬ÉêÇëµÄÄÚ´æ£¬ÒÔ¼°Ò»¸öÊÇ·ñÒÑ½øÈë¹ıHOOKµÄ±êÖ¾¡£
- //ÖØÈëµÄÇé¿öÓÃÒ»¸ö±êÖ¾´¦Àí¹ı
-	//__asm lea esp, DWORD PTR [esp+ 4]//µ±ÊÇjmpµÄÊ±ºò£¬Õâ¸ö¶ÑÕ»Æ½ºâ¡£ÊÇcallÀàĞÍÕâ¶ùÒªNOPµô
+{//å¤šçº¿ç¨‹çš„æ—¶å€™å°±å‡ºé”™äº†ã€‚éœ€è¦ä¿å­˜çš„å †æ ˆåšæˆåŠ¨æ€ç”³è¯·çš„å†…å­˜ï¼Œä»¥åŠä¸€ä¸ªæ˜¯å¦å·²è¿›å…¥è¿‡HOOKçš„æ ‡å¿—ã€‚
+ //é‡å…¥çš„æƒ…å†µç”¨ä¸€ä¸ªæ ‡å¿—å¤„ç†è¿‡
+	//__asm lea esp, DWORD PTR [esp+ 4]//å½“æ˜¯jmpçš„æ—¶å€™ï¼Œè¿™ä¸ªå †æ ˆå¹³è¡¡ã€‚æ˜¯callç±»å‹è¿™å„¿è¦NOPæ‰
 #define X86INLINEROUTERSTRACKADD4 0x0
-	__asm lea esp, DWORD PTR [esp+ 4]//µ±ÊÇJMPµÄÊ±ºò£¬Õâ¸ö¶ÑÕ»Æ½ºâ¡£ÊÇjmpÀàĞÍÕâ¶ùÒªNOPµô
+	__asm lea esp, DWORD PTR [esp+ 4]//å½“æ˜¯JMPçš„æ—¶å€™ï¼Œè¿™ä¸ªå †æ ˆå¹³è¡¡ã€‚æ˜¯jmpç±»å‹è¿™å„¿è¦NOPæ‰
 
 	__asm pushad
 	__asm pushfd
@@ -25,7 +25,7 @@ void __declspec(naked) X86InlineHookRouter (void)
 
 #define X86INLINEROUTERSTACKBUFFEROFF 0xb
 addrOfStrackBuffer:
-	__asm __emit 0x00  ;//Õâ¶ùµÄ4¸ö0ÊÇÌî³äÎªÒÔºó·Åpushfd/adµÄ¶«Î÷ÓÃµÄ¡£ off 0x7
+	__asm __emit 0x00  ;//è¿™å„¿çš„4ä¸ª0æ˜¯å¡«å……ä¸ºä»¥åæ”¾pushfd/adçš„ä¸œè¥¿ç”¨çš„ã€‚ off 0x7
 	__asm __emit 0x00
 	__asm __emit 0x00
 	__asm __emit 0x00
@@ -42,14 +42,14 @@ TempAddr:
 	__asm je AfterCallRouter
 	__asm mov eax, Global_OffOfEnteredFlagFromInlineX86StackBuffer;
 	__asm mov DWORD PTR [ebx+ eax], 0xbd88
-	__asm mov ecx, 0x9 //¶à±£´æ1¸ö¶ÑÕ»ÖĞµÄÊı¾İ¡£ÒÔÇ°Ğ´µÄ0xa£¬²»¸ÄÁË¡£
+	__asm mov ecx, 0x9 //å¤šä¿å­˜1ä¸ªå †æ ˆä¸­çš„æ•°æ®ã€‚ä»¥å‰å†™çš„0xaï¼Œä¸æ”¹äº†ã€‚
 	__asm lea edi, DWORD PTR[ebx+ 4]
 	__asm mov esi, esp
 	__asm rep movsd
 
 #define X86INLINEROUTERSTRACKSUB4 0x44
-	__asm push ebx //ÒÆ¶¯Ò»ÏÂ¶ÑÕ»
-	__asm mov edi, esp//»Ö¸´¼Ä´æÆ÷
+	__asm push ebx //ç§»åŠ¨ä¸€ä¸‹å †æ ˆ
+	__asm mov edi, esp//æ¢å¤å¯„å­˜å™¨
 	__asm lea esi, DWORD PTR[ebx+ 0x4]
 	__asm mov ecx, 0x9
 	__asm rep movsd
@@ -58,14 +58,14 @@ TempAddr:
 	__asm popad
 
 
-	__asm __emit 0xe8  ;//Õâ¶ùµÄÒ²ÊÇÒª±»Ìî³äµÄ
+	__asm __emit 0xe8  ;//è¿™å„¿çš„ä¹Ÿæ˜¯è¦è¢«å¡«å……çš„
 #define X86INLINEROUTERCALLADDROFF 0x58
-	__asm __emit 0x00  ;//Õâ¶ùµÄ4¸ö0ÊÇÌî³äÎªÒÔºó±£´æÒªµ÷ÓÃµÄÄ¿±êPROCÓÃµÄ¡£
+	__asm __emit 0x00  ;//è¿™å„¿çš„4ä¸ª0æ˜¯å¡«å……ä¸ºä»¥åä¿å­˜è¦è°ƒç”¨çš„ç›®æ ‡PROCç”¨çš„ã€‚
 	__asm __emit 0x00
 	__asm __emit 0x00
 	__asm __emit 0x00
 	
-	__asm mov edi, eax//±£´æhookrouter·µ»ØÖµ
+	__asm mov edi, eax//ä¿å­˜hookrouterè¿”å›å€¼
 
 	__asm call OffToStrackBuffer
 OffToStrackBuffer:
@@ -77,14 +77,14 @@ OffToStrackBuffer:
 
 	__asm mov ebx, eax;
 
-	__asm mov esp, DWORD PTR[ebx]InlineX86StackBuffer.Esp;//popadĞŞ¸Ä²»ÁËesp,Ö»ÊÇ+0x20£¬ĞèÒª×Ô¼ºÉèÖÃºÃESP¡£
+	__asm mov esp, DWORD PTR[ebx]InlineX86StackBuffer.Esp;//popadä¿®æ”¹ä¸äº†esp,åªæ˜¯+0x20ï¼Œéœ€è¦è‡ªå·±è®¾ç½®å¥½ESPã€‚
 
-	__asm cmp edi, X86STRACKBUFFERCHANGE//ÅĞ¶Ïhook router·µ»ØÖµ
+	__asm cmp edi, X86STRACKBUFFERCHANGE//åˆ¤æ–­hook routerè¿”å›å€¼
 	__asm jne NormalJmpBack
-	//ĞŞ¸ÄÁËSTRACKBUFFER£¬·µ»ØµØÖ·¾ÍÒª¿´hook routerÀïÖ¸¶¨µÄÊÇÊ²Ã´ÁË¡£µ«¼Ä´æÆ÷»¹ÊÇÒª»Ö¸´³ÉHOOK ROUTER²ÎÊıÀïµÄÄÇ¸ö½á¹¹ÖĞµÄÖµ¡£
+	//ä¿®æ”¹äº†STRACKBUFFERï¼Œè¿”å›åœ°å€å°±è¦çœ‹hook routeré‡ŒæŒ‡å®šçš„æ˜¯ä»€ä¹ˆäº†ã€‚ä½†å¯„å­˜å™¨è¿˜æ˜¯è¦æ¢å¤æˆHOOK ROUTERå‚æ•°é‡Œçš„é‚£ä¸ªç»“æ„ä¸­çš„å€¼ã€‚
 
 	__asm mov eax, Global_OffOfEnteredFlagFromInlineX86StackBuffer;
-	__asm mov DWORD PTR [ebx+ eax], 0//ÊÍ·ÅÕâ¸öÎ»ÖÃµÄ±êÖ¾
+	__asm mov DWORD PTR [ebx+ eax], 0//é‡Šæ”¾è¿™ä¸ªä½ç½®çš„æ ‡å¿—
 
 	
 
@@ -100,19 +100,19 @@ OffToStrackBuffer:
 	__asm retn
 
 NormalJmpBack:
-	__asm sub esp, 0x9* 0x4//°Ñpushad pushfdºÍcallµÄ¶ÑÕ»¿Õ¼ä¼õ³öÀ´,jmp»á¸Ä³É0x9¡£
-	__asm mov ecx, 0x9 //»Ö¸´¶ÑÕ»
+	__asm sub esp, 0x9* 0x4//æŠŠpushad pushfdå’Œcallçš„å †æ ˆç©ºé—´å‡å‡ºæ¥,jmpä¼šæ”¹æˆ0x9ã€‚
+	__asm mov ecx, 0x9 //æ¢å¤å †æ ˆ
 	__asm mov edi, esp
 	__asm lea esi, DWORD PTR[ebx+ 4]
 	__asm rep movsd
 
 AfterCallRouter:
 	__asm mov eax, Global_OffOfEnteredFlagFromInlineX86StackBuffer;
-	__asm mov DWORD PTR [ebx+ eax], 0//ÊÍ·ÅÕâ¸öÎ»ÖÃµÄ±êÖ¾
+	__asm mov DWORD PTR [ebx+ eax], 0//é‡Šæ”¾è¿™ä¸ªä½ç½®çš„æ ‡å¿—
 
 	__asm popfd
 	__asm popad;
-	//Õâ¶ùµÄÃ»·µ»Ø£¬ÊÇÎªÒÔºó·ÅÔ­Ê¼´úÂë+ jmp/call·µ»ØµÄ´úÂëÓÃµÄ¡£
+	//è¿™å„¿çš„æ²¡è¿”å›ï¼Œæ˜¯ä¸ºä»¥åæ”¾åŸå§‹ä»£ç + jmp/callè¿”å›çš„ä»£ç ç”¨çš„ã€‚
 #define X86INLINEROUTERENDOFF 0xC1
 }
 
@@ -202,7 +202,7 @@ InlineSingleHook::InlineSingleHook (unsigned int AddrToHook_Pvoid, DWORD Len_Dw,
 InlineSingleHook::~InlineSingleHook ()
 {
 // 	if (Inline_5Bytes!=m_NewBytes_Pbyte)
-// 	{//Íâ²¿µÄbuffer²»ÓÃ¹Ü
+// 	{//å¤–éƒ¨çš„bufferä¸ç”¨ç®¡
 // 
 // 	}
 	if (NULL!=m_OrgBytes_Pbyte)
@@ -259,7 +259,7 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 
 /*
 	if (! IsBadWritePtr ( , 1))
-	{//ÔõÃ´ÅĞ¶Ïm_OrgBytes_PbyteÊÇ²»ÊÇÓĞĞ§µÄÖ¸ÕëÄØ£¿
+	{//æ€ä¹ˆåˆ¤æ–­m_OrgBytes_Pbyteæ˜¯ä¸æ˜¯æœ‰æ•ˆçš„æŒ‡é’ˆå‘¢ï¼Ÿ
 		delete [] m_OrgBytes_Pbyte;
 	}
 */
@@ -279,7 +279,7 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 	case INLINE_5BYTESNOREDIECTCALL:
 	case INLINE_5BYTESLAGGERCALL:
 		if (NULL==m_NewBytes_Pbyte)
-		{//»¹Ã»ÓĞÖ¸¶¨NewBytes_Pvoid,¾Í×Ô¼º³õÊ¼»¯Ò»¸ö¡£
+		{//è¿˜æ²¡æœ‰æŒ‡å®šNewBytes_Pvoid,å°±è‡ªå·±åˆå§‹åŒ–ä¸€ä¸ªã€‚
 			Inline_5Bytes[0]= 0xe8;
 			m_NewBytes_Pbyte= Inline_5Bytes;
 		}
@@ -288,26 +288,26 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 	case INLINE_5BYTESLAGGERJMP:
 
 		if (5>Len_Dw)
-		{//JMPºÍCALL·½Ê½µÄ²»ÄÜÔÚ5×Ö½ÚÒÔÄÚÊµÏÖ¡£
+		{//JMPå’ŒCALLæ–¹å¼çš„ä¸èƒ½åœ¨5å­—èŠ‚ä»¥å†…å®ç°ã€‚
 			HookMode= ERRORMODE;
 		}	
 
 		if (NULL==m_NewBytes_Pbyte)
-		{//»¹Ã»ÓĞÖ¸¶¨NewBytes_Pvoid,¾Í×Ô¼º³õÊ¼»¯Ò»¸ö¡£
+		{//è¿˜æ²¡æœ‰æŒ‡å®šNewBytes_Pvoid,å°±è‡ªå·±åˆå§‹åŒ–ä¸€ä¸ªã€‚
 			Inline_5Bytes[0]= 0xe9;
 			m_NewBytes_Pbyte= Inline_5Bytes;
 		}
 		
-		//Õâ¶ùÊÇ³õÊ¼»¯HOOKµÄwapper m_HookRouter_Pproc
+		//è¿™å„¿æ˜¯åˆå§‹åŒ–HOOKçš„wapper m_HookRouter_Pproc
 		DWORD HookRouterLen;
 		HookRouterLen= X86INLINEROUTERENDOFF+ Len_Dw* 0x4+ 0x4+ 0x5;
-		m_HookRouter_Pproc= new BYTE[HookRouterLen];//X86InlineHookRouter+ orgcode+ jmp back, orgcode¿ÉÄÜÈ«ÊÇÒª±»À©³ä4±»´óĞ¡µÄjecxz
+		m_HookRouter_Pproc= new BYTE[HookRouterLen];//X86InlineHookRouter+ orgcode+ jmp back, orgcodeå¯èƒ½å…¨æ˜¯è¦è¢«æ‰©å……4è¢«å¤§å°çš„jecxz
 		LPBYTE CurrentPtrIn_m_HookRouter_Pproc;
 		DWORD tempForProtect_Dw;
 		VirtualProtect ( m_HookRouter_Pproc, HookRouterLen, PAGE_EXECUTE_READWRITE, &tempForProtect_Dw);
 		
 #ifdef DEBUG
-		//VCµÄdebugÄ£Ê½£¬µ÷ÓÃµÄº¯Êı¶¼ÊÇ0xe9 ?? ?? ?? ??ÕâÑùµÄµØÖ·¡£
+		//VCçš„debugæ¨¡å¼ï¼Œè°ƒç”¨çš„å‡½æ•°éƒ½æ˜¯0xe9 ?? ?? ?? ??è¿™æ ·çš„åœ°å€ã€‚
 		LPBYTE tempCopyFrom_Pproc;
 		tempCopyFrom_Pproc= *((LPBYTE *)((DWORD)&X86InlineHookRouter+ 1));
 		tempCopyFrom_Pproc= (DWORD)&X86InlineHookRouter+ tempCopyFrom_Pproc+ 5;
@@ -322,19 +322,19 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 		ZeroMemory ( tempPtrToX86StackBufForRouter, sizeof(InlineX86StackBuffer));
 		tempPtrToX86StackBufForRouter->rtnAddr_Pvoid= RtnAddrOfHook ();
 		tempPtrToX86StackBufForRouter->myInlineHookClass_Pish= this;
-		*((PInlineX86StackBuffer *)CurrentPtrIn_m_HookRouter_Pproc)= tempPtrToX86StackBufForRouter;//ÉèÖÃ±£´æ¶ÑÕ»µÄ»º³åµØÖ·¡£
+		*((PInlineX86StackBuffer *)CurrentPtrIn_m_HookRouter_Pproc)= tempPtrToX86StackBufForRouter;//è®¾ç½®ä¿å­˜å †æ ˆçš„ç¼“å†²åœ°å€ã€‚
 		
 		if (INLINE_5BYTESLAGGERJMP==HookMode)
-		{//µ±JMP==hookmodeÊ±£¬°Ñ»Ö¸´¶ÑÕ»+4µÄ´úÂënopµô¡£
+		{//å½“JMP==hookmodeæ—¶ï¼ŒæŠŠæ¢å¤å †æ ˆ+4çš„ä»£ç nopæ‰ã€‚
 			CurrentPtrIn_m_HookRouter_Pproc= &m_HookRouter_Pproc[X86INLINEROUTERSTRACKADD4];
-			*((DWORD *)CurrentPtrIn_m_HookRouter_Pproc)= 0x90909090u;//ÉèÖÃÎª4×Ö½Ú(lea esp, DWORD PTR[esp+ 4])µÄnop nop nop nop
+			*((DWORD *)CurrentPtrIn_m_HookRouter_Pproc)= 0x90909090u;//è®¾ç½®ä¸º4å­—èŠ‚(lea esp, DWORD PTR[esp+ 4])çš„nop nop nop nop
 // 
 // 			CurrentPtrIn_m_HookRouter_Pproc= &m_HookRouter_Pproc[X86INLINEROUTERSTRACKSUB4];
-// 			*((BYTE *)CurrentPtrIn_m_HookRouter_Pproc)= 0x90u;//ÉèÖÃÎª4×Ö½Ú(lea esp, DWORD PTR[esp+ 4])µÄnop nop nop nop
+// 			*((BYTE *)CurrentPtrIn_m_HookRouter_Pproc)= 0x90u;//è®¾ç½®ä¸º4å­—èŠ‚(lea esp, DWORD PTR[esp+ 4])çš„nop nop nop nop
 		}
 
 		CurrentPtrIn_m_HookRouter_Pproc= &m_HookRouter_Pproc[X86INLINEROUTERCALLADDROFF];
-		*((DWORD *)CurrentPtrIn_m_HookRouter_Pproc)= (DWORD) ((LPBYTE)RouterAddr- &m_HookRouter_Pproc[X86INLINEROUTERCALLADDROFF]+ 1- 0x5);//ÉèÖÃHOOKÖĞÌø×ªÍùµÄÄ¿±ê¡£×¢ÒâX86INLINEROUTERCALLADDROFF²»ÊÇÖ¸ÏòµÄ0xe8£¬¶øÊÇ0xe8Ö®ºó1¸ö×Ö½Ú£¬ĞèÒª+1
+		*((DWORD *)CurrentPtrIn_m_HookRouter_Pproc)= (DWORD) ((LPBYTE)RouterAddr- &m_HookRouter_Pproc[X86INLINEROUTERCALLADDROFF]+ 1- 0x5);//è®¾ç½®HOOKä¸­è·³è½¬å¾€çš„ç›®æ ‡ã€‚æ³¨æ„X86INLINEROUTERCALLADDROFFä¸æ˜¯æŒ‡å‘çš„0xe8ï¼Œè€Œæ˜¯0xe8ä¹‹å1ä¸ªå­—èŠ‚ï¼Œéœ€è¦+1
 
 
 		CurrentPtrIn_m_HookRouter_Pproc= &m_HookRouter_Pproc[X86INLINEROUTERENDOFF];
@@ -354,8 +354,8 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 		}
 
 		//if (INLINE_5BYTESLAGGERCALL==HookMode||INLINE_5BYTESLAGGERJMP==HookMode)
-		{//jmpÕâÑùÌø¹ıÀ´µÄ£¬¾Íjmp»ØÈ¥
-		//ÆäËûµÄÀàĞÍ²»¿ÉÄÜÔÚÕâ¶ù³öÏÖ¡£
+		{//jmpè¿™æ ·è·³è¿‡æ¥çš„ï¼Œå°±jmpå›å»
+		//å…¶ä»–çš„ç±»å‹ä¸å¯èƒ½åœ¨è¿™å„¿å‡ºç°ã€‚
 			CurrentPtrIn_m_HookRouter_Pproc[0]= 0xe9;
 			*((DWORD *)&CurrentPtrIn_m_HookRouter_Pproc [1])= (DWORD)((AddrToHook_Pvoid+ Len_Dw)- CurrentPtrIn_m_HookRouter_Pproc - 0x5);
 		}

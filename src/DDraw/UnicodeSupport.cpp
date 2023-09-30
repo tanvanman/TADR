@@ -326,7 +326,7 @@ LPDIRECTDRAWSURFACE UnicodeSupport::CreateSurfaceFromContextScreen (OFFSCREEN * 
 		
 	}
 
-	//	DDSurfaceDesc_temp.lPitch= (OFFSCREEN_Ptr->lPitch);//Ò»¸ö×Ö½Ú´ú±í8¸öbits
+	//	DDSurfaceDesc_temp.lPitch= (OFFSCREEN_Ptr->lPitch);//ä¸€ä¸ªå­—èŠ‚ä»£è¡¨8ä¸ªbits
 	//	DDSurfaceDesc_temp.lpSurface= OFFSCREEN_Ptr->lpSurface;
 
 	if (DD_OK==lpDDraw->CreateSurface ( &DDSurfaceDesc_temp, lplpDDSurface, NULL))
@@ -384,7 +384,7 @@ void UnicodeSupport::FreeSpecScreenSurface (PSpecScreenSurface ForFree_PSSS)
 			if (NULL!=(ForFree_PSSS->DDSurface_P))
 			{
 				if (TADDraw_lp==ForFree_PSSS->myDDraw_Ptr)
-				{//* DDrawµÄÊÍ·Å£¬»á°ÑÕâĞ©surface¶¼´İ»Ù *//
+				{//* DDrawçš„é‡Šæ”¾ï¼Œä¼šæŠŠè¿™äº›surfaceéƒ½æ‘§æ¯ *//
 					__try	
 					{
 
@@ -421,7 +421,7 @@ PSpecScreenSurface UnicodeSupport::GetSpecScreenSurface (OFFSCREEN * OFFSCREEN_P
 			else
 			{
 				
-				Last_PSSS->Next= temp_PSSS->Next;//* ¶Ï¿ªÁ´Ìõ *//
+				Last_PSSS->Next= temp_PSSS->Next;//* æ–­å¼€é“¾æ¡ *//
 				FreeSpecScreenSurface ( temp_PSSS);
 				if (UnicodeFontDrawCache==temp_PSSS)
 				{
@@ -467,7 +467,7 @@ BOOL UnicodeSupport::UnicodeDrawTextA (OFFSCREEN * OFFSCREEN_Ptr, char * Str_cst
 
 			PSpecScreenSurface temp_PSSS= GetSpecScreenSurface ( OFFSCREEN_Ptr);
 
-			//*ÏÖÔÚµÄÊµÏÖ£¬»áÈÃÆÁÄ»Ë¢ĞÂËÙ¶ÈÂıµ½±¬ *//
+			//*ç°åœ¨çš„å®ç°ï¼Œä¼šè®©å±å¹•åˆ·æ–°é€Ÿåº¦æ…¢åˆ°çˆ† *//
 			// Copy Context Screen In
 			if (DD_OK==temp_PSSS->DDSurface_P->Lock ( NULL, &(temp_PSSS->DDSurfaceDescForLock), DDLOCK_SURFACEMEMORYPTR, NULL))
 			{
@@ -891,7 +891,7 @@ bool UnicodeSupport::UpdateImeFrame (void)
 void UnicodeSupport::SetHDCFont (HDC Hdc, HFONT font)
 {
 	SelectObject ( Hdc, font);
-	SetTextColor ( Hdc, FontColor);///»ÆÉ« (?)
+	SetTextColor ( Hdc, FontColor);///é»„è‰² (?)
 	SetBkColor ( Hdc, HDCBackground);
 
 	//SetBkMode ( Hdc, TRANSPARENT);
@@ -1030,7 +1030,7 @@ bool UnicodeSupport::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 
 		break;
 	case WM_IME_STARTCOMPOSITION:
-		// *Õâ¸öÏûÏ¢³öÏÖÊ±£¬Ó¦¸Ã°ÑÆÁÄ»stunk×¡£¬ºÃÈÃÊäÈë·¨µÄÏÔÊ¾²»±»À¹½Ø¡£µ«»¹ÊÇĞèÒª½»¸øDefWindowsProc´¦Àí * //
+		// *è¿™ä¸ªæ¶ˆæ¯å‡ºç°æ—¶ï¼Œåº”è¯¥æŠŠå±å¹•stunkä½ï¼Œå¥½è®©è¾“å…¥æ³•çš„æ˜¾ç¤ºä¸è¢«æ‹¦æˆªã€‚ä½†è¿˜æ˜¯éœ€è¦äº¤ç»™DefWindowsProcå¤„ç† * //
 		IDDrawSurface::OutptTxt ( "WM_IME_STARTCOMPOSITION");
 		ReleaseCandidateList ( );
 		UpdateImeFrame ( );
@@ -1250,13 +1250,13 @@ int __stdcall USDrawTextInScreen_HookRouter (PInlineX86StackBuffer X86StrackBuff
 		}
 		LPDIRECTDRAW temp_PDDraw= static_cast <LPDIRECTDRAW>(LocalShare->TADirectDraw);
 		if (NULL==temp_PDDraw)
-		{//´°¿ÚÄ£Ê½
+		{//çª—å£æ¨¡å¼
 			__leave;
 		}
 
 		if (((NowSupportUnicode))->UnicodeDrawTextA ( OFFSCREEN_Ptr, Str, temp_PDDraw, X_Off, Y_Off))
 		{
-			X86StrackBuffer->Esp= X86StrackBuffer->Esp+ 0x4+ 0x18;// ÏÈpop  addr,È»ºó¼ÓÉÏretn 0x18
+			X86StrackBuffer->Esp= X86StrackBuffer->Esp+ 0x4+ 0x18;// å…ˆpop  addr,ç„¶ååŠ ä¸Šretn 0x18
 			X86StrackBuffer->rtnAddr_Pvoid= RtnAddr;
 			return X86STRACKBUFFERCHANGE;
 		}
@@ -1284,7 +1284,7 @@ int __stdcall myValidChar  (PInlineX86StackBuffer X86StrackBuffer)
 		}
 		if (DBSC_Flag_Global)
 		{
-			//* ºº×ÖµÄµÚ¶ş¸ö×Ö½Ú *//
+			//* æ±‰å­—çš„ç¬¬äºŒä¸ªå­—èŠ‚ *//
 			//
 			DBSC_Flag_Global= false;
 
@@ -1303,7 +1303,7 @@ int __stdcall myValidChar  (PInlineX86StackBuffer X86StrackBuffer)
 		DWORD Total= * ((DWORD *)(TAProgramStruct+ 0x16e));
 // 
  		if (Total<=CurrentReaded)
-		{//ºº×Ö×îÉÙ»áÍ¬Ê±ÓĞ¶ş¸ö×Ö½Ú
+		{//æ±‰å­—æœ€å°‘ä¼šåŒæ—¶æœ‰äºŒä¸ªå­—èŠ‚
 			__leave;
 		}
 
@@ -1413,7 +1413,7 @@ int __stdcall Blt_BottomState0_Text (PInlineX86StackBuffer X86StrackBuffer)
 		}
 		LPDIRECTDRAW temp_PDDraw= static_cast <LPDIRECTDRAW>(LocalShare->TADirectDraw);
 		if (NULL==temp_PDDraw)
-		{//´°¿ÚÄ£Ê½
+		{//çª—å£æ¨¡å¼
 			__leave;
 		}
 
@@ -1455,7 +1455,7 @@ int __stdcall Blt_BottomState1_Text (PInlineX86StackBuffer X86StrackBuffer)
 		}
 		LPDIRECTDRAW temp_PDDraw= static_cast <LPDIRECTDRAW>(LocalShare->TADirectDraw);
 		if (NULL==temp_PDDraw)
-		{//´°¿ÚÄ£Ê½
+		{//çª—å£æ¨¡å¼
 			__leave;
 		}
 

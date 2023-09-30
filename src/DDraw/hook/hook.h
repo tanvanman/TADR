@@ -2,7 +2,7 @@
 #define HOOK_H74DJN6554FD
 
 	class SingleHook
-	{//�������Hook��elmt��������ʵ�־����һ��HOOK��
+	{//这个类是Hook的elmt，功能是实现具体的一个HOOK。
 	public:
 		LPVOID m_AddrToHook;
 		int m_HookMode_I;
@@ -35,17 +35,17 @@
 	};
 
 	//INLINE_UNPROTECTEVINMENT
-	//������������hookRouter��new byte��Ҫ�Լ�ʵ�֡�
+	//不保护环境的hookRouter的new byte需要自己实现。
 	// INLINE_5BYTESNOREDIECTCALL (0x1004)
-	// INLINE_5BYTESNOREDIECTJMP (0x1005)�ᱣ��������������Ѹ����˵Ĵ��븴�����Զ�ִ�С�
+	// INLINE_5BYTESNOREDIECTJMP (0x1005)会保护环境，但不会把覆盖了的代码复制来自动执行。
 	//	#define INLINE_5BYTESCALL 0x1001
 	//  #define INLINE_5BYTESJMP 0x1002
-	//�����inlineHOOK�ı���������hookrouter������Ҫ�õĸ�ʽ!
+	//这个是inlineHOOK的保护环境的hookrouter所必须要用的格式!
 	// 	HOOKROUTERBEGIN_NAKED(blablabalabla)
-	// 		AfxMessageBox ( _T("�����HOOK�ĺ�����"));
+	// 		AfxMessageBox ( _T("这儿是HOOK的函数体"));
 	// 	HOOKROUTEREND(blablabalabla)
-	//  �ں��������ջ�ͼĴ�����HOOK�ط���һģһ����ֻҪ���޸ĵʹ���ջ(esp+4֮��)��ֵ���Ͳ����ƻ���ջ�ͼĴ���������Ҳ�����޸���Щֵ��
-	//  ����Ҫ��֤���hookRouterֻ��һ��inlineHookʹ�ã�������Ȼ�����̲߳�ͬ���ˡ�
+	//  在函数体里，堆栈和寄存器和HOOK地方的一模一样。只要不修改低处堆栈(esp+4之类)的值，就不会破坏堆栈和寄存器环境，也不会修改那些值。
+	//  而且要保证这个hookRouter只被一个inlineHook使用！！！不然可能线程不同步了。
 
 	class InlineSingleHook;
 	typedef struct tagInlineX86StackBuffer
@@ -60,7 +60,7 @@
 		DWORD Edx;
 		DWORD Ecx;
 		DWORD Eax;
-		DWORD RtnEsp;//���Ᵽ���һ��
+		DWORD RtnEsp;//额外保存的一个
 		int EnteredFlag_I;
 		DWORD TID_Dw;
 		InlineSingleHook * myInlineHookClass_Pish;
@@ -81,7 +81,7 @@
 
 #define ERRORMODE 0x99987
 
-#define X86STRACKBUFFERCHANGE 0x7798FFAA // HOOK ROUTER���޸��˷��ص�ַʱ����뷵��������޸��˼Ĵ�����ֵʱ���÷���������޸Ķ�ջ��ֵҲ���á������Լ������˷��ص�ַ����Ҫ�Լ�������Щ��HOOK����ָ���ˡ����Դ�InlineSingleHook::RedirectedOpcodeInStub���stub�з���λ�õĴ��롣
+#define X86STRACKBUFFERCHANGE 0x7798FFAA // HOOK ROUTER中修改了返回地址时候必须返回这个！修改了寄存器的值时候不用返回这个，修改堆栈的值也不用。但你自己设置了返回地址，就要自己备份那些被HOOK掉的指令了。可以从InlineSingleHook::RedirectedOpcodeInStub获得stub中返回位置的代码。
 
 
 
