@@ -1390,6 +1390,7 @@ enum UNITINFOMASK_0
 	canfire          = 2,
 	downloadable     = 0x20,
 	builder          = 0x40,
+	isairbase        = 0x200,
 	canfly           = 0x800,
 	canhover         = 0x1000,
 	hidedamage		 = 0x4000,

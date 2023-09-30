@@ -831,11 +831,11 @@ int ExternQuickKey::InitExternTypeMask (void)
 	for (int i= 0; i<TypeCount; ++i)
 	{
 		Current= &Begin[i];
-		if ((0!=(builder&Current->UnitTypeMask_0))
-			&&(NULL==Current->YardMap)//building
 
-			&&(! MatchInTypeAry ( Current->UnitTypeID, CommanderMask))
-			)
+		if (builder & Current->UnitTypeMask_0 &&
+			!(isairbase & Current->UnitTypeMask_0) &&
+			Current->bmcode && //can move
+			!MatchInTypeAry ( Current->UnitTypeID, CommanderMask))
 		{
 			SetIDMaskInTypeAry ( Current->UnitTypeID, ConstructorMask);
 		}
@@ -851,9 +851,10 @@ int ExternQuickKey::InitExternTypeMask (void)
 	{
 		Current= &Begin[i];
 
-		if ((0!=(builder&Current->UnitTypeMask_0))
-			&&(NULL!=Current->YardMap)
-			&&(! MatchInTypeAry ( Current->UnitTypeID, CommanderMask)))
+		if (builder & Current->UnitTypeMask_0 &&
+			!(isairbase & Current->UnitTypeMask_0) &&
+			!Current->bmcode && // cannot move
+			!MatchInTypeAry ( Current->UnitTypeID, CommanderMask))
 		{
 			SetIDMaskInTypeAry ( Current->UnitTypeID, FactoryMask);
 		}

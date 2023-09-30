@@ -772,7 +772,7 @@ void IDDrawSurface::OutptTxt(const char* format, ...)
 	//AnsiString CPath = "c:\\taddrawlog.txt";
     DWORD t = GetTickCount();
 
-    std::string s = std::to_string(t) + " " + std::to_string(GetCurrentThreadId()) + " ---  " + string;
+    std::string s = std::to_string(t) + " " + std::to_string(GetCurrentThreadId()) + " ---  " + format;
 
 	HANDLE file = CreateFileA("C:\\temp\\taddrawlog.txt", GENERIC_WRITE, 0, NULL, OPEN_ALWAYS	, 0, NULL);
 	DWORD tempWritten;
