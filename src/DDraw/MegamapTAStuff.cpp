@@ -35,7 +35,6 @@ MegamapTAStuff::MegamapTAStuff (FullScreenMinimap * parent_p, RECT * MegaMapScre
 		Cursor_Surfc[i]= NULL;
 	}
 	
-	TAStuff_Surfc= NULL;
 	Init ( parent_p, MegaMapScreen_p, TAMap_p, GameScreen_p, MaxIconWidth, MaxIconHeight, UseSurfaceCursor_a);
 }
 MegamapTAStuff::~MegamapTAStuff()
@@ -167,7 +166,33 @@ void MegamapTAStuff::LockBlit_TA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight
 			TAGameScreen.left+ (TAGameScreen.right- TAGameScreen.left)/ 2, TAGameScreen.top+ (TAGameScreen.bottom- TAGameScreen.top)/ 2, 
 			(*TAmainStruct_PtrPtr)->igpaused->PtrFrameAry->PtrFrame);
 	}
+
 	DrawPopupButtomDialog ( &OffScreen);
+
+	if ((*TAmainStruct_PtrPtr)->SoftwareDebugMode & softwaredebugmode::Clock)
+	{//draw clock
+		int gametime = (*TAmainStruct_PtrPtr)->GameTime;
+		char Textbuf[0x100];
+		sprintf_s(
+			Textbuf,
+			"%s : %02d:%02d:%02d",
+			"Game Time",
+			gametime / 0x1A5E0,
+			(gametime % 0x1A5E0) / 1800,
+			(gametime % 0x1A5E0) % 1800 / 30);
+
+
+		DrawTextInScreen(&OffScreen, Textbuf, 130, (*TAProgramStruct_PtrPtr)->ScreenHeight - 34 - *((*TAProgramStruct_PtrPtr)->Font_Height), -1);
+	}
+
+	if ((*TAmainStruct_PtrPtr)->GameStateMask == gameingstate::SKIRMISH || 
+		(*TAmainStruct_PtrPtr)->GameStateMask == gameingstate::MULTI)
+	{
+		char Textbuf[0x100];
+		int offY = 3 * (*((*TAProgramStruct_PtrPtr)->Font_Height)) - 10;
+		sprintf_s(Textbuf, "FRATE: %d\n", getFrate());
+		DrawTextInScreen(&OffScreen, Textbuf, 131, offY, -1);
+	}
 
 	if (! GUIBackup)
 	{
@@ -219,70 +244,29 @@ void MegamapTAStuff::LockBlit_MEGA (LPVOID lpSurfaceMem, int dwWidth, int dwHeig
 	}
 }
 
-void MegamapTAStuff::UpdateTAGameStuff (BOOL DrawTAStuff, BOOL DrawOrder)
+void MegamapTAStuff::BlitTAGameStuff(LPDIRECTDRAWSURFACE DestSurf, BOOL DrawTAStuff, BOOL DrawOrder)
 {
-	if (DrawTAStuff||DrawOrder)
+	if (DrawTAStuff || DrawOrder)
 	{
-
 		DDSURFACEDESC ddsd;
 		DDRAW_INIT_STRUCT(ddsd);
 
-		if (NULL!=TAStuff_Surfc)
+		if (DD_OK != DestSurf->IsLost())
 		{
-			if ( DD_OK!=TAStuff_Surfc->IsLost ( ))
-			{
-				TAStuff_Surfc->Restore ( );
-			}
-			DDBLTFX ddbltfx;
-			DDRAW_INIT_STRUCT(ddbltfx);
-			ddbltfx.dwFillColor= 9;
-
-			if(TAStuff_Surfc->Blt ( NULL, NULL, NULL, DDBLT_ASYNC| DDBLT_COLORFILL, &ddbltfx)!=DD_OK)
-			{
-				TAStuff_Surfc->Blt ( NULL, NULL, NULL, DDBLT_WAIT| DDBLT_COLORFILL , &ddbltfx);
-			}
-
-			if (DD_OK==TAStuff_Surfc->Lock ( NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL))
-			{
-				if (DrawTAStuff)
-				{
-					LockBlit_TA ( ddsd.lpSurface, ddsd.dwWidth, ddsd.dwHeight, ddsd.lPitch);
-				}
-				if (DrawOrder)
-				{
-					LockBlit_MEGA ( ddsd.lpSurface, ddsd.dwWidth, ddsd.dwHeight, ddsd.lPitch);
-				}
-				TAStuff_Surfc->Unlock ( NULL);
-			}
-			
+			DestSurf->Restore();
 		}
-	}
-}
 
-void MegamapTAStuff::BlitTAGameStuff(LPDIRECTDRAWSURFACE DestSurf)
-{
-	if (NULL!=TAStuff_Surfc)
-	{
-		if ( DD_OK!=TAStuff_Surfc->IsLost ( ))
+		if (DD_OK == DestSurf->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL))
 		{
-			TAStuff_Surfc->Restore ( );
-		}
-		DDBLTFX ddbltfx;
-		DDRAW_INIT_STRUCT(ddbltfx);
-		RECT GameScreen;
-
-		ddbltfx.ddckSrcColorkey.dwColorSpaceLowValue = 9;
-		ddbltfx.ddckSrcColorkey.dwColorSpaceHighValue = 0;
-
-
-		GameScreen.left= 0;
-		GameScreen.right= TAGameScreen.right;
-		GameScreen.top= 0;
-		GameScreen.bottom= TAGameScreen.bottom;
-
-		if(DestSurf->Blt ( &GameScreen, TAStuff_Surfc, NULL, DDBLT_ASYNC| DDBLT_KEYSRCOVERRIDE  , &ddbltfx)!=DD_OK)
-		{
-			DestSurf->Blt ( &GameScreen, TAStuff_Surfc, NULL, DDBLT_WAIT| DDBLT_KEYSRCOVERRIDE  , &ddbltfx);
+			if (DrawTAStuff)
+			{
+				LockBlit_TA(ddsd.lpSurface, ddsd.dwWidth, ddsd.dwHeight, ddsd.lPitch);
+			}
+			if (DrawOrder)
+			{
+				LockBlit_MEGA(ddsd.lpSurface, ddsd.dwWidth, ddsd.dwHeight, ddsd.lPitch);
+			}
+			DestSurf->Unlock(NULL);
 		}
 	}
 }
@@ -375,24 +359,6 @@ void MegamapTAStuff::InitSurface ( LPDIRECTDRAW TADD, BOOL VidMem)
 				Cursor_Surfc[i]->Unlock(NULL);
 			}
 	}
-
-	
-	DDSURFACEDESC ddsd;
-	DDRAW_INIT_STRUCT(ddsd);
-	ddsd.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT;
-
-	if (VidMem)
-	{
-		ddsd.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY;
-	}
-	else
-	{
-		ddsd.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-	}
-	ddsd.dwWidth = TAGameScreen.right;
-	ddsd.dwHeight = TAGameScreen.bottom;
-
-	TADD->CreateSurface ( &ddsd, &TAStuff_Surfc, NULL);
 }
 
 void MegamapTAStuff::ReleaseSurface (void) 
@@ -408,11 +374,6 @@ void MegamapTAStuff::ReleaseSurface (void)
 			}
 		}
 
-	}
-	if (NULL!=TAStuff_Surfc)
-	{
-		TAStuff_Surfc->Release ( );
-		TAStuff_Surfc= NULL;
 	}
 }
 

@@ -21,6 +21,12 @@ struct _GAFFrame;
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Working.
 //////////////////////////////////////////////////////////////////////////////////////////
+typedef int(__stdcall* _getFrate)();
+extern _getFrate getFrate;
+typedef int(__stdcall* DrawTextInScreen_)(OFFSCREEN* offscreen_p, char* text, int xOff, int yOff, int length);
+extern DrawTextInScreen_ DrawTextInScreen;
+typedef bool(__stdcall* _DrawColorTextInScreen)(OFFSCREEN* offscreen_p, char* text, int y_off, int x_off, int len_, int color_);
+extern _DrawColorTextInScreen DrawColorTextInScreen;
 typedef unsigned short (__stdcall *_FindMouseUnit)(void); //find BeginUnitsArray_p  under mousepointer
 extern _FindMouseUnit FindMouseUnit;
 //fill TAdynmem->MouseMapPosX & TAdynmem->MouseMapPosY first

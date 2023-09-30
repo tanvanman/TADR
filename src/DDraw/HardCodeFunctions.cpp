@@ -407,6 +407,10 @@ BOOL IsPlayerAllyUnit (int UnitID,int PlayerLosID)
 	return FALSE;
 }
 
+_getFrate getFrate = (_getFrate)0x4B66A0;
+DrawTextInScreen_ DrawTextInScreen = (DrawTextInScreen_)0x04C14F0;
+_DrawColorTextInScreen DrawColorTextInScreen = (_DrawColorTextInScreen)0x4A50E0;
+
 //find BeginUnitsArray_p  under mousepointer
 _FindMouseUnit FindMouseUnit = (_FindMouseUnit)0x48CD80;
 
