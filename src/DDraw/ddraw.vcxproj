@@ -125,6 +125,13 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Debug/ddraw.bsc</OutputFile>
     </Bscmake>
+    <PostBuildEvent>
+      <Command>
+if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
+    copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
+)
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Midl>
@@ -173,6 +180,13 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Release/ddraw.bsc</OutputFile>
     </Bscmake>
+    <PostBuildEvent>
+      <Command>
+if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
+    copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
+)
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">
     <Midl>
