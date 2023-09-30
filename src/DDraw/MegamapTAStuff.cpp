@@ -166,7 +166,24 @@ void MegamapTAStuff::LockBlit_TA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight
 			TAGameScreen.left+ (TAGameScreen.right- TAGameScreen.left)/ 2, TAGameScreen.top+ (TAGameScreen.bottom- TAGameScreen.top)/ 2, 
 			(*TAmainStruct_PtrPtr)->igpaused->PtrFrameAry->PtrFrame);
 	}
+
 	DrawPopupButtomDialog ( &OffScreen);
+
+	if ((*TAmainStruct_PtrPtr)->SoftwareDebugMode & softwaredebugmode::Clock)
+	{//draw clock
+		int gametime = (*TAmainStruct_PtrPtr)->GameTime;
+		char Textbuf[0x100];
+		sprintf_s(
+			Textbuf,
+			"%s : %02d:%02d:%02d",
+			"Game Time",
+			gametime / 0x1A5E0,
+			(gametime % 0x1A5E0) / 1800,
+			(gametime % 0x1A5E0) % 1800 / 30);
+
+
+		DrawTextInScreen(&OffScreen, Textbuf, 130, (*TAProgramStruct_PtrPtr)->ScreenHeight - 34 - *((*TAProgramStruct_PtrPtr)->Font_Height), -1);
+	}
 
 	if ((*TAmainStruct_PtrPtr)->GameStateMask == gameingstate::SKIRMISH || 
 		(*TAmainStruct_PtrPtr)->GameStateMask == gameingstate::MULTI)
