@@ -3,7 +3,11 @@ Ensure the following files are also present in your TA directory:
 - ddraw.dll (available from https://github.com/FunkyFr3sh/cnc-ddraw)
 - totala.ini
 
-You might need to rename totala.ini to whatever .ini file name your mod is using.
-e.g. ProTA4.5 is using ta.ini and ESC is using TAESC.ini
+You may need to rename totala.ini and tdraw.dll to whatever your mod is using.  See below for reference.  For other mods, please consult with the mod maintainers.
 
-Same applies for tdraw.dll, you may need to rename it for some mods.
+                        ini file        dll file
+Beta patch 3.9.02       TA.ini          tdraw.dll
+Escalation 9.9.6        TAESC.ini       taesc.dll
+Mayhem 10.9.2           Settings.ini    mdraw.dll
+ProTA 4.6               ProTA.ini       tdraw.dll
+Zero Alpha5-060322      tazero.ini      zdraw.dll
