@@ -18,8 +18,11 @@ enum TAProcessEnum
 
 #define TADRCONFIGREGNAME ("Moo")
 
-
+// write to file C:\\temp\\taddrawlog.txt
 //#define DEBUG_INFO
+
+// use OutputDebugStringA
+//#define DEBUG_INFO_2
 
 class AlliesWhiteboard;
 class CIncome;
@@ -166,7 +169,7 @@ public:
 	void CreateDir(char *Dir);
 	void CorrectName(char *Name);
 
-	static void OutptTxt(const char *string);
+	static void OutptTxt(const char* format, ...);
 	static void OutptInt(int Int_I);
 	void Set(bool EnableVSync);
 	void FrontSurface (LPDIRECTDRAWSURFACE lpTASurf);

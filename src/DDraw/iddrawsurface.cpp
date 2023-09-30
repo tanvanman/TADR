@@ -758,8 +758,16 @@ HRESULT __stdcall IDDrawSurface::UpdateOverlayZOrder(DWORD arg1, LPDIRECTDRAWSUR
 	return lpFront->UpdateOverlayZOrder(arg1, arg2);
 }
 
-void IDDrawSurface::OutptTxt(const char *string)
+void IDDrawSurface::OutptTxt(const char* format, ...)
 {
+#if defined(DEBUG_INFO_2)
+	va_list args;
+	va_start(args, format);
+	char buffer[1024] = { 0 };
+	_vsnprintf_s(buffer, sizeof(buffer), format, args);
+	OutputDebugStringA(buffer);
+#endif
+
 #ifdef DEBUG_INFO
 	//AnsiString CPath = "c:\\taddrawlog.txt";
     DWORD t = GetTickCount();
