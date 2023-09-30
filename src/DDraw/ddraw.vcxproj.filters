@@ -13,8 +13,8 @@
       <UniqueIdentifier>{9b152f9d-a092-42a9-ac47-0594f135a640}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="PCX Files">
-      <UniqueIdentifier>{9b152f9d-a092-42a9-ac47-0594f135a640}</UniqueIdentifier>
+    <Filter Include="Other Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>pcx</Extensions>
     </Filter>
   </ItemGroup>
