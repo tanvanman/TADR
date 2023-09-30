@@ -56,9 +56,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">G:\CAVEDOG\TADev\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    </IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.\Debug\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">.\private\</OutDir>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">.\Public\</OutDir>
@@ -112,14 +111,16 @@
       <Culture>0x041d</Culture>
     </ResourceCompile>
     <Link>
-      <OutputFile>G:\CAVEDOG\TADev\tdraw.dll</OutputFile>
+      <AdditionalDependencies>imm32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>.\Debug/tdraw.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <ModuleDefinitionFile>.\ddraw.def</ModuleDefinitionFile>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ProgramDatabaseFile>.\Debug/ddraw.pdb</ProgramDatabaseFile>
-      <ImportLibrary>.\Debug/ddraw.lib</ImportLibrary>
+      <ProgramDatabaseFile>.\Debug/tdraw.pdb</ProgramDatabaseFile>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>.\Debug\tdraw.map</MapFileName>
+      <ImportLibrary>.\Debug/tdraw.lib</ImportLibrary>
       <TargetMachine>MachineX86</TargetMachine>
-      <AdditionalDependencies>imm32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -235,6 +236,13 @@ if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Release/ddraw.bsc</OutputFile>
     </Bscmake>
+    <PostBuildEvent>
+      <Command>
+if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
+    copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
+)
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Guiexport.cpp" />
@@ -442,6 +450,7 @@ if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  
     </ResourceCompile>
     <ResourceCompile Include="publicddraw.rc">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ResourceCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

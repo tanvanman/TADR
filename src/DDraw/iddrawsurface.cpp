@@ -760,19 +760,22 @@ HRESULT __stdcall IDDrawSurface::UpdateOverlayZOrder(DWORD arg1, LPDIRECTDRAWSUR
 
 void IDDrawSurface::OutptTxt(const char* format, ...)
 {
-#if defined(DEBUG_INFO_2)
+#if defined(DEBUG_INFO) || defined(DEBUG_INFO_2) || defined(_DEBUG)
 	va_list args;
 	va_start(args, format);
 	char buffer[1024] = { 0 };
 	_vsnprintf_s(buffer, sizeof(buffer), format, args);
+#endif
+
+#if defined(DEBUG_INFO_2) || defined(_DEBUG)
 	OutputDebugStringA(buffer);
 #endif
 
 #ifdef DEBUG_INFO
 	//AnsiString CPath = "c:\\taddrawlog.txt";
-    DWORD t = GetTickCount();
+	DWORD t = GetTickCount();
 
-    std::string s = std::to_string(t) + " " + std::to_string(GetCurrentThreadId()) + " ---  " + format;
+	std::string s = std::to_string(t) + " " + std::to_string(GetCurrentThreadId()) + " ---  " + buffer;
 
 	HANDLE file = CreateFileA("C:\\temp\\taddrawlog.txt", GENERIC_WRITE, 0, NULL, OPEN_ALWAYS	, 0, NULL);
 	DWORD tempWritten;
