@@ -223,7 +223,6 @@ bool ExternQuickKey::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 				ApplySelectUnitMenu_Wapper ( );
 				return true;
 			}
-			/*
 			if(wParam == 70  && (GetAsyncKeyState(17)&0x8000)>0 && (GetAsyncKeyState(16)&0x8000)==0) 
 			{// ctrl + f
 				DeselectUnits ();
@@ -231,7 +230,7 @@ bool ExternQuickKey::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 				UpdateSelectUnitEffect ( ) ;
 				ApplySelectUnitMenu_Wapper ( );
 				return true;
-			} */
+			}
 			
 			break;
 		case WM_KEYUP:
