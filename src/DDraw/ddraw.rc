@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// ÈðµäÓï(Èðµä) resources
+// ç‘žå…¸è¯­(ç‘žå…¸) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_SVE)
 LANGUAGE LANG_SWEDISH, SUBLANG_SWEDISH
@@ -103,7 +103,7 @@ GREENRECT               RCDATA                  "bitmaps/greenrect.pcx"
 STANDARBUTTON           RCDATA                  "bitmaps/standarbutton.pcx"
 INPUTBOX                RCDATA                  "bitmaps/inputbox.pcx"
 SMALLCIRCLE             RCDATA                  "bitmaps/smallcircle.pcx"
-#endif    // ÈðµäÓï(Èðµä) resources
+#endif    // ç‘žå…¸è¯­(ç‘žå…¸) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
