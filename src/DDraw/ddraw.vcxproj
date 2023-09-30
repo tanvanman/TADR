@@ -236,6 +236,13 @@ if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Release/ddraw.bsc</OutputFile>
     </Bscmake>
+    <PostBuildEvent>
+      <Command>
+if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
+    copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
+)
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Guiexport.cpp" />
