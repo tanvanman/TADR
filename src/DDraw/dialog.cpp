@@ -43,6 +43,8 @@ Dialog::Dialog(BOOL Vidmem_a)
 
 	VSyncPushed= false;
 	ShareText[0]= 0;
+	AutoClickDelayText[0] = 0;
+	MexSnapRadiusText[0] = 0;
 
 	LocalShare->Dialog = this;
 	posX = 0;
@@ -337,6 +339,11 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				AutoClickDelayFocus = false;
 				RenderDialog();
 			}
+			if (MexSnapRadiusFocus)
+			{
+				MexSnapRadiusFocus = false;
+				RenderDialog();
+			}
 			if (MegmapFocus)
 			{
 				MegmapFocus= false;
@@ -388,6 +395,11 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				AutoClickDelayFocus = true;
 				RenderDialog();
 				}*/
+				else if (Inside(LOWORD(lParam), HIWORD(lParam), MexSnapRadiusId))
+				{
+					MexSnapRadiusFocus = true;
+					RenderDialog();
+				}
 				else if(Inside(LOWORD(lParam), HIWORD(lParam), OptimizeDT))
 				{
 					StartedIn = OptimizeDT;
@@ -618,19 +630,42 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			{
 				if(wParam == 8) //backspace
 				{
-					if(strlen(cAutoClickDelay)>0)
-						cAutoClickDelay[strlen(cAutoClickDelay)-1] = '\0';
+					if(strlen(AutoClickDelayText)>0)
+						AutoClickDelayText[strlen(AutoClickDelayText)-1] = '\0';
 				}
 				else
 				{
-					if(strlen(cAutoClickDelay)!=3)
+					if(strlen(AutoClickDelayText)!=3)
 					{
 						if(wParam>='0' && wParam<='9')
 						{
 							char App[2];
 							App[0] = (TCHAR)wParam;
 							App[1] = '\0';
-							lstrcatA(cAutoClickDelay, App);
+							lstrcatA(AutoClickDelayText, App);
+						}
+					}
+				}
+				RenderDialog();
+				return true;
+			}
+			if (MexSnapRadiusFocus)
+			{
+				if (wParam == 8) //backspace
+				{
+					if (strlen(MexSnapRadiusText) > 0)
+						MexSnapRadiusText[strlen(MexSnapRadiusText) - 1] = '\0';
+				}
+				else
+				{
+					if (strlen(MexSnapRadiusText) != 1)
+					{
+						if (wParam >= '0' && wParam <= '9')
+						{
+							char App[2];
+							App[0] = (TCHAR)wParam;
+							App[1] = '\0';
+							lstrcatA(MexSnapRadiusText, App);
 						}
 					}
 				}
@@ -678,6 +713,7 @@ void Dialog::RenderDialog()
 	DrawVSync();
 	DrawFullRings();
 	//DrawDelay();
+	DrawMexSnapRadius();
 	DrawWhiteboardKey();
 	//DrawVisibleButton();
 #ifdef USEMEGAMAP
@@ -730,6 +766,11 @@ bool Dialog::Inside(int x, int y, int Control)
 			return false;
 	case AutoClickDelay:
 		if(x>=AutoClickDelayPosX && x<AutoClickDelayPosX+AutoClickDelayWidth && y>=AutoClickDelayPosY && y<AutoClickDelayPosY+AutoClickDelayHeight)
+			return true;
+		else
+			return false;
+	case MexSnapRadiusId:
+		if (x >= MexSnapRadiusPosX && x < MexSnapRadiusPosX + MexSnapRadiusWidth && y >= MexSnapRadiusPosY && y < MexSnapRadiusPosY + MexSnapRadiusHeight)
 			return true;
 		else
 			return false;
@@ -863,11 +904,17 @@ void Dialog::SetAll()
 
 	if (TAHook)
 	{
-		int Delay = atoi(cAutoClickDelay);
+		int Delay = atoi(AutoClickDelayText);
 		if(Delay<1)
 			Delay = 1;
-		TAHook->Set(VirtualKeyCode, ShareText, OptimizeDTEnabled, FullRingsEnabled, Delay);
 
+		int Radius = atoi(MexSnapRadiusText);
+		if (Radius < 0)
+			Radius = 2;
+		if (Radius > 9)
+			Radius = 9;
+
+		TAHook->Set(VirtualKeyCode, ShareText, OptimizeDTEnabled, FullRingsEnabled, Delay, Radius);
 	}
 
 	AlliesWhiteboard *WB = (AlliesWhiteboard*)LocalShare->Whiteboard;
@@ -920,7 +967,8 @@ void Dialog::WriteSettings()
 	RegSetValueEx(hKey, "OptimizeDT", NULL, REG_BINARY, (unsigned char*)&OptimizeDTEnabled, sizeof(bool));
 	RegSetValueEx(hKey, "FullRings", NULL, REG_BINARY, (unsigned char*)&FullRingsEnabled, sizeof(bool));
 	RegSetValueEx(hKey, "ShareText", NULL, REG_SZ, (unsigned char*)ShareText, strlen(ShareText));
-	RegSetValueEx(hKey, "Delay", NULL, REG_SZ, (unsigned char*)cAutoClickDelay, strlen(cAutoClickDelay));
+	RegSetValueEx(hKey, "Delay", NULL, REG_SZ, (unsigned char*)AutoClickDelayText, strlen(AutoClickDelayText));
+	RegSetValueEx(hKey, "MexSnapRadius", NULL, REG_SZ, (unsigned char*)MexSnapRadiusText, strlen(MexSnapRadiusText));
 	RegSetValueEx(hKey, "WhiteboardKey", NULL, REG_DWORD, (unsigned char*)&VirtualWhiteboardKey, sizeof(int));
 	RegSetValueEx(hKey, "MegamapKey", NULL, REG_DWORD, (unsigned char*)&VirtualMegamap, sizeof(int));
 
@@ -966,7 +1014,7 @@ void Dialog::ReadSettings()
 	{
 		FullRingsEnabled = true;
 	}
-	Size = 1000;
+	Size = sizeof(ShareText);
 	if(RegQueryValueEx(hKey, "ShareText", NULL, NULL, (unsigned char*)ShareText, &Size) != ERROR_SUCCESS)
 	{
 		lstrcpyA(ShareText, "+setshareenergy 1000\255+setsharemetal 1000\255+shareall\255+shootall");
@@ -974,10 +1022,15 @@ void Dialog::ReadSettings()
 		ShareText[40] = 13;
 		ShareText[50] = 13;
 	}
-	Size = 10;
-	if(RegQueryValueEx(hKey, "Delay", NULL, NULL, (unsigned char*)cAutoClickDelay, &Size) != ERROR_SUCCESS)
+	Size = sizeof(AutoClickDelayText);
+	if(RegQueryValueEx(hKey, "Delay", NULL, NULL, (unsigned char*)AutoClickDelayText, &Size) != ERROR_SUCCESS)
 	{
-		lstrcpyA(cAutoClickDelay, "10");
+		lstrcpyA(AutoClickDelayText, "10");
+	}
+	Size = sizeof(MexSnapRadiusText);
+	if (RegQueryValueEx(hKey, "MexSnapRadius", NULL, NULL, (unsigned char*)MexSnapRadiusText, &Size) != ERROR_SUCCESS)
+	{
+		lstrcpyA(MexSnapRadiusText, "2");
 	}
 	Size = sizeof(int);
 	if(RegQueryValueEx(hKey, "WhiteboardKey", NULL, NULL, (unsigned char*)&VirtualWhiteboardKey, &Size) != ERROR_SUCCESS)
@@ -1301,9 +1354,30 @@ void Dialog::DrawDelay()
 		FillRect(AutoClickDelayPosX, AutoClickDelayPosY, (AutoClickDelayPosX)+AutoClickDelayWidth, AutoClickDelayPosY+AutoClickDelayHeight, 0);
 
 		if(AutoClickDelayFocus)
-			DrawTinyText(cAutoClickDelay, static_cast<int>(AutoClickDelayPosX+2), static_cast<int>(AutoClickDelayPosY+3), 255U);
+			DrawTinyText(AutoClickDelayText, static_cast<int>(AutoClickDelayPosX+2), static_cast<int>(AutoClickDelayPosY+3), 255U);
 		else
-			DrawTinyText(cAutoClickDelay, static_cast<int>(AutoClickDelayPosX+2), static_cast<int>(AutoClickDelayPosY+3), 208U);
+			DrawTinyText(AutoClickDelayText, static_cast<int>(AutoClickDelayPosX+2), static_cast<int>(AutoClickDelayPosY+3), 208U);
+
+		lpDialogSurf->Unlock(NULL);
+	}
+}
+
+void Dialog::DrawMexSnapRadius()
+{
+	DrawSmallText(lpDialogSurf, MexSnapRadiusPosX, MexSnapRadiusPosY - 13, "Metal-Patch Snap Radius");
+	DDSURFACEDESC ddsd;
+	DDRAW_INIT_STRUCT(ddsd);
+	if (lpDialogSurf->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL) == DD_OK)
+	{
+		SurfaceMemory = ddsd.lpSurface;
+		lPitch = ddsd.lPitch;
+
+		FillRect(MexSnapRadiusPosX, MexSnapRadiusPosY, (MexSnapRadiusPosX)+MexSnapRadiusWidth, MexSnapRadiusPosY + MexSnapRadiusHeight, 0);
+
+		if (MexSnapRadiusFocus)
+			DrawTinyText(MexSnapRadiusText, static_cast<int>(MexSnapRadiusPosX + 2), static_cast<int>(MexSnapRadiusPosY + 3), 255U);
+		else
+			DrawTinyText(MexSnapRadiusText, static_cast<int>(MexSnapRadiusPosX + 2), static_cast<int>(MexSnapRadiusPosY + 3), 208U);
 
 		lpDialogSurf->Unlock(NULL);
 	}

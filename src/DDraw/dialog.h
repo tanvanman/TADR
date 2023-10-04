@@ -46,6 +46,11 @@
 #define AutoClickDelayHeight 15
 #define AutoClickDelayPosX 200
 #define AutoClickDelayPosY 30
+#define MexSnapRadiusId 12
+#define MexSnapRadiusWidth 28
+#define MexSnapRadiusHeight 15
+#define MexSnapRadiusPosX 200
+#define MexSnapRadiusPosY 30
 #define WhiteboardKey 9
 #define WhiteboardKeyWidth 60
 #define WhiteboardKeyHeight 15
@@ -118,8 +123,11 @@ class Dialog
 
     bool FullRingsEnabled;
 
-    char cAutoClickDelay[10];
+    char AutoClickDelayText[10];
     bool AutoClickDelayFocus;
+
+	char MexSnapRadiusText[10];
+	bool MexSnapRadiusFocus;
 
     int VirtualKeyCode;
     bool KeyCodeFocus;
@@ -143,7 +151,8 @@ class Dialog
     void DrawOptimizeDT();
     void DrawVSync();
     void DrawFullRings();
-    void DrawDelay();
+	void DrawDelay();
+	void DrawMexSnapRadius();
     void DrawWhiteboardKey();
     void DrawVisibleButton();
 

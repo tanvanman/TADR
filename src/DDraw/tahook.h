@@ -43,6 +43,7 @@ class CTAHook
     void WriteScrollDTLine();
     unsigned int SendMessage;
     int Delay;
+	int MexSnapRadius;
     bool WriteLine;
     int StartX, StartY;
     int EndX, EndY;
@@ -65,13 +66,15 @@ class CTAHook
 	void FindConnectedSquare(int &x1, int &y1, int &x2, int &y2, char *unittested);
     //void VisualizeRing(LPDIRECTDRAWSURFACE DestSurf);
 
-	void ClickBuilding(int Xpos, int Ypos);
+	void ClickBuilding(int Xpos, int Ypos, bool shiftBuild=true);
 	short GetFootX();
 	short GetFootY();
+	const UnitDefStruct& GetBuildUnit() const;
 	void DrawBuildRect(int posx, int posy, int sizex, int sizey, int color);
 	void EnableTABuildRect();
 	void DisableTABuildRect();
 	void PaintMinimapRect();
+	void SnapToNearMetalPatch(int xyPos[2]);
 
     /**
      * @brief display text to local player only
@@ -109,7 +112,7 @@ class CTAHook
     CTAHook(BOOL VidMem);
     ~CTAHook();
     bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-    void Set(int KeyCodei, char *ChatMacroi, bool FullRingsi, bool VisualizeRowsi, int iDelay);
+    void Set(int KeyCodei, char *ChatMacroi, bool FullRingsi, bool VisualizeRowsi, int iDelay, int iRadius);
     void WriteShareMacro();
     void Blit(LPDIRECTDRAWSURFACE DestSurf);
 	void TABlit();

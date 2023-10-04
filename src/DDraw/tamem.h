@@ -368,7 +368,7 @@ struct TAdynmemStruct{
 	unsigned char field_85;
 	unsigned short LosType;// 0x14281
 	unsigned int	 TILE_SET; 
-	FeatureStruct *Features; //0x14287
+	FeatureStruct *FeatureMap; //0x14287
 	char data20[0x40];
 	tagRECT MinimapRect;//0x142CB
 	RadarPicStruct *RadarFinal; //0x142DB
@@ -505,17 +505,51 @@ struct WreckageInfoStruct{
 };
 
 struct FeatureStruct{
-	char data1[8];
-	short FeatureDefIndex;
-	short WreckageInfoIndex;
-	char data2[1];
+	unsigned char data1[7];
+	unsigned char MetalValue;
+	unsigned short FeatureDefIndex;
+	unsigned short WreckageInfoIndex;
+	unsigned char data2[1];
 }; //0xD
 
 struct FeatureDefStruct {
 	char Name[0x20];
 	char data1[0x60];
 	char Description[20];
-	char Data2[108];
+	short FootprintX;
+	short FootprintZ;
+	int objects3d;
+	short unknownField_9C;
+	void* unknownField_9E;
+	char unknownFieldA2[6];
+	void* Anims;
+	char* SeqName;
+	char* SeqNameShad;
+	char* BurnName2Sequence;
+	char* SeqNameBurnsShad;
+	char* SeqNameDie;
+	char* SeqNameDieShad;
+	char* SeqNameReclamate;
+	char* SeqNameReclamateShad;
+	short unknownField_CC;
+	short unknownField_CE;
+	int equals0;
+	int unknownField_D4;
+	int unknownField_D8;
+	int unknownField_DC;
+	int unknownField_E0;
+	int BurnWeapon;
+	short SparkTime;
+	short Damage;
+	float Energy;
+	float Metal;
+	char unknownField_F4[6];
+	char Height;
+	char SpreadChance;
+	char Reproduce;
+	char ReproduceArea;
+	short FeatureMask;
+	//char Data2[108];
 }; //0x100
 
 struct ProjectileStruct {
@@ -1477,6 +1511,20 @@ namespace gameingstate
 	};
 }
 
+enum class FeatureMasks
+{
+	animating = 0x0002,
+	animtrans = 0x0004,
+	shadtrans = 0x0008,
+	flamable = 0x0010,
+	geothermal = 0x0020,
+	blocking = 0x0040,
+	reclaimable = 0x0080,
+	autoreclaimable = 0x0100,
+	indestructible = 0x0200,
+	nodisplayinfo = 0x0400,
+	nodrawundergray = 0x0800
+};
 
 #define PLAYERNUM (10)
 

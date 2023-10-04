@@ -62,6 +62,7 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	QueuePos = 0;
 	Delay = 5;
+	MexSnapRadius = 2;
 	WriteLine = false;
 	FootPrintX = FootPrintY = 2;
 	ScrollEnabled = LocalShare->CompatibleVersion;
@@ -100,8 +101,52 @@ CTAHook::~CTAHook()
 
 }
 
+unsigned GetSumMetalExctractOverFootprint(int x, int y, int footX, int footY)
+{
+	TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+	const int dxMin = -footX / 2;
+	const int dxMax = footX % 2 ? footX / 2 : footX / 2 - 1;
+	const int dyMin = -footY / 2;
+	const int dyMax = footY % 2 ? footY / 2 : footY / 2 - 1;
 
+	unsigned metal = 0u;
+	for (int dx = dxMin; dx <= dxMax; ++dx) {
+		for (int dy = dyMin; dy <= dyMax; ++dy) {
+			if (x + dx < 0 || y + dy < 0 || x + dx >= Ptr->FeatureMapSizeX || y + dy >= Ptr->FeatureMapSizeY) {
+				continue;
+			}
+			const int idx = (x + dx) + (y + dy) * Ptr->FeatureMapSizeX;
+			metal += Ptr->FeatureMap[idx].MetalValue;
+		}
+	}
+	return metal;
+}
 
+void CTAHook::SnapToNearMetalPatch(int xyPos[2])
+{
+	const int x0 = TAdynmem->BuildPosX;
+	const int y0 = TAdynmem->BuildPosY;
+	const int footX = GetFootX();
+	const int footY = GetFootY();
+	const int R = MexSnapRadius;
+
+	unsigned bestMetal = GetSumMetalExctractOverFootprint(x0, y0, footX, footY);
+	int bestDx = 0, bestDy = 0;
+
+	for (int dx = -R; dx <= R; ++dx)  {
+		for (int dy = -R; dy <= R; ++dy) {
+			unsigned metal = GetSumMetalExctractOverFootprint(x0 + dx, y0 + dy, footX, footY);
+			if (metal > bestMetal) {
+				bestMetal = metal;
+				bestDx = dx;
+				bestDy = dy;
+			}
+		}
+	}
+
+	xyPos[0] = x0 + bestDx;
+	xyPos[1] = y0 + bestDy;
+}
 
 bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
@@ -115,11 +160,11 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			case WM_KEYDOWN:
 				switch((int)wParam)
 				{
-				case 122: //f11
+				case VK_F11:
 					WriteShareMacro();
 					return true;
 
-				case 33:  //pageup
+				case VK_PRIOR: //pageup
 					if((GetAsyncKeyState(VirtualKeyCode)&0x8000)>0)
 					{
 						Spacing++;
@@ -129,7 +174,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						return true;
 					}
 
-				case 34:  //pagedown
+				case VK_NEXT:  //pagedown
 					if((GetAsyncKeyState(VirtualKeyCode)&0x8000)>0)
 					{
 						Spacing--;
@@ -227,6 +272,16 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					StartMapX = *MapX;
 					StartMapY = *MapY;
 					}*/
+					return true;
+				}
+				else if ((ordertype::BUILD == TAdynmem->PrepareOrder_Type)
+					&& MexSnapRadius > 0
+					&& (GetAsyncKeyState(VK_CONTROL) & 0x8000) == 0   // hold down control to temporarily disable
+					&& GetBuildUnit().extractsmetal)
+				{
+					int xyPos[2];
+					SnapToNearMetalPatch(xyPos);
+					ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
 					return true;
 				}
 				break;
@@ -336,13 +391,14 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	return false;
 }
 
-void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay)
+void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iRadius)
 {
 	VirtualKeyCode = KeyCodei;
 	lstrcpyA(ShareText, ChatMacroi);
 	OptimizeRows = OptimizeRowsi;
 	FullRingsEnabled = FullRingsi;
 	Delay = iDelay;
+	MexSnapRadius = iRadius;
 }
 
 void CTAHook::WriteShareMacro()
@@ -1026,13 +1082,13 @@ void CTAHook::VisualizeRing(LPDIRECTDRAWSURFACE DestSurf)
 }
 */
 
-void CTAHook::ClickBuilding(int Xpos, int Ypos)
+void CTAHook::ClickBuilding(int Xpos, int Ypos, bool shiftBuild)
 {
 	int BakX= TAdynmem->MouseMapPos.X;
 	int BakY= TAdynmem->MouseMapPos.Y;
 
 	msgstruct mu;
-	mu.shiftstatus = 5;
+	mu.shiftstatus = shiftBuild ? 5 : 0;
 
 	TAdynmem->MouseMapPos.X = (short)Xpos;
 	TAdynmem->MouseMapPos.Y = (short)Ypos;
@@ -1053,6 +1109,11 @@ short CTAHook::GetFootX()  //get footprint of selected BeginUnitsArray_p  to bui
 short CTAHook::GetFootY()  //get footprint of selected BeginUnitsArray_p  to build
 {
 	return TAdynmem->UnitDef[TAdynmem->BuildUnitID].FootY;
+}
+
+const UnitDefStruct& CTAHook::GetBuildUnit() const
+{
+	return TAdynmem->UnitDef[TAdynmem->BuildUnitID];
 }
 
 void CTAHook::DrawBuildRect(int posx, int posy, int sizex, int sizey, int color)
