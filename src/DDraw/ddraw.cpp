@@ -138,6 +138,13 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 	if(reason==DLL_PROCESS_ATTACH)
 	{
 		IDDrawSurface::OutptTxt("Process Attached");
+
+		/* 
+			dplayx.dll TA Patch loader - https://github.com/FunkyFr3sh/Total-Annihilation-Patch-Loader 
+			Does alter the registry path of the game so it must be loaded early before tdraw loads its settings
+		*/
+		LoadLibrary("dplayx.dll");
+		
 		SDDraw = LoadLibrary("ddraw.dll");
 		SetupFileMap();
 		DataShare = reinterpret_cast<DataSharePTR>(pMapView);
