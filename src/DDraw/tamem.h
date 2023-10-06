@@ -345,9 +345,10 @@ struct TAdynmemStruct{
 	WeaponStruct Weapons[256];  //0x2CF3  size=0x11500
 	//char data7[4];
 	int NumProjectiles;
-	ProjectileStruct *Projectiles; //0x141F7
-	char data13[0x10];
-	WreckageInfoStruct *WreckageInfo; //0x1420B
+	ProjectileStruct *Projectiles;    //0x141F7
+	char data13a[3];                  //0x141f8
+	char data13b[13];                 //TNTMemStruct 0x141fb..0x1428f (size 0x94)
+	WreckageInfoStruct *WreckageInfo; //0x1420B = 0x141fb + 0x10
 	unsigned int Feature_Unit;
 	char data14[0x10];
 	int  MapWidth ;
@@ -355,21 +356,21 @@ struct TAdynmemStruct{
 
 	int MapSizeX;
 	int MapSizeY;
-	int FeatureMapSizeX; //0x14233  
-	int FeatureMapSizeY; //0x14237
+	int FeatureMapSizeX;              //0x14233 = 0x141fb + 0x38
+	int FeatureMapSizeY;              //0x14237 = 0x141fb + 0x3c
 	char data15[0x18];
 	int NumFeatureDefs;
 	char data16[0x18];
-	FeatureDefStruct *FeatureDef; //0x1426F
+	FeatureDefStruct *FeatureDef;     //0x1426F = 0x141fb + 0x74
 	unsigned short * MAPPED_MEMORY_p;
 	unsigned int LastZPos;
 	unsigned short * MinimapMEMORY_p;
 	unsigned char SeaLevel ;
-	unsigned char field_85;
-	unsigned short LosType;// 0x14281
-	unsigned int	 TILE_SET; 
-	FeatureStruct *FeatureMap; //0x14287
-	char data20[0x40];
+	unsigned char mapDebugMode;       // 0x14280 = 0x141fb + 0x85;  render debug info.  values 0 to 4
+	unsigned short LosType;           // 0x14281 = 0x141fb + 0x86
+	unsigned int TILE_SET;
+	FeatureStruct *FeatureMap;        // 0x14287 = 0x141fb + 0x8c
+	char data20[0x40];                // TNTMemStruct ends in here near beginning 
 	tagRECT MinimapRect;//0x142CB
 	RadarPicStruct *RadarFinal; //0x142DB
 	RadarPicStruct *RadarMapped;  //0x142DF
@@ -505,7 +506,10 @@ struct WreckageInfoStruct{
 };
 
 struct FeatureStruct{
-	unsigned char data1[7];
+	unsigned char data1[4];
+	unsigned char height;
+	unsigned char maxHeight2x2;  // maximum height of 2x2 patch starting at this coordinate
+	unsigned char minHeight2x2;  // minimum height of 2x2 patch starting at this coordinate
 	unsigned char MetalValue;
 	unsigned short FeatureDefIndex;
 	unsigned short WreckageInfoIndex;
@@ -1499,7 +1503,9 @@ enum CURSORINDEX
 
 enum MOUSESPOTSTATE
 {
-	 CIRCLESELECTING  = 8
+	IS_MOUSE_IN_GAME_UI = 2,
+	 CIRCLESELECTING  = 8,
+	 OK_TO_BUILD = 0x40	// or is it NOT_OK_TO_BUILD?
 };
 namespace gameingstate
 {

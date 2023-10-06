@@ -174,12 +174,8 @@ extern _IsGUIMem IsGUIMem;
 typedef int (__stdcall * _IntoCurrentUnitGUI)(BOOL UpdateGUI_Bool);
 extern _IntoCurrentUnitGUI IntoCurrentUnitGUI;
 
-//////////////////////////////////////////////////////////////////////////////////////////
-/// Not working.
-//////////////////////////////////////////////////////////////////////////////////////////
-typedef void (__stdcall *_TestGridSpot)(UnitStruct *BuildUnit, int pos, int unk, PlayerStruct *Player); //unk=zero
+typedef int (__stdcall *_TestGridSpot)(UnitDefStruct *BuildUnit, unsigned packedMousePositionXY, int unk, PlayerStruct *Player); //unk=zero
 extern _TestGridSpot TestGridSpot;
-
 
 
 ////-----------

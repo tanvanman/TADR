@@ -1046,7 +1046,7 @@ void Dialog::ReadSettings()
 	Size = sizeof(MexSnapRadiusText);
 	if (RegQueryValueEx(hKey, "MexSnapRadius", NULL, NULL, (unsigned char*)MexSnapRadiusText, &Size) != ERROR_SUCCESS)
 	{
-		lstrcpyA(MexSnapRadiusText, "2");
+		lstrcpyA(MexSnapRadiusText, "3");
 	}
 	Size = sizeof(int);
 	if (RegQueryValueEx(hKey, "MexSnapOverrideKey", NULL, NULL, (unsigned char*)&MexSnapOverrideKey, &Size) != ERROR_SUCCESS)

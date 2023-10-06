@@ -63,7 +63,7 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	QueuePos = 0;
 	Delay = 5;
-	MexSnapRadius = 2;
+	MexSnapRadius = 3;
 	MexSnapOverrideKey = VK_LMENU;
 	WriteLine = false;
 	FootPrintX = FootPrintY = 2;
@@ -149,6 +149,23 @@ int CountFeetExceedingThresholdMetal(int x, int y, int footX, int footY, int thr
 	return count;
 }
 
+bool TestCanBuildAt(int xyPos[2])
+{
+	TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+	UnitDefStruct* unit = &Ptr->UnitDef[Ptr->BuildUnitID];
+	const unsigned nFootPrintX = (unsigned short)unit->FootX;
+	const unsigned nFootPrintY = (unsigned short)unit->FootY;
+
+	//unsigned mousePositionX = ((0x80000 + mouseX[0] - (nFootPrintX << 19)) >> 20) & 0xffff;
+	//unsigned mousePositionY = ((0x80000 + mouseY[1] - (nFootPrintY << 19)) >> 20) & 0xffff;
+	//unsigned packedMousePositionXY = (mousePositionY << 16) | mousePositionX;
+
+	const unsigned mousePositionX = (xyPos[0] - nFootPrintX/2) & 0xffff;
+	const unsigned mousePositionY = (xyPos[1] - nFootPrintY/2) & 0xffff;
+	const unsigned packedMousePositionXY = (mousePositionY << 16) | mousePositionX;
+	return TestGridSpot(unit, packedMousePositionXY, 0, &Ptr->Players[Ptr->LocalHumanPlayer_PlayerID]);
+}
+
 void CTAHook::SnapToNearMetalPatch(int xyPos[2])
 {
 	const int x0 = TAdynmem->BuildPosX;
@@ -207,6 +224,28 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			case WM_KEYDOWN:
 				switch((int)wParam)
 				{
+				case VK_F9:
+				{
+					int buildPosXY[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
+					bool b = TestCanBuildAt(buildPosXY);
+					if (b) {
+						ChatText("yes");
+					}
+					else {
+						ChatText("no");
+					}
+					break;
+
+					//TAdynmem->mapDebugMode = 3;
+					//static char idx = 6;
+					//idx = (idx + 1) % sizeof(FeatureStruct);
+					//WriteProcessMemory(GetCurrentProcess(), (void*)(0x418a7d + 2), &idx, 1, NULL);
+
+					//char radix = 16;
+					//WriteProcessMemory(GetCurrentProcess(), (void*)(0x418a81 + 1), &radix, 1, NULL);
+					//return true;
+				}
+
 				case VK_F11:
 					WriteShareMacro();
 					return true;
