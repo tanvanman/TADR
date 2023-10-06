@@ -19,6 +19,9 @@
 #include "megamaptastuff.h"
 #include "MegamapControl.h"
 
+#include <algorithm>
+#include <list>
+#include <tuple>
 
 #ifdef WM_MOUSEWHEEL//vs2010
 #undef WM_MOUSEWHEEL
@@ -27,8 +30,6 @@
 #define MAX_SPACING 10
 
 CTAHook *TAHook;
-
-
 
 CTAHook::CTAHook(BOOL VidMem)
 {
@@ -63,6 +64,7 @@ CTAHook::CTAHook(BOOL VidMem)
 	QueuePos = 0;
 	Delay = 5;
 	MexSnapRadius = 2;
+	MexSnapOverrideKey = VK_LMENU;
 	WriteLine = false;
 	FootPrintX = FootPrintY = 2;
 	ScrollEnabled = LocalShare->CompatibleVersion;
@@ -101,7 +103,7 @@ CTAHook::~CTAHook()
 
 }
 
-unsigned GetSumMetalExctractOverFootprint(int x, int y, int footX, int footY)
+int GetSumMetalExctractOverFootprint(int x, int y, int footX, int footY)
 {
 	TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
 	const int dxMin = -footX / 2;
@@ -109,17 +111,42 @@ unsigned GetSumMetalExctractOverFootprint(int x, int y, int footX, int footY)
 	const int dyMin = -footY / 2;
 	const int dyMax = footY % 2 ? footY / 2 : footY / 2 - 1;
 
-	unsigned metal = 0u;
+	int metal = 0;
 	for (int dx = dxMin; dx <= dxMax; ++dx) {
 		for (int dy = dyMin; dy <= dyMax; ++dy) {
 			if (x + dx < 0 || y + dy < 0 || x + dx >= Ptr->FeatureMapSizeX || y + dy >= Ptr->FeatureMapSizeY) {
 				continue;
 			}
 			const int idx = (x + dx) + (y + dy) * Ptr->FeatureMapSizeX;
-			metal += Ptr->FeatureMap[idx].MetalValue;
+			metal += (int)Ptr->FeatureMap[idx].MetalValue;
 		}
 	}
 	return metal;
+}
+
+int CountFeetExceedingThresholdMetal(int x, int y, int footX, int footY, int threshold)
+{
+	TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+	const int dxMin = -footX / 2;
+	const int dxMax = footX % 2 ? footX / 2 : footX / 2 - 1;
+	const int dyMin = -footY / 2;
+	const int dyMax = footY % 2 ? footY / 2 : footY / 2 - 1;
+
+	int count = 0;
+	for (int dx = dxMin; dx <= dxMax; ++dx) {
+		for (int dy = dyMin; dy <= dyMax; ++dy) {
+			if (x + dx < 0 || y + dy < 0 || x + dx >= Ptr->FeatureMapSizeX || y + dy >= Ptr->FeatureMapSizeY) {
+				continue;
+			}
+			const int idx = (x + dx) + (y + dy) * Ptr->FeatureMapSizeX;
+			int metal = (int)Ptr->FeatureMap[idx].MetalValue;
+			if (metal > threshold)
+			{
+				++count;
+			}
+		}
+	}
+	return count;
 }
 
 void CTAHook::SnapToNearMetalPatch(int xyPos[2])
@@ -130,22 +157,42 @@ void CTAHook::SnapToNearMetalPatch(int xyPos[2])
 	const int footY = GetFootY();
 	const int R = MexSnapRadius;
 
-	unsigned bestMetal = GetSumMetalExctractOverFootprint(x0, y0, footX, footY);
-	int bestDx = 0, bestDy = 0;
+	xyPos[0] = x0;
+	xyPos[1] = y0;
 
-	for (int dx = -R; dx <= R; ++dx)  {
+	std::vector<std::tuple<int, int, int> > sums;
+	sums.reserve((1 + R) * (1 + R));
+	for (int dx = -R; dx <= R; ++dx) {
 		for (int dy = -R; dy <= R; ++dy) {
-			unsigned metal = GetSumMetalExctractOverFootprint(x0 + dx, y0 + dy, footX, footY);
-			if (metal > bestMetal) {
-				bestMetal = metal;
-				bestDx = dx;
-				bestDy = dy;
+			int count = CountFeetExceedingThresholdMetal(
+				x0 + dx, y0 + dy, footX, footY, TAdynmem->GameingState_Ptr->surfaceMetal);
+			if (count > 0) {
+				sums.push_back(std::make_tuple(dx, dy, count));
 			}
 		}
 	}
 
-	xyPos[0] = x0 + bestDx;
-	xyPos[1] = y0 + bestDy;
+	if (sums.empty()) {
+		return;
+	}
+
+	auto itMaxSums = std::max_element(sums.begin(), sums.end(),
+		[](const std::tuple<int, int, int>& a, const std::tuple<int, int, int>& b) { 
+		return std::get<2>(a) < std::get<2>(b);
+	});
+
+	std::vector<std::tuple<int, int, int> > maxima;
+	std::copy_if(sums.begin(), sums.end(), std::back_inserter(maxima), [itMaxSums](const std::tuple<int, int, int>& x) {
+		return std::get<2>(x) == std::get<2>(*itMaxSums);
+	});
+
+	auto itClosestMax = std::min_element(maxima.begin(), maxima.end(),
+		[](const std::tuple<int, int, int>& a, const std::tuple<int, int, int>& b) { 
+		return std::abs(std::get<0>(a)) + std::abs(std::get<1>(a)) < std::abs(std::get<0>(b)) + std::abs(std::get<1>(b));
+	});
+
+	xyPos[0] += std::get<0>(*itClosestMax);
+	xyPos[1] += std::get<1>(*itClosestMax);
 }
 
 bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
@@ -276,13 +323,19 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				}
 				else if ((ordertype::BUILD == TAdynmem->PrepareOrder_Type)
 					&& MexSnapRadius > 0
-					&& (GetAsyncKeyState(VK_CONTROL) & 0x8000) == 0   // hold down control to temporarily disable
+					&& (GetAsyncKeyState(MexSnapOverrideKey) & 0x8000) == 0   // hold down assigned VK to temporarily disable
 					&& GetBuildUnit().extractsmetal)
 				{
-					int xyPos[2];
-					SnapToNearMetalPatch(xyPos);
-					ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
-					return true;
+					RECT &gameScreenRect = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
+					int mouseScreenX = LOWORD(lParam);
+					int mouseScreenY = HIWORD(lParam);
+					if (mouseScreenX >= gameScreenRect.left && mouseScreenX < gameScreenRect.right)
+					{
+						int xyPos[2];
+						SnapToNearMetalPatch(xyPos);
+						ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
+						return true;
+					}
 				}
 				break;
 
@@ -391,7 +444,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	return false;
 }
 
-void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iRadius)
+void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iRadius, int iMexSnapOverrideKey)
 {
 	VirtualKeyCode = KeyCodei;
 	lstrcpyA(ShareText, ChatMacroi);
@@ -399,6 +452,7 @@ void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullR
 	FullRingsEnabled = FullRingsi;
 	Delay = iDelay;
 	MexSnapRadius = iRadius;
+	MexSnapOverrideKey = iMexSnapOverrideKey;
 }
 
 void CTAHook::WriteShareMacro()

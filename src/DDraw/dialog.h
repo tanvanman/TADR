@@ -5,69 +5,93 @@
 #define DialogHeight 234
 #define DialogWidth 382
 
+#define COL0 20
+#define COL1 200
+#define ROW(n) (30+n*35)
+
 #define None 0
-#define OKButton 1
-#define OKButtonWidth 78
-#define OKButtonHeight 20
-#define OKButtonPosX 296
-#define OKButtonPosY 207
-#define StagedButton3 2
-#define StagedButton3Width 120
-#define StagedButton3Height 20
-#define StagedButton3PosX 20
-#define StagedButton3PosY 30
-#define KeyCode 3
-#define KeyCodeWidth 60
-#define KeyCodeHeight 15
-#define KeyCodePosX 20
-#define KeyCodePosY 200
-#define ShareBox 4
-#define ShareBoxWidth 170
-#define ShareBoxHeight 103
-#define ShareBoxPosX 200
-#define ShareBoxPosY 60
-#define OptimizeDT 5
-#define OptimizeDTWidth 16
-#define OptimizeDTHeight 16
-#define OptimizeDTPosX 200
-#define OptimizeDTPosY 170
-#define VSync 6
-#define VSyncWidth 120
-#define VSyncHeight 20
-#define VSyncPosX 20
-#define VSyncPosY 66
-#define FullRings 7
-#define FullRingsWidth 16
-#define FullRingsHeight 16
-#define FullRingsPosX 200
-#define FullRingsPosY 190
-#define AutoClickDelay 8
-#define AutoClickDelayWidth 28
-#define AutoClickDelayHeight 15
-#define AutoClickDelayPosX 200
-#define AutoClickDelayPosY 30
-#define MexSnapRadiusId 12
-#define MexSnapRadiusWidth 28
-#define MexSnapRadiusHeight 15
-#define MexSnapRadiusPosX 200
-#define MexSnapRadiusPosY 30
-#define WhiteboardKey 9
-#define WhiteboardKeyWidth 60
-#define WhiteboardKeyHeight 15
-#define WhiteboardKeyPosX 20
-#define WhiteboardKeyPosY 168
-#define SetVisible 10
+
+#define SetVisible 1
 #define SetVisibleWidth 96
 #define SetVisibleHeight 20
 #define SetVisiblePosX 35
 #define SetVisiblePosY 115
 
-#define MegaMapKey (11)
-#define MegaMapKeyPosX (20)
-#define MegaMapKeyPoxY (137)
+#define OKButton 2
+#define OKButtonWidth 78
+#define OKButtonHeight 20
+#define OKButtonPosX 296
+#define OKButtonPosY ROW(5)
+
+//////////////// COL0
+
+#define MexSnapOverrideKeyId 3
+#define MexSnapOverrideKeyWidth 60
+#define MexSnapOverrideKeyHeight 15
+#define MexSnapOverrideKeyPosX COL0
+#define MexSnapOverrideKeyPosY ROW(0)
+
+#define KeyCode 4
+#define KeyCodeWidth 60
+#define KeyCodeHeight 15
+#define KeyCodePosX COL0
+#define KeyCodePosY ROW(1)
+
+#define WhiteboardKey 5
+#define WhiteboardKeyWidth 60
+#define WhiteboardKeyHeight 15
+#define WhiteboardKeyPosX COL0
+#define WhiteboardKeyPosY ROW(2)
+
+#define MegaMapKey (6)
 #define MegamapKeyWidth (60)
 #define MegamapKeyHeight (15)
+#define MegaMapKeyPosX (COL0)
+#define MegaMapKeyPoxY ROW(3)
 
+#define StagedButton3 7
+#define StagedButton3Width 120
+#define StagedButton3Height 20
+#define StagedButton3PosX COL0
+#define StagedButton3PosY ROW(4)
+
+#define VSync 8
+#define VSyncWidth 120
+#define VSyncHeight 20
+#define VSyncPosX COL0
+#define VSyncPosY ROW(5)
+
+/////////// COL1
+
+#define MexSnapRadiusId 13
+#define MexSnapRadiusWidth 28
+#define MexSnapRadiusHeight 15
+#define MexSnapRadiusPosX COL1
+#define MexSnapRadiusPosY ROW(0)
+
+#define AutoClickDelay 12
+#define AutoClickDelayWidth 28
+#define AutoClickDelayHeight 15
+#define AutoClickDelayPosX COL1
+#define AutoClickDelayPosY ROW(0)
+
+#define ShareBox 9
+#define ShareBoxWidth 170
+#define ShareBoxHeight 103
+#define ShareBoxPosX COL1
+#define ShareBoxPosY 60
+
+#define OptimizeDT 10
+#define OptimizeDTWidth 16
+#define OptimizeDTHeight 16
+#define OptimizeDTPosX COL1
+#define OptimizeDTPosY 170
+
+#define FullRings 11
+#define FullRingsWidth 16
+#define FullRingsHeight 16
+#define FullRingsPosX COL1
+#define FullRingsPosY 190
 
 extern HINSTANCE HInstance;
 struct tagInlineX86StackBuffer;
@@ -135,6 +159,9 @@ class Dialog
     int VirtualWhiteboardKey;
     bool WhiteboardKeyFocus;
 
+	int MexSnapOverrideKey;
+	bool MexSnapOverrideKeyFocus;
+
 	int VirtualMegamap;
 	bool MegmapFocus;
 
@@ -154,6 +181,7 @@ class Dialog
 	void DrawDelay();
 	void DrawMexSnapRadius();
     void DrawWhiteboardKey();
+	void DrawMexSnapOverrideKey();
     void DrawVisibleButton();
 
 	void DrawMegaMapKey ();

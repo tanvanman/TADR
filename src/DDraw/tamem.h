@@ -584,9 +584,11 @@ struct ProjectileStruct {
 
 
 struct GameingState{
-	unsigned int  State;
-	char data[0x200];
-	char TNTFile[MAX_PATH];
+	unsigned int  State;		// 0x0000
+	char data[0x200];			// 0x0004
+	char TNTFile[MAX_PATH];		// 0x0204
+	char data2[0x0a28];			// 0x0308
+	unsigned surfaceMetal;		// 0x0d30
 };
 
 struct PlayerInfoStruct 
