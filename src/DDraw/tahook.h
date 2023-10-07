@@ -43,8 +43,8 @@ class CTAHook
     void WriteScrollDTLine();
     unsigned int SendMessage;
     int Delay;
-	int MexSnapRadius;
-	int MexSnapOverrideKey;
+	int ClickSnapRadius;
+	int ClickSnapOverrideKey;
 	bool ReclaimSnapDisable;
     bool WriteLine;
     int StartX, StartY;
@@ -113,7 +113,7 @@ class CTAHook
     CTAHook(BOOL VidMem);
     ~CTAHook();
     bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-    void Set(int KeyCodei, char *ChatMacroi, bool FullRingsi, bool VisualizeRowsi, int iDelay, int iRadius, int MexSnapOverrideKey);
+    void Set(int KeyCodei, char *ChatMacroi, bool FullRingsi, bool VisualizeRowsi, int iDelay, int iRadius, int ClickSnapOverrideKey);
     void WriteShareMacro();
     void Blit(LPDIRECTDRAWSURFACE DestSurf);
 	void TABlit();

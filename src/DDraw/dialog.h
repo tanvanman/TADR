@@ -25,11 +25,11 @@
 
 //////////////// COL0
 
-#define MexSnapOverrideKeyId 3
-#define MexSnapOverrideKeyWidth 60
-#define MexSnapOverrideKeyHeight 15
-#define MexSnapOverrideKeyPosX COL0
-#define MexSnapOverrideKeyPosY ROW(0)
+#define ClickSnapOverrideKeyId 3
+#define ClickSnapOverrideKeyWidth 60
+#define ClickSnapOverrideKeyHeight 15
+#define ClickSnapOverrideKeyPosX COL0
+#define ClickSnapOverrideKeyPosY ROW(0)
 
 #define KeyCode 4
 #define KeyCodeWidth 60
@@ -63,11 +63,11 @@
 
 /////////// COL1
 
-#define MexSnapRadiusId 13
-#define MexSnapRadiusWidth 28
-#define MexSnapRadiusHeight 15
-#define MexSnapRadiusPosX COL1
-#define MexSnapRadiusPosY ROW(0)
+#define ClickSnapRadiusId 13
+#define ClickSnapRadiusWidth 28
+#define ClickSnapRadiusHeight 15
+#define ClickSnapRadiusPosX COL1
+#define ClickSnapRadiusPosY ROW(0)
 
 #define AutoClickDelay 12
 #define AutoClickDelayWidth 28
@@ -150,8 +150,8 @@ class Dialog
     char AutoClickDelayText[10];
     bool AutoClickDelayFocus;
 
-	char MexSnapRadiusText[10];
-	bool MexSnapRadiusFocus;
+	char ClickSnapRadiusText[10];
+	bool ClickSnapRadiusFocus;
 
     int VirtualKeyCode;
     bool KeyCodeFocus;
@@ -159,8 +159,8 @@ class Dialog
     int VirtualWhiteboardKey;
     bool WhiteboardKeyFocus;
 
-	int MexSnapOverrideKey;
-	bool MexSnapOverrideKeyFocus;
+	int ClickSnapOverrideKey;
+	bool ClickSnapOverrideKeyFocus;
 
 	int VirtualMegamap;
 	bool MegmapFocus;
@@ -179,9 +179,9 @@ class Dialog
     void DrawVSync();
     void DrawFullRings();
 	void DrawDelay();
-	void DrawMexSnapRadius();
+	void DrawClickSnapRadius();
     void DrawWhiteboardKey();
-	void DrawMexSnapOverrideKey();
+	void DrawClickSnapOverrideKey();
     void DrawVisibleButton();
 
 	void DrawMegaMapKey ();

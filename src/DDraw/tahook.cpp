@@ -65,8 +65,8 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	QueuePos = 0;
 	Delay = 5;
-	MexSnapRadius = 3;
-	MexSnapOverrideKey = VK_LMENU;
+	ClickSnapRadius = 3;
+	ClickSnapOverrideKey = VK_LMENU;
 	WriteLine = false;
 	FootPrintX = FootPrintY = 2;
 	ScrollEnabled = LocalShare->CompatibleVersion;
@@ -350,7 +350,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					}*/
 					return true;
 				}
-				if (MexSnapRadius > 0 && (GetAsyncKeyState(MexSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
+				if (ClickSnapRadius > 0 && (GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
 				{
 					RECT& gameScreenRect = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
 					int mouseScreenX = LOWORD(lParam);
@@ -361,7 +361,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						{
 							if (GetBuildUnit().extractsmetal) {
 								int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
-								SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(xyPos, GetFootX(), GetFootY(), MexSnapRadius);
+								SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(xyPos, GetFootX(), GetFootY(), ClickSnapRadius);
 								ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
 								return true;
 							}
@@ -376,7 +376,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							if (strchr(yardMap, 0x8f))
 							{
 								int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
-								SnapToNear<TestCanBuildAdapter>(xyPos, GetFootX(), GetFootY(), MexSnapRadius);
+								SnapToNear<TestCanBuildAdapter>(xyPos, GetFootX(), GetFootY(), ClickSnapRadius);
 								ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
 								return true;
 							}
@@ -384,7 +384,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						else if ((ordertype::RECLAIM == TAdynmem->PrepareOrder_Type) && !ReclaimSnapDisable)
 						{
 							int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
-							SnapToNear<CountReclaimableAdapter>(xyPos, GetFootX(), GetFootY(), MexSnapRadius);
+							SnapToNear<CountReclaimableAdapter>(xyPos, GetFootX(), GetFootY(), ClickSnapRadius);
 							int dx = xyPos[0] - TAdynmem->BuildPosX;
 							int dy = xyPos[1] - TAdynmem->BuildPosY;
 							if (dx == 0 && dy == 0) {
@@ -522,15 +522,15 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	return false;
 }
 
-void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iRadius, int iMexSnapOverrideKey)
+void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iRadius, int iClickSnapOverrideKey)
 {
 	VirtualKeyCode = KeyCodei;
 	lstrcpyA(ShareText, ChatMacroi);
 	OptimizeRows = OptimizeRowsi;
 	FullRingsEnabled = FullRingsi;
 	Delay = iDelay;
-	MexSnapRadius = iRadius;
-	MexSnapOverrideKey = iMexSnapOverrideKey;
+	ClickSnapRadius = iRadius;
+	ClickSnapOverrideKey = iClickSnapOverrideKey;
 }
 
 void CTAHook::WriteShareMacro()
