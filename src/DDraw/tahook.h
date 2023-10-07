@@ -45,6 +45,7 @@ class CTAHook
     int Delay;
 	int MexSnapRadius;
 	int MexSnapOverrideKey;
+	bool ReclaimSnapDisable;
     bool WriteLine;
     int StartX, StartY;
     int EndX, EndY;

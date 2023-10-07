@@ -24,12 +24,12 @@ private:
 	std::unique_ptr <SingleHook> CDMusic_StopButton;
 	std::unique_ptr <SingleHook> UnitVolumeYequZero;
 	std::unique_ptr <SingleHook> UnitIDOutRange;
-	std::unique_ptr <SingleHook>  UnitDeath_BeforeUpdateUI;
-	std::unique_ptr <SingleHook>  EnterDrawPlayer_MAPPEDMEM;
-	std::unique_ptr <SingleHook>  LeaveDrawPlayer_MAPPEDMEM;
-	std::unique_ptr <SingleHook>  EnterUnitLoop;
-	std::unique_ptr <SingleHook>  LeaveUnitLoop;
-	std::unique_ptr <SingleHook>  LeaveUnitLoop2;
+	std::unique_ptr <SingleHook> UnitDeath_BeforeUpdateUI;
+	std::unique_ptr <SingleHook> EnterDrawPlayer_MAPPEDMEM;
+	std::unique_ptr <SingleHook> LeaveDrawPlayer_MAPPEDMEM;
+	std::unique_ptr <SingleHook> EnterUnitLoop;
+	std::unique_ptr <SingleHook> LeaveUnitLoop;
+	std::unique_ptr <SingleHook> LeaveUnitLoop2;
 	std::unique_ptr <SingleHook> SavePlayerColor;
 	std::unique_ptr <SingleHook> RestorePlayerColor;
 	std::unique_ptr <SingleHook> DisplayModeMinHeight768Enum;

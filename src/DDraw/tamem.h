@@ -512,7 +512,8 @@ struct FeatureStruct{
 	unsigned char minHeight2x2;  // minimum height of 2x2 patch starting at this coordinate
 	unsigned char MetalValue;
 	unsigned short FeatureDefIndex;
-	unsigned short WreckageInfoIndex;
+	unsigned char FeatureDefDy;  // if FeatureDefIndex is 0xfffe, offset in map coordinates to the real FeatureDefIndex
+	unsigned char FeatureDefDx;  // if FeatureDefIndex is 0xfffe, offset in map coordinates to the real FeatureDefIndex
 	unsigned char data2[1];
 }; //0xD
 

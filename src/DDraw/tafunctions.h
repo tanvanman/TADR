@@ -106,7 +106,6 @@ extern _MOUSE_EVENT_2UnitOrder_ MOUSE_EVENT_2UnitOrder_;
      
 typedef int (__stdcall * _CorretCursor_InGame)(char PrepareOrder);
 extern _CorretCursor_InGame CorretCursor_InGame;
-    
 
 typedef int (__stdcall * _SetUICursor)(GUIInfo * TAGUIInfo, _GAFSequence * CursorGafSqe_Ptr);
 extern _SetUICursor SetUICursor;
@@ -116,7 +115,7 @@ extern _SelectAllSelectedUnits SelectAllSelectedUnits;
 
 
 
-typedef int ( __stdcall *_GetGridPosFeature)(int);
+typedef unsigned short ( __stdcall *_GetGridPosFeature)(FeatureStruct *);
 extern _GetGridPosFeature GetGridPosFeature;
 
 
@@ -216,11 +215,6 @@ int DrawRadarCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int 
 int DrawDotteCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int Radius, int color, int Spacing, int Dotte_b);
 
 BOOL IsPlayerAllyUnit (int  UnitID,int PlayerLosID);
-
-// test whether current selected building unit (TAdynmemStruct::UnitDef[TAdynmemStruct::BuildUnitID])
-// can build whatever it has selected for building
-// at the given build position (TAdynmemStruct::BuildMapPosX,Y for current cursor position)
-bool TestCanBuildAt(int x, int y);
 
 extern TAProgramStruct * * TAProgramStruct_PtrPtr;
 
