@@ -509,11 +509,8 @@ _CalcUnitTurn CalcUnitTurn= (_CalcUnitTurn) 0x48A490;
 _IsGUIMem IsGUIMem= (_IsGUIMem) 0x4AB060;
 
 _IntoCurrentUnitGUI IntoCurrentUnitGUI= (_IntoCurrentUnitGUI) 0x0491D70;
-//////////////////////////////////////////////////////////////////////////////////////////
-/// Not working.
-//////////////////////////////////////////////////////////////////////////////////////////
-_TestGridSpot TestGridSpot = (_TestGridSpot)0x47D2E0;
 
+_TestGridSpot TestGridSpot = (_TestGridSpot)0x47D2E0;
 
 ///--------------------TAMainStruct
 TAdynmemStruct * * TAmainStruct_PtrPtr= (TAdynmemStruct * *)0x0511DE8;

@@ -345,9 +345,10 @@ struct TAdynmemStruct{
 	WeaponStruct Weapons[256];  //0x2CF3  size=0x11500
 	//char data7[4];
 	int NumProjectiles;
-	ProjectileStruct *Projectiles; //0x141F7
-	char data13[0x10];
-	WreckageInfoStruct *WreckageInfo; //0x1420B
+	ProjectileStruct *Projectiles;    //0x141F7
+	char data13a[3];                  //0x141f8
+	char data13b[13];                 //TNTMemStruct 0x141fb..0x1428f (size 0x94)
+	WreckageInfoStruct *WreckageInfo; //0x1420B = 0x141fb + 0x10
 	unsigned int Feature_Unit;
 	char data14[0x10];
 	int  MapWidth ;
@@ -355,21 +356,21 @@ struct TAdynmemStruct{
 
 	int MapSizeX;
 	int MapSizeY;
-	int FeatureMapSizeX; //0x14233  
-	int FeatureMapSizeY; //0x14237
+	int FeatureMapSizeX;              //0x14233 = 0x141fb + 0x38
+	int FeatureMapSizeY;              //0x14237 = 0x141fb + 0x3c
 	char data15[0x18];
 	int NumFeatureDefs;
 	char data16[0x18];
-	FeatureDefStruct *FeatureDef; //0x1426F
+	FeatureDefStruct *FeatureDef;     //0x1426F = 0x141fb + 0x74
 	unsigned short * MAPPED_MEMORY_p;
 	unsigned int LastZPos;
 	unsigned short * MinimapMEMORY_p;
 	unsigned char SeaLevel ;
-	unsigned char field_85;
-	unsigned short LosType;// 0x14281
-	unsigned int	 TILE_SET; 
-	FeatureStruct *Features; //0x14287
-	char data20[0x40];
+	unsigned char mapDebugMode;       // 0x14280 = 0x141fb + 0x85;  render debug info.  values 0 to 4
+	unsigned short LosType;           // 0x14281 = 0x141fb + 0x86
+	unsigned int TILE_SET;
+	FeatureStruct *FeatureMap;        // 0x14287 = 0x141fb + 0x8c
+	char data20[0x40];                // TNTMemStruct ends in here near beginning 
 	tagRECT MinimapRect;//0x142CB
 	RadarPicStruct *RadarFinal; //0x142DB
 	RadarPicStruct *RadarMapped;  //0x142DF
@@ -505,17 +506,55 @@ struct WreckageInfoStruct{
 };
 
 struct FeatureStruct{
-	char data1[8];
-	short FeatureDefIndex;
-	short WreckageInfoIndex;
-	char data2[1];
+	unsigned char data1[4];
+	unsigned char height;
+	unsigned char maxHeight2x2;  // maximum height of 2x2 patch starting at this coordinate
+	unsigned char minHeight2x2;  // minimum height of 2x2 patch starting at this coordinate
+	unsigned char MetalValue;
+	unsigned short FeatureDefIndex;
+	unsigned char FeatureDefDy;  // if FeatureDefIndex is 0xfffe, offset in map coordinates to the real FeatureDefIndex
+	unsigned char FeatureDefDx;  // if FeatureDefIndex is 0xfffe, offset in map coordinates to the real FeatureDefIndex
+	unsigned char data2[1];
 }; //0xD
 
 struct FeatureDefStruct {
 	char Name[0x20];
 	char data1[0x60];
 	char Description[20];
-	char Data2[108];
+	short FootprintX;
+	short FootprintZ;
+	int objects3d;
+	short unknownField_9C;
+	void* unknownField_9E;
+	char unknownFieldA2[6];
+	void* Anims;
+	char* SeqName;
+	char* SeqNameShad;
+	char* BurnName2Sequence;
+	char* SeqNameBurnsShad;
+	char* SeqNameDie;
+	char* SeqNameDieShad;
+	char* SeqNameReclamate;
+	char* SeqNameReclamateShad;
+	short unknownField_CC;
+	short unknownField_CE;
+	int equals0;
+	int unknownField_D4;
+	int unknownField_D8;
+	int unknownField_DC;
+	int unknownField_E0;
+	int BurnWeapon;
+	short SparkTime;
+	short Damage;
+	float Energy;
+	float Metal;
+	char unknownField_F4[6];
+	char Height;
+	char SpreadChance;
+	char Reproduce;
+	char ReproduceArea;
+	short FeatureMask;
+	//char Data2[108];
 }; //0x100
 
 struct ProjectileStruct {
@@ -550,9 +589,11 @@ struct ProjectileStruct {
 
 
 struct GameingState{
-	unsigned int  State;
-	char data[0x200];
-	char TNTFile[MAX_PATH];
+	unsigned int  State;		// 0x0000
+	char data[0x200];			// 0x0004
+	char TNTFile[MAX_PATH];		// 0x0204
+	char data2[0x0a28];			// 0x0308
+	unsigned surfaceMetal;		// 0x0d30
 };
 
 struct PlayerInfoStruct 
@@ -1463,7 +1504,9 @@ enum CURSORINDEX
 
 enum MOUSESPOTSTATE
 {
-	 CIRCLESELECTING  = 8
+	IS_MOUSE_IN_GAME_UI = 2,
+	 CIRCLESELECTING  = 8,
+	 OK_TO_BUILD = 0x40	// or is it NOT_OK_TO_BUILD?
 };
 namespace gameingstate
 {
@@ -1477,6 +1520,20 @@ namespace gameingstate
 	};
 }
 
+enum class FeatureMasks
+{
+	animating = 0x0002,
+	animtrans = 0x0004,
+	shadtrans = 0x0008,
+	flamable = 0x0010,
+	geothermal = 0x0020,
+	blocking = 0x0040,
+	reclaimable = 0x0080,
+	autoreclaimable = 0x0100,
+	indestructible = 0x0200,
+	nodisplayinfo = 0x0400,
+	nodrawundergray = 0x0800
+};
 
 #define PLAYERNUM (10)
 

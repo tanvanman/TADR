@@ -1384,6 +1384,7 @@ char * clean_remark ( char * src, char remarkTag)
 	return src;
 }
 
+
 /*
 char Number[]= "0123456789";
 char LowerAbc[]= "abcdefghijklmnopqrstuvwxyz";
@@ -1392,6 +1393,12 @@ char UpperAbc[]= "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 */
 LPSTR vkToStr(int vk, LPSTR Rtn, int Len) 
 {
+	UINT scanCode = MapVirtualKey(vk, MAPVK_VK_TO_VSC);
+	LONG lParamValue = (scanCode << 16);
+	if (GetKeyNameText(lParamValue, Rtn, Len) > 0) {
+		return Rtn;
+	}
+
 	#define caseStringify(x) case x: strcpy_s( c, 0x10,(#x)); break;
 	char c[0x10] = {0};
 	

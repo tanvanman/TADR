@@ -1096,7 +1096,7 @@ Position_Dword * MegamapTAStuff::ScreenPos2TAPos (Position_Dword * TAPos, int x,
 	TAPos->X= static_cast<int>(static_cast<float>(x)/ Screen2MapWidthScale);
 	TAPos->Y= static_cast<int>(static_cast<float>(y)/ Screen2MapHeightScale);
 	if (UseTAHeight&&
-		TAmainStruct_Ptr->Features)
+		TAmainStruct_Ptr->FeatureMap)
 	{
 		TAPos->Z= GetPosHeight ( TAPos);
 	}
