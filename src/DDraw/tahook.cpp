@@ -365,7 +365,15 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 								ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
 								return true;
 							}
-							else if (GetBuildUnit().YardMap && strchr(GetBuildUnit().YardMap, '/'))	// Geothermal ('G' - 0x2e == '/')
+
+							char yardMap[65];
+							if (GetBuildUnit().YardMap) {
+								int N = min(64, GetFootX() * GetFootY());
+								std::memcpy(yardMap, GetBuildUnit().YardMap, N);
+								yardMap[N] = 0;
+							}
+							// 0x8f in yardmap, diagnostic of geothermals (I hope)
+							if (strchr(yardMap, 0x8f))
 							{
 								int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
 								SnapToNear<TestCanBuildAdapter>(xyPos, GetFootX(), GetFootY(), MexSnapRadius);
@@ -386,12 +394,12 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 								// @TODO maybe somebody can have better success at finding the right TA functions to call
 								// so we don't have to hack this in
 								LPARAM lParamBak = lParam;
-								lParam = ((lParamBak + (dx << 4)) & 0xffff);
+								lParam = ((lParamBak + (dx<<4)) & 0xffff);
 								if (lParam < TAdynmem->GameSreen_Rect.left)
 								{
 									return false;
 								}
-								lParam |= ((lParamBak + (dy << 20)) & 0xffff0000);
+								lParam |= ((lParamBak + (dy<<20)) & 0xffff0000);
 								PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParam);
 								PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
 								PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
