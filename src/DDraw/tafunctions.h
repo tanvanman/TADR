@@ -216,6 +216,12 @@ int DrawRadarCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int 
 int DrawDotteCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int Radius, int color, int Spacing, int Dotte_b);
 
 BOOL IsPlayerAllyUnit (int  UnitID,int PlayerLosID);
+
+// test whether current selected building unit (TAdynmemStruct::UnitDef[TAdynmemStruct::BuildUnitID])
+// can build whatever it has selected for building
+// at the given build position (TAdynmemStruct::BuildMapPosX,Y for current cursor position)
+bool TestCanBuildAt(int x, int y);
+
 extern TAProgramStruct * * TAProgramStruct_PtrPtr;
 
 extern TAdynmemStruct * * TAmainStruct_PtrPtr;

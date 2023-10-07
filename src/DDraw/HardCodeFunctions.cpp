@@ -407,6 +407,26 @@ BOOL IsPlayerAllyUnit (int UnitID,int PlayerLosID)
 	return FALSE;
 }
 
+bool TestCanBuildAt(int buildPosX, int buildPosY)
+{
+	TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+	UnitDefStruct* unit = &Ptr->UnitDef[Ptr->BuildUnitID];
+	const unsigned nFootPrintX = (unsigned short)unit->FootX;
+	const unsigned nFootPrintY = (unsigned short)unit->FootY;
+
+	// For completeness, this is exacatly how TA calculates the coordinate to test.
+	// It seems to differ a pixel or two from just using Ptr->BuildPosX,Y
+	// Note the use of index [2] for the y coordinate
+	// unsigned mousePositionX = ((0x80000 + Ptr->MouseMapPos[0] - (nFootPrintX << 19)) >> 20) & 0xffff;
+	// unsigned mousePositionY = ((0x80000 + Ptr->MouseMapPos[2] - (nFootPrintY << 19)) >> 20) & 0xffff;
+	// unsigned packedMousePositionXY = (mousePositionY << 16) | mousePositionX;
+
+	const unsigned mousePositionX = (buildPosX - nFootPrintX / 2) & 0xffff;
+	const unsigned mousePositionY = (buildPosY - nFootPrintY / 2) & 0xffff;
+	const unsigned packedMousePositionXY = (mousePositionY << 16) | mousePositionX;
+	return TestGridSpot(unit, packedMousePositionXY, 0, &Ptr->Players[Ptr->LocalHumanPlayer_PlayerID]);
+}
+
 _getFrate getFrate = (_getFrate)0x4B66A0;
 DrawTextInScreen_ DrawTextInScreen = (DrawTextInScreen_)0x04C14F0;
 _DrawColorTextInScreen DrawColorTextInScreen = (_DrawColorTextInScreen)0x4A50E0;

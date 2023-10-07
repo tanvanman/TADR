@@ -75,7 +75,6 @@ class CTAHook
 	void EnableTABuildRect();
 	void DisableTABuildRect();
 	void PaintMinimapRect();
-	void SnapToNearMetalPatch(int xyPos[2]);
 
     /**
      * @brief display text to local player only
