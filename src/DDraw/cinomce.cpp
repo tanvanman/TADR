@@ -613,13 +613,13 @@ void CIncome::CorrectPos()
 
     if (posX < bounds.left)
         posX = bounds.left;
-    if (posX > bounds.right - LocalShare->Width)
-        posX = bounds.right - LocalShare->Width;
+    if (posX > 1+ bounds.right - LocalShare->Width)
+        posX = 1+ bounds.right - LocalShare->Width;
 
     if (posY < bounds.top)
         posY = bounds.top;
-    if (posY > bounds.bottom - LocalShare->Height)
-        posY = bounds.bottom - LocalShare->Height;
+    if (posY > 1+ bounds.bottom - LocalShare->Height)
+        posY = 1+ bounds.bottom - LocalShare->Height;
 }
 
 void CIncome::DrawPlayerRect(int posx, int posy, char Color)

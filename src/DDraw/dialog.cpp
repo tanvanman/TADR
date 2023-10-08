@@ -1099,13 +1099,13 @@ void Dialog::CorrectPos()
 
     if(posX < bounds.left)
 		posX = bounds.left;
-	if(posX > bounds.right - DialogWidth)
-		posX = bounds.right - DialogWidth;
+	if(posX > 1+ bounds.right - DialogWidth)
+		posX = 1+ bounds.right - DialogWidth;
 
 	if(posY < bounds.top)
 		posY = bounds.top;
-	if(posY > bounds.bottom - DialogHeight)
-		posY = bounds.bottom - DialogHeight;
+	if(posY > 1+ bounds.bottom - DialogHeight)
+		posY = 1+ bounds.bottom - DialogHeight;
 }
 
 void Dialog::DrawTinyText(char *String, int posx, int posy, char Color)
