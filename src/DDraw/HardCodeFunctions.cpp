@@ -419,7 +419,7 @@ bool GetWeatherReport(char* buffer, int len)
 		const int windPower = (stdWindGenMaxPower * ptrMain->WindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
 		const int windPowerMin = (stdWindGenMaxPower * ptrMain->MinWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
 		const int windPowerMax = (stdWindGenMaxPower * ptrMain->MaxWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
-		int n = snprintf(buffer, len, "Solar: +%d  Wind: +%d (%d-%d)  Tide: +%d",
+		int n = snprintf(buffer, len, "Solar: +%d  Wind: +%d (%d-%d)  Tidal: +%d",
 			solarPower, windPower, windPowerMin, windPowerMax, tidalPower);
 		return n != -1 && n < len;
 	}
