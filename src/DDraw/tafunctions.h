@@ -216,6 +216,8 @@ int DrawDotteCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int 
 
 BOOL IsPlayerAllyUnit (int  UnitID,int PlayerLosID);
 
+bool GetWeatherReport(char* buffer, int len);
+
 extern TAProgramStruct * * TAProgramStruct_PtrPtr;
 
 extern TAdynmemStruct * * TAmainStruct_PtrPtr;

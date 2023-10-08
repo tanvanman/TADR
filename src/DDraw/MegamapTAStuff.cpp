@@ -181,8 +181,12 @@ void MegamapTAStuff::LockBlit_TA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight
 			(gametime % 0x1A5E0) / 1800,
 			(gametime % 0x1A5E0) % 1800 / 30);
 
+		int yOfs = (*TAProgramStruct_PtrPtr)->ScreenHeight - 34 - *((*TAProgramStruct_PtrPtr)->Font_Height);
+		DrawTextInScreen(&OffScreen, Textbuf, 130, yOfs, -1);
 
-		DrawTextInScreen(&OffScreen, Textbuf, 130, (*TAProgramStruct_PtrPtr)->ScreenHeight - 34 - *((*TAProgramStruct_PtrPtr)->Font_Height), -1);
+		if (GetWeatherReport(Textbuf, sizeof(Textbuf))) {
+			DrawTextInScreen(&OffScreen, Textbuf, 260, yOfs, -1);
+		}
 	}
 
 	if ((*TAmainStruct_PtrPtr)->GameStateMask == gameingstate::SKIRMISH || 
