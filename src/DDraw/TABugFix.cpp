@@ -94,6 +94,23 @@ unsigned int DisplayModeMinWidth1024RegAddr = 0x42FA2E;
 unsigned int SinglePlayerStartButtonAddr = 0x456780;
 BYTE SinglePlayerStartButtonBits[] = { 0x02, 0x7d };
 
+unsigned int DisplayWindSpeedAddr = 0x46a2a3;	// just after having drawn the +clock Game Time
+int __stdcall DisplayWindSpeedProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	char Textbuf[0x100];
+	if (GetWeatherReport(Textbuf, sizeof(Textbuf))) {
+
+		// y-coordinate on which the +clock Game Time was drawn
+		int yOff = X86StrackBuffer->Esi;
+
+		// local OFFSCREEN that was used for drawing +clock Game Time
+		OFFSCREEN* offScreen = (OFFSCREEN*)(X86StrackBuffer->Esp + 52);
+
+		DrawTextInScreen(offScreen, Textbuf, 260, yOff, -1);
+	}
+	return 0;
+}
+
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
@@ -180,6 +197,7 @@ TABugFixing::TABugFixing ()
     SavePlayerColor.reset(new InlineSingleHook(SavePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, SavePlayerColorProc));
     RestorePlayerColor.reset(new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc));
 	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
+	DisplayWindSpeed.reset(new InlineSingleHook(DisplayWindSpeedAddr, 5, INLINE_5BYTESLAGGERJMP, DisplayWindSpeedProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 

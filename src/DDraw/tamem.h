@@ -359,8 +359,13 @@ struct TAdynmemStruct{
 	int FeatureMapSizeX;              //0x14233 = 0x141fb + 0x38
 	int FeatureMapSizeY;              //0x14237 = 0x141fb + 0x3c
 	char data15[0x18];
-	int NumFeatureDefs;
-	char data16[0x18];
+	int NumFeatureDefs;               //0x14253 = 0x141fb + 0x58
+	int field_5c;                     //0x14257 = 0x141fb + 0x5c
+	int MinWindSpeed;                 //0x1425b = 0x141fb + 0x60
+	int MaxWindSpeed;                 //0x1425f = 0x141fb + 0x64
+	int Gravity;                      //0x14263 = 0x141fb + 0x68
+	float TidalStrength;                //0x14267 = 0x141fb + 0x6c
+	char data16[0x04];
 	FeatureDefStruct *FeatureDef;     //0x1426F = 0x141fb + 0x74
 	unsigned short * MAPPED_MEMORY_p;
 	unsigned int LastZPos;
@@ -414,38 +419,41 @@ struct TAdynmemStruct{
 	//char data9[0x6270];
 	ExplosionStruct Explosions[300]; //0x1491F
 	LPVOID CalcedExplosion; //0x1AB8F
-	char data29[0x1D28C]; //0x1AB93
-	unsigned int  ScreenWidth;
-	unsigned int  ScreenHeight ;
+	char data29[0x1D28C];					//0x1AB93
+	unsigned int  ScreenWidth;				//0x37e1f
+	unsigned int  ScreenHeight ;			//0x37e23
 
-	RECT GameSreen_Rect; //0x37E27 
-	unsigned int  GameScreenWidth;
-	unsigned int  GameScreenHeight;
-	char data30[0x5d];
-	unsigned short ShowRangeUnitIndex;
-	unsigned short  field_37E9E;
-	char CurtUnitGUIName[0x1e];
-	unsigned short  DesktopGUIState;
+	RECT GameSreen_Rect;					//0x37E27
+	unsigned int  GameScreenWidth;			//0x37e37
+	unsigned int  GameScreenHeight;			//0x37e3b
+	char data30[0x5d];						//0x37e3f
+	unsigned short ShowRangeUnitIndex;		//0x37e9c
+	unsigned short  field_37E9E;			//0x37e9e
+	char CurtUnitGUIName[0x1e];				//0x37ea0
+	unsigned short  DesktopGUIState;		//0x37ebe
 
-	unsigned short field_37EC0     ;
-	unsigned short field_37EC2     ;
-	unsigned int  field_37EC4    ;
-	unsigned int  field_37EC8    ;
-	unsigned int  field_37ECC    ;
-	unsigned int  field_37ED0    ;
-	unsigned int  field_37ED4    ;
-	char field_37ED8[14];
-	unsigned short PlayerUnitsNumber_Skim ;
-	unsigned short field_37EE8     ;
-	unsigned short ActualUnitLimit ;
-	unsigned short MaxUnitNumberPerPlayer ;
-	unsigned int  Difficulty     ;
-	unsigned int  side           ;
-	unsigned int  field_37EF6    ;
+	unsigned short field_37EC0;
+	unsigned short field_37EC2;
+	unsigned int  field_37EC4;
+	unsigned int  WindSpeedHardLimit;		//0x37ec8
+	unsigned int  field_37ECC;
+	unsigned int  field_37ED0;
+	unsigned int  field_37ED4;
+	short int WindDirection;				//0x37ed8
+	unsigned int WindSpeed;					//0x37eda
+	float WindSpeedFractionOfLimit;			//0x37ede
+	char field_37edc[4];					//0x37ee2
+	unsigned short PlayerUnitsNumber_Skim ; //0x37ee6
+	unsigned short field_37EE8;
+	unsigned short ActualUnitLimit ;		//0x37eea
+	unsigned short MaxUnitNumberPerPlayer ;	//0x37eec
+	unsigned int  Difficulty;				//0x37eee
+	unsigned int  side;						//0x37ef2
+	unsigned int  field_37EF6;
 
-	int InterfaceType;
-	char data31[0x31];
-	unsigned short SoftwareDebugMode;// 0x37f2f
+	int InterfaceType;						//0x37efa
+	char data31[0x31];						//0x37efe
+	unsigned short SoftwareDebugMode;		//0x37f2f
 	unsigned int  field_37F31;
 	unsigned int  Senderror;
 	unsigned int  RaceCounter;

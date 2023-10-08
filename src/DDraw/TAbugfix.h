@@ -37,6 +37,7 @@ private:
 	std::unique_ptr <SingleHook> DisplayModeMinHeight768Def;
 	std::unique_ptr <SingleHook> DisplayModeMinWidth1024Def;
 	std::unique_ptr <SingleHook> DisplayModeMinWidth1024Reg;
+	std::unique_ptr <SingleHook> DisplayWindSpeed;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 

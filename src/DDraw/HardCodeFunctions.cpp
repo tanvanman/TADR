@@ -407,6 +407,25 @@ BOOL IsPlayerAllyUnit (int UnitID,int PlayerLosID)
 	return FALSE;
 }
 
+bool GetWeatherReport(char* buffer, int len)
+{
+	TAdynmemStruct* ptrMain = *(TAdynmemStruct**)0x0511DE8;
+
+	const int solarPower = 20;
+	const int tidalPower = ptrMain->TidalStrength;
+	const int stdWindGenMaxPower = 30;
+	const int windSpeedHardLimit = ptrMain->WindSpeedHardLimit;
+	if (windSpeedHardLimit > 0) {
+		const int windPower = (stdWindGenMaxPower * ptrMain->WindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+		const int windPowerMin = (stdWindGenMaxPower * ptrMain->MinWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+		const int windPowerMax = (stdWindGenMaxPower * ptrMain->MaxWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+		int n = snprintf(buffer, len, "Solar: +%d  Wind: +%d (%d-%d)  Tidal: +%d",
+			solarPower, windPower, windPowerMin, windPowerMax, tidalPower);
+		return n != -1 && n < len;
+	}
+	return false;
+}
+
 _getFrate getFrate = (_getFrate)0x4B66A0;
 DrawTextInScreen_ DrawTextInScreen = (DrawTextInScreen_)0x04C14F0;
 _DrawColorTextInScreen DrawColorTextInScreen = (_DrawColorTextInScreen)0x4A50E0;
