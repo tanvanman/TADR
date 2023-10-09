@@ -503,7 +503,6 @@ HRESULT __stdcall IDDrawSurface::SetPalette(LPDIRECTDRAWPALETTE arg1)
 
 HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 {
-    IDDrawSurface::OutptTxt("[IDDrawSurface::Unlock] ...");
 #ifdef SYNCHRONISE_THREADS
     std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
 #endif
@@ -1104,7 +1103,6 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 
 LRESULT CALLBACK WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
-    IDDrawSurface::OutptTxt("[WinProc] ...");
 #ifdef SYNCHRONISE_THREADS
     std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
 #endif

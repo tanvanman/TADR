@@ -43,6 +43,9 @@ class CTAHook
     void WriteScrollDTLine();
     unsigned int SendMessage;
     int Delay;
+	int ClickSnapRadius;
+	int ClickSnapOverrideKey;
+	bool ReclaimSnapDisable;
     bool WriteLine;
     int StartX, StartY;
     int EndX, EndY;
@@ -65,9 +68,10 @@ class CTAHook
 	void FindConnectedSquare(int &x1, int &y1, int &x2, int &y2, char *unittested);
     //void VisualizeRing(LPDIRECTDRAWSURFACE DestSurf);
 
-	void ClickBuilding(int Xpos, int Ypos);
+	void ClickBuilding(int Xpos, int Ypos, bool shiftBuild=true);
 	short GetFootX();
 	short GetFootY();
+	const UnitDefStruct& GetBuildUnit() const;
 	void DrawBuildRect(int posx, int posy, int sizex, int sizey, int color);
 	void EnableTABuildRect();
 	void DisableTABuildRect();
@@ -109,7 +113,7 @@ class CTAHook
     CTAHook(BOOL VidMem);
     ~CTAHook();
     bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-    void Set(int KeyCodei, char *ChatMacroi, bool FullRingsi, bool VisualizeRowsi, int iDelay);
+    void Set(int KeyCodei, char *ChatMacroi, bool FullRingsi, bool VisualizeRowsi, int iDelay, int iRadius, int ClickSnapOverrideKey);
     void WriteShareMacro();
     void Blit(LPDIRECTDRAWSURFACE DestSurf);
 	void TABlit();

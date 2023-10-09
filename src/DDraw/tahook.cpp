@@ -19,6 +19,9 @@
 #include "megamaptastuff.h"
 #include "MegamapControl.h"
 
+#include <algorithm>
+#include <list>
+#include <tuple>
 
 #ifdef WM_MOUSEWHEEL//vs2010
 #undef WM_MOUSEWHEEL
@@ -26,9 +29,9 @@
 #define WM_MOUSEWHEEL 522
 #define MAX_SPACING 10
 
+#define WM_USER_ENABLE_RECLAIM_SNAP (WM_USER+0x7ee7)
+
 CTAHook *TAHook;
-
-
 
 CTAHook::CTAHook(BOOL VidMem)
 {
@@ -62,11 +65,14 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	QueuePos = 0;
 	Delay = 5;
+	ClickSnapRadius = 3;
+	ClickSnapOverrideKey = VK_LMENU;
 	WriteLine = false;
 	FootPrintX = FootPrintY = 2;
 	ScrollEnabled = LocalShare->CompatibleVersion;
 	RingWrite = false;
 	Spacing = 0;
+	ReclaimSnapDisable  = false;
 
 
 	lpRectSurf = CreateSurfPCXResource(50, VidMem);
@@ -100,8 +106,123 @@ CTAHook::~CTAHook()
 
 }
 
+struct CountFeetExceedingSurfaceMetalAdapter
+{
+	static int count(int x, int y, int footX, int footY)
+	{
+		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+		if (!Ptr || !Ptr->GameingState_Ptr) {
+			return 0;
+		}
 
+		const int threshold = Ptr->GameingState_Ptr->surfaceMetal;
 
+		const int dxMin = -footX / 2;
+		const int dxMax = footX % 2 ? footX / 2 : footX / 2 - 1;
+		const int dyMin = -footY / 2;
+		const int dyMax = footY % 2 ? footY / 2 : footY / 2 - 1;
+
+		int count = 0;
+		for (int dx = dxMin; dx <= dxMax; ++dx) {
+			for (int dy = dyMin; dy <= dyMax; ++dy) {
+				if (x + dx < 0 || y + dy < 0 || x + dx >= Ptr->FeatureMapSizeX || y + dy >= Ptr->FeatureMapSizeY) {
+					continue;
+				}
+				const int idx = (x + dx) + (y + dy) * Ptr->FeatureMapSizeX;
+				int metal = (int)Ptr->FeatureMap[idx].MetalValue;
+				if (metal > threshold)
+				{
+					++count;
+				}
+			}
+		}
+		return count;
+	}
+};
+
+struct TestCanBuildAdapter
+{
+	static int count(int x, int y, int footX, int footY)
+	{
+		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+		if (!Ptr) {
+			return 0;
+		}
+
+		UnitDefStruct* unit = &Ptr->UnitDef[Ptr->BuildUnitID];
+
+		// For completeness, this is exacatly how TA calculates the coordinate to test.
+		// It seems to differ a pixel or two from just using Ptr->BuildPosX,Y
+		// Note the use of index [2] for the y coordinate
+		// unsigned mousePositionX = ((0x80000 + Ptr->MouseMapPos[0] - (footX << 19)) >> 20) & 0xffff;
+		// unsigned mousePositionY = ((0x80000 + Ptr->MouseMapPos[2] - (footY << 19)) >> 20) & 0xffff;
+		// unsigned packedMousePositionXY = (mousePositionY << 16) | mousePositionX;
+
+		const unsigned mousePositionX = (x - footX / 2) & 0xffff;
+		const unsigned mousePositionY = (y - footY / 2) & 0xffff;
+		const unsigned packedMousePositionXY = (mousePositionY << 16) | mousePositionX;
+		return TestGridSpot(unit, packedMousePositionXY, 0, &Ptr->Players[Ptr->LocalHumanPlayer_PlayerID]);
+	}
+};
+
+struct CountReclaimableAdapter
+{
+	static int count(int x, int y, int footX, int footY)
+	{
+		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+		if (!Ptr) {
+			return 0;
+		}
+
+		if (x < 0 || y < 0 || x >= Ptr->FeatureMapSizeX || y >= Ptr->FeatureMapSizeY) {
+			return 0;
+		}
+		FeatureStruct *f = &Ptr->FeatureMap[x + y * Ptr->FeatureMapSizeX];
+		unsigned idx = GetGridPosFeature(f);
+		if (idx >= Ptr->NumFeatureDefs) {
+			return 0;
+		}
+
+		return Ptr->FeatureDef[idx].Metal > 0 || Ptr->FeatureDef[idx].Energy > 0;
+	}
+};
+
+template<typename PositionTestFunctor>
+void SnapToNear(int xyPos[2], int footX, int footY, int R)
+{
+	std::vector<std::tuple<int, int, int> > sums;
+	sums.reserve((1 + R) * (1 + R));
+	for (int dx = -R; dx <= R; ++dx) {
+		for (int dy = -R; dy <= R; ++dy) {
+			int count = PositionTestFunctor::count(xyPos[0] + dx, xyPos[1] + dy, footX, footY);
+			if (count > 0) {
+				sums.push_back(std::make_tuple(dx, dy, count));
+			}
+		}
+	}
+
+	if (sums.empty()) {
+		return;
+	}
+
+	auto itMaxSums = std::max_element(sums.begin(), sums.end(),
+		[](const std::tuple<int, int, int>& a, const std::tuple<int, int, int>& b) { 
+		return std::get<2>(a) < std::get<2>(b);
+	});
+
+	std::vector<std::tuple<int, int, int> > maxima;
+	std::copy_if(sums.begin(), sums.end(), std::back_inserter(maxima), [itMaxSums](const std::tuple<int, int, int>& x) {
+		return std::get<2>(x) == std::get<2>(*itMaxSums);
+	});
+
+	auto itClosestMax = std::min_element(maxima.begin(), maxima.end(),
+		[](const std::tuple<int, int, int>& a, const std::tuple<int, int, int>& b) { 
+		return std::abs(std::get<0>(a)) + std::abs(std::get<1>(a)) < std::abs(std::get<0>(b)) + std::abs(std::get<1>(b));
+	});
+
+	xyPos[0] += std::get<0>(*itClosestMax);
+	xyPos[1] += std::get<1>(*itClosestMax);
+}
 
 bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
@@ -115,11 +236,11 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			case WM_KEYDOWN:
 				switch((int)wParam)
 				{
-				case 122: //f11
+				case VK_F11:
 					WriteShareMacro();
 					return true;
 
-				case 33:  //pageup
+				case VK_PRIOR: //pageup
 					if((GetAsyncKeyState(VirtualKeyCode)&0x8000)>0)
 					{
 						Spacing++;
@@ -129,7 +250,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						return true;
 					}
 
-				case 34:  //pagedown
+				case VK_NEXT:  //pagedown
 					if((GetAsyncKeyState(VirtualKeyCode)&0x8000)>0)
 					{
 						Spacing--;
@@ -229,6 +350,71 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					}*/
 					return true;
 				}
+				if (ClickSnapRadius > 0 && (GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
+				{
+					RECT& gameScreenRect = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
+					int mouseScreenX = LOWORD(lParam);
+					int mouseScreenY = HIWORD(lParam);
+					if (mouseScreenX >= gameScreenRect.left && mouseScreenX < gameScreenRect.right)
+					{
+						if ((ordertype::BUILD == TAdynmem->PrepareOrder_Type))
+						{
+							if (GetBuildUnit().extractsmetal) {
+								int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
+								SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(xyPos, GetFootX(), GetFootY(), ClickSnapRadius);
+								ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
+								return true;
+							}
+
+							char yardMap[65];
+							if (GetBuildUnit().YardMap) {
+								int N = min(64, GetFootX() * GetFootY());
+								std::memcpy(yardMap, GetBuildUnit().YardMap, N);
+								yardMap[N] = 0;
+							}
+							// 0x8f in yardmap, diagnostic of geothermals (I hope)
+							if (strchr(yardMap, 0x8f))
+							{
+								int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
+								SnapToNear<TestCanBuildAdapter>(xyPos, GetFootX(), GetFootY(), ClickSnapRadius);
+								ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
+								return true;
+							}
+						}
+						else if ((ordertype::RECLAIM == TAdynmem->PrepareOrder_Type) && !ReclaimSnapDisable)
+						{
+							int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
+							SnapToNear<CountReclaimableAdapter>(xyPos, GetFootX(), GetFootY(), ClickSnapRadius);
+							int dx = xyPos[0] - TAdynmem->BuildPosX;
+							int dy = xyPos[1] - TAdynmem->BuildPosY;
+							if (dx == 0 && dy == 0) {
+								return false;
+							}
+							else {
+								// @TODO maybe somebody can have better success at finding the right TA functions to call
+								// so we don't have to hack this in
+								LPARAM lParamBak = lParam;
+								lParam = ((lParamBak + (dx<<4)) & 0xffff);
+								if (lParam < TAdynmem->GameSreen_Rect.left)
+								{
+									return false;
+								}
+								lParam |= ((lParamBak + (dy<<20)) & 0xffff0000);
+								PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParam);
+								PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
+								PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
+								PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParamBak);
+								PostMessage(WinProcWnd, WM_USER_ENABLE_RECLAIM_SNAP, wParam, lParamBak);
+								ReclaimSnapDisable = true;
+								return true;
+							}
+						}
+					}
+				}
+				break;
+
+			case WM_USER_ENABLE_RECLAIM_SNAP:
+				ReclaimSnapDisable = false;
 				break;
 
 			case WM_LBUTTONUP:
@@ -336,13 +522,15 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	return false;
 }
 
-void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay)
+void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iRadius, int iClickSnapOverrideKey)
 {
 	VirtualKeyCode = KeyCodei;
 	lstrcpyA(ShareText, ChatMacroi);
 	OptimizeRows = OptimizeRowsi;
 	FullRingsEnabled = FullRingsi;
 	Delay = iDelay;
+	ClickSnapRadius = iRadius;
+	ClickSnapOverrideKey = iClickSnapOverrideKey;
 }
 
 void CTAHook::WriteShareMacro()
@@ -1026,13 +1214,13 @@ void CTAHook::VisualizeRing(LPDIRECTDRAWSURFACE DestSurf)
 }
 */
 
-void CTAHook::ClickBuilding(int Xpos, int Ypos)
+void CTAHook::ClickBuilding(int Xpos, int Ypos, bool shiftBuild)
 {
 	int BakX= TAdynmem->MouseMapPos.X;
 	int BakY= TAdynmem->MouseMapPos.Y;
 
 	msgstruct mu;
-	mu.shiftstatus = 5;
+	mu.shiftstatus = shiftBuild ? 5 : 0;
 
 	TAdynmem->MouseMapPos.X = (short)Xpos;
 	TAdynmem->MouseMapPos.Y = (short)Ypos;
@@ -1053,6 +1241,11 @@ short CTAHook::GetFootX()  //get footprint of selected BeginUnitsArray_p  to bui
 short CTAHook::GetFootY()  //get footprint of selected BeginUnitsArray_p  to build
 {
 	return TAdynmem->UnitDef[TAdynmem->BuildUnitID].FootY;
+}
+
+const UnitDefStruct& CTAHook::GetBuildUnit() const
+{
+	return TAdynmem->UnitDef[TAdynmem->BuildUnitID];
 }
 
 void CTAHook::DrawBuildRect(int posx, int posy, int sizex, int sizey, int color)

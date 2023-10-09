@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 class SingleHook;
 #define GUIERRORCOUNT (4)
 
@@ -7,49 +9,35 @@ class TABugFixing
 {
 
 private:
-	SingleHook * NullUnitDeathVictim;
-	SingleHook * CircleRadius;
-	SingleHook * CrackCd;
-	SingleHook * CrackCd2;
-	SingleHook * CrackCd3;
-    SingleHook* SinglePlayerStartButton;
-    SingleHook* LosTypeShouldBeACheatCode;
-	InlineSingleHook * BadModelHunter_ISH;
-
-	SingleHook * GUIErrorLengthHookAry[GUIERRORCOUNT];
-
-	SingleHook * CDMusic_TAB;
-
-	InlineSingleHook * CDMusic_Menu_Pause;
-	InlineSingleHook * CDMusic_Victory_Pause;
-
-	SingleHook* CDMusic_StopButton;
-
-	InlineSingleHook * UnitVolumeYequZero;
-
-	InlineSingleHook * UnitIDOutRange;
-
-	InlineSingleHook *  UnitDeath_BeforeUpdateUI;
-
-
-	InlineSingleHook *  EnterDrawPlayer_MAPPEDMEM;
-	InlineSingleHook *  LeaveDrawPlayer_MAPPEDMEM;
-
-	InlineSingleHook *  EnterUnitLoop;
-	InlineSingleHook *  LeaveUnitLoop;
-	InlineSingleHook *  LeaveUnitLoop2;
-	
-	InlineSingleHook* SavePlayerColor;
-	InlineSingleHook* RestorePlayerColor;
-
-	SingleHook * DisplayModeMinHeight768Enum;
-	InlineSingleHook * DisplayModeMinHeight768Reg;
-	SingleHook * DisplayModeMinHeight768Def;
-
-	SingleHook * DisplayModeMinWidth1024Def;
-	InlineSingleHook * DisplayModeMinWidth1024Reg;
-
-
+	std::unique_ptr <SingleHook> NullUnitDeathVictim;
+	std::unique_ptr <SingleHook> CircleRadius;
+	std::unique_ptr <SingleHook> CrackCd;
+	std::unique_ptr <SingleHook> CrackCd2;
+	std::unique_ptr <SingleHook> CrackCd3;
+	std::unique_ptr <SingleHook> SinglePlayerStartButton;
+	std::unique_ptr <SingleHook> LosTypeShouldBeACheatCode;
+	std::unique_ptr<InlineSingleHook> BadModelHunter_ISH;
+	std::unique_ptr <SingleHook> GUIErrorLengthHookAry[GUIERRORCOUNT];
+	std::unique_ptr <SingleHook> CDMusic_TAB;
+	std::unique_ptr <SingleHook> CDMusic_Menu_Pause;
+	std::unique_ptr <SingleHook> CDMusic_Victory_Pause;
+	std::unique_ptr <SingleHook> CDMusic_StopButton;
+	std::unique_ptr <SingleHook> UnitVolumeYequZero;
+	std::unique_ptr <SingleHook> UnitIDOutRange;
+	std::unique_ptr <SingleHook> UnitDeath_BeforeUpdateUI;
+	std::unique_ptr <SingleHook> EnterDrawPlayer_MAPPEDMEM;
+	std::unique_ptr <SingleHook> LeaveDrawPlayer_MAPPEDMEM;
+	std::unique_ptr <SingleHook> EnterUnitLoop;
+	std::unique_ptr <SingleHook> LeaveUnitLoop;
+	std::unique_ptr <SingleHook> LeaveUnitLoop2;
+	std::unique_ptr <SingleHook> SavePlayerColor;
+	std::unique_ptr <SingleHook> RestorePlayerColor;
+	std::unique_ptr <SingleHook> DisplayModeMinHeight768Enum;
+	std::unique_ptr <SingleHook> DisplayModeMinHeight768Reg;
+	std::unique_ptr <SingleHook> DisplayModeMinHeight768Def;
+	std::unique_ptr <SingleHook> DisplayModeMinWidth1024Def;
+	std::unique_ptr <SingleHook> DisplayModeMinWidth1024Reg;
+	std::unique_ptr <SingleHook> DisplayWindSpeed;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 

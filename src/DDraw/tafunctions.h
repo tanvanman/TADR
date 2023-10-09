@@ -106,7 +106,6 @@ extern _MOUSE_EVENT_2UnitOrder_ MOUSE_EVENT_2UnitOrder_;
      
 typedef int (__stdcall * _CorretCursor_InGame)(char PrepareOrder);
 extern _CorretCursor_InGame CorretCursor_InGame;
-    
 
 typedef int (__stdcall * _SetUICursor)(GUIInfo * TAGUIInfo, _GAFSequence * CursorGafSqe_Ptr);
 extern _SetUICursor SetUICursor;
@@ -116,7 +115,7 @@ extern _SelectAllSelectedUnits SelectAllSelectedUnits;
 
 
 
-typedef int ( __stdcall *_GetGridPosFeature)(int);
+typedef unsigned short ( __stdcall *_GetGridPosFeature)(FeatureStruct *);
 extern _GetGridPosFeature GetGridPosFeature;
 
 
@@ -174,12 +173,8 @@ extern _IsGUIMem IsGUIMem;
 typedef int (__stdcall * _IntoCurrentUnitGUI)(BOOL UpdateGUI_Bool);
 extern _IntoCurrentUnitGUI IntoCurrentUnitGUI;
 
-//////////////////////////////////////////////////////////////////////////////////////////
-/// Not working.
-//////////////////////////////////////////////////////////////////////////////////////////
-typedef void (__stdcall *_TestGridSpot)(UnitStruct *BuildUnit, int pos, int unk, PlayerStruct *Player); //unk=zero
+typedef int (__stdcall *_TestGridSpot)(UnitDefStruct *BuildUnit, unsigned packedMousePositionXY, int unk, PlayerStruct *Player); //unk=zero
 extern _TestGridSpot TestGridSpot;
-
 
 
 ////-----------
@@ -220,6 +215,9 @@ int DrawRadarCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int 
 int DrawDotteCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int Radius, int color, int Spacing, int Dotte_b);
 
 BOOL IsPlayerAllyUnit (int  UnitID,int PlayerLosID);
+
+bool GetWeatherReport(char* buffer, int len);
+
 extern TAProgramStruct * * TAProgramStruct_PtrPtr;
 
 extern TAdynmemStruct * * TAmainStruct_PtrPtr;

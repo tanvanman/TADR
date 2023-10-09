@@ -94,6 +94,23 @@ unsigned int DisplayModeMinWidth1024RegAddr = 0x42FA2E;
 unsigned int SinglePlayerStartButtonAddr = 0x456780;
 BYTE SinglePlayerStartButtonBits[] = { 0x02, 0x7d };
 
+unsigned int DisplayWindSpeedAddr = 0x46a2a3;	// just after having drawn the +clock Game Time
+int __stdcall DisplayWindSpeedProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	char Textbuf[0x100];
+	if (GetWeatherReport(Textbuf, sizeof(Textbuf))) {
+
+		// y-coordinate on which the +clock Game Time was drawn
+		int yOff = X86StrackBuffer->Esi;
+
+		// local OFFSCREEN that was used for drawing +clock Game Time
+		OFFSCREEN* offScreen = (OFFSCREEN*)(X86StrackBuffer->Esp + 52);
+
+		DrawTextInScreen(offScreen, Textbuf, 260, yOff, -1);
+	}
+	return 0;
+}
+
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
@@ -135,33 +152,33 @@ TABugFixing::TABugFixing ()
 
 	if (MyConfig->GetIniBool("DisplayModeMinHeight768", FALSE))
 	{
-		DisplayModeMinHeight768Enum = new SingleHook(DisplayModeMinHeight768EnumAddr, sizeof(DisplayModeMinHeight768EnumBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinHeight768EnumBits);
-		DisplayModeMinHeight768Def = new SingleHook(DisplayModeMinHeight768DefAddr, sizeof(DisplayModeMinHeight768DefBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinHeight768DefBits);
-		DisplayModeMinHeight768Reg = new InlineSingleHook(DisplayModeMinHeight768RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeHeightReg);
+		DisplayModeMinHeight768Enum.reset(new SingleHook(DisplayModeMinHeight768EnumAddr, sizeof(DisplayModeMinHeight768EnumBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinHeight768EnumBits));
+		DisplayModeMinHeight768Def.reset(new SingleHook(DisplayModeMinHeight768DefAddr, sizeof(DisplayModeMinHeight768DefBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinHeight768DefBits));
+		DisplayModeMinHeight768Reg.reset(new InlineSingleHook(DisplayModeMinHeight768RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeHeightReg));
 	
-		DisplayModeMinWidth1024Def = new SingleHook(DisplayModeMinWidth1024DefAddr, sizeof(DisplayModeMinWidth1024DefBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinWidth1024DefBits);
-		DisplayModeMinWidth1024Reg = new InlineSingleHook(DisplayModeMinWidth1024RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeWidthReg);
+		DisplayModeMinWidth1024Def.reset(new SingleHook(DisplayModeMinWidth1024DefAddr, sizeof(DisplayModeMinWidth1024DefBits), INLINE_UNPROTECTEVINMENT, DisplayModeMinWidth1024DefBits));
+		DisplayModeMinWidth1024Reg.reset(new InlineSingleHook(DisplayModeMinWidth1024RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeWidthReg));
 	}
 
-  SinglePlayerStartButton = new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits);
+  SinglePlayerStartButton.reset(new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits));
 
-	NullUnitDeathVictim= new SingleHook ( NullUnitDeathVictimAddr, sizeof(NullUnitDeathVictimBits), INLINE_UNPROTECTEVINMENT, NullUnitDeathVictimBits);
+	NullUnitDeathVictim.reset(new SingleHook ( NullUnitDeathVictimAddr, sizeof(NullUnitDeathVictimBits), INLINE_UNPROTECTEVINMENT, NullUnitDeathVictimBits));
 
-	CircleRadius=  new SingleHook ( CircleRadiusAddr, sizeof(CircleRadiusBits), INLINE_UNPROTECTEVINMENT, CircleRadiusBits);
+	CircleRadius.reset(new SingleHook ( CircleRadiusAddr, sizeof(CircleRadiusBits), INLINE_UNPROTECTEVINMENT, CircleRadiusBits));
 
-	BadModelHunter_ISH= new InlineSingleHook ( BadModelHunterAddr, 5, INLINE_5BYTESLAGGERJMP, BadModelHunter);
+	BadModelHunter_ISH.reset(new InlineSingleHook ( BadModelHunterAddr, 5, INLINE_5BYTESLAGGERJMP, BadModelHunter));
 
-	CrackCd= new SingleHook ( CrackCdAddr, sizeof(CrackCDBits), INLINE_UNPROTECTEVINMENT, CrackCDBits);
+	CrackCd.reset(new SingleHook ( CrackCdAddr, sizeof(CrackCDBits), INLINE_UNPROTECTEVINMENT, CrackCDBits));
 
-	CrackCd2= new SingleHook ( CrackCd2Addr, sizeof(CrackCD2Bits), INLINE_UNPROTECTEVINMENT, CrackCD2Bits);
+	CrackCd2.reset(new SingleHook ( CrackCd2Addr, sizeof(CrackCD2Bits), INLINE_UNPROTECTEVINMENT, CrackCD2Bits));
 	
-	CrackCd3= new SingleHook ( CrackCd3Addr, sizeof(CrackCD3Bits), INLINE_UNPROTECTEVINMENT, CrackCD3Bits);
+	CrackCd3.reset(new SingleHook ( CrackCd3Addr, sizeof(CrackCD3Bits), INLINE_UNPROTECTEVINMENT, CrackCD3Bits));
 	for (int i= 0; i<GUIERRORCOUNT; i++)
 	{
-		GUIErrorLengthHookAry[i]= new SingleHook ( GUIErrorLengthAry[i], sizeof(GUIErrorLengthBits), INLINE_UNPROTECTEVINMENT, GUIErrorLengthBits);
+		GUIErrorLengthHookAry[i].reset(new SingleHook ( GUIErrorLengthAry[i], sizeof(GUIErrorLengthBits), INLINE_UNPROTECTEVINMENT, GUIErrorLengthBits));
 	}
 
-    LosTypeShouldBeACheatCode = new SingleHook(LosTypeShouldBeACheatCodeAddr, sizeof(LosTypeShouldBeACheatCodeBits), INLINE_UNPROTECTEVINMENT, LosTypeShouldBeACheatCodeBits);
+    LosTypeShouldBeACheatCode.reset(new SingleHook(LosTypeShouldBeACheatCodeAddr, sizeof(LosTypeShouldBeACheatCodeBits), INLINE_UNPROTECTEVINMENT, LosTypeShouldBeACheatCodeBits));
 
 	HMODULE Audiere_hm= GetModuleHandleA ( "audiere.dll");
 	CDMusic_TAB= NULL;
@@ -171,177 +188,22 @@ TABugFixing::TABugFixing ()
 	if (NULL!=Audiere_hm)
 	{// install music cd hook
 
-		CDMusic_TAB= new SingleHook ( CDMusic_TABAddr, sizeof(CDMusic_TABBits), INLINE_UNPROTECTEVINMENT, CDMusic_TABBits);
-		CDMusic_Menu_Pause= new InlineSingleHook ( CDMusic_Menu_PauseAddr, 5, INLINE_5BYTESLAGGERJMP, CDMusic_MenuProc);
-		CDMusic_Victory_Pause= new InlineSingleHook ( CDMusic_Victory_PauseAddr, 5, INLINE_5BYTESLAGGERJMP, CDMusic_VictoryProc);
-		//CDMusic_StopButton= new  SingleHook ( CDMusic_StopAddr  , sizeof(CDMusic_StopBits), INLINE_UNPROTECTEVINMENT, CDMusic_StopBits); 
+		CDMusic_TAB.reset(new SingleHook ( CDMusic_TABAddr, sizeof(CDMusic_TABBits), INLINE_UNPROTECTEVINMENT, CDMusic_TABBits));
+		CDMusic_Menu_Pause.reset(new InlineSingleHook ( CDMusic_Menu_PauseAddr, 5, INLINE_5BYTESLAGGERJMP, CDMusic_MenuProc));
+		CDMusic_Victory_Pause.reset(new InlineSingleHook ( CDMusic_Victory_PauseAddr, 5, INLINE_5BYTESLAGGERJMP, CDMusic_VictoryProc));
 		
 	}
 
-    SavePlayerColor = new InlineSingleHook(SavePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, SavePlayerColorProc);
-    RestorePlayerColor = new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc);
-	
-	//UnitVolumeYequZero= new InlineSingleHook ( UnitVolumeYequZero_Addr, 5, INLINE_5BYTESLAGGERJMP, UnitVolumeYequZero_Proc);
-
-	//MaxUnitID= (*TAmainStruct_PtrPtr)->ActualUnitLimit* 10;
-
-	//UnitIDOutRange= new InlineSingleHook  ( UnitIDOutRangeAddr, 5, INLINE_5BYTESLAGGERJMP, UnitIDOutRange_Proc);
-
-	//UnitIDOutRange->SetParamOfHook (  (LPVOID) MaxUnitID);
-
-	UnitDeath_BeforeUpdateUI= new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc);
-
-// 	InitializeCriticalSection ( &DrawPlayer_MAPPEDMEM_cris);
-// 	LeaveDrawPlayer_MAPPEDMEM= new InlineSingleHook ( LeaveDrawPlayer_MAPPEDMEMAddr, 5, INLINE_5BYTESLAGGERJMP, LeaveProc);
-// 	LeaveDrawPlayer_MAPPEDMEM->SetParamOfHook (  (LPVOID) &DrawPlayer_MAPPEDMEM_cris);
-// 
-// 	EnterDrawPlayer_MAPPEDMEM= new InlineSingleHook ( EnterDrawPlayer_MAPPEDMEMAddr, 5, INLINE_5BYTESLAGGERJMP, EnterProc);
-// 	EnterDrawPlayer_MAPPEDMEM->SetParamOfHook (  (LPVOID) &DrawPlayer_MAPPEDMEM_cris);
-// 
-// 
-// 	InitializeCriticalSection ( &UnitLoop_cris);
-// 	LeaveUnitLoop= new InlineSingleHook ( LeaveUnitLoopAddr, 5, INLINE_5BYTESLAGGERJMP, LeaveProc);
-// 	LeaveUnitLoop->SetParamOfHook (  (LPVOID) &UnitLoop_cris);
-// 	LeaveUnitLoop2= new InlineSingleHook ( LeaveUnitLoop2Addr, 5, INLINE_5BYTESLAGGERJMP, LeaveProc);
-// 	LeaveUnitLoop2->SetParamOfHook (  (LPVOID) &UnitLoop_cris);
-// 	
-// 
-// 	EnterUnitLoop= new InlineSingleHook ( EnterUnitLoopAddr, 5, INLINE_5BYTESLAGGERJMP, EnterProc);
-// 	EnterUnitLoop->SetParamOfHook (  (LPVOID) &UnitLoop_cris);
-// 
-// 
-// 
-// 	
+    SavePlayerColor.reset(new InlineSingleHook(SavePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, SavePlayerColorProc));
+    RestorePlayerColor.reset(new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc));
+	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
+	DisplayWindSpeed.reset(new InlineSingleHook(DisplayWindSpeedAddr, 5, INLINE_5BYTESLAGGERJMP, DisplayWindSpeedProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
 TABugFixing::~TABugFixing ()
 {
 	RemoveVectoredExceptionHandler  ( VectoredHandler);
-	if (NULL != DisplayModeMinHeight768Enum)
-	{
-		delete DisplayModeMinHeight768Enum;
-	}
-	if (NULL != DisplayModeMinHeight768Def)
-	{
-		delete DisplayModeMinHeight768Def;
-	}
-	if (NULL != DisplayModeMinWidth1024Def)
-	{
-		delete DisplayModeMinWidth1024Def;
-	}
-    if (NULL != SinglePlayerStartButton)
-    {
-        delete SinglePlayerStartButton;
-    }
-	if (NULL!=NullUnitDeathVictim)
-	{
-		delete NullUnitDeathVictim;
-	}
-	if (NULL!=BadModelHunter_ISH)
-	{
-		delete BadModelHunter_ISH;
-	}
-	
-	if (NULL!=CrackCd)
-	{
-		delete CrackCd;
-	}
-	if (NULL!=CrackCd2)
-	{
-		delete CrackCd2;
-
-	}
-	if (NULL!=CrackCd3)
-	{
-		delete CrackCd3;
-
-	}
-    if (NULL != LosTypeShouldBeACheatCode)
-    {
-        delete LosTypeShouldBeACheatCode;
-    }
-
-
-	if (NULL!=CircleRadius)
-	{
-		delete CircleRadius;
-	}
-	for (int i= 0; i<GUIERRORCOUNT; i++)
-	{
-		if (NULL!=GUIErrorLengthHookAry[i])
-		{
-			delete GUIErrorLengthHookAry[i];
-		}
-		
-	}
-
-	if (CDMusic_TAB)
-	{
-		delete CDMusic_TAB;
-	}
-	if (CDMusic_Menu_Pause)
-	{
-		delete CDMusic_Menu_Pause;
-	}
-	if (CDMusic_Victory_Pause)
-	{
-		delete CDMusic_Victory_Pause;
-	}
-	if (CDMusic_StopButton)
-	{
-		delete CDMusic_StopButton;
-	}
-	
-	if (UnitVolumeYequZero)
-	{
-		delete UnitVolumeYequZero;
-	}
-
-	if (UnitDeath_BeforeUpdateUI)
-	{
-		delete UnitDeath_BeforeUpdateUI;
-	}
-
-    if (SavePlayerColor)
-    {
-        delete SavePlayerColor;
-    }
-    if (RestorePlayerColor)
-    {
-        delete RestorePlayerColor;
-    }
-// 
-// 	EnterCriticalSection (&UnitLoop_cris);
-// 	EnterCriticalSection (&DrawPlayer_MAPPEDMEM_cris);
-// 	
-// 	if (EnterDrawPlayer_MAPPEDMEM)
-// 	{
-// 		delete EnterDrawPlayer_MAPPEDMEM;
-// 	}
-// 	if (LeaveDrawPlayer_MAPPEDMEM)
-// 	{
-// 		delete LeaveDrawPlayer_MAPPEDMEM;
-// 	}
-// 
-// 	if (EnterUnitLoop)
-// 	{
-// 		delete EnterUnitLoop;
-// 	}
-// 	if (LeaveUnitLoop)
-// 	{
-// 		delete LeaveUnitLoop;
-// 	}
-// 	if (LeaveUnitLoop2)
-// 	{
-// 		delete LeaveUnitLoop2;
-// 	}
-// 	
-// 	LeaveCriticalSection (&DrawPlayer_MAPPEDMEM_cris);
-// 	LeaveCriticalSection (&UnitLoop_cris);
-// 	
-// 	DeleteCriticalSection ( &DrawPlayer_MAPPEDMEM_cris);
-// 	DeleteCriticalSection ( &UnitLoop_cris);
 }
 
 

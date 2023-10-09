@@ -43,6 +43,8 @@ Dialog::Dialog(BOOL Vidmem_a)
 
 	VSyncPushed= false;
 	ShareText[0]= 0;
+	AutoClickDelayText[0] = 0;
+	ClickSnapRadiusText[0] = 0;
 
 	LocalShare->Dialog = this;
 	posX = 0;
@@ -150,6 +152,7 @@ Dialog::~Dialog()
 void Dialog::ShowDialog()
 {
 	WhiteboardKeyFocus= false;
+	ClickSnapOverrideKeyFocus= false;
 	KeyCodeFocus= false;
 	ShareBoxFocus= false;
 	MegmapFocus= false;
@@ -327,6 +330,11 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				WhiteboardKeyFocus = false;
 				RenderDialog();
 			}
+			if (ClickSnapOverrideKeyFocus)
+			{
+				ClickSnapOverrideKeyFocus = false;
+				RenderDialog();
+			}
 			if(ShareBoxFocus)
 			{
 				ShareBoxFocus = false;
@@ -335,6 +343,11 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			if(AutoClickDelayFocus)
 			{
 				AutoClickDelayFocus = false;
+				RenderDialog();
+			}
+			if (ClickSnapRadiusFocus)
+			{
+				ClickSnapRadiusFocus = false;
 				RenderDialog();
 			}
 			if (MegmapFocus)
@@ -378,6 +391,11 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					WhiteboardKeyFocus = true;
 					RenderDialog();
 				}
+				else if (Inside(LOWORD(lParam), HIWORD(lParam), ClickSnapOverrideKeyId))
+				{
+					ClickSnapOverrideKeyFocus = true;
+					RenderDialog();
+				}
 				else if(Inside(LOWORD(lParam), HIWORD(lParam), ShareBox))
 				{
 					ShareBoxFocus = true;
@@ -388,6 +406,11 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				AutoClickDelayFocus = true;
 				RenderDialog();
 				}*/
+				else if (Inside(LOWORD(lParam), HIWORD(lParam), ClickSnapRadiusId))
+				{
+					ClickSnapRadiusFocus = true;
+					RenderDialog();
+				}
 				else if(Inside(LOWORD(lParam), HIWORD(lParam), OptimizeDT))
 				{
 					StartedIn = OptimizeDT;
@@ -573,7 +596,12 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				RenderDialog();
 				return true;
 			}
-
+			if (ClickSnapOverrideKeyFocus)
+			{
+				ClickSnapOverrideKey = (int)wParam;
+				RenderDialog();
+				return true;
+			}
 			if(MegmapFocus)
 			{
 				VirtualMegamap = (int)wParam;
@@ -587,6 +615,10 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				return true;
 			}
 			if(WhiteboardKeyFocus)
+			{
+				return true;
+			}
+			if (ClickSnapOverrideKeyFocus)
 			{
 				return true;
 			}
@@ -618,21 +650,33 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			{
 				if(wParam == 8) //backspace
 				{
-					if(strlen(cAutoClickDelay)>0)
-						cAutoClickDelay[strlen(cAutoClickDelay)-1] = '\0';
+					if(strlen(AutoClickDelayText)>0)
+						AutoClickDelayText[strlen(AutoClickDelayText)-1] = '\0';
 				}
 				else
 				{
-					if(strlen(cAutoClickDelay)!=3)
+					if(strlen(AutoClickDelayText)!=3)
 					{
 						if(wParam>='0' && wParam<='9')
 						{
 							char App[2];
 							App[0] = (TCHAR)wParam;
 							App[1] = '\0';
-							lstrcatA(cAutoClickDelay, App);
+							lstrcatA(AutoClickDelayText, App);
 						}
 					}
+				}
+				RenderDialog();
+				return true;
+			}
+			if (ClickSnapRadiusFocus)
+			{
+				if (wParam >= '0' && wParam <= '9')
+				{
+					char App[2];
+					App[0] = (TCHAR)wParam;
+					App[1] = '\0';
+					lstrcpyA(ClickSnapRadiusText, App);
 				}
 				RenderDialog();
 				return true;
@@ -679,6 +723,8 @@ void Dialog::RenderDialog()
 	DrawFullRings();
 	//DrawDelay();
 	DrawWhiteboardKey();
+	DrawClickSnapRadius();
+	DrawClickSnapOverrideKey();
 	//DrawVisibleButton();
 #ifdef USEMEGAMAP
 	DrawMegaMapKey ( );
@@ -733,8 +779,18 @@ bool Dialog::Inside(int x, int y, int Control)
 			return true;
 		else
 			return false;
+	case ClickSnapRadiusId:
+		if (x >= ClickSnapRadiusPosX && x < ClickSnapRadiusPosX + ClickSnapRadiusWidth && y >= ClickSnapRadiusPosY && y < ClickSnapRadiusPosY + ClickSnapRadiusHeight)
+			return true;
+		else
+			return false;
 	case WhiteboardKey:
 		if(x>=WhiteboardKeyPosX && x<WhiteboardKeyPosX+WhiteboardKeyWidth && y>=WhiteboardKeyPosY && y<WhiteboardKeyPosY+WhiteboardKeyHeight)
+			return true;
+		else
+			return false;
+	case ClickSnapOverrideKeyId:
+		if (x >= ClickSnapOverrideKeyPosX && x < ClickSnapOverrideKeyPosX + ClickSnapOverrideKeyWidth && y >= ClickSnapOverrideKeyPosY && y < ClickSnapOverrideKeyPosY + ClickSnapOverrideKeyHeight)
 			return true;
 		else
 			return false;
@@ -863,11 +919,17 @@ void Dialog::SetAll()
 
 	if (TAHook)
 	{
-		int Delay = atoi(cAutoClickDelay);
+		int Delay = atoi(AutoClickDelayText);
 		if(Delay<1)
 			Delay = 1;
-		TAHook->Set(VirtualKeyCode, ShareText, OptimizeDTEnabled, FullRingsEnabled, Delay);
 
+		int Radius = atoi(ClickSnapRadiusText);
+		if (Radius < 0)
+			Radius = 2;
+		if (Radius > 9)
+			Radius = 9;
+
+		TAHook->Set(VirtualKeyCode, ShareText, OptimizeDTEnabled, FullRingsEnabled, Delay, Radius, ClickSnapOverrideKey);
 	}
 
 	AlliesWhiteboard *WB = (AlliesWhiteboard*)LocalShare->Whiteboard;
@@ -920,7 +982,9 @@ void Dialog::WriteSettings()
 	RegSetValueEx(hKey, "OptimizeDT", NULL, REG_BINARY, (unsigned char*)&OptimizeDTEnabled, sizeof(bool));
 	RegSetValueEx(hKey, "FullRings", NULL, REG_BINARY, (unsigned char*)&FullRingsEnabled, sizeof(bool));
 	RegSetValueEx(hKey, "ShareText", NULL, REG_SZ, (unsigned char*)ShareText, strlen(ShareText));
-	RegSetValueEx(hKey, "Delay", NULL, REG_SZ, (unsigned char*)cAutoClickDelay, strlen(cAutoClickDelay));
+	RegSetValueEx(hKey, "Delay", NULL, REG_SZ, (unsigned char*)AutoClickDelayText, strlen(AutoClickDelayText));
+	RegSetValueEx(hKey, "ClickSnapRadius", NULL, REG_SZ, (unsigned char*)ClickSnapRadiusText, strlen(ClickSnapRadiusText));
+	RegSetValueEx(hKey, "ClickSnapOverrideKey", NULL, REG_DWORD, (unsigned char*)&ClickSnapOverrideKey, sizeof(int));
 	RegSetValueEx(hKey, "WhiteboardKey", NULL, REG_DWORD, (unsigned char*)&VirtualWhiteboardKey, sizeof(int));
 	RegSetValueEx(hKey, "MegamapKey", NULL, REG_DWORD, (unsigned char*)&VirtualMegamap, sizeof(int));
 
@@ -966,7 +1030,7 @@ void Dialog::ReadSettings()
 	{
 		FullRingsEnabled = true;
 	}
-	Size = 1000;
+	Size = sizeof(ShareText);
 	if(RegQueryValueEx(hKey, "ShareText", NULL, NULL, (unsigned char*)ShareText, &Size) != ERROR_SUCCESS)
 	{
 		lstrcpyA(ShareText, "+setshareenergy 1000\255+setsharemetal 1000\255+shareall\255+shootall");
@@ -974,15 +1038,25 @@ void Dialog::ReadSettings()
 		ShareText[40] = 13;
 		ShareText[50] = 13;
 	}
-	Size = 10;
-	if(RegQueryValueEx(hKey, "Delay", NULL, NULL, (unsigned char*)cAutoClickDelay, &Size) != ERROR_SUCCESS)
+	Size = sizeof(AutoClickDelayText);
+	if(RegQueryValueEx(hKey, "Delay", NULL, NULL, (unsigned char*)AutoClickDelayText, &Size) != ERROR_SUCCESS)
 	{
-		lstrcpyA(cAutoClickDelay, "10");
+		lstrcpyA(AutoClickDelayText, "10");
+	}
+	Size = sizeof(ClickSnapRadiusText);
+	if (RegQueryValueEx(hKey, "ClickSnapRadius", NULL, NULL, (unsigned char*)ClickSnapRadiusText, &Size) != ERROR_SUCCESS)
+	{
+		lstrcpyA(ClickSnapRadiusText, "3");
+	}
+	Size = sizeof(int);
+	if (RegQueryValueEx(hKey, "ClickSnapOverrideKey", NULL, NULL, (unsigned char*)&ClickSnapOverrideKey, &Size) != ERROR_SUCCESS)
+	{
+		VirtualWhiteboardKey = VK_LMENU;
 	}
 	Size = sizeof(int);
 	if(RegQueryValueEx(hKey, "WhiteboardKey", NULL, NULL, (unsigned char*)&VirtualWhiteboardKey, &Size) != ERROR_SUCCESS)
 	{
-		VirtualWhiteboardKey = 220;
+		VirtualWhiteboardKey = VK_OEM_5;
 	}
 
 	Size = sizeof(int);
@@ -1025,13 +1099,13 @@ void Dialog::CorrectPos()
 
     if(posX < bounds.left)
 		posX = bounds.left;
-	if(posX > bounds.right - DialogWidth)
-		posX = bounds.right - DialogWidth;
+	if(posX > 1+ bounds.right - DialogWidth)
+		posX = 1+ bounds.right - DialogWidth;
 
 	if(posY < bounds.top)
 		posY = bounds.top;
-	if(posY > bounds.bottom - DialogHeight)
-		posY = bounds.bottom - DialogHeight;
+	if(posY > 1+ bounds.bottom - DialogHeight)
+		posY = 1+ bounds.bottom - DialogHeight;
 }
 
 void Dialog::DrawTinyText(char *String, int posx, int posy, char Color)
@@ -1073,7 +1147,7 @@ void Dialog::DrawBackgroundButton()
 	RECT Dest;
 	RECT Source;
 
-	DrawSmallText(lpDialogSurf, StagedButton3PosX, StagedButton3PosY-12, "Background");
+	DrawSmallText(lpDialogSurf, StagedButton3PosX, StagedButton3PosY-12, "Resource Bar Background");
 	Dest.left = StagedButton3PosX;
 	Dest.top = StagedButton3PosY;
 	Dest.right = StagedButton3PosX + StagedButton3Width;
@@ -1125,8 +1199,8 @@ void Dialog::DrawKeyCode()
 
 		FillRect(KeyCodePosX, KeyCodePosY, KeyCodePosX+KeyCodeWidth, KeyCodePosY+KeyCodeHeight, 0);
 
-		char String[20];
-		vkToStr ( VirtualKeyCode, String, 20);
+		char String[32];
+		vkToStr ( VirtualKeyCode, String, sizeof(String));
 		//wsprintf(String, "%i", VirtualKeyCode);
 		if(KeyCodeFocus)
 			DrawTinyText(String, KeyCodePosX + 2, KeyCodePosY + 3, 255U);
@@ -1301,9 +1375,30 @@ void Dialog::DrawDelay()
 		FillRect(AutoClickDelayPosX, AutoClickDelayPosY, (AutoClickDelayPosX)+AutoClickDelayWidth, AutoClickDelayPosY+AutoClickDelayHeight, 0);
 
 		if(AutoClickDelayFocus)
-			DrawTinyText(cAutoClickDelay, static_cast<int>(AutoClickDelayPosX+2), static_cast<int>(AutoClickDelayPosY+3), 255U);
+			DrawTinyText(AutoClickDelayText, static_cast<int>(AutoClickDelayPosX+2), static_cast<int>(AutoClickDelayPosY+3), 255U);
 		else
-			DrawTinyText(cAutoClickDelay, static_cast<int>(AutoClickDelayPosX+2), static_cast<int>(AutoClickDelayPosY+3), 208U);
+			DrawTinyText(AutoClickDelayText, static_cast<int>(AutoClickDelayPosX+2), static_cast<int>(AutoClickDelayPosY+3), 208U);
+
+		lpDialogSurf->Unlock(NULL);
+	}
+}
+
+void Dialog::DrawClickSnapRadius()
+{
+	DrawSmallText(lpDialogSurf, ClickSnapRadiusPosX, ClickSnapRadiusPosY - 13, "Click-Snap Radius");
+	DDSURFACEDESC ddsd;
+	DDRAW_INIT_STRUCT(ddsd);
+	if (lpDialogSurf->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL) == DD_OK)
+	{
+		SurfaceMemory = ddsd.lpSurface;
+		lPitch = ddsd.lPitch;
+
+		FillRect(ClickSnapRadiusPosX, ClickSnapRadiusPosY, (ClickSnapRadiusPosX)+ClickSnapRadiusWidth, ClickSnapRadiusPosY + ClickSnapRadiusHeight, 0);
+
+		if (ClickSnapRadiusFocus)
+			DrawTinyText(ClickSnapRadiusText, static_cast<int>(ClickSnapRadiusPosX + 2), static_cast<int>(ClickSnapRadiusPosY + 3), 255U);
+		else
+			DrawTinyText(ClickSnapRadiusText, static_cast<int>(ClickSnapRadiusPosX + 2), static_cast<int>(ClickSnapRadiusPosY + 3), 208U);
 
 		lpDialogSurf->Unlock(NULL);
 	}
@@ -1323,8 +1418,8 @@ void Dialog::DrawMegaMapKey ()
 
 		FillRect ( MegaMapKeyPosX, MegaMapKeyPoxY, MegaMapKeyPosX+MegamapKeyWidth, MegaMapKeyPoxY+MegamapKeyHeight, 0);
 
-		char String[20];
-		vkToStr ( VirtualMegamap, String, 20);
+		char String[32];
+		vkToStr ( VirtualMegamap, String, sizeof(String));
 
 		if(MegmapFocus)
 			DrawTinyText (String, static_cast<int>(MegaMapKeyPosX + 2), static_cast<int>(MegaMapKeyPoxY + 3), 255U);
@@ -1334,6 +1429,30 @@ void Dialog::DrawMegaMapKey ()
 		lpDialogSurf->Unlock(NULL);
 	}
 }
+
+void Dialog::DrawClickSnapOverrideKey()
+{
+	DrawSmallText(lpDialogSurf, ClickSnapOverrideKeyPosX, ClickSnapOverrideKeyPosY - 13, "Click-Snap Override Key");
+	DDSURFACEDESC ddsd;
+	DDRAW_INIT_STRUCT(ddsd);
+	if (lpDialogSurf->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL) == DD_OK)
+	{
+		SurfaceMemory = ddsd.lpSurface;
+		lPitch = ddsd.lPitch;
+
+		FillRect(ClickSnapOverrideKeyPosX, ClickSnapOverrideKeyPosY, ClickSnapOverrideKeyPosX + ClickSnapOverrideKeyWidth, ClickSnapOverrideKeyPosY + ClickSnapOverrideKeyHeight, 0);
+
+		char String[32];
+		vkToStr(ClickSnapOverrideKey, String, sizeof(String));
+		if (ClickSnapOverrideKeyFocus)
+			DrawTinyText(String, static_cast<int>(ClickSnapOverrideKeyPosX + 2), static_cast<int>(ClickSnapOverrideKeyPosY + 3), 255U);
+		else
+			DrawTinyText(String, static_cast<int>(ClickSnapOverrideKeyPosX + 2), static_cast<int>(ClickSnapOverrideKeyPosY + 3), 208U);
+
+		lpDialogSurf->Unlock(NULL);
+	}
+}
+
 void Dialog::DrawWhiteboardKey()
 {
 	DrawSmallText(lpDialogSurf, WhiteboardKeyPosX, WhiteboardKeyPosY-13, "Whiteboard Key");
@@ -1346,8 +1465,8 @@ void Dialog::DrawWhiteboardKey()
 
 		FillRect(WhiteboardKeyPosX, WhiteboardKeyPosY, WhiteboardKeyPosX+WhiteboardKeyWidth, WhiteboardKeyPosY+WhiteboardKeyHeight, 0);
 
-		char String[20];
-		vkToStr ( VirtualWhiteboardKey, String, 20);
+		char String[32];
+		vkToStr ( VirtualWhiteboardKey, String, sizeof(String));
 		//wsprintf ( String, "%i", VirtualWhiteboardKey);
 		if(WhiteboardKeyFocus)
 			DrawTinyText(String, static_cast<int>(WhiteboardKeyPosX + 2), static_cast<int>(WhiteboardKeyPosY + 3), 255U);

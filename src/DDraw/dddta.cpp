@@ -231,7 +231,7 @@ void CDDDTA::InitDDDTA()
 
 		DDDSharedMem->FeatureMapXSize = TAdynmem->FeatureMapSizeX;
 		DDDSharedMem->FeatureMapYSize = TAdynmem->FeatureMapSizeY;
-		CreateSharedTAMem((int)&TAdynmem->Features, TAdynmem->FeatureMapSizeX*TAdynmem->FeatureMapSizeY*sizeof(FeatureStruct), "Features");
+		CreateSharedTAMem((int)&TAdynmem->FeatureMap, TAdynmem->FeatureMapSizeX*TAdynmem->FeatureMapSizeY*sizeof(FeatureStruct), "Features");
 
 		DDDSharedMem->WreckageArraySize = 0x18000;
 		CreateSharedTAMem((int)&TAdynmem->WreckageInfo, 0x18000, "WreckageInfo");
@@ -393,11 +393,11 @@ bool CDDDTA::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 
 			/*for(int x=0; x<TAdynmem->FeatureMapSizeX; x++)
 			for(int y=0; y<TAdynmem->FeatureMapSizeY; y++)
-			if(TAdynmem->Features[x+y*TAdynmem->FeatureMapSizeY].FeatureDefIndex >= 0)
+			if(TAdynmem->FeatureMap[x+y*TAdynmem->FeatureMapSizeY].FeatureDefIndex >= 0)
 			{
 			wsprintf(buf, "Feature on  %i %i, %s %s", x, y, 
-			TAdynmem->FeatureDef[TAdynmem->Features[x+y*TAdynmem->FeatureMapSizeY].FeatureDefIndex].Name,
-			TAdynmem->FeatureDef[TAdynmem->Features[x+y*TAdynmem->FeatureMapSizeY].FeatureDefIndex].Description);
+			TAdynmem->FeatureDef[TAdynmem->FeatureMap[x+y*TAdynmem->FeatureMapSizeY].FeatureDefIndex].Name,
+			TAdynmem->FeatureDef[TAdynmem->FeatureMap[x+y*TAdynmem->FeatureMapSizeY].FeatureDefIndex].Description);
 			OutptTxt(buf);
 			}*/
 
