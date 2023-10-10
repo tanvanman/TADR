@@ -419,9 +419,19 @@ bool GetWeatherReport(char* buffer, int len)
 		const int windPower = (stdWindGenMaxPower * ptrMain->WindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
 		const int windPowerMin = (stdWindGenMaxPower * ptrMain->MinWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
 		const int windPowerMax = (stdWindGenMaxPower * ptrMain->MaxWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
-		int n = snprintf(buffer, len, "Solar: +%d  Wind: +%d (%d-%d)  Tidal: +%d",
-			solarPower, windPower, windPowerMin, windPowerMax, tidalPower);
-		return n != -1 && n < len;
+
+		if (DataShare->PlayingDemo || (0 != (WATCH & (ptrMain->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))
+		{
+			int n = snprintf(buffer, len, "Solar: +%d  Wind: (%d-%d)  Tidal: +%d",
+				solarPower, windPowerMin, windPowerMax, tidalPower);
+			return n != -1 && n < len;
+		}
+		else
+		{
+			int n = snprintf(buffer, len, "Solar: +%d  Wind: +%d (%d-%d)  Tidal: +%d",
+				solarPower, windPower, windPowerMin, windPowerMax, tidalPower);
+			return n != -1 && n < len;
+		}
 	}
 	return false;
 }
