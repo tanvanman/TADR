@@ -236,6 +236,25 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			case WM_KEYDOWN:
 				switch((int)wParam)
 				{
+				case VK_F9:
+					if ((*TAmainStruct_PtrPtr)->SoftwareDebugMode & softwaredebugmode::CheatsEnabled)
+					{
+						/*
+						if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
+							// cycle through map debug modes
+							TAdynmem->mapDebugMode = (TAdynmem->mapDebugMode + 1) % 8;
+						}
+						else {
+							// cycle through which element of TAdynmem->FeatureMap to annotate mapDebugMode with
+							static char field = 0;
+							char radix = 16;
+							WriteProcessMemory(GetCurrentProcess(), (void*)(0x418A7D + 2), &field, 1, NULL);
+							WriteProcessMemory(GetCurrentProcess(), (void*)(0x418A81 + 1), &radix, 1, NULL);
+							field = (field + 1) % 13;
+						}
+						*/
+					}
+					break;
 				case VK_F11:
 					WriteShareMacro();
 					return true;

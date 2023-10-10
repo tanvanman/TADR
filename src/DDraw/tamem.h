@@ -522,7 +522,7 @@ struct FeatureStruct{
 	unsigned short FeatureDefIndex;
 	unsigned char FeatureDefDy;  // if FeatureDefIndex is 0xfffe, offset in map coordinates to the real FeatureDefIndex
 	unsigned char FeatureDefDx;  // if FeatureDefIndex is 0xfffe, offset in map coordinates to the real FeatureDefIndex
-	unsigned char data2[1];
+	unsigned char field_0c;
 }; //0xD
 
 struct FeatureDefStruct {
@@ -1476,7 +1476,7 @@ namespace softwaredebugmode
 	enum SOFTWAREDEBUGMODE
 	{
 		Drop             = 1,
-		Now              = 2,
+		CheatsEnabled    = 2,
 		Noshake          = 0x10,
 		Clock            = 0x40,
 		Doubleshot       = 0x80,
