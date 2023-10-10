@@ -128,7 +128,7 @@
     </Bscmake>
     <PostBuildEvent>
       <Command>
-if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
+if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
     copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
 )
 </Command>
@@ -183,7 +183,7 @@ if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  
     </Bscmake>
     <PostBuildEvent>
       <Command>
-if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
+if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
     copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
 )
 </Command>
@@ -238,7 +238,7 @@ if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  
     </Bscmake>
     <PostBuildEvent>
       <Command>
-if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
+if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
     copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
 )
 </Command>
