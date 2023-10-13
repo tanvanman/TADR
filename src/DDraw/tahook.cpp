@@ -73,7 +73,7 @@ CTAHook::CTAHook(BOOL VidMem)
 	RingWrite = false;
 	Spacing = 0;
 	ReclaimSnapDisable  = false;
-
+	DraggingUnitOrders = NULL;
 
 	lpRectSurf = CreateSurfPCXResource(50, VidMem);
 
@@ -428,6 +428,13 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 								return true;
 							}
 						}
+						else if ((ordertype::STOP == TAdynmem->PrepareOrder_Type) && 
+							(GetAsyncKeyState(VK_SHIFT) & 0x8000) &&
+							!GUIExpander->myMinimap->Controler->IsBliting())
+						{
+							DraggingUnitOrders = FindUnitOrdersUnderMouse();
+							return DraggingUnitOrders != NULL;
+						}
 					}
 				}
 				break;
@@ -437,6 +444,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case WM_LBUTTONUP:
+				DraggingUnitOrders = NULL;
 				if(RingWrite)
 				{
 					return true;
@@ -463,7 +471,17 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			case WM_MOUSEMOVE:
 				//MouseX = LOWORD(lParam);
 				//MouseY = HIWORD(lParam);
-				if(WriteLine)
+				if (DraggingUnitOrders &&
+					ordertype::STOP == TAdynmem->PrepareOrder_Type &&
+					GetAsyncKeyState(VK_SHIFT) & 0x8000 &&
+					DraggingUnitOrders->AttackTargat == NULL &&
+					IsAnOrder(DraggingUnitOrders->Unit_ptr->UnitOrders, DraggingUnitOrders) &&
+					!GUIExpander->myMinimap->Controler->IsBliting())
+				{
+					DragUnitOrders(DraggingUnitOrders);
+					return true;
+				}
+				else if(WriteLine)
 				{
 					//EndX = LOWORD(lParam);
 					//EndY = HIWORD(lParam);
@@ -495,6 +513,8 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				else
 				{
 					RingWrite = false;
+					DraggingUnitOrders = NULL;
+					DraggingUnitOrdersBuildRectangleColor = -1;
 				}
 				break;
 			case WM_MOUSEWHEEL:
@@ -630,6 +650,8 @@ void CTAHook::TABlit()
 			DisableTABuildRect();
 		}
 	}
+
+	VisualizeDraggingBuildRectangle();
 }
 /*
 
@@ -1334,4 +1356,105 @@ void CTAHook::DisableTABuildRect()
 void CTAHook::PaintMinimapRect()
 {
 	TADrawRect ( NULL, &TAdynmem->MinimapRect, 0xC2);	
+}
+
+UnitOrdersStruct* CTAHook::FindUnitOrdersUnderMouse()
+{
+	PlayerStruct* me = &TAdynmem->Players[TAdynmem->LocalHumanPlayer_PlayerID];
+	for (UnitStruct* unit = me->Units; unit != me->UnitsAry_End; ++unit)
+	{
+		UnitOrdersStruct* unitOrders = unit->UnitOrders;
+		while (unitOrders != NULL) {
+			unsigned OrderMask = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].COBScripMask;
+			unsigned cursorIndex = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].cursorIndex;
+			const char* cobTechnicalName = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].technicalName;
+			if (unitOrders->AttackTargat == NULL &&
+				(OrderMask & 1 || // build
+					cursorIndex == cursorpatrol ||
+					cursorIndex == cursorunload ||
+					cursorIndex == cursormove
+					))
+			{
+				const int orderX = unitOrders->Pos.X;
+				const int orderY = unitOrders->Pos.Y;
+				const int footX = unitOrders->BuildUnitID ? TAdynmem->UnitDef[unitOrders->BuildUnitID].FootX : 1;
+				const int footY = unitOrders->BuildUnitID ? TAdynmem->UnitDef[unitOrders->BuildUnitID].FootY : 1;
+				const int mouseX = TAdynmem->MouseMapPos.X;
+				const int mouseY = TAdynmem->MouseMapPos.Y;
+				if (mouseX >= orderX - 8 * footX && mouseX < orderX + 8 * footX &&
+					mouseY >= orderY - 8 * footY && mouseY < orderY + 8 * footY) {
+					return unitOrders;
+				}
+			}
+			unitOrders = unitOrders->NextOrder;
+		}
+	}
+	return NULL;
+}
+
+bool CTAHook::IsAnOrder(UnitOrdersStruct* unitOrders, UnitOrdersStruct* order)
+{
+	while (unitOrders != NULL) {
+		if (unitOrders == order)
+		{
+			return true;
+		}
+		unitOrders = unitOrders->NextOrder;
+	}
+	return false;
+}
+
+void CTAHook::VisualizeDraggingBuildRectangle()
+{
+	if (DraggingUnitOrders && DraggingUnitOrders->BuildUnitID && DraggingUnitOrdersBuildRectangleColor >= 0)
+	{
+		const int footX = DraggingUnitOrders->BuildUnitID ? TAdynmem->UnitDef[DraggingUnitOrders->BuildUnitID].FootX : 1;
+		const int footY = DraggingUnitOrders->BuildUnitID ? TAdynmem->UnitDef[DraggingUnitOrders->BuildUnitID].FootY : 1;
+		DrawBuildRect((TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
+			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz / 2),
+			GetFootX() * 16,
+			GetFootY() * 16,
+			DraggingUnitOrdersBuildRectangleColor);
+	}
+}
+
+void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
+{
+	int state = order->State;
+	UnitStruct* unit = order->Unit_ptr;
+
+	int XPosBack = order->Pos.X;
+	int YPosBack = order->Pos.Y;
+
+	if (unit->UnitOrders == order) {
+		order->Pos.X = unit->XPos;
+		order->Pos.Y = unit->YPos;
+		Order_Move_Ground(unit, order, 0);
+	}
+
+	if (order->BuildUnitID) {
+		const int footX = TAdynmem->UnitDef[order->BuildUnitID].FootX;
+		const int footY = TAdynmem->UnitDef[order->BuildUnitID].FootY;
+		TAdynmem->BuildUnitID = order->BuildUnitID;
+		TAdynmem->MouseMapPos.X = 16 * TAdynmem->BuildPosX + (footX % 2 ? 8 : 0);
+		TAdynmem->MouseMapPos.Y = 16 * TAdynmem->BuildPosY + (footY % 2 ? 8 : 0);
+		TAdynmem->BuildSpotState = 70;
+		TestBuildSpot();
+		if (TAdynmem->BuildSpotState == 70) {
+			order->State = 0;
+			order->Pos.X = TAdynmem->MouseMapPos.X;
+			order->Pos.Y = TAdynmem->MouseMapPos.Y;
+			DraggingUnitOrdersBuildRectangleColor = -1;
+		}
+		else {
+			DraggingUnitOrdersBuildRectangleColor = 214;
+			order->Pos.X = XPosBack;
+			order->Pos.Y = YPosBack;
+		}
+	}
+	else {
+		order->State = 0;
+		order->Pos.X = 16 * TAdynmem->BuildPosX;
+		order->Pos.Y = 16 * TAdynmem->BuildPosY;
+	}
 }

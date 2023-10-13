@@ -54,7 +54,7 @@ typedef void (__stdcall * _ApplySelectUnitMenu) (void);
 extern _ApplySelectUnitMenu ApplySelectUnitMenu;
 typedef void (__cdecl * _free_SafeWay) (LPVOID MemAddress);
 extern _free_SafeWay free_SafeWay;
-typedef void (__cdecl * _malloc_SafeWay) (int MemSize_I);
+typedef void* (__cdecl * _malloc_SafeWay) (int MemSize_I);
 extern _malloc_SafeWay malloc_SafeWay;
 typedef void (__stdcall * _UpdateLOSState) (int Update_Type);
 extern _UpdateLOSState UpdateLosState;
@@ -97,13 +97,12 @@ extern _CheckUnitInPlayerLOS CheckUnitInPlayerLOS;
 typedef int (__stdcall * _UnitName2ID)(char * Str1);
 extern _UnitName2ID UnitName2ID;
 
+typedef int(__stdcall* _Order_Move_Ground)(UnitStruct* callerUnit, UnitOrdersStruct* orderUnit, int lastState);
+extern _Order_Move_Ground Order_Move_Ground;
 
-                                                     
 typedef int (__stdcall * _MOUSE_EVENT_2UnitOrder_) (_MOUSEEVENT * MouseEvent_ptr, int ActionType, unsigned char ActionIndex, _Position_Dword * Position_DWORD_p, int unk, int unk1);
 extern _MOUSE_EVENT_2UnitOrder_ MOUSE_EVENT_2UnitOrder_;
 
-
-     
 typedef int (__stdcall * _CorretCursor_InGame)(char PrepareOrder);
 extern _CorretCursor_InGame CorretCursor_InGame;
 
