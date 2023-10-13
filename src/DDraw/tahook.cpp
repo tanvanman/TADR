@@ -1425,36 +1425,44 @@ void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
 
 	int XPosBack = order->Pos.X;
 	int YPosBack = order->Pos.Y;
+	int ZPosBack = order->Pos.Z;
 
 	if (unit->UnitOrders == order) {
 		order->Pos.X = unit->XPos;
 		order->Pos.Y = unit->YPos;
+		order->Pos.Z = unit->ZPos;
 		Order_Move_Ground(unit, order, 0);
 	}
 
 	if (order->BuildUnitID) {
 		const int footX = TAdynmem->UnitDef[order->BuildUnitID].FootX;
 		const int footY = TAdynmem->UnitDef[order->BuildUnitID].FootY;
+		int idx = TAdynmem->BuildPosX + TAdynmem->BuildPosY * TAdynmem->FeatureMapSizeX;
 		TAdynmem->BuildUnitID = order->BuildUnitID;
 		TAdynmem->MouseMapPos.X = 16 * TAdynmem->BuildPosX + (footX % 2 ? 8 : 0);
 		TAdynmem->MouseMapPos.Y = 16 * TAdynmem->BuildPosY + (footY % 2 ? 8 : 0);
+		TAdynmem->MouseMapPos.Z = TAdynmem->FeatureMap[idx].height;
 		TAdynmem->BuildSpotState = 70;
 		TestBuildSpot();
 		if (TAdynmem->BuildSpotState == 70) {
 			order->State = 0;
 			order->Pos.X = TAdynmem->MouseMapPos.X;
 			order->Pos.Y = TAdynmem->MouseMapPos.Y;
+			order->Pos.Z = TAdynmem->MouseMapPos.Z;
 			DraggingUnitOrdersBuildRectangleColor = -1;
 		}
 		else {
 			DraggingUnitOrdersBuildRectangleColor = 214;
 			order->Pos.X = XPosBack;
 			order->Pos.Y = YPosBack;
+			order->Pos.Z = ZPosBack;
 		}
 	}
 	else {
+		int idx = TAdynmem->BuildPosX + TAdynmem->BuildPosY * TAdynmem->FeatureMapSizeX;
 		order->State = 0;
 		order->Pos.X = 16 * TAdynmem->BuildPosX;
 		order->Pos.Y = 16 * TAdynmem->BuildPosY;
+		order->Pos.Z = TAdynmem->FeatureMap[idx].height;
 	}
 }
