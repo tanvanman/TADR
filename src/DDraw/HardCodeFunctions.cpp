@@ -494,6 +494,8 @@ _CheckUnitInPlayerLOS CheckUnitInPlayerLOS= (_CheckUnitInPlayerLOS)0x00465AC0;
 
 _UnitName2ID UnitName2ID= (_UnitName2ID)0x0488B10;
 
+_Order_Move_Ground Order_Move_Ground = (_Order_Move_Ground)0x4031d0;
+
 _MOUSE_EVENT_2UnitOrder_ MOUSE_EVENT_2UnitOrder_= (_MOUSE_EVENT_2UnitOrder_) 0x0048CF30;
 
 _CorretCursor_InGame CorretCursor_InGame= (_CorretCursor_InGame)0x048D220;

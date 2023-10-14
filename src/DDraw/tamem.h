@@ -742,9 +742,8 @@ struct UnitStruct {
   char Weapon3Dotte;
   char Weapon3Valid;
   char Data5_[4];
-  UnitOrdersStruct *UnitOrders;  //5c
-  char UnitState;
-  char data6[3];
+  UnitOrdersStruct *UnitOrders;			//0x5c
+  UnitOrdersStruct *BackgroundOrder;	//0x60
   _Volume_Word Turn;
 //   unsigned short ZTurn;
 //   unsigned short XTurn;
@@ -1376,9 +1375,9 @@ typedef struct _MOUSEEVENT
 
 typedef struct _COBHandle
 {
-	unsigned int field_0;
-	unsigned int field_4;
-	unsigned int field_8;
+	const char* displayName;
+	void* orderFunctionPointer;
+	void* drawFunctionPointer;
 	unsigned char COBScripMask;
 	unsigned char field_d;
 	unsigned char field_e;
@@ -1387,9 +1386,10 @@ typedef struct _COBHandle
 	unsigned char field_11;
 	unsigned char field_12;
 	unsigned char field_13;
-	unsigned int field_14;
-	unsigned char field_18;
+	unsigned char field_14;
+	const char* technicalName;
 }COBHandle;
+
 
 enum PlayerPropertyMask
 {

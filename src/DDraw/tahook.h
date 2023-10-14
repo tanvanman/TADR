@@ -77,6 +77,13 @@ class CTAHook
 	void DisableTABuildRect();
 	void PaintMinimapRect();
 
+	UnitOrdersStruct* FindUnitOrdersUnderMouse();
+	bool IsAnOrder(UnitOrdersStruct *unitOrders, UnitOrdersStruct *order);
+	void VisualizeDraggingBuildRectangle();
+	void DragUnitOrders(UnitOrdersStruct *order);
+	UnitOrdersStruct* DraggingUnitOrders;
+	int DraggingUnitOrdersBuildRectangleColor;
+
     /**
      * @brief display text to local player only
      * @param Type 0: display as a chat line; 1: display as a popup dialog; and others?
