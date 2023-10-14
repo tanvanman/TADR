@@ -111,6 +111,30 @@ int __stdcall DisplayWindSpeedProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+unsigned int PatrolRepairReclaimPriorityPatchAddr = 0x4059e4;
+int __stdcall PatrolRepairReclaimPriorityPatchProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Esi;
+	if (((unit->UnitSelected & 0x000c0000) >> 18) <= 1 /* holdpos or maneuvre */)
+	{
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x405b18;	// return directly to find-reclaim
+		return X86STRACKBUFFERCHANGE;
+	}
+	return 0;
+}
+
+unsigned int VTOLPatrolRepairReclaimPriorityPatchAddr = 0x41547d;
+int __stdcall VTOLPatrolRepairReclaimPriorityPatchProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Edi;
+	if (((unit->UnitSelected & 0x000c0000) >> 18) <= 1 /* holdpos or maneuvre */)
+	{
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x415621;	// return directly to find-reclaim
+		return X86STRACKBUFFERCHANGE;
+	}
+	return 0;
+}
+
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
@@ -198,6 +222,8 @@ TABugFixing::TABugFixing ()
     RestorePlayerColor.reset(new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc));
 	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
 	DisplayWindSpeed.reset(new InlineSingleHook(DisplayWindSpeedAddr, 5, INLINE_5BYTESLAGGERJMP, DisplayWindSpeedProc));
+	PatrolRepairReclaimPriorityPatch.reset(new InlineSingleHook(PatrolRepairReclaimPriorityPatchAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolRepairReclaimPriorityPatchProc));
+	VTOLPatrolRepairReclaimPriorityPatch.reset(new InlineSingleHook(VTOLPatrolRepairReclaimPriorityPatchAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolRepairReclaimPriorityPatchProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 

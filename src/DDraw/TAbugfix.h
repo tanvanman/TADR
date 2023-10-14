@@ -38,6 +38,8 @@ private:
 	std::unique_ptr <SingleHook> DisplayModeMinWidth1024Def;
 	std::unique_ptr <SingleHook> DisplayModeMinWidth1024Reg;
 	std::unique_ptr <SingleHook> DisplayWindSpeed;
+	std::unique_ptr <SingleHook> PatrolRepairReclaimPriorityPatch;
+	std::unique_ptr <SingleHook> VTOLPatrolRepairReclaimPriorityPatch;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 
