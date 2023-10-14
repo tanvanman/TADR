@@ -111,25 +111,49 @@ int __stdcall DisplayWindSpeedProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
-unsigned int PatrolRepairReclaimPriorityPatchAddr = 0x4059e4;
-int __stdcall PatrolRepairReclaimPriorityPatchProc(PInlineX86StackBuffer X86StrackBuffer)
+unsigned int PatrolDisableBuildRepairAddr = 0x4059e4;
+int __stdcall PatrolDisableBuildRepairProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Esi;
-	if (((unit->UnitSelected & 0x000c0000) >> 18) <= 1 /* holdpos or maneuvre */)
+	if (((unit->UnitSelected & 0x000c0000) >> 18) == 1 /* maneuvre */)
 	{
-		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x405b18;	// return directly to find-reclaim
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x405b18;	// skip check for build/repair, return directly to find-reclaim
 		return X86STRACKBUFFERCHANGE;
 	}
 	return 0;
 }
 
-unsigned int VTOLPatrolRepairReclaimPriorityPatchAddr = 0x41547d;
-int __stdcall VTOLPatrolRepairReclaimPriorityPatchProc(PInlineX86StackBuffer X86StrackBuffer)
+unsigned int PatrolDisableReclaimAddr = 0x405b18;
+int __stdcall PatrolDisableReclaimProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Esi;
+	if (((unit->UnitSelected & 0x000c0000) >> 18) == 2 /* roam */)
+	{
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x405d4a;	// skip check for reclaim, return early
+		return X86STRACKBUFFERCHANGE;
+	}
+	return 0;
+}
+
+unsigned int VTOLPatrolDisableBuildRepairAddr = 0x41547d;
+int __stdcall VTOLPatrolDisableBuildRepairProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Edi;
-	if (((unit->UnitSelected & 0x000c0000) >> 18) <= 1 /* holdpos or maneuvre */)
+	if (((unit->UnitSelected & 0x000c0000) >> 18) == 1 /* maneuvre */)
 	{
-		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x415621;	// return directly to find-reclaim
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x415621;	// skip check for build/repair, return directly to find-reclaim
+		return X86STRACKBUFFERCHANGE;
+	}
+	return 0;
+}
+
+unsigned int VTOLPatrolDisableReclaimAddr = 0x415621;
+int __stdcall VTOLPatrolDisableReclaimProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Edi;
+	if (((unit->UnitSelected & 0x000c0000) >> 18) == 2 /* roam */)
+	{
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4157bd;	// skip check for reclaim, return early
 		return X86STRACKBUFFERCHANGE;
 	}
 	return 0;
@@ -222,8 +246,10 @@ TABugFixing::TABugFixing ()
     RestorePlayerColor.reset(new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc));
 	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
 	DisplayWindSpeed.reset(new InlineSingleHook(DisplayWindSpeedAddr, 5, INLINE_5BYTESLAGGERJMP, DisplayWindSpeedProc));
-	PatrolRepairReclaimPriorityPatch.reset(new InlineSingleHook(PatrolRepairReclaimPriorityPatchAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolRepairReclaimPriorityPatchProc));
-	VTOLPatrolRepairReclaimPriorityPatch.reset(new InlineSingleHook(VTOLPatrolRepairReclaimPriorityPatchAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolRepairReclaimPriorityPatchProc));
+	PatrolDisableBuildRepair.reset(new InlineSingleHook(PatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableBuildRepairProc));
+	PatrolDisableReclaim.reset(new InlineSingleHook(PatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableReclaimProc));
+	VTOLPatrolDisableBuildRepair.reset(new InlineSingleHook(VTOLPatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableBuildRepairProc));
+	VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
