@@ -60,6 +60,7 @@ struct RadarUnit_ ;
 struct _MOUSEEVENT ;
 struct _Position_Dword  ;
 struct _COBHandle;
+struct MapStartPosStruct;
 struct Point3{
 	int x;
 	int y;
@@ -138,7 +139,7 @@ struct PlayerStruct
 	int WholeUnitsCounters;
 	__int16 UnitsNumber;
 	char PlayerAryIndex;
-	char field_147;
+	char mapStartPos;
 	char field_148;
 	__int16 AddPlayerStorage_word;
 };
@@ -602,6 +603,24 @@ struct GameingState{
 	char TNTFile[MAX_PATH];		// 0x0204
 	char data2[0x0a28];			// 0x0308
 	unsigned surfaceMetal;		// 0x0d30
+	unsigned minWindSpeed;		// 0x0d34
+	unsigned maxWindSpeed;		// 0x0d38
+	unsigned gravity;			// 0x0d3c
+	unsigned tidalStrength;		// 0x0d40
+	unsigned isLavaMap;			// 0x0d44
+	char schemaInfo[100];		// 0x0d48
+	void* uniqueIdentifiers;	// 0x0dac
+	unsigned uniqueIdentifierCount;// 0x0db0
+	MapStartPosStruct* mapStartPosAry_;// 0x0db4
+	unsigned mapStartPosCount;	// 0x0db8
+};
+
+struct MapStartPosStruct
+{
+	unsigned validStartMapPos;	// 0x0000
+	unsigned playerId;			// 0x0004
+	short X_Pos;				// 0x0008
+	short Y_Pos;				// 0x000a
 };
 
 struct PlayerInfoStruct 
@@ -612,7 +631,7 @@ struct PlayerInfoStruct
 	char PlayerLogoColor;
 	char SharedBits;//  enum SharedStates
 	char data2[3];
-	char PropertyMask;
+	char PropertyMask; // & 0x4000:location random/fixed
 };
 
 struct UnitDefStruct {

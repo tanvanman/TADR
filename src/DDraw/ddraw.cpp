@@ -22,6 +22,7 @@ using namespace std;
 #include "TAbugfix.h"
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
+#include "StartPositions.h"
 
 #include "TAConfig.h"
 //---------------------------------------------------------------------------
@@ -170,6 +171,8 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		NowCrackLimit= new LimitCrack;
 
 		FixTABug= new TABugFixing;
+
+		StartPositions::GetInstance();
 
 		GUIExpander= new GUIExpand;
 
