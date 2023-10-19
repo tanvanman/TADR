@@ -1376,11 +1376,11 @@ UnitOrdersStruct* CTAHook::FindUnitOrdersUnderMouse()
 					))
 			{
 				const int orderX = unitOrders->Pos.X;
-				const int orderY = unitOrders->Pos.Y;
+				const int orderY = int(unitOrders->Pos.Y) - int(unitOrders->Pos.Z)/2;
 				const int footX = unitOrders->BuildUnitID ? TAdynmem->UnitDef[unitOrders->BuildUnitID].FootX : 1;
 				const int footY = unitOrders->BuildUnitID ? TAdynmem->UnitDef[unitOrders->BuildUnitID].FootY : 1;
 				const int mouseX = TAdynmem->MouseMapPos.X;
-				const int mouseY = TAdynmem->MouseMapPos.Y;
+				const int mouseY = int(TAdynmem->MouseMapPos.Y) - int(TAdynmem->MouseMapPos.Z)/2;
 				if (mouseX >= orderX - 8 * footX && mouseX < orderX + 8 * footX &&
 					mouseY >= orderY - 8 * footY && mouseY < orderY + 8 * footY) {
 					return unitOrders;
