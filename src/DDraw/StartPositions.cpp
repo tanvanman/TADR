@@ -3,18 +3,45 @@
 #include "iddrawsurface.h"
 #include "hook/hook.h"
 
-// Hook at the point where multiplayer fixed positions are assigned.
-// TotalA.exe behaviour is to assign positions sequentialy.
-// But if the positions have been set in our shared memory, we'll make it do our own thing ...
-static unsigned int StartPositionsHookAddr = 0x4569da;
-static unsigned int StartPositionsHookProc(PInlineX86StackBuffer X86StrackBuffer)
+#ifdef max
+#undef max
+#endif
+#include <algorithm>
+
+std::unique_ptr<StartPositions> StartPositions::m_instance;
+
+// initialised by InitStartPositionsHookProc, accessed by FixedStartPositionsHookProc or RandomStartPositionsHookProc
+static int IS_ACTIVE_PLAYER[10];
+static int START_POSITIONS[10];
+
+static unsigned int InitStartPositionsHookAddr = 0x45698f;
+static unsigned int InitStartPositionsHookProc(PInlineX86StackBuffer X86StrackBuffer)
 {
-	if (!StartPositions::GetInstance())
+	StartPositions* sp = StartPositions::GetInstance();
+	if (!sp)
 	{
 		return 0;
 	}
-	StartPositionsShare* sm = StartPositions::GetInstance()->GetSharedMemory();
-	if (!sm || !sm->positionCount)
+
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	int idx = ta->LocalHumanPlayer_PlayerID;
+	bool randomised = !(ta->Players[idx].PlayerInfo->PropertyMask & PlayerPropertyMask::FIXEDSTARTPOS);
+
+	int* isActivePlayer = IS_ACTIVE_PLAYER;
+	int* startPositions = START_POSITIONS;
+
+	StartPositions::GetInstance()->GetStartPositions(isActivePlayer, startPositions, randomised);
+
+	return 0;
+}
+
+// Hook at the point where multiplayer fixed positions are assigned.
+static unsigned int FixedStartPositionsHookAddr = 0x4569da;
+static unsigned int FixedStartPositionsHookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (!StartPositions::GetInstance())
 	{
 		return 0;
 	}
@@ -23,45 +50,25 @@ static unsigned int StartPositionsHookProc(PInlineX86StackBuffer X86StrackBuffer
 	PlayerInfoStruct* playerInfo = (PlayerInfoStruct*)X86StrackBuffer->Ecx;
 	PlayerStruct* player = (PlayerStruct*)(X86StrackBuffer->Edx + X86StrackBuffer->Eax + 0x1b63);
 
-	for (int n = 0; n < 10; ++n)
-	{
-		if (sm->orderedDirectplayIds[n] == player->DirectPlayID && !sm->usedPositions[n])
-		{
-			*(char*)X86StrackBuffer->Esi = n;
-			sm->usedPositions[n] = 1;
-			IDDrawSurface::OutptTxt("assigning %s to startpos %d because assigned by dpid", player->Name, n);
-			return X86STRACKBUFFERCHANGE;
-		}
-		else if (n >= sm->positionCount && !sm->usedPositions[n])
-		{
-			// reached the last position without finding the ID ...
-			*(char*)X86StrackBuffer->Esi = n;
-			sm->usedPositions[n] = 1;
-			IDDrawSurface::OutptTxt("assigning %s to startpos %d because next available", player->Name, n);
-			return X86STRACKBUFFERCHANGE;
-		}
-	}
-
-	// dpid not found and we reached the end of the unassigned positions.
-	// Now check for unclaimed positions that were assigend a dpid.
-	for (int n = 0; n < 10; ++n)
-	{
-		if (!sm->usedPositions[n])
-		{
-			*(char*)X86StrackBuffer->Esi = n;
-			sm->usedPositions[n] = 1;
-			IDDrawSurface::OutptTxt("assigning %s to startpos %d because next unused", player->Name, n);
-			return X86STRACKBUFFERCHANGE;
-		}
-	}
-
-	// we ran out of start positions ... what to do?
-	*(char*)X86StrackBuffer->Esi = player->PlayerAryIndex;
-	IDDrawSurface::OutptTxt("assigning %s to startpos %d because none available", player->Name, int(player->PlayerAryIndex));
+	*(char*)X86StrackBuffer->Esi = START_POSITIONS[player->PlayerAryIndex];
 	return X86STRACKBUFFERCHANGE;
 }
 
-std::unique_ptr<StartPositions> StartPositions::m_instance;
+// Hook at the point where multiplayer random positions are assigned.
+static unsigned int RandomStartPositionsHookAddr = 0x456a45;
+static unsigned int RandomStartPositionsHookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (!StartPositions::GetInstance())
+	{
+		return 0;
+	}
+	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x456a4b;
+
+	PlayerStruct* player = (PlayerStruct*)(X86StrackBuffer->Eax - 0x73);
+	*(char*)X86StrackBuffer->Edi = START_POSITIONS[player->PlayerAryIndex];
+	X86StrackBuffer->Edi += 4;
+	return X86STRACKBUFFERCHANGE;
+}
 
 StartPositions* StartPositions::GetInstance()
 {
@@ -79,7 +86,9 @@ StartPositions::StartPositions():
 	CreateSharedMemory();
 	if (m_hMemMap && m_startPositionsShare)
 	{
-		m_hook.reset(new InlineSingleHook(StartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, StartPositionsHookProc));
+		m_initialiseHook.reset(new InlineSingleHook(InitStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, InitStartPositionsHookProc));
+		m_fixedPositionsHook.reset(new InlineSingleHook(FixedStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, FixedStartPositionsHookProc));
+		m_randomPositionsHook.reset(new InlineSingleHook(RandomStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, RandomStartPositionsHookProc));
 	}
 }
 
@@ -99,7 +108,7 @@ void StartPositions::CreateSharedMemory()
 		NULL,
 		PAGE_READWRITE,
 		0,
-		sizeof(StartPositionsShare),
+		sizeof(StartPositionsData),
 		"TADemo-StartPositions");
 
 	bool bExists = (GetLastError() == ERROR_ALREADY_EXISTS);
@@ -108,17 +117,249 @@ void StartPositions::CreateSharedMemory()
 		FILE_MAP_ALL_ACCESS,
 		0,
 		0,
-		sizeof(StartPositionsShare));
+		sizeof(StartPositionsData));
 
 	if (!bExists)
 	{
-		memset(mem, 0, sizeof(StartPositionsShare));
+		memset(mem, 0, sizeof(StartPositionsData));
 	}
 
-	m_startPositionsShare = static_cast<StartPositionsShare*>(mem);
+	m_startPositionsShare = static_cast<StartPositionsData*>(mem);
 }
 
-StartPositionsShare* StartPositions::GetSharedMemory()
+StartPositionsData* StartPositions::GetSharedMemory()
 {
 	return m_startPositionsShare;
+}
+
+const void StartPositions::GetStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised)
+{
+	int playerTeamNumbers[10] = { 0 };
+	GetTeamsFromAlliances(playerTeamNumbers, randomised);
+
+	if (CountLargestTeamSize(playerTeamNumbers) > 1)
+	{
+		GetStartPositionsFromTeamNumbers(playerTeamNumbers, isActivePlayer, startPositions, randomised);
+	}
+	else if (!randomised && GetSharedMemory() && GetSharedMemory()->positionCount > 0)
+	{
+		GetStartPositionsFromSharedMemory(GetSharedMemory(), isActivePlayer, startPositions);
+	}
+	else
+	{
+		GetStartPositionsSequentialy(isActivePlayer, startPositions, randomised);
+	}
+}
+
+static void assignTeam(TAdynmemStruct* ta, bool visited[10], int playerTeamNumbers[10], int player, int teamNumber) {
+	visited[player] = true;
+	playerTeamNumbers[player] = teamNumber;
+
+	for (int i = 0; i < 10; i++)
+	{
+		if (ta->Players[i].PlayerActive && !(ta->Players[i].PlayerInfo->PropertyMask & PlayerPropertyMask::WATCH) &&
+			ta->Players[player].AllyFlagAry[i] &&
+			// uncomment to enforce mutual alliance
+			// ta->Players[i].AllyFlagAry[player] &&
+			!visited[i])
+		{
+			assignTeam(ta, visited, playerTeamNumbers, i, teamNumber);
+		}
+	}
+}
+
+void StartPositions::GetTeamsFromAlliances(int playerTeamNumbers[10], bool randomise)
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	if (randomise)
+	{
+		std::random_shuffle(shuffle, shuffle + 10);
+	}
+
+	bool visited[10] = { false };
+	int teamNumber = 1;
+	for (int _i = 0; _i < 10; _i++)
+	{
+		int i = shuffle[_i];
+		if (ta->Players[i].PlayerActive &&
+			!(ta->Players[i].PlayerInfo->PropertyMask & PlayerPropertyMask::WATCH) &&
+			!visited[i])
+		{
+			assignTeam(ta, visited, playerTeamNumbers, i, teamNumber);
+			teamNumber++;
+		}
+	}
+}
+
+int StartPositions::CountLargestTeamSize(const int playerTeamNumbers[10])
+{
+	int playersPerTeam[10] = { 0 };
+	int largestTeamSize = 0;
+	for (int i = 0; i < 10; ++i)
+	{
+		int teamNumber = playerTeamNumbers[i] - 1;
+		if (teamNumber >= 0)
+		{
+			playersPerTeam[teamNumber]++;
+			largestTeamSize = std::max(largestTeamSize, playersPerTeam[teamNumber]);
+		}
+	}
+	return largestTeamSize;
+}
+
+void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10], int isActivePlayer[10], int positions[10], bool randomise)
+{
+	// track which positions have been assigned
+	bool isUsedPosition[10] = { false };
+
+	int numTeams = 0;
+	int teamSize[10] = { 0 };
+	// initialise
+	for (int i = 0; i < 10; i++)
+	{
+		int teamNumber = teamNumbers[i] - 1;
+		positions[i] = -1;
+		isUsedPosition[i] = false;
+		isActivePlayer[i] = teamNumber >= 0;
+		if (isActivePlayer[i])
+		{
+			if (teamSize[teamNumber] == 0)
+			{
+				numTeams++;
+			}
+			teamSize[teamNumber]++;
+		}
+	}
+
+	// track next positions to assign to each team
+	int nextPositionByTeam[10] = { -1 };
+	for (int i = 0; i < numTeams; ++i)
+	{
+		nextPositionByTeam[i] = i;
+	}
+
+	// randomise order of assignment if required
+	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	if (randomise)
+	{
+		std::random_shuffle(shuffle, shuffle + 10);
+	}
+
+	// make 1st pass naive assignments.  they might out of the range >= 10
+	for (int _i = 0; _i < 10; ++_i)
+	{
+		int i = shuffle[_i];
+		if (teamNumbers[i] > 0)
+		{
+			int teamNumber = teamNumbers[i] - 1;
+			positions[i] = nextPositionByTeam[teamNumber];
+			nextPositionByTeam[teamNumber] += numTeams;
+			if (positions[i] < 10)
+			{
+				isUsedPosition[positions[i]] = true;
+			}
+		}
+	}
+
+	// repair out of range position assignments >= 10
+	for (int _i = 0; _i < 10; ++_i)
+	{
+		int i = shuffle[_i];
+		if (teamNumbers[i] > 0 && positions[i] >= 10)
+		{
+			for (int j = 0; j < 10; ++j)
+			{
+				if (!isUsedPosition[j])
+				{
+					positions[i] = j;
+					isUsedPosition[j] = true;
+					break;
+				}
+			}
+			positions[i] %= 10;
+		}
+	}
+}
+
+void StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData* sm, int isActivePlayer[10], int startPositions[10])
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	for (int n = 0; n < 10; ++n)
+	{
+		isActivePlayer[n] = ta->Players[n].PlayerActive && !(ta->Players[n].PlayerInfo->PropertyMask & PlayerPropertyMask::WATCH);
+		startPositions[n] = -1;
+	}
+
+	bool assignedPositions[10] = { false };
+	for (int nPlayer = 0; nPlayer < 10; ++nPlayer)
+	{
+		if (!isActivePlayer[nPlayer])
+		{
+			continue;
+		}
+		for (int nStartPosition = 0; nStartPosition < 10; ++nStartPosition)
+		{
+			if (!strncmp(ta->Players[nPlayer].Name, sm->orderedPlayerNames[nStartPosition], sizeof(sm->orderedPlayerNames[nStartPosition])))
+			{
+				startPositions[nPlayer] = nStartPosition;
+				assignedPositions[nStartPosition] = true;
+				break;
+			}
+		}
+	}
+	
+	for (int nPlayer = 0; nPlayer < 10; ++nPlayer)
+	{
+		if (!isActivePlayer[nPlayer] || startPositions[nPlayer] != -1)
+		{
+			continue;
+		}
+		for (int nStartPosition = 0; nStartPosition < 10; ++nStartPosition)
+		{
+			if (!assignedPositions[nStartPosition])
+			{
+				startPositions[nPlayer] = nStartPosition;
+				assignedPositions[nStartPosition] = true;
+				break;
+			}
+		}
+		if (startPositions[nPlayer] == -1)
+		{
+			startPositions[nPlayer] = 0;
+		}
+	}
+}
+
+int StartPositions::GetStartPositionsSequentialy(int isActivePlayer[10], int startPositions[10], bool randomise)
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	for (int i = 0; i < 10; ++i)
+	{
+		isActivePlayer[i] = ta->Players[i].PlayerActive && !(ta->Players[i].PlayerInfo->PropertyMask & PlayerPropertyMask::WATCH);
+		startPositions[i] = -1;
+	}
+
+	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	if (randomise)
+	{
+		std::random_shuffle(shuffle, shuffle + 10);
+	}
+
+	int nextStartPosition = 0;
+	for (int _i = 0; _i < 10; ++_i)
+	{
+		int i = shuffle[_i];
+		if (isActivePlayer[i])
+		{
+			startPositions[i] = nextStartPosition++;
+		}
+	}
+	return nextStartPosition;
 }

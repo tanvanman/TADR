@@ -61,6 +61,7 @@ struct _MOUSEEVENT ;
 struct _Position_Dword  ;
 struct _COBHandle;
 struct MapStartPosStruct;
+
 struct Point3{
 	int x;
 	int y;
@@ -210,6 +211,12 @@ struct DSoundStruct{
 	LPDIRECTSOUNDBUFFER DirectsoundBuffer2;
 };
 
+struct StartPositionsStruct
+{
+	int isActive[10];
+	int field_28;
+	int positions[10];
+};
 
 typedef struct _GUIInfo
 {
@@ -303,11 +310,13 @@ struct TAdynmemStruct{
 	char data3[0x97C];
 	PlayerStruct Players[10];	//0x1B63 , end at 0x2851
 	
-	char data4[331];
-	unsigned int data5;
-	unsigned int AllyStruct_Ptr;
-	char data6[144];
-	unsigned int PacketBufferSize;
+	char data4[331];			// 0x2851
+	unsigned int data5;			// 0x299c
+	unsigned int AllyStruct_Ptr;// 0x29a0
+	char data6[0x2c];			// 0x29a4
+	StartPositionsStruct startPositions;// 0x29d0		// populated during multiplayer load
+	char data6b[0x10];				// 0x2a24
+	unsigned int PacketBufferSize;	// 0x2a34
 	unsigned int PacketBuffer_p;
 	unsigned short PlayerCounters;
 	unsigned int ChatTextIndex;
@@ -625,13 +634,13 @@ struct MapStartPosStruct
 
 struct PlayerInfoStruct 
 {
-	char MapName[0x20];
-	char data1[0x75];
-	char RaceSide;
-	char PlayerLogoColor;
-	char SharedBits;//  enum SharedStates
-	char data2[3];
-	char PropertyMask; // & 0x4000:location random/fixed
+	char MapName[0x20];			// 0x0000
+	char data1[0x75];			// 0x0020
+	char RaceSide;				// 0x0095
+	char PlayerLogoColor;		// 0x0096
+	char SharedBits;			// 0x0097 enum SharedStates
+	char data2[3];				// 0x0098
+	unsigned short PropertyMask;// 0x009b // & 0x4000:location random(0)/fixed(1)
 };
 
 struct UnitDefStruct {
@@ -1409,12 +1418,12 @@ typedef struct _COBHandle
 	const char* technicalName;
 }COBHandle;
 
-
 enum PlayerPropertyMask
 {
 	WATCH= 0x40,
 	HUMANPLAYER= 0x80,
-	PLAYERCHEATING= 0x2000
+	PLAYERCHEATING= 0x2000,
+	FIXEDSTARTPOS= 0x4000
 };
 
 enum PlayerType
