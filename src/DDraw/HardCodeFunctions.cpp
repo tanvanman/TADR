@@ -4,6 +4,11 @@
 #include "tafunctions.h"
 #include "stdio.h"
 
+#ifdef min
+#undef min
+#endif
+#include <algorithm>
+
 int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl)
 {
 	TAdynmemStruct * PTR1 = *(TAdynmemStruct * *)0x511de8;
@@ -416,9 +421,13 @@ bool GetWeatherReport(char* buffer, int len)
 	const int stdWindGenMaxPower = 30;
 	const int windSpeedHardLimit = ptrMain->WindSpeedHardLimit;
 	if (windSpeedHardLimit > 0) {
-		const int windPower = (stdWindGenMaxPower * ptrMain->WindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
-		const int windPowerMin = (stdWindGenMaxPower * ptrMain->MinWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
-		const int windPowerMax = (stdWindGenMaxPower * ptrMain->MaxWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+		int windPower = (stdWindGenMaxPower * ptrMain->WindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+		int windPowerMin = (stdWindGenMaxPower * ptrMain->MinWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+		int windPowerMax = (stdWindGenMaxPower * ptrMain->MaxWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+
+		windPower = std::min(windPower, stdWindGenMaxPower);
+		windPowerMin = std::min(windPowerMin, stdWindGenMaxPower);
+		windPowerMax = std::min(windPowerMax, stdWindGenMaxPower);
 
 		if (DataShare->PlayingDemo || (0 != (WATCH & (ptrMain->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))
 		{
