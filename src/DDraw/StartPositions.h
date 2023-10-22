@@ -41,4 +41,7 @@ private:
 	std::unique_ptr<SingleHook> m_initialiseHook;
 	std::unique_ptr<SingleHook> m_fixedPositionsHook;
 	std::unique_ptr<SingleHook> m_randomPositionsHook;
+	std::unique_ptr<SingleHook> m_dbg1Hook;
+	std::unique_ptr<SingleHook> m_dbg2Hook;
+	std::unique_ptr<SingleHook> m_teamBugfixHook;
 };

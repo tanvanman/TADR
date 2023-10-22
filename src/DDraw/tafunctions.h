@@ -21,6 +21,10 @@ struct _GAFFrame;
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Working.
 //////////////////////////////////////////////////////////////////////////////////////////
+
+typedef int(__stdcall* _HAPI_SendBuf)(unsigned FromPID, unsigned ToPID, const char* Buffer, int BufferSize);
+extern _HAPI_SendBuf HAPI_SendBuf;
+
 typedef int(__stdcall* _getFrate)();
 extern _getFrate getFrate;
 typedef int(__stdcall* DrawTextInScreen_)(OFFSCREEN* offscreen_p, char* text, int xOff, int yOff, int length);

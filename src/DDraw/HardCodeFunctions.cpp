@@ -436,6 +436,7 @@ bool GetWeatherReport(char* buffer, int len)
 	return false;
 }
 
+_HAPI_SendBuf HAPI_SendBuf = (_HAPI_SendBuf)0x451bc0;
 _getFrate getFrate = (_getFrate)0x4B66A0;
 DrawTextInScreen_ DrawTextInScreen = (DrawTextInScreen_)0x04C14F0;
 _DrawColorTextInScreen DrawColorTextInScreen = (_DrawColorTextInScreen)0x4A50E0;

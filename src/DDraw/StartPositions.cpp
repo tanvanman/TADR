@@ -2,11 +2,63 @@
 #include "tamem.h"
 #include "iddrawsurface.h"
 #include "hook/hook.h"
+#include "tafunctions.h"
 
 #ifdef max
 #undef max
 #endif
 #include <algorithm>
+
+static unsigned int TeamBugfixHookAddr = 0x452ac7;
+static unsigned int TeamBugfixHookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	unsigned remoteDPID = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 4);
+	unsigned localDPID = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 8);
+
+	char buffer[14];
+	buffer[0] = 0x23;	// ally
+	*(unsigned int*)&buffer[1] = localDPID;
+	*(unsigned int*)&buffer[5] = remoteDPID;
+	buffer[9] = (unsigned char)X86StrackBuffer->Edx;
+	*(unsigned int*)&buffer[10] = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 16);
+	HAPI_SendBuf(localDPID, remoteDPID, buffer, sizeof(buffer));
+	return 0;
+}
+
+static unsigned int Debug1HookAddr = 0x450f90;
+static unsigned int Debug1HookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	for (int n = 0; n < 2; ++n)
+	{
+		IDDrawSurface::OutptTxt(
+			"[dbg1] player=%d, allies=[%d,%d], Team=%d\n",
+			n, int(ta->Players[n].AllyFlagAry[0]), int(ta->Players[n].AllyFlagAry[1]), int(ta->Players[n].AllyTeam));
+	}
+	return 0;
+}
+
+
+static unsigned int Debug2HookAddr = 0x453d40;
+static unsigned int Debug2HookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	for (int n = 0; n < 2; ++n)
+	{
+		IDDrawSurface::OutptTxt(
+			"[dbg2] player=%d, allies=[%d,%d], Team=%d\n",
+			n, int(ta->Players[n].AllyFlagAry[0]), int(ta->Players[n].AllyFlagAry[1]), int(ta->Players[n].AllyTeam));
+	}
+	return 0;
+}
+
 
 std::unique_ptr<StartPositions> StartPositions::m_instance;
 
@@ -89,6 +141,9 @@ StartPositions::StartPositions():
 		m_initialiseHook.reset(new InlineSingleHook(InitStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, InitStartPositionsHookProc));
 		m_fixedPositionsHook.reset(new InlineSingleHook(FixedStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, FixedStartPositionsHookProc));
 		m_randomPositionsHook.reset(new InlineSingleHook(RandomStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, RandomStartPositionsHookProc));
+		//m_dbg1Hook.reset(new InlineSingleHook(Debug1HookAddr, 5, INLINE_5BYTESLAGGERJMP, Debug1HookProc));
+		//m_dbg2Hook.reset(new InlineSingleHook(Debug2HookAddr, 5, INLINE_5BYTESLAGGERJMP, Debug2HookProc));
+		m_teamBugfixHook.reset(new InlineSingleHook(TeamBugfixHookAddr, 5, INLINE_5BYTESLAGGERJMP, TeamBugfixHookProc));
 	}
 }
 
