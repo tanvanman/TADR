@@ -115,7 +115,7 @@ unsigned int PatrolDisableBuildRepairAddr = 0x4059e4;
 int __stdcall PatrolDisableBuildRepairProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Esi;
-	if (((unit->UnitSelected & 0x000c0000) >> 18) == 1 /* maneuvre */)
+	if (((unit->UnitSelected & 0x000c0000) >> 18) == 0 /* holdpos*/)
 	{
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x405b18;	// skip check for build/repair, return directly to find-reclaim
 		return X86STRACKBUFFERCHANGE;
@@ -139,7 +139,7 @@ unsigned int VTOLPatrolDisableBuildRepairAddr = 0x41547d;
 int __stdcall VTOLPatrolDisableBuildRepairProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Edi;
-	if (((unit->UnitSelected & 0x000c0000) >> 18) == 1 /* maneuvre */)
+	if (((unit->UnitSelected & 0x000c0000) >> 18) == 0 /* holdpos */)
 	{
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x415621;	// skip check for build/repair, return directly to find-reclaim
 		return X86STRACKBUFFERCHANGE;
@@ -247,9 +247,9 @@ TABugFixing::TABugFixing ()
 	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
 	DisplayWindSpeed.reset(new InlineSingleHook(DisplayWindSpeedAddr, 5, INLINE_5BYTESLAGGERJMP, DisplayWindSpeedProc));
 	PatrolDisableBuildRepair.reset(new InlineSingleHook(PatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableBuildRepairProc));
-	PatrolDisableReclaim.reset(new InlineSingleHook(PatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableReclaimProc));
+	//PatrolDisableReclaim.reset(new InlineSingleHook(PatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableReclaimProc));
 	VTOLPatrolDisableBuildRepair.reset(new InlineSingleHook(VTOLPatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableBuildRepairProc));
-	VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
+	//VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
