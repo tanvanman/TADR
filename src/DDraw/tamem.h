@@ -218,6 +218,22 @@ struct StartPositionsStruct
 	int positions[10];
 };
 
+typedef void(__stdcall* InternalCommandFunctionPtr)(char* argv[]);
+enum InternalCommandRunLevel
+{
+	CMD_LEVEL_NULL = 0,
+	CMD_LEVEL_NORMAL = 1,
+	CMD_LEVEL_CHEATING = 2,
+	CMD_LEVEL_DEBUG = 4
+};
+
+struct InternalCommandTableEntryStruct
+{
+	const char* name;
+	InternalCommandFunctionPtr function;
+	InternalCommandRunLevel runLevel;
+};
+
 typedef struct _GUIInfo
 {
 	int field_0;

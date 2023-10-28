@@ -1,6 +1,9 @@
 #include <cinttypes>
 #include <memory>
+#include <random>
+#include <vector>
 #include <windows.h>
+
 
 class SingleHook;
 
@@ -9,9 +12,6 @@ struct StartPositionsData
 {
 	std::uint32_t positionCount;
 	char orderedPlayerNames[10][32];
-
-	// initialised to 0 by provider, set to 1 by consumer as the positions are locked in
-	std::uint32_t usedPositions[10];
 };
 
 // creates a shared memory mapping of an StartPositionsData instance with name "TADemo-ShartPositions"
@@ -23,12 +23,13 @@ public:
 	static StartPositions* GetInstance();
 	~StartPositions();
 
-	const void GetStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised);
+	const void InitStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised);
+	const bool GetInitedStartPositions(int isActivePlayer[10], int startPositions[10]);
+	StartPositionsData* GetSharedMemory();
 
 private:
 	StartPositions();
 	void CreateSharedMemory();
-	StartPositionsData* GetSharedMemory();
 	static void GetTeamsFromAlliances(int playerTeamNumbers[10], bool randomise);
 	static int CountLargestTeamSize(const int playerTeamNumbers[10]);
 	static void GetStartPositionsFromTeamNumbers(const int playerTeamNumbers[10], int isActivePlayer[10], int startPositions[10], bool randomise);
@@ -36,12 +37,8 @@ private:
 	static int GetStartPositionsSequentialy(int isActivePlayer[10], int startPositions[10], bool randomise);
 
 	static std::unique_ptr<StartPositions> m_instance;
+	static std::default_random_engine m_rng;
 	StartPositionsData* m_startPositionsShare;
 	HANDLE m_hMemMap;
-	std::unique_ptr<SingleHook> m_initialiseHook;
-	std::unique_ptr<SingleHook> m_fixedPositionsHook;
-	std::unique_ptr<SingleHook> m_randomPositionsHook;
-	std::unique_ptr<SingleHook> m_dbg1Hook;
-	std::unique_ptr<SingleHook> m_dbg2Hook;
-	std::unique_ptr<SingleHook> m_teamBugfixHook;
+	std::vector<std::shared_ptr<SingleHook> > m_hooks;
 };

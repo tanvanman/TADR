@@ -445,7 +445,26 @@ bool GetWeatherReport(char* buffer, int len)
 	return false;
 }
 
+PlayerStruct* FindPlayerByName(const char* name)
+{
+	TAdynmemStruct* ptrMain = *(TAdynmemStruct**)0x0511DE8;
+	for (int n = 0; n < 10; ++n)
+	{
+		if (ptrMain->Players[n].PlayerActive && !strcmpi(ptrMain->Players[n].Name, name))
+		{
+			return &ptrMain->Players[n];
+		}
+	}
+	return NULL;
+}
+
+_UpdateTeamSelectionButtonIcons UpdateTeamSelectionButtonIcons = (_UpdateTeamSelectionButtonIcons)0x446a50;
+_UpdateAlliancesFromTeamSelections UpdateAlliancesFromTeamSelections = (_UpdateAlliancesFromTeamSelections)0x446c70;
+_SendMessage_Team24 SendMessage_Team24 = (_SendMessage_Team24)0x452bd0;
+_OnTeamChange_BeforeChange_SendMessage_Conditonal_Team23 OnTeamChange_BeforeChange_SendMessage_Conditonal_Team23 = (_OnTeamChange_BeforeChange_SendMessage_Conditonal_Team23)0x446e90;
+_InitInternalCommand InitInternalCommand = (_InitInternalCommand)0x4b7760;
 _HAPI_SendBuf HAPI_SendBuf = (_HAPI_SendBuf)0x451bc0;
+_HAPI_BroadcastMessage HAPI_BroadcastMessage = (_HAPI_BroadcastMessage)0x451df0;
 _getFrate getFrate = (_getFrate)0x4B66A0;
 DrawTextInScreen_ DrawTextInScreen = (DrawTextInScreen_)0x04C14F0;
 _DrawColorTextInScreen DrawColorTextInScreen = (_DrawColorTextInScreen)0x4A50E0;

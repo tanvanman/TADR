@@ -8,6 +8,7 @@
 #undef max
 #endif
 #include <algorithm>
+#include <chrono>
 
 static unsigned int TeamBugfixHookAddr = 0x452ac7;
 static unsigned int TeamBugfixHookProc(PInlineX86StackBuffer X86StrackBuffer)
@@ -28,43 +29,13 @@ static unsigned int TeamBugfixHookProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
-static unsigned int Debug1HookAddr = 0x450f90;
-static unsigned int Debug1HookProc(PInlineX86StackBuffer X86StrackBuffer)
-{
-	int* PTR = (int*)0x00511de8;
-	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
-
-	for (int n = 0; n < 2; ++n)
-	{
-		IDDrawSurface::OutptTxt(
-			"[dbg1] player=%d, allies=[%d,%d], Team=%d\n",
-			n, int(ta->Players[n].AllyFlagAry[0]), int(ta->Players[n].AllyFlagAry[1]), int(ta->Players[n].AllyTeam));
-	}
-	return 0;
-}
-
-
-static unsigned int Debug2HookAddr = 0x453d40;
-static unsigned int Debug2HookProc(PInlineX86StackBuffer X86StrackBuffer)
-{
-	int* PTR = (int*)0x00511de8;
-	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
-
-	for (int n = 0; n < 2; ++n)
-	{
-		IDDrawSurface::OutptTxt(
-			"[dbg2] player=%d, allies=[%d,%d], Team=%d\n",
-			n, int(ta->Players[n].AllyFlagAry[0]), int(ta->Players[n].AllyFlagAry[1]), int(ta->Players[n].AllyTeam));
-	}
-	return 0;
-}
-
-
 std::unique_ptr<StartPositions> StartPositions::m_instance;
+std::default_random_engine StartPositions::m_rng(std::chrono::system_clock::now().time_since_epoch().count());
 
 // initialised by InitStartPositionsHookProc, accessed by FixedStartPositionsHookProc or RandomStartPositionsHookProc
 static int IS_ACTIVE_PLAYER[10];
 static int START_POSITIONS[10];
+static bool START_POSITIONS_VALID = false;
 
 static unsigned int InitStartPositionsHookAddr = 0x45698f;
 static unsigned int InitStartPositionsHookProc(PInlineX86StackBuffer X86StrackBuffer)
@@ -84,8 +55,8 @@ static unsigned int InitStartPositionsHookProc(PInlineX86StackBuffer X86StrackBu
 	int* isActivePlayer = IS_ACTIVE_PLAYER;
 	int* startPositions = START_POSITIONS;
 
-	StartPositions::GetInstance()->GetStartPositions(isActivePlayer, startPositions, randomised);
-
+	StartPositions::GetInstance()->InitStartPositions(isActivePlayer, startPositions, randomised);
+	START_POSITIONS_VALID = true;
 	return 0;
 }
 
@@ -138,12 +109,10 @@ StartPositions::StartPositions():
 	CreateSharedMemory();
 	if (m_hMemMap && m_startPositionsShare)
 	{
-		m_initialiseHook.reset(new InlineSingleHook(InitStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, InitStartPositionsHookProc));
-		m_fixedPositionsHook.reset(new InlineSingleHook(FixedStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, FixedStartPositionsHookProc));
-		m_randomPositionsHook.reset(new InlineSingleHook(RandomStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, RandomStartPositionsHookProc));
-		//m_dbg1Hook.reset(new InlineSingleHook(Debug1HookAddr, 5, INLINE_5BYTESLAGGERJMP, Debug1HookProc));
-		//m_dbg2Hook.reset(new InlineSingleHook(Debug2HookAddr, 5, INLINE_5BYTESLAGGERJMP, Debug2HookProc));
-		m_teamBugfixHook.reset(new InlineSingleHook(TeamBugfixHookAddr, 5, INLINE_5BYTESLAGGERJMP, TeamBugfixHookProc));
+		m_hooks.push_back(std::make_shared<InlineSingleHook>(InitStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, InitStartPositionsHookProc));
+		m_hooks.push_back(std::make_shared<InlineSingleHook>(FixedStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, FixedStartPositionsHookProc));
+		m_hooks.push_back(std::make_shared<InlineSingleHook>(RandomStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, RandomStartPositionsHookProc));
+		m_hooks.push_back(std::make_shared<InlineSingleHook>(TeamBugfixHookAddr, 5, INLINE_5BYTESLAGGERJMP, TeamBugfixHookProc));
 	}
 }
 
@@ -187,7 +156,7 @@ StartPositionsData* StartPositions::GetSharedMemory()
 	return m_startPositionsShare;
 }
 
-const void StartPositions::GetStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised)
+const void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised)
 {
 	int playerTeamNumbers[10] = { 0 };
 	GetTeamsFromAlliances(playerTeamNumbers, randomised);
@@ -204,6 +173,13 @@ const void StartPositions::GetStartPositions(int isActivePlayer[10], int startPo
 	{
 		GetStartPositionsSequentialy(isActivePlayer, startPositions, randomised);
 	}
+}
+
+const bool StartPositions::GetInitedStartPositions(int isActivePlayer[10], int startPositions[10])
+{
+	std::memcpy(isActivePlayer, IS_ACTIVE_PLAYER, 10*sizeof(int));
+	std::memcpy(startPositions, START_POSITIONS, 10*sizeof(int));
+	return START_POSITIONS_VALID;
 }
 
 static void assignTeam(TAdynmemStruct* ta, bool visited[10], int playerTeamNumbers[10], int player, int teamNumber) {
@@ -231,7 +207,7 @@ void StartPositions::GetTeamsFromAlliances(int playerTeamNumbers[10], bool rando
 	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	if (randomise)
 	{
-		std::random_shuffle(shuffle, shuffle + 10);
+		std::shuffle(shuffle, shuffle + 10, m_rng);
 	}
 
 	bool visited[10] = { false };
@@ -300,7 +276,7 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	if (randomise)
 	{
-		std::random_shuffle(shuffle, shuffle + 10);
+		std::shuffle(shuffle, shuffle + 10, m_rng);
 	}
 
 	// make 1st pass naive assignments.  they might out of the range >= 10
@@ -404,7 +380,7 @@ int StartPositions::GetStartPositionsSequentialy(int isActivePlayer[10], int sta
 	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	if (randomise)
 	{
-		std::random_shuffle(shuffle, shuffle + 10);
+		std::shuffle(shuffle, shuffle + 10, m_rng);
 	}
 
 	int nextStartPosition = 0;

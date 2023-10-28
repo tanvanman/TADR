@@ -1,6 +1,8 @@
 #ifndef HOOK_H74DJN6554FD
 #define HOOK_H74DJN6554FD
 
+#include <Windows.h>
+
 	class SingleHook
 	{//这个类是Hook的elmt，功能是实现具体的一个HOOK。
 	public:

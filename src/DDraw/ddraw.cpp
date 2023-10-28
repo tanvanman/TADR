@@ -23,6 +23,7 @@ using namespace std;
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
 #include "StartPositions.h"
+#include "AutoTeam.h"
 
 #include "TAConfig.h"
 //---------------------------------------------------------------------------
@@ -173,6 +174,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		FixTABug= new TABugFixing;
 
 		StartPositions::GetInstance();
+		AutoTeam::Install();
 
 		GUIExpander= new GUIExpand;
 
