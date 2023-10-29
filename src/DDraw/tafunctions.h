@@ -41,9 +41,6 @@ extern _InitInternalCommand InitInternalCommand;
 typedef int(__stdcall* _HAPI_SendBuf)(unsigned FromPID, unsigned ToPID, const char* Buffer, int BufferSize);
 extern _HAPI_SendBuf HAPI_SendBuf;
 
-typedef int(__stdcall* _HAPI_SendBuf)(unsigned FromPID, unsigned ToPID, const char* Buffer, int BufferSize);
-extern _HAPI_SendBuf HAPI_SendBuf;
-
 typedef int(__stdcall* _HAPI_BroadcastMessage)(int FromPID, const char* Buffer, int BufferSize);
 extern _HAPI_BroadcastMessage HAPI_BroadcastMessage;
 
