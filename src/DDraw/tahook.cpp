@@ -1364,7 +1364,7 @@ UnitOrdersStruct* CTAHook::FindUnitOrdersUnderMouse()
 	for (UnitStruct* unit = me->Units; unit != me->UnitsAry_End; ++unit)
 	{
 		UnitOrdersStruct* unitOrders = unit->UnitOrders;
-		while (unitOrders != NULL) {
+		while (unit->UnitSelected & 0x10 && unitOrders != NULL) {
 			unsigned OrderMask = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].COBScripMask;
 			unsigned cursorIndex = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].cursorIndex;
 			const char* cobTechnicalName = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].technicalName;
