@@ -1,5 +1,6 @@
 #include "AutoTeam.h"
 #include "BattleroomCommands.h"
+#include "iddrawsurface.h"
 #include "tafunctions.h"
 #include "StartPositions.h"
 #include "hook/hook.h"
@@ -27,8 +28,14 @@ struct AllianceMessage
 
 static void EnsurePlayersAllianceState(PlayerStruct& p1, PlayerStruct& p2, bool isAllied)
 {
-	p1.AllyFlagAry[p2.PlayerAryIndex] = isAllied;
-	p2.AllyFlagAry[p1.PlayerAryIndex] = isAllied;
+	//if (p1.My_PlayerType == Player_LocalAI || p1.My_PlayerType == Player_LocalAI == Player_LocalHuman)
+	{
+		p1.AllyFlagAry[p2.PlayerAryIndex] = isAllied;
+	}
+	//if (p2.My_PlayerType == Player_LocalAI || p2.My_PlayerType == Player_LocalAI == Player_LocalHuman)
+	{
+		p2.AllyFlagAry[p1.PlayerAryIndex] = isAllied;
+	}
 
 	AllianceMessage msg;
 	msg.id23 = 0x23;
@@ -146,6 +153,29 @@ static void BattleroomAutoteamCommandHandler(const std::vector<std::string> &arg
 	}
 }
 
+static unsigned int TeamBugfixHookAddr = 0x452ac7;
+static unsigned int TeamBugfixHookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (DataShare->TAProgress != TALobby) {
+		return 0;
+	}
+
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	unsigned remoteDPID = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 4);
+	unsigned localDPID = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 8);
+
+	char buffer[14];
+	buffer[0] = 0x23;	// ally
+	*(unsigned int*)&buffer[1] = localDPID;
+	*(unsigned int*)&buffer[5] = remoteDPID;
+	buffer[9] = (unsigned char)X86StrackBuffer->Edx;
+	*(unsigned int*)&buffer[10] = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 16);
+	HAPI_SendBuf(localDPID, remoteDPID, buffer, sizeof(buffer));
+	return 0;
+}
+
 static unsigned int initAutoTeamCommandHookAddr = 0x4195dd;
 static unsigned int initAutoTeamCommandHookProc(PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -159,6 +189,7 @@ AutoTeam::AutoTeam()
 {
 	BattleroomCommands::GetInstance()->RegisterCommand("+autoteam", BattleroomAutoteamCommandHandler);
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(initAutoTeamCommandHookAddr, 5, INLINE_5BYTESLAGGERJMP, initAutoTeamCommandHookProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(TeamBugfixHookAddr, 5, INLINE_5BYTESLAGGERJMP, TeamBugfixHookProc));
 }
 
 AutoTeam::~AutoTeam()

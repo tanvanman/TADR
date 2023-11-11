@@ -10,25 +10,6 @@
 #include <algorithm>
 #include <chrono>
 
-static unsigned int TeamBugfixHookAddr = 0x452ac7;
-static unsigned int TeamBugfixHookProc(PInlineX86StackBuffer X86StrackBuffer)
-{
-	int* PTR = (int*)0x00511de8;
-	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
-
-	unsigned remoteDPID = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 4);
-	unsigned localDPID = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 8);
-
-	char buffer[14];
-	buffer[0] = 0x23;	// ally
-	*(unsigned int*)&buffer[1] = localDPID;
-	*(unsigned int*)&buffer[5] = remoteDPID;
-	buffer[9] = (unsigned char)X86StrackBuffer->Edx;
-	*(unsigned int*)&buffer[10] = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 16);
-	HAPI_SendBuf(localDPID, remoteDPID, buffer, sizeof(buffer));
-	return 0;
-}
-
 std::unique_ptr<StartPositions> StartPositions::m_instance;
 std::default_random_engine StartPositions::m_rng(std::chrono::system_clock::now().time_since_epoch().count());
 
@@ -112,7 +93,6 @@ StartPositions::StartPositions():
 		m_hooks.push_back(std::make_shared<InlineSingleHook>(InitStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, InitStartPositionsHookProc));
 		m_hooks.push_back(std::make_shared<InlineSingleHook>(FixedStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, FixedStartPositionsHookProc));
 		m_hooks.push_back(std::make_shared<InlineSingleHook>(RandomStartPositionsHookAddr, 5, INLINE_5BYTESLAGGERJMP, RandomStartPositionsHookProc));
-		m_hooks.push_back(std::make_shared<InlineSingleHook>(TeamBugfixHookAddr, 5, INLINE_5BYTESLAGGERJMP, TeamBugfixHookProc));
 	}
 }
 
