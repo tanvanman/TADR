@@ -18,9 +18,16 @@ struct QueMSG
   };
 class InlineSingleHook;
 
-	typedef struct tagInlineX86StackBuffer InlineX86StackBuffer, * PInlineX86StackBuffer;
-	typedef int  (__stdcall * InlineX86HookRouter) (PInlineX86StackBuffer X86StrackBuffer);
+typedef struct tagInlineX86StackBuffer InlineX86StackBuffer, * PInlineX86StackBuffer;
+typedef int  (__stdcall * InlineX86HookRouter) (PInlineX86StackBuffer X86StrackBuffer);
 
+enum class DraggingOrderStateEnum
+{
+	IDLE,
+	PRIMED_TO_DRAG,
+	DRAG_COMMENCED,
+	CLICK_NOT_DRAG
+};
 
 class CTAHook
 {
@@ -83,6 +90,7 @@ class CTAHook
 	void DragUnitOrders(UnitOrdersStruct *order);
 	UnitOrdersStruct* DraggingUnitOrders;
 	int DraggingUnitOrdersBuildRectangleColor;
+	DraggingOrderStateEnum DraggingUnitOrdersState;
 
     /**
      * @brief display text to local player only
