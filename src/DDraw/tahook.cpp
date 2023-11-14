@@ -449,9 +449,9 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			case WM_LBUTTONUP:
 				if (DraggingUnitOrders != NULL && DraggingUnitOrdersState == DraggingOrderStateEnum::PRIMED_TO_DRAG)
 				{
+					DraggingUnitOrdersState = DraggingOrderStateEnum::CLICK_NOT_DRAG;
 					PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
 					PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
-					DraggingUnitOrdersState = DraggingOrderStateEnum::CLICK_NOT_DRAG;
 					return true;
 				}
 				DraggingUnitOrders = NULL;
@@ -1472,10 +1472,9 @@ void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
 		}
 	}
 	else {
-		int idx = TAdynmem->BuildPosX + TAdynmem->BuildPosY * TAdynmem->FeatureMapSizeX;
 		order->State = 0;
-		order->Pos.X = 16 * TAdynmem->BuildPosX;
-		order->Pos.Y = 16 * TAdynmem->BuildPosY;
-		order->Pos.Z = TAdynmem->FeatureMap[idx].height;
+		order->Pos.X = TAdynmem->MouseMapPos.X;
+		order->Pos.Y = TAdynmem->MouseMapPos.Y;
+		order->Pos.Z = TAdynmem->MouseMapPos.Z;
 	}
 }
