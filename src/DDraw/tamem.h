@@ -659,10 +659,10 @@ struct UnitDefStruct {
 	unsigned short  maxwaterdepth;
 	unsigned short   minwaterdepth;
 	unsigned long   energymake;
-	unsigned long   energyuse ;
+	float energyuse ;
 	unsigned long   metalmake;
 	unsigned long   extractsmetal;
-	unsigned long   windgenerator;
+	float   windgenerator;
 	unsigned long   tidalgenerator ;
 	unsigned long   cloakcost ;
 	unsigned long   cloakcostmoving;
