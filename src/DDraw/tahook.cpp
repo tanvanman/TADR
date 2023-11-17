@@ -74,6 +74,7 @@ CTAHook::CTAHook(BOOL VidMem)
 	Spacing = 0;
 	ReclaimSnapDisable  = false;
 	DraggingUnitOrders = NULL;
+	DraggingUnitOrdersState = DraggingOrderStateEnum::IDLE;
 
 	lpRectSurf = CreateSurfPCXResource(50, VidMem);
 
@@ -430,9 +431,11 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						}
 						else if ((ordertype::STOP == TAdynmem->PrepareOrder_Type) && 
 							(GetAsyncKeyState(VK_SHIFT) & 0x8000) &&
-							!GUIExpander->myMinimap->Controler->IsBliting())
+							!GUIExpander->myMinimap->Controler->IsBliting() &&
+							DraggingUnitOrdersState == DraggingOrderStateEnum::IDLE)
 						{
 							DraggingUnitOrders = FindUnitOrdersUnderMouse();
+							DraggingUnitOrdersState = DraggingOrderStateEnum::PRIMED_TO_DRAG;
 							return DraggingUnitOrders != NULL;
 						}
 					}
@@ -444,7 +447,15 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case WM_LBUTTONUP:
+				if (DraggingUnitOrders != NULL && DraggingUnitOrdersState == DraggingOrderStateEnum::PRIMED_TO_DRAG)
+				{
+					DraggingUnitOrdersState = DraggingOrderStateEnum::CLICK_NOT_DRAG;
+					PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
+					PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
+					return true;
+				}
 				DraggingUnitOrders = NULL;
+				DraggingUnitOrdersState = DraggingOrderStateEnum::IDLE;
 				if(RingWrite)
 				{
 					return true;
@@ -478,6 +489,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					IsAnOrder(DraggingUnitOrders->Unit_ptr->UnitOrders, DraggingUnitOrders) &&
 					!GUIExpander->myMinimap->Controler->IsBliting())
 				{
+					DraggingUnitOrdersState = DraggingOrderStateEnum::DRAG_COMMENCED;
 					DragUnitOrders(DraggingUnitOrders);
 					return true;
 				}
@@ -514,6 +526,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				{
 					RingWrite = false;
 					DraggingUnitOrders = NULL;
+					DraggingUnitOrdersState = DraggingOrderStateEnum::IDLE;
 					DraggingUnitOrdersBuildRectangleColor = -1;
 				}
 				break;
@@ -1364,7 +1377,7 @@ UnitOrdersStruct* CTAHook::FindUnitOrdersUnderMouse()
 	for (UnitStruct* unit = me->Units; unit != me->UnitsAry_End; ++unit)
 	{
 		UnitOrdersStruct* unitOrders = unit->UnitOrders;
-		while (unitOrders != NULL) {
+		while (unit->UnitSelected & 0x10 && unitOrders != NULL) {
 			unsigned OrderMask = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].COBScripMask;
 			unsigned cursorIndex = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].cursorIndex;
 			const char* cobTechnicalName = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].technicalName;
@@ -1459,10 +1472,9 @@ void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
 		}
 	}
 	else {
-		int idx = TAdynmem->BuildPosX + TAdynmem->BuildPosY * TAdynmem->FeatureMapSizeX;
 		order->State = 0;
-		order->Pos.X = 16 * TAdynmem->BuildPosX;
-		order->Pos.Y = 16 * TAdynmem->BuildPosY;
-		order->Pos.Z = TAdynmem->FeatureMap[idx].height;
+		order->Pos.X = TAdynmem->MouseMapPos.X;
+		order->Pos.Y = TAdynmem->MouseMapPos.Y;
+		order->Pos.Z = TAdynmem->MouseMapPos.Z;
 	}
 }

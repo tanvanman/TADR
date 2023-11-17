@@ -789,7 +789,7 @@ struct UnitStruct {
   short Health;
   char TerrainLevel[4];
   unsigned short cIsCloaked;
-  unsigned int UnitSelected;//and UnitSelectState.  (& 0x000c0000: hold pos; maneuvre; roam)
+  unsigned int UnitSelected;//and UnitSelectState.  (& 0x000c0000: hold pos; maneuvre; roam.  & 0x10: unit selected)
   char data11[4];
 }; //0x118
 
