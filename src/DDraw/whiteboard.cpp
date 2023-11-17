@@ -136,13 +136,11 @@ PlayerStruct* AlliesWhiteboard::GetPlayer(int n)
 
 char AlliesWhiteboard::GetLocalPlayerColor()
 {
-	int* PTR = (int*)0x00511de8;
-	int* cPTR = (int*)(*PTR + 0x1b8a);
-	if (cPTR) {
-		char* PlayerColor = (char*)((*cPTR) + 0x96);
-		if (PlayerColor) {
-			return *PlayerColor;
-		}
+	TAdynmemStruct* Ptr = *TAmainStruct_PtrPtr;
+	int localPlayerId = Ptr->LocalHumanPlayer_PlayerID;
+	PlayerInfoStruct* playerInfo = Ptr->Players[localPlayerId % 10].PlayerInfo;
+	if (playerInfo) {
+		return playerInfo->PlayerLogoColor;
 	}
 	return -1;
 }
