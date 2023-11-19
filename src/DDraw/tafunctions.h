@@ -241,6 +241,7 @@ BOOL IsPlayerAllyUnit (int  UnitID,int PlayerLosID);
 bool GetWeatherReport(char* buffer, int len);
 
 PlayerStruct* FindPlayerByName(const char* name);
+PlayerStruct* FindPlayerByDPID(unsigned dpid);
 
 extern TAProgramStruct * * TAProgramStruct_PtrPtr;
 

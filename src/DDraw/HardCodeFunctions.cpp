@@ -458,6 +458,20 @@ PlayerStruct* FindPlayerByName(const char* name)
 	return NULL;
 }
 
+PlayerStruct* FindPlayerByDPID(unsigned dpid)
+{
+	TAdynmemStruct* ptrMain = *(TAdynmemStruct**)0x0511DE8;
+	for (int n = 0; n < 10; ++n)
+	{
+		if (ptrMain->Players[n].PlayerActive && ptrMain->Players[n].DirectPlayID == dpid)
+		{
+			return &ptrMain->Players[n];
+		}
+	}
+	return NULL;
+}
+
+
 _UpdateTeamSelectionButtonIcons UpdateTeamSelectionButtonIcons = (_UpdateTeamSelectionButtonIcons)0x446a50;
 _UpdateAlliancesFromTeamSelections UpdateAlliancesFromTeamSelections = (_UpdateAlliancesFromTeamSelections)0x446c70;
 _SendMessage_Team24 SendMessage_Team24 = (_SendMessage_Team24)0x452bd0;
