@@ -23,8 +23,8 @@ public:
 	static StartPositions* GetInstance();
 	~StartPositions();
 
-	const void InitStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised);
-	const bool GetInitedStartPositions(int isActivePlayer[10], int startPositions[10]);
+	void InitStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised);
+	bool GetInitedStartPositions(int isActivePlayer[10], int startPositions[10]);
 	StartPositionsData* GetSharedMemory();
 
 private:

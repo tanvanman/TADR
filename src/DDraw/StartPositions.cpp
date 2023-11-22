@@ -136,7 +136,7 @@ StartPositionsData* StartPositions::GetSharedMemory()
 	return m_startPositionsShare;
 }
 
-const void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised)
+void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised)
 {
 	int playerTeamNumbers[10] = { 0 };
 	GetTeamsFromAlliances(playerTeamNumbers, randomised);
@@ -155,7 +155,7 @@ const void StartPositions::InitStartPositions(int isActivePlayer[10], int startP
 	}
 }
 
-const bool StartPositions::GetInitedStartPositions(int isActivePlayer[10], int startPositions[10])
+bool StartPositions::GetInitedStartPositions(int isActivePlayer[10], int startPositions[10])
 {
 	std::memcpy(isActivePlayer, IS_ACTIVE_PLAYER, 10*sizeof(int));
 	std::memcpy(startPositions, START_POSITIONS, 10*sizeof(int));

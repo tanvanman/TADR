@@ -242,6 +242,7 @@ bool GetWeatherReport(char* buffer, int len);
 
 PlayerStruct* FindPlayerByName(const char* name);
 PlayerStruct* FindPlayerByDPID(unsigned dpid);
+PlayerStruct* FindPlayerByPlayerNum(int playerNum);
 
 extern TAProgramStruct * * TAProgramStruct_PtrPtr;
 

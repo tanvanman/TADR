@@ -471,6 +471,19 @@ PlayerStruct* FindPlayerByDPID(unsigned dpid)
 	return NULL;
 }
 
+PlayerStruct* FindPlayerByPlayerNum(int playerNum)
+{
+	TAdynmemStruct* ptrMain = *(TAdynmemStruct**)0x0511DE8;
+	for (int n = 0; n < 10; ++n)
+	{
+		if (ptrMain->Players[n].PlayerActive && ptrMain->Players[n].PlayerNum == playerNum &&
+			(ptrMain->Players[n].My_PlayerType == Player_LocalHuman || ptrMain->Players[n].My_PlayerType == Player_RemoteHuman))
+		{
+			return &ptrMain->Players[n];
+		}
+	}
+	return NULL;
+}
 
 _UpdateTeamSelectionButtonIcons UpdateTeamSelectionButtonIcons = (_UpdateTeamSelectionButtonIcons)0x446a50;
 _UpdateAlliancesFromTeamSelections UpdateAlliancesFromTeamSelections = (_UpdateAlliancesFromTeamSelections)0x446c70;

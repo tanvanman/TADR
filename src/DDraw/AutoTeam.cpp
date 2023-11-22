@@ -5,6 +5,7 @@
 #include "StartPositions.h"
 #include "hook/hook.h"
 
+#include <chrono>
 #include <numeric>
 #include <sstream>
 
@@ -27,7 +28,17 @@ struct AllianceMessage
 									//14
 };
 
-static void SetOfferAlliance(PlayerStruct& p1, PlayerStruct& p2, bool isAllied)
+struct TeamMessage
+{
+	std::uint8_t id24;				//0
+	std::uint32_t subjectDPID;		//1
+	std::uint8_t teamNumber;		//5
+									//6
+};
+
+// do what ever is necessary to make p1 offer alliance to p2
+// regardless of whether or not p1 or p2 is local
+static void OfferAlliance(PlayerStruct& p1, PlayerStruct& p2, bool isAllied)
 {
 	bool p1IsLocal = p1.My_PlayerType == Player_LocalAI || p1.My_PlayerType == Player_LocalHuman;
 	bool p2IsLocal = p2.My_PlayerType == Player_LocalAI || p2.My_PlayerType == Player_LocalHuman;
@@ -40,26 +51,41 @@ static void SetOfferAlliance(PlayerStruct& p1, PlayerStruct& p2, bool isAllied)
 	msg.subjectDPID = p1.DirectPlayID;
 	msg.objectDPID = p2.DirectPlayID;
 	msg.isAllied = isAllied;
+	msg.unknown = 0;
 
 	if (!p1IsLocal)
 	{
+		// send a remote request to p1 to offer alliance to p2
 		msg.unknown = -1;
 		HAPI_SendBuf(ta->Players[ta->LocalHumanPlayer_PlayerID].DirectPlayID, p1.DirectPlayID, (const char*)&msg, sizeof(msg));
+		return;
 	}
-	else if (!p2IsLocal)
+
+	if (!p2IsLocal)
 	{
-		msg.unknown = 0;
+		// as p1, offer alliance to p2
 		p1.AllyFlagAry[p2.PlayerAryIndex] = isAllied;
 		HAPI_SendBuf(p1.DirectPlayID, p2.DirectPlayID, (const char*)&msg, sizeof(msg));
 	}
 	else 
 	{
+		// both p1 and p2 are local
 		p1.AllyFlagAry[p2.PlayerAryIndex] = isAllied;
+	}
+
+	if (p1.PlayerNum != 1 && p2.PlayerNum != 1)
+	{
+		// host needs to know about alliance so they can assign start positions
+		PlayerStruct* host = FindPlayerByPlayerNum(1);
+		if (host)
+		{
+			HAPI_SendBuf(p1.DirectPlayID, host->DirectPlayID, (const char*)&msg, sizeof(msg));
+		}
 	}
 }
 
-// hack the ALLY23 message dispatch to look for remoteRequest(unknown=-1)
-// and if found, respond with our own regular ALLY23 message
+// intercept the ALLY23 message dispatch to look for remoteRequest(unknown=-1)
+// and treat it is a remote request for us to offer alliance
 static unsigned int RemoteAllianceRequestHookAddr = 0x454ca1;
 static unsigned int RemoteAllianceRequestHookProc(PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -84,9 +110,51 @@ static unsigned int RemoteAllianceRequestHookProc(PInlineX86StackBuffer X86Strac
 		return 0;
 	}
 
-	SetOfferAlliance(*p1, *p2, (*allianceMessage)->isAllied);
+	OfferAlliance(*p1, *p2, (*allianceMessage)->isAllied);
 
 	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x455f50;
+	return X86STRACKBUFFERCHANGE;
+}
+
+
+// replace TEAM24 message dispatch to ensure alliances match team selections
+static unsigned int TeamMessageDispatchHookAddr = 0x454d3a;
+static unsigned int TeamMessageDispatchHookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	const TeamMessage* msg = (TeamMessage*)(X86StrackBuffer->Eax);
+	if (msg && msg->teamNumber < 6u)
+	{
+		PlayerStruct* subjectPlayer = FindPlayerByDPID(msg->subjectDPID);
+		if (subjectPlayer)
+		{
+			for (int n = 0; n < 10; ++n)
+			{
+				PlayerStruct* localPlayer = &ta->Players[n];
+				if (subjectPlayer != localPlayer && localPlayer->PlayerActive &&
+					!(localPlayer->PlayerInfo->PropertyMask & WATCH) &&
+					(localPlayer->My_PlayerType == Player_LocalAI || localPlayer->My_PlayerType == Player_LocalHuman))
+				{
+					bool isAllied =
+						msg->teamNumber < 5 && localPlayer->AllyTeam == msg->teamNumber ||
+						msg->teamNumber == 5 && subjectPlayer->AllyTeam == 5 && localPlayer->AllyTeam == 5 && localPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex];
+					if (isAllied != localPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex])
+					{
+						OfferAlliance(*localPlayer, *subjectPlayer, isAllied);
+					}
+					if (isAllied != subjectPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex])
+					{
+						OfferAlliance(*subjectPlayer, *localPlayer, isAllied);
+					}
+				}
+			}
+			subjectPlayer->AllyTeam = msg->teamNumber;
+		}
+	}
+
+	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x454dea;
 	return X86STRACKBUFFERCHANGE;
 }
 
@@ -106,15 +174,24 @@ static void __stdcall InternalCommand_autoteam(char *argv[])
 	int startPositions[10];
 	if (!StartPositions::GetInstance()->GetInitedStartPositions(isActivePlayer, startPositions))
 	{
-		SendText("+autoteam not available because you're not the host", 0);
+		SendText("+autoteam not available b/c you're not the host", 0);
 		return;
 	}
 
 	int countActivePlayers = std::accumulate(isActivePlayer, isActivePlayer + 10, 0);
 	if (countActivePlayers < 2)
 	{
-		SendText("+autoteam not available. too few players", 0);
+		SendText("+autoteam not available b/c too few players", 0);
 		return;
+	}
+
+	for (int n = 0; n < 10; ++n)
+	{
+		if (ta->Players[n].PlayerActive && ta->Players[n].AllyTeam < 5 && !(ta->Players[n].PlayerInfo->PropertyMask & WATCH))
+		{
+			SendText("+autoteam not available b/c players have team selections", 0);
+			return;
+		}
 	}
 
 	for (int n = 0; n < 10; ++n)
@@ -130,7 +207,7 @@ static void __stdcall InternalCommand_autoteam(char *argv[])
 				continue;
 			}
 			bool isAllied = startPositions[n] % teamCount == startPositions[m] % teamCount;
-			SetOfferAlliance(ta->Players[n], ta->Players[m], isAllied);
+			OfferAlliance(ta->Players[n], ta->Players[m], isAllied);
 		}
 	}
 
@@ -144,134 +221,80 @@ static InternalCommandTableEntryStruct AUTO_TEAMS_COMMAND_TABLE[] = {
 	{NULL, NULL, InternalCommandRunLevel::CMD_LEVEL_NULL}
 };
 
-// callback for battleroom autoteam: assign teams as prescribed by external process via shared memory
+static std::default_random_engine RNG(std::chrono::system_clock::now().time_since_epoch().count());
+
+// callback for battleroom autoteam: assign teams as prescribed by external process via shared memory (or randomly if shared mem unavailable)
 static void BattleroomAutoteamCommandHandler(const std::vector<std::string> &args)
 {
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	if (ta->Players[ta->LocalHumanPlayer_PlayerID].PlayerNum != 1)
+	{
+		SendText("+autoteam can only be used by host", 0);
+		return;
+	}
+
 	const int teamCount = args.size() > 1
 		? std::max(2, std::min(5, std::atoi(args[1].c_str())))
 		: 2;
 
 	const StartPositionsData* sm = StartPositions::GetInstance()->GetSharedMemory();
+	StartPositionsData _sm;
+
 	if (!sm || sm->positionCount == 0)
 	{
-		SendText("Battleroom +autoteam not available", 0);
-		SendText("Create teams manually or use +autoteam after launch", 0);
-		return;
-	}
+		std::memset(&_sm, 0, sizeof(_sm));
+		sm = &_sm;
 
-	int* PTR = (int*)0x00511de8;
-	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+		SendText("Autobalance not available. Setting random teams", 0);
+		int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+		std::shuffle(shuffle, shuffle + 10, RNG);
 
-	for (int n = 0; n < sm->positionCount; ++n)
-	{
-		if (sm->orderedPlayerNames[n][0] == '\0')
+		for (int n = 0; n < 10; ++n)
 		{
-			continue;
-		}
-
-		PlayerStruct* player = FindPlayerByName(sm->orderedPlayerNames[n]);
-		if (!player)
-		{
-			continue;
-		}
-
-		int teamNumber = n % teamCount;
-		if (player->My_PlayerType == Player_LocalHuman || player->My_PlayerType == Player_LocalAI)
-		{
-			PlaySound_Effect("Ally", 0);
-			OnTeamChange_BeforeChange_SendMessage_Conditonal_Team23(player);
-			player->AllyTeam = teamNumber;
-			SendMessage_Team24(player);
-			UpdateAlliancesFromTeamSelections();
-			UpdateTeamSelectionButtonIcons();
-			SendMessage_Team24(player);
-
-			char txt[0x100];
-			std::sprintf(txt, "Local player %s: SendMessage_Team24(teamNumber=%d)", player->Name, teamNumber);
-			ShowText(&ta->Players[ta->LocalHumanPlayer_PlayerID], txt, 4, 0);
-		}
-		else if (player->My_PlayerType == Player_RemoteHuman || player->My_PlayerType == Player_RemoteAI)
-		{
-			char buffer[6];
-			buffer[0] = 0x24;
-			*(std::uint32_t*)&buffer[1] = player->DirectPlayID;
-			buffer[5] = teamNumber;
-			std::uint32_t fromDpid = ta->Players[ta->LocalHumanPlayer_PlayerID].DirectPlayID;
-			HAPI_BroadcastMessage(fromDpid, buffer, sizeof(buffer));
-
-			char txt[0x100];
-			std::sprintf(txt, "HAPI_BroadcastMessage(sender=%s, subject=%s, teamNumber=%d)", 
-				ta->Players[ta->LocalHumanPlayer_PlayerID].Name,
-				player->Name,
-				teamNumber);
-			ShowText(&ta->Players[ta->LocalHumanPlayer_PlayerID], txt, 4, 0);
-		}
-	}
-}
-
-// Right at the point of receiving a TEAM(0x24) message from a remote.
-// We need to see if remote left our team so we can respond with an ALLY(0x23) message to indicate that we withdraw our alliance
-static unsigned int TeamBugfixHookAddr = 0x454de4;;
-static unsigned int TeamBugfixHookProc(PInlineX86StackBuffer X86StrackBuffer)
-{
-	if (DataShare->TAProgress == TAInGame) {
-		return 0;
-	}
-
-	unsigned remoteDPID = *(unsigned*)(X86StrackBuffer->Esp + 0x14 + 8);
-	int newRemoteTeamNumber = (X86StrackBuffer->Edx & 0x0f);
-	PlayerStruct* remotePlayer = FindPlayerByDPID(remoteDPID);
-	if (remotePlayer == NULL)
-	{
-		return 0;
-	}
-
-	int* PTR = (int*)0x00511de8;
-	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
-
-	for (int n = 0; n < 10; ++n)
-	{
-		// for every local active player
-		if (!ta->Players[n].PlayerActive || ta->Players[n].DirectPlayID == remoteDPID ||
-			ta->Players[n].My_PlayerType != Player_LocalHuman && ta->Players[n].My_PlayerType != Player_LocalAI)
-		{
-			continue;
-		}
-		PlayerStruct* localPlayer = &ta->Players[n];
-
-		bool wasSameTeam = remotePlayer->AllyTeam < 5 && remotePlayer->AllyTeam == localPlayer->AllyTeam;
-		bool nowSameTeam = newRemoteTeamNumber < 5 && newRemoteTeamNumber == localPlayer->AllyTeam;
-
-		if (wasSameTeam != nowSameTeam)
-		{
-			// send an ALLY23 message
-			localPlayer->AllyFlagAry[remotePlayer->PlayerAryIndex] = nowSameTeam;
-			char buffer[14];
-			buffer[0] = 0x23;	// ally
-			*(unsigned int*)&buffer[1] = localPlayer->DirectPlayID;
-			*(unsigned int*)&buffer[5] = remotePlayer->DirectPlayID;
-			buffer[9] = nowSameTeam;
-			*(unsigned int*)&buffer[10] = 0;
-
-			// to the remote player
-			//HAPI_SendBuf(localPlayer->DirectPlayID, remoteDPID, buffer, sizeof(buffer));
-			for (int m = 0; m < 10; ++m)
+			int idx = shuffle[n];
+			if (ta->Players[idx].PlayerActive && !(ta->Players[idx].PlayerInfo->PropertyMask & WATCH))
 			{
-				if (ta->Players[m].PlayerActive) //ta->Players[m].PlayerNum == 1 && ta->Players[m].My_PlayerType == Player_RemoteHuman)
-				{
-					// and to the host
-					HAPI_SendBuf(localPlayer->DirectPlayID, ta->Players[m].DirectPlayID, buffer, sizeof(buffer));
-				}
+				std::strncpy(_sm.orderedPlayerNames[_sm.positionCount], ta->Players[idx].Name, 32);
+				++_sm.positionCount;
 			}
 		}
 	}
+	else
+	{
+		SendText("Setting autobalanced teams", 0);
+	}
 
-	return 0;
+	for (int n = 0; n < sm->positionCount; ++n)
+	{
+		PlayerStruct* player = FindPlayerByName(sm->orderedPlayerNames[n]);
+		if (player && player->PlayerActive && !(player->PlayerInfo->PropertyMask & WATCH))
+		{
+			for (int m = 0; m < sm->positionCount; ++m)
+			{
+				PlayerStruct* playerOther = FindPlayerByName(sm->orderedPlayerNames[m]);
+				if (playerOther && playerOther != player && playerOther->PlayerActive && !(playerOther->PlayerInfo->PropertyMask & WATCH))
+				{
+					OfferAlliance(*player, *playerOther, n % teamCount == m % teamCount);
+				}
+			}
+
+			ta->Players[player->PlayerAryIndex].AllyTeam = n % teamCount;
+			TeamMessage teamMessage;
+			teamMessage.id24 = 0x24;
+			teamMessage.subjectDPID = player->DirectPlayID;
+			teamMessage.teamNumber = n % teamCount;
+			HAPI_BroadcastMessage(ta->Players[ta->LocalHumanPlayer_PlayerID].DirectPlayID, (const char*)&teamMessage, sizeof(teamMessage));
+		}
+	}
 }
 
 // In Send_PacketPlayerInfo, right after broadcasting PLAYER_STATUS(0x20).
-// Send ALLY(0x23) messages for every player pair
-// Host especially needs to know who's with who because host assigns start positions based on alliances
+// Send ALLY(0x23) messages for every player pair.
+// Host needs to know who is allied with whom in order to assign start positions.
+// If players manually ally (without using teams icons) then host won't know about all the alliances yet.
+// This hook rectifies that situation.
 static unsigned int AlliancesBroadcastHookAddr = 0x45100a;
 static unsigned int AlliancesBroadcastHookProc(PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -301,24 +324,7 @@ static unsigned int AlliancesBroadcastHookProc(PInlineX86StackBuffer X86StrackBu
 			localPlayer.AllyTeam == 5 && localPlayer.AllyFlagAry[n] ||
 			localPlayer.AllyTeam < 5 && localPlayer.AllyTeam == remotePlayer.AllyTeam;
 
-		// send an ALLY23 message
-		char buffer[14];
-		buffer[0] = 0x23;	// ally
-		*(unsigned int*)&buffer[1] = localPlayer.DirectPlayID;
-		*(unsigned int*)&buffer[5] = remotePlayer.DirectPlayID;
-		buffer[9] = isAllied;
-		*(unsigned int*)&buffer[10] = 0;
-
-		// to the remote player
-		//HAPI_SendBuf(localPlayer.DirectPlayID, remotePlayer.DirectPlayID, buffer, sizeof(buffer));
-		for (int m = 0; m < 10; ++m)
-		{
-			if (ta->Players[m].PlayerActive) // && ta->Players[m].PlayerNum == 1 && ta->Players[m].My_PlayerType == Player_RemoteHuman)
-			{
-				// and to the host
-				HAPI_SendBuf(localPlayer.DirectPlayID, ta->Players[m].DirectPlayID, buffer, sizeof(buffer));
-			}
-		}
+		OfferAlliance(localPlayer, remotePlayer, isAllied);
 	}
 
 	return 0;
@@ -338,8 +344,8 @@ AutoTeam::AutoTeam()
 	BattleroomCommands::GetInstance()->RegisterCommand("+autoteam", BattleroomAutoteamCommandHandler);
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(initAutoTeamCommandHookAddr, 5, INLINE_5BYTESLAGGERJMP, initAutoTeamCommandHookProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(AlliancesBroadcastHookAddr, 5, INLINE_5BYTESLAGGERJMP, AlliancesBroadcastHookProc));
-	m_hooks.push_back(std::make_unique<InlineSingleHook>(TeamBugfixHookAddr, 5, INLINE_5BYTESLAGGERJMP, TeamBugfixHookProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoteAllianceRequestHookAddr, 5, INLINE_5BYTESLAGGERJMP, RemoteAllianceRequestHookProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(TeamMessageDispatchHookAddr, 5, INLINE_5BYTESLAGGERJMP, TeamMessageDispatchHookProc));
 }
 
 AutoTeam::~AutoTeam()
