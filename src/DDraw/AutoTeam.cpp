@@ -133,13 +133,13 @@ static unsigned int TeamMessageDispatchHookProc(PInlineX86StackBuffer X86StrackB
 			for (int n = 0; n < 10; ++n)
 			{
 				PlayerStruct* localPlayer = &ta->Players[n];
-				if (subjectPlayer != localPlayer && localPlayer->PlayerActive &&
+				if (localPlayer->PlayerActive &&
+					subjectPlayer != localPlayer &&
 					!(localPlayer->PlayerInfo->PropertyMask & WATCH) &&
+					(localPlayer->AllyTeam < 5 || msg->teamNumber < 5) &&
 					(localPlayer->My_PlayerType == Player_LocalAI || localPlayer->My_PlayerType == Player_LocalHuman))
 				{
-					bool isAllied =
-						msg->teamNumber < 5 && localPlayer->AllyTeam == msg->teamNumber ||
-						msg->teamNumber == 5 && subjectPlayer->AllyTeam == 5 && localPlayer->AllyTeam == 5 && localPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex];
+					bool isAllied = localPlayer->AllyTeam == msg->teamNumber;
 					if (isAllied != localPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex])
 					{
 						OfferAlliance(*localPlayer, *subjectPlayer, isAllied);
