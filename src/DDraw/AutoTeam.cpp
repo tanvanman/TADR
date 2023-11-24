@@ -174,7 +174,7 @@ static void __stdcall InternalCommand_autoteam(char *argv[])
 	int startPositions[10];
 	if (!StartPositions::GetInstance()->GetInitedStartPositions(isActivePlayer, startPositions))
 	{
-		SendText("+autoteam not available b/c you're not the host", 0);
+		SendText("+autoteam is only available to the host of a multiplayer game", 0);
 		return;
 	}
 
