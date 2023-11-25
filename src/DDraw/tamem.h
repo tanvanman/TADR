@@ -703,10 +703,10 @@ struct UnitDefStruct {
 	unsigned short  maxwaterdepth;
 	unsigned short   minwaterdepth;
 	unsigned long   energymake;
-	unsigned long   energyuse ;
+	float energyuse ;
 	unsigned long   metalmake;
 	unsigned long   extractsmetal;
-	unsigned long   windgenerator;
+	float   windgenerator;
 	unsigned long   tidalgenerator ;
 	unsigned long   cloakcost ;
 	unsigned long   cloakcostmoving;
@@ -833,7 +833,7 @@ struct UnitStruct {
   short Health;
   char TerrainLevel[4];
   unsigned short cIsCloaked;
-  unsigned int UnitSelected;//and UnitSelectState.  (& 0x000c0000: hold pos; maneuvre; roam)
+  unsigned int UnitSelected;//and UnitSelectState.  (& 0x000c0000: hold pos; maneuvre; roam.  & 0x10: unit selected)
   char data11[4];
 }; //0x118
 

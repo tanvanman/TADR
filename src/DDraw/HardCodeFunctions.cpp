@@ -416,9 +416,30 @@ bool GetWeatherReport(char* buffer, int len)
 {
 	TAdynmemStruct* ptrMain = *(TAdynmemStruct**)0x0511DE8;
 
-	const int solarPower = 20;
+	static int solarPower = 0;
+	static int stdWindGenMaxPower = 0;
+	if (solarPower == 0 || stdWindGenMaxPower == 0)
+	{
+		for (int n = 0; n < ptrMain->UNITINFOCount; ++n)
+		{
+			UnitDefStruct& u = ptrMain->UnitDef[n];
+			if (!std::strncmp(u.UnitName, "ARMSOLAR", sizeof(u.Name)))
+			{
+				solarPower = -int(u.energyuse);
+			}
+			else if (!std::strncmp(u.UnitName, "ARMWIN", sizeof(u.Name)))
+			{
+				stdWindGenMaxPower = int(u.windgenerator);
+			}
+		}
+	}
+	if (solarPower == 0 || stdWindGenMaxPower == 0)
+	{
+		solarPower = 20;
+		stdWindGenMaxPower = 30;
+	}
+
 	const int tidalPower = ptrMain->TidalStrength;
-	const int stdWindGenMaxPower = 30;
 	const int windSpeedHardLimit = ptrMain->WindSpeedHardLimit;
 	if (windSpeedHardLimit > 0) {
 		int windPower = (stdWindGenMaxPower * ptrMain->WindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
