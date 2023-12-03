@@ -1051,7 +1051,7 @@ void Dialog::ReadSettings()
 	Size = sizeof(int);
 	if (RegQueryValueEx(hKey, "ClickSnapOverrideKey", NULL, NULL, (unsigned char*)&ClickSnapOverrideKey, &Size) != ERROR_SUCCESS)
 	{
-		VirtualWhiteboardKey = VK_LMENU;
+		ClickSnapOverrideKey = VK_MENU;
 	}
 	Size = sizeof(int);
 	if(RegQueryValueEx(hKey, "WhiteboardKey", NULL, NULL, (unsigned char*)&VirtualWhiteboardKey, &Size) != ERROR_SUCCESS)
