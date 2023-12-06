@@ -184,7 +184,8 @@ void MegamapTAStuff::LockBlit_TA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight
 		int yOfs = (*TAProgramStruct_PtrPtr)->ScreenHeight - 34 - *((*TAProgramStruct_PtrPtr)->Font_Height);
 		DrawTextInScreen(&OffScreen, Textbuf, 130, yOfs, -1);
 
-		if (GetWeatherReport(Textbuf, sizeof(Textbuf))) {
+		if (!(GetAsyncKeyState(VK_SPACE) & 0x8000) && 
+			GetWeatherReport(Textbuf, sizeof(Textbuf))) {
 			DrawTextInScreen(&OffScreen, Textbuf, 260, yOfs, -1);
 		}
 	}
