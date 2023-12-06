@@ -98,7 +98,8 @@ unsigned int DisplayWindSpeedAddr = 0x46a2a3;	// just after having drawn the +cl
 int __stdcall DisplayWindSpeedProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	char Textbuf[0x100];
-	if (GetWeatherReport(Textbuf, sizeof(Textbuf))) {
+	if (!(GetAsyncKeyState(VK_SPACE) & 0x8000) &&
+		GetWeatherReport(Textbuf, sizeof(Textbuf))) {
 
 		// y-coordinate on which the +clock Game Time was drawn
 		int yOff = X86StrackBuffer->Esi;
