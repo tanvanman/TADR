@@ -75,6 +75,8 @@ CTAHook::CTAHook(BOOL VidMem)
 	ReclaimSnapDisable  = false;
 	DraggingUnitOrders = NULL;
 	DraggingUnitOrdersState = DraggingOrderStateEnum::IDLE;
+	ClickSnapBuild = false;
+
 
 	lpRectSurf = CreateSurfPCXResource(50, VidMem);
 
@@ -377,29 +379,10 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					int mouseScreenY = HIWORD(lParam);
 					if (mouseScreenX >= gameScreenRect.left && mouseScreenX < gameScreenRect.right)
 					{
-						if ((ordertype::BUILD == TAdynmem->PrepareOrder_Type))
+						if (ClickSnapBuild)
 						{
-							if (GetBuildUnit().extractsmetal) {
-								int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
-								SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(xyPos, GetFootX(), GetFootY(), ClickSnapRadius);
-								ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
-								return true;
-							}
-
-							char yardMap[65];
-							if (GetBuildUnit().YardMap) {
-								int N = min(64, GetFootX() * GetFootY());
-								std::memcpy(yardMap, GetBuildUnit().YardMap, N);
-								yardMap[N] = 0;
-							}
-							// 0x8f in yardmap, diagnostic of geothermals (I hope)
-							if (strchr(yardMap, 0x8f))
-							{
-								int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
-								SnapToNear<TestCanBuildAdapter>(xyPos, GetFootX(), GetFootY(), ClickSnapRadius);
-								ClickBuilding(xyPos[0] * 16, xyPos[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
-								return true;
-							}
+							ClickBuilding(ClickSnapBuildPosXY[0] * 16, ClickSnapBuildPosXY[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
+							return true;
 						}
 						else if ((ordertype::RECLAIM == TAdynmem->PrepareOrder_Type) && !ReclaimSnapDisable)
 						{
@@ -482,6 +465,8 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			case WM_MOUSEMOVE:
 				//MouseX = LOWORD(lParam);
 				//MouseY = HIWORD(lParam);
+				ClickSnapBuild = false;
+
 				if (DraggingUnitOrders &&
 					ordertype::STOP == TAdynmem->PrepareOrder_Type &&
 					GetAsyncKeyState(VK_SHIFT) & 0x8000 &&
@@ -519,7 +504,6 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						RingWrite = false;
 						if(!WriteLine)
 							EnableTABuildRect();
-							;
 					}
 				}
 				else
@@ -528,6 +512,53 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					DraggingUnitOrders = NULL;
 					DraggingUnitOrdersState = DraggingOrderStateEnum::IDLE;
 					DraggingUnitOrdersBuildRectangleColor = -1;
+					ClickSnapBuild = false;
+
+					if (ClickSnapRadius > 0 && (GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
+					{
+						RECT& gameScreenRect = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
+						int mouseScreenX = LOWORD(lParam);
+						int mouseScreenY = HIWORD(lParam);
+						if (mouseScreenX >= gameScreenRect.left && mouseScreenX < gameScreenRect.right)
+						{
+							if ((ordertype::BUILD == TAdynmem->PrepareOrder_Type))
+							{
+								if (GetBuildUnit().extractsmetal) {
+									ClickSnapBuildPosXY[0] = TAdynmem->BuildPosX;
+									ClickSnapBuildPosXY[1] = TAdynmem->BuildPosY;
+									ClickSnapBuildFootXY[0] = GetFootX();
+									ClickSnapBuildFootXY[1] = GetFootY();
+									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), ClickSnapRadius);
+									ClickSnapBuild = ClickSnapBuildPosXY[0] != TAdynmem->BuildPosX || ClickSnapBuildPosXY[1] != TAdynmem->BuildPosY;
+								}
+
+								char yardMap[65];
+								if (GetBuildUnit().YardMap) {
+									int N = min(64, GetFootX() * GetFootY());
+									std::memcpy(yardMap, GetBuildUnit().YardMap, N);
+									yardMap[N] = 0;
+								}
+								// 0x8f in yardmap, diagnostic of geothermals (I hope)
+								if (strchr(yardMap, 0x8f))
+								{
+									ClickSnapBuildPosXY[0] = TAdynmem->BuildPosX;
+									ClickSnapBuildPosXY[1] = TAdynmem->BuildPosY;
+									ClickSnapBuildFootXY[0] = GetFootX();
+									ClickSnapBuildFootXY[1] = GetFootY();
+									SnapToNear<TestCanBuildAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), ClickSnapRadius);
+									ClickSnapBuild = ClickSnapBuildPosXY[0] != TAdynmem->BuildPosX || ClickSnapBuildPosXY[1] != TAdynmem->BuildPosY;
+								}
+							}
+						}
+					}
+					if (ClickSnapBuild) {
+						DisableTABuildRect();
+					}
+					else {
+						EnableTABuildRect();
+					}
+
+
 				}
 				break;
 			case WM_MOUSEWHEEL:
@@ -665,6 +696,7 @@ void CTAHook::TABlit()
 	}
 
 	VisualizeDraggingBuildRectangle();
+	VisualizeClickSnapPreview();
 }
 /*
 
@@ -1428,6 +1460,29 @@ void CTAHook::VisualizeDraggingBuildRectangle()
 			GetFootX() * 16,
 			GetFootY() * 16,
 			DraggingUnitOrdersBuildRectangleColor);
+	}
+}
+
+void CTAHook::VisualizeClickSnapPreview()
+{
+	if (ClickSnapBuild)
+	{
+		int BakX = TAdynmem->MouseMapPos.X;
+		int BakY = TAdynmem->MouseMapPos.Y;
+		TAdynmem->MouseMapPos.X = ClickSnapBuildPosXY[0] * 16;
+		TAdynmem->MouseMapPos.Y = ClickSnapBuildPosXY[1] * 16;
+		TAdynmem->BuildSpotState = 70;
+		TestBuildSpot();
+
+		int color = TAdynmem->BuildSpotState == 70 ? 234 : 214;
+		DrawBuildRect((TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
+			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz / 2),
+			ClickSnapBuildFootXY[0] * 16,
+			ClickSnapBuildFootXY[1] * 16,
+			color);
+
+		TAdynmem->MouseMapPos.X = BakX;
+		TAdynmem->MouseMapPos.Y = BakY;
 	}
 }
 
