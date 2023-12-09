@@ -23,6 +23,10 @@
 #include <list>
 #include <tuple>
 
+#ifdef max
+#undef max
+#endif
+
 #ifdef WM_MOUSEWHEEL//vs2010
 #undef WM_MOUSEWHEEL
 #endif
@@ -529,7 +533,10 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 									ClickSnapBuildFootXY[0] = GetFootX();
 									ClickSnapBuildFootXY[1] = GetFootY();
 									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), ClickSnapRadius);
-									ClickSnapBuild = ClickSnapBuildPosXY[0] != TAdynmem->BuildPosX || ClickSnapBuildPosXY[1] != TAdynmem->BuildPosY;
+									if (ClickSnapBuildPosXY[0] != TAdynmem->BuildPosX || ClickSnapBuildPosXY[1] != TAdynmem->BuildPosY) {
+										SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), std::max(GetFootX(), GetFootY()));
+										ClickSnapBuild = true;
+									}
 								}
 
 								char yardMap[65];
