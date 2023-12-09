@@ -140,11 +140,11 @@ static unsigned int TeamMessageDispatchHookProc(PInlineX86StackBuffer X86StrackB
 					(localPlayer->My_PlayerType == Player_LocalAI || localPlayer->My_PlayerType == Player_LocalHuman))
 				{
 					bool isAllied = localPlayer->AllyTeam == msg->teamNumber;
-					if (isAllied != localPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex])
+					if (isAllied != bool(localPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex]))
 					{
 						OfferAlliance(*localPlayer, *subjectPlayer, isAllied);
 					}
-					if (isAllied != subjectPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex])
+					if (isAllied != bool(subjectPlayer->AllyFlagAry[localPlayer->PlayerAryIndex]))
 					{
 						OfferAlliance(*subjectPlayer, *localPlayer, isAllied);
 					}
@@ -271,6 +271,20 @@ static void BattleroomAutoteamCommandHandler(const std::vector<std::string> &arg
 		PlayerStruct* player = FindPlayerByName(sm->orderedPlayerNames[n]);
 		if (player && player->PlayerActive && !(player->PlayerInfo->PropertyMask & WATCH))
 		{
+			ta->Players[player->PlayerAryIndex].AllyTeam = n % teamCount;
+			TeamMessage teamMessage;
+			teamMessage.id24 = 0x24;
+			teamMessage.subjectDPID = player->DirectPlayID;
+			teamMessage.teamNumber = n % teamCount;
+			HAPI_BroadcastMessage(ta->Players[ta->LocalHumanPlayer_PlayerID].DirectPlayID, (const char*)&teamMessage, sizeof(teamMessage));
+		}
+	}
+
+	for (int n = 0; n < sm->positionCount; ++n)
+	{
+		PlayerStruct* player = FindPlayerByName(sm->orderedPlayerNames[n]);
+		if (player && player->PlayerActive && !(player->PlayerInfo->PropertyMask & WATCH))
+		{
 			for (int m = 0; m < sm->positionCount; ++m)
 			{
 				PlayerStruct* playerOther = FindPlayerByName(sm->orderedPlayerNames[m]);
@@ -279,13 +293,6 @@ static void BattleroomAutoteamCommandHandler(const std::vector<std::string> &arg
 					OfferAlliance(*player, *playerOther, n % teamCount == m % teamCount);
 				}
 			}
-
-			ta->Players[player->PlayerAryIndex].AllyTeam = n % teamCount;
-			TeamMessage teamMessage;
-			teamMessage.id24 = 0x24;
-			teamMessage.subjectDPID = player->DirectPlayID;
-			teamMessage.teamNumber = n % teamCount;
-			HAPI_BroadcastMessage(ta->Players[ta->LocalHumanPlayer_PlayerID].DirectPlayID, (const char*)&teamMessage, sizeof(teamMessage));
 		}
 	}
 }
@@ -320,11 +327,11 @@ static unsigned int AlliancesBroadcastHookProc(PInlineX86StackBuffer X86StrackBu
 			continue;
 		}
 
-		bool isAllied = 
+		bool isAlliedAB =
 			localPlayer.AllyTeam == 5 && localPlayer.AllyFlagAry[n] ||
 			localPlayer.AllyTeam < 5 && localPlayer.AllyTeam == remotePlayer.AllyTeam;
 
-		OfferAlliance(localPlayer, remotePlayer, isAllied);
+		OfferAlliance(localPlayer, remotePlayer, isAlliedAB);
 	}
 
 	return 0;
