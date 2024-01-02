@@ -43,6 +43,7 @@ AlliesWhiteboard::AlliesWhiteboard(BOOL VidMem)
 	WBKeyDown = false;
 	InputShown = false;
 	Text[0] = '\0';
+	enableTextInputChar = true;
 
 	lpInputBox = CreateSurfPCXResource(13, VidMem);
 	lpSmallCircle = CreateSurfPCXResource(14, VidMem);
@@ -313,6 +314,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 	case WM_KEYUP:
 		if(wParam == VirtualKeyCode)
 		{
+			enableTextInputChar = true;		// now enable TextInputChar
 			WBKeyDown = false;
 			Rtn_Bool= true;
 			break;
@@ -366,6 +368,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 				lstrcpyA(Text, ((GraphicText*)CurrentElement)->text);
 
 			InputShown = true;
+			enableTextInputChar = false;	// suppress whiteboard key from repeating into TextInputChar
 			MarkerX = *MapX;
 			MarkerY = *MapY;
 			LastMouseX = LOWORD(lParam);
@@ -396,7 +399,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		break;
 
 	case WM_CHAR:
-		if(true==InputShown)
+		if(true==InputShown && enableTextInputChar)
 		{
 			TextInputChar((TCHAR)wParam);
 			Rtn_Bool= true;
