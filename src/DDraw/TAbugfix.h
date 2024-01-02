@@ -42,6 +42,7 @@ private:
 	std::unique_ptr <SingleHook> VTOLPatrolDisableBuildRepair;
 	std::unique_ptr <SingleHook> PatrolDisableReclaim;
 	std::unique_ptr <SingleHook> VTOLPatrolDisableReclaim;
+	std::unique_ptr <InlineSingleHook> DrawPlayer11DT;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 

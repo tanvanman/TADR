@@ -94,6 +94,18 @@ unsigned int DisplayModeMinWidth1024RegAddr = 0x42FA2E;
 unsigned int SinglePlayerStartButtonAddr = 0x456780;
 BYTE SinglePlayerStartButtonBits[] = { 0x02, 0x7d };
 
+unsigned int DrawPlayer11DTAddr = 0x469a7b;
+int __stdcall DrawPlayer11DTProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Esi;
+	if ((X86StrackBuffer->Ecx & 0x0f) == 10)
+	{
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x469aaf;	// draw feature regardless of LOS
+		return X86STRACKBUFFERCHANGE;
+	}
+	return 0;
+}
+
 unsigned int DisplayWindSpeedAddr = 0x46a2a3;	// just after having drawn the +clock Game Time
 int __stdcall DisplayWindSpeedProc(PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -209,7 +221,9 @@ TABugFixing::TABugFixing ()
 		DisplayModeMinWidth1024Reg.reset(new InlineSingleHook(DisplayModeMinWidth1024RegAddr, 5, INLINE_5BYTESLAGGERJMP, CheckDisplayModeWidthReg));
 	}
 
-  SinglePlayerStartButton.reset(new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits));
+	SinglePlayerStartButton.reset(new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits));
+	
+	DrawPlayer11DT.reset(new InlineSingleHook(DrawPlayer11DTAddr, 5, INLINE_5BYTESLAGGERJMP, DrawPlayer11DTProc)_;
 
 	NullUnitDeathVictim.reset(new SingleHook ( NullUnitDeathVictimAddr, sizeof(NullUnitDeathVictimBits), INLINE_UNPROTECTEVINMENT, NullUnitDeathVictimBits));
 
