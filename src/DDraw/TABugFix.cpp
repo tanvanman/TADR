@@ -94,11 +94,17 @@ unsigned int DisplayModeMinWidth1024RegAddr = 0x42FA2E;
 unsigned int SinglePlayerStartButtonAddr = 0x456780;
 BYTE SinglePlayerStartButtonBits[] = { 0x02, 0x7d };
 
+// Patch map features to be owned by player_idx = 11 (instead of player_idx = 10 as per original behaviour)
+// This enables the DrawPlayer11DT patch to draw the features
+unsigned int DrawPlayer11DTEnableAddrs[] = { 0x483a75, 0x483ad3, 0x483b31 };
+BYTE DrawPlayer11DTEnableBits[] = { 11 };
+
+// Draw map features (player_idx = 11 if DrawPlayer11DTEnable patch is activated) regardless of LOS
 unsigned int DrawPlayer11DTAddr = 0x469a7b;
 int __stdcall DrawPlayer11DTProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Esi;
-	if ((X86StrackBuffer->Ecx & 0x0f) == 10)
+	if ((X86StrackBuffer->Ecx & 0x0f) == 11)  // change to 10 if you want to draw map features without also requiring DrawPlayer11DTEnable patch
 	{
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x469aaf;	// draw feature regardless of LOS
 		return X86STRACKBUFFERCHANGE;
@@ -223,7 +229,10 @@ TABugFixing::TABugFixing ()
 
 	SinglePlayerStartButton.reset(new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits));
 	
-	DrawPlayer11DT.reset(new InlineSingleHook(DrawPlayer11DTAddr, 5, INLINE_5BYTESLAGGERJMP, DrawPlayer11DTProc)_;
+	DrawPlayer11DT.reset(new InlineSingleHook(DrawPlayer11DTAddr, 5, INLINE_5BYTESLAGGERJMP, DrawPlayer11DTProc));
+	//DrawPlayer11DTEnable[0].reset(new SingleHook(DrawPlayer11DTEnableAddrs[0], sizeof(DrawPlayer11DTEnableBits), INLINE_UNPROTECTEVINMENT, DrawPlayer11DTEnableBits));
+	//DrawPlayer11DTEnable[1].reset(new SingleHook(DrawPlayer11DTEnableAddrs[1], sizeof(DrawPlayer11DTEnableBits), INLINE_UNPROTECTEVINMENT, DrawPlayer11DTEnableBits));
+	//DrawPlayer11DTEnable[2].reset(new SingleHook(DrawPlayer11DTEnableAddrs[2], sizeof(DrawPlayer11DTEnableBits), INLINE_UNPROTECTEVINMENT, DrawPlayer11DTEnableBits));
 
 	NullUnitDeathVictim.reset(new SingleHook ( NullUnitDeathVictimAddr, sizeof(NullUnitDeathVictimBits), INLINE_UNPROTECTEVINMENT, NullUnitDeathVictimBits));
 
