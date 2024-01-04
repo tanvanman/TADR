@@ -111,6 +111,10 @@ class AlliesWhiteboard
     int LastMarkerX, LastMarkerY;
     char Text[100];
 
+	// supress TextInputChar when a whiteboard marker has just been placed
+	// and enable again when a keybaord key is actually pressed
+	bool enableTextInputChar;
+
     int SizeX;
 	int SizeY;
 	int MidX;
