@@ -87,10 +87,15 @@ class CTAHook
 	UnitOrdersStruct* FindUnitOrdersUnderMouse();
 	bool IsAnOrder(UnitOrdersStruct *unitOrders, UnitOrdersStruct *order);
 	void VisualizeDraggingBuildRectangle();
+	void VisualizeClickSnapPreview();
 	void DragUnitOrders(UnitOrdersStruct *order);
 	UnitOrdersStruct* DraggingUnitOrders;
 	int DraggingUnitOrdersBuildRectangleColor;
 	DraggingOrderStateEnum DraggingUnitOrdersState;
+
+	bool ClickSnapBuild;
+	int ClickSnapBuildPosXY[2];
+	int ClickSnapBuildFootXY[2];
 
     /**
      * @brief display text to local player only

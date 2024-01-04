@@ -245,16 +245,21 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AutoTeam.cpp" />
+    <ClCompile Include="BattleroomCommands.cpp" />
     <ClCompile Include="Guiexport.cpp" />
     <ClCompile Include="MappedMAP.cpp" />
     <ClCompile Include="MegamapControl.cpp" />
     <ClCompile Include="MegamapTAStuff.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
+    <ClInclude Include="AutoTeam.h" />
+    <ClInclude Include="BattleroomCommands.h" />
     <ClInclude Include="MegamapControl.h" />
     <ClInclude Include="megamaptastuff.h" />
     <ClInclude Include="ProjectilesMap.h">
       <FileType>CppCode</FileType>
     </ClInclude>
+    <ClCompile Include="StartPositions.cpp" />
     <ClCompile Include="UnitIcon.cpp" />
     <ClCompile Include="ddraw.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -408,6 +413,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="pcxread.h" />
     <ClInclude Include="rings.h" />
     <ClInclude Include="sharedialog.h" />
+    <ClInclude Include="StartPositions.h" />
     <ClInclude Include="SwitchAlt.h" />
     <ClInclude Include="TAbugfix.h" />
     <ClInclude Include="TAConfig.h" />

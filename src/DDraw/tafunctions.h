@@ -21,6 +21,29 @@ struct _GAFFrame;
 //////////////////////////////////////////////////////////////////////////////////////////
 /// Working.
 //////////////////////////////////////////////////////////////////////////////////////////
+
+typedef void (*_UpdateTeamSelectionButtonIcons)();
+extern _UpdateTeamSelectionButtonIcons UpdateTeamSelectionButtonIcons;
+
+typedef void (*_UpdateAlliancesFromTeamSelections)();
+extern _UpdateAlliancesFromTeamSelections UpdateAlliancesFromTeamSelections;
+
+typedef int (__stdcall* _SendMessage_Team24)(PlayerStruct* p_Player);
+extern _SendMessage_Team24 SendMessage_Team24;
+
+typedef int(__stdcall* _OnTeamChange_BeforeChange_SendMessage_Conditonal_Team23)(PlayerStruct* player);
+extern _OnTeamChange_BeforeChange_SendMessage_Conditonal_Team23 OnTeamChange_BeforeChange_SendMessage_Conditonal_Team23;
+
+/// @param commandTable last entry has empty InternalCommandTableEntryStruct::name
+typedef int(__stdcall* _InitInternalCommand)(const InternalCommandTableEntryStruct *commandTable);
+extern _InitInternalCommand InitInternalCommand;
+
+typedef int(__stdcall* _HAPI_SendBuf)(unsigned FromPID, unsigned ToPID, const char* Buffer, int BufferSize);
+extern _HAPI_SendBuf HAPI_SendBuf;
+
+typedef int(__stdcall* _HAPI_BroadcastMessage)(int FromPID, const char* Buffer, int BufferSize);
+extern _HAPI_BroadcastMessage HAPI_BroadcastMessage;
+
 typedef int(__stdcall* _getFrate)();
 extern _getFrate getFrate;
 typedef int(__stdcall* DrawTextInScreen_)(OFFSCREEN* offscreen_p, char* text, int xOff, int yOff, int length);
@@ -216,6 +239,10 @@ int DrawDotteCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int 
 BOOL IsPlayerAllyUnit (int  UnitID,int PlayerLosID);
 
 bool GetWeatherReport(char* buffer, int len);
+
+PlayerStruct* FindPlayerByName(const char* name);
+PlayerStruct* FindPlayerByDPID(unsigned dpid);
+PlayerStruct* FindPlayerByPlayerNum(int playerNum);
 
 extern TAProgramStruct * * TAProgramStruct_PtrPtr;
 
