@@ -184,13 +184,14 @@ struct CountReclaimableAdapter
 		if (x < 0 || y < 0 || x >= Ptr->FeatureMapSizeX || y >= Ptr->FeatureMapSizeY) {
 			return 0;
 		}
-		FeatureStruct *f = &Ptr->FeatureMap[x + y * Ptr->FeatureMapSizeX];
+		FeatureStruct* f = &Ptr->FeatureMap[x + y * Ptr->FeatureMapSizeX];
 		unsigned idx = GetGridPosFeature(f);
-		if (idx >= Ptr->NumFeatureDefs) {
-			return 0;
+		if (idx < Ptr->NumFeatureDefs) {
+			return Ptr->FeatureDef[idx].Metal > 0 || Ptr->FeatureDef[idx].Energy > 0;
 		}
-
-		return Ptr->FeatureDef[idx].Metal > 0 || Ptr->FeatureDef[idx].Energy > 0;
+		else  {
+			return f->occupyingUnitNumber > 0;
+		}
 	}
 };
 
@@ -246,7 +247,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				case VK_F9:
 					if ((*TAmainStruct_PtrPtr)->SoftwareDebugMode & softwaredebugmode::CheatsEnabled)
 					{
-						/*
+						///*
 						if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
 							// cycle through map debug modes
 							TAdynmem->mapDebugMode = (TAdynmem->mapDebugMode + 1) % 8;
@@ -259,7 +260,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							WriteProcessMemory(GetCurrentProcess(), (void*)(0x418A81 + 1), &radix, 1, NULL);
 							field = (field + 1) % 13;
 						}
-						*/
+						//*/
 					}
 					break;
 				case VK_F11:

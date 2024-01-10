@@ -540,7 +540,7 @@ struct WreckageInfoStruct{
 };
 
 struct FeatureStruct{
-	unsigned char data1[4];
+	unsigned occupyingUnitNumber;
 	unsigned char height;
 	unsigned char maxHeight2x2;  // maximum height of 2x2 patch starting at this coordinate
 	unsigned char minHeight2x2;  // minimum height of 2x2 patch starting at this coordinate
