@@ -46,12 +46,12 @@ int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl)
 			Curt_LOS_Sight_PlayerID= PlayerAryIndex;
 			//PTR1->LOS_Sight_PlayerID= Curt_LOS_Sight_PlayerID;
 			char ChatBuff[0x100];
-			memset ( ChatBuff, 0, 100);
+			memset ( ChatBuff, 0, 0x100);
 			reinterpret_cast<char * *>(ChatBuff)[0]= &ChatBuff[0x10];
 			reinterpret_cast<char * *>(ChatBuff)[1]= &ChatBuff[0x20];
 			lstrcpyA ( &ChatBuff[0x10], "view");
 			
-			sprintf_s ( &ChatBuff[0x20], 0x100, "%d", Curt_LOS_Sight_PlayerID);
+			sprintf_s(&ChatBuff[0x20], 0xd0-0x20, "%d", int(Curt_LOS_Sight_PlayerID));
 			ChatBuff[0xd0]= 2;
 			ViewCommandProc ( ChatBuff);
 			if (HaveControl)
