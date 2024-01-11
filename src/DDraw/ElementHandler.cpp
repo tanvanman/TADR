@@ -21,6 +21,7 @@ CElementHandler::~CElementHandler()
 //	GraphicElement * Curt_GElemPtr;
 
 
+	allElements.clear();
 	for(int y=0;y<ELEMENT_HASH_SIZE;y++)
 		for(int x=0;x<ELEMENT_HASH_SIZE;x++)
 		{
@@ -32,7 +33,6 @@ CElementHandler::~CElementHandler()
 					//delete Curt_GElemPtr;
 					delete (*iter);
 					iter = map[y][x].erase ( iter);
-                    allElements.erase(*iter);
 				}
 				//Curt_GElemPtr= map[y][x].back();
 				//delete ;
