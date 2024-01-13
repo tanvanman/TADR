@@ -542,6 +542,17 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				lpBackLockOn= false;
 				return result;
 			}
+
+			if (lpFront->Flip(NULL, DDFLIP_DONOTWAIT) != DD_OK)
+			{
+				lpFront->Flip(NULL, DDFLIP_WAIT);
+			}
+
+			if (lpBack->Blt(NULL, lpFront, NULL, DDBLT_ASYNC, NULL) != DD_OK)
+			{
+				lpBack->Blt(NULL, lpFront, NULL, DDBLT_WAIT, NULL);
+				OutptTxt("lpFront to lpBack Blit failed");
+			}
 		}
 		else
 		{
