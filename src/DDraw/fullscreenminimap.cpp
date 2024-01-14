@@ -26,9 +26,12 @@
 using namespace std;
 #include "TAConfig.h"
 
+BOOL FullScreenMinimap::IsBliting()
+{
+	return Blit_b;
+}
+
 #ifdef USEMEGAMAP
-
-
 
 int __stdcall LoadMap_Routine (PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -660,10 +663,6 @@ bool FullScreenMinimap::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM
 	return false;
 }
 
-BOOL FullScreenMinimap::IsBliting ( )
-{
-	return Blit_b;
-}
 void FullScreenMinimap::EnterMegaMap ()
 {
 	Blit_b= TRUE;

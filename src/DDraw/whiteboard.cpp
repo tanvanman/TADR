@@ -184,6 +184,7 @@ void AlliesWhiteboard::DebugPlayerNumberFromInitialColor()
 
 void AlliesWhiteboard::Blit(LPDIRECTDRAWSURFACE DestSurf)
 {
+#ifdef USEWHITEBOARD
 	if(lpInputBox->IsLost() != DD_OK)
 	{
 		RestoreAll();
@@ -201,6 +202,7 @@ void AlliesWhiteboard::Blit(LPDIRECTDRAWSURFACE DestSurf)
 
 	if(InputShown)
 		DrawTextInput(DestSurf);
+#endif
 }
 
 void AlliesWhiteboard::InitialisePlayerNumberFromInitialColor()
@@ -222,6 +224,8 @@ void AlliesWhiteboard::InitialisePlayerNumberFromInitialColor()
 
 void AlliesWhiteboard::LockBlit(char *VidBuf, int Pitch)
 {
+#ifdef USEWHITEBOARD
+
 	min_clip_y = 32;
 	min_clip_x = 128;
 	max_clip_x = SizeX-1;
@@ -255,6 +259,7 @@ void AlliesWhiteboard::LockBlit(char *VidBuf, int Pitch)
 		if(VidBuf!=NULL)
 			DrawMinimapMarkers(VidBuf, Pitch, false);
 	}
+#endif
 }
 
 bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)

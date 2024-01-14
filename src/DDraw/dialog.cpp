@@ -671,7 +671,7 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			}
 			if (ClickSnapRadiusFocus)
 			{
-				if (wParam >= '0' && wParam <= '9')
+				if (wParam >= '0' && wParam <= '0' + MAX_CLICK_SNAP_RADIUS)
 				{
 					char App[2];
 					App[0] = (TCHAR)wParam;
@@ -925,9 +925,10 @@ void Dialog::SetAll()
 
 		int Radius = atoi(ClickSnapRadiusText);
 		if (Radius < 0)
-			Radius = 2;
-		if (Radius > 9)
-			Radius = 9;
+			Radius = DEFAULT_CLICK_SNAP_RADIUS;
+		if (Radius > MAX_CLICK_SNAP_RADIUS)
+			Radius = DEFAULT_CLICK_SNAP_RADIUS;
+		ClickSnapRadiusText[0] = '0' + Radius;
 
 		TAHook->Set(VirtualKeyCode, ShareText, OptimizeDTEnabled, FullRingsEnabled, Delay, Radius, ClickSnapOverrideKey);
 	}
@@ -1046,7 +1047,8 @@ void Dialog::ReadSettings()
 	Size = sizeof(ClickSnapRadiusText);
 	if (RegQueryValueEx(hKey, "ClickSnapRadius", NULL, NULL, (unsigned char*)ClickSnapRadiusText, &Size) != ERROR_SUCCESS)
 	{
-		lstrcpyA(ClickSnapRadiusText, "3");
+		ClickSnapRadiusText[0] = '0' + DEFAULT_CLICK_SNAP_RADIUS;
+		ClickSnapRadiusText[1] = 0;
 	}
 	Size = sizeof(int);
 	if (RegQueryValueEx(hKey, "ClickSnapOverrideKey", NULL, NULL, (unsigned char*)&ClickSnapOverrideKey, &Size) != ERROR_SUCCESS)

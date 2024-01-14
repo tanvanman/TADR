@@ -21,6 +21,11 @@
 #include <vector>
 using namespace std;
 
+BOOL MegaMapControl::IsBliting(void)
+{
+	return parent->IsBliting();
+}
+
 #ifdef USEMEGAMAP
 
 using namespace ordertype;
@@ -760,10 +765,6 @@ BOOL MegaMapControl::WheelBack (int xPos, int yPos)
 	}
 
 	return TRUE;
-}
-BOOL MegaMapControl::IsBliting(void)
-{
-	return parent->IsBliting();
 }
 
 BOOL MegaMapControl::CheckInControl (int xPos, int yPos)

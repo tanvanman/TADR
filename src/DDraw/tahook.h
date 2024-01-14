@@ -7,7 +7,8 @@
 #define DTLine 2
 #define ScrolledDTLine 3
 #define DTRing 4
-
+#define DEFAULT_CLICK_SNAP_RADIUS 1
+#define MAX_CLICK_SNAP_RADIUS 2
 #define SCROLL 10000
 
 struct QueMSG

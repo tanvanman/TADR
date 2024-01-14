@@ -69,7 +69,7 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	QueuePos = 0;
 	Delay = 5;
-	ClickSnapRadius = 3;
+	ClickSnapRadius = DEFAULT_CLICK_SNAP_RADIUS;
 	ClickSnapOverrideKey = VK_LMENU;
 	WriteLine = false;
 	FootPrintX = FootPrintY = 2;
@@ -620,7 +620,15 @@ void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullR
 	OptimizeRows = OptimizeRowsi;
 	FullRingsEnabled = FullRingsi;
 	Delay = iDelay;
-	ClickSnapRadius = iRadius;
+	if (iRadius < 0) {
+		ClickSnapRadius = DEFAULT_CLICK_SNAP_RADIUS;
+	}
+	else if (iRadius <= MAX_CLICK_SNAP_RADIUS) {
+		ClickSnapRadius = iRadius;
+	}
+	else {
+		ClickSnapRadius = DEFAULT_CLICK_SNAP_RADIUS;
+	}
 	ClickSnapOverrideKey = iClickSnapOverrideKey;
 }
 

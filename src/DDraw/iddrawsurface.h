@@ -58,8 +58,10 @@ typedef struct DataShare_
 	float storedE[10];
 	float storageM[10];
 	float storageE[10];
-	int IsRunning;
-	int ehaOff;
+	int IsRunning;			// status code displayed to users in response to .ehareport
+	int ehaOff;				// 0: all features on (.ehaon)
+							// 1: all features off (.ehaoff)
+							// 2: tahook only features off (.tahookoff)
 	char ToAllies[100];
 	int ToAlliesLength;
 	char  FromAllies[100];
