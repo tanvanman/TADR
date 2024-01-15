@@ -671,7 +671,7 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			}
 			if (ClickSnapRadiusFocus)
 			{
-				if (wParam >= '0' && wParam <= '0' + MAX_CLICK_SNAP_RADIUS)
+				if (wParam >= '0' && wParam <= '0' + CTAHook::GetMaxClickSnapRadius())
 				{
 					char App[2];
 					App[0] = (TCHAR)wParam;
@@ -925,9 +925,9 @@ void Dialog::SetAll()
 
 		int Radius = atoi(ClickSnapRadiusText);
 		if (Radius < 0)
-			Radius = DEFAULT_CLICK_SNAP_RADIUS;
-		if (Radius > MAX_CLICK_SNAP_RADIUS)
-			Radius = DEFAULT_CLICK_SNAP_RADIUS;
+			Radius = CTAHook::GetDefaultClickSnapRadius();
+		if (Radius > CTAHook::GetMaxClickSnapRadius())
+			Radius = CTAHook::GetDefaultClickSnapRadius();
 		ClickSnapRadiusText[0] = '0' + Radius;
 
 		TAHook->Set(VirtualKeyCode, ShareText, OptimizeDTEnabled, FullRingsEnabled, Delay, Radius, ClickSnapOverrideKey);
@@ -1047,7 +1047,7 @@ void Dialog::ReadSettings()
 	Size = sizeof(ClickSnapRadiusText);
 	if (RegQueryValueEx(hKey, "ClickSnapRadius", NULL, NULL, (unsigned char*)ClickSnapRadiusText, &Size) != ERROR_SUCCESS)
 	{
-		ClickSnapRadiusText[0] = '0' + DEFAULT_CLICK_SNAP_RADIUS;
+		ClickSnapRadiusText[0] = '0' + CTAHook::GetDefaultClickSnapRadius();
 		ClickSnapRadiusText[1] = 0;
 	}
 	Size = sizeof(int);
