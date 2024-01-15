@@ -535,8 +535,12 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 									ClickSnapBuildFootXY[1] = GetFootY();
 									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), ClickSnapRadius);
 									if (ClickSnapBuildPosXY[0] != TAdynmem->BuildPosX || ClickSnapBuildPosXY[1] != TAdynmem->BuildPosY) {
-										SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), std::max(GetFootX(), GetFootY()));
-										ClickSnapBuild = true;
+										int testFurtherSnapPosXY[2] = { ClickSnapBuildPosXY[0], ClickSnapBuildPosXY[1] };
+										SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(testFurtherSnapPosXY, GetFootX(), GetFootY(), std::max(GetFootX(), GetFootY()));
+										if (testFurtherSnapPosXY[0] == ClickSnapBuildPosXY[0] && testFurtherSnapPosXY[1] == ClickSnapBuildPosXY[1]) {
+											// proceed with snap only if the first snap was centred (didn't require further snapping)
+											ClickSnapBuild = true;
+										}
 									}
 								}
 
