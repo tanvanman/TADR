@@ -53,7 +53,7 @@ NEW FEATURES IN DETAIL:
 - Start positions
 
   Start positions are now assigned based on battleroom teams/alliances.
-  With fixed positions, host and their team are assigned the even positions in the order that they joined the lobby.
+  With fixed positions, host and their team are assigned the odd positions in the order that they joined the lobby.
   With random positions, host and their team are randomly assigned the even or odd positions, and they are assigned in random order.
 
   The Teams icons now function correctly, so they can be used to arrange teams in the battleroom if desired.
