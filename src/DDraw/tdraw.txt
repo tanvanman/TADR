@@ -1,3 +1,5 @@
+INSTALLATION
+
 Drop tdraw.dll into your TA directory.
 Ensure the following files are also present in your TA directory:
 - ddraw.dll (available from https://github.com/FunkyFr3sh/cnc-ddraw)
@@ -11,3 +13,94 @@ Escalation 9.9.6        TAESC.ini       taesc.dll
 Mayhem 10.9.2           Settings.ini    mdraw.dll
 ProTA 4.6               ProTA.ini       tdraw.dll
 Zero Alpha5-060322      tazero.ini      zdraw.dll
+
+
+NEW FEATURES IN BRIEF:
+
+- Set start positions based on battleroom teams (or alliances)
+- Repair battleroom teams icons so they can be used to create teams before to launching
+- Features to automatically assign teams in battleroom or in-game
+- ClickSnap to snap to nearest mex, geo or reclaimable feature
+- Add ability to drag queued orders around the map
+- Con units patrol behaviour - hold position: reclaim only; roam: repair/assist only
+- Option to render DTs and fortwalls that belong to the map (not built by a player)
+- Supress "qqqqqq" whiteboard marker lables when "q" is used as the whiteboard key
+- Show weather report (solar, wind and tidal strength) along side +clock
+- Set default resolution on new installs to 1024x768 (.ini setting "DisplayModeMinHeight768 = TRUE/FALSE")
+- Disable relay of F11 chatmacro text to other players
+- Enable start button in multiplayer lobby if only one player + AI are present
+- Change whiteboard, mappos and resource indicator colours in response to +logo commands
+- Prevent +logo commands from affecting other players
+- Ctrl-B doesn't select aircraft carriers
+- Set +lostype as a cheatcode (not available unless cheats enabled)
+- Look for ddraw.dll in current working directory as backend, or failing that use system ddraw.dll
+- Use the same .ini file as TotalA.exe
+- Use the same registry path as TotalA.exe
+- Ctrl-F centres view on selected factory
+- Add FPS counter to megamap, increase megamap FPS
+- Fix blue background on scoreboard
+- Grey background on mega map to distinguish from unmapped area
+- Prevent Ctrl-F2 dialog and allies resource bar from moving off screen
+- Improve responsiveness of whiteboard marker movements sent to remote players
+- Render cursor while in megamap
+- Fix crash when removing markers
+- Fix crash on simultaneous whiteboard marker move and delete
+- Fix rare crash on TA Hook line drawing
+
+
+NEW FEATURES IN DETAIL:
+
+- Start positions
+
+  Start positions are now assigned based on battleroom teams/alliances.
+  With fixed positions, host and their team are assigned the even positions in the order that they joined the lobby.
+  With random positions, host and their team are randomly assigned the even or odd positions, and they are assigned in random order.
+
+  The Teams icons now function correctly, so they can be used to arrange teams in the battleroom if desired.
+  This is optional, it is perfectly fine to arrange teams by creating alliances too.
+
+- Autoteam
+
+  In the battleroom, host can type "+autoteam" to have teams assigned automatically.
+  These teams will then determine the start positions as described above.
+
+  If launched from TAF, the battleroom +autoteam will assign autobalanced teams based on the player rating.
+  Otherwise teams are assigned randomly.
+
+  Alternatively, if host types "+autoteam" in-game, alliances are created based on actual start positions.
+  
+  For more than 2 teams, host can type eg "+autoteam 3" to create the desired number of teams.
+
+- ClickSnap
+
+  This patch includes ability to snap mexes and geos to the nearest metal or geo patch,
+  and to snap reclaim commands to the nearest reclaim, factory or unit.
+
+  If clicksnap is temporarily interfering with your wishes,
+  you can hold down alt to override it.
+  The override key can be configured in the ctrl-f2 options menu.
+
+  The clicksnap radius can also be configured via the ctrl-f2 options menu.
+  Press ctrl-f2, click on the "Clipsnap Radius" field and press a number 0 to 9.
+  0 disables the ClickSnap and a larger radius results in snapping to mexes / features further away.
+
+  Note that the maximum clicksnap radius is capped at 0 by default, effectively disabling the ClickSnap.
+  It needs to be enabled by the mod maintainer.
+  If your clicksnap radius won't increase above 0 in the ctrl-f2 menu,
+  it is likely that ClickSnap hasn't been enabled by your mod maintainer.
+
+- Move Queued Orders
+
+  After queueing a build order or a move order,
+  you can later move them around by selecting the unit
+  and left mouse dragging the order to a new position.
+
+- Construction Units Patrol Behaviour
+
+  Patrol behaviour of contructions units is modified depending on their movement orders:
+
+    Hold Position: your construction units will only look for reclaim
+    Maneuvre: your construction units will both look for reclaim and for units that need repair or assist
+    Roam: your construction units will only look for units that need repair or assist
+
+  Mash the 'v' key to get the desired movement order and then set a patrol route.
