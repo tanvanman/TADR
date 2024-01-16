@@ -94,6 +94,11 @@ unsigned int DisplayModeMinWidth1024RegAddr = 0x42FA2E;
 unsigned int SinglePlayerStartButtonAddr = 0x456780;
 BYTE SinglePlayerStartButtonBits[] = { 0x02, 0x7d };
 
+// dead space at the end of "Copyright 0000 Humongous Entertainment"
+// Is 0 unless exe is patched to make it something else
+unsigned int EnableClickSnapAddr = 0x50390a;
+BYTE EnableClickSnapBits[] = { 3, 5 };	// default radius, maximum radius
+
 // Patch map features to be owned by player_idx = 11 (instead of player_idx = 10 as per original behaviour)
 // This enables the DrawPlayer11DT patch to draw the features
 unsigned int DrawPlayer11DTEnableAddrs[] = { 0x483a75, 0x483ad3, 0x483b31 };
@@ -228,7 +233,9 @@ TABugFixing::TABugFixing ()
 	}
 
 	SinglePlayerStartButton.reset(new SingleHook(SinglePlayerStartButtonAddr, sizeof(SinglePlayerStartButtonBits), INLINE_UNPROTECTEVINMENT, SinglePlayerStartButtonBits));
-	
+
+	//new SingleHook(EnableClickSnapAddr, sizeof(EnableClickSnapBits), INLINE_UNPROTECTEVINMENT, EnableClickSnapBits);
+
 	DrawPlayer11DT.reset(new InlineSingleHook(DrawPlayer11DTAddr, 5, INLINE_5BYTESLAGGERJMP, DrawPlayer11DTProc));
 	//DrawPlayer11DTEnable[0].reset(new SingleHook(DrawPlayer11DTEnableAddrs[0], sizeof(DrawPlayer11DTEnableBits), INLINE_UNPROTECTEVINMENT, DrawPlayer11DTEnableBits));
 	//DrawPlayer11DTEnable[1].reset(new SingleHook(DrawPlayer11DTEnableAddrs[1], sizeof(DrawPlayer11DTEnableBits), INLINE_UNPROTECTEVINMENT, DrawPlayer11DTEnableBits));

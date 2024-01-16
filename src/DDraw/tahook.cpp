@@ -69,7 +69,7 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	QueuePos = 0;
 	Delay = 5;
-	ClickSnapRadius = DEFAULT_CLICK_SNAP_RADIUS;
+	ClickSnapRadius = CTAHook::GetDefaultClickSnapRadius();
 	ClickSnapOverrideKey = VK_LMENU;
 	WriteLine = false;
 	FootPrintX = FootPrintY = 2;
@@ -625,13 +625,13 @@ void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullR
 	FullRingsEnabled = FullRingsi;
 	Delay = iDelay;
 	if (iRadius < 0) {
-		ClickSnapRadius = DEFAULT_CLICK_SNAP_RADIUS;
+		ClickSnapRadius = CTAHook::GetDefaultClickSnapRadius();
 	}
-	else if (iRadius <= MAX_CLICK_SNAP_RADIUS) {
+	else if (iRadius <= CTAHook::GetMaxClickSnapRadius()) {
 		ClickSnapRadius = iRadius;
 	}
 	else {
-		ClickSnapRadius = DEFAULT_CLICK_SNAP_RADIUS;
+		ClickSnapRadius = CTAHook::GetDefaultClickSnapRadius();
 	}
 	ClickSnapOverrideKey = iClickSnapOverrideKey;
 }
@@ -1552,4 +1552,33 @@ void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
 		order->Pos.Y = TAdynmem->MouseMapPos.Y;
 		order->Pos.Z = TAdynmem->MouseMapPos.Z;
 	}
+}
+
+int CTAHook::GetDefaultClickSnapRadius()
+{
+	// dead space at the end of "Copyright 0000 Humongous Entertainment"
+	// Is 0 unless exe is patched to make it something else
+	const unsigned char* byte = (const unsigned char*)0x50390a;
+	int radius = *byte;
+	if (radius > 9) { 
+		radius = 9;
+	}
+
+	int maxRadius = GetMaxClickSnapRadius();
+	if (radius > maxRadius) {
+		radius = maxRadius;
+	}
+	return radius;
+}
+
+int CTAHook::GetMaxClickSnapRadius()
+{
+	// dead space at the end of "Copyright 0000 Humongous Entertainment"
+	// Is 0 unless exe is patched to make it something else
+	const unsigned char* byte = (const unsigned char*)0x50390b;
+	int radius = *byte;
+	if (radius > 9) {
+		radius = 9;
+	}
+	return radius;
 }
