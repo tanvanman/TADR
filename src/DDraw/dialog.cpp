@@ -44,7 +44,8 @@ Dialog::Dialog(BOOL Vidmem_a)
 	VSyncPushed= false;
 	ShareText[0]= 0;
 	AutoClickDelayText[0] = 0;
-	ClickSnapRadiusText[0] = 0;
+	MexSnapRadiusText[0] = 0;
+	WreckSnapRadiusText[0] = 0;
 
 	LocalShare->Dialog = this;
 	posX = 0;
@@ -345,9 +346,14 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				AutoClickDelayFocus = false;
 				RenderDialog();
 			}
-			if (ClickSnapRadiusFocus)
+			if (MexSnapRadiusFocus)
 			{
-				ClickSnapRadiusFocus = false;
+				MexSnapRadiusFocus = false;
+				RenderDialog();
+			}
+			if (WreckSnapRadiusFocus)
+			{
+				WreckSnapRadiusFocus = false;
 				RenderDialog();
 			}
 			if (MegmapFocus)
@@ -406,9 +412,14 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				AutoClickDelayFocus = true;
 				RenderDialog();
 				}*/
-				else if (Inside(LOWORD(lParam), HIWORD(lParam), ClickSnapRadiusId))
+				else if (Inside(LOWORD(lParam), HIWORD(lParam), MexSnapRadiusId))
 				{
-					ClickSnapRadiusFocus = true;
+					MexSnapRadiusFocus = true;
+					RenderDialog();
+				}
+				else if (Inside(LOWORD(lParam), HIWORD(lParam), WreckSnapRadiusId))
+				{
+					WreckSnapRadiusFocus = true;
 					RenderDialog();
 				}
 				else if(Inside(LOWORD(lParam), HIWORD(lParam), OptimizeDT))
@@ -669,14 +680,26 @@ bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				RenderDialog();
 				return true;
 			}
-			if (ClickSnapRadiusFocus)
+			if (MexSnapRadiusFocus)
 			{
-				if (wParam >= '0' && wParam <= '0' + CTAHook::GetMaxClickSnapRadius())
+				if (wParam >= '0' && wParam <= '0' + CTAHook::GetMaxMexSnapRadius())
 				{
 					char App[2];
 					App[0] = (TCHAR)wParam;
 					App[1] = '\0';
-					lstrcpyA(ClickSnapRadiusText, App);
+					lstrcpyA(MexSnapRadiusText, App);
+				}
+				RenderDialog();
+				return true;
+			}
+			if (WreckSnapRadiusFocus)
+			{
+				if (wParam >= '0' && wParam <= '0' + CTAHook::GetMaxWreckSnapRadius())
+				{
+					char App[2];
+					App[0] = (TCHAR)wParam;
+					App[1] = '\0';
+					lstrcpyA(WreckSnapRadiusText, App);
 				}
 				RenderDialog();
 				return true;
@@ -779,8 +802,13 @@ bool Dialog::Inside(int x, int y, int Control)
 			return true;
 		else
 			return false;
-	case ClickSnapRadiusId:
-		if (x >= ClickSnapRadiusPosX && x < ClickSnapRadiusPosX + ClickSnapRadiusWidth && y >= ClickSnapRadiusPosY && y < ClickSnapRadiusPosY + ClickSnapRadiusHeight)
+	case MexSnapRadiusId:
+		if (x >= MexSnapRadiusPosX && x < MexSnapRadiusPosX + MexSnapRadiusWidth && y >= MexSnapRadiusPosY && y < MexSnapRadiusPosY + MexSnapRadiusHeight)
+			return true;
+		else
+			return false;
+	case WreckSnapRadiusId:
+		if (x >= WreckSnapRadiusPosX && x < WreckSnapRadiusPosX + WreckSnapRadiusWidth && y >= WreckSnapRadiusPosY && y < WreckSnapRadiusPosY + WreckSnapRadiusHeight)
 			return true;
 		else
 			return false;
@@ -923,14 +951,21 @@ void Dialog::SetAll()
 		if(Delay<1)
 			Delay = 1;
 
-		int Radius = atoi(ClickSnapRadiusText);
-		if (Radius < 0)
-			Radius = CTAHook::GetDefaultClickSnapRadius();
-		if (Radius > CTAHook::GetMaxClickSnapRadius())
-			Radius = CTAHook::GetDefaultClickSnapRadius();
-		ClickSnapRadiusText[0] = '0' + Radius;
+		int MexRadius = atoi(MexSnapRadiusText);
+		if (MexRadius < 0)
+			MexRadius = CTAHook::GetDefaultMexSnapRadius();
+		if (MexRadius > CTAHook::GetMaxMexSnapRadius())
+			MexRadius = CTAHook::GetDefaultMexSnapRadius();
+		MexSnapRadiusText[0] = '0' + MexRadius;
 
-		TAHook->Set(VirtualKeyCode, ShareText, OptimizeDTEnabled, FullRingsEnabled, Delay, Radius, ClickSnapOverrideKey);
+		int WreckRadius = atoi(WreckSnapRadiusText);
+		if (WreckRadius < 0)
+			WreckRadius = CTAHook::GetDefaultWreckSnapRadius();
+		if (WreckRadius > CTAHook::GetMaxWreckSnapRadius())
+			WreckRadius = CTAHook::GetDefaultWreckSnapRadius();
+		WreckSnapRadiusText[0] = '0' + WreckRadius;
+
+		TAHook->Set(VirtualKeyCode, ShareText, OptimizeDTEnabled, FullRingsEnabled, Delay, MexRadius, WreckRadius, ClickSnapOverrideKey);
 	}
 
 	AlliesWhiteboard *WB = (AlliesWhiteboard*)LocalShare->Whiteboard;
@@ -984,7 +1019,8 @@ void Dialog::WriteSettings()
 	RegSetValueEx(hKey, "FullRings", NULL, REG_BINARY, (unsigned char*)&FullRingsEnabled, sizeof(bool));
 	RegSetValueEx(hKey, "ShareText", NULL, REG_SZ, (unsigned char*)ShareText, strlen(ShareText));
 	RegSetValueEx(hKey, "Delay", NULL, REG_SZ, (unsigned char*)AutoClickDelayText, strlen(AutoClickDelayText));
-	RegSetValueEx(hKey, "ClickSnapRadius", NULL, REG_SZ, (unsigned char*)ClickSnapRadiusText, strlen(ClickSnapRadiusText));
+	RegSetValueEx(hKey, "MexSnapRadius", NULL, REG_SZ, (unsigned char*)MexSnapRadiusText, strlen(MexSnapRadiusText));
+	RegSetValueEx(hKey, "WreckSnapRadius", NULL, REG_SZ, (unsigned char*)WreckSnapRadiusText, strlen(WreckSnapRadiusText));
 	RegSetValueEx(hKey, "ClickSnapOverrideKey", NULL, REG_DWORD, (unsigned char*)&ClickSnapOverrideKey, sizeof(int));
 	RegSetValueEx(hKey, "WhiteboardKey", NULL, REG_DWORD, (unsigned char*)&VirtualWhiteboardKey, sizeof(int));
 	RegSetValueEx(hKey, "MegamapKey", NULL, REG_DWORD, (unsigned char*)&VirtualMegamap, sizeof(int));
@@ -1044,11 +1080,17 @@ void Dialog::ReadSettings()
 	{
 		lstrcpyA(AutoClickDelayText, "10");
 	}
-	Size = sizeof(ClickSnapRadiusText);
-	if (RegQueryValueEx(hKey, "ClickSnapRadius", NULL, NULL, (unsigned char*)ClickSnapRadiusText, &Size) != ERROR_SUCCESS)
+	Size = sizeof(MexSnapRadiusText);
+	if (RegQueryValueEx(hKey, "MexSnapRadius", NULL, NULL, (unsigned char*)MexSnapRadiusText, &Size) != ERROR_SUCCESS)
 	{
-		ClickSnapRadiusText[0] = '0' + CTAHook::GetDefaultClickSnapRadius();
-		ClickSnapRadiusText[1] = 0;
+		MexSnapRadiusText[0] = '0' + CTAHook::GetDefaultMexSnapRadius();
+		MexSnapRadiusText[1] = 0;
+	}
+	Size = sizeof(WreckSnapRadiusText);
+	if (RegQueryValueEx(hKey, "WreckSnapRadius", NULL, NULL, (unsigned char*)WreckSnapRadiusText, &Size) != ERROR_SUCCESS)
+	{
+		WreckSnapRadiusText[0] = '0' + CTAHook::GetDefaultWreckSnapRadius();
+		WreckSnapRadiusText[1] = 0;
 	}
 	Size = sizeof(int);
 	if (RegQueryValueEx(hKey, "ClickSnapOverrideKey", NULL, NULL, (unsigned char*)&ClickSnapOverrideKey, &Size) != ERROR_SUCCESS)
@@ -1387,7 +1429,8 @@ void Dialog::DrawDelay()
 
 void Dialog::DrawClickSnapRadius()
 {
-	DrawSmallText(lpDialogSurf, ClickSnapRadiusPosX, ClickSnapRadiusPosY - 13, "Click-Snap Radius");
+	DrawSmallText(lpDialogSurf, MexSnapRadiusPosX, MexSnapRadiusPosY - 13, "Mex-Snap");
+	DrawSmallText(lpDialogSurf, WreckSnapRadiusPosX, WreckSnapRadiusPosY - 13, "Wreck-Snap");
 	DDSURFACEDESC ddsd;
 	DDRAW_INIT_STRUCT(ddsd);
 	if (lpDialogSurf->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL) == DD_OK)
@@ -1395,12 +1438,19 @@ void Dialog::DrawClickSnapRadius()
 		SurfaceMemory = ddsd.lpSurface;
 		lPitch = ddsd.lPitch;
 
-		FillRect(ClickSnapRadiusPosX, ClickSnapRadiusPosY, (ClickSnapRadiusPosX)+ClickSnapRadiusWidth, ClickSnapRadiusPosY + ClickSnapRadiusHeight, 0);
+		FillRect(MexSnapRadiusPosX, MexSnapRadiusPosY, (MexSnapRadiusPosX)+MexSnapRadiusWidth, MexSnapRadiusPosY + MexSnapRadiusHeight, 0);
+		FillRect(WreckSnapRadiusPosX, WreckSnapRadiusPosY, (WreckSnapRadiusPosX)+WreckSnapRadiusWidth, WreckSnapRadiusPosY + WreckSnapRadiusHeight, 0);
 
-		if (ClickSnapRadiusFocus)
-			DrawTinyText(ClickSnapRadiusText, static_cast<int>(ClickSnapRadiusPosX + 2), static_cast<int>(ClickSnapRadiusPosY + 3), 255U);
+		if (MexSnapRadiusFocus)
+			DrawTinyText(MexSnapRadiusText, static_cast<int>(MexSnapRadiusPosX + 2), static_cast<int>(MexSnapRadiusPosY + 3), 255U);
 		else
-			DrawTinyText(ClickSnapRadiusText, static_cast<int>(ClickSnapRadiusPosX + 2), static_cast<int>(ClickSnapRadiusPosY + 3), 208U);
+			DrawTinyText(MexSnapRadiusText, static_cast<int>(MexSnapRadiusPosX + 2), static_cast<int>(MexSnapRadiusPosY + 3), 208U);
+
+		if (WreckSnapRadiusFocus)
+			DrawTinyText(WreckSnapRadiusText, static_cast<int>(WreckSnapRadiusPosX + 2), static_cast<int>(WreckSnapRadiusPosY + 3), 255U);
+		else
+			DrawTinyText(WreckSnapRadiusText, static_cast<int>(WreckSnapRadiusPosX + 2), static_cast<int>(WreckSnapRadiusPosY + 3), 208U);
+
 
 		lpDialogSurf->Unlock(NULL);
 	}
