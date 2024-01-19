@@ -419,7 +419,9 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						}
 						else if ((ordertype::STOP == TAdynmem->PrepareOrder_Type) && 
 							(GetAsyncKeyState(VK_SHIFT) & 0x8000) &&
+#ifdef USEMEGAMAP
 							!GUIExpander->myMinimap->Controler->IsBliting() &&
+#endif
 							DraggingUnitOrdersState == DraggingOrderStateEnum::IDLE)
 						{
 							DraggingUnitOrders = FindUnitOrdersUnderMouse();
@@ -476,8 +478,11 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					ordertype::STOP == TAdynmem->PrepareOrder_Type &&
 					GetAsyncKeyState(VK_SHIFT) & 0x8000 &&
 					DraggingUnitOrders->AttackTargat == NULL &&
-					IsAnOrder(DraggingUnitOrders->Unit_ptr->UnitOrders, DraggingUnitOrders) &&
-					!GUIExpander->myMinimap->Controler->IsBliting())
+					IsAnOrder(DraggingUnitOrders->Unit_ptr->UnitOrders, DraggingUnitOrders)
+#ifdef USEMEGAMAP
+					&& !GUIExpander->myMinimap->Controler->IsBliting()
+#endif
+					)
 				{
 					DraggingUnitOrdersState = DraggingOrderStateEnum::DRAG_COMMENCED;
 					DragUnitOrders(DraggingUnitOrders);

@@ -21,11 +21,6 @@
 #include <vector>
 using namespace std;
 
-BOOL MegaMapControl::IsBliting(void)
-{
-	return parent->IsBliting();
-}
-
 #ifdef USEMEGAMAP
 
 using namespace ordertype;
@@ -1176,6 +1171,11 @@ void MegaMapControl::MoveScreen ( int TAX,  int TAY,  int TAZ)
 	UpdateLosState ( 0);
 	//ScrollMinimap ( );
 	//041C3C0
+}
+
+BOOL MegaMapControl::IsBliting(void)
+{
+	return parent->IsBliting();
 }
 
 #endif

@@ -26,11 +26,6 @@
 using namespace std;
 #include "TAConfig.h"
 
-BOOL FullScreenMinimap::IsBliting()
-{
-	return Blit_b;
-}
-
 #ifdef USEMEGAMAP
 
 int __stdcall LoadMap_Routine (PInlineX86StackBuffer X86StrackBuffer)
@@ -786,6 +781,11 @@ int __stdcall DischargeTADraw (PInlineX86StackBuffer X86StrackBuffer)
 	}
 
 	return 0;
+}
+
+BOOL FullScreenMinimap::IsBliting()
+{
+	return Blit_b;
 }
 
 #endif
