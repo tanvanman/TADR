@@ -86,15 +86,22 @@ class CTAHook
 	UnitOrdersStruct* FindUnitOrdersUnderMouse();
 	bool IsAnOrder(UnitOrdersStruct *unitOrders, UnitOrdersStruct *order);
 	void VisualizeDraggingBuildRectangle();
-	void VisualizeClickSnapPreview();
+	void VisualizeMexSnapPreview();
+	void VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf);
 	void DragUnitOrders(UnitOrdersStruct *order);
 	UnitOrdersStruct* DraggingUnitOrders;
 	int DraggingUnitOrdersBuildRectangleColor;
 	DraggingOrderStateEnum DraggingUnitOrdersState;
 
-	bool ClickSnapBuild;
-	int ClickSnapBuildPosXY[2];
-	int ClickSnapBuildFootXY[2];
+	bool ClickSnapPreviewBuild;
+	bool ClickSnapPreviewWreck;
+	int ClickSnapPreviewPosXY[2];
+	int ClickSnapPreviewFootXY[2];
+
+	int ReclamateCursorBackgroundColor;
+	LPDIRECTDRAWSURFACE lpReclamateCursorSurf;
+	void CreateReclamateCursorSurf(bool VidMem);
+	void BlitWreckSnapCursor(LPDIRECTDRAWSURFACE DestSurf, int x, int y);
 
     /**
      * @brief display text to local player only
