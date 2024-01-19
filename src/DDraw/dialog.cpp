@@ -46,6 +46,8 @@ Dialog::Dialog(BOOL Vidmem_a)
 	AutoClickDelayText[0] = 0;
 	MexSnapRadiusText[0] = 0;
 	WreckSnapRadiusText[0] = 0;
+	MexSnapRadiusFocus = false;
+	WreckSnapRadiusFocus = false;
 
 	LocalShare->Dialog = this;
 	posX = 0;
@@ -1429,8 +1431,8 @@ void Dialog::DrawDelay()
 
 void Dialog::DrawClickSnapRadius()
 {
-	DrawSmallText(lpDialogSurf, MexSnapRadiusPosX, MexSnapRadiusPosY - 13, "Mex-Snap");
-	DrawSmallText(lpDialogSurf, WreckSnapRadiusPosX, WreckSnapRadiusPosY - 13, "Wreck-Snap");
+	DrawSmallText(lpDialogSurf, MexSnapRadiusPosX-120, MexSnapRadiusPosY, "Mex-Snap Radius");
+	DrawSmallText(lpDialogSurf, WreckSnapRadiusPosX-120, WreckSnapRadiusPosY, "Wreck-Snap Radius");
 	DDSURFACEDESC ddsd;
 	DDRAW_INIT_STRUCT(ddsd);
 	if (lpDialogSurf->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL) == DD_OK)

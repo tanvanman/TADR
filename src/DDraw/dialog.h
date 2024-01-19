@@ -66,13 +66,13 @@
 #define MexSnapRadiusId 9
 #define MexSnapRadiusWidth 28
 #define MexSnapRadiusHeight 15
-#define MexSnapRadiusPosX COL1
-#define MexSnapRadiusPosY ROW(0)
+#define MexSnapRadiusPosX COL1 +120
+#define MexSnapRadiusPosY ROW(0) -13
 
 #define WreckSnapRadiusId 10
 #define WreckSnapRadiusWidth 28
 #define WreckSnapRadiusHeight 15
-#define WreckSnapRadiusPosX COL1 + 90
+#define WreckSnapRadiusPosX COL1 +120
 #define WreckSnapRadiusPosY ROW(0)
 
 #define AutoClickDelay 11
