@@ -63,31 +63,37 @@
 
 /////////// COL1
 
-#define ClickSnapRadiusId 13
-#define ClickSnapRadiusWidth 28
-#define ClickSnapRadiusHeight 15
-#define ClickSnapRadiusPosX COL1
-#define ClickSnapRadiusPosY ROW(0)
+#define MexSnapRadiusId 9
+#define MexSnapRadiusWidth 28
+#define MexSnapRadiusHeight 15
+#define MexSnapRadiusPosX COL1 +120
+#define MexSnapRadiusPosY ROW(0) -13
 
-#define AutoClickDelay 12
+#define WreckSnapRadiusId 10
+#define WreckSnapRadiusWidth 28
+#define WreckSnapRadiusHeight 15
+#define WreckSnapRadiusPosX COL1 +120
+#define WreckSnapRadiusPosY ROW(0)
+
+#define AutoClickDelay 11
 #define AutoClickDelayWidth 28
 #define AutoClickDelayHeight 15
 #define AutoClickDelayPosX COL1
 #define AutoClickDelayPosY ROW(0)
 
-#define ShareBox 9
+#define ShareBox 12
 #define ShareBoxWidth 170
 #define ShareBoxHeight 103
 #define ShareBoxPosX COL1
 #define ShareBoxPosY 60
 
-#define OptimizeDT 10
+#define OptimizeDT 13
 #define OptimizeDTWidth 16
 #define OptimizeDTHeight 16
 #define OptimizeDTPosX COL1
 #define OptimizeDTPosY 170
 
-#define FullRings 11
+#define FullRings 14
 #define FullRingsWidth 16
 #define FullRingsHeight 16
 #define FullRingsPosX COL1
@@ -150,8 +156,11 @@ class Dialog
     char AutoClickDelayText[10];
     bool AutoClickDelayFocus;
 
-	char ClickSnapRadiusText[10];
-	bool ClickSnapRadiusFocus;
+	char MexSnapRadiusText[10];
+	bool MexSnapRadiusFocus;
+
+	char WreckSnapRadiusText[10];
+	bool WreckSnapRadiusFocus;
 
     int VirtualKeyCode;
     bool KeyCodeFocus;

@@ -71,23 +71,23 @@ NEW FEATURES IN DETAIL:
   
   For more than 2 teams, host can type eg "+autoteam 3" to create the desired number of teams.
 
-- ClickSnap
+- MexSnap and WreckSnap
 
-  This patch includes ability to snap mexes and geos to the nearest metal or geo patch,
-  and to snap reclaim commands to the nearest reclaim, factory or unit.
+  This patch includes ability to snap mexes and geos to the nearest metal or geo patch (MexSnap),
+  and to snap reclaim commands to the nearest reclaim, factory or unit (WreckSnap).
 
-  If clicksnap is temporarily interfering with your wishes,
+  If Mex/WreckSnap is temporarily interfering with your wishes,
   you can hold down alt to override it.
   The override key can be configured in the ctrl-f2 options menu.
 
-  The clicksnap radius can also be configured via the ctrl-f2 options menu.
-  Press ctrl-f2, click on the "Clipsnap Radius" field and press a number 0 to 9.
-  0 disables the ClickSnap and a larger radius results in snapping to mexes / features further away.
+  The Mex/WreckSnap radii can also be configured independently via the ctrl-f2 options menu.
+  Press ctrl-f2, click on the "MexSnap" or "WreckSnap" field and press a number 0 to 9.
+  0 disables the Mex/WreckSnap and a larger radius results in snapping to features further away.
 
-  Note that the maximum clicksnap radius is capped at 0 by default, effectively disabling the ClickSnap.
+  Note that the maximum Mex/WreckSnap radius is capped at 0 by default, effectively disabling the Mex/WreckSnap.
   It needs to be enabled by the mod maintainer.
-  If your clicksnap radius won't increase above 0 in the ctrl-f2 menu,
-  it is likely that ClickSnap hasn't been enabled by your mod maintainer.
+  If your Mex/WreckSnap radius won't increase above 0 in the ctrl-f2 menu,
+  it is likely that Mex/WreckSnap hasn't been enabled by your mod maintainer.
 
 - Move Queued Orders
 

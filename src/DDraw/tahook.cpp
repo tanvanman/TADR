@@ -69,7 +69,8 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	QueuePos = 0;
 	Delay = 5;
-	ClickSnapRadius = CTAHook::GetDefaultClickSnapRadius();
+	MexSnapRadius = CTAHook::GetDefaultMexSnapRadius();
+	WreckSnapRadius = CTAHook::GetDefaultWreckSnapRadius();
 	ClickSnapOverrideKey = VK_LMENU;
 	WriteLine = false;
 	FootPrintX = FootPrintY = 2;
@@ -377,22 +378,22 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					}*/
 					return true;
 				}
-				if (ClickSnapRadius > 0 && (GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
+				if ((GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
 				{
 					RECT& gameScreenRect = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
 					int mouseScreenX = LOWORD(lParam);
 					int mouseScreenY = HIWORD(lParam);
 					if (mouseScreenX >= gameScreenRect.left && mouseScreenX < gameScreenRect.right)
 					{
-						if (ClickSnapBuild)
+						if (MexSnapRadius > 0 && ClickSnapBuild)
 						{
 							ClickBuilding(ClickSnapBuildPosXY[0] * 16, ClickSnapBuildPosXY[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
 							return true;
 						}
-						else if ((ordertype::RECLAIM == TAdynmem->PrepareOrder_Type) && !ReclaimSnapDisable)
+						else if (WreckSnapRadius > 0 && (ordertype::RECLAIM == TAdynmem->PrepareOrder_Type) && !ReclaimSnapDisable)
 						{
 							int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
-							SnapToNear<CountReclaimableAdapter>(xyPos, GetFootX(), GetFootY(), ClickSnapRadius);
+							SnapToNear<CountReclaimableAdapter>(xyPos, GetFootX(), GetFootY(), WreckSnapRadius);
 							int dx = xyPos[0] - TAdynmem->BuildPosX;
 							int dy = xyPos[1] - TAdynmem->BuildPosY;
 							if (dx == 0 && dy == 0) {
@@ -524,7 +525,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					DraggingUnitOrdersBuildRectangleColor = -1;
 					ClickSnapBuild = false;
 
-					if (ClickSnapRadius > 0 && (GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
+					if (MexSnapRadius > 0 && (GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
 					{
 						RECT& gameScreenRect = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
 						int mouseScreenX = LOWORD(lParam);
@@ -538,7 +539,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 									ClickSnapBuildPosXY[1] = TAdynmem->BuildPosY;
 									ClickSnapBuildFootXY[0] = GetFootX();
 									ClickSnapBuildFootXY[1] = GetFootY();
-									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), ClickSnapRadius);
+									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), MexSnapRadius);
 									if (ClickSnapBuildPosXY[0] != TAdynmem->BuildPosX || ClickSnapBuildPosXY[1] != TAdynmem->BuildPosY) {
 										int testFurtherSnapPosXY[2] = { ClickSnapBuildPosXY[0], ClickSnapBuildPosXY[1] };
 										SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(testFurtherSnapPosXY, GetFootX(), GetFootY(), std::max(GetFootX(), GetFootY()));
@@ -562,7 +563,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 									ClickSnapBuildPosXY[1] = TAdynmem->BuildPosY;
 									ClickSnapBuildFootXY[0] = GetFootX();
 									ClickSnapBuildFootXY[1] = GetFootY();
-									SnapToNear<TestCanBuildAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), ClickSnapRadius);
+									SnapToNear<TestCanBuildAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), MexSnapRadius);
 									ClickSnapBuild = ClickSnapBuildPosXY[0] != TAdynmem->BuildPosX || ClickSnapBuildPosXY[1] != TAdynmem->BuildPosY;
 								}
 							}
@@ -622,21 +623,32 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	return false;
 }
 
-void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iRadius, int iClickSnapOverrideKey)
+void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iMexSnapRadius, int iWreckSnapRadius, int iClickSnapOverrideKey)
 {
 	VirtualKeyCode = KeyCodei;
 	lstrcpyA(ShareText, ChatMacroi);
 	OptimizeRows = OptimizeRowsi;
 	FullRingsEnabled = FullRingsi;
 	Delay = iDelay;
-	if (iRadius < 0) {
-		ClickSnapRadius = CTAHook::GetDefaultClickSnapRadius();
+
+	if (iMexSnapRadius < 0) {
+		MexSnapRadius = CTAHook::GetDefaultMexSnapRadius();
 	}
-	else if (iRadius <= CTAHook::GetMaxClickSnapRadius()) {
-		ClickSnapRadius = iRadius;
+	else if (iMexSnapRadius <= CTAHook::GetMaxMexSnapRadius()) {
+		MexSnapRadius = iMexSnapRadius;
 	}
 	else {
-		ClickSnapRadius = CTAHook::GetDefaultClickSnapRadius();
+		MexSnapRadius = CTAHook::GetDefaultMexSnapRadius();
+	}
+
+	if (iWreckSnapRadius < 0) {
+		WreckSnapRadius = CTAHook::GetDefaultWreckSnapRadius();
+	}
+	else if (iWreckSnapRadius <= CTAHook::GetMaxWreckSnapRadius()) {
+		WreckSnapRadius = iWreckSnapRadius;
+	}
+	else {
+		iWreckSnapRadius = CTAHook::GetDefaultWreckSnapRadius();
 	}
 	ClickSnapOverrideKey = iClickSnapOverrideKey;
 }
@@ -1559,7 +1571,7 @@ void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
 	}
 }
 
-int CTAHook::GetDefaultClickSnapRadius()
+int CTAHook::GetDefaultMexSnapRadius()
 {
 	// dead space at the end of "Copyright 0000 Humongous Entertainment"
 	// Is 0 unless exe is patched to make it something else
@@ -1569,18 +1581,47 @@ int CTAHook::GetDefaultClickSnapRadius()
 		radius = 9;
 	}
 
-	int maxRadius = GetMaxClickSnapRadius();
+	int maxRadius = GetMaxMexSnapRadius();
 	if (radius > maxRadius) {
 		radius = maxRadius;
 	}
 	return radius;
 }
 
-int CTAHook::GetMaxClickSnapRadius()
+int CTAHook::GetMaxMexSnapRadius()
 {
 	// dead space at the end of "Copyright 0000 Humongous Entertainment"
 	// Is 0 unless exe is patched to make it something else
 	const unsigned char* byte = (const unsigned char*)0x50390b;
+	int radius = *byte;
+	if (radius > 9) {
+		radius = 9;
+	}
+	return radius;
+}
+
+int CTAHook::GetDefaultWreckSnapRadius()
+{
+	// dead space at the end of "0000"
+	// Is 0 unless exe is patched to make it something else
+	const unsigned char* byte = (const unsigned char*)0x503912;
+	int radius = *byte;
+	if (radius > 9) {
+		radius = 9;
+	}
+
+	int maxRadius = GetMaxWreckSnapRadius();
+	if (radius > maxRadius) {
+		radius = maxRadius;
+	}
+	return radius;
+}
+
+int CTAHook::GetMaxWreckSnapRadius()
+{
+	// dead space at the end of "0000"
+	// Is 0 unless exe is patched to make it something else
+	const unsigned char* byte = (const unsigned char*)0x503913;
 	int radius = *byte;
 	if (radius > 9) {
 		radius = 9;

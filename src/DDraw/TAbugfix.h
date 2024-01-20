@@ -40,6 +40,7 @@ private:
 	std::unique_ptr <SingleHook> DisplayWindSpeed;
 	std::unique_ptr <SingleHook> PatrolDisableBuildRepair;
 	std::unique_ptr <SingleHook> VTOLPatrolDisableBuildRepair;
+	std::unique_ptr <SingleHook> KeepOnReclaimPreparedOrder;
 	std::unique_ptr <SingleHook> PatrolDisableReclaim;
 	std::unique_ptr <SingleHook> VTOLPatrolDisableReclaim;
 	std::unique_ptr <InlineSingleHook> DrawPlayer11DT;

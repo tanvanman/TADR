@@ -195,6 +195,20 @@ int __stdcall JammingOwnRadarProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+unsigned int KeepOnReclaimPreparedOrderAddr = 0x4a7132;	// toggle the reclaim order
+int __stdcall KeepOnReclaimPreparedOrderProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	unsigned char* isReclaimOrderActivated = (unsigned char*) X86StrackBuffer->Ebp + 0x138;
+	if (taPtr->PrepareOrder_Type == ordertype::BUILD && *isReclaimOrderActivated) {
+		// bypass toggle of reclaim order
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4a715c;
+		return X86STRACKBUFFERCHANGE;
+	}
+	return 0;
+}
+
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
@@ -294,6 +308,7 @@ TABugFixing::TABugFixing ()
 	VTOLPatrolDisableBuildRepair.reset(new InlineSingleHook(VTOLPatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableBuildRepairProc));
 	//VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
 	JammingOwnRadar.reset(new InlineSingleHook(JammingOwnRadarAddr, 5, INLINE_5BYTESLAGGERJMP, JammingOwnRadarProc));
+	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
