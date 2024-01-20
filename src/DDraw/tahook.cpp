@@ -189,8 +189,8 @@ struct CountReclaimableAdapter
 			return (Ptr->FeatureDef[idx].Metal > 0 || Ptr->FeatureDef[idx].Energy > 0) &&
 				(Ptr->FeatureDef[idx].FeatureMask & (unsigned)FeatureMasks::reclaimable);
 		}
-		else  {
-			return f->occupyingUnitNumber > 0;
+		else {
+			return 0;
 		}
 	}
 };
@@ -573,6 +573,14 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							}
 							else if (ordertype::RECLAIM == TAdynmem->PrepareOrder_Type)
 							{
+								unsigned idx = TAdynmem->BuildPosX + TAdynmem->BuildPosY * TAdynmem->FeatureMapSizeX;
+								if (idx < TAdynmem->FeatureMapSizeX * TAdynmem->FeatureMapSizeY) {
+									FeatureStruct* f = &TAdynmem->FeatureMap[idx];
+									if (f->occupyingUnitNumber > 0) {
+										return false;
+									}
+								}
+
 								ClickSnapPreviewPosXY[0] = TAdynmem->BuildPosX;
 								ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
 								ClickSnapPreviewFootXY[0] = 1;
