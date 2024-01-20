@@ -98,11 +98,6 @@ class CTAHook
 	int ClickSnapPreviewPosXY[2];
 	int ClickSnapPreviewFootXY[2];
 
-	int ReclamateCursorBackgroundColor;
-	LPDIRECTDRAWSURFACE lpReclamateCursorSurf;
-	void CreateReclamateCursorSurf(bool VidMem);
-	void BlitWreckSnapCursor(LPDIRECTDRAWSURFACE DestSurf, int x, int y);
-
     /**
      * @brief display text to local player only
      * @param Type 0: display as a chat line; 1: display as a popup dialog; and others?

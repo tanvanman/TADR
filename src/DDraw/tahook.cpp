@@ -84,7 +84,6 @@ CTAHook::CTAHook(BOOL VidMem)
 	ClickSnapPreviewWreck = false;
 
 	lpRectSurf = CreateSurfPCXResource(50, VidMem);
-	CreateReclamateCursorSurf(VidMem);
 
 	InterpretCommand = (void (__stdcall *)(char *Command, int Unk1))0x417B50;
 	TAMapClick = (void (__stdcall *)(void *msgstruct))0x498F70;
@@ -187,7 +186,8 @@ struct CountReclaimableAdapter
 		FeatureStruct* f = &Ptr->FeatureMap[x + y * Ptr->FeatureMapSizeX];
 		unsigned idx = GetGridPosFeature(f);
 		if (idx < Ptr->NumFeatureDefs) {
-			return Ptr->FeatureDef[idx].Metal > 0 || Ptr->FeatureDef[idx].Energy > 0;
+			return (Ptr->FeatureDef[idx].Metal > 0 || Ptr->FeatureDef[idx].Energy > 0) &&
+				(Ptr->FeatureDef[idx].FeatureMask & (unsigned)FeatureMasks::reclaimable);
 		}
 		else  {
 			return f->occupyingUnitNumber > 0;
@@ -247,7 +247,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				case VK_F9:
 					if ((*TAmainStruct_PtrPtr)->SoftwareDebugMode & softwaredebugmode::CheatsEnabled)
 					{
-						///*
+						/*
 						if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
 							// cycle through map debug modes
 							TAdynmem->mapDebugMode = (TAdynmem->mapDebugMode + 1) % 8;
@@ -260,7 +260,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							WriteProcessMemory(GetCurrentProcess(), (void*)(0x418A81 + 1), &radix, 1, NULL);
 							field = (field + 1) % 13;
 						}
-						//*/
+						*/
 					}
 					break;
 				case VK_F11:
@@ -399,13 +399,19 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							else {
 								// @TODO maybe somebody can have better success at finding the right TA functions to call
 								// so we don't have to hack this in
-								LPARAM lParamBak = lParam;
-								lParam = ((lParamBak + (dx<<4)) & 0xffff);
-								if (lParam < TAdynmem->GameSreen_Rect.left)
-								{
+								unsigned idx = ClickSnapPreviewPosXY[0] + ClickSnapPreviewPosXY[1] * TAdynmem->FeatureMapSizeX;
+								if (idx >= TAdynmem->FeatureMapSizeX * TAdynmem->FeatureMapSizeY) {
 									return false;
 								}
-								lParam |= ((lParamBak + (dy<<20)) & 0xffff0000);
+
+								FeatureStruct* f = &TAdynmem->FeatureMap[idx];
+								int dz = (f->maxHeight2x2 + f->minHeight2x2) / 4;
+								int x = 8 + ClickSnapPreviewPosXY[0] * 16 - TAdynmem->EyeBallMapXPos + 128;
+								int y = 8 + ClickSnapPreviewPosXY[1] * 16 - TAdynmem->EyeBallMapYPos + 32 - dz;
+
+								LPARAM lParamBak = lParam;
+								lParam = ((y & 0xffff) << 16) | (x & 0xffff);
+
 								PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParam);
 								PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
 								PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
@@ -1519,69 +1525,46 @@ void CTAHook::VisualizeMexSnapPreview()
 	}
 }
 
-
-void CTAHook::CreateReclamateCursorSurf(bool VidMem)
+void CTAHook::VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf)
 {
-	PGAFSequence CursorSequence = (*TAmainStruct_PtrPtr)->cursor_ary[cursorreclamate];
-
-	if (NULL != CursorSequence) {
-		PGAFFrame GafFrame = CursorSequence->PtrFrameAry[0].PtrFrame;
-		lpReclamateCursorSurf = CreateSurfByGafFrame((LPDIRECTDRAW)LocalShare->TADirectDraw, GafFrame, VidMem);
-		ReclamateCursorBackgroundColor = GafFrame->Background;
-	}
-	else {
-		lpReclamateCursorSurf = NULL;
-	}
-}
-
-
-void CTAHook::BlitWreckSnapCursor(LPDIRECTDRAWSURFACE DestSurf, int x, int y)
-{
-	if (!lpReclamateCursorSurf) {
+	if (!ClickSnapPreviewWreck) {
 		return;
 	}
 
-	DDSURFACEDESC ddsc;
-	DDRAW_INIT_STRUCT(ddsc);
-
-	DDBLTFX ddbltfx;
-	DDRAW_INIT_STRUCT(ddbltfx);
-
-	lpReclamateCursorSurf->GetSurfaceDesc(&ddsc);
-	ddbltfx.ddckSrcColorkey.dwColorSpaceLowValue = ReclamateCursorBackgroundColor & 0xffff;
-	ddbltfx.ddckSrcColorkey.dwColorSpaceHighValue = ReclamateCursorBackgroundColor >> 16;
-
-	RECT Dest;
-	Dest.left = x;
-	Dest.top = y;
-	Dest.right = x + ddsc.dwWidth;
-	Dest.bottom = y + ddsc.dwHeight;
-	RECT Src;
-	Src.left = 0;
-	Src.top = 0;
-	Src.right = ddsc.dwWidth;
-	Src.bottom = ddsc.dwHeight;
-
-	if (DestSurf->Blt(&Dest, lpReclamateCursorSurf, &Src, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx) != DD_OK)
-	{
-		DestSurf->Blt(&Dest, lpReclamateCursorSurf, &Src, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
+	DDSURFACEDESC ddsd;
+	ZeroMemory(&ddsd, sizeof(ddsd));
+	ddsd.dwSize = sizeof(ddsd);
+	if (DestSurf->GetSurfaceDesc(&ddsd) != DD_OK) {
+		return;
 	}
-}
 
-void CTAHook::VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf)
-{
-	if (ClickSnapPreviewWreck) {
-		int BakX = TAdynmem->MouseMapPos.X;
-		int BakY = TAdynmem->MouseMapPos.Y;
-		TAdynmem->MouseMapPos.X = ClickSnapPreviewPosXY[0] * 16;
-		TAdynmem->MouseMapPos.Y = ClickSnapPreviewPosXY[1] * 16;
-		TestBuildSpot();
+	OFFSCREEN OffScreen;
+	memset(&OffScreen, 0, sizeof(OFFSCREEN));
+	OffScreen.Height = ddsd.dwHeight;
+	OffScreen.Width = ddsd.dwWidth;
+	OffScreen.lPitch = ddsd.lPitch;
+	OffScreen.lpSurface = ddsd.lpSurface;
+	std::memcpy(&OffScreen.ScreenRect, &TAdynmem->GameSreen_Rect, sizeof(OffScreen.ScreenRect));
 
-		BlitWreckSnapCursor(DestSurf,
-			(TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
-			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz / 2)
-		);
+	PGAFSequence GafSeq_p = TAdynmem->cursor_ary[cursorreclamate];
+	int annimationIndex = (TAdynmem->GameTime / (GafSeq_p->PtrFrameAry->Animated * 2)) % GafSeq_p->Frames;
+	PGAFFrame Gaf_p = GafSeq_p->PtrFrameAry[annimationIndex].PtrFrame;
+	if (Gaf_p == NULL) {
+		return;
 	}
+
+	unsigned idx = ClickSnapPreviewPosXY[0] + ClickSnapPreviewPosXY[1] * TAdynmem->FeatureMapSizeX;
+	if (idx >= TAdynmem->FeatureMapSizeX * TAdynmem->FeatureMapSizeY) {
+		return;
+	}
+
+	FeatureStruct* f = &TAdynmem->FeatureMap[idx];
+	int dz = (f->maxHeight2x2 + f->minHeight2x2) / 4;
+
+	CopyGafToContext(&OffScreen, Gaf_p,
+		8 + ClickSnapPreviewPosXY[0] * 16 - TAdynmem->EyeBallMapXPos + 128,
+		8 + ClickSnapPreviewPosXY[1] * 16 - TAdynmem->EyeBallMapYPos + 32 - dz
+	);
 }
 
 void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
