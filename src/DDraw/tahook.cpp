@@ -1565,7 +1565,7 @@ void CTAHook::VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf)
 	std::memcpy(&OffScreen.ScreenRect, &TAdynmem->GameSreen_Rect, sizeof(OffScreen.ScreenRect));
 
 	PGAFSequence GafSeq_p = TAdynmem->cursor_ary[cursorreclamate];
-	int annimationIndex = (TAdynmem->GameTime / (GafSeq_p->PtrFrameAry->Animated * 2)) % GafSeq_p->Frames;
+	int annimationIndex = (TAdynmem->GameTime / GafSeq_p->PtrFrameAry->Animated) % GafSeq_p->Frames;
 	PGAFFrame Gaf_p = GafSeq_p->PtrFrameAry[annimationIndex].PtrFrame;
 	if (Gaf_p == NULL) {
 		return;
