@@ -2,12 +2,16 @@
 #define tahookH
 
 #include "tamem.h"
+#include <vector>
+#include <memory>
 
 #define ShareMacro 1
 #define DTLine 2
 #define ScrolledDTLine 3
 #define DTRing 4
 #define SCROLL 10000
+
+class SingleHook;
 
 struct QueMSG
   {
@@ -131,6 +135,8 @@ class CTAHook
 		int shiftstatus; //should be 5 for shiftclick
 	};
 
+	std::vector<std::unique_ptr <SingleHook> > m_hooks;
+
   public:
     CTAHook(BOOL VidMem);
     ~CTAHook();
@@ -147,6 +153,9 @@ class CTAHook
 
 	BOOL IsLineBuilding (void);
 	void VisualizeRow_ForME_megamap (OFFSCREEN * argc);
+	bool IsWreckSnapping();
+	bool IsMexSnapping();
+
 //addtion
 	public:
 		HWND TAhWnd;

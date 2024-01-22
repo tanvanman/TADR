@@ -36,7 +36,34 @@
 
 #define WM_USER_ENABLE_RECLAIM_SNAP (WM_USER+0x7ee7)
 
-CTAHook *TAHook;
+CTAHook* TAHook;
+
+unsigned int SuppressShowReclaimCursorAddr = 0x4992a2;
+int __stdcall SuppressShowReclaimCursorProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	GUIInfo* topGuiInfo = &taPtr->desktopGUI;
+	unsigned currentOrderTYpe = X86StrackBuffer->Eax;
+
+	if (TAHook->IsWreckSnapping() && ((GAFSequence*)topGuiInfo->Cursor_3 != taPtr->cursor_ary[cursornormal] || taPtr->CurrentCursora_Index != cursorreclamate)) {
+		taPtr->CurrentCursora_Index = cursorreclamate;;
+		// SetUiCursor(normal)
+		X86StrackBuffer->Eax = (DWORD) taPtr->cursor_ary[cursornormal];
+		X86StrackBuffer->Ecx = (DWORD) topGuiInfo;
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4992c6;
+		return X86STRACKBUFFERCHANGE;
+	}
+	else if (!TAHook->IsWreckSnapping() && taPtr->CurrentCursora_Index != currentOrderTYpe) {
+		// SetUiCursor(currentOrderType)
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4992ad;
+		return X86STRACKBUFFERCHANGE;
+	}
+	else {
+		// do nothing
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4992cd;
+		return X86STRACKBUFFERCHANGE;
+	}
+}
 
 CTAHook::CTAHook(BOOL VidMem)
 {
@@ -96,6 +123,8 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	int *PTR = (int*)0x00511de8;
 	TAdynmem = (TAdynmemStruct*)(*PTR);
+
+	m_hooks.push_back(std::unique_ptr<SingleHook>(new InlineSingleHook(SuppressShowReclaimCursorAddr, 5, INLINE_5BYTESLAGGERJMP, SuppressShowReclaimCursorProc)));
 
 	IDDrawSurface::OutptTxt ( "New CTAHook");
 }
@@ -197,7 +226,7 @@ struct CountReclaimableAdapter
 };
 
 template<typename PositionTestFunctor>
-void SnapToNear(int xyPos[2], int footX, int footY, int R)
+int SnapToNear(int xyPos[2], int footX, int footY, int R)
 {
 	std::vector<std::tuple<int, int, int> > sums;
 	sums.reserve((1 + R) * (1 + R));
@@ -211,7 +240,7 @@ void SnapToNear(int xyPos[2], int footX, int footY, int R)
 	}
 
 	if (sums.empty()) {
-		return;
+		return 0;
 	}
 
 	auto itMaxSums = std::max_element(sums.begin(), sums.end(),
@@ -231,6 +260,7 @@ void SnapToNear(int xyPos[2], int footX, int footY, int R)
 
 	xyPos[0] += std::get<0>(*itClosestMax);
 	xyPos[1] += std::get<1>(*itClosestMax);
+	return std::get<2>(*itClosestMax);
 }
 
 bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
@@ -584,8 +614,8 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 								ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
 								ClickSnapPreviewFootXY[0] = 1;
 								ClickSnapPreviewFootXY[1] = 1;
-								SnapToNear<CountReclaimableAdapter>(ClickSnapPreviewPosXY, 1, 1, WreckSnapRadius);
-								ClickSnapPreviewWreck = ClickSnapPreviewPosXY[0] != TAdynmem->BuildPosX || ClickSnapPreviewPosXY[1] != TAdynmem->BuildPosY;
+								int count = SnapToNear<CountReclaimableAdapter>(ClickSnapPreviewPosXY, 1, 1, WreckSnapRadius);
+								ClickSnapPreviewWreck = count > 0;
 							}
 						}
 					}
@@ -1689,4 +1719,14 @@ int CTAHook::GetMaxWreckSnapRadius()
 		radius = 9;
 	}
 	return radius;
+}
+
+bool CTAHook::IsWreckSnapping()
+{
+	return ClickSnapPreviewWreck;
+}
+
+bool CTAHook::IsMexSnapping()
+{
+	return ClickSnapPreviewBuild;
 }
