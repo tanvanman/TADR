@@ -789,25 +789,28 @@ void UnitsMinimap::LoadUnitPicture ( void)
 									*(Aftequ)= '\0';
 									Aftequ= &Aftequ[1];
 
-									_strlwr_s ( &CategoryNameAry[i] , end);
-									
-									if (0==strcmp ( &CategoryNameAry[i], "nothing"))
+									char key[0x100], value[0x100];
+									std::strncpy(key, &CategoryNameAry[i], sizeof(key));
+									std::strncpy(value, Aftequ, sizeof(value));
+									_strlwr_s(key, sizeof(key));
+
+									if (0==strcmp (key, "nothing"))
 									{
 										NothingMaskIndex= MaskNum;
 									}
-									else if (0==strcmp ( &CategoryNameAry[i], "unknow"))
+									else if (0==strcmp (key, "unknow"))
 									{
 										UnknowMaskIndex= MaskNum;
 									}
-									else if (0==strcmp ( &CategoryNameAry[i], "nukeicon"))
+									else if (0==strcmp (key, "nukeicon"))
 									{
 										ProjectileNukeIndex= MaskNum;
 									}
 									else
 									{
-										MaskAry[MaskNum]= GetUnitIDMaskAryByCategory ( trim_crlf_( &CategoryNameAry[i]));
+										MaskAry[MaskNum]= GetUnitIDMaskAryByCategory ( trim_crlf_(key));
 									}
-									wsprintfA ( ConfigFileName, "%s\\%s", ConfigFilePath, Aftequ);
+									wsprintfA ( ConfigFileName, "%s\\%s", ConfigFilePath, value);
 									clean_remark (  ConfigFileName, ';');
 									PicturesBits[MaskNum]= new UnitIcon( ConfigFileName);
 									MaskNum++;
