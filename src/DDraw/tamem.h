@@ -875,31 +875,29 @@ struct PrimitiveStruct{
 
 
 struct UnitOrdersStruct {
-  UnitOrdersStruct* PriorOrder_uosp;
-  unsigned char COBHandler_index;
-  unsigned char State;
-  unsigned short unknow_1;
-  unsigned short field_8;
-  unsigned int unknow_0;
-  UnitStruct * Unit_ptr;
-  unsigned int field_12 ;
-  UnitStruct* AttackTargat;
-  unsigned int field_1A;
-  UnitOrdersStruct *ThisPTR;
-  //char data2[2];
-  Position_Dword  Pos;
-  char data3[4];
-  short RemeberX;
-  short RemeberY;
-  unsigned int BuildUnitID;
-  char data4[8];
-  unsigned int Order_State;
-  unsigned int StartTime ;
-  UnitOrdersStruct *NextOrder;
-  unsigned int mask;
-  unsigned int Order_CallBack;
+  UnitOrdersStruct* PriorOrder_uosp; // 0x00
+  unsigned char COBHandler_index;    // 0x04
+  unsigned char State;               // 0x05
+  unsigned short unknow_1;           // 0x06
+  unsigned short field_8;            // 0x08
+  unsigned int unknow_0;             // 0x0A
+  UnitStruct* Unit_ptr;              // 0x0E
+  unsigned int field_12;             // 0x12
+  UnitStruct* AttackTargat;          // 0x16
+  unsigned int field_1A;             // 0x1A
+  UnitOrdersStruct* ThisPTR;         // 0x1E
+  Position_Dword Pos;                // 0x22
+  char data3[4];                     // 0x2E
+  short RemeberX;                    // 0x32
+  short RemeberY;                    // 0x34
+  unsigned int BuildUnitID;          // 0x36
+  char data4[8];                     // 0x3A
+  unsigned int Order_State;          // 0x42
+  unsigned int StartTime;            // 0x46
+  UnitOrdersStruct* NextOrder;       // 0x4A
+  unsigned int mask;                 // 0x4E
+  unsigned int Order_CallBack;       // 0x52
 };
-
 
 
 struct RadarPicStruct{

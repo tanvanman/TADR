@@ -65,6 +65,32 @@ int __stdcall SuppressShowReclaimCursorProc(PInlineX86StackBuffer X86StrackBuffe
 	}
 }
 
+unsigned int ReduceCancelOrderToleranceAddr = 0x43b006;
+int __stdcall ReduceCancelOrderToleranceProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (TAHook->IsWreckSnapping()) {
+		const UnitOrdersStruct* orders = (UnitOrdersStruct*)(X86StrackBuffer->Esi);
+		const Position_Dword* clickPosition = (Position_Dword*)(X86StrackBuffer->Eax);
+		const unsigned short tolerance = 8u;
+
+		if (clickPosition->X - orders->Pos.X + tolerance < 2u * tolerance &&
+			clickPosition->Z - orders->Pos.Z + tolerance < 2u * tolerance) {
+			// cancel old order
+			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x43b034;
+			return X86STRACKBUFFERCHANGE;
+		}
+		else {
+			// append new order
+			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x43b02b;
+			return X86STRACKBUFFERCHANGE;
+		}
+
+	}
+	else {
+		return 0;
+	}
+}
+
 CTAHook::CTAHook(BOOL VidMem)
 {
 	lpRectSurf = NULL;
@@ -125,6 +151,7 @@ CTAHook::CTAHook(BOOL VidMem)
 	TAdynmem = (TAdynmemStruct*)(*PTR);
 
 	m_hooks.push_back(std::unique_ptr<SingleHook>(new InlineSingleHook(SuppressShowReclaimCursorAddr, 5, INLINE_5BYTESLAGGERJMP, SuppressShowReclaimCursorProc)));
+	m_hooks.push_back(std::unique_ptr<SingleHook>(new InlineSingleHook(ReduceCancelOrderToleranceAddr, 5, INLINE_5BYTESLAGGERJMP, ReduceCancelOrderToleranceProc)));
 
 	IDDrawSurface::OutptTxt ( "New CTAHook");
 }
