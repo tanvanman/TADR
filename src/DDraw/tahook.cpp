@@ -74,7 +74,7 @@ int __stdcall ReduceCancelOrderToleranceProc(PInlineX86StackBuffer X86StrackBuff
 		const unsigned short tolerance = 8u;
 
 		if (clickPosition->X - orders->Pos.X + tolerance < 2u * tolerance &&
-			clickPosition->Z - orders->Pos.Z + tolerance < 2u * tolerance) {
+			clickPosition->Y - orders->Pos.Y + tolerance < 2u * tolerance) {
 			// cancel old order
 			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x43b034;
 			return X86STRACKBUFFERCHANGE;
