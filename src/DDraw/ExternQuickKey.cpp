@@ -805,7 +805,7 @@ int ExternQuickKey::InitExternTypeMask (void)
 			{//don't select commander in here
 				if((0==(builder&Current->UnitTypeMask_0)))
 				{
-					if (NULL==Current->YardMap)
+					if (Current->bmcode)
 					{//not building
 						if (canfly!=(canfly& Current->UnitTypeMask_0))
 						{

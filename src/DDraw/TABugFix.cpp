@@ -183,6 +183,18 @@ int __stdcall VTOLPatrolDisableReclaimProc(PInlineX86StackBuffer X86StrackBuffer
 	return 0;
 }
 
+unsigned int JammingOwnRadarAddr = 0x467608;
+int __stdcall JammingOwnRadarProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	const TAdynmemStruct* ptr = *(TAdynmemStruct**)0x00511de8;
+	const UnitStruct* unit = (UnitStruct*)(X86StrackBuffer->Esi - 0x92);
+	if (IsPlayerAllyUnit(unit->UnitInGameIndex, ptr->LOS_Sight_PlayerID)) {
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x46765a;
+		return X86STRACKBUFFERCHANGE;
+	}
+	return 0;
+}
+
 unsigned int KeepOnReclaimPreparedOrderAddr = 0x4a7132;	// toggle the reclaim order
 int __stdcall KeepOnReclaimPreparedOrderProc(PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -295,6 +307,7 @@ TABugFixing::TABugFixing ()
 	//PatrolDisableReclaim.reset(new InlineSingleHook(PatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableReclaimProc));
 	VTOLPatrolDisableBuildRepair.reset(new InlineSingleHook(VTOLPatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableBuildRepairProc));
 	//VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
+	JammingOwnRadar.reset(new InlineSingleHook(JammingOwnRadarAddr, 5, INLINE_5BYTESLAGGERJMP, JammingOwnRadarProc));
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );

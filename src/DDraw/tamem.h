@@ -824,16 +824,20 @@ struct UnitStruct {
   char HealthPerB;  //health in percent, changes slower (?)
   char data19[2];
   unsigned char RecentDamage;  //0xFA
-  unsigned char Height;
-  short int  OwnerIndex ;
-  char data28;
-  char myLos_PlayerID;
-  char data10[4];
-  float Nanoframe;
-  short Health;
-  char TerrainLevel[4];
-  unsigned short cIsCloaked;
-  unsigned int UnitSelected;//and UnitSelectState.  (& 0x000c0000: hold pos; maneuvre; roam.  & 0x10: unit selected)
+  unsigned char Height;		//0xfb
+  short int  OwnerIndex ;	//0xfc
+  char data28;				//0xfe
+  char myLos_PlayerID;		//0xff
+  char data10[4];			//0x100
+  float Nanoframe;			//0x104
+  short Health;				//0x108
+  char TerrainLevel[4];		//0x10a
+  unsigned short cIsCloaked;//0x10e
+  unsigned int UnitSelected;//0x110: and UnitSelectState.  
+							// & 0x000c0000: hold pos; maneuvre; roam.  
+							// & 0x10: unit selected
+							// & 0x100: radar/los
+							// & 0x200: sonar/los
   char data11[4];
 }; //0x118
 
