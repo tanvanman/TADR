@@ -253,15 +253,18 @@ struct CountReclaimableAdapter
 };
 
 template<typename PositionTestFunctor>
-int SnapToNear(int xyPos[2], int footX, int footY, int R)
+int SnapToNear(int xyPos[2], int footX, int footY, int R, double mouseMapPosX, double mouseMapPosY)
 {
-	std::vector<std::tuple<int, int, int> > sums;
+	std::vector<std::tuple<int, int, int, double> > sums;
 	sums.reserve((1 + R) * (1 + R));
 	for (int dx = -R; dx <= R; ++dx) {
 		for (int dy = -R; dy <= R; ++dy) {
 			int count = PositionTestFunctor::count(xyPos[0] + dx, xyPos[1] + dy, footX, footY);
+			double distx = xyPos[0] + dx - mouseMapPosX/16.0 + 0.5;
+			double disty = xyPos[1] + dy - mouseMapPosY/16.0 + 0.5;
+			double distsq = distx * distx + disty * disty;
 			if (count > 0) {
-				sums.push_back(std::make_tuple(dx, dy, count));
+				sums.push_back(std::make_tuple(dx, dy, count, distsq));
 			}
 		}
 	}
@@ -271,18 +274,18 @@ int SnapToNear(int xyPos[2], int footX, int footY, int R)
 	}
 
 	auto itMaxSums = std::max_element(sums.begin(), sums.end(),
-		[](const std::tuple<int, int, int>& a, const std::tuple<int, int, int>& b) { 
+		[](const std::tuple<int, int, int, double>& a, const std::tuple<int, int, int, double>& b) { 
 		return std::get<2>(a) < std::get<2>(b);
 	});
 
-	std::vector<std::tuple<int, int, int> > maxima;
-	std::copy_if(sums.begin(), sums.end(), std::back_inserter(maxima), [itMaxSums](const std::tuple<int, int, int>& x) {
+	std::vector<std::tuple<int, int, int, double> > maxima;
+	std::copy_if(sums.begin(), sums.end(), std::back_inserter(maxima), [itMaxSums](const std::tuple<int, int, int, double>& x) {
 		return std::get<2>(x) == std::get<2>(*itMaxSums);
 	});
 
 	auto itClosestMax = std::min_element(maxima.begin(), maxima.end(),
-		[](const std::tuple<int, int, int>& a, const std::tuple<int, int, int>& b) { 
-		return std::abs(std::get<0>(a)) + std::abs(std::get<1>(a)) < std::abs(std::get<0>(b)) + std::abs(std::get<1>(b));
+		[](const std::tuple<int, int, int, double>& a, const std::tuple<int, int, int, double>& b) { 
+		return std::get<3>(a) < std::get<3>(b);
 	});
 
 	xyPos[0] += std::get<0>(*itClosestMax);
@@ -599,10 +602,12 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 									ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
 									ClickSnapPreviewFootXY[0] = GetFootX();
 									ClickSnapPreviewFootXY[1] = GetFootY();
-									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapPreviewPosXY, GetFootX(), GetFootY(), MexSnapRadius);
+									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapPreviewPosXY, GetFootX(), GetFootY(), MexSnapRadius,
+										TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
 									if (ClickSnapPreviewPosXY[0] != TAdynmem->BuildPosX || ClickSnapPreviewPosXY[1] != TAdynmem->BuildPosY) {
 										int testFurtherSnapPosXY[2] = { ClickSnapPreviewPosXY[0], ClickSnapPreviewPosXY[1] };
-										SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(testFurtherSnapPosXY, GetFootX(), GetFootY(), std::max(GetFootX(), GetFootY()));
+										SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(testFurtherSnapPosXY, GetFootX(), GetFootY(), std::max(GetFootX(), GetFootY()),
+											TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
 										if (testFurtherSnapPosXY[0] == ClickSnapPreviewPosXY[0] && testFurtherSnapPosXY[1] == ClickSnapPreviewPosXY[1]) {
 											// proceed with snap only if the first snap was centred (didn't require further snapping)
 											ClickSnapPreviewBuild = true;
@@ -623,7 +628,8 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 									ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
 									ClickSnapPreviewFootXY[0] = GetFootX();
 									ClickSnapPreviewFootXY[1] = GetFootY();
-									SnapToNear<TestCanBuildAdapter>(ClickSnapPreviewPosXY, GetFootX(), GetFootY(), MexSnapRadius);
+									SnapToNear<TestCanBuildAdapter>(ClickSnapPreviewPosXY, GetFootX(), GetFootY(), MexSnapRadius,
+										TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
 									ClickSnapPreviewBuild = ClickSnapPreviewPosXY[0] != TAdynmem->BuildPosX || ClickSnapPreviewPosXY[1] != TAdynmem->BuildPosY;
 								}
 							}
@@ -641,7 +647,8 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 								ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
 								ClickSnapPreviewFootXY[0] = 1;
 								ClickSnapPreviewFootXY[1] = 1;
-								int count = SnapToNear<CountReclaimableAdapter>(ClickSnapPreviewPosXY, 1, 1, WreckSnapRadius);
+								int count = SnapToNear<CountReclaimableAdapter>(ClickSnapPreviewPosXY, 1, 1, WreckSnapRadius,
+									TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
 								ClickSnapPreviewWreck = count > 0;
 							}
 						}
