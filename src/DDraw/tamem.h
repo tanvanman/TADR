@@ -838,6 +838,7 @@ struct UnitStruct {
 							// & 0x10: unit selected
 							// & 0x100: radar/los
 							// & 0x200: sonar/los
+							// & 0x1000000: UnitAlive
   char data11[4];
 }; //0x118
 
