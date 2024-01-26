@@ -252,6 +252,46 @@ struct CountReclaimableAdapter
 	}
 };
 
+static void FindFeatureCentre(const int posXY[2], double centreXY[2])
+{
+	TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+	if (!Ptr) {
+		return;
+	}
+
+	const int x = posXY[0];
+	const int y = posXY[1];
+	centreXY[0] = x;
+	centreXY[1] = y;
+
+	if (x < 0 || y < 0 || x >= Ptr->FeatureMapSizeX || y >= Ptr->FeatureMapSizeY) {
+		return;
+	}
+	FeatureStruct* f = &Ptr->FeatureMap[x + y * Ptr->FeatureMapSizeX];
+	unsigned idx = GetGridPosFeature(f);
+
+	if (idx < Ptr->NumFeatureDefs) {
+
+		int left = x, right = x, top = y, bottom = y;
+		while (left > 0 && idx == GetGridPosFeature(&Ptr->FeatureMap[left - 1 + y * Ptr->FeatureMapSizeX])) {
+			--left;
+		}
+		while (right + 1 < Ptr->FeatureMapSizeX && idx == GetGridPosFeature(&Ptr->FeatureMap[right + 1 + y * Ptr->FeatureMapSizeX])) {
+			++right;
+		}
+		while (top > 0 && idx == GetGridPosFeature(&Ptr->FeatureMap[x + (top - 1) * Ptr->FeatureMapSizeX])) {
+			--top;
+		}
+		while (bottom + 1 < Ptr->FeatureMapSizeY && idx == GetGridPosFeature(&Ptr->FeatureMap[x + (bottom + 1) * Ptr->FeatureMapSizeX])) {
+			++bottom;
+		}
+
+		centreXY[0] = double(left + right) / 2.0;
+		centreXY[1] = double(top + bottom) / 2.0;
+	}
+}
+
+
 template<typename PositionTestFunctor>
 int SnapToNear(int xyPos[2], int footX, int footY, int R, double mouseMapPosX, double mouseMapPosY)
 {
@@ -452,33 +492,28 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						}
 						else if (ClickSnapPreviewWreck && !ReclaimSnapDisable)
 						{
-							if (ClickSnapPreviewPosXY[0] == TAdynmem->BuildPosX && ClickSnapPreviewPosXY[1] == TAdynmem->BuildPosY) {
+							// @TODO maybe somebody can have better success at finding the right TA functions to call
+							// so we don't have to hack this in
+							unsigned idx = ClickSnapPreviewPosXY[0] + ClickSnapPreviewPosXY[1] * TAdynmem->FeatureMapSizeX;
+							if (idx >= TAdynmem->FeatureMapSizeX * TAdynmem->FeatureMapSizeY) {
 								return false;
 							}
-							else {
-								// @TODO maybe somebody can have better success at finding the right TA functions to call
-								// so we don't have to hack this in
-								unsigned idx = ClickSnapPreviewPosXY[0] + ClickSnapPreviewPosXY[1] * TAdynmem->FeatureMapSizeX;
-								if (idx >= TAdynmem->FeatureMapSizeX * TAdynmem->FeatureMapSizeY) {
-									return false;
-								}
 
-								FeatureStruct* f = &TAdynmem->FeatureMap[idx];
-								int dz = (f->maxHeight2x2 + f->minHeight2x2) / 4;
-								int x = 8 + ClickSnapPreviewPosXY[0] * 16 - TAdynmem->EyeBallMapXPos + 128;
-								int y = 8 + ClickSnapPreviewPosXY[1] * 16 - TAdynmem->EyeBallMapYPos + 32 - dz;
+							FeatureStruct* f = &TAdynmem->FeatureMap[idx];
+							int dz = (f->maxHeight2x2 + f->minHeight2x2) / 4;
+							int x = 8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128;
+							int y = 8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - dz;
 
-								LPARAM lParamBak = lParam;
-								lParam = ((y & 0xffff) << 16) | (x & 0xffff);
+							LPARAM lParamBak = lParam;
+							lParam = ((y & 0xffff) << 16) | (x & 0xffff);
 
-								PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParam);
-								PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
-								PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
-								PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParamBak);
-								PostMessage(WinProcWnd, WM_USER_ENABLE_RECLAIM_SNAP, wParam, lParamBak);
-								ReclaimSnapDisable = true;
-								return true;
-							}
+							PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParam);
+							PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
+							PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
+							PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParamBak);
+							PostMessage(WinProcWnd, WM_USER_ENABLE_RECLAIM_SNAP, wParam, lParamBak);
+							ReclaimSnapDisable = true;
+							return true;
 						}
 						else if ((ordertype::STOP == TAdynmem->PrepareOrder_Type) && 
 							(GetAsyncKeyState(VK_SHIFT) & 0x8000) &&
@@ -647,9 +682,11 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 								ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
 								ClickSnapPreviewFootXY[0] = 1;
 								ClickSnapPreviewFootXY[1] = 1;
-								int count = SnapToNear<CountReclaimableAdapter>(ClickSnapPreviewPosXY, 1, 1, WreckSnapRadius,
+								ClickSnapPreviewWreck = 0 < SnapToNear<CountReclaimableAdapter>(ClickSnapPreviewPosXY, 1, 1, WreckSnapRadius,
 									TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
-								ClickSnapPreviewWreck = count > 0;
+								if (ClickSnapPreviewWreck) {
+									FindFeatureCentre(ClickSnapPreviewPosXY, WreckSnapPreviewMouseMapPosXY);
+								}
 							}
 						}
 					}
@@ -1644,8 +1681,8 @@ void CTAHook::VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf)
 	int dz = (f->maxHeight2x2 + f->minHeight2x2) / 4;
 
 	CopyGafToContext(&OffScreen, Gaf_p,
-		8 + ClickSnapPreviewPosXY[0] * 16 - TAdynmem->EyeBallMapXPos + 128,
-		8 + ClickSnapPreviewPosXY[1] * 16 - TAdynmem->EyeBallMapYPos + 32 - dz
+		8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128,
+		8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - dz
 	);
 }
 

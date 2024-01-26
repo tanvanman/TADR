@@ -101,6 +101,7 @@ class CTAHook
 	bool ClickSnapPreviewBuild;
 	bool ClickSnapPreviewWreck;
 	int ClickSnapPreviewPosXY[2];
+	double WreckSnapPreviewMouseMapPosXY[2];
 	int ClickSnapPreviewFootXY[2];
 
     /**
