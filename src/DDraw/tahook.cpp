@@ -267,25 +267,15 @@ static void FindFeatureCentre(const int posXY[2], double centreXY[2])
 	if (x < 0 || y < 0 || x >= Ptr->FeatureMapSizeX || y >= Ptr->FeatureMapSizeY) {
 		return;
 	}
+
 	FeatureStruct* f = &Ptr->FeatureMap[x + y * Ptr->FeatureMapSizeX];
+
 	unsigned idx = GetGridPosFeature(f);
-
 	if (idx < Ptr->NumFeatureDefs) {
-
-		int left = x, right = x, top = y, bottom = y;
-		while (left > 0 && idx == GetGridPosFeature(&Ptr->FeatureMap[left - 1 + y * Ptr->FeatureMapSizeX])) {
-			--left;
-		}
-		while (right + 1 < Ptr->FeatureMapSizeX && idx == GetGridPosFeature(&Ptr->FeatureMap[right + 1 + y * Ptr->FeatureMapSizeX])) {
-			++right;
-		}
-		while (top > 0 && idx == GetGridPosFeature(&Ptr->FeatureMap[x + (top - 1) * Ptr->FeatureMapSizeX])) {
-			--top;
-		}
-		while (bottom + 1 < Ptr->FeatureMapSizeY && idx == GetGridPosFeature(&Ptr->FeatureMap[x + (bottom + 1) * Ptr->FeatureMapSizeX])) {
-			++bottom;
-		}
-
+		int left = x - f->FeatureDefDx;
+		int top = y - f->FeatureDefDy;
+		int right = left + Ptr->FeatureDef[idx].FootprintX - 1;
+		int bottom = top + Ptr->FeatureDef[idx].FootprintZ - 1;
 		centreXY[0] = double(left + right) / 2.0;
 		centreXY[1] = double(top + bottom) / 2.0;
 	}
