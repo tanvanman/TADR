@@ -32,11 +32,12 @@ NEW FEATURES IN BRIEF:
 - Change whiteboard, mappos and resource indicator colours in response to +logo commands
 - Prevent +logo commands from affecting other players
 - Ctrl-B doesn't select aircraft carriers
+- Ctrl-F centres view on selected factory
+- Ctrl-S works correctly with mobile-units-can-build-mobile-units hack
 - Set +lostype as a cheatcode (not available unless cheats enabled)
 - Look for ddraw.dll in current working directory as backend, or failing that use system ddraw.dll
 - Use the same .ini file as TotalA.exe
 - Use the same registry path as TotalA.exe
-- Ctrl-F centres view on selected factory
 - Add FPS counter to megamap, increase megamap FPS
 - Fix blue background on scoreboard
 - Grey background on mega map to distinguish from unmapped area
@@ -46,7 +47,7 @@ NEW FEATURES IN BRIEF:
 - Fix crash when removing markers
 - Fix crash on simultaneous whiteboard marker move and delete
 - Fix rare crash on TA Hook line drawing
-
+- Radar and sonar jammers no longer jam your own radar and sonar in >3 player multiplayer
 
 NEW FEATURES IN DETAIL:
 
@@ -74,7 +75,9 @@ NEW FEATURES IN DETAIL:
 - MexSnap and WreckSnap
 
   This patch includes ability to snap mexes and geos to the nearest metal or geo patch (MexSnap),
-  and to snap reclaim commands to the nearest reclaim, factory or unit (WreckSnap).
+  and to snap reclaim commands to the nearest reclaim (WreckSnap).
+
+  While holding down shift, press q and e alternately to switch between building mexes and reclaiming features.
 
   If Mex/WreckSnap is temporarily interfering with your wishes,
   you can hold down alt to override it.
