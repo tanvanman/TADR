@@ -209,6 +209,68 @@ int __stdcall KeepOnReclaimPreparedOrderProc(PInlineX86StackBuffer X86StrackBuff
 	return 0;
 }
 
+#include <sstream>
+#include <iomanip>
+
+unsigned int TestAddr = 0x415dc0;
+int __stdcall TestProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+
+	SerialBitArrayStruct* sba = (SerialBitArrayStruct*)X86StrackBuffer->Ecx;
+	int size = *(unsigned short*)(sba->data + 1);
+
+	if (sba->data[0] == 0x2c && size > 0x0b) {
+		int nBitsToRead = *(int*)(X86StrackBuffer->Esp + 4);
+		int initialDWordOfs = sba->dword_ofs;
+		int initialBitOfs = sba->bit_ofs;
+		int result = SerialBitArrayRead(sba, 0, nBitsToRead);
+		int startPosSelf = taPtr->Players[0].mapStartPos;
+		int startPosOther = taPtr->Players[1].mapStartPos;
+
+		std::ostringstream ss;
+		for (int i = 0; i < size; ++i) {
+			ss << std::hex << std::setw(2) << std::setfill('0') << unsigned(sba->data[i]) << ' ';
+		}
+
+		IDDrawSurface::OutptTxt("%s: :pos=%xh/%xh, nBits=%xh, value=%xh, startPosSelf=%d, startPosOther=%d\n",
+			ss.str().c_str(), initialDWordOfs, initialBitOfs, nBitsToRead, result, startPosSelf, startPosOther);
+
+		X86StrackBuffer->Eax = result;
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x415df2;
+		return X86STRACKBUFFERCHANGE;
+	}
+	else {
+		return 0;
+	}
+}
+
+unsigned int Test2Addr = 0x4954b7;
+int __stdcall Test2Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+
+	static int holdoff = 0;
+	if (holdoff > 0) {
+		--holdoff;
+		taPtr->GameTime = 1500-90;
+	}
+	return 0;
+}
+
+unsigned int Test3Addr = 0x43dd41;
+int __stdcall Test3Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	//X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x43dd46;
+	//return X86STRACKBUFFERCHANGE;
+	return 0;
+}
+
+unsigned int Test4Addr = 0;// 0x43cd36;
+BYTE Test4Bits[] = { 0x74 };
+
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
@@ -309,6 +371,11 @@ TABugFixing::TABugFixing ()
 	//VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
 	JammingOwnRadar.reset(new InlineSingleHook(JammingOwnRadarAddr, 5, INLINE_5BYTESLAGGERJMP, JammingOwnRadarProc));
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
+	
+	new InlineSingleHook(TestAddr, 5, INLINE_5BYTESLAGGERJMP, TestProc);
+	new InlineSingleHook(Test2Addr, 5, INLINE_5BYTESLAGGERJMP, Test2Proc);
+	new InlineSingleHook(Test3Addr, 5, INLINE_5BYTESLAGGERJMP, Test3Proc);
+	if (Test4Addr) new SingleHook(Test4Addr, sizeof(Test4Bits), INLINE_UNPROTECTEVINMENT, Test4Bits);
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }

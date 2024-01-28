@@ -213,6 +213,14 @@ extern _InitTAPath InitTAPath;
 typedef int (__stdcall * _Init_srand)(int seed);
 extern _Init_srand Init_srand;
 
+typedef int(__stdcall* _UNITS_CreateUnit)(
+	int playerIndex, int unitInfoId, int posX, int posZ, int posY, bool fullHp, unsigned unitStateMask, int unitId);
+extern _UNITS_CreateUnit UNITS_CreateUnit;
+
+typedef int(__fastcall* _SerialBitArrayRead)(SerialBitArrayStruct* serialBitArray, int ignored, int nBitsToRead);
+extern _SerialBitArrayRead SerialBitArrayRead;
+
+
 int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl= FALSE);
 int UpdateTAProcess (void);
 void SendOrder (unsigned int TAX, unsigned int TAY, unsigned int TAZ, int OrderType, bool Shift);

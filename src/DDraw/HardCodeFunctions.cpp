@@ -637,6 +637,8 @@ LPBYTE AddrUNITINFOInited= (LPBYTE)0x42DB52;
 _ApplySelectUnitGUI ApplySelectUnitGUI= (_ApplySelectUnitGUI)0x00495860;
 
 _Init_srand Init_srand= (_Init_srand)0x4B62D0;
+_UNITS_CreateUnit UNITS_CreateUnit = (_UNITS_CreateUnit)0x485f50;
+_SerialBitArrayRead SerialBitArrayRead = (_SerialBitArrayRead)0x415dc0;
 _InitTAPath InitTAPath= (_InitTAPath)0x4BCE10;
 
 LPCSTR TAIniStr=  reinterpret_cast<LPCSTR> (0x5098A3);
