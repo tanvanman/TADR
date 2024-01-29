@@ -46,6 +46,8 @@ private:
 	std::unique_ptr <InlineSingleHook> DrawPlayer11DT;
 	std::unique_ptr <SingleHook> DrawPlayer11DTEnable[3];
 	std::unique_ptr <SingleHook> JammingOwnRadar;
+	std::unique_ptr <SingleHook> GhostComFix;
+	std::unique_ptr <SingleHook> GhostComFixAssist;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 

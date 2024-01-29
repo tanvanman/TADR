@@ -115,56 +115,6 @@ void CMapRect::LockBlit(char *VidBuf, int Pitch)
 		RECT Dest;
 		TAdynmemStruct * Ptr= *(TAdynmemStruct* *)0x00511de8;
 
-		//for (int i = 0; i < Ptr->GameingState_Ptr->mapStartPosCount; ++i) {
-		//	MapStartPosStruct* msp = &Ptr->GameingState_Ptr->mapStartPosAry_[i];
-		//	if (msp->validStartMapPos) {
-		//		PlayerStruct* p = &Ptr->Players[msp->playerId];
-		//		if (p->PlayerActive && p->Units[0].XPos == 0u && p->Units[0].YPos == 0u) {
-		//			p->Units[0].XPos = msp->X_Pos;
-		//			p->Units[0].YPos = msp->Y_Pos;
-		//		}
-		//	}
-		//}
-
-		//for (int i = 1; i < 10; ++i) {
-		//	PlayerStruct* p = &Ptr->Players[i];
-		//	if (p->PlayerActive &&
-		//		p->Units[0].XPos == 0 && p->Units[0].YPos == 0 &&
-		//		DataShare->OtherMapX[i] >= 0 && DataShare->OtherMapY[i] >= 0)
-		//	{
-		//		int playerViewX = DataShare->OtherMapX[i];
-		//		int playerViewY = DataShare->OtherMapY[i];
-
-		//		MapStartPosStruct* closestStartPos = NULL;
-		//		double closestStartPosDistSq = -1.0;
-		//		for (int j = 0; j < 10; ++j) {
-		//			MapStartPosStruct* msp = &Ptr->GameingState_Ptr->mapStartPosAry_[j];
-
-		//			int mpViewX = msp->X_Pos, mpViewY = msp->Y_Pos;
-		//			mpViewX = std::max(mpViewX, int(p->PlayerInfo->screenWidth / 2));
-		//			mpViewX = std::min(mpViewX, GetMapMaxX() - int(p->PlayerInfo->screenWidth / 2));
-		//			mpViewY = std::max(mpViewY, int(p->PlayerInfo->screenHeight / 2));
-		//			mpViewY = std::min(mpViewY, GetMapMaxY() - int(p->PlayerInfo->screenHeight / 2));
-
-		//			double dx = mpViewX - playerViewX;
-		//			double dy = mpViewY - playerViewY;
-		//			double dsq = dx * dx + dy * dy;
-		//			if (closestStartPosDistSq < 0.0 || dsq < closestStartPosDistSq) {
-		//				closestStartPos = msp;
-		//				closestStartPosDistSq = dsq;
-		//			}
-		//		}
-		//		if (closestStartPos) {
-		//			p->Units[0].XPos = closestStartPos->X_Pos;
-		//			p->Units[0].YPos = closestStartPos->Y_Pos;
-		//		}
-		//		else {
-		//			p->Units[0].XPos = playerViewX;
-		//			p->Units[0].YPos = playerViewY;
-		//		}
-		//	}
-		//}
-
 		for(int i=1; i<10; i++)
 		{
 			if((DataShare->allies[i] || DataShare->PlayingDemo|| (0!=(WATCH& (Ptr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))

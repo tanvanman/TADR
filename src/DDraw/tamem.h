@@ -1449,6 +1449,14 @@ typedef struct _SerialBitArrayStruct {
 	unsigned bit_ofs;
 } SerialBitArrayStruct;
 
+typedef struct _PacketBuilderStruct {
+	unsigned dword_count;
+	unsigned bit_count;
+	unsigned buffer_size;
+	unsigned char* buffer_ptr;
+	unsigned char initial_buffer[0x100];
+} PacketBuilderStruct;
+
 enum PlayerPropertyMask
 {
 	WATCH= 0x40,

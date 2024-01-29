@@ -209,67 +209,97 @@ int __stdcall KeepOnReclaimPreparedOrderProc(PInlineX86StackBuffer X86StrackBuff
 	return 0;
 }
 
-#include <sstream>
-#include <iomanip>
-
-unsigned int TestAddr = 0x415dc0;
-int __stdcall TestProc(PInlineX86StackBuffer X86StrackBuffer)
+unsigned int GhostComFixAddr = 0x4553f2;	// start of 0x2c packet handler
+int __stdcall GhostComFixProc(PInlineX86StackBuffer X86StrackBuffer)
 {
-	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	unsigned char* data = (unsigned char*)X86StrackBuffer->Edx;
+	PlayerStruct* player = (PlayerStruct*)X86StrackBuffer->Edi;
 
-	SerialBitArrayStruct* sba = (SerialBitArrayStruct*)X86StrackBuffer->Ecx;
-	int size = *(unsigned short*)(sba->data + 1);
-
-	if (sba->data[0] == 0x2c && size > 0x0b) {
-		int nBitsToRead = *(int*)(X86StrackBuffer->Esp + 4);
-		int initialDWordOfs = sba->dword_ofs;
-		int initialBitOfs = sba->bit_ofs;
-		int result = SerialBitArrayRead(sba, 0, nBitsToRead);
-		int startPosSelf = taPtr->Players[0].mapStartPos;
-		int startPosOther = taPtr->Players[1].mapStartPos;
-
-		std::ostringstream ss;
-		for (int i = 0; i < size; ++i) {
-			ss << std::hex << std::setw(2) << std::setfill('0') << unsigned(sba->data[i]) << ' ';
-		}
-
-		IDDrawSurface::OutptTxt("%s: :pos=%xh/%xh, nBits=%xh, value=%xh, startPosSelf=%d, startPosOther=%d\n",
-			ss.str().c_str(), initialDWordOfs, initialBitOfs, nBitsToRead, result, startPosSelf, startPosOther);
-
-		X86StrackBuffer->Eax = result;
-		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x415df2;
-		return X86STRACKBUFFERCHANGE;
-	}
-	else {
+	if (taPtr->GameTime >= taPtr->PlayerUnitsNumber_Skim ||
+		!player->PlayerActive ||
+		(player->PlayerInfo->PropertyMask & WATCH) ||
+		(player->My_PlayerType != Player_RemoteHuman && player->My_PlayerType != Player_RemoteAI)) {
 		return 0;
 	}
+
+	// assert the commander's position whenever we receive a movement order for him.
+	SerialBitArrayStruct sba;
+	sba.data = data;
+	sba.dword_ofs = 0u;
+	sba.bit_ofs = 0u;
+	if (0x2c == SerialBitArrayRead(&sba, 0, 8)) {
+		int size = SerialBitArrayRead(&sba, 0, 16);
+		int gameTicks = SerialBitArrayRead(&sba, 0, 32);
+		int unitIndex = SerialBitArrayRead(&sba, 0, 16);
+		if (unitIndex == 0) {	// commander
+			int unitDefIndex = SerialBitArrayRead(&sba, 0, taPtr->UNITINFOCount_SignificantBitsCount);
+			int bits = SerialBitArrayRead(&sba, 0, 3);
+			if (bits & 4) {
+				int fromX = SerialBitArrayRead(&sba, 0, 16);
+				int fromY = SerialBitArrayRead(&sba, 0, 16);
+				int toX = SerialBitArrayRead(&sba, 0, 16);
+				int toY = SerialBitArrayRead(&sba, 0, 16);
+				player->Units[0].XPos = fromX;
+				player->Units[0].YPos = fromY;
+			}
+		}
+	}
+
+	return 0;
 }
 
-unsigned int Test2Addr = 0x4954b7;
-int __stdcall Test2Proc(PInlineX86StackBuffer X86StrackBuffer)
+// main loop, after processing network packets, before updating game state
+unsigned int GhostComFixAssistAddr = 0x4954ed;
+int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 {
-	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	unsigned char* data = (unsigned char*)X86StrackBuffer->Edx;
+	PlayerStruct* player = (PlayerStruct*)X86StrackBuffer->Edi;
 
-	static int holdoff = 0;
-	if (holdoff > 0) {
-		--holdoff;
-		taPtr->GameTime = 1500-90;
+	if (taPtr->GameTime == 90) { // 3 secs
+		for (int i = 0; i < 10; ++i) {
+			PlayerStruct* p = &taPtr->Players[i];
+			if (p->PlayerActive &&
+				!(p->PlayerInfo->PropertyMask & WATCH) && 
+				(p->My_PlayerType == Player_LocalHuman || p->My_PlayerType == Player_LocalAI)) {
+				// send out a dummy move command to assist GhostComFix
+				PacketBuilderStruct pb;
+				PacketBuilder_Initialise(&pb, 0);
+				PacketBuilder_AppendBits(&pb, 0, 0x2c, 8);	// packet code
+				PacketBuilder_AppendBits(&pb, 0, 0, 16);	// placeholder for size
+				PacketBuilder_AppendBits(&pb, 0, taPtr->GameTime, 32);
+				PacketBuilder_AppendBits(&pb, 0, 0, 16);	// unit index (commander=0)
+				PacketBuilder_AppendBits(&pb, 0, p->Units[0].UnitID, taPtr->UNITINFOCount_SignificantBitsCount);
+				PacketBuilder_AppendBits(&pb, 0, 4, 3);		// bits
+
+				int fromX = p->Units[0].XPos;
+				int fromY = p->Units[0].YPos;
+				PacketBuilder_AppendBits(&pb, 0, fromX, 16);
+				PacketBuilder_AppendBits(&pb, 0, fromY, 16);
+
+				int toX = fromX, toY = fromY;
+				UnitOrdersStruct* uo = p->Units[0].UnitOrders;
+				if (uo != NULL && uo->Pos.X > 0 && uo->Pos.Y > 0) {
+					// com has already been orderd to move but we continue regardless
+					// because the remote might have missed the move command
+					toX = uo->Pos.X;
+					toY = uo->Pos.Y;
+				}
+
+				PacketBuilder_AppendBits(&pb, 0, toX, 16);
+				PacketBuilder_AppendBits(&pb, 0, toY, 16);
+				PacketBuilder_AppendBits(&pb, 0, 0xffff, 16);
+
+				int size = (pb.bit_count + 7) / 8 + 4 * pb.dword_count;
+				PacketBuilder_AssignByteAtOfs(&pb, 0, 1, size);
+				PacketBuilder_AssignByteAtOfs(&pb, 0, 2, size >> 8);
+				HAPI_BroadcastMessage(p->DirectPlayID, (char*)pb.buffer_ptr, size);
+			}
+		}
 	}
 	return 0;
 }
-
-unsigned int Test3Addr = 0x43dd41;
-int __stdcall Test3Proc(PInlineX86StackBuffer X86StrackBuffer)
-{
-	//X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x43dd46;
-	//return X86STRACKBUFFERCHANGE;
-	return 0;
-}
-
-unsigned int Test4Addr = 0;// 0x43cd36;
-BYTE Test4Bits[] = { 0x74 };
 
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
@@ -371,11 +401,8 @@ TABugFixing::TABugFixing ()
 	//VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
 	JammingOwnRadar.reset(new InlineSingleHook(JammingOwnRadarAddr, 5, INLINE_5BYTESLAGGERJMP, JammingOwnRadarProc));
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
-	
-	new InlineSingleHook(TestAddr, 5, INLINE_5BYTESLAGGERJMP, TestProc);
-	new InlineSingleHook(Test2Addr, 5, INLINE_5BYTESLAGGERJMP, Test2Proc);
-	new InlineSingleHook(Test3Addr, 5, INLINE_5BYTESLAGGERJMP, Test3Proc);
-	if (Test4Addr) new SingleHook(Test4Addr, sizeof(Test4Bits), INLINE_UNPROTECTEVINMENT, Test4Bits);
+	GhostComFix.reset(new InlineSingleHook(GhostComFixAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixProc));
+	GhostComFixAssist.reset(new InlineSingleHook(GhostComFixAssistAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixAssistProc));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
