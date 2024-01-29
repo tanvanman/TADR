@@ -141,7 +141,7 @@ LPBYTE InstanceGAFFrame (PGAFFrame GafFrame, LPBYTE * FrameBits, POINT * Aspect)
 	//GafFrame->
 
 	memset ( lpSuface, GafFrame->Background, GafAspect.x* GafAspect.y);
-	CopyGafToBits ( lpSuface, &GafAspect, 0, 0, GafFrame);
+	CopyGafToBits ( lpSuface, &GafAspect, GafFrame->xPosition, GafFrame->yPosition, GafFrame);
 
 	if (Aspect)
 	{

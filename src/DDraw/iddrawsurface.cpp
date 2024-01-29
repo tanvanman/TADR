@@ -611,8 +611,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			
 
 			SettingsDialog->BlitDialog(lpBack);
-
-
+			TAHook->Blit(lpBack);
 
 
 			//////////////////////////////////////////////////////////////////////////
@@ -723,6 +722,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			
 
 			SettingsDialog->BlitDialog(lpBack);
+			TAHook->Blit(lpBack);
 
 			//////////////////////////////////////////////////////////////////////////
 			//unicode
