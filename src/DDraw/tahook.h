@@ -2,12 +2,16 @@
 #define tahookH
 
 #include "tamem.h"
+#include <vector>
+#include <memory>
 
 #define ShareMacro 1
 #define DTLine 2
 #define ScrolledDTLine 3
 #define DTRing 4
 #define SCROLL 10000
+
+class SingleHook;
 
 struct QueMSG
   {
@@ -87,15 +91,18 @@ class CTAHook
 	UnitOrdersStruct* FindUnitOrdersUnderMouse();
 	bool IsAnOrder(UnitOrdersStruct *unitOrders, UnitOrdersStruct *order);
 	void VisualizeDraggingBuildRectangle();
-	void VisualizeClickSnapPreview();
+	void VisualizeMexSnapPreview();
+	void VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf);
 	void DragUnitOrders(UnitOrdersStruct *order);
 	UnitOrdersStruct* DraggingUnitOrders;
 	int DraggingUnitOrdersBuildRectangleColor;
 	DraggingOrderStateEnum DraggingUnitOrdersState;
 
-	bool ClickSnapBuild;
-	int ClickSnapBuildPosXY[2];
-	int ClickSnapBuildFootXY[2];
+	bool ClickSnapPreviewBuild;
+	bool ClickSnapPreviewWreck;
+	int ClickSnapPreviewPosXY[2];
+	double WreckSnapPreviewMouseMapPosXY[2];
+	int ClickSnapPreviewFootXY[2];
 
     /**
      * @brief display text to local player only
@@ -129,6 +136,8 @@ class CTAHook
 		int shiftstatus; //should be 5 for shiftclick
 	};
 
+	std::vector<std::unique_ptr <SingleHook> > m_hooks;
+
   public:
     CTAHook(BOOL VidMem);
     ~CTAHook();
@@ -145,6 +154,9 @@ class CTAHook
 
 	BOOL IsLineBuilding (void);
 	void VisualizeRow_ForME_megamap (OFFSCREEN * argc);
+	bool IsWreckSnapping();
+	bool IsMexSnapping();
+
 //addtion
 	public:
 		HWND TAhWnd;

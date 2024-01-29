@@ -6,6 +6,7 @@
 //#include "font.h"              
 #include <stdio.h>
 #include <sstream>
+#include "Gaf.h"
 #include "pcxread.h"
 #include "rings.h"
 #include "hook\etc.h"
@@ -35,7 +36,60 @@
 
 #define WM_USER_ENABLE_RECLAIM_SNAP (WM_USER+0x7ee7)
 
-CTAHook *TAHook;
+CTAHook* TAHook;
+
+unsigned int SuppressShowReclaimCursorAddr = 0x4992a2;
+int __stdcall SuppressShowReclaimCursorProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	GUIInfo* topGuiInfo = &taPtr->desktopGUI;
+	unsigned currentOrderTYpe = X86StrackBuffer->Eax;
+
+	if (TAHook->IsWreckSnapping() && ((GAFSequence*)topGuiInfo->Cursor_3 != taPtr->cursor_ary[cursornormal] || taPtr->CurrentCursora_Index != cursorreclamate)) {
+		taPtr->CurrentCursora_Index = cursorreclamate;;
+		// SetUiCursor(normal)
+		X86StrackBuffer->Eax = (DWORD) taPtr->cursor_ary[cursornormal];
+		X86StrackBuffer->Ecx = (DWORD) topGuiInfo;
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4992c6;
+		return X86STRACKBUFFERCHANGE;
+	}
+	else if (!TAHook->IsWreckSnapping() && taPtr->CurrentCursora_Index != currentOrderTYpe) {
+		// SetUiCursor(currentOrderType)
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4992ad;
+		return X86STRACKBUFFERCHANGE;
+	}
+	else {
+		// do nothing
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4992cd;
+		return X86STRACKBUFFERCHANGE;
+	}
+}
+
+unsigned int ReduceCancelOrderToleranceAddr = 0x43b006;
+int __stdcall ReduceCancelOrderToleranceProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (TAHook->IsWreckSnapping()) {
+		const UnitOrdersStruct* orders = (UnitOrdersStruct*)(X86StrackBuffer->Esi);
+		const Position_Dword* clickPosition = (Position_Dword*)(X86StrackBuffer->Eax);
+		const unsigned short tolerance = 8u;
+
+		if (clickPosition->X - orders->Pos.X + tolerance < 2u * tolerance &&
+			clickPosition->Y - orders->Pos.Y + tolerance < 2u * tolerance) {
+			// cancel old order
+			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x43b034;
+			return X86STRACKBUFFERCHANGE;
+		}
+		else {
+			// append new order
+			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x43b02b;
+			return X86STRACKBUFFERCHANGE;
+		}
+
+	}
+	else {
+		return 0;
+	}
+}
 
 CTAHook::CTAHook(BOOL VidMem)
 {
@@ -80,12 +134,10 @@ CTAHook::CTAHook(BOOL VidMem)
 	ReclaimSnapDisable  = false;
 	DraggingUnitOrders = NULL;
 	DraggingUnitOrdersState = DraggingOrderStateEnum::IDLE;
-	ClickSnapBuild = false;
-
+	ClickSnapPreviewBuild = false;
+	ClickSnapPreviewWreck = false;
 
 	lpRectSurf = CreateSurfPCXResource(50, VidMem);
-
-
 
 	InterpretCommand = (void (__stdcall *)(char *Command, int Unk1))0x417B50;
 	TAMapClick = (void (__stdcall *)(void *msgstruct))0x498F70;
@@ -97,6 +149,9 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	int *PTR = (int*)0x00511de8;
 	TAdynmem = (TAdynmemStruct*)(*PTR);
+
+	m_hooks.push_back(std::unique_ptr<SingleHook>(new InlineSingleHook(SuppressShowReclaimCursorAddr, 5, INLINE_5BYTESLAGGERJMP, SuppressShowReclaimCursorProc)));
+	m_hooks.push_back(std::unique_ptr<SingleHook>(new InlineSingleHook(ReduceCancelOrderToleranceAddr, 5, INLINE_5BYTESLAGGERJMP, ReduceCancelOrderToleranceProc)));
 
 	IDDrawSurface::OutptTxt ( "New CTAHook");
 }
@@ -188,49 +243,84 @@ struct CountReclaimableAdapter
 		FeatureStruct* f = &Ptr->FeatureMap[x + y * Ptr->FeatureMapSizeX];
 		unsigned idx = GetGridPosFeature(f);
 		if (idx < Ptr->NumFeatureDefs) {
-			return Ptr->FeatureDef[idx].Metal > 0 || Ptr->FeatureDef[idx].Energy > 0;
+			return (Ptr->FeatureDef[idx].Metal > 0 || Ptr->FeatureDef[idx].Energy > 0) &&
+				(Ptr->FeatureDef[idx].FeatureMask & (unsigned)FeatureMasks::reclaimable);
 		}
-		else  {
-			return f->occupyingUnitNumber > 0;
+		else {
+			return 0;
 		}
 	}
 };
 
-template<typename PositionTestFunctor>
-void SnapToNear(int xyPos[2], int footX, int footY, int R)
+static void FindFeatureCentre(const int posXY[2], double centreXY[2])
 {
-	std::vector<std::tuple<int, int, int> > sums;
+	TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+	if (!Ptr) {
+		return;
+	}
+
+	const int x = posXY[0];
+	const int y = posXY[1];
+	centreXY[0] = x;
+	centreXY[1] = y;
+
+	if (x < 0 || y < 0 || x >= Ptr->FeatureMapSizeX || y >= Ptr->FeatureMapSizeY) {
+		return;
+	}
+
+	FeatureStruct* f = &Ptr->FeatureMap[x + y * Ptr->FeatureMapSizeX];
+
+	unsigned idx = GetGridPosFeature(f);
+	if (idx < Ptr->NumFeatureDefs) {
+		int left = x - f->FeatureDefDx;
+		int top = y - f->FeatureDefDy;
+		int right = left + Ptr->FeatureDef[idx].FootprintX - 1;
+		int bottom = top + Ptr->FeatureDef[idx].FootprintZ - 1;
+		centreXY[0] = double(left + right) / 2.0;
+		centreXY[1] = double(top + bottom) / 2.0;
+	}
+}
+
+
+template<typename PositionTestFunctor>
+int SnapToNear(int xyPos[2], int footX, int footY, int R, double mouseMapPosX, double mouseMapPosY)
+{
+	std::vector<std::tuple<int, int, int, double> > sums;
 	sums.reserve((1 + R) * (1 + R));
 	for (int dx = -R; dx <= R; ++dx) {
 		for (int dy = -R; dy <= R; ++dy) {
 			int count = PositionTestFunctor::count(xyPos[0] + dx, xyPos[1] + dy, footX, footY);
+			double distx = xyPos[0] + dx - mouseMapPosX/16.0 + 0.5;
+			double disty = xyPos[1] + dy - mouseMapPosY/16.0 + 0.5;
+			double distsq = distx * distx + disty * disty;
 			if (count > 0) {
-				sums.push_back(std::make_tuple(dx, dy, count));
+				sums.push_back(std::make_tuple(dx, dy, count, distsq));
 			}
 		}
 	}
 
 	if (sums.empty()) {
-		return;
+		return 0;
 	}
 
 	auto itMaxSums = std::max_element(sums.begin(), sums.end(),
-		[](const std::tuple<int, int, int>& a, const std::tuple<int, int, int>& b) { 
+		[](const std::tuple<int, int, int, double>& a, const std::tuple<int, int, int, double>& b) { 
 		return std::get<2>(a) < std::get<2>(b);
 	});
 
-	std::vector<std::tuple<int, int, int> > maxima;
-	std::copy_if(sums.begin(), sums.end(), std::back_inserter(maxima), [itMaxSums](const std::tuple<int, int, int>& x) {
+	std::vector<std::tuple<int, int, int, double> > maxima;
+	std::copy_if(sums.begin(), sums.end(), std::back_inserter(maxima), [itMaxSums](const std::tuple<int, int, int, double>& x) {
 		return std::get<2>(x) == std::get<2>(*itMaxSums);
 	});
 
 	auto itClosestMax = std::min_element(maxima.begin(), maxima.end(),
-		[](const std::tuple<int, int, int>& a, const std::tuple<int, int, int>& b) { 
-		return std::abs(std::get<0>(a)) + std::abs(std::get<1>(a)) < std::abs(std::get<0>(b)) + std::abs(std::get<1>(b));
+		[](const std::tuple<int, int, int, double>& a, const std::tuple<int, int, int, double>& b) { 
+		return std::get<3>(a) < std::get<3>(b);
 	});
 
 	xyPos[0] += std::get<0>(*itClosestMax);
 	xyPos[1] += std::get<1>(*itClosestMax);
+	return std::get<2>(*itClosestMax);
 }
 
 bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
@@ -248,7 +338,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				case VK_F9:
 					if ((*TAmainStruct_PtrPtr)->SoftwareDebugMode & softwaredebugmode::CheatsEnabled)
 					{
-						///*
+						/*
 						if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
 							// cycle through map debug modes
 							TAdynmem->mapDebugMode = (TAdynmem->mapDebugMode + 1) % 8;
@@ -261,7 +351,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							WriteProcessMemory(GetCurrentProcess(), (void*)(0x418A81 + 1), &radix, 1, NULL);
 							field = (field + 1) % 13;
 						}
-						//*/
+						*/
 					}
 					break;
 				case VK_F11:
@@ -385,38 +475,35 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					int mouseScreenY = HIWORD(lParam);
 					if (mouseScreenX >= gameScreenRect.left && mouseScreenX < gameScreenRect.right)
 					{
-						if (MexSnapRadius > 0 && ClickSnapBuild)
+						if (ClickSnapPreviewBuild)
 						{
-							ClickBuilding(ClickSnapBuildPosXY[0] * 16, ClickSnapBuildPosXY[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
+							ClickBuilding(ClickSnapPreviewPosXY[0] * 16, ClickSnapPreviewPosXY[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
 							return true;
 						}
-						else if (WreckSnapRadius > 0 && (ordertype::RECLAIM == TAdynmem->PrepareOrder_Type) && !ReclaimSnapDisable)
+						else if (ClickSnapPreviewWreck && !ReclaimSnapDisable)
 						{
-							int xyPos[2] = { TAdynmem->BuildPosX, TAdynmem->BuildPosY };
-							SnapToNear<CountReclaimableAdapter>(xyPos, GetFootX(), GetFootY(), WreckSnapRadius);
-							int dx = xyPos[0] - TAdynmem->BuildPosX;
-							int dy = xyPos[1] - TAdynmem->BuildPosY;
-							if (dx == 0 && dy == 0) {
+							// @TODO maybe somebody can have better success at finding the right TA functions to call
+							// so we don't have to hack this in
+							unsigned idx = ClickSnapPreviewPosXY[0] + ClickSnapPreviewPosXY[1] * TAdynmem->FeatureMapSizeX;
+							if (idx >= TAdynmem->FeatureMapSizeX * TAdynmem->FeatureMapSizeY) {
 								return false;
 							}
-							else {
-								// @TODO maybe somebody can have better success at finding the right TA functions to call
-								// so we don't have to hack this in
-								LPARAM lParamBak = lParam;
-								lParam = ((lParamBak + (dx<<4)) & 0xffff);
-								if (lParam < TAdynmem->GameSreen_Rect.left)
-								{
-									return false;
-								}
-								lParam |= ((lParamBak + (dy<<20)) & 0xffff0000);
-								PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParam);
-								PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
-								PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
-								PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParamBak);
-								PostMessage(WinProcWnd, WM_USER_ENABLE_RECLAIM_SNAP, wParam, lParamBak);
-								ReclaimSnapDisable = true;
-								return true;
-							}
+
+							FeatureStruct* f = &TAdynmem->FeatureMap[idx];
+							int dz = (f->maxHeight2x2 + f->minHeight2x2) / 4;
+							int x = 8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128;
+							int y = 8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - dz;
+
+							LPARAM lParamBak = lParam;
+							lParam = ((y & 0xffff) << 16) | (x & 0xffff);
+
+							PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParam);
+							PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
+							PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
+							PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParamBak);
+							PostMessage(WinProcWnd, WM_USER_ENABLE_RECLAIM_SNAP, wParam, lParamBak);
+							ReclaimSnapDisable = true;
+							return true;
 						}
 						else if ((ordertype::STOP == TAdynmem->PrepareOrder_Type) && 
 							(GetAsyncKeyState(VK_SHIFT) & 0x8000) &&
@@ -473,7 +560,8 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			case WM_MOUSEMOVE:
 				//MouseX = LOWORD(lParam);
 				//MouseY = HIWORD(lParam);
-				ClickSnapBuild = false;
+				ClickSnapPreviewBuild = false;
+				ClickSnapPreviewWreck = false;
 
 				if (DraggingUnitOrders &&
 					ordertype::STOP == TAdynmem->PrepareOrder_Type &&
@@ -523,34 +611,36 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					DraggingUnitOrders = NULL;
 					DraggingUnitOrdersState = DraggingOrderStateEnum::IDLE;
 					DraggingUnitOrdersBuildRectangleColor = -1;
-					ClickSnapBuild = false;
+					ClickSnapPreviewBuild = false;
 
-					if (MexSnapRadius > 0 && (GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
+					if ((GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
 					{
 						RECT& gameScreenRect = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
 						int mouseScreenX = LOWORD(lParam);
 						int mouseScreenY = HIWORD(lParam);
 						if (mouseScreenX >= gameScreenRect.left && mouseScreenX < gameScreenRect.right)
 						{
-							if ((ordertype::BUILD == TAdynmem->PrepareOrder_Type))
+							if (MexSnapRadius > 0 && (ordertype::BUILD == TAdynmem->PrepareOrder_Type))
 							{
 								if (GetBuildUnit().extractsmetal) {
-									ClickSnapBuildPosXY[0] = TAdynmem->BuildPosX;
-									ClickSnapBuildPosXY[1] = TAdynmem->BuildPosY;
-									ClickSnapBuildFootXY[0] = GetFootX();
-									ClickSnapBuildFootXY[1] = GetFootY();
-									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), MexSnapRadius);
-									if (ClickSnapBuildPosXY[0] != TAdynmem->BuildPosX || ClickSnapBuildPosXY[1] != TAdynmem->BuildPosY) {
-										int testFurtherSnapPosXY[2] = { ClickSnapBuildPosXY[0], ClickSnapBuildPosXY[1] };
-										SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(testFurtherSnapPosXY, GetFootX(), GetFootY(), std::max(GetFootX(), GetFootY()));
-										if (testFurtherSnapPosXY[0] == ClickSnapBuildPosXY[0] && testFurtherSnapPosXY[1] == ClickSnapBuildPosXY[1]) {
+									ClickSnapPreviewPosXY[0] = TAdynmem->BuildPosX;
+									ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
+									ClickSnapPreviewFootXY[0] = GetFootX();
+									ClickSnapPreviewFootXY[1] = GetFootY();
+									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapPreviewPosXY, GetFootX(), GetFootY(), MexSnapRadius,
+										TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
+									if (ClickSnapPreviewPosXY[0] != TAdynmem->BuildPosX || ClickSnapPreviewPosXY[1] != TAdynmem->BuildPosY) {
+										int testFurtherSnapPosXY[2] = { ClickSnapPreviewPosXY[0], ClickSnapPreviewPosXY[1] };
+										SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(testFurtherSnapPosXY, GetFootX(), GetFootY(), std::max(GetFootX(), GetFootY()),
+											TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
+										if (testFurtherSnapPosXY[0] == ClickSnapPreviewPosXY[0] && testFurtherSnapPosXY[1] == ClickSnapPreviewPosXY[1]) {
 											// proceed with snap only if the first snap was centred (didn't require further snapping)
-											ClickSnapBuild = true;
+											ClickSnapPreviewBuild = true;
 										}
 									}
 								}
 
-								char yardMap[65];
+								char yardMap[65] = { 0 };
 								if (GetBuildUnit().YardMap) {
 									int N = min(64, GetFootX() * GetFootY());
 									std::memcpy(yardMap, GetBuildUnit().YardMap, N);
@@ -559,24 +649,43 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 								// 0x8f in yardmap, diagnostic of geothermals (I hope)
 								if (strchr(yardMap, 0x8f))
 								{
-									ClickSnapBuildPosXY[0] = TAdynmem->BuildPosX;
-									ClickSnapBuildPosXY[1] = TAdynmem->BuildPosY;
-									ClickSnapBuildFootXY[0] = GetFootX();
-									ClickSnapBuildFootXY[1] = GetFootY();
-									SnapToNear<TestCanBuildAdapter>(ClickSnapBuildPosXY, GetFootX(), GetFootY(), MexSnapRadius);
-									ClickSnapBuild = ClickSnapBuildPosXY[0] != TAdynmem->BuildPosX || ClickSnapBuildPosXY[1] != TAdynmem->BuildPosY;
+									ClickSnapPreviewPosXY[0] = TAdynmem->BuildPosX;
+									ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
+									ClickSnapPreviewFootXY[0] = GetFootX();
+									ClickSnapPreviewFootXY[1] = GetFootY();
+									SnapToNear<TestCanBuildAdapter>(ClickSnapPreviewPosXY, GetFootX(), GetFootY(), MexSnapRadius,
+										TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
+									ClickSnapPreviewBuild = ClickSnapPreviewPosXY[0] != TAdynmem->BuildPosX || ClickSnapPreviewPosXY[1] != TAdynmem->BuildPosY;
+								}
+							}
+							else if (WreckSnapRadius > 0 && ordertype::RECLAIM == TAdynmem->PrepareOrder_Type)
+							{
+								unsigned idx = TAdynmem->BuildPosX + TAdynmem->BuildPosY * TAdynmem->FeatureMapSizeX;
+								if (idx < TAdynmem->FeatureMapSizeX * TAdynmem->FeatureMapSizeY) {
+									FeatureStruct* f = &TAdynmem->FeatureMap[idx];
+									if (f->occupyingUnitNumber > 0) {
+										return false;
+									}
+								}
+
+								ClickSnapPreviewPosXY[0] = TAdynmem->BuildPosX;
+								ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
+								ClickSnapPreviewFootXY[0] = 1;
+								ClickSnapPreviewFootXY[1] = 1;
+								ClickSnapPreviewWreck = 0 < SnapToNear<CountReclaimableAdapter>(ClickSnapPreviewPosXY, 1, 1, WreckSnapRadius,
+									TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
+								if (ClickSnapPreviewWreck) {
+									FindFeatureCentre(ClickSnapPreviewPosXY, WreckSnapPreviewMouseMapPosXY);
 								}
 							}
 						}
 					}
-					if (ClickSnapBuild) {
+					if (ClickSnapPreviewBuild) {
 						DisableTABuildRect();
 					}
 					else {
 						EnableTABuildRect();
 					}
-
-
 				}
 				break;
 			case WM_MOUSEWHEEL:
@@ -666,6 +775,8 @@ void CTAHook::WriteShareMacro()
 
 void CTAHook::Blit(LPDIRECTDRAWSURFACE DestSurf)
 {
+	VisualizeWreckSnapPreview(DestSurf);
+
 	/*if(QueueStatus == ScrolledDTLine)
 	{
 	int slask = Delay/5;
@@ -733,7 +844,7 @@ void CTAHook::TABlit()
 	}
 
 	VisualizeDraggingBuildRectangle();
-	VisualizeClickSnapPreview();
+	VisualizeMexSnapPreview();
 }
 /*
 
@@ -1500,27 +1611,69 @@ void CTAHook::VisualizeDraggingBuildRectangle()
 	}
 }
 
-void CTAHook::VisualizeClickSnapPreview()
+void CTAHook::VisualizeMexSnapPreview()
 {
-	if (ClickSnapBuild)
+	if (ClickSnapPreviewBuild)
 	{
 		int BakX = TAdynmem->MouseMapPos.X;
 		int BakY = TAdynmem->MouseMapPos.Y;
-		TAdynmem->MouseMapPos.X = ClickSnapBuildPosXY[0] * 16;
-		TAdynmem->MouseMapPos.Y = ClickSnapBuildPosXY[1] * 16;
+		TAdynmem->MouseMapPos.X = ClickSnapPreviewPosXY[0] * 16;
+		TAdynmem->MouseMapPos.Y = ClickSnapPreviewPosXY[1] * 16;
 		TAdynmem->BuildSpotState = 70;
 		TestBuildSpot();
 
 		int color = TAdynmem->BuildSpotState == 70 ? 234 : 214;
 		DrawBuildRect((TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
 			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz / 2),
-			ClickSnapBuildFootXY[0] * 16,
-			ClickSnapBuildFootXY[1] * 16,
+			ClickSnapPreviewFootXY[0] * 16,
+			ClickSnapPreviewFootXY[1] * 16,
 			color);
 
 		TAdynmem->MouseMapPos.X = BakX;
 		TAdynmem->MouseMapPos.Y = BakY;
 	}
+}
+
+void CTAHook::VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf)
+{
+	if (!ClickSnapPreviewWreck) {
+		return;
+	}
+
+	DDSURFACEDESC ddsd;
+	ZeroMemory(&ddsd, sizeof(ddsd));
+	ddsd.dwSize = sizeof(ddsd);
+	if (DestSurf->GetSurfaceDesc(&ddsd) != DD_OK) {
+		return;
+	}
+
+	OFFSCREEN OffScreen;
+	memset(&OffScreen, 0, sizeof(OFFSCREEN));
+	OffScreen.Height = ddsd.dwHeight;
+	OffScreen.Width = ddsd.dwWidth;
+	OffScreen.lPitch = ddsd.lPitch;
+	OffScreen.lpSurface = ddsd.lpSurface;
+	std::memcpy(&OffScreen.ScreenRect, &TAdynmem->GameSreen_Rect, sizeof(OffScreen.ScreenRect));
+
+	PGAFSequence GafSeq_p = TAdynmem->cursor_ary[cursorreclamate];
+	int annimationIndex = (TAdynmem->GameTime / GafSeq_p->PtrFrameAry->Animated) % GafSeq_p->Frames;
+	PGAFFrame Gaf_p = GafSeq_p->PtrFrameAry[annimationIndex].PtrFrame;
+	if (Gaf_p == NULL) {
+		return;
+	}
+
+	unsigned idx = ClickSnapPreviewPosXY[0] + ClickSnapPreviewPosXY[1] * TAdynmem->FeatureMapSizeX;
+	if (idx >= TAdynmem->FeatureMapSizeX * TAdynmem->FeatureMapSizeY) {
+		return;
+	}
+
+	FeatureStruct* f = &TAdynmem->FeatureMap[idx];
+	int dz = (f->maxHeight2x2 + f->minHeight2x2) / 4;
+
+	CopyGafToContext(&OffScreen, Gaf_p,
+		8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128,
+		8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - dz
+	);
 }
 
 void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
@@ -1627,4 +1780,14 @@ int CTAHook::GetMaxWreckSnapRadius()
 		radius = 9;
 	}
 	return radius;
+}
+
+bool CTAHook::IsWreckSnapping()
+{
+	return ClickSnapPreviewWreck;
+}
+
+bool CTAHook::IsMexSnapping()
+{
+	return ClickSnapPreviewBuild;
 }
