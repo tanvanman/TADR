@@ -22,7 +22,7 @@ NEW FEATURES IN BRIEF:
 - Features to automatically assign teams in battleroom or in-game
 - ClickSnap to snap to nearest mex, geo or reclaimable feature
 - Add ability to drag queued orders around the map
-- Con units patrol behaviour - hold position: reclaim only; roam: repair/assist only
+- Con units patrol behaviour - hold position: reclaim only
 - Fix the "ghost com" bug (remote commanders appear in top left of map during first 50sec of game)
 - Option to render DTs and fortwalls that belong to the map (not built by a player)
 - Supress "qqqqqq" whiteboard marker lables when "q" is used as the whiteboard key
