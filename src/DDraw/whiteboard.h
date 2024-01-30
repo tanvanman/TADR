@@ -1,7 +1,7 @@
 #ifndef whiteboardH
 #define whiteboardH
 
-//#define USEWHITEBOARD
+#define USEWHITEBOARD
 
 #include "elementhandler.h"
 #include "IRenderer.h"
