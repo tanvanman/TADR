@@ -5,6 +5,14 @@
 #include "tamem.h"
 #include "whiteboard.h"
 
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
+
 CMapRect::CMapRect(BOOL VidMem)
 {
 	lpMapRect = NULL;
@@ -106,7 +114,7 @@ void CMapRect::LockBlit(char *VidBuf, int Pitch)
 	{
 		RECT Dest;
 		TAdynmemStruct * Ptr= *(TAdynmemStruct* *)0x00511de8;
-		
+
 		for(int i=1; i<10; i++)
 		{
 			if((DataShare->allies[i] || DataShare->PlayingDemo|| (0!=(WATCH& (Ptr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))

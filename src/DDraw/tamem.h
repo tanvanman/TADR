@@ -428,7 +428,7 @@ struct TAdynmemStruct{
 	int NumHotRadarUnits;
 	char data25[0x20];
 	unsigned int UNITINFOCount;
-	unsigned int UNITINFOCount_SquareRoot;
+	unsigned int UNITINFOCount_SignificantBitsCount;
 	unsigned int LoadedUNITINFOs;
 	UnitDefStruct *UnitDef;  //0x1439b 
 	char data26[0x440];
@@ -651,7 +651,10 @@ struct MapStartPosStruct
 struct PlayerInfoStruct 
 {
 	char MapName[0x20];			// 0x0000
-	char data1[0x75];			// 0x0020
+	char data_20[0x6b];			// 0x0020
+	unsigned short screenWidth; // 0x008b
+	unsigned short screenHeight;// 0x008d
+	char data_90[6];			// 0x008f
 	char RaceSide;				// 0x0095
 	char PlayerLogoColor;		// 0x0096
 	char SharedBits;			// 0x0097 enum SharedStates
@@ -836,6 +839,7 @@ struct UnitStruct {
   unsigned int UnitSelected;//0x110: and UnitSelectState.  
 							// & 0x000c0000: hold pos; maneuvre; roam.  
 							// & 0x10: unit selected
+							// & 0x20: sth to do with nanoframe / build completion 
 							// & 0x100: radar/los
 							// & 0x200: sonar/los
 							// & 0x1000000: UnitAlive
@@ -1436,6 +1440,20 @@ typedef struct _COBHandle
 	unsigned char field_14;
 	const char* technicalName;
 }COBHandle;
+
+typedef struct _SerialBitArrayStruct {
+	unsigned char* data;
+	unsigned dword_ofs;
+	unsigned bit_ofs;
+} SerialBitArrayStruct;
+
+typedef struct _PacketBuilderStruct {
+	unsigned dword_count;
+	unsigned bit_count;
+	unsigned buffer_size;
+	unsigned char* buffer_ptr;
+	unsigned char initial_buffer[0x100];
+} PacketBuilderStruct;
 
 enum PlayerPropertyMask
 {

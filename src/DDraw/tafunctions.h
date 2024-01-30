@@ -213,6 +213,25 @@ extern _InitTAPath InitTAPath;
 typedef int (__stdcall * _Init_srand)(int seed);
 extern _Init_srand Init_srand;
 
+typedef int(__stdcall* _UNITS_CreateUnit)(
+	int playerIndex, int unitInfoId, int posX, int posZ, int posY, bool fullHp, unsigned unitStateMask, int unitId);
+extern _UNITS_CreateUnit UNITS_CreateUnit;
+
+typedef int(__fastcall* _SerialBitArrayRead)(SerialBitArrayStruct* serialBitArray, int ignored, int nBitsToRead);
+extern _SerialBitArrayRead SerialBitArrayRead;
+
+typedef int(__fastcall* _PacketBuilder_Initialise)(PacketBuilderStruct* pb, int ignored);
+extern _PacketBuilder_Initialise PacketBuilder_Initialise;
+
+typedef int(__fastcall* _PacketBuilder_AppendBits)(PacketBuilderStruct* pb, int ignored, int value, int bitsToAdd);
+extern _PacketBuilder_AppendBits PacketBuilder_AppendBits;
+
+typedef int(__fastcall* _PacketBuilder_Resize)(PacketBuilderStruct* pb, int ignored);
+extern _PacketBuilder_Resize PacketBuilder_Resize;
+
+typedef int(__fastcall* _PacketBuilder_AssignByteAtOfs)(PacketBuilderStruct* pb, int ignored, int byte_ofs, char byte_value);
+extern _PacketBuilder_AssignByteAtOfs PacketBuilder_AssignByteAtOfs;
+
 int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl= FALSE);
 int UpdateTAProcess (void);
 void SendOrder (unsigned int TAX, unsigned int TAY, unsigned int TAZ, int OrderType, bool Shift);
