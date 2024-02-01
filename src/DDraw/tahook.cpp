@@ -272,8 +272,12 @@ static void FindFeatureCentre(const int posXY[2], double centreXY[2])
 
 	unsigned idx = GetGridPosFeature(f);
 	if (idx < Ptr->NumFeatureDefs) {
-		int left = x - f->FeatureDefDx;
-		int top = y - f->FeatureDefDy;
+		int left = x;
+		int top = y;
+		if (f->FeatureDefIndex == 0xfffe) {
+			left -= f->FeatureDefDx;
+			top -= f->FeatureDefDy;
+		}
 		int right = left + Ptr->FeatureDef[idx].FootprintX - 1;
 		int bottom = top + Ptr->FeatureDef[idx].FootprintZ - 1;
 		centreXY[0] = double(left + right) / 2.0;
