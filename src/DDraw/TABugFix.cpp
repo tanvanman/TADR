@@ -301,6 +301,101 @@ int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+
+#include <queue>
+#include <set>
+
+static std::queue<int> unitIdRecycleQueue[10];
+static std::set<int> unitIdRecycleSet[10];
+
+unsigned int FixFactoryExplosionsInitAddr = 0x4854a0;
+int __stdcall FixFactoryExplosionsInitProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	int nIds = taPtr->PlayerUnitsNumber_Skim;
+	for (int i = 0; i < 10; ++i) {
+		unitIdRecycleQueue[i] = std::queue<int>();
+		unitIdRecycleSet[i].clear();
+		for (int j = 0; j < nIds; ++j) {
+			unitIdRecycleQueue[i].push(j);
+			unitIdRecycleSet[i].insert(j);
+		}
+	}
+	return 0;
+}
+
+unsigned int FixFactoryExplosionsAssignUnitIdAddr = 0x486036;
+int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	int playerIndex = *(int*)(X86StrackBuffer->Esp + 0x14 - 4) / 0x14b;
+	int unitIndexRequested = X86StrackBuffer->Edx;
+	int unitIndex = unitIndexRequested;
+
+	PlayerStruct* player = &taPtr->Players[playerIndex];
+	UnitStruct* units = (UnitStruct*)X86StrackBuffer->Esi;
+	while (units->UnitID) {
+		if (unitIndexRequested > 0) {
+			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4861bd;
+			return X86STRACKBUFFERCHANGE;
+		}
+		else if (unitIdRecycleQueue[playerIndex].empty()) {
+			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x486053;
+			return X86STRACKBUFFERCHANGE;
+		}
+		unitIndex = unitIdRecycleQueue[playerIndex].front();
+		unitIdRecycleQueue[playerIndex].pop();
+		unitIdRecycleSet[playerIndex].erase(unitIndex);
+		units = &player->Units[unitIndex];
+	}
+	X86StrackBuffer->Esi = (DWORD) units;
+	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x48605d;
+	IDDrawSurface::OutptTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId=%d, queueSize=%d\n",
+		playerIndex, unitIndex, unitIdRecycleQueue[playerIndex].size());
+	return X86STRACKBUFFERCHANGE;
+}
+
+unsigned int FixFactoryExplosionsRecycleUnitIdAddr = 0x486dc1;
+int __stdcall FixFactoryExplosionsRecycleUnitIdProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	UnitStruct* unit = (UnitStruct*)(X86StrackBuffer->Esi);
+	char* packetData = *(char**)(X86StrackBuffer->Esp + 0x7c);
+	int unitInGameIndex = *(unsigned short*)(packetData + 1);
+	
+	if (!unit) {
+		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] null unit!\n");
+	}
+	else if (!unit->Owner_PlayerPtr0) {
+		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] null unit->Owner_PlayerPtr0!\n");
+	}
+	else if (unit->UnitInGameIndex != unitInGameIndex) {
+		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] UnitInGameIndex misatch! packet:%d, unit:%d\n",
+			unitInGameIndex, unit->UnitInGameIndex);
+	}
+	else if (unit->OwnerIndex < 0 || unit->OwnerIndex >= 10) {
+		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] Invalid unit->OwnerIndex:%d\n", unit->OwnerIndex);
+	}
+	else {
+		int playerUnitIndex = unit->UnitInGameIndex - unit->Owner_PlayerPtr0->UnitsIndex_Begin;
+		if (playerUnitIndex < 0 || playerUnitIndex >= taPtr->PlayerUnitsNumber_Skim) {
+			IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] Out of range unit->UnitInGameIndex:%d. owner->UnitsIndex_Begin=%d, PlayerUnitsNumber_Skim=%d\n",
+				unit->UnitInGameIndex, unit->Owner_PlayerPtr0->UnitsIndex_Begin, taPtr->PlayerUnitsNumber_Skim);
+		}
+		else if (unitIdRecycleSet[unit->OwnerIndex].count(playerUnitIndex)) {
+			IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] playerUnitIndex:%d is already in the recycle queue!\n", playerUnitIndex);
+		}
+		else {
+			unitIdRecycleQueue[unit->OwnerIndex].push(playerUnitIndex);
+			unitIdRecycleSet[unit->OwnerIndex].insert(playerUnitIndex);
+			IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] player=%d, recycledId=%d, queueSize=%d\n",
+				int(unit->OwnerIndex), playerUnitIndex, unitIdRecycleQueue[unit->OwnerIndex].size());
+		}
+	}
+	return 0;
+}
+
+
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
@@ -403,6 +498,10 @@ TABugFixing::TABugFixing ()
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
 	GhostComFix.reset(new InlineSingleHook(GhostComFixAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixProc));
 	GhostComFixAssist.reset(new InlineSingleHook(GhostComFixAssistAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixAssistProc));
+	
+	new InlineSingleHook(FixFactoryExplosionsInitAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsInitProc);
+	new InlineSingleHook(FixFactoryExplosionsAssignUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsAssignUnitIdProc);
+	new InlineSingleHook(FixFactoryExplosionsRecycleUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsRecycleUnitIdProc);
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
