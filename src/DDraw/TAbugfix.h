@@ -48,6 +48,9 @@ private:
 	std::unique_ptr <SingleHook> JammingOwnRadar;
 	std::unique_ptr <SingleHook> GhostComFix;
 	std::unique_ptr <SingleHook> GhostComFixAssist;
+	std::unique_ptr <SingleHook> FixFactoryExplosionsInit;
+	std::unique_ptr <SingleHook> FixFactoryExplosionsAssignUnitId;
+	std::unique_ptr <SingleHook> FixFactoryExplosionsRecycleUnitId;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 

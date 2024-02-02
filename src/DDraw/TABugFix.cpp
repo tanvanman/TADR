@@ -14,6 +14,8 @@
 
 #include "ddraw.h"
 
+#include <queue>
+#include <set>
 
 TABugFixing * FixTABug;
 ///////---------------------
@@ -301,14 +303,15 @@ int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
-
-#include <queue>
-#include <set>
-
+// TA natively assigns the first available ID, starting its search from 0.
+// We're going to change it to use a queue of recycled IDs
+// so that it always chooses the one that was recycled the longest time ago
 static std::queue<int> unitIdRecycleQueue[10];
+// We receive first a UnitDeath for each ID twice.
+// We'll use this set to track whether we've already put the ID in the queue
 static std::set<int> unitIdRecycleSet[10];
 
-unsigned int FixFactoryExplosionsInitAddr = 0x4854a0;
+unsigned int FixFactoryExplosionsInitAddr = 0x4854a0;	// around the time that the UnitStructs are being initialised
 int __stdcall FixFactoryExplosionsInitProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -499,9 +502,9 @@ TABugFixing::TABugFixing ()
 	GhostComFix.reset(new InlineSingleHook(GhostComFixAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixProc));
 	GhostComFixAssist.reset(new InlineSingleHook(GhostComFixAssistAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixAssistProc));
 	
-	new InlineSingleHook(FixFactoryExplosionsInitAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsInitProc);
-	new InlineSingleHook(FixFactoryExplosionsAssignUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsAssignUnitIdProc);
-	new InlineSingleHook(FixFactoryExplosionsRecycleUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsRecycleUnitIdProc);
+	FixFactoryExplosionsInit.reset(new InlineSingleHook(FixFactoryExplosionsInitAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsInitProc));
+	FixFactoryExplosionsAssignUnitId.reset(new InlineSingleHook(FixFactoryExplosionsAssignUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsAssignUnitIdProc));
+	FixFactoryExplosionsRecycleUnitId.reset(new InlineSingleHook(FixFactoryExplosionsRecycleUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsRecycleUnitIdProc));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
