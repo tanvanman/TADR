@@ -34,8 +34,6 @@
 #define WM_MOUSEWHEEL 522
 #define MAX_SPACING 10
 
-#define WM_USER_ENABLE_RECLAIM_SNAP (WM_USER+0x7ee7)
-
 CTAHook* TAHook;
 
 unsigned int SuppressShowReclaimCursorAddr = 0x4992a2;
@@ -131,7 +129,6 @@ CTAHook::CTAHook(BOOL VidMem)
 	ScrollEnabled = LocalShare->CompatibleVersion;
 	RingWrite = false;
 	Spacing = 0;
-	ReclaimSnapDisable  = false;
 	DraggingUnitOrders = NULL;
 	DraggingUnitOrdersState = DraggingOrderStateEnum::IDLE;
 	ClickSnapPreviewBuild = false;
@@ -484,32 +481,23 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							ClickBuilding(ClickSnapPreviewPosXY[0] * 16, ClickSnapPreviewPosXY[1] * 16, (GetAsyncKeyState(VK_SHIFT) & 0x8000));
 							return true;
 						}
-						else if (ClickSnapPreviewWreck && !ReclaimSnapDisable)
+						else if (ClickSnapPreviewWreck)
 						{
-							// @TODO maybe somebody can have better success at finding the right TA functions to call
-							// so we don't have to hack this in
 							unsigned idx = ClickSnapPreviewPosXY[0] + ClickSnapPreviewPosXY[1] * TAdynmem->FeatureMapSizeX;
 							if (idx >= TAdynmem->FeatureMapSizeX * TAdynmem->FeatureMapSizeY) {
 								return false;
 							}
 
 							FeatureStruct* f = &TAdynmem->FeatureMap[idx];
-							int z = (f->maxHeight2x2 + f->minHeight2x2) / 2;
-							int x = 8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128;
-							int y = 8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - z/2;
-							if (z < TAdynmem->SeaLevel) {
-								y -= (TAdynmem->SeaLevel - z) / 2;
-							}
 
-							LPARAM lParamBak = lParam;
-							lParam = ((y & 0xffff) << 16) | (x & 0xffff);
+							TAdynmem->PrepareOrder_Type = ordertype::RECLAIM;
+							TAdynmem->MouseMapPos.X = 8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5);
+							TAdynmem->MouseMapPos.Y = 8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5);
+							TAdynmem->MouseMapPos.Z = (f->maxHeight2x2 + f->minHeight2x2) / 2;
+							msgstruct mu;
+							mu.shiftstatus = (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 5 : 0;
+							TAMapClick(&mu);
 
-							PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParam);
-							PostMessage(WinProcWnd, WM_LBUTTONDOWN, wParam, lParam);
-							PostMessage(WinProcWnd, WM_LBUTTONUP, wParam, lParam);
-							PostMessage(WinProcWnd, WM_MOUSEMOVE, wParam, lParamBak);
-							PostMessage(WinProcWnd, WM_USER_ENABLE_RECLAIM_SNAP, wParam, lParamBak);
-							ReclaimSnapDisable = true;
 							return true;
 						}
 						else if ((ordertype::STOP == TAdynmem->PrepareOrder_Type) && 
@@ -525,10 +513,6 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						}
 					}
 				}
-				break;
-
-			case WM_USER_ENABLE_RECLAIM_SNAP:
-				ReclaimSnapDisable = false;
 				break;
 
 			case WM_LBUTTONUP:
@@ -1678,9 +1662,10 @@ void CTAHook::VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf)
 	int z = (f->maxHeight2x2 + f->minHeight2x2) / 2;
 	int x = 8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128;
 	int y = 8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - z / 2;
-	if (z < TAdynmem->SeaLevel) {
-		y -= (TAdynmem->SeaLevel - z) / 2;
-	}
+	//if (z < TAdynmem->SeaLevel) {
+	// //show position of the click rather than the reclaim position
+	//	y -= (TAdynmem->SeaLevel - z) / 2;
+	//}
 
 	CopyGafToContext(&OffScreen, Gaf_p, x, y);
 }
