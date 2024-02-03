@@ -56,7 +56,6 @@ class CTAHook
 	int MexSnapRadius;
 	int WreckSnapRadius;
 	int ClickSnapOverrideKey;
-	bool ReclaimSnapDisable;
     bool WriteLine;
     int StartX, StartY;
     int EndX, EndY;
