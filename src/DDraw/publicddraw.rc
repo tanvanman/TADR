@@ -69,12 +69,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Swedish Yankspankers & TA Universe community"
             VALUE "FileDescription", "TA Unofficial Patch - Demo Recorder Component"
-            VALUE "FileVersion", "2024.2.3"
+            VALUE "FileVersion", "2024.2.4"
             VALUE "InternalName", "Swedish Eye"
             VALUE "LegalCopyright", "Copyright 2024"
             VALUE "OriginalFilename", "tdraw.dll"
             VALUE "ProductName", "TA PATCH"
-            VALUE "ProductVersion", "2024.2.3"
+            VALUE "ProductVersion", "2024.2.4"
         END
     END
     BLOCK "VarFileInfo"
