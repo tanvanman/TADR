@@ -494,9 +494,12 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							}
 
 							FeatureStruct* f = &TAdynmem->FeatureMap[idx];
-							int dz = (f->maxHeight2x2 + f->minHeight2x2) / 4;
+							int z = (f->maxHeight2x2 + f->minHeight2x2) / 2;
 							int x = 8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128;
-							int y = 8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - dz;
+							int y = 8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - z/2;
+							if (z < TAdynmem->SeaLevel) {
+								y -= (TAdynmem->SeaLevel - z) / 2;
+							}
 
 							LPARAM lParamBak = lParam;
 							lParam = ((y & 0xffff) << 16) | (x & 0xffff);
@@ -1672,12 +1675,14 @@ void CTAHook::VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf)
 	}
 
 	FeatureStruct* f = &TAdynmem->FeatureMap[idx];
-	int dz = (f->maxHeight2x2 + f->minHeight2x2) / 4;
+	int z = (f->maxHeight2x2 + f->minHeight2x2) / 2;
+	int x = 8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128;
+	int y = 8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - z / 2;
+	if (z < TAdynmem->SeaLevel) {
+		y -= (TAdynmem->SeaLevel - z) / 2;
+	}
 
-	CopyGafToContext(&OffScreen, Gaf_p,
-		8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128,
-		8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - dz
-	);
+	CopyGafToContext(&OffScreen, Gaf_p, x, y);
 }
 
 void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
