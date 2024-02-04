@@ -104,8 +104,8 @@ public:
 };
 //----------------------------------------------------------
 
-#define ELEMENT_HASH_SIZE 64
-#define HASH_SQUARE_SIZE 8
+#define ELEMENT_HASH_SIZE 400
+#define HASH_SQUARE_SIZE 20
 
 class CElementHandler  
 {
