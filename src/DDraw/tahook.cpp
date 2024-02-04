@@ -498,6 +498,25 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							mu.shiftstatus = (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 5 : 0;
 							TAMapClick(&mu);
 
+							// fiddle the position of the reclaim order to match the centre of the mouse click capture region
+							// (which is offset for underwater reclaim)
+							for (int i = 0; i < TAdynmem->PlayerUnitsNumber_Skim; ++i) {
+								UnitStruct* u = &TAdynmem->Players[TAdynmem->LocalHumanPlayer_PlayerID].Units[i];
+								if (u->UnitID > 0 && u->UnitSelected & 0x10 && u->UnitOrders) {
+									UnitOrdersStruct* uo = u->UnitOrders;
+									while (uo->NextOrder != NULL) {
+										uo = uo->NextOrder;
+									}
+									unsigned cursorIndex = (*COBSciptHandler_Begin)[uo->COBHandler_index].cursorIndex;
+									if (cursorIndex == cursorreclamate &&
+										uo->Pos.X == TAdynmem->MouseMapPos.X && uo->Pos.Y == TAdynmem->MouseMapPos.Y && uo->Pos.Z == TAdynmem->MouseMapPos.Z &&
+										uo->Pos.Z < TAdynmem->SeaLevel)
+									{
+										uo->Pos.Z = TAdynmem->SeaLevel;
+									}
+								}
+							}
+
 							return true;
 						}
 						else if ((ordertype::STOP == TAdynmem->PrepareOrder_Type) && 
@@ -1662,10 +1681,10 @@ void CTAHook::VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf)
 	int z = (f->maxHeight2x2 + f->minHeight2x2) / 2;
 	int x = 8 + int(WreckSnapPreviewMouseMapPosXY[0] * 16.0 + 0.5) - TAdynmem->EyeBallMapXPos + 128;
 	int y = 8 + int(WreckSnapPreviewMouseMapPosXY[1] * 16.0 + 0.5) - TAdynmem->EyeBallMapYPos + 32 - z / 2;
-	//if (z < TAdynmem->SeaLevel) {
-	// //show position of the click rather than the reclaim position
-	//	y -= (TAdynmem->SeaLevel - z) / 2;
-	//}
+	if (z < TAdynmem->SeaLevel) {
+	 //show position of the click rather than the reclaim position
+		y -= (TAdynmem->SeaLevel - z) / 2;
+	}
 
 	CopyGafToContext(&OffScreen, Gaf_p, x, y);
 }
