@@ -1056,6 +1056,12 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 		}
 		//////////////////////////////////////////////////////////////////////////
 
+		if (NULL != (LocalShare->Dialog))
+		{
+			if (((Dialog*)LocalShare->Dialog)->Message(WinProcWnd, Msg, wParam, lParam))
+				return 0;  //message handled by the dialog
+		}
+
 		if((NULL!=LocalShare->Whiteboard)
 			&&(((AlliesWhiteboard*)LocalShare->Whiteboard)->Message(WinProcWnd, Msg, wParam, lParam)))
 			return 0;
@@ -1063,13 +1069,6 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 		if((NULL!=LocalShare->Income)
 			&&(((CIncome*)LocalShare->Income)->Message(WinProcWnd, Msg, wParam, lParam)))
 			return 0;  //message handled by the income class
-
-		if(NULL!=(LocalShare->Dialog))
-		{
-			if(((Dialog*)LocalShare->Dialog)->Message(WinProcWnd, Msg, wParam, lParam))
-				return 0;  //message handled by the dialog
-		}
-
 
 		if((LocalShare->CommanderWarp)
 			&&(((CWarp*)LocalShare->CommanderWarp)->Message(WinProcWnd, Msg, wParam, lParam)))
