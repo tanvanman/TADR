@@ -34,7 +34,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 	// and then later make a big song and dance about anyone who failed or who hasn't replied
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	PlayerStruct* me = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
-	if (!me->PlayerActive || me->DirectPlayID == 0 || (me->PlayerInfo->PropertyMask & WATCH)) {
+	if (!me->PlayerActive || me->DirectPlayID == 0 || (me->PlayerInfo->PropertyMask & WATCH) || DataShare->PlayingDemo) {
 		return 0;
 	}
 
@@ -79,6 +79,11 @@ unsigned int ReceiveChallengeOrResponseAddr = 0x45522e;
 int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	PlayerStruct* me = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
+	if (!me->PlayerActive || me->DirectPlayID == 0 || (me->PlayerInfo->PropertyMask & WATCH) || DataShare->PlayingDemo) {
+		return 0;
+	}
+
 	char* buffer = (char*)taPtr->PacketBuffer_p;
 	if (buffer[0] == 0x05 && buffer[1] == 0x00 && buffer[2] == 0x2b) {
 		ChallengeResponseMessage msg;
@@ -228,6 +233,9 @@ void ChallengeResponse::SetPlayerResponse(unsigned dpid, unsigned crc1, unsigned
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_12)))
 void ChallengeResponse::VerifyResponses()
 {
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	PlayerStruct* localPlayer = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
+
 	for (auto it = m_responses.begin(); it != m_responses.end(); ++it) {
 		unsigned dpid = it->first;
 		unsigned nonse = std::get<0>(it->second);
@@ -238,28 +246,40 @@ void ChallengeResponse::VerifyResponses()
 
 		PlayerStruct* p = FindPlayerByDPID(dpid);
 		std::string playerName = p ? p->Name : std::to_string(dpid);
+
+		char msg[65] = { 0 };
+		std::ostringstream ss;
+		ss << "[AntiCheat] ";
+
 		if (replyCrc[0] == 0u) {
-			std::ostringstream ss;
-			ss << playerName << " did not respond to anti-cheat challenge!";
+			ss << playerName << " did not respond!";
 			SendText(ss.str().c_str(), 0);
+			msg[0] = 0x05;	// chat
+			std::strncpy(msg + 1, ss.str().c_str(), 64);
+			ss << " They lack AntiCheat feature (or packet loss)";
 			m_persistentCheatWarnings.push_back(ss.str());
 		}
 		else if (replyCrc[0] == ourCrc[0] && replyCrc[1] == ourCrc[1]) {
-			std::ostringstream ss;
-			ss << playerName << " passed anti-cheat challenge";
-			SendText(ss.str().c_str(), 0);
 		}
 		else if (replyCrc[0] != ourCrc[0]) {
-			std::ostringstream ss;
-			ss << playerName << "'s executables are different to yours!";
+			ss << playerName << '/' << localPlayer->Name << " exe or dll mismatch!";
 			SendText(ss.str().c_str(), 0);
+			msg[0] = 0x05;	// chat
+			std::strncpy(msg + 1, ss.str().c_str(), 64);
+			ss << " Players use different exe/dll versions";
 			m_persistentCheatWarnings.push_back(ss.str());
 		}
 		else if (replyCrc[1] != ourCrc[1]) {
-			std::ostringstream ss;
-			ss << playerName << "'s game data differs from yours!";
+			ss << playerName << '/' << localPlayer->Name << " game data mismatch!";
 			SendText(ss.str().c_str(), 0);
+			msg[0] = 0x05;	// chat
+			std::strncpy(msg + 1, ss.str().c_str(), 64);
+			ss << " Someone is cheating";
 			m_persistentCheatWarnings.push_back(ss.str());
+		}
+
+		if (msg[0] != 0) {
+			HAPI_BroadcastMessage(localPlayer->DirectPlayID, msg, sizeof(msg));
 		}
 	}
 }
@@ -391,7 +411,7 @@ void ChallengeResponse::Blit(OFFSCREEN* offscreen)
 	for (unsigned n = 0u; n < m_persistentCheatWarnings.size(); ++n) {
 		// y-coordinate on which the +clock Game Time was drawn
 		int yOff = offscreen->Height - 15 * n - 64;
-		std::string msg = "[AntiCheat Warning] " + m_persistentCheatWarnings[n];
+		std::string msg = m_persistentCheatWarnings[n];
 		DrawTextInScreen(offscreen, const_cast<char*>(msg.c_str()), 129, yOff, -1);
 	}
 }
