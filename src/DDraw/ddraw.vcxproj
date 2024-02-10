@@ -188,6 +188,9 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
 )
 </Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>powershell -ExecutionPolicy Bypass -File "random_code_seg_keys.ps1"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">
     <Midl>
@@ -247,15 +250,19 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
   <ItemGroup>
     <ClCompile Include="AutoTeam.cpp" />
     <ClCompile Include="BattleroomCommands.cpp" />
+    <ClCompile Include="ChallengeResponse.cpp" />
     <ClCompile Include="Guiexport.cpp" />
     <ClCompile Include="MappedMAP.cpp" />
     <ClCompile Include="MegamapControl.cpp" />
     <ClCompile Include="MegamapTAStuff.cpp" />
+    <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
     <ClInclude Include="AutoTeam.h" />
     <ClInclude Include="BattleroomCommands.h" />
+    <ClInclude Include="ChallengeResponse.h" />
     <ClInclude Include="MegamapControl.h" />
     <ClInclude Include="megamaptastuff.h" />
+    <ClInclude Include="nswfl_crc32.h" />
     <ClInclude Include="ProjectilesMap.h">
       <FileType>CppCode</FileType>
     </ClInclude>
@@ -411,6 +418,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="oddraw.h" />
     <ClInclude Include="PCX.H" />
     <ClInclude Include="pcxread.h" />
+    <ClInclude Include="random_code_seg_keys.h" />
     <ClInclude Include="rings.h" />
     <ClInclude Include="sharedialog.h" />
     <ClInclude Include="StartPositions.h" />
