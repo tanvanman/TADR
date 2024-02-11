@@ -383,7 +383,6 @@ void ChallengeResponse::CrcGamingState(unsigned* crc)
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->PlayerUnitsNumber_Skim, 2);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->MaxUnitNumberPerPlayer, 2);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->SoftwareDebugMode, 2);
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->SingleCommanderDeath, (char*)&taPtr[1] - (char*)&taPtr->SingleCommanderDeath);
 }
 #pragma code_seg(pop)
 
@@ -597,17 +596,13 @@ void ChallengeResponse::LogGamingState(const std::string& filename)
 	fs << "========== GamingState:\n";
 	fs << "surfacemetal,minwind_gs,maxwind_gs,gravity_gs,tidal_gs,islava,"
 		<< "minwind,maxwind,gravity,tidal,"
-		<< "sealevel,mapdebugmode,lostype,"
-		<< "windspeedlimit,playerunitsnumber_skim,maxunitnumberperplayer,softwaredebugmode,"
-		<< "singlecommanderdeath,singlemapping,singlelineofsight,singlelostype,"
-		<< "multicomdeath,multimapping,multilineofsight,lostypeoptions,netstatemask,gamestatemask\n";
+		<< "sealevel,mapdebugmode,"
+		<< "windspeedlimit,lostype,playerunitsnumber_skim,maxunitnumberperplayer,softwaredebugmode\n";
 
 	fs << g->surfaceMetal << ',' << g->minWindSpeed << ',' << g->maxWindSpeed << ',' << g->gravity << ',' << g->tidalStrength << ',' << g->isLavaMap << ','
 		<< taPtr->MinWindSpeed << ',' << taPtr->MaxWindSpeed << ',' << taPtr->Gravity << ',' << taPtr->TidalStrength << ','
-		<< int(taPtr->SeaLevel) << ',' << int(taPtr->mapDebugMode) << ',' << taPtr->LosType << ','
-		<< taPtr->WindSpeedHardLimit << ',' << taPtr->PlayerUnitsNumber_Skim << ',' << taPtr->MaxUnitNumberPerPlayer << ',' << taPtr->SoftwareDebugMode << ','
-		<< taPtr->SingleCommanderDeath << ',' << taPtr->SingleMapping << ',' << taPtr->SingleLineOfSight << ',' << taPtr->SingleLOSType_ << ','
-		<< taPtr->MultiCommanderDeath << ',' << taPtr->MultiMapping << ',' << taPtr->MultiLineOfSight << ',' << taPtr->LOSTypeOptions << ',' << taPtr->NetStateMask0 << ',' << taPtr->GameStateMask << '\n';
+		<< int(taPtr->SeaLevel) << ',' << int(taPtr->mapDebugMode) << ','
+		<< taPtr->WindSpeedHardLimit << ',' << taPtr->LosType << ',' << taPtr->PlayerUnitsNumber_Skim << ',' << taPtr->MaxUnitNumberPerPlayer << ',' << taPtr->SoftwareDebugMode << '\n';
 }
 #pragma code_seg(pop)
 
