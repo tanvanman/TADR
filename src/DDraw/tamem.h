@@ -318,10 +318,12 @@ typedef struct _Position_Dword
 //settimer 4fb368
 
 struct TAdynmemStruct{
-	char data1[12];
-	_TAProgramStruct * TAProgramStruct_Ptr;
-	DSoundStruct *DSound;
-	char data2[0x505];
+	char data1[12];				// 0x0000
+	_TAProgramStruct * TAProgramStruct_Ptr;	// 0x000c
+	DSoundStruct *DSound;		// 0x0010
+	char data2a[0x4b5];			// 0x0014
+	unsigned HAPI_net_data0;	// 0x04c9	from DirectPlayID
+	char data2b[0x4c];
 	_GUIInfo desktopGUI;
 	char data3[0x97C];
 	PlayerStruct Players[10];	//0x1B63 , end at 0x2851
@@ -331,7 +333,8 @@ struct TAdynmemStruct{
 	unsigned int AllyStruct_Ptr;// 0x29a0
 	char data6[0x2c];			// 0x29a4
 	StartPositionsStruct startPositions;// 0x29d0		// populated during multiplayer load
-	char data6b[0x10];				// 0x2a24
+	char data6b[0x0c];				// 0x2a24
+	void* RestrictUnitList;			// 0x2a30
 	unsigned int PacketBufferSize;	// 0x2a34
 	unsigned int PacketBuffer_p;
 	unsigned short PlayerCounters;
@@ -368,7 +371,7 @@ struct TAdynmemStruct{
 	char BuildSpotState; //0x40=notoktobuild
 	char data12[0x2C];
 
-	WeaponStruct Weapons[256];  //0x2CF3  size=0x11500
+	WeaponStruct Weapons[256];  //0x2CF3  size=0x11500	weapon types definitions
 	//char data7[4];
 	int NumProjectiles;
 	ProjectileStruct *Projectiles;    //0x141F7
@@ -577,7 +580,7 @@ struct FeatureDefStruct {
 	int unknownField_D8;
 	int unknownField_DC;
 	int unknownField_E0;
-	int BurnWeapon;
+	WeaponStruct* BurnWeapon;
 	short SparkTime;
 	short Damage;
 	float Energy;
@@ -674,7 +677,7 @@ struct UnitDefStruct {
 	char *YardMap;
 	int canbuildCount;
 	LPVOID CANBUILD_ptr;
-	char data6[0x4];
+	int buildLimit;
 	unsigned short __X_Width;
 	unsigned short X_Width;
 	unsigned long data_7;

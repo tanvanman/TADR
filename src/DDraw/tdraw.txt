@@ -107,3 +107,4 @@ NEW FEATURES IN DETAIL:
     Maneuvre/roam: your construction units will both look for reclaim and for units that need repair or assist
 
   Mash the 'v' key to get the desired movement order and then set a patrol route.
+

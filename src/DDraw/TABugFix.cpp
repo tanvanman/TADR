@@ -3,6 +3,7 @@
 #include "iddrawsurface.h"
 
 
+#include "ChallengeResponse.h"
 #include "hook/etc.h"
 #include "hook/hook.h"
 
@@ -131,7 +132,13 @@ int __stdcall DisplayWindSpeedProc(PInlineX86StackBuffer X86StrackBuffer)
 		OFFSCREEN* offScreen = (OFFSCREEN*)(X86StrackBuffer->Esp + 52);
 
 		DrawTextInScreen(offScreen, Textbuf, 260, yOff, -1);
+
+		TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+		if (taPtr->GameTime < 9000) {
+			ChallengeResponse::GetInstance()->Blit(offScreen);
+		}
 	}
+
 	return 0;
 }
 

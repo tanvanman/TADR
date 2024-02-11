@@ -13,6 +13,7 @@ using namespace std;
 #include "hook/hook.h"
 #include "UnicodeSupport.h"
 #include "MenuResolution.h"
+#include "ChallengeResponse.h"
 
 #include "tamem.h"
 #include "tafunctions.h"
@@ -180,6 +181,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 		AddtionInitAfterDDrawHook= new InlineSingleHook ( AddtionInitAfterDDrawAddr, 5, 
 			INLINE_5BYTESLAGGERJMP, AddtionInitAfterDDraw);
+
+		ChallengeResponse::GetInstance();
+
 	}
 	if(reason==DLL_PROCESS_DETACH)
 	{
