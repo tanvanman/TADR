@@ -335,21 +335,77 @@ void ChallengeResponse::CrcFeatures(unsigned* crc)
 void ChallengeResponse::CrcUnits(unsigned* crc)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+
+#ifdef _DEBUG
+	{
+		std::ofstream fs("anticheat-units.txt");
+		fs << "n,ID,name,buildlimit,footx,footy,_xwidth,xwidth,"
+			"data7,ywidith,_ywidth,data8,_zwidth,zwidth,data9,data10,"
+			"data11,data12,data13,buildcostenergy,buildcostmetal,maxvelocity,data15,data16,"
+			"acceleration,bankscale,pitchscale,damagemodifier,moverate1,moverate2,movementclass,turnrate,"
+			"corpse,maxwaterdepth,minwaterdepth,energymake,energyuse,metalmake,extractsmetal,windgenerator,"
+			"tidalgenerator,cloakcost,cloakcostmoving,energystorage,metalstorage,buildtime,"
+			"yardmap,"
+			"weapon1name,weapon1id,"
+			"weapon2name,weapon2id,"
+			"weapon3name,weapon3id,"
+			"maxhp,data8,workertime,healtime,sightdistance,radardistance,sonardistance,mincloakdistance,"
+			"radardistancejam,sonardistancejam,nbuilddistance,builddistance,nmaneuverleashlength,attackrunlength,kamikazedistance,sortbias,"
+			"cruisealt,data4,maxslope,badslope,transportsize,transportcapacity,waterline,makesmetal,"
+			"bmcode,mask0,mask1\n";
+		for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
+			UnitDefStruct* u = &taPtr->UnitDef[n];
+			fs << n << ',' << u->UnitTypeID << ',' << u->Name << ',' << u->buildLimit << ',' << u->FootX << ',' << u->FootY << ',' << u->__X_Width << ',' << u->X_Width << ','
+				<< u->data_7 << ',' << u->Y_Width << ',' << u->__Y_Width << ',' << u->data8 << ',' << u->__Z_Width << ',' << u->Z_Width << ',' << u->data_9 << ',' << u->data_10 << ','
+				<< u->data_11 << ',' << u->data_12 << ',' << u->data_13 << ',' << u->buildcostenergy << ',' << u->buildcostmetal << ',' << u->lRawSpeed_maxvelocity << ',' << u->data_15 << ',' << u->data_16 << ','
+				<< u->cceleration << ',' << u->bankscale << ',' << u->pitchscale << ',' << u->damagemodifier << ',' << u->moverate1 << ',' << u->moverate2 << ',' << u->movementclass << ',' << u->turnrate << ','
+				<< u->corpse << ',' << u->maxwaterdepth << ',' << u->minwaterdepth << ',' << u->energymake << ',' << u->energyuse << ',' << u->metalmake << ',' << u->extractsmetal << ',' << u->windgenerator << ','
+				<< u->tidalgenerator << ',' << u->cloakcost << ',' << u->cloakcostmoving << ',' << u->energystorage << ',' << u->metalstorage << ',' << u->buildtime << ',';
+			if (u->YardMap) {
+				fs.write(u->YardMap, u->FootX * u->FootY);
+				fs << ',';
+			}
+			else {
+				fs << "NULL,";
+			}
+			if (u->weapon1 && u->weapon1->WeaponName)
+				fs << u->weapon1->WeaponName << ',' << int(u->weapon1->ID) << ',';
+			else
+				fs << "NULL,NULL,";
+			if (u->weapon2 && u->weapon2->WeaponName)
+				fs << u->weapon2->WeaponName << ',' << int(u->weapon2->ID) << ',';
+			else
+				fs << "NULL,NULL,";
+			if (u->weapon3 && u->weapon3->WeaponName)
+				fs << u->weapon3->WeaponName << ',' << int(u->weapon3->ID) << ',';
+			else
+				fs << "NULL,NULL,";
+			fs
+				<< u->nMaxHP << ',' << u->data8 << ',' << u->nWorkerTime << ',' << u->nHealTime << ',' << u->nSightDistance << ',' << u->nRadarDistance << ',' << u->nSonarDistance << ',' << u->mincloakdistance << ','
+				<< u->radardistancejam << ',' << u->sonardistancejam << ',' << u->nBuildDistance << ',' << u->builddistance << ',' << u->nManeuverLeashLength << ',' << u->attackrunlength << ',' << u->kamikazedistance << ',' << u->sortbias << ','
+				<< int(u->cruisealt) << ',' << int(u->data4) << ',' << int(u->maxslope) << ',' << int(u->badslope) << ',' << int(u->transportsize) << ',' << int(u->transportcapacity) << ',' << int(u->waterline) << ',' << u->makesmetal << ','
+				<< int(u->bmcode) << ',' << u->UnitTypeMask_0 << ',' << u->UnitTypeMask_1 << '\n';
+		}
+	}
+#endif
+
 	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
 		UnitDefStruct* u = &taPtr->UnitDef[n];
-		m_crc.PartialCRC(crc, (unsigned char*)&u->FootX, 4);
-		if (u->YardMap) m_crc.PartialCRC(crc, (unsigned char*)u->YardMap, u->FootX* u->FootY);
-		m_crc.PartialCRC(crc, (unsigned char*)&u->canbuildCount, 4);
-		m_crc.PartialCRC(crc, (unsigned char*)&u->lRawSpeed_maxvelocity, (char*)&u->weapon1 - (char*)&u->lRawSpeed_maxvelocity);
-		m_crc.PartialCRC(crc, (unsigned char*)&u->__X_Width, (char*)&u->data_14 - (char*)&u->__X_Width);
-		if (u->weapon1) m_crc.PartialCRC(crc, (unsigned char*)&u->weapon1->ID, 1);
-		if (u->weapon2) m_crc.PartialCRC(crc, (unsigned char*)&u->weapon2->ID, 1);
-		if (u->weapon3) m_crc.PartialCRC(crc, (unsigned char*)&u->weapon3->ID, 1);
-		if (u->ExplodeAs) m_crc.PartialCRC(crc, (unsigned char*)&u->ExplodeAs->ID, 1);
-		if (u->SelfeDestructAs) m_crc.PartialCRC(crc, (unsigned char*)&u->SelfeDestructAs->ID, 1);
-		m_crc.PartialCRC(crc, (unsigned char*)&u->nMaxHP, (char*)&u->ExplodeAs - (char*)&u->nMaxHP);
-		m_crc.PartialCRC(crc, (unsigned char*)&u->maxslope, (char*)&u->wpri_badTargetCategory_MaskAryPtr - (char*)&u->maxslope);
-		m_crc.PartialCRC(crc, (unsigned char*)&u->UnitTypeMask_0, 16);
+		if (u->buildLimit != 0) {
+			m_crc.PartialCRC(crc, (unsigned char*)&u->FootX, 4);
+			if (u->YardMap) m_crc.PartialCRC(crc, (unsigned char*)u->YardMap, u->FootX * u->FootY);
+			m_crc.PartialCRC(crc, (unsigned char*)&u->buildLimit, 4);
+			m_crc.PartialCRC(crc, (unsigned char*)&u->__X_Width, (char*)&u->data_14 - (char*)&u->__X_Width);
+			m_crc.PartialCRC(crc, (unsigned char*)&u->lRawSpeed_maxvelocity, (char*)&u->weapon1 - (char*)&u->lRawSpeed_maxvelocity);
+			if (u->weapon1) m_crc.PartialCRC(crc, (unsigned char*)&u->weapon1->ID, 1);
+			if (u->weapon2) m_crc.PartialCRC(crc, (unsigned char*)&u->weapon2->ID, 1);
+			if (u->weapon3) m_crc.PartialCRC(crc, (unsigned char*)&u->weapon3->ID, 1);
+			if (u->ExplodeAs) m_crc.PartialCRC(crc, (unsigned char*)&u->ExplodeAs->ID, 1);
+			if (u->SelfeDestructAs) m_crc.PartialCRC(crc, (unsigned char*)&u->SelfeDestructAs->ID, 1);
+			m_crc.PartialCRC(crc, (unsigned char*)&u->nMaxHP, (char*)&u->ExplodeAs - (char*)&u->nMaxHP);
+			m_crc.PartialCRC(crc, (unsigned char*)&u->maxslope, (char*)&u->wpri_badTargetCategory_MaskAryPtr - (char*)&u->maxslope);
+			m_crc.PartialCRC(crc, (unsigned char*)&u->UnitTypeMask_0, 2 * sizeof(long));
+		}
 	}
 }
 #pragma code_seg(pop)
@@ -359,10 +415,31 @@ void ChallengeResponse::CrcGamingState(unsigned* crc)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	GameingState* g = taPtr->GameingState_Ptr;
+
+#ifdef _DEBUG
+	std::ofstream fs("anticheat-gamingstate.txt");
+	fs << "surfacemetal,minwind_gs,maxwind_gs,gravity_gs,tidal_gs,islava,"
+		<< "minwind,maxwind,gravity,tidal,"
+		<< "sealevel,mapdebugmode,lostype,"
+		<< "windspeedlimit,playerunitsnumber_skim,maxunitnumberperplayer,softwaredebugmode,"
+		<< "singlecommanderdeath,singlemapping,singlelineofsight,singlelostype,"
+		<< "multicomdeath,multimapping,multilineofsight,lostypeoptions,netstatemask,gamestatemask\n";
+
+	fs << g->surfaceMetal << ',' << g->minWindSpeed << ',' << g->maxWindSpeed << ',' << g->gravity << ',' << g->tidalStrength << ',' << g->isLavaMap << ','
+		<< taPtr->MinWindSpeed << ',' << taPtr->MaxWindSpeed << ',' << taPtr->Gravity << ',' << taPtr->TidalStrength << ','
+		<< int(taPtr->SeaLevel) << ',' << int(taPtr->mapDebugMode) << ',' << taPtr->LosType << ','
+		<< taPtr->WindSpeedHardLimit << ',' << taPtr->PlayerUnitsNumber_Skim << ',' << taPtr->MaxUnitNumberPerPlayer << ',' << taPtr->SoftwareDebugMode << ','
+		<< taPtr->SingleCommanderDeath << ',' << taPtr->SingleMapping << ',' << taPtr->SingleLineOfSight << ',' << taPtr->SingleLOSType_ << ','
+		<< taPtr->MultiCommanderDeath << ',' << taPtr->MultiMapping << ',' << taPtr->MultiLineOfSight << ',' << taPtr->LOSTypeOptions << ',' << taPtr->NetStateMask0 << ',' << taPtr->GameStateMask << '\n';
+#endif
+
 	m_crc.PartialCRC(crc, (unsigned char*)&g->surfaceMetal, (char*)&g->schemaInfo[0] - (char*)&g->surfaceMetal);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->MinWindSpeed, (char*)&taPtr->data16 - (char*)&taPtr->MinWindSpeed);
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->SeaLevel, (char*)&taPtr->TILE_SET - (char*)&taPtr->SeaLevel);
+	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->SeaLevel, 1);
+	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->mapDebugMode, 1);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->WindSpeedHardLimit, 4);
+	unsigned short losType = taPtr->LosType & 7;
+	m_crc.PartialCRC(crc, (unsigned char*)&losType, 2);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->PlayerUnitsNumber_Skim, 2);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->MaxUnitNumberPerPlayer, 2);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->SoftwareDebugMode, 2);

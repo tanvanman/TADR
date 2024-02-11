@@ -333,7 +333,8 @@ struct TAdynmemStruct{
 	unsigned int AllyStruct_Ptr;// 0x29a0
 	char data6[0x2c];			// 0x29a4
 	StartPositionsStruct startPositions;// 0x29d0		// populated during multiplayer load
-	char data6b[0x10];				// 0x2a24
+	char data6b[0x0c];				// 0x2a24
+	void* RestrictUnitList;			// 0x2a30
 	unsigned int PacketBufferSize;	// 0x2a34
 	unsigned int PacketBuffer_p;
 	unsigned short PlayerCounters;
@@ -676,7 +677,7 @@ struct UnitDefStruct {
 	char *YardMap;
 	int canbuildCount;
 	LPVOID CANBUILD_ptr;
-	char data6[0x4];
+	int buildLimit;
 	unsigned short __X_Width;
 	unsigned short X_Width;
 	unsigned long data_7;
