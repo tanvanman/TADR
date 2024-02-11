@@ -46,12 +46,21 @@ private:
 
 	std::vector<std::string> m_persistentCheatWarnings;
 
+	std::vector<std::string> GetModules();
 	void SnapshotModule(HMODULE hModule);
 	void SnapshotFile(const char* filename);
+
 	void CrcModules(unsigned* crc);
 	void CrcWeapons(unsigned* crc);
 	void CrcFeatures(unsigned* crc);
 	void CrcUnits(unsigned* crc);
 	void CrcGamingState(unsigned* crc);
 	void CrcMapSnapshot(unsigned* crc);
+
+	void LogAll(const std::string &filename);
+	void LogWeapons(const std::string& filename);
+	void LogFeatures(const std::string& filename);
+	void LogUnits(const std::string& filename);
+	void LogGamingState(const std::string& filename);
+	void LogMapSnapshot(const std::string& filename);
 };

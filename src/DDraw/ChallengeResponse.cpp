@@ -26,6 +26,23 @@ struct ChallengeResponseMessage {
 };
 #pragma pack()
 
+static std::string toLowerCase(const std::string& str) {
+	std::string result;
+	for (char c : str) {
+		result += std::tolower(c);
+	}
+	return result;
+}
+
+static bool endsWith(const std::string& fullString, const std::string& ending) {
+	if (fullString.length() >= ending.length()) {
+		return (0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending));
+	}
+	else {
+		return false;
+	}
+}
+
 unsigned int ChallengeResponseUpdateAddr = 0x4954b7;
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_1)))
 int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
@@ -70,6 +87,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 	else if (taPtr->GameTime == 300) {
 		ChallengeResponse::GetInstance()->VerifyResponses();
 	}
+
 	return 0;
 }
 #pragma code_seg(pop)
@@ -114,6 +132,10 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 ChallengeResponse::ChallengeResponse():
 	m_rng(std::random_device()())
 {
+#ifndef NDEBUG
+	std::ofstream fs("ErrorLog.txt");	// clear the errorlog
+#endif
+
 	m_crc.Initialize();
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(ChallengeResponseUpdateAddr, 5, INLINE_5BYTESLAGGERJMP, ChallengeResponseUpdateProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(ReceiveChallengeOrResponseAddr, 5, INLINE_5BYTESLAGGERJMP, ReceiveChallengeOrResponseProc));
@@ -159,6 +181,12 @@ void ChallengeResponse::SnapshotModules()
 	// this process
 	hModule = GetModuleHandle(NULL);
 	SnapshotModule(hModule);
+
+	for (const std::string& path : GetModules()) {
+		if (endsWith(toLowerCase(path), "playx.dll")) {
+			SnapshotFile(path.c_str());
+		}
+	}
 }
 #pragma code_seg(pop)
 
@@ -167,22 +195,7 @@ void ChallengeResponse::SnapshotModule(HMODULE hModule)
 {
 	CHAR moduleFileName[MAX_PATH];
 	GetModuleFileNameEx(GetCurrentProcess(), hModule, moduleFileName, MAX_PATH);
-
-	std::ifstream file(moduleFileName, std::ios::binary);
-	if (!file.is_open()) {
-		return;
-	}
-
-	file.seekg(0, std::ios::end);
-	std::streamsize fileSize = file.tellg();
-	file.seekg(0, std::ios::beg);
-
-	std::shared_ptr<std::vector<unsigned char> > moduleOnDisk(new std::vector<unsigned char>(fileSize));
-	if (!file.read(reinterpret_cast<char*>(moduleOnDisk->data()), fileSize)) {
-		return;
-	}
-
-	m_moduleInitialDiskSnapshots.push_back(moduleOnDisk);
+	SnapshotFile(moduleFileName);
 }
 #pragma code_seg(pop)
 
@@ -196,18 +209,16 @@ unsigned ChallengeResponse::NewNonse()
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_9)))
 void ChallengeResponse::ComputeChallengeResponse(unsigned nonse, unsigned crcs[2])
 {
-	unsigned crc = RANDOM_CODE_SEG_0;
-	m_crc.PartialCRC(&crc, (unsigned char*)&nonse, sizeof(nonse));
+	crcs[0] = crcs[1] = RANDOM_CODE_SEG_0;
+	m_crc.PartialCRC(&crcs[0], (unsigned char*)&nonse, sizeof(nonse));
+	m_crc.PartialCRC(&crcs[1], (unsigned char*)&nonse, sizeof(nonse));
 
-	CrcModules(&crc);
-	crcs[0] = crc;
-
-	CrcWeapons(&crc);
-	CrcFeatures(&crc);
-	CrcUnits(&crc);
-	CrcGamingState(&crc);
-	CrcMapSnapshot(&crc);
-	crcs[1] = crc;
+	CrcModules(&crcs[0]);
+	CrcWeapons(&crcs[1]);
+	CrcFeatures(&crcs[1]);
+	CrcUnits(&crcs[1]);
+	CrcGamingState(&crcs[1]);
+	CrcMapSnapshot(&crcs[1]);
 
 	for (int i = 0; i < 2; ++i) {
 		crcs[i] = std::max(crcs[i], 1u);
@@ -249,14 +260,14 @@ void ChallengeResponse::VerifyResponses()
 
 		char msg[65] = { 0 };
 		std::ostringstream ss;
-		ss << "[AntiCheat] ";
+		ss << "[TDRAW] ";
 
 		if (replyCrc[0] == 0u) {
 			ss << playerName << " did not respond!";
 			SendText(ss.str().c_str(), 0);
 			msg[0] = 0x05;	// chat
 			std::strncpy(msg + 1, ss.str().c_str(), 64);
-			ss << " They lack AntiCheat feature (or packet loss)";
+			ss << " Their dll lacks version checking (or packet loss/crash)";
 			m_persistentCheatWarnings.push_back(ss.str());
 		}
 		else if (replyCrc[0] == ourCrc[0] && replyCrc[1] == ourCrc[1]) {
@@ -276,6 +287,7 @@ void ChallengeResponse::VerifyResponses()
 			std::strncpy(msg + 1, ss.str().c_str(), 64);
 			ss << " Someone is cheating";
 			m_persistentCheatWarnings.push_back(ss.str());
+			LogAll("ErrorLog.txt");
 		}
 
 		if (msg[0] != 0) {
@@ -314,7 +326,6 @@ void ChallengeResponse::CrcWeapons(unsigned* crc)
 void ChallengeResponse::CrcFeatures(unsigned* crc)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->NumFeatureDefs, 4);
 	for (int n = 0; n < taPtr->NumFeatureDefs; ++n) {
 		FeatureDefStruct* f = &taPtr->FeatureDef[n];
 		m_crc.PartialCRC(crc, (unsigned char*)&f->FootprintX, 2);
@@ -335,60 +346,6 @@ void ChallengeResponse::CrcFeatures(unsigned* crc)
 void ChallengeResponse::CrcUnits(unsigned* crc)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-
-#ifdef _DEBUG
-	{
-		std::ofstream fs("anticheat-units.txt");
-		fs << "n,ID,name,buildlimit,footx,footy,_xwidth,xwidth,"
-			"data7,ywidith,_ywidth,data8,_zwidth,zwidth,data9,data10,"
-			"data11,data12,data13,buildcostenergy,buildcostmetal,maxvelocity,data15,data16,"
-			"acceleration,bankscale,pitchscale,damagemodifier,moverate1,moverate2,movementclass,turnrate,"
-			"corpse,maxwaterdepth,minwaterdepth,energymake,energyuse,metalmake,extractsmetal,windgenerator,"
-			"tidalgenerator,cloakcost,cloakcostmoving,energystorage,metalstorage,buildtime,"
-			"yardmap,"
-			"weapon1name,weapon1id,"
-			"weapon2name,weapon2id,"
-			"weapon3name,weapon3id,"
-			"maxhp,data8,workertime,healtime,sightdistance,radardistance,sonardistance,mincloakdistance,"
-			"radardistancejam,sonardistancejam,nbuilddistance,builddistance,nmaneuverleashlength,attackrunlength,kamikazedistance,sortbias,"
-			"cruisealt,data4,maxslope,badslope,transportsize,transportcapacity,waterline,makesmetal,"
-			"bmcode,mask0,mask1\n";
-		for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
-			UnitDefStruct* u = &taPtr->UnitDef[n];
-			fs << n << ',' << u->UnitTypeID << ',' << u->Name << ',' << u->buildLimit << ',' << u->FootX << ',' << u->FootY << ',' << u->__X_Width << ',' << u->X_Width << ','
-				<< u->data_7 << ',' << u->Y_Width << ',' << u->__Y_Width << ',' << u->data8 << ',' << u->__Z_Width << ',' << u->Z_Width << ',' << u->data_9 << ',' << u->data_10 << ','
-				<< u->data_11 << ',' << u->data_12 << ',' << u->data_13 << ',' << u->buildcostenergy << ',' << u->buildcostmetal << ',' << u->lRawSpeed_maxvelocity << ',' << u->data_15 << ',' << u->data_16 << ','
-				<< u->cceleration << ',' << u->bankscale << ',' << u->pitchscale << ',' << u->damagemodifier << ',' << u->moverate1 << ',' << u->moverate2 << ',' << u->movementclass << ',' << u->turnrate << ','
-				<< u->corpse << ',' << u->maxwaterdepth << ',' << u->minwaterdepth << ',' << u->energymake << ',' << u->energyuse << ',' << u->metalmake << ',' << u->extractsmetal << ',' << u->windgenerator << ','
-				<< u->tidalgenerator << ',' << u->cloakcost << ',' << u->cloakcostmoving << ',' << u->energystorage << ',' << u->metalstorage << ',' << u->buildtime << ',';
-			if (u->YardMap) {
-				fs.write(u->YardMap, u->FootX * u->FootY);
-				fs << ',';
-			}
-			else {
-				fs << "NULL,";
-			}
-			if (u->weapon1 && u->weapon1->WeaponName)
-				fs << u->weapon1->WeaponName << ',' << int(u->weapon1->ID) << ',';
-			else
-				fs << "NULL,NULL,";
-			if (u->weapon2 && u->weapon2->WeaponName)
-				fs << u->weapon2->WeaponName << ',' << int(u->weapon2->ID) << ',';
-			else
-				fs << "NULL,NULL,";
-			if (u->weapon3 && u->weapon3->WeaponName)
-				fs << u->weapon3->WeaponName << ',' << int(u->weapon3->ID) << ',';
-			else
-				fs << "NULL,NULL,";
-			fs
-				<< u->nMaxHP << ',' << u->data8 << ',' << u->nWorkerTime << ',' << u->nHealTime << ',' << u->nSightDistance << ',' << u->nRadarDistance << ',' << u->nSonarDistance << ',' << u->mincloakdistance << ','
-				<< u->radardistancejam << ',' << u->sonardistancejam << ',' << u->nBuildDistance << ',' << u->builddistance << ',' << u->nManeuverLeashLength << ',' << u->attackrunlength << ',' << u->kamikazedistance << ',' << u->sortbias << ','
-				<< int(u->cruisealt) << ',' << int(u->data4) << ',' << int(u->maxslope) << ',' << int(u->badslope) << ',' << int(u->transportsize) << ',' << int(u->transportcapacity) << ',' << int(u->waterline) << ',' << u->makesmetal << ','
-				<< int(u->bmcode) << ',' << u->UnitTypeMask_0 << ',' << u->UnitTypeMask_1 << '\n';
-		}
-	}
-#endif
-
 	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
 		UnitDefStruct* u = &taPtr->UnitDef[n];
 		if (u->buildLimit != 0) {
@@ -415,23 +372,6 @@ void ChallengeResponse::CrcGamingState(unsigned* crc)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	GameingState* g = taPtr->GameingState_Ptr;
-
-#ifdef _DEBUG
-	std::ofstream fs("anticheat-gamingstate.txt");
-	fs << "surfacemetal,minwind_gs,maxwind_gs,gravity_gs,tidal_gs,islava,"
-		<< "minwind,maxwind,gravity,tidal,"
-		<< "sealevel,mapdebugmode,lostype,"
-		<< "windspeedlimit,playerunitsnumber_skim,maxunitnumberperplayer,softwaredebugmode,"
-		<< "singlecommanderdeath,singlemapping,singlelineofsight,singlelostype,"
-		<< "multicomdeath,multimapping,multilineofsight,lostypeoptions,netstatemask,gamestatemask\n";
-
-	fs << g->surfaceMetal << ',' << g->minWindSpeed << ',' << g->maxWindSpeed << ',' << g->gravity << ',' << g->tidalStrength << ',' << g->isLavaMap << ','
-		<< taPtr->MinWindSpeed << ',' << taPtr->MaxWindSpeed << ',' << taPtr->Gravity << ',' << taPtr->TidalStrength << ','
-		<< int(taPtr->SeaLevel) << ',' << int(taPtr->mapDebugMode) << ',' << taPtr->LosType << ','
-		<< taPtr->WindSpeedHardLimit << ',' << taPtr->PlayerUnitsNumber_Skim << ',' << taPtr->MaxUnitNumberPerPlayer << ',' << taPtr->SoftwareDebugMode << ','
-		<< taPtr->SingleCommanderDeath << ',' << taPtr->SingleMapping << ',' << taPtr->SingleLineOfSight << ',' << taPtr->SingleLOSType_ << ','
-		<< taPtr->MultiCommanderDeath << ',' << taPtr->MultiMapping << ',' << taPtr->MultiLineOfSight << ',' << taPtr->LOSTypeOptions << ',' << taPtr->NetStateMask0 << ',' << taPtr->GameStateMask << '\n';
-#endif
 
 	m_crc.PartialCRC(crc, (unsigned char*)&g->surfaceMetal, (char*)&g->schemaInfo[0] - (char*)&g->surfaceMetal);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->MinWindSpeed, (char*)&taPtr->data16 - (char*)&taPtr->MinWindSpeed);
@@ -498,5 +438,204 @@ void ChallengeResponse::Blit(OFFSCREEN* offscreen)
 void ChallengeResponse::ClearPersistentMessages(void)
 {
 	m_persistentCheatWarnings.clear();
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_22)))
+std::vector<std::string> ChallengeResponse::GetModules()
+{
+	std::vector<std::string> results;
+
+	DWORD processId = GetCurrentProcessId();
+	HANDLE processHandle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
+	if (processHandle != NULL) {
+		HMODULE modules[1024];
+		DWORD needed;
+		if (EnumProcessModules(processHandle, modules, sizeof(modules), &needed)) {
+			TCHAR processPath[MAX_PATH];
+			if (GetModuleFileNameEx(processHandle, nullptr, processPath, MAX_PATH)) {
+				std::string currentProcessPath(processPath);
+				std::string currentProcessDirectory = currentProcessPath.substr(0, currentProcessPath.find_last_of("\\"));
+				for (DWORD i = 0; i < (needed / sizeof(HMODULE)); i++) {
+					TCHAR modulePath[MAX_PATH];
+					if (GetModuleFileNameEx(processHandle, modules[i], modulePath, MAX_PATH)) {
+						std::string moduleDirectory = std::string(modulePath).substr(0, std::string(modulePath).find_last_of("\\"));
+						if (toLowerCase(currentProcessDirectory) == toLowerCase(moduleDirectory)) {
+							results.push_back(modulePath);
+						}
+					}
+				}
+			}
+		}
+		CloseHandle(processHandle);
+	}
+
+	return results;
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_23)))
+void ChallengeResponse::SnapshotFile(const char* moduleFileName)
+{
+	std::ifstream file(moduleFileName, std::ios::binary);
+	if (!file.is_open()) {
+		return;
+	}
+
+	file.seekg(0, std::ios::end);
+	std::streamsize fileSize = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	std::shared_ptr<std::vector<unsigned char> > moduleOnDisk(new std::vector<unsigned char>(fileSize));
+	if (!file.read(reinterpret_cast<char*>(moduleOnDisk->data()), fileSize)) {
+		return;
+	}
+
+	m_moduleInitialDiskSnapshots.push_back(moduleOnDisk);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_24)))
+void ChallengeResponse::LogWeapons(const std::string& filename)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	std::ofstream fs(filename, std::ios::app);
+	fs << "========== Weapons:\n";
+	fs << "n,ID,name,damage,AEO,edgeeffectiveness,range,data5,coverage,weapontypemask\n";
+	for (int n = 0; n < 256; ++n) {
+		WeaponStruct* w = &taPtr->Weapons[n];
+		if (w->WeaponName[0] != '\0') {
+			fs << n << ',' << int(w->ID) << ',' << w->WeaponName << ',' << w->Damage << ',' << w->AOE << ',' << w->EdgeEffectivnes << ',' 
+				<< w->Range << ',' << w->data5 << ',' << w->coverage << ',' << w->WeaponTypeMask << '\n';
+		}
+	}
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_25)))
+void ChallengeResponse::LogFeatures(const std::string& filename)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	std::ofstream fs(filename, std::ios::app);
+	fs << "========== Features:\n";
+	fs << "n,name,footx,footz,burnweapon,sparktime,damage,energy,metal,height,featuremask\n";
+	for (int n = 0; n < taPtr->NumFeatureDefs; ++n) {
+		FeatureDefStruct* f = &taPtr->FeatureDef[n];
+		fs << n << ',' << f->Name << ',' << f->FootprintX << ',' << f->FootprintZ << ',';
+		if (f->BurnWeapon)
+			fs << int(f->BurnWeapon->ID) << ',';
+		else
+			fs << "NULL,";
+		fs << f->SparkTime << ',' << f->Damage << ',' << f->Energy << ',' << f->Metal << ',' << int(f->Height) << ',' << (f->FeatureMask&0x0fff) << '\n';
+	}
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_26)))
+void ChallengeResponse::LogUnits(const std::string &filename)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	std::ofstream fs(filename, std::ios::app);
+	fs << "========== Units:\n";
+	fs << "n,ID,name,buildlimit,footx,footy,_xwidth,xwidth,"
+		"data7,ywidith,_ywidth,data8,_zwidth,zwidth,data9,data10,"
+		"data11,data12,data13,buildcostenergy,buildcostmetal,maxvelocity,data15,data16,"
+		"acceleration,bankscale,pitchscale,damagemodifier,moverate1,moverate2,movementclass,turnrate,"
+		"corpse,maxwaterdepth,minwaterdepth,energymake,energyuse,metalmake,extractsmetal,windgenerator,"
+		"tidalgenerator,cloakcost,cloakcostmoving,energystorage,metalstorage,buildtime,"
+		"yardmap,"
+		"weapon1name,weapon1id,"
+		"weapon2name,weapon2id,"
+		"weapon3name,weapon3id,"
+		"maxhp,data8,workertime,healtime,sightdistance,radardistance,sonardistance,mincloakdistance,"
+		"radardistancejam,sonardistancejam,nbuilddistance,builddistance,nmaneuverleashlength,attackrunlength,kamikazedistance,sortbias,"
+		"cruisealt,data4,maxslope,badslope,transportsize,transportcapacity,waterline,makesmetal,"
+		"bmcode,mask0,mask1\n";
+	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
+		UnitDefStruct* u = &taPtr->UnitDef[n];
+		fs << n << ',' << u->UnitTypeID << ',' << u->Name << ',' << u->buildLimit << ',' << u->FootX << ',' << u->FootY << ',' << u->__X_Width << ',' << u->X_Width << ','
+			<< u->data_7 << ',' << u->Y_Width << ',' << u->__Y_Width << ',' << u->data8 << ',' << u->__Z_Width << ',' << u->Z_Width << ',' << u->data_9 << ',' << u->data_10 << ','
+			<< u->data_11 << ',' << u->data_12 << ',' << u->data_13 << ',' << u->buildcostenergy << ',' << u->buildcostmetal << ',' << u->lRawSpeed_maxvelocity << ',' << u->data_15 << ',' << u->data_16 << ','
+			<< u->cceleration << ',' << u->bankscale << ',' << u->pitchscale << ',' << u->damagemodifier << ',' << u->moverate1 << ',' << u->moverate2 << ',' << u->movementclass << ',' << u->turnrate << ','
+			<< u->corpse << ',' << u->maxwaterdepth << ',' << u->minwaterdepth << ',' << u->energymake << ',' << u->energyuse << ',' << u->metalmake << ',' << u->extractsmetal << ',' << u->windgenerator << ','
+			<< u->tidalgenerator << ',' << u->cloakcost << ',' << u->cloakcostmoving << ',' << u->energystorage << ',' << u->metalstorage << ',' << u->buildtime << ',';
+		if (u->YardMap) {
+			fs.write(u->YardMap, u->FootX * u->FootY);
+			fs << ',';
+		}
+		else {
+			fs << "NULL,";
+		}
+		if (u->weapon1 && u->weapon1->WeaponName)
+			fs << u->weapon1->WeaponName << ',' << int(u->weapon1->ID) << ',';
+		else
+			fs << "NULL,NULL,";
+		if (u->weapon2 && u->weapon2->WeaponName)
+			fs << u->weapon2->WeaponName << ',' << int(u->weapon2->ID) << ',';
+		else
+			fs << "NULL,NULL,";
+		if (u->weapon3 && u->weapon3->WeaponName)
+			fs << u->weapon3->WeaponName << ',' << int(u->weapon3->ID) << ',';
+		else
+			fs << "NULL,NULL,";
+		fs
+			<< u->nMaxHP << ',' << u->data8 << ',' << u->nWorkerTime << ',' << u->nHealTime << ',' << u->nSightDistance << ',' << u->nRadarDistance << ',' << u->nSonarDistance << ',' << u->mincloakdistance << ','
+			<< u->radardistancejam << ',' << u->sonardistancejam << ',' << u->nBuildDistance << ',' << u->builddistance << ',' << u->nManeuverLeashLength << ',' << u->attackrunlength << ',' << u->kamikazedistance << ',' << u->sortbias << ','
+			<< int(u->cruisealt) << ',' << int(u->data4) << ',' << int(u->maxslope) << ',' << int(u->badslope) << ',' << int(u->transportsize) << ',' << int(u->transportcapacity) << ',' << int(u->waterline) << ',' << u->makesmetal << ','
+			<< int(u->bmcode) << ',' << u->UnitTypeMask_0 << ',' << u->UnitTypeMask_1 << '\n';
+	}
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_27)))
+void ChallengeResponse::LogGamingState(const std::string& filename)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	GameingState* g = taPtr->GameingState_Ptr;
+
+	std::ofstream fs(filename, std::ios::app);
+	fs << "========== GamingState:\n";
+	fs << "surfacemetal,minwind_gs,maxwind_gs,gravity_gs,tidal_gs,islava,"
+		<< "minwind,maxwind,gravity,tidal,"
+		<< "sealevel,mapdebugmode,lostype,"
+		<< "windspeedlimit,playerunitsnumber_skim,maxunitnumberperplayer,softwaredebugmode,"
+		<< "singlecommanderdeath,singlemapping,singlelineofsight,singlelostype,"
+		<< "multicomdeath,multimapping,multilineofsight,lostypeoptions,netstatemask,gamestatemask\n";
+
+	fs << g->surfaceMetal << ',' << g->minWindSpeed << ',' << g->maxWindSpeed << ',' << g->gravity << ',' << g->tidalStrength << ',' << g->isLavaMap << ','
+		<< taPtr->MinWindSpeed << ',' << taPtr->MaxWindSpeed << ',' << taPtr->Gravity << ',' << taPtr->TidalStrength << ','
+		<< int(taPtr->SeaLevel) << ',' << int(taPtr->mapDebugMode) << ',' << taPtr->LosType << ','
+		<< taPtr->WindSpeedHardLimit << ',' << taPtr->PlayerUnitsNumber_Skim << ',' << taPtr->MaxUnitNumberPerPlayer << ',' << taPtr->SoftwareDebugMode << ','
+		<< taPtr->SingleCommanderDeath << ',' << taPtr->SingleMapping << ',' << taPtr->SingleLineOfSight << ',' << taPtr->SingleLOSType_ << ','
+		<< taPtr->MultiCommanderDeath << ',' << taPtr->MultiMapping << ',' << taPtr->MultiLineOfSight << ',' << taPtr->LOSTypeOptions << ',' << taPtr->NetStateMask0 << ',' << taPtr->GameStateMask << '\n';
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_28)))
+void ChallengeResponse::LogMapSnapshot(const std::string& filename)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	std::ofstream fs(filename, std::ios::app);
+	fs << "========== Map:\n";
+	fs << "n,x,y,height,metal,feature,fddy,fddx\n";
+	const int N = taPtr->FeatureMapSizeX * taPtr->FeatureMapSizeY;
+	for (int n = 0; n < N; ++n) {
+		FeatureStruct* f = &m_featureMapSnapshot.get()[n];
+		int x = n % taPtr->FeatureMapSizeX;
+		int y = n / taPtr->FeatureMapSizeX;
+		fs << n << ',' << x << ',' << y << ',' <<
+			int(f->height) << ',' << int(f->MetalValue) << ',' << f->FeatureDefIndex << ',' << int(f->FeatureDefDx) << ',' << int(f->FeatureDefDy) << '\n';
+	}
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_29)))
+void ChallengeResponse::LogAll(const std::string& filename)
+{
+	LogWeapons(filename);
+	LogFeatures(filename);
+	LogUnits(filename);
+	LogGamingState(filename);
+	//LogMapSnapshot(filename);
 }
 #pragma code_seg(pop)

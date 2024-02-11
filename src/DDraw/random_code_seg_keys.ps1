@@ -1,5 +1,5 @@
 # Define the number of random numbers to generate
-$numberOfRandomNumbers = 24
+$numberOfRandomNumbers = 64
 
 # Generate an array of random numbers
 $randomNumbers = @()
