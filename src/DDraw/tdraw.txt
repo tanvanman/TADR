@@ -24,6 +24,7 @@ NEW FEATURES IN BRIEF:
 - Add ability to drag queued orders around the map
 - Con units patrol behaviour - hold position: reclaim only
 - Fix the "ghost com" bug (remote commanders appear in top left of map during first 50sec of game)
+- Fix the "units exploding in factories" bug by holding back recycling of deceased units' IDs for 5 seconds
 - Option to render DTs and fortwalls that belong to the map (not built by a player)
 - Supress "qqqqqq" whiteboard marker lables when "q" is used as the whiteboard key
 - Show weather report (solar, wind and tidal strength) along side +clock
