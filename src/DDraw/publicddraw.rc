@@ -51,8 +51,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2024,2,12, 1
- PRODUCTVERSION 2024, 2, 12, 1
+ FILEVERSION 2024,2,13, 1
+ PRODUCTVERSION 2024, 2, 13, 1
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -69,12 +69,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Swedish Yankspankers & TA Universe community"
             VALUE "FileDescription", "TA Unofficial Patch - Demo Recorder Component"
-            VALUE "FileVersion", "2024.2.12.1"
+            VALUE "FileVersion", "2024.2.13.1"
             VALUE "InternalName", "Swedish Eye"
             VALUE "LegalCopyright", "Copyright 2024"
             VALUE "OriginalFilename", "tdraw.dll"
             VALUE "ProductName", "TA PATCH"
-            VALUE "ProductVersion", "2024.2.12.1"
+            VALUE "ProductVersion", "2024.2.13.1"
         END
     END
     BLOCK "VarFileInfo"
