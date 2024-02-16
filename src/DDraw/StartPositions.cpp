@@ -38,6 +38,11 @@ static unsigned int InitStartPositionsHookProc(PInlineX86StackBuffer X86StrackBu
 
 	StartPositions::GetInstance()->InitStartPositions(isActivePlayer, startPositions, randomised);
 	START_POSITIONS_VALID = true;
+
+	for (int n = 0; n < 10; ++n) {
+		IDDrawSurface::OutptTxt("[InitStartPositionsHookProc] n=%d, IS_ACTIVE_PLAYER=%d, START_POSITION=%d",
+			n, IS_ACTIVE_PLAYER[n], START_POSITIONS[n]);
+	}
 	return 0;
 }
 
@@ -49,12 +54,15 @@ static unsigned int FixedStartPositionsHookProc(PInlineX86StackBuffer X86StrackB
 	{
 		return 0;
 	}
-	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4569e5;
 
-	PlayerInfoStruct* playerInfo = (PlayerInfoStruct*)X86StrackBuffer->Ecx;
 	PlayerStruct* player = (PlayerStruct*)(X86StrackBuffer->Edx + X86StrackBuffer->Eax + 0x1b63);
 
 	*(char*)X86StrackBuffer->Esi = START_POSITIONS[player->PlayerAryIndex];
+
+	IDDrawSurface::OutptTxt("[FixedStartPositionsHookProc] Name=%s, DirectPlayID=%d, PlayerAryIndex=%d, PlayerNum=%d, START_POSITIONS[PlayerAryIndex]=%d",
+		player->Name ? player->Name : "<null>", player->DirectPlayID, int(player->PlayerAryIndex), int(player->PlayerNum), START_POSITIONS[player->PlayerAryIndex]);
+
+	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4569e5;
 	return X86STRACKBUFFERCHANGE;
 }
 
@@ -66,11 +74,15 @@ static unsigned int RandomStartPositionsHookProc(PInlineX86StackBuffer X86Strack
 	{
 		return 0;
 	}
-	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x456a4b;
 
 	PlayerStruct* player = (PlayerStruct*)(X86StrackBuffer->Eax - 0x73);
 	*(char*)X86StrackBuffer->Edi = START_POSITIONS[player->PlayerAryIndex];
 	X86StrackBuffer->Edi += 4;
+
+	IDDrawSurface::OutptTxt("[RandomStartPositionsHookProc] Name=%s, DirectPlayID=%d, PlayerAryIndex=%d, PlayerNum=%d, START_POSITIONS[PlayerAryIndex]=%d",
+		player->Name ? player->Name : "<null>", player->DirectPlayID, int(player->PlayerAryIndex), int(player->PlayerNum), START_POSITIONS[player->PlayerAryIndex]);
+
+	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x456a4b;
 	return X86STRACKBUFFERCHANGE;
 }
 
@@ -140,6 +152,9 @@ void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositio
 {
 	int playerTeamNumbers[10] = { 0 };
 	GetTeamsFromAlliances(playerTeamNumbers, randomised);
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[InitStartPositions] i=%d, playerTeamNumbers=%d", i, playerTeamNumbers[i]);
+	}
 
 	if (CountLargestTeamSize(playerTeamNumbers) > 1)
 	{
@@ -152,6 +167,10 @@ void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositio
 	else
 	{
 		GetStartPositionsSequentialy(isActivePlayer, startPositions, randomised);
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[InitStartPositions] i=%d, isActivePlayer=%d, startPosition=%d", i, isActivePlayer[i], startPositions[i]);
 	}
 }
 
@@ -245,6 +264,10 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 		}
 	}
 
+	for (int i = 0; i < numTeams; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, teamSize=%d", i, teamSize[i]);
+	}
+
 	// track next positions to assign to each team
 	int nextPositionByTeam[10] = { -1 };
 	for (int i = 0; i < numTeams; ++i)
@@ -257,6 +280,10 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 	if (randomise)
 	{
 		std::shuffle(shuffle, shuffle + 10, m_rng);
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, shuffle=%d", i, shuffle[i]);
 	}
 
 	// make 1st pass naive assignments.  they might out of the range >= 10
@@ -273,6 +300,14 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 				isUsedPosition[positions[i]] = true;
 			}
 		}
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, 1st pass isUsedPosition=%d", i, isUsedPosition[i]);
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, 1st pass position=%d", i, positions[i]);
 	}
 
 	// repair out of range position assignments >= 10
@@ -293,6 +328,10 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 			positions[i] %= 10;
 		}
 	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, 2nd pass positions=%d", i, positions[i]);
+	}
 }
 
 void StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData* sm, int isActivePlayer[10], int startPositions[10])
@@ -304,6 +343,10 @@ void StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData*
 	{
 		isActivePlayer[n] = ta->Players[n].PlayerActive && !(ta->Players[n].PlayerInfo->PropertyMask & PlayerPropertyMask::WATCH);
 		startPositions[n] = -1;
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromSharedMemory] i=%d, isActivePlayer=%d", i, isActivePlayer[i]);
 	}
 
 	bool assignedPositions[10] = { false };
@@ -322,6 +365,14 @@ void StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData*
 				break;
 			}
 		}
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromSharedMemory] i=%d, assignedStartPosition=%d", i, assignedPositions[i]);
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromSharedMemory] i=%d, 1st pass startPositions=%d", i, startPositions[i]);
 	}
 	
 	for (int nPlayer = 0; nPlayer < 10; ++nPlayer)
@@ -344,6 +395,10 @@ void StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData*
 			startPositions[nPlayer] = 0;
 		}
 	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromSharedMemory] i=%d, 2nd pass startPositions=%d", i, startPositions[i]);
+	}
 }
 
 int StartPositions::GetStartPositionsSequentialy(int isActivePlayer[10], int startPositions[10], bool randomise)
@@ -357,10 +412,18 @@ int StartPositions::GetStartPositionsSequentialy(int isActivePlayer[10], int sta
 		startPositions[i] = -1;
 	}
 
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsSequentialy] i=%d, isActivePlayer=%d", i, isActivePlayer[i]);
+	}
+
 	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	if (randomise)
 	{
 		std::shuffle(shuffle, shuffle + 10, m_rng);
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsSequentialy] i=%d, shuffle=%d", i, shuffle[i]);
 	}
 
 	int nextStartPosition = 0;
@@ -372,5 +435,10 @@ int StartPositions::GetStartPositionsSequentialy(int isActivePlayer[10], int sta
 			startPositions[i] = nextStartPosition++;
 		}
 	}
+
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[GetStartPositionsSequentialy] i=%d, startPositions=%d", i, startPositions[i]);
+	}
+
 	return nextStartPosition;
 }
