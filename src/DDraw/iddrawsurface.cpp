@@ -69,6 +69,8 @@ IDDrawSurface::~IDDrawSurface()
 	delete DDDTA;
 }*/
 
+HANDLE IDDrawSurface::TDrawLogFile = 0;
+
 IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRECTDRAWSURFACE FAR *arg2, IUnknown FAR *arg3,  HRESULT * rtn_p, 
 	bool iWindowed, int iScreenWidth, int iScreenHeight)
 {
@@ -782,18 +784,16 @@ void IDDrawSurface::OutptTxt(const char* format, ...)
 #endif
 
 #ifdef DEBUG_INFO
-	//AnsiString CPath = "c:\\taddrawlog.txt";
-	DWORD t = GetTickCount();
-
-	std::string s = std::to_string(t) + " " + std::to_string(GetCurrentThreadId()) + " ---  " + buffer;
-
-	HANDLE file = CreateFileA("C:\\temp\\taddrawlog.txt", GENERIC_WRITE, 0, NULL, OPEN_ALWAYS	, 0, NULL);
-	DWORD tempWritten;
-	SetFilePointer ( file, 0, 0, FILE_END);
-	WriteFile ( file, s.c_str(), s.size(), &tempWritten, NULL);
-	WriteFile ( file, "\r\n", 2, &tempWritten, NULL);
-
-	CloseHandle ( file);
+	if (TDrawLogFile == 0) {
+		TDrawLogFile = CreateFileA("tdrawlog.txt", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+	}
+	if (TDrawLogFile != INVALID_HANDLE_VALUE) {
+		DWORD t = GetTickCount();
+		std::string s = std::to_string(t) + " " + std::to_string(GetCurrentThreadId()) + " --- " + buffer;
+		DWORD tempWritten;
+		WriteFile(TDrawLogFile, s.c_str(), s.size(), &tempWritten, NULL);
+		WriteFile(TDrawLogFile, "\r\n", 2, &tempWritten, NULL);
+	}
 #endif //DEBUG
 }
 

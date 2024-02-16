@@ -18,8 +18,8 @@ enum TAProcessEnum
 
 #define TADRCONFIGREGNAME ("Moo")
 
-// write to file C:\\temp\\taddrawlog.txt
-//#define DEBUG_INFO
+// write to tdrawlog.txt
+#define DEBUG_INFO
 
 // use OutputDebugStringA
 //#define DEBUG_INFO_2
@@ -148,6 +148,7 @@ private:
 	Dialog * SettingsDialog;
 	CChangeQueue * ChangeQueue;
 	CDDDTA * DDDTA;
+	static HANDLE TDrawLogFile;
 	
 	bool VidMem;
 	bool VerticalSync;
