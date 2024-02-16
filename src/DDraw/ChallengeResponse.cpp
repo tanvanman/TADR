@@ -260,7 +260,7 @@ void ChallengeResponse::VerifyResponses()
 
 		char msg[65] = { 0 };
 		std::ostringstream ss;
-		ss << "[TDRAW] ";
+		ss << "[VerCheck] ";
 
 		if (replyCrc[0] == 0u) {
 			ss << playerName << " did not respond!";
