@@ -263,7 +263,7 @@ void ChallengeResponse::VerifyResponses()
 		ss << "[VerCheck] ";
 
 		if (replyCrc[0] == 0u) {
-			ss << playerName << " did not respond!";
+			ss << playerName << " did not reply to VerCheck query!";
 			SendText(ss.str().c_str(), 0);
 			msg[0] = 0x05;	// chat
 			std::strncpy(msg + 1, ss.str().c_str(), 64);
