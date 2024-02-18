@@ -266,9 +266,7 @@ void ChallengeResponse::VerifyResponses()
 
 		if (replyCrc[0] == 0u) {
 			ss << playerName << " did not reply to VerCheck query!";
-			if (m_broadcastNoReplyWarnings) {
-				SendText(ss.str().c_str(), 0);
-			}
+			SendText(ss.str().c_str(), 0);
 			msg[0] = 0x05;	// chat
 			std::strncpy(msg + 1, ss.str().c_str(), 64);
 			ss << " Their dll lacks version checking (or packet loss/crash)";
@@ -294,7 +292,7 @@ void ChallengeResponse::VerifyResponses()
 			LogAll("ErrorLog.txt");
 		}
 
-		if (msg[0] != 0) {
+		if (msg[0] != 0 && m_broadcastNoReplyWarnings) {
 			HAPI_BroadcastMessage(localPlayer->DirectPlayID, msg, sizeof(msg));
 		}
 	}
