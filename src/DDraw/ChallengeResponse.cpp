@@ -110,6 +110,7 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 		if (msg.command == 1) {
 			msg.command = 2;
 			ChallengeResponse::GetInstance()->ComputeChallengeResponse(msg.data[0], msg.data);
+			ChallengeResponse::GetInstance()->SetBroadcastNoReplyWarnings(true);	// ie enable if at least one peer requests verification
 
 			char buffer[65] = { 0 };
 			buffer[0] = 0x05; // chat
@@ -130,7 +131,8 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_3)))
 ChallengeResponse::ChallengeResponse():
-	m_rng(std::random_device()())
+	m_rng(std::random_device()()),
+	m_broadcastNoReplyWarnings(false)
 {
 #ifndef NDEBUG
 	std::ofstream fs("ErrorLog.txt");	// clear the errorlog
@@ -264,7 +266,9 @@ void ChallengeResponse::VerifyResponses()
 
 		if (replyCrc[0] == 0u) {
 			ss << playerName << " did not reply to VerCheck query!";
-			SendText(ss.str().c_str(), 0);
+			if (m_broadcastNoReplyWarnings) {
+				SendText(ss.str().c_str(), 0);
+			}
 			msg[0] = 0x05;	// chat
 			std::strncpy(msg + 1, ss.str().c_str(), 64);
 			ss << " Their dll lacks version checking (or packet loss/crash)";
@@ -632,5 +636,12 @@ void ChallengeResponse::LogAll(const std::string& filename)
 	LogUnits(filename);
 	LogGamingState(filename);
 	//LogMapSnapshot(filename);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_30)))
+void ChallengeResponse::SetBroadcastNoReplyWarnings(bool broadcastNoReplyWarnings)
+{
+	m_broadcastNoReplyWarnings = broadcastNoReplyWarnings;
 }
 #pragma code_seg(pop)

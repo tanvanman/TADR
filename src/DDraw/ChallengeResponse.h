@@ -33,6 +33,7 @@ public:
 	void VerifyResponses();
 	void Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch);
 	void Blit(OFFSCREEN* offscreen);
+	void SetBroadcastNoReplyWarnings(bool broadcastNoReplyWarnings);
 
 private:
 	static std::unique_ptr<ChallengeResponse> m_instance;
@@ -43,7 +44,7 @@ private:
 	std::map<unsigned, std::tuple<unsigned, unsigned, unsigned> > m_responses;	// nonse, crc1, crc2
 	taflib::CRC32 m_crc;
 	std::mt19937 m_rng;
-
+	bool m_broadcastNoReplyWarnings;
 	std::vector<std::string> m_persistentCheatWarnings;
 
 	std::vector<std::string> GetModules();
