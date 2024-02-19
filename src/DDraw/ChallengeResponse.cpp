@@ -384,7 +384,13 @@ void ChallengeResponse::CrcGamingState(unsigned* crc)
 	m_crc.PartialCRC(crc, (unsigned char*)&losType, 2);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->PlayerUnitsNumber_Skim, 2);
 	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->MaxUnitNumberPerPlayer, 2);
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->SoftwareDebugMode, 2);
+	unsigned short softwareDebugMode = taPtr->SoftwareDebugMode & (
+		softwaredebugmode::CheatsEnabled |
+		softwaredebugmode::InvulnerableFeatures |
+		softwaredebugmode::Doubleshot |
+		softwaredebugmode::Halfshot |
+		softwaredebugmode::Radar);
+	m_crc.PartialCRC(crc, (unsigned char*)&softwareDebugMode, 2);
 }
 #pragma code_seg(pop)
 
