@@ -1545,6 +1545,8 @@ namespace softwaredebugmode
 	{
 		Drop             = 1,
 		CheatsEnabled    = 2,
+		SelectionBoxes   = 4,
+		InvulnerableFeatures = 8,
 		Noshake          = 0x10,
 		Clock            = 0x40,
 		Doubleshot       = 0x80,
