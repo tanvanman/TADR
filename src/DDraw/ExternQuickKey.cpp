@@ -840,6 +840,14 @@ int ExternQuickKey::InitExternTypeMask (void)
 			SetIDMaskInTypeAry ( Current->UnitTypeID, ConstructorMask);
 		}
 	}
+	LPDWORD _constructorMask = GetUnitIDMaskAryByCategory("CTRL_B");
+	for (int i = 0; i < TypeCount; ++i)
+	{
+		Current = &Begin[i];
+		if (MatchInTypeAry(Current->UnitTypeID, ConstructorMask) != MatchInTypeAry(Current->UnitTypeID, _constructorMask)) {
+			IDDrawSurface::OutptTxt("CTRL_B mismatch: %s: %d, %d", Current->UnitName, MatchInTypeAry(Current->UnitTypeID, ConstructorMask), MatchInTypeAry(Current->UnitTypeID, _constructorMask));
+		}
+	}
 	Inited++;
 	
 	if (NULL==FactoryMask)
@@ -857,6 +865,14 @@ int ExternQuickKey::InitExternTypeMask (void)
 			!MatchInTypeAry ( Current->UnitTypeID, CommanderMask))
 		{
 			SetIDMaskInTypeAry ( Current->UnitTypeID, FactoryMask);
+		}
+	}
+	LPDWORD _factoryMask = GetUnitIDMaskAryByCategory("CTRL_F");
+	for (int i = 0; i < TypeCount; ++i)
+	{
+		Current = &Begin[i];
+		if (MatchInTypeAry(Current->UnitTypeID, FactoryMask) != MatchInTypeAry(Current->UnitTypeID, _factoryMask)) {
+			IDDrawSurface::OutptTxt("CTRL_F mismatch: %s: %d, %d", Current->UnitName, MatchInTypeAry(Current->UnitTypeID, FactoryMask), MatchInTypeAry(Current->UnitTypeID, _factoryMask));
 		}
 	}
 	Inited++;
@@ -960,7 +976,7 @@ void ExternQuickKey::DestroyExternTypeMask (void)
 	}
 	if (FactoryMask)
 	{
-		free ( FactoryMask);
+		//free ( FactoryMask);
 		FactoryMask= NULL;
 	}
 	if (BuildingMask)
