@@ -313,9 +313,10 @@ void ChallengeResponse::CrcModules(unsigned* crc)
 void ChallengeResponse::CrcWeapons(unsigned* crc)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	std::vector<bool> usedWeapons = getUsedWeaponIds();
 	for (int n = 0; n < 256; ++n) {
 		WeaponStruct* w = &taPtr->Weapons[n];
-		if (w->WeaponName[0] != '\0') {
+		if (w->WeaponName[0] != '\0' && usedWeapons[n]) {
 			m_crc.PartialCRC(crc, (unsigned char*)&w->Damage, 16);
 			m_crc.PartialCRC(crc, (unsigned char*)&w->ID, 1);
 			m_crc.PartialCRC(crc, (unsigned char*)&w->WeaponTypeMask, 4);
@@ -647,5 +648,26 @@ void ChallengeResponse::LogAll(const std::string& filename)
 void ChallengeResponse::SetBroadcastNoReplyWarnings(bool broadcastNoReplyWarnings)
 {
 	m_broadcastNoReplyWarnings = broadcastNoReplyWarnings;
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_31)))
+std::vector<bool> ChallengeResponse::getUsedWeaponIds()
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	std::vector<bool> isUsed(256, false);
+
+	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
+		const UnitDefStruct* u = &taPtr->UnitDef[n];
+		if (u->weapon1) isUsed[u->weapon1->ID] = true;
+		if (u->weapon2) isUsed[u->weapon2->ID] = true;
+		if (u->weapon3) isUsed[u->weapon2->ID] = true;
+	}
+	for (int n = 0; n < taPtr->NumFeatureDefs; ++n) {
+		const FeatureDefStruct* f = &taPtr->FeatureDef[n];
+		if (f->BurnWeapon) isUsed[f->BurnWeapon->ID] = true;
+	}
+
+	return isUsed;
 }
 #pragma code_seg(pop)

@@ -46,6 +46,7 @@ private:
 	std::mt19937 m_rng;
 	bool m_broadcastNoReplyWarnings;
 	std::vector<std::string> m_persistentCheatWarnings;
+	std::vector<bool> getUsedWeaponIds();
 
 	std::vector<std::string> GetModules();
 	void SnapshotModule(HMODULE hModule);
