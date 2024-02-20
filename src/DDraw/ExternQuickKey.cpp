@@ -817,66 +817,61 @@ int ExternQuickKey::InitExternTypeMask (void)
 		}
 		
 	}
-		Inited++;
-
+	Inited++;
 	
-	
-	if (NULL==ConstructorMask)
+	ConstructorMaskOwner.clear();
+	ConstructorMask = GetUnitIDMaskAryByCategory("CTRL_B");
+	int ctrlBCount = 0;
+	for (int i = 0; i < TypeCount && ConstructorMask; ++i)
 	{
-		ConstructorMask= (LPDWORD)malloc (  CategroyMaskSize);
-		
+		ctrlBCount += MatchInTypeAry(Begin[i].UnitTypeID, ConstructorMask);
 	}
-		
-	memset ( ConstructorMask, 0, CategroyMaskSize);
-	for (int i= 0; i<TypeCount; ++i)
+	if (ctrlBCount == 0)
 	{
-		Current= &Begin[i];
-
-		if (builder & Current->UnitTypeMask_0 &&
-			!(isairbase & Current->UnitTypeMask_0) &&
-			Current->bmcode && //can move
-			!MatchInTypeAry ( Current->UnitTypeID, CommanderMask))
+		ConstructorMaskOwner.resize(CategroyMaskSize);
+		ConstructorMask = (LPDWORD)ConstructorMaskOwner.data();
+		memset(ConstructorMask, 0, CategroyMaskSize);
+		for (int i = 0; i < TypeCount; ++i)
 		{
-			SetIDMaskInTypeAry ( Current->UnitTypeID, ConstructorMask);
-		}
-	}
-	LPDWORD _constructorMask = GetUnitIDMaskAryByCategory("CTRL_B");
-	for (int i = 0; i < TypeCount; ++i)
-	{
-		Current = &Begin[i];
-		if (MatchInTypeAry(Current->UnitTypeID, ConstructorMask) != MatchInTypeAry(Current->UnitTypeID, _constructorMask)) {
-			IDDrawSurface::OutptTxt("CTRL_B mismatch: %s: %d, %d", Current->UnitName, MatchInTypeAry(Current->UnitTypeID, ConstructorMask), MatchInTypeAry(Current->UnitTypeID, _constructorMask));
+			Current = &Begin[i];
+
+			if (builder & Current->UnitTypeMask_0 &&
+				!(isairbase & Current->UnitTypeMask_0) &&
+				Current->bmcode && //can move
+				!MatchInTypeAry(Current->UnitTypeID, CommanderMask))
+			{
+				SetIDMaskInTypeAry(Current->UnitTypeID, ConstructorMask);
+			}
 		}
 	}
 	Inited++;
 	
-	if (NULL==FactoryMask)
+	FactoryMaskOwner.clear();
+	FactoryMask = GetUnitIDMaskAryByCategory("CTRL_F");
+	int ctrlFCount = 0;
+	for (int i = 0; i < TypeCount && FactoryMask; ++i)
 	{
-		FactoryMask= (LPDWORD)malloc (  CategroyMaskSize);
+		ctrlFCount += MatchInTypeAry(Begin[i].UnitTypeID, FactoryMask);
 	}
-	memset ( FactoryMask, 0, CategroyMaskSize);
-	for (int i= 0; i<TypeCount; ++i)
+	if (ctrlFCount == 0)
 	{
-		Current= &Begin[i];
-
-		if (builder & Current->UnitTypeMask_0 &&
-			!(isairbase & Current->UnitTypeMask_0) &&
-			!Current->bmcode && // cannot move
-			!MatchInTypeAry ( Current->UnitTypeID, CommanderMask))
+		FactoryMaskOwner.resize(CategroyMaskSize);
+		FactoryMask = (LPDWORD)FactoryMaskOwner.data();
+		memset(FactoryMask, 0, CategroyMaskSize);
+		for (int i = 0; i < TypeCount; ++i)
 		{
-			SetIDMaskInTypeAry ( Current->UnitTypeID, FactoryMask);
-		}
-	}
-	LPDWORD _factoryMask = GetUnitIDMaskAryByCategory("CTRL_F");
-	for (int i = 0; i < TypeCount; ++i)
-	{
-		Current = &Begin[i];
-		if (MatchInTypeAry(Current->UnitTypeID, FactoryMask) != MatchInTypeAry(Current->UnitTypeID, _factoryMask)) {
-			IDDrawSurface::OutptTxt("CTRL_F mismatch: %s: %d, %d", Current->UnitName, MatchInTypeAry(Current->UnitTypeID, FactoryMask), MatchInTypeAry(Current->UnitTypeID, _factoryMask));
+			Current = &Begin[i];
+
+			if (builder & Current->UnitTypeMask_0 &&
+				!(isairbase & Current->UnitTypeMask_0) &&
+				!Current->bmcode && // cannot move
+				!MatchInTypeAry(Current->UnitTypeID, CommanderMask))
+			{
+				SetIDMaskInTypeAry(Current->UnitTypeID, FactoryMask);
+			}
 		}
 	}
 	Inited++;
-	
 
 	if (NULL==BuildingMask)
 	{
@@ -955,6 +950,11 @@ int ExternQuickKey::InitExternTypeMask (void)
 
 void ExternQuickKey::DestroyExternTypeMask (void)
 {
+	ConstructorMaskOwner.clear();
+	ConstructorMask = NULL;
+	FactoryMaskOwner.clear();
+	FactoryMask = NULL;
+
 	for	(int i= 0; i<RACENUMBER; ++i)
 	{
 		free ( CommandersMask[i]);
@@ -968,16 +968,6 @@ void ExternQuickKey::DestroyExternTypeMask (void)
 	{
 		free ( MobileWeaponMask);
 		MobileWeaponMask= NULL;
-	}
-	if (ConstructorMask)
-	{
-		free ( ConstructorMask);
-		ConstructorMask= NULL;
-	}
-	if (FactoryMask)
-	{
-		//free ( FactoryMask);
-		FactoryMask= NULL;
 	}
 	if (BuildingMask)
 	{
