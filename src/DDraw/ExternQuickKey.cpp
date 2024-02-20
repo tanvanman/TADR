@@ -791,34 +791,18 @@ int ExternQuickKey::InitExternTypeMask (void)
 		
 	}
 		
+	LPDWORD CtrlWMask = GetUnitIDMaskAryByCategory("CTRL_W");
 	memset ( MobileWeaponMask, 0, CategroyMaskSize);
 	for (int i= 0; i<TypeCount; ++i)
 	{
 		Current= &Begin[i];
-		if(((NULL!=Current->weapon1) && (0==(stockpile_mask&(Current->weapon1->WeaponTypeMask))))
-			||((NULL!=Current->weapon2) && (0==(stockpile_mask&(Current->weapon2->WeaponTypeMask))))
-			||((NULL!=Current->weapon3) && (0==(stockpile_mask&(Current->weapon3->WeaponTypeMask))))
-			)
-		{
-			if ((NULL!=CommanderMask)&&
-				(! MatchInTypeAry ( Current->UnitTypeID, CommanderMask)))
-			{//don't select commander in here
-				if((0==(builder&Current->UnitTypeMask_0)))
-				{
-					if (Current->bmcode)
-					{//not building
-						if (canfly!=(canfly& Current->UnitTypeMask_0))
-						{
-							SetIDMaskInTypeAry ( Current->UnitTypeID, MobileWeaponMask);
-						}
-					}
-				}
-			}
+		if (MatchInTypeAry(Begin[i].UnitTypeID, CtrlWMask) && !(canfly & Current->UnitTypeMask_0)) {
+			SetIDMaskInTypeAry ( Current->UnitTypeID, MobileWeaponMask);
 		}
 		
 	}
 	Inited++;
-	
+
 	ConstructorMaskOwner.clear();
 	ConstructorMask = GetUnitIDMaskAryByCategory("CTRL_B");
 	int ctrlBCount = 0;
