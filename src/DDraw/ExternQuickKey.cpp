@@ -791,76 +791,71 @@ int ExternQuickKey::InitExternTypeMask (void)
 		
 	}
 		
+	LPDWORD CtrlWMask = GetUnitIDMaskAryByCategory("CTRL_W");
 	memset ( MobileWeaponMask, 0, CategroyMaskSize);
 	for (int i= 0; i<TypeCount; ++i)
 	{
 		Current= &Begin[i];
-		if(((NULL!=Current->weapon1) && (0==(stockpile_mask&(Current->weapon1->WeaponTypeMask))))
-			||((NULL!=Current->weapon2) && (0==(stockpile_mask&(Current->weapon2->WeaponTypeMask))))
-			||((NULL!=Current->weapon3) && (0==(stockpile_mask&(Current->weapon3->WeaponTypeMask))))
-			)
+		if (MatchInTypeAry(Begin[i].UnitTypeID, CtrlWMask) && !(canfly & Current->UnitTypeMask_0)) {
+			SetIDMaskInTypeAry ( Current->UnitTypeID, MobileWeaponMask);
+		}
+		
+	}
+	Inited++;
+
+	ConstructorMaskOwner.clear();
+	ConstructorMask = GetUnitIDMaskAryByCategory("CTRL_B");
+	int ctrlBCount = 0;
+	for (int i = 0; i < TypeCount && ConstructorMask; ++i)
+	{
+		ctrlBCount += MatchInTypeAry(Begin[i].UnitTypeID, ConstructorMask);
+	}
+	if (ctrlBCount == 0)
+	{
+		ConstructorMaskOwner.resize(CategroyMaskSize);
+		ConstructorMask = (LPDWORD)ConstructorMaskOwner.data();
+		memset(ConstructorMask, 0, CategroyMaskSize);
+		for (int i = 0; i < TypeCount; ++i)
 		{
-			if ((NULL!=CommanderMask)&&
-				(! MatchInTypeAry ( Current->UnitTypeID, CommanderMask)))
-			{//don't select commander in here
-				if((0==(builder&Current->UnitTypeMask_0)))
-				{
-					if (Current->bmcode)
-					{//not building
-						if (canfly!=(canfly& Current->UnitTypeMask_0))
-						{
-							SetIDMaskInTypeAry ( Current->UnitTypeID, MobileWeaponMask);
-						}
-					}
-				}
+			Current = &Begin[i];
+
+			if (builder & Current->UnitTypeMask_0 &&
+				!(isairbase & Current->UnitTypeMask_0) &&
+				Current->bmcode && //can move
+				!MatchInTypeAry(Current->UnitTypeID, CommanderMask))
+			{
+				SetIDMaskInTypeAry(Current->UnitTypeID, ConstructorMask);
 			}
 		}
-		
-	}
-		Inited++;
-
-	
-	
-	if (NULL==ConstructorMask)
-	{
-		ConstructorMask= (LPDWORD)malloc (  CategroyMaskSize);
-		
-	}
-		
-	memset ( ConstructorMask, 0, CategroyMaskSize);
-	for (int i= 0; i<TypeCount; ++i)
-	{
-		Current= &Begin[i];
-
-		if (builder & Current->UnitTypeMask_0 &&
-			!(isairbase & Current->UnitTypeMask_0) &&
-			Current->bmcode && //can move
-			!MatchInTypeAry ( Current->UnitTypeID, CommanderMask))
-		{
-			SetIDMaskInTypeAry ( Current->UnitTypeID, ConstructorMask);
-		}
 	}
 	Inited++;
 	
-	if (NULL==FactoryMask)
+	FactoryMaskOwner.clear();
+	FactoryMask = GetUnitIDMaskAryByCategory("CTRL_F");
+	int ctrlFCount = 0;
+	for (int i = 0; i < TypeCount && FactoryMask; ++i)
 	{
-		FactoryMask= (LPDWORD)malloc (  CategroyMaskSize);
+		ctrlFCount += MatchInTypeAry(Begin[i].UnitTypeID, FactoryMask);
 	}
-	memset ( FactoryMask, 0, CategroyMaskSize);
-	for (int i= 0; i<TypeCount; ++i)
+	if (ctrlFCount == 0)
 	{
-		Current= &Begin[i];
-
-		if (builder & Current->UnitTypeMask_0 &&
-			!(isairbase & Current->UnitTypeMask_0) &&
-			!Current->bmcode && // cannot move
-			!MatchInTypeAry ( Current->UnitTypeID, CommanderMask))
+		FactoryMaskOwner.resize(CategroyMaskSize);
+		FactoryMask = (LPDWORD)FactoryMaskOwner.data();
+		memset(FactoryMask, 0, CategroyMaskSize);
+		for (int i = 0; i < TypeCount; ++i)
 		{
-			SetIDMaskInTypeAry ( Current->UnitTypeID, FactoryMask);
+			Current = &Begin[i];
+
+			if (builder & Current->UnitTypeMask_0 &&
+				!(isairbase & Current->UnitTypeMask_0) &&
+				!Current->bmcode && // cannot move
+				!MatchInTypeAry(Current->UnitTypeID, CommanderMask))
+			{
+				SetIDMaskInTypeAry(Current->UnitTypeID, FactoryMask);
+			}
 		}
 	}
 	Inited++;
-	
 
 	if (NULL==BuildingMask)
 	{
@@ -939,6 +934,11 @@ int ExternQuickKey::InitExternTypeMask (void)
 
 void ExternQuickKey::DestroyExternTypeMask (void)
 {
+	ConstructorMaskOwner.clear();
+	ConstructorMask = NULL;
+	FactoryMaskOwner.clear();
+	FactoryMask = NULL;
+
 	for	(int i= 0; i<RACENUMBER; ++i)
 	{
 		free ( CommandersMask[i]);
@@ -952,16 +952,6 @@ void ExternQuickKey::DestroyExternTypeMask (void)
 	{
 		free ( MobileWeaponMask);
 		MobileWeaponMask= NULL;
-	}
-	if (ConstructorMask)
-	{
-		free ( ConstructorMask);
-		ConstructorMask= NULL;
-	}
-	if (FactoryMask)
-	{
-		free ( FactoryMask);
-		FactoryMask= NULL;
 	}
 	if (BuildingMask)
 	{

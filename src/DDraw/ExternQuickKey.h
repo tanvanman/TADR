@@ -1,6 +1,7 @@
 #ifndef EXTERNQUICKEY_H_316SDHSD
 #define EXTERNQUICKEY_H_316SDHSD
 
+#include <vector>
 
 enum TAUnitType
 {
@@ -43,8 +44,10 @@ public:
 
 	LPDWORD CommanderMask;
 	LPDWORD MobileWeaponMask;
-	LPDWORD ConstructorMask;
-	LPDWORD FactoryMask;
+	LPDWORD ConstructorMask;	// either a pointer to ConstructorMaskOwner.data(), or allocated by TA
+	std::vector<char> ConstructorMaskOwner;
+	LPDWORD FactoryMask;		// either a pointer to FactoryMaskOwner.data(), or allocated by TA
+	std::vector<char> FactoryMaskOwner;
 	LPDWORD BuildingMask;
 	LPDWORD AirWeaponMask;
 	LPDWORD AirConMask;
