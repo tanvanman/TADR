@@ -25,7 +25,8 @@ extern HINSTANCE HInstance;
 enum class ChallengeResponseCommand : char {
 	ChallengeRequest = 1,
 	ChallengeReply = 2,
-	VersionRequest = 3
+	TDrawVersionRequest = 3,
+	Gp3VersionRequest = 4
 };
 
 #pragma pack(1)
@@ -147,7 +148,7 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 		ChallengeResponse::GetInstance()->SetPlayerResponse(taPtr->HAPI_net_data0, msg->data[0], msg->data[1]);
 	}
 
-	else if (msg->command == ChallengeResponseCommand::VersionRequest) {
+	else if (msg->command == ChallengeResponseCommand::TDrawVersionRequest) {
 		std::string myVersion = ChallengeResponse::GetInstance()->GetTDrawVersionReportString();
 		ChatText(myVersion.c_str());
 		char buffer[65] = { 0 };
@@ -155,8 +156,16 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 		std::memcpy(buffer + 1, myVersion.c_str(), myVersion.size());
 		unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
 		HAPI_BroadcastMessage(fromDpid, buffer, sizeof(buffer));
-		//X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x455f50;
-		//return X86STRACKBUFFERCHANGE;
+	}
+
+	else if (msg->command == ChallengeResponseCommand::Gp3VersionRequest) {
+		std::string myVersion = ChallengeResponse::GetInstance()->GetGp3VersionReportString();
+		ChatText(myVersion.c_str());
+		char buffer[65] = { 0 };
+		buffer[0] = 0x05; // chat
+		std::memcpy(buffer + 1, myVersion.c_str(), myVersion.size());
+		unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
+		HAPI_BroadcastMessage(fromDpid, buffer, sizeof(buffer));
 	}
 	return 0;
 }
@@ -178,6 +187,7 @@ ChallengeResponse::ChallengeResponse():
 	SnapshotModules();
 
 	BattleroomCommands::GetInstance()->RegisterCommand(".tdreport", &ChallengeResponse::OnBattleroomCommandTdReport);
+	BattleroomCommands::GetInstance()->RegisterCommand(".gp3report", &ChallengeResponse::OnBattleroomCommandGp3Report);
 }
 #pragma code_seg(pop)
 
@@ -772,7 +782,64 @@ void ChallengeResponse::OnBattleroomCommandTdReport(const std::vector<std::strin
 
 	// 2nd "chat" message
 	ChallengeResponseMessage* msg = (ChallengeResponseMessage*)&buffer[1][0];
-	SetChallengeResponseMessage(*msg, ChallengeResponseCommand::VersionRequest, 0u, 0u);
+	SetChallengeResponseMessage(*msg, ChallengeResponseCommand::TDrawVersionRequest, 0u, 0u);
+
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
+	HAPI_BroadcastMessage(fromDpid, &buffer[0][0], sizeof(buffer));
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_34)))
+std::string ChallengeResponse::GetGp3VersionReportString()
+{
+	char filename[MAX_PATH] = "<unknown>";
+	unsigned crc = 0;
+	{
+		const char* format = (char*)0x5028cc;
+		std::sprintf(filename, format, "31");
+
+		std::ifstream file(filename, std::ios::binary);
+		if (file.is_open()) {
+			file.seekg(0, std::ios::end);
+			std::streamsize fileSize = file.tellg();
+			file.seekg(0, std::ios::beg);
+
+			std::vector<unsigned char> bytes(fileSize);
+			if (file.read(reinterpret_cast<char*>(bytes.data()), fileSize)) {
+				crc = m_crc.FullCRC(bytes.data(), fileSize);
+			}
+		}
+	}
+
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	char buffer[100];
+	std::sprintf(buffer, "*** %s uses %s CRC=%X",
+		taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].Name, filename, crc);
+
+	std::string result(buffer);
+	if (result.size() > 63) {
+		result = result.substr(0, 63);
+	}
+	return result;
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_35)))
+void ChallengeResponse::OnBattleroomCommandGp3Report(const std::vector<std::string>&)
+{
+	std::string myVersion = ChallengeResponse::GetInstance()->GetGp3VersionReportString();
+	ChatText(myVersion.c_str());
+
+	char buffer[2][65] = { 0 };	// two 0x05 "chat" messages back-to-back
+
+	// 1st "chat" message
+	buffer[0][0] = 0x05;
+	std::memcpy(&buffer[0][1], myVersion.c_str(), myVersion.size());
+
+	// 2nd "chat" message
+	ChallengeResponseMessage* msg = (ChallengeResponseMessage*)&buffer[1][0];
+	SetChallengeResponseMessage(*msg, ChallengeResponseCommand::Gp3VersionRequest, 0u, 0u);
 
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
