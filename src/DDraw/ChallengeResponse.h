@@ -22,6 +22,7 @@ public:
 	ChallengeResponse();
 
 	static ChallengeResponse* GetInstance();
+	static void OnBattleroomCommandTdReport(const std::vector<std::string>&);
 
 	void SnapshotModules();
 	void SnapshotFeatureMap();
@@ -34,6 +35,7 @@ public:
 	void Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch);
 	void Blit(OFFSCREEN* offscreen);
 	void SetBroadcastNoReplyWarnings(bool broadcastNoReplyWarnings);
+	std::string GetTDrawVersionReportString();
 
 private:
 	static std::unique_ptr<ChallengeResponse> m_instance;
