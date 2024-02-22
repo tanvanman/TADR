@@ -6,7 +6,8 @@
 
 std::unique_ptr<BattleroomCommands> BattleroomCommands::m_instance;
 
-static unsigned int battleroomCommandHookAddr = 0x448421;
+// static unsigned int battleroomCommandHookAddr = 0x448421;	// before the command is echoed in chat
+static unsigned int battleroomCommandHookAddr = 0x448479;		// after the command is echoed in chat
 static unsigned int battleroomCommandHookProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	int* PTR = (int*)0x00511de8;
@@ -41,7 +42,7 @@ void BattleroomCommands::RegisterCommand(const char* name, void(*function)(const
 
 void BattleroomCommands::RunCommand(const char* cmd)
 {
-	if (cmd[0] != '+')
+	if (cmd[0] != '+' && cmd[0] != '.')
 	{
 		return;
 	}
