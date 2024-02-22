@@ -38,6 +38,7 @@ NEW FEATURES IN BRIEF:
 - Ctrl-S works correctly with mobile-units-can-build-mobile-units hack
 - Set +lostype as a cheatcode (not available unless cheats enabled)
 - Add .tdreport battleroom command to report players' apparent version of tdraw.dll
+- Add .gp3report battleroom command to report players' apparent version of the mod's gp3 file
 - Look for ddraw.dll in current working directory as backend, or failing that use system ddraw.dll
 - Use the same .ini file as TotalA.exe
 - Use the same registry path as TotalA.exe
