@@ -797,7 +797,8 @@ std::string ChallengeResponse::GetGp3VersionReportString()
 	unsigned crc = 0;
 	{
 		const char* format = (char*)0x5028cc;
-		std::sprintf(filename, format, "31");
+		const char* version = (char*)0x5028d8;
+		std::sprintf(filename, format, version);
 
 		std::ifstream file(filename, std::ios::binary);
 		if (file.is_open()) {
