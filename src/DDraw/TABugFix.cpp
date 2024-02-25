@@ -226,7 +226,8 @@ int __stdcall GhostComFixProc(PInlineX86StackBuffer X86StrackBuffer)
 	if (taPtr->GameTime >= taPtr->PlayerUnitsNumber_Skim ||
 		!player->PlayerActive ||
 		(player->PlayerInfo->PropertyMask & WATCH) ||
-		(player->My_PlayerType != Player_RemoteHuman && player->My_PlayerType != Player_RemoteAI)) {
+		InferredPlayerTypeIsLocal(player))
+	{
 		return 0;
 	}
 
@@ -307,6 +308,22 @@ int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 	}
 	return 0;
 }
+
+unsigned int JunkYardmapFixAddr = 0x42cf5e;
+int __stdcall JunkYardmapFixProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	const UnitDefStruct* ud = (UnitDefStruct*)X86StrackBuffer->Ebp;
+	const bool yardmapDefined = X86StrackBuffer->Eax;
+	if (!yardmapDefined || ud->FootX == 0 || ud->FootY == 0) {
+		// null yardmap
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x42d073;
+		return X86STRACKBUFFERCHANGE;
+	}
+	return 0;
+}
+
+unsigned int CanBuildArrayBufferOverrunFixAddr = 0x42dac7;
+BYTE CanBuildArrayBufferOverrunFixBytes[] = { 0x6a, 0x48 };
 
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
@@ -410,6 +427,8 @@ TABugFixing::TABugFixing ()
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
 	GhostComFix.reset(new InlineSingleHook(GhostComFixAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixProc));
 	GhostComFixAssist.reset(new InlineSingleHook(GhostComFixAssistAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixAssistProc));
+	JunkYardmapFix.reset(new InlineSingleHook(JunkYardmapFixAddr, 5, INLINE_5BYTESLAGGERJMP, JunkYardmapFixProc));
+	CanBuildArrayBufferOverrunFix.reset(new SingleHook(CanBuildArrayBufferOverrunFixAddr, sizeof(CanBuildArrayBufferOverrunFixBytes), INLINE_UNPROTECTEVINMENT, CanBuildArrayBufferOverrunFixBytes));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }

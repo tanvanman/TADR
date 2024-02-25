@@ -657,7 +657,8 @@ struct PlayerInfoStruct
 	char data_20[0x6b];			// 0x0020
 	unsigned short screenWidth; // 0x008b
 	unsigned short screenHeight;// 0x008d
-	char data_90[6];			// 0x008f
+	char data_90[5];			// 0x008f
+	char PlayerType;			// 0x0094 local/remote human/AI
 	char RaceSide;				// 0x0095
 	char PlayerLogoColor;		// 0x0096
 	char SharedBits;			// 0x0097 enum SharedStates

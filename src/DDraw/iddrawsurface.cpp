@@ -278,7 +278,6 @@ ULONG __stdcall IDDrawSurface::Release()
 		GUIExpander->myMinimap->ReleaseSurface ( );
 	}
 #endif
-	LocalShare->OrgLocalPlayerID= 0xff;
 	delete this;
 	return result;
 }
