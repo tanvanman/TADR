@@ -96,7 +96,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 	else if (taPtr->GameTime == 150) {
 		for (int n = 0; n < 10; ++n) {
 			PlayerStruct* p = &taPtr->Players[n];
-			if (p->PlayerActive && p->DirectPlayID != 0 && p->My_PlayerType == Player_RemoteHuman && !(p->PlayerInfo->PropertyMask & WATCH)) {
+			if (p->PlayerActive && p->DirectPlayID != 0 && GetInferredPlayerType(p) == Player_RemoteHuman && !(p->PlayerInfo->PropertyMask & WATCH)) {
 				unsigned nonse = cr->NewNonse();
 				cr->InitPlayerResponse(p->DirectPlayID, nonse);
 
@@ -398,7 +398,8 @@ void ChallengeResponse::CrcUnits(unsigned* crc)
 		UnitDefStruct* u = &taPtr->UnitDef[n];
 		if (u->buildLimit != 0) {
 			m_crc.PartialCRC(crc, (unsigned char*)&u->FootX, 4);
-			if (u->YardMap && !u->bmcode) m_crc.PartialCRC(crc, (unsigned char*)u->YardMap, u->FootX * u->FootY);
+			if (u->YardMap) m_crc.PartialCRC(crc, (unsigned char*)u->YardMap, u->FootX * u->FootY);
+			if (u->canbuildCount && u->CANBUILD_ptr) m_crc.PartialCRC(crc, (unsigned char*)u->CANBUILD_ptr, u->canbuildCount);
 			m_crc.PartialCRC(crc, (unsigned char*)&u->buildLimit, 4);
 			m_crc.PartialCRC(crc, (unsigned char*)&u->__X_Width, (char*)&u->data_14 - (char*)&u->__X_Width);
 			m_crc.PartialCRC(crc, (unsigned char*)&u->lRawSpeed_maxvelocity, (char*)&u->weapon1 - (char*)&u->lRawSpeed_maxvelocity);
@@ -597,6 +598,7 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 		"corpse,maxwaterdepth,minwaterdepth,energymake,energyuse,metalmake,extractsmetal,windgenerator,"
 		"tidalgenerator,cloakcost,cloakcostmoving,energystorage,metalstorage,buildtime,"
 		"yardmap,"
+		"canbuild,"
 		"weapon1name,weapon1id,"
 		"weapon2name,weapon2id,"
 		"weapon3name,weapon3id,"
@@ -612,9 +614,19 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 			<< u->cceleration << ',' << u->bankscale << ',' << u->pitchscale << ',' << u->damagemodifier << ',' << u->moverate1 << ',' << u->moverate2 << ',' << u->movementclass << ',' << u->turnrate << ','
 			<< u->corpse << ',' << u->maxwaterdepth << ',' << u->minwaterdepth << ',' << u->energymake << ',' << u->energyuse << ',' << u->metalmake << ',' << u->extractsmetal << ',' << u->windgenerator << ','
 			<< u->tidalgenerator << ',' << u->cloakcost << ',' << u->cloakcostmoving << ',' << u->energystorage << ',' << u->metalstorage << ',' << u->buildtime << ',';
-		if (u->YardMap && !u->bmcode) {
+		if (u->YardMap) {
 			fs.write(u->YardMap, u->FootX * u->FootY);
 			fs << ',';
+		}
+		else {
+			fs << "NULL,";
+		}
+		if (u->CANBUILD_ptr) {
+			for (int i = 0; i < u->canbuildCount; ++i) {
+				if (i > 0) fs << ' ';
+				fs << u->CANBUILD_ptr[i];
+			}
+			fs << ",";
 		}
 		else {
 			fs << "NULL,";

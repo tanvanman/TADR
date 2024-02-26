@@ -266,6 +266,10 @@ PlayerStruct* FindPlayerByName(const char* name);
 PlayerStruct* FindPlayerByDPID(unsigned dpid);
 PlayerStruct* FindPlayerByPlayerNum(int playerNum);
 
+PlayerType GetInferredPlayerType(PlayerStruct* p);
+bool InferredPlayerTypeIsLocal(PlayerStruct* p);
+bool InferredPlayerTypeIsHuman(PlayerStruct* p);
+
 extern TAProgramStruct * * TAProgramStruct_PtrPtr;
 
 extern TAdynmemStruct * * TAmainStruct_PtrPtr;

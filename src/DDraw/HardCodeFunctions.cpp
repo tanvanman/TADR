@@ -497,13 +497,40 @@ PlayerStruct* FindPlayerByPlayerNum(int playerNum)
 	TAdynmemStruct* ptrMain = *(TAdynmemStruct**)0x0511DE8;
 	for (int n = 0; n < 10; ++n)
 	{
-		if (ptrMain->Players[n].PlayerActive && ptrMain->Players[n].PlayerNum == playerNum &&
-			(ptrMain->Players[n].My_PlayerType == Player_LocalHuman || ptrMain->Players[n].My_PlayerType == Player_RemoteHuman))
-		{
+		if (ptrMain->Players[n].PlayerActive && ptrMain->Players[n].PlayerNum == playerNum && InferredPlayerTypeIsHuman(&ptrMain->Players[n])) {
 			return &ptrMain->Players[n];
 		}
 	}
 	return NULL;
+}
+
+PlayerType GetInferredPlayerType(PlayerStruct* p)
+{
+	if (p->My_PlayerType == Player_LocalHuman) {
+		return Player_LocalHuman;
+	}
+	else if (p->My_PlayerType == Player_LocalAI) {
+		return Player_LocalAI;
+	}
+	else if (p->PlayerInfo->PlayerType == Player_LocalHuman) {
+		return Player_RemoteHuman;
+	}
+	else if (p->PlayerInfo->PlayerType == Player_LocalAI) {
+		return Player_RemoteAI;
+	}
+	else {
+		return Player_none;
+	}
+}
+
+bool InferredPlayerTypeIsLocal(PlayerStruct* p)
+{
+	return p->My_PlayerType != Player_RemoteHuman;
+}
+
+bool InferredPlayerTypeIsHuman(PlayerStruct* p)
+{
+	return p->PlayerInfo->PlayerType == Player_LocalHuman;
 }
 
 _UpdateTeamSelectionButtonIcons UpdateTeamSelectionButtonIcons = (_UpdateTeamSelectionButtonIcons)0x446a50;

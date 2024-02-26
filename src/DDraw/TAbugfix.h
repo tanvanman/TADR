@@ -51,6 +51,8 @@ private:
 	std::unique_ptr <SingleHook> FixFactoryExplosionsInit;
 	std::unique_ptr <SingleHook> FixFactoryExplosionsAssignUnitId;
 	std::unique_ptr <SingleHook> FixFactoryExplosionsRecycleUnitId;
+	std::unique_ptr <SingleHook> JunkYardmapFix;
+	std::unique_ptr <SingleHook> CanBuildArrayBufferOverrunFix;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 
