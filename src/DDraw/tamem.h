@@ -677,7 +677,7 @@ struct UnitDefStruct {
 	short FootY;  //0x14C
 	char *YardMap;
 	int canbuildCount;
-	LPVOID CANBUILD_ptr;
+	short* CANBUILD_ptr;
 	int buildLimit;
 	unsigned short __X_Width;
 	unsigned short X_Width;

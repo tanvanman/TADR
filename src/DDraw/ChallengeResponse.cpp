@@ -399,6 +399,7 @@ void ChallengeResponse::CrcUnits(unsigned* crc)
 		if (u->buildLimit != 0) {
 			m_crc.PartialCRC(crc, (unsigned char*)&u->FootX, 4);
 			if (u->YardMap) m_crc.PartialCRC(crc, (unsigned char*)u->YardMap, u->FootX * u->FootY);
+			if (u->canbuildCount && u->CANBUILD_ptr) m_crc.PartialCRC(crc, (unsigned char*)u->CANBUILD_ptr, u->canbuildCount);
 			m_crc.PartialCRC(crc, (unsigned char*)&u->buildLimit, 4);
 			m_crc.PartialCRC(crc, (unsigned char*)&u->__X_Width, (char*)&u->data_14 - (char*)&u->__X_Width);
 			m_crc.PartialCRC(crc, (unsigned char*)&u->lRawSpeed_maxvelocity, (char*)&u->weapon1 - (char*)&u->lRawSpeed_maxvelocity);
@@ -597,6 +598,7 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 		"corpse,maxwaterdepth,minwaterdepth,energymake,energyuse,metalmake,extractsmetal,windgenerator,"
 		"tidalgenerator,cloakcost,cloakcostmoving,energystorage,metalstorage,buildtime,"
 		"yardmap,"
+		"canbuild,"
 		"weapon1name,weapon1id,"
 		"weapon2name,weapon2id,"
 		"weapon3name,weapon3id,"
@@ -615,6 +617,16 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 		if (u->YardMap) {
 			fs.write(u->YardMap, u->FootX * u->FootY);
 			fs << ',';
+		}
+		else {
+			fs << "NULL,";
+		}
+		if (u->CANBUILD_ptr) {
+			for (int i = 0; i < u->canbuildCount; ++i) {
+				if (i > 0) fs << ' ';
+				fs << u->CANBUILD_ptr[i];
+			}
+			fs << ",";
 		}
 		else {
 			fs << "NULL,";
