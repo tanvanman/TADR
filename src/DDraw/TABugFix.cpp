@@ -14,6 +14,7 @@
 
 #include "ddraw.h"
 
+#include <vector>
 
 TABugFixing * FixTABug;
 ///////---------------------
@@ -301,6 +302,99 @@ int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+// TA natively assigns the first available ID, starting its search from 0.
+// Unfortunately if that ID was used by a recently-deceased unit, we may still receive damage packets for it.
+// So we're going to additionally require that the ID be available for at least a few seconds before making it available for recycling.
+static std::vector<int> unitIdRecycleTimestamps[10];	// The timestamp at which the ID becomes available
+static const int RECYCLE_MARGIN_TIME = 5 * 30;			// 5 sec
+
+unsigned int FixFactoryExplosionsInitAddr = 0x4854a0;	// around the time that the UnitStructs are being initialised
+int __stdcall FixFactoryExplosionsInitProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	const int nIds = taPtr->PlayerUnitsNumber_Skim;
+	for (int i = 0; i < 10; ++i) {
+		unitIdRecycleTimestamps[i].resize(nIds, 0);		// all IDs available since t=0
+	}
+	return 0;
+}
+
+unsigned int FixFactoryExplosionsAssignUnitIdAddr = 0x486036;
+int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	// Assign next available unit index
+
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	int playerIndex = *(int*)(X86StrackBuffer->Esp + 0x14 - 4) / 0x14b;
+	int unitIndexRequested = X86StrackBuffer->Edx;
+
+	PlayerStruct* player = &taPtr->Players[playerIndex];
+	UnitStruct* units = (UnitStruct*)X86StrackBuffer->Esi;
+	if (unitIndexRequested > 0) {
+		if (units->UnitID == 0) {
+			IDDrawSurface::OutptTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId(requested)=%d\n", playerIndex, unitIndexRequested);
+			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x48605d;
+			return X86STRACKBUFFERCHANGE;
+		}
+		else {
+			// requested unitID is not available
+			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4861bd;
+			return X86STRACKBUFFERCHANGE;
+		}
+	}
+
+	for (int n = 0; n < taPtr->PlayerUnitsNumber_Skim; ++n) {
+		if (0 == player->Units[n].UnitID && taPtr->GameTime >= unitIdRecycleTimestamps[playerIndex][n]) {
+			IDDrawSurface::OutptTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId=%d\n", playerIndex, n);
+			X86StrackBuffer->Esi = (DWORD)&player->Units[n];
+			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x48605d;
+			return X86STRACKBUFFERCHANGE;
+		}
+	}
+
+	// no UnitIds available
+	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x486053;
+	return X86STRACKBUFFERCHANGE;
+}
+
+unsigned int FixFactoryExplosionsRecycleUnitIdAddr = 0x486dc1;
+int __stdcall FixFactoryExplosionsRecycleUnitIdProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	// recycle a unit index
+
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	UnitStruct* unit = (UnitStruct*)(X86StrackBuffer->Esi);
+	char* packetData = *(char**)(X86StrackBuffer->Esp + 0x7c);
+	int unitInGameIndex = *(unsigned short*)(packetData + 1);
+	
+	if (!unit) {
+		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] null unit!\n");
+	}
+	else if (!unit->Owner_PlayerPtr0) {
+		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] null unit->Owner_PlayerPtr0!\n");
+	}
+	else if (unit->UnitInGameIndex != unitInGameIndex) {
+		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] UnitInGameIndex misatch! packet:%d, unit:%d\n",
+			unitInGameIndex, unit->UnitInGameIndex);
+	}
+	else if (unit->OwnerIndex < 0 || unit->OwnerIndex >= 10) {
+		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] Invalid unit->OwnerIndex:%d\n", unit->OwnerIndex);
+	}
+	else {
+		int playerUnitIndex = unit->UnitInGameIndex - unit->Owner_PlayerPtr0->UnitsIndex_Begin;
+		if (unsigned(playerUnitIndex) >= taPtr->PlayerUnitsNumber_Skim) {
+			IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] Out of range unit->UnitInGameIndex:%d. owner->UnitsIndex_Begin=%d, PlayerUnitsNumber_Skim=%d\n",
+				unit->UnitInGameIndex, unit->Owner_PlayerPtr0->UnitsIndex_Begin, taPtr->PlayerUnitsNumber_Skim);
+		}
+		else {
+			unitIdRecycleTimestamps[unit->OwnerIndex][playerUnitIndex] = taPtr->GameTime + RECYCLE_MARGIN_TIME;
+			//IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] player=%d, UnitId=%d, timestampWhenAvailable=%d\n",
+				int(unit->OwnerIndex), playerUnitIndex, unitIdRecycleTimestamps[unit->OwnerIndex][playerUnitIndex]);
+		}
+	}
+	return 0;
+}
+
 unsigned int PutDeadHostInWatchModeAddr = 0x4656e5;
 int __stdcall PutDeadHostInWatchModeProc(PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -420,6 +514,9 @@ TABugFixing::TABugFixing ()
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
 	GhostComFix.reset(new InlineSingleHook(GhostComFixAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixProc));
 	GhostComFixAssist.reset(new InlineSingleHook(GhostComFixAssistAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixAssistProc));
+	FixFactoryExplosionsInit.reset(new InlineSingleHook(FixFactoryExplosionsInitAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsInitProc));
+	FixFactoryExplosionsAssignUnitId.reset(new InlineSingleHook(FixFactoryExplosionsAssignUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsAssignUnitIdProc));
+	FixFactoryExplosionsRecycleUnitId.reset(new InlineSingleHook(FixFactoryExplosionsRecycleUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsRecycleUnitIdProc));
 	HostDoesntLeave.reset(new InlineSingleHook(PutDeadHostInWatchModeAddr, 5, INLINE_5BYTESLAGGERJMP, PutDeadHostInWatchModeProc));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
