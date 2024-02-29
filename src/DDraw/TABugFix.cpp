@@ -396,8 +396,8 @@ int __stdcall FixFactoryExplosionsRecycleUnitIdProc(PInlineX86StackBuffer X86Str
 		}
 		else {
 			unitIdRecycleTimestamps[unit->OwnerIndex][playerUnitIndex] = taPtr->GameTime + RECYCLE_MARGIN_TIME;
-			IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] player=%d, UnitId=%d, timestampWhenAvailable=%d\n",
-				int(unit->OwnerIndex), playerUnitIndex, unitIdRecycleTimestamps[unit->OwnerIndex][playerUnitIndex]);
+			//IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] player=%d, UnitId=%d, timestampWhenAvailable=%d\n",
+			//	int(unit->OwnerIndex), playerUnitIndex, unitIdRecycleTimestamps[unit->OwnerIndex][playerUnitIndex]);
 		}
 	}
 	return 0;
@@ -411,6 +411,23 @@ int __stdcall JunkYardmapFixProc(PInlineX86StackBuffer X86StrackBuffer)
 	if (!yardmapDefined || ud->FootX == 0 || ud->FootY == 0) {
 		// null yardmap
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x42d073;
+		return X86STRACKBUFFERCHANGE;
+	}
+	return 0;
+}
+
+unsigned int PutDeadHostInWatchModeAddr = 0x4656e5;
+int __stdcall PutDeadHostInWatchModeProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	PlayerStruct* host = FindPlayerByPlayerNum(1);
+	if (host && host->PlayerAryIndex == taPtr->LocalHumanPlayer_PlayerID) {
+		SendText(
+			"You're out!  You are placed in watch mode because you're hosting.\n"
+			"If you exit, the game may terminate and that would make the others sad,\n"
+			"possibly even mad.", 1);
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x465508;
 		return X86STRACKBUFFERCHANGE;
 	}
 	return 0;
@@ -521,11 +538,10 @@ TABugFixing::TABugFixing ()
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
 	GhostComFix.reset(new InlineSingleHook(GhostComFixAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixProc));
 	GhostComFixAssist.reset(new InlineSingleHook(GhostComFixAssistAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixAssistProc));
-	
 	FixFactoryExplosionsInit.reset(new InlineSingleHook(FixFactoryExplosionsInitAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsInitProc));
 	FixFactoryExplosionsAssignUnitId.reset(new InlineSingleHook(FixFactoryExplosionsAssignUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsAssignUnitIdProc));
 	FixFactoryExplosionsRecycleUnitId.reset(new InlineSingleHook(FixFactoryExplosionsRecycleUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsRecycleUnitIdProc));
-
+	HostDoesntLeave.reset(new InlineSingleHook(PutDeadHostInWatchModeAddr, 5, INLINE_5BYTESLAGGERJMP, PutDeadHostInWatchModeProc));
 	JunkYardmapFix.reset(new InlineSingleHook(JunkYardmapFixAddr, 5, INLINE_5BYTESLAGGERJMP, JunkYardmapFixProc));
 	CanBuildArrayBufferOverrunFix.reset(new SingleHook(CanBuildArrayBufferOverrunFixAddr, sizeof(CanBuildArrayBufferOverrunFixBytes), INLINE_UNPROTECTEVINMENT, CanBuildArrayBufferOverrunFixBytes));
 
