@@ -135,7 +135,7 @@ int __stdcall DisplayWindSpeedProc(PInlineX86StackBuffer X86StrackBuffer)
 		DrawTextInScreen(offScreen, Textbuf, 260, yOff, -1);
 
 		TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-		if (taPtr->GameTime < 9000) {
+		if (taPtr->GameTime < 2*60*30) {	// 2 mins
 			ChallengeResponse::GetInstance()->Blit(offScreen);
 		}
 	}
