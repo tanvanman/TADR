@@ -433,8 +433,13 @@ int __stdcall PutDeadHostInWatchModeProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+// allocate 0x48 bytes instead of 0x3c bytes
+// copy 0x12 dwords intead of 0x0f dwords
 unsigned int CanBuildArrayBufferOverrunFixAddr = 0x42dac7;
-BYTE CanBuildArrayBufferOverrunFixBytes[] = { 0x6a, 0x48 };
+BYTE CanBuildArrayBufferOverrunFixBytes[] = {
+	0x6a, 0x48, 0x50, 0xe8, 0xe1, 0xa8, 0x0a, 0x00,
+	0x89, 0x86, 0x56, 0x01, 0x00, 0x00, 0xb9, 0x12
+};
 
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
