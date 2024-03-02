@@ -741,24 +741,27 @@ std::string ChallengeResponse::GetTDrawVersionReportString()
 			pFileInfo->dwSignature == 0xfeef04bd)
 		{
 			tDrawVersion =
-				"v" + std::to_string(pFileInfo->dwFileVersionMS >> 16) +
+				std::to_string((pFileInfo->dwFileVersionMS >> 16) % 2000) +
 				"." + std::to_string(pFileInfo->dwFileVersionMS & 0xffff) +
-				"." + std::to_string(pFileInfo->dwFileVersionLS >> 16) +
-				"." + std::to_string(pFileInfo->dwFileVersionLS & 0xffff);
+				"." + std::to_string(pFileInfo->dwFileVersionLS >> 16);
 		}
 
 		FreeResource(hResData);
 	}
 
 	unsigned tDrawCrc = 0;
-	if (!m_moduleInitialDiskSnapshots.empty() && m_moduleInitialDiskSnapshots[0]) {
+	if (m_moduleInitialDiskSnapshots.size() > 0 && m_moduleInitialDiskSnapshots[0]) {
 		tDrawCrc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[0]->data(), m_moduleInitialDiskSnapshots[0]->size());
+	}
+	unsigned exeCrc = 0;
+	if (m_moduleInitialDiskSnapshots.size() > 1 && m_moduleInitialDiskSnapshots[1]) {
+		exeCrc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[1]->data(), m_moduleInitialDiskSnapshots[1]->size());
 	}
 
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	char buffer[100];
-	std::sprintf(buffer, "*** %s uses TDraw %s CRC=%X",
-		taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].Name, tDrawVersion.c_str(), tDrawCrc);
+	std::sprintf(buffer, "*** %s %s tdraw:%X taexe:%X",
+		taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].Name, tDrawVersion.c_str(), tDrawCrc, exeCrc);
 
 	std::string result(buffer);
 	if (result.size() > 63) {
