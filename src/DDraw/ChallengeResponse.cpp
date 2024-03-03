@@ -22,25 +22,6 @@ std::unique_ptr<ChallengeResponse> ChallengeResponse::m_instance = NULL;
 
 extern HINSTANCE HInstance;
 
-enum class ChallengeResponseCommand : char {
-	ChallengeRequest = 1,
-	ChallengeReply = 2,
-	TDrawVersionRequest = 3,
-	Gp3VersionRequest = 4
-};
-
-#pragma pack(1)
-struct ChallengeResponseMessage {
-	char chatByte;	// 0x05
-	char nullText;  // 0x00
-	char msgId;		// 0x2b
-	short size;		// sizeof(ChallengeReponseMessage)
-	ChallengeResponseCommand command;
-	unsigned data[2];// for requests, data[0] is the nonce; for replys data are the crcs
-	char pad[51];
-};	// 65 bytes
-#pragma pack()
-
 static void SetChallengeResponseMessage(ChallengeResponseMessage &msg, ChallengeResponseCommand cmd, unsigned data0, unsigned data1)
 {
 	msg.chatByte = 0x05;
@@ -73,6 +54,69 @@ static bool endsWith(const std::string& fullString, const std::string& ending) {
 	else {
 		return false;
 	}
+}
+
+static std::tuple<std::string, std::string, std::string> getFilenameComponents(const std::string& path) {
+	std::string directory;
+	std::string filename;
+	std::string extension;
+
+	std::size_t pos = path.find_last_of('\\');
+	if (pos != std::string::npos) {
+		directory = path.substr(0, pos);
+		filename = path.substr(pos + 1);
+	}
+	else {
+		filename = path;
+	}
+
+	pos = filename.find_last_of('.');
+	if (pos != std::string::npos) {
+		std::string temp = filename;
+		filename = temp.substr(0, pos);
+		extension = temp.substr(pos + 1);
+	}
+
+	return std::make_tuple(directory, filename, extension);
+}
+
+static void encodeInteger(unsigned x, char* s, int nDigits)
+{
+	// all unique TA-printable characters
+	const char digits[] =
+		"!\"#$%&'*+,-./0123456789:;<=>?"
+		"@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_"
+		"`abcdefghijklmnopqrstuvwxyz{|}~"
+		"\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8A\x8B\x8C\x8D\x8E\x8F"
+		"\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9A\x9B\x9C\x9D\x9E\x9F"
+		"\xA0\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA8\xA9\xAA\xAB\xAC\xAD\xAE\xAF"
+		"\xB0\xB1"
+		"\xCD"
+		"\xD3\xDA\xDF";
+
+	const int base = std::strlen(digits);
+
+	if (nDigits < 1) {
+		nDigits = 1;
+	}
+
+	int i = 0;
+	s[nDigits] = '\0';
+
+	for (i = nDigits-1; i >= 0; i--) {
+		s[i] = digits[x % base];
+		x /= base;
+	}
+}
+
+static void broadcastChatMessage(const std::string& msg)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	char buffer[65] = { 0 };
+	buffer[0] = 0x05; // chat
+	std::memcpy(buffer + 1, msg.c_str(), std::min(msg.size(), sizeof(buffer)-2));
+	unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
+	HAPI_BroadcastMessage(fromDpid, buffer, sizeof(buffer));
 }
 
 unsigned int ChallengeResponseUpdateAddr = 0x4954b7;
@@ -130,7 +174,8 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 		return 0;
 	}
 
-	if (msg->command == ChallengeResponseCommand::ChallengeRequest) {
+	switch (msg->command) {
+	case ChallengeResponseCommand::ChallengeRequest: {
 		unsigned nonse = msg->data[0];
 		unsigned crcs[2];
 		ChallengeResponse::GetInstance()->ComputeChallengeResponse(nonse, crcs);
@@ -142,30 +187,54 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 		ChallengeResponseMessage reply;
 		SetChallengeResponseMessage(reply, ChallengeResponseCommand::ChallengeReply, crcs[0], crcs[1]);
 		HAPI_SendBuf(fromDpid, replyDpid, (char*)&reply, sizeof(reply));
+		break;
 	}
 
-	else if (msg->command == ChallengeResponseCommand::ChallengeReply) {
+	case ChallengeResponseCommand::ChallengeReply: {
 		ChallengeResponse::GetInstance()->SetPlayerResponse(taPtr->HAPI_net_data0, msg->data[0], msg->data[1]);
+		break;
 	}
 
-	else if (msg->command == ChallengeResponseCommand::TDrawVersionRequest) {
-		std::string myVersion = ChallengeResponse::GetInstance()->GetTDrawVersionReportString();
-		ChatText(myVersion.c_str());
-		char buffer[65] = { 0 };
-		buffer[0] = 0x05; // chat
-		std::memcpy(buffer + 1, myVersion.c_str(), myVersion.size());
-		unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
-		HAPI_BroadcastMessage(fromDpid, buffer, sizeof(buffer));
+	case ChallengeResponseCommand::TDrawVersionRequest: {
+		std::string versionString = ChallengeResponse::GetInstance()->GetTDrawVersionString();
+		auto crcAndFilename = ChallengeResponse::GetInstance()->GetTDrawCrc();
+		std::string str = ChallengeResponse::GetReportString(crcAndFilename, &versionString);
+		ChatText(str.c_str());
+		broadcastChatMessage(str);
+		break;
 	}
 
-	else if (msg->command == ChallengeResponseCommand::Gp3VersionRequest) {
-		std::string myVersion = ChallengeResponse::GetInstance()->GetGp3VersionReportString();
-		ChatText(myVersion.c_str());
-		char buffer[65] = { 0 };
-		buffer[0] = 0x05; // chat
-		std::memcpy(buffer + 1, myVersion.c_str(), myVersion.size());
-		unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
-		HAPI_BroadcastMessage(fromDpid, buffer, sizeof(buffer));
+	case ChallengeResponseCommand::Gp3VersionRequest: {
+		auto crcAndFilename = ChallengeResponse::GetInstance()->GetGp3Crc();
+		std::string str = ChallengeResponse::GetReportString(crcAndFilename, NULL);
+		ChatText(str.c_str());
+		broadcastChatMessage(str);
+		break;
+	}
+
+	case ChallengeResponseCommand::TPlayVersionRequest: {
+		auto crcAndFilename = ChallengeResponse::GetInstance()->GetTPlayXCrc();
+		std::string str = ChallengeResponse::GetReportString(crcAndFilename, NULL);
+		ChatText(str.c_str());
+		broadcastChatMessage(str);
+		break;
+	}
+
+	case ChallengeResponseCommand::ExeVersionRequest: {
+		auto crcAndFilename = ChallengeResponse::GetInstance()->GetTotalACrc();
+		std::string str = ChallengeResponse::GetReportString(crcAndFilename, NULL);
+		ChatText(str.c_str());
+		broadcastChatMessage(str);
+		break;
+	}
+
+	case ChallengeResponseCommand::AllVersionRequest: {
+		std::string str = ChallengeResponse::GetInstance()->GetAllReportString();
+		ChatText(str.c_str());
+		broadcastChatMessage(str);
+		break;
+	}
+
 	}
 	return 0;
 }
@@ -186,8 +255,11 @@ ChallengeResponse::ChallengeResponse():
 
 	SnapshotModules();
 
+	BattleroomCommands::GetInstance()->RegisterCommand(".exereport", &ChallengeResponse::OnBattleroomCommandExeReport);
 	BattleroomCommands::GetInstance()->RegisterCommand(".tdreport", &ChallengeResponse::OnBattleroomCommandTdReport);
+	BattleroomCommands::GetInstance()->RegisterCommand(".tpreport", &ChallengeResponse::OnBattleroomCommandTpReport);
 	BattleroomCommands::GetInstance()->RegisterCommand(".gp3report", &ChallengeResponse::OnBattleroomCommandGp3Report);
+	BattleroomCommands::GetInstance()->RegisterCommand(".crcreport", &ChallengeResponse::OnBattleroomCommandCrcReport);
 }
 #pragma code_seg(pop)
 
@@ -220,17 +292,46 @@ void ChallengeResponse::SnapshotModules()
 {
 	HMODULE hModule = NULL;
 
-	// this dll
-	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-		reinterpret_cast<LPCSTR>(&ChallengeResponseUpdateProc), &hModule);
-	SnapshotModule(hModule);
-
-	// this process
+	// this process (ie TotalA.exe)
 	hModule = GetModuleHandle(NULL);
 	SnapshotModule(hModule);
 
-	for (const std::string& path : GetModules()) {
-		if (endsWith(toLowerCase(path), "playx.dll")) {
+	// all dlls loaded from current working directory
+	std::vector<std::string> modules = GetModules();
+
+	//// this dll
+	//GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+	//	reinterpret_cast<LPCSTR>(&ChallengeResponseUpdateProc), &hModule);
+	//SnapshotModule(hModule);
+
+	// The outermost wrapper of DDraw.dll
+	// Should be this module
+	std::string DDrawOutermostWrapper((const char*)0x4ff618);
+	for (auto it = modules.begin(); it != modules.end(); ++it) {
+		std::string path = *it;
+		if (endsWith(toLowerCase(path), toLowerCase("\\" + DDrawOutermostWrapper))) {
+			SnapshotFile(path.c_str());
+			modules.erase(it);
+			break;
+		}
+	}
+
+	// The outermost wrapper of DPlayX.dll
+	// Will be the patchloader if the patchloader is being used,
+	// otherwise it'll be the recorder.
+	std::string DPlayXOutermostWrapper((const char*)0x4ff9e4);
+	for (auto it = modules.begin(); it != modules.end(); ++it) {
+		std::string path = *it;
+		if (endsWith(toLowerCase(path), toLowerCase("\\" + DPlayXOutermostWrapper))) {
+			SnapshotFile(path.c_str());
+			modules.erase(it);
+			break;
+		}
+	}
+
+	for (auto it = modules.begin(); it != modules.end(); ++it) {
+		std::string path = *it;
+		if (endsWith(toLowerCase(path), "playx.dll")) {		// inner wrappers (ie the recorder if a patchloader is being used)
 			SnapshotFile(path.c_str());
 		}
 	}
@@ -545,6 +646,7 @@ void ChallengeResponse::SnapshotFile(const char* moduleFileName)
 	}
 
 	m_moduleInitialDiskSnapshots.push_back(moduleOnDisk);
+	m_moduleInitialDiskSnapshotFilenames.push_back(moduleFileName);
 }
 #pragma code_seg(pop)
 
@@ -718,7 +820,73 @@ std::vector<bool> ChallengeResponse::getUsedWeaponIds()
 #pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_32)))
-std::string ChallengeResponse::GetTDrawVersionReportString()
+void ChallengeResponse::handleBattleroomReportCommand(const std::string& str, ChallengeResponseCommand cmd)
+{
+	ChatText(str.c_str());
+
+	char buffer[2][65] = { 0 };	// two 0x05 "chat" messages back-to-back
+
+	// 1st "chat" message
+	buffer[0][0] = 0x05;
+	std::memcpy(&buffer[0][1], str.c_str(), str.size());
+
+	// 2nd "chat" message
+	ChallengeResponseMessage* msg = (ChallengeResponseMessage*)&buffer[1][0];
+	SetChallengeResponseMessage(*msg, cmd, 0u, 0u);
+
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
+	HAPI_BroadcastMessage(fromDpid, &buffer[0][0], sizeof(buffer));
+}
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_33)))
+void ChallengeResponse::OnBattleroomCommandExeReport(const std::vector<std::string>&)
+{
+	auto crcAndFilename = ChallengeResponse::GetInstance()->GetTotalACrc();
+	std::string str = ChallengeResponse::GetReportString(crcAndFilename, NULL);
+	handleBattleroomReportCommand(str, ChallengeResponseCommand::ExeVersionRequest);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_34)))
+void ChallengeResponse::OnBattleroomCommandTdReport(const std::vector<std::string>&)
+{
+	std::string versionString = ChallengeResponse::GetInstance()->GetTDrawVersionString();
+	auto crcAndFilename = ChallengeResponse::GetInstance()->GetTDrawCrc();
+	std::string str = ChallengeResponse::GetReportString(crcAndFilename, &versionString);
+	handleBattleroomReportCommand(str, ChallengeResponseCommand::TDrawVersionRequest);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_35)))
+void ChallengeResponse::OnBattleroomCommandTpReport(const std::vector<std::string>&)
+{
+	auto crcAndFilename = ChallengeResponse::GetInstance()->GetTPlayXCrc();
+	std::string str = ChallengeResponse::GetReportString(crcAndFilename, NULL);
+	handleBattleroomReportCommand(str, ChallengeResponseCommand::TPlayVersionRequest);
+}
+#pragma code_seg(pop)
+
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_36)))
+void ChallengeResponse::OnBattleroomCommandGp3Report(const std::vector<std::string>&)
+{
+	auto crcAndFilename = ChallengeResponse::GetInstance()->GetGp3Crc();
+	std::string str = ChallengeResponse::GetReportString(crcAndFilename, NULL);
+	handleBattleroomReportCommand(str, ChallengeResponseCommand::Gp3VersionRequest);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_37)))
+void ChallengeResponse::OnBattleroomCommandCrcReport(const std::vector<std::string>&)
+{
+	std::string str = ChallengeResponse::GetInstance()->GetAllReportString();
+	handleBattleroomReportCommand(str, ChallengeResponseCommand::AllVersionRequest);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_38)))
+std::string ChallengeResponse::GetTDrawVersionString()
 {
 	std::string tDrawVersion("<unknown>");
 	{
@@ -749,61 +917,77 @@ std::string ChallengeResponse::GetTDrawVersionReportString()
 		FreeResource(hResData);
 	}
 
-	unsigned tDrawCrc = 0;
-	if (m_moduleInitialDiskSnapshots.size() > 0 && m_moduleInitialDiskSnapshots[0]) {
-		tDrawCrc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[0]->data(), m_moduleInitialDiskSnapshots[0]->size());
-	}
-	unsigned exeCrc = 0;
-	if (m_moduleInitialDiskSnapshots.size() > 1 && m_moduleInitialDiskSnapshots[1]) {
-		exeCrc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[1]->data(), m_moduleInitialDiskSnapshots[1]->size());
-	}
-
-	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	char buffer[100];
-	std::sprintf(buffer, "*** %s %s tdraw:%X taexe:%X",
-		taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].Name, tDrawVersion.c_str(), tDrawCrc, exeCrc);
-
-	std::string result(buffer);
-	if (result.size() > 63) {
-		result = result.substr(0, 63);
-	}
-	return result;
+	return tDrawVersion;
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_33)))
-void ChallengeResponse::OnBattleroomCommandTdReport(const std::vector<std::string>&)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_39)))
+std::pair<unsigned, std::string> ChallengeResponse::GetTotalACrc()
 {
-	std::string myVersion = ChallengeResponse::GetInstance()->GetTDrawVersionReportString();
-	ChatText(myVersion.c_str());
-
-	char buffer[2][65] = { 0 };	// two 0x05 "chat" messages back-to-back
-
-	// 1st "chat" message
-	buffer[0][0] = 0x05;
-	std::memcpy(&buffer[0][1], myVersion.c_str(), myVersion.size());
-
-	// 2nd "chat" message
-	ChallengeResponseMessage* msg = (ChallengeResponseMessage*)&buffer[1][0];
-	SetChallengeResponseMessage(*msg, ChallengeResponseCommand::TDrawVersionRequest, 0u, 0u);
-
-	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
-	HAPI_BroadcastMessage(fromDpid, &buffer[0][0], sizeof(buffer));
-}
-#pragma code_seg(pop)
-
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_34)))
-std::string ChallengeResponse::GetGp3VersionReportString()
-{
-	char filename[MAX_PATH] = "<unknown>";
 	unsigned crc = 0;
+	std::string filename;
+	for (int n = 0; n < m_moduleInitialDiskSnapshotFilenames.size(); ++n) {
+		auto components = getFilenameComponents(m_moduleInitialDiskSnapshotFilenames[n]);
+		if (toLowerCase(std::get<2>(components)) == "exe") {
+			filename = std::get<1>(components) + "." + std::get<2>(components);
+			crc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[n]->data(), m_moduleInitialDiskSnapshots[n]->size());
+			break;
+		}
+	}
+
+	return std::make_pair(crc, filename);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_40)))
+std::pair<unsigned, std::string> ChallengeResponse::GetTDrawCrc()
+{
+	const std::string DDrawOutermostWrapper((const char*)0x4ff618);
+	unsigned crc = 0;
+	std::string filename;
+	for (int n = 0; n < m_moduleInitialDiskSnapshotFilenames.size(); ++n) {
+		auto components = getFilenameComponents(m_moduleInitialDiskSnapshotFilenames[n]);
+		if (toLowerCase(std::get<1>(components) + "." + std::get<2>(components)) == toLowerCase(DDrawOutermostWrapper)) {
+			filename = std::get<1>(components) + "." + std::get<2>(components);
+			crc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[n]->data(), m_moduleInitialDiskSnapshots[n]->size());
+			break;
+		}
+	}
+	return std::make_pair(crc, filename);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_41)))
+std::pair<unsigned, std::string> ChallengeResponse::GetTPlayXCrc()
+{
+	const std::string DPlayXOutermostWrapper((const char*)0x4ff9e4);
+	unsigned crc = 0;
+	std::string filename;
+	for (int n = 0; n < m_moduleInitialDiskSnapshotFilenames.size(); ++n) {
+		auto components = getFilenameComponents(m_moduleInitialDiskSnapshotFilenames[n]);
+		if (toLowerCase(std::get<1>(components) + "." + std::get<2>(components)) == toLowerCase(DPlayXOutermostWrapper)) {
+			filename = std::get<1>(components) + "." + std::get<2>(components);
+			crc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[n]->data(), m_moduleInitialDiskSnapshots[n]->size());
+			break;
+		}
+	}
+	return std::make_pair(crc, filename);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_42)))
+std::pair<unsigned, std::string> ChallengeResponse::GetGp3Crc()
+{
+	unsigned crc = 0;
+	std::string filename;
 	{
+		char buf[MAX_PATH];
 		const char* format = (char*)0x5028cc;
 		const char* version = (char*)0x5028d8;
-		std::sprintf(filename, format, version);
+		std::sprintf(buf, format, version);
+		filename = buf;
 
-		std::ifstream file(filename, std::ios::binary);
+		std::ifstream file(buf, std::ios::binary);
 		if (file.is_open()) {
 			file.seekg(0, std::ios::end);
 			std::streamsize fileSize = file.tellg();
@@ -815,11 +999,26 @@ std::string ChallengeResponse::GetGp3VersionReportString()
 			}
 		}
 	}
+	return std::make_pair(crc, filename);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_43)))
+std::string ChallengeResponse::GetReportString(const std::pair<unsigned, std::string>& crcAndFilename, const std::string* optionalVersion)
+{
+	const unsigned crc = std::get<0>(crcAndFilename);
+	const std::string& filename = std::get<1>(crcAndFilename);
 
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	char buffer[100];
-	std::sprintf(buffer, "*** %s uses %s CRC=%X",
-		taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].Name, filename, crc);
+	if (optionalVersion) {
+		std::sprintf(buffer, "*** %s uses %s %s CRC=%X",
+			taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].Name, filename.c_str(), optionalVersion->c_str(), crc);
+	}
+	else {
+		std::sprintf(buffer, "*** %s uses %s CRC=%X",
+			taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].Name, filename.c_str(), crc);
+	}
 
 	std::string result(buffer);
 	if (result.size() > 63) {
@@ -829,24 +1028,37 @@ std::string ChallengeResponse::GetGp3VersionReportString()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_35)))
-void ChallengeResponse::OnBattleroomCommandGp3Report(const std::vector<std::string>&)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_44)))
+std::string ChallengeResponse::GetAllReportString()
 {
-	std::string myVersion = ChallengeResponse::GetInstance()->GetGp3VersionReportString();
-	ChatText(myVersion.c_str());
-
-	char buffer[2][65] = { 0 };	// two 0x05 "chat" messages back-to-back
-
-	// 1st "chat" message
-	buffer[0][0] = 0x05;
-	std::memcpy(&buffer[0][1], myVersion.c_str(), myVersion.size());
-
-	// 2nd "chat" message
-	ChallengeResponseMessage* msg = (ChallengeResponseMessage*)&buffer[1][0];
-	SetChallengeResponseMessage(*msg, ChallengeResponseCommand::Gp3VersionRequest, 0u, 0u);
-
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
-	HAPI_BroadcastMessage(fromDpid, &buffer[0][0], sizeof(buffer));
+	const char* playerName = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].Name;
+
+	std::string tdrawVersionString = GetTDrawVersionString();
+	auto totalACrcAndFn = GetTotalACrc();
+	auto tdrawCrcAndFn = GetTDrawCrc();
+	auto tplayxCrcAndFn = GetTPlayXCrc();
+	auto gp3CrcAndFn = GetGp3Crc();
+
+	const int nDigits = 4;
+	char totalACrcStr[nDigits + 1], tdrawCrcStr[nDigits + 1], tplayxCrcStr[nDigits + 1], gp3CrcStr[nDigits + 1];
+	encodeInteger(std::get<0>(totalACrcAndFn), totalACrcStr, nDigits);
+	encodeInteger(std::get<0>(tdrawCrcAndFn), tdrawCrcStr, nDigits);
+	encodeInteger(std::get<0>(tplayxCrcAndFn), tplayxCrcStr, nDigits);
+	encodeInteger(std::get<0>(gp3CrcAndFn), gp3CrcStr, nDigits);
+
+	char buffer[100];
+	std::sprintf(buffer, "%6.6s %s %5.5s %s %s %6.6s %s gp3 %s %s",
+		std::get<1>(totalACrcAndFn).c_str(), totalACrcStr,
+		std::get<1>(tdrawCrcAndFn).c_str(), tdrawVersionString.c_str(), tdrawCrcStr,
+		std::get<1>(tplayxCrcAndFn).c_str(), tplayxCrcStr,
+		gp3CrcStr,
+		playerName);
+
+	std::string result(buffer);
+	if (result.size() > 63) {
+		result = result.substr(0, 63);
+	}
+	return result;
 }
 #pragma code_seg(pop)
