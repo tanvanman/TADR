@@ -612,8 +612,7 @@ int __stdcall BadModelHunter (PInlineX86StackBuffer X86StrackBuffer)
 
 		LogToErrorlog ( "\r\n===============================\r\n");
 
-		SendText ( "Plz Send Errorlog.txt(In Your TA Path) And The Replay Tad To XPoy(In TAUniverse Or In TAClub).\r\nMan, You Meet A Bad Crash Cause By Unit. \r\nOr If You Are A Modder, You Can Know Which Unit Had The Problem In Above", 1);
-
+		SendText("Warning! Error detected and posted to ErrorLog.txt (in your TA Path).\r\nPlease forward along with your game's recording to Report-Bugs via our Discord site.\r\nNote units on screen and click OK to remove this message", 1);
 
 		X86StrackBuffer->Edi= *(DWORD *)(X86StrackBuffer->Esp);
 
