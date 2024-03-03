@@ -296,25 +296,25 @@ void ChallengeResponse::SnapshotModules()
 	hModule = GetModuleHandle(NULL);
 	SnapshotModule(hModule);
 
+	// this dll
+	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		reinterpret_cast<LPCSTR>(&ChallengeResponseUpdateProc), &hModule);
+	SnapshotModule(hModule);
+
 	// all dlls loaded from current working directory
 	std::vector<std::string> modules = GetModules();
 
-	//// this dll
-	//GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-	//	reinterpret_cast<LPCSTR>(&ChallengeResponseUpdateProc), &hModule);
-	//SnapshotModule(hModule);
-
 	// The outermost wrapper of DDraw.dll
 	// Should be this module
-	std::string DDrawOutermostWrapper((const char*)0x4ff618);
-	for (auto it = modules.begin(); it != modules.end(); ++it) {
-		std::string path = *it;
-		if (endsWith(toLowerCase(path), toLowerCase("\\" + DDrawOutermostWrapper))) {
-			SnapshotFile(path.c_str());
-			modules.erase(it);
-			break;
-		}
-	}
+	//std::string DDrawOutermostWrapper((const char*)0x4ff618);
+	//for (auto it = modules.begin(); it != modules.end(); ++it) {
+	//	std::string path = *it;
+	//	if (endsWith(toLowerCase(path), toLowerCase("\\" + DDrawOutermostWrapper))) {
+	//		SnapshotFile(path.c_str());
+	//		modules.erase(it);
+	//		break;
+	//	}
+	//}
 
 	// The outermost wrapper of DPlayX.dll
 	// Will be the patchloader if the patchloader is being used,
@@ -945,13 +945,18 @@ std::pair<unsigned, std::string> ChallengeResponse::GetTDrawCrc()
 	const std::string DDrawOutermostWrapper((const char*)0x4ff618);
 	unsigned crc = 0;
 	std::string filename;
-	for (int n = 0; n < m_moduleInitialDiskSnapshotFilenames.size(); ++n) {
-		auto components = getFilenameComponents(m_moduleInitialDiskSnapshotFilenames[n]);
-		if (toLowerCase(std::get<1>(components) + "." + std::get<2>(components)) == toLowerCase(DDrawOutermostWrapper)) {
-			filename = std::get<1>(components) + "." + std::get<2>(components);
-			crc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[n]->data(), m_moduleInitialDiskSnapshots[n]->size());
-			break;
-		}
+	//for (int n = 0; n < m_moduleInitialDiskSnapshotFilenames.size(); ++n) {
+	//	auto components = getFilenameComponents(m_moduleInitialDiskSnapshotFilenames[n]);
+	//	if (toLowerCase(std::get<1>(components) + "." + std::get<2>(components)) == toLowerCase(DDrawOutermostWrapper)) {
+	//		filename = std::get<1>(components) + "." + std::get<2>(components);
+	//		crc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[n]->data(), m_moduleInitialDiskSnapshots[n]->size());
+	//		break;
+	//	}
+	//}
+	if (m_moduleInitialDiskSnapshotFilenames.size() >= 1 && endsWith(toLowerCase(m_moduleInitialDiskSnapshotFilenames[1]), "draw.dll")) {
+		auto components = getFilenameComponents(m_moduleInitialDiskSnapshotFilenames[1]);
+		filename = std::get<1>(components) + "." + std::get<2>(components);
+		crc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[1]->data(), m_moduleInitialDiskSnapshots[1]->size());
 	}
 	return std::make_pair(crc, filename);
 }
