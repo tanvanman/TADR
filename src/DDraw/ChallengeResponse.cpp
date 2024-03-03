@@ -953,7 +953,7 @@ std::pair<unsigned, std::string> ChallengeResponse::GetTDrawCrc()
 	//		break;
 	//	}
 	//}
-	if (m_moduleInitialDiskSnapshotFilenames.size() >= 1 && endsWith(toLowerCase(m_moduleInitialDiskSnapshotFilenames[1]), "draw.dll")) {
+	if (m_moduleInitialDiskSnapshotFilenames.size() >= 1) {
 		auto components = getFilenameComponents(m_moduleInitialDiskSnapshotFilenames[1]);
 		filename = std::get<1>(components) + "." + std::get<2>(components);
 		crc = m_crc.FullCRC(m_moduleInitialDiskSnapshots[1]->data(), m_moduleInitialDiskSnapshots[1]->size());
