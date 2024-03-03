@@ -19,7 +19,12 @@ NEW FEATURES IN BRIEF:
 
 - Set start positions based on battleroom teams (or alliances)
 - Repair battleroom teams icons so they can be used to create teams before to launching
-- Features to automatically assign teams in battleroom or in-game
+- Add +autoteam battleroom and in-game commands to automatically assign teams
+- Add .exereport battleroom command to report CRC32 of each player's totala.exe
+- Add .tdreport battleroom command to report CRC32 of each player's tdraw.dll (may be a different filename depending on mod)
+- Add .tpreport battleroom command to report CRC32 of each player's tplayx.dll (may be a different filename depending on mod)
+- Add .gp3report battleroom command to report CRC32 of each player's rev31.gp3 (may be a different filename depending on mod)
+- Add .crcreport battleroom command to report fingerprints of each player's totala.exe, tdraw.dll, tplayx.dll and rev31.gp3 file all at once
 - ClickSnap to snap to nearest mex, geo or reclaimable feature
 - Add ability to drag queued orders around the map
 - Con units patrol behaviour - hold position: reclaim only
@@ -37,11 +42,6 @@ NEW FEATURES IN BRIEF:
 - Ctrl-F centres view on selected factory
 - Ctrl-S works correctly with mobile-units-can-build-mobile-units hack
 - Set +lostype as a cheatcode (not available unless cheats enabled)
-- Add .exereport battleroom command to report CRC32 of each player's totala.exe
-- Add .tdreport battleroom command to report CRC32 of each player's tdraw.dll (may be a different filename depending on mod)
-- Add .tpreport battleroom command to report CRC32 of each player's tplayx.dll (may be a different filename depending on mod)
-- Add .gp3report battleroom command to report CRC32 of each player's rev31.gp3 (may be a different filename depending on mod)
-- Add .crcreport battleroom command to report fingerprints of each player's totala.exe, tdraw.dll, tplayx.dll and rev31.gp3 file all at once
 - Look for ddraw.dll in current working directory as backend, or failing that use system ddraw.dll
 - Use the same .ini file as TotalA.exe
 - Use the same registry path as TotalA.exe
