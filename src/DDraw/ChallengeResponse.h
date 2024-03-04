@@ -103,6 +103,7 @@ private:
 	void LogUnits(const std::string& filename);
 	void LogGamingState(const std::string& filename);
 	void LogMapSnapshot(const std::string& filename);
+	void LogGameFileLookup(const std::string& filename);
 
 	static void handleBattleroomReportCommand(const std::string& str, ChallengeResponseCommand cmd);
 };

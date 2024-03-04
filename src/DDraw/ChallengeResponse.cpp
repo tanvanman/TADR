@@ -119,6 +119,34 @@ static void broadcastChatMessage(const std::string& msg)
 	HAPI_BroadcastMessage(fromDpid, buffer, sizeof(buffer));
 }
 
+static std::map<std::string, std::string> gamePathToHpiLookup;
+static std::string UnitsStr = toLowerCase((const char*)0x503920);
+static std::string WeaponsStr = toLowerCase((const char*)0x50392c);
+static std::string FeaturesStr = toLowerCase((const char*)0x502c7c);
+
+unsigned int LogGamePathAddr1 = 0x4bb332;
+int __stdcall LogGamePathProc1(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (X86StrackBuffer->Eax) {
+		std::string gameFile = toLowerCase((const char*)X86StrackBuffer->Edi);
+		if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0) {
+			gamePathToHpiLookup[gameFile] = gameFile;
+		}
+	}
+	return 0;
+}
+
+unsigned int LogGamePathAddr2 = 0x4bb3a7;
+int __stdcall LogGamePathProc2(PInlineX86StackBuffer X86StrackBuffer)
+{
+	std::string gameFile = toLowerCase(*(const char**)(X86StrackBuffer->Esp + 0x14));
+	std::string hpiFile = (const char*)(X86StrackBuffer->Eax + 0x14);
+	if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0) {
+		gamePathToHpiLookup[gameFile] = hpiFile;
+	}
+	return 0;
+}
+
 unsigned int ChallengeResponseUpdateAddr = 0x4954b7;
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_1)))
 int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
@@ -252,6 +280,8 @@ ChallengeResponse::ChallengeResponse():
 	m_crc.Initialize();
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(ChallengeResponseUpdateAddr, 5, INLINE_5BYTESLAGGERJMP, ChallengeResponseUpdateProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(ReceiveChallengeOrResponseAddr, 5, INLINE_5BYTESLAGGERJMP, ReceiveChallengeOrResponseProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(LogGamePathAddr1, 5, INLINE_5BYTESLAGGERJMP, LogGamePathProc1));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(LogGamePathAddr2, 5, INLINE_5BYTESLAGGERJMP, LogGamePathProc2));
 
 	SnapshotModules();
 
@@ -433,7 +463,7 @@ void ChallengeResponse::VerifyResponses()
 			SendText(ss.str().c_str(), 0);
 			msg[0] = 0x05;	// chat
 			std::strncpy(msg + 1, ss.str().c_str(), 64);
-			ss << " Someone is cheating";
+			ss << " Compare ErrorLog.txt to diagnose";
 			m_persistentCheatWarnings.push_back(ss.str());
 			LogAll("ErrorLog.txt");
 		}
@@ -787,6 +817,7 @@ void ChallengeResponse::LogAll(const std::string& filename)
 	LogFeatures(filename);
 	LogUnits(filename);
 	LogGamingState(filename);
+	LogGameFileLookup(filename);
 	//LogMapSnapshot(filename);
 }
 #pragma code_seg(pop)
@@ -1065,5 +1096,17 @@ std::string ChallengeResponse::GetAllReportString()
 		result = result.substr(0, 63);
 	}
 	return result;
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_45)))
+void ChallengeResponse::LogGameFileLookup(const std::string & filename)
+{
+	std::ofstream fs(filename, std::ios::app);
+	fs << "========== GameFilesLookup:\n";
+
+	for (auto p : gamePathToHpiLookup) {
+		fs << p.first << ":" << p.second << '\n';
+	}
 }
 #pragma code_seg(pop)
