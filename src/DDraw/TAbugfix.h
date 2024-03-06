@@ -37,7 +37,7 @@ private:
 	std::unique_ptr <SingleHook> DisplayModeMinHeight768Def;
 	std::unique_ptr <SingleHook> DisplayModeMinWidth1024Def;
 	std::unique_ptr <SingleHook> DisplayModeMinWidth1024Reg;
-	std::unique_ptr <SingleHook> DisplayWindSpeed;
+	std::unique_ptr <SingleHook> ResourceStripHeightFix;
 	std::unique_ptr <SingleHook> PatrolDisableBuildRepair;
 	std::unique_ptr <SingleHook> VTOLPatrolDisableBuildRepair;
 	std::unique_ptr <SingleHook> KeepOnReclaimPreparedOrder;

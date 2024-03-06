@@ -412,7 +412,7 @@ BOOL IsPlayerAllyUnit (int UnitID,int PlayerLosID)
 	return FALSE;
 }
 
-bool GetWeatherReport(char* buffer, int len)
+void GetWeatherReport(int& _solar, int& windPower, int & windPowerMin, int & windPowerMax, int& tidalPower)
 {
 	TAdynmemStruct* ptrMain = *(TAdynmemStruct**)0x0511DE8;
 
@@ -439,31 +439,22 @@ bool GetWeatherReport(char* buffer, int len)
 		stdWindGenMaxPower = 30;
 	}
 
-	const int tidalPower = ptrMain->TidalStrength;
+	_solar = solarPower;
+	tidalPower = ptrMain->TidalStrength;
+	windPower = 0;
+	windPowerMin = 0;
+	windPowerMax = 0;
+
 	const int windSpeedHardLimit = ptrMain->WindSpeedHardLimit;
 	if (windSpeedHardLimit > 0) {
-		int windPower = (stdWindGenMaxPower * ptrMain->WindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
-		int windPowerMin = (stdWindGenMaxPower * ptrMain->MinWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
-		int windPowerMax = (stdWindGenMaxPower * ptrMain->MaxWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+		windPower = (stdWindGenMaxPower * ptrMain->WindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+		windPowerMin = (stdWindGenMaxPower * ptrMain->MinWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
+		windPowerMax = (stdWindGenMaxPower * ptrMain->MaxWindSpeed + windSpeedHardLimit / 2) / windSpeedHardLimit;
 
 		windPower = std::min(windPower, stdWindGenMaxPower);
 		windPowerMin = std::min(windPowerMin, stdWindGenMaxPower);
 		windPowerMax = std::min(windPowerMax, stdWindGenMaxPower);
-
-		if (DataShare->PlayingDemo || (0 != (WATCH & (ptrMain->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))
-		{
-			int n = snprintf(buffer, len, "Solar: +%d  Wind: (%d-%d)  Tidal: +%d",
-				solarPower, windPowerMin, windPowerMax, tidalPower);
-			return n != -1 && n < len;
-		}
-		else
-		{
-			int n = snprintf(buffer, len, "Solar: +%d  Wind: +%d (%d-%d)  Tidal: +%d",
-				solarPower, windPower, windPowerMin, windPowerMax, tidalPower);
-			return n != -1 && n < len;
-		}
 	}
-	return false;
 }
 
 PlayerStruct* FindPlayerByName(const char* name)
@@ -543,6 +534,7 @@ _HAPI_BroadcastMessage HAPI_BroadcastMessage = (_HAPI_BroadcastMessage)0x451df0;
 _getFrate getFrate = (_getFrate)0x4B66A0;
 DrawTextInScreen_ DrawTextInScreen = (DrawTextInScreen_)0x04C14F0;
 _DrawColorTextInScreen DrawColorTextInScreen = (_DrawColorTextInScreen)0x4A50E0;
+_GetTextExtent GetTextExtent = (_GetTextExtent)0x4c1480;
 
 //find BeginUnitsArray_p  under mousepointer
 _FindMouseUnit FindMouseUnit = (_FindMouseUnit)0x48CD80;

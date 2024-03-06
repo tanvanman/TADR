@@ -16,6 +16,10 @@
 #ifdef min
   #undef min
 #endif
+#ifdef max
+	#undef max
+#endif
+
 #include <algorithm>
 #include <stdio.h>
 
@@ -636,3 +640,78 @@ void CIncome::DrawPlayerRect(int posx, int posy, char Color)
 
 }
 
+void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch)
+{
+	if (SurfaceMemory == NULL || DataShare->TAProgress != TAInGame) {
+		return;
+	}
+
+	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	const int timeSeconds = taPtr->GameTime / 30;
+
+	PlayerStruct* player = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
+	int raceSide = player->PlayerInfo->RaceSide;
+	if (raceSide >= taPtr->RaceCounter) {
+		raceSide = 0;
+	}
+	RaceSideData* race = &taPtr->RaceSideDataAry[raceSide];
+
+	int solar, wind, windMin, windMax, tidal;
+	GetWeatherReport(solar, wind, windMin, windMax, tidal);
+
+	int x = 50 + std::max(race->ENERGYPRODUCED.right, race->METALPRODUCED.right);
+	int y1 = race->ENERGYPRODUCED.top;
+	int y2 = race->ENERGYCONSUMED.top;
+	int y3 = (y1 + y2) / 2;
+	const unsigned char GREY = taPtr->desktopGUI.RadarObjecColor[7];
+	const unsigned char GREEN = taPtr->desktopGUI.RadarObjecColor[10];
+
+	void* fontHandleBak = programPtr->fontHandle;
+	programPtr->fontHandle = (unsigned char*)taPtr->RaceSideDataAry[raceSide].Font_File;
+	programPtr->fontFrontColour = GREY;
+	programPtr->fontBackColour = programPtr->fontAlpha;
+
+	OFFSCREEN offScreen;
+	memset(&offScreen, 0, sizeof(OFFSCREEN));
+	offScreen.Height = dwWidth;
+	offScreen.Width = lPitch;
+	offScreen.lPitch = lPitch;
+	offScreen.lpSurface = lpSurfaceMem;
+	offScreen.ScreenRect.left = 0;
+	offScreen.ScreenRect.right = dwWidth;
+	offScreen.ScreenRect.top = 0;
+	offScreen.ScreenRect.bottom = dwHeight;
+
+	char windText[32];
+	if (DataShare->PlayingDemo || (0 != (WATCH & (taPtr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask)))) {
+		sprintf(windText, "Wind : (%d-%d)", windMin, windMax);
+		DrawTextInScreen(&offScreen, windText, x, y1, -1);
+	}
+	else {
+		sprintf(windText, "Wind : +%d (%d-%d)", wind, windMin, windMax);
+		DrawTextInScreen(&offScreen, windText, x, y1, -1);
+
+		programPtr->fontFrontColour = GREEN;
+		sprintf(windText, "+%d", wind);
+		int dx = GetTextExtent(programPtr->fontHandle, "Wind : ");
+		DrawTextInScreen(&offScreen, windText, x + dx, y1, -1);
+	}
+
+	char tideText[32];
+	programPtr->fontFrontColour = GREY;
+	sprintf(tideText, "Tide :", tidal);
+	DrawTextInScreen(&offScreen, tideText, x, y2, -1);
+
+	programPtr->fontFrontColour = GREEN;
+	sprintf(tideText, "+%d", tidal);
+	int dx = GetTextExtent(programPtr->fontHandle, "Tide : ");
+	DrawTextInScreen(&offScreen, tideText, x + dx, y2, -1);
+
+	char clockText[32];
+	programPtr->fontFrontColour = GREY;
+	sprintf(clockText, "Game Time : %02d:%02d:%02d", (timeSeconds / 3600), (timeSeconds / 60) % 60, timeSeconds % 60);
+	DrawTextInScreen(&offScreen, clockText, x + 170, y3, -1);
+
+	programPtr->fontHandle = (unsigned char*)fontHandleBak;
+}

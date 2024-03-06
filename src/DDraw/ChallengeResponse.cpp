@@ -587,6 +587,10 @@ void ChallengeResponse::CrcMapSnapshot(unsigned* crc)
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_19)))
 void ChallengeResponse::Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch)
 {
+	if (lpSurfaceMem == NULL || DataShare->TAProgress != TAInGame) {
+		return;
+	}
+
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 
 	OFFSCREEN OffScreen;
@@ -609,9 +613,25 @@ void ChallengeResponse::Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_20)))
 void ChallengeResponse::Blit(OFFSCREEN* offscreen)
 {
-	for (unsigned n = 0u; n < m_persistentCheatWarnings.size(); ++n) {
-		// y-coordinate on which the +clock Game Time was drawn
-		int yOff = offscreen->Height - 15 * n - 64;
+	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+
+	if (taPtr->GameTime > 2 * 60 * 30) {	// 2 mins
+		return;
+	}
+
+	programPtr->fontHandle = (unsigned char*)taPtr->COMIXFontHandle;
+	programPtr->fontFrontColour = taPtr->desktopGUI.RadarObjecColor[15];
+	programPtr->fontBackColour = programPtr->fontAlpha;
+	int fontHeight = programPtr->fontHandle[0];
+
+	for (int n = 0u; n < int(m_persistentCheatWarnings.size()); ++n) {
+		// bottom of map
+		int yOff = offscreen->Height - fontHeight * (n - 1) - 64;
+		if (taPtr->SoftwareDebugMode & softwaredebugmode::Clock) {
+			yOff -= fontHeight;
+		}
+
 		std::string msg = m_persistentCheatWarnings[n];
 		DrawTextInScreen(offscreen, const_cast<char*>(msg.c_str()), 129, yOff, -1);
 	}
