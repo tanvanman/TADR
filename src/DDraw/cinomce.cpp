@@ -660,7 +660,8 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 	int solar, wind, windMin, windMax, tidal;
 	GetWeatherReport(solar, wind, windMin, windMax, tidal);
 
-	int x = 50 + std::max(race->ENERGYPRODUCED.right, race->METALPRODUCED.right);
+	int x1 = 110 + std::max(race->ENERGYPRODUCED.right, race->METALPRODUCED.right);
+	int x2 = x1 + 117;
 	int y1 = race->ENERGYPRODUCED.top;
 	int y2 = race->ENERGYCONSUMED.top;
 	int y3 = (y1 + y2) / 2;
@@ -686,32 +687,30 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 	char windText[32];
 	if (DataShare->PlayingDemo || (0 != (WATCH & (taPtr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask)))) {
 		sprintf(windText, "Wind : (%d-%d)", windMin, windMax);
-		DrawTextInScreen(&offScreen, windText, x, y1, -1);
+		DrawTextInScreen(&offScreen, windText, x1 - GetTextExtent(programPtr->fontHandle, "Wind : "), y1, -1);
 	}
 	else {
 		sprintf(windText, "Wind : +%d (%d-%d)", wind, windMin, windMax);
-		DrawTextInScreen(&offScreen, windText, x, y1, -1);
+		DrawTextInScreen(&offScreen, windText, x1 - GetTextExtent(programPtr->fontHandle, "Wind : "), y1, -1);
 
 		programPtr->fontFrontColour = GREEN;
 		sprintf(windText, "+%d", wind);
-		int dx = GetTextExtent(programPtr->fontHandle, "Wind : ");
-		DrawTextInScreen(&offScreen, windText, x + dx, y1, -1);
+		DrawTextInScreen(&offScreen, windText, x1, y1, -1);
 	}
 
 	char tideText[32];
 	programPtr->fontFrontColour = GREY;
-	sprintf(tideText, "Tide :", tidal);
-	DrawTextInScreen(&offScreen, tideText, x, y2, -1);
+	sprintf(tideText, "Tidal :", tidal);
+	DrawTextInScreen(&offScreen, tideText, x1 - GetTextExtent(programPtr->fontHandle, "Tidal : "), y2, -1);
 
 	programPtr->fontFrontColour = GREEN;
 	sprintf(tideText, "+%d", tidal);
-	int dx = GetTextExtent(programPtr->fontHandle, "Tide : ");
-	DrawTextInScreen(&offScreen, tideText, x + dx, y2, -1);
+	DrawTextInScreen(&offScreen, tideText, x1, y2, -1);
 
 	char clockText[32];
 	programPtr->fontFrontColour = GREY;
 	sprintf(clockText, "Game Time : %02d:%02d:%02d", (timeSeconds / 3600), (timeSeconds / 60) % 60, timeSeconds % 60);
-	DrawTextInScreen(&offScreen, clockText, x + 170, y3, -1);
+	DrawTextInScreen(&offScreen, clockText, x2, y3, -1);
 
 	programPtr->fontHandle = (unsigned char*)fontHandleBak;
 }
