@@ -666,6 +666,20 @@ struct PlayerInfoStruct
 	unsigned short PropertyMask;// 0x009b // & 0x4000:location random(0)/fixed(1)
 };
 
+struct CobHeader {
+	int Version;
+	int MethodCount;
+	int PieceCount;
+	int BytecodeLength;
+	int StaticVariablesCount;
+	int Always_0;
+	unsigned *MethodEntryPoints;	// array of ints
+	char **MethodNameOffsets;		// array of pointers into NameArray
+	char **PieceNameOffsets;		// array of pointers into NameArray
+	unsigned char* ByteCodeStart;
+	char* NameArray;				// back-to-back null terminated strings
+};
+
 struct UnitDefStruct {
 	char Name[0x20];
 	char UnitName[0x20];
@@ -694,7 +708,7 @@ struct UnitDefStruct {
 	unsigned long data_13;
 	unsigned long buildcostenergy;
 	unsigned long buildcostmetal;
-	unsigned long data_14;
+	CobHeader* cobDataPtr;
 	unsigned long lRawSpeed_maxvelocity;
 	unsigned long data_15;
 	unsigned long data_16;

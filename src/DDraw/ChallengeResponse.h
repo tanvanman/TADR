@@ -1,5 +1,6 @@
 #pragma once
 
+#include "HmacSha256.h"
 #include "nswfl_crc32.h"
 #include "tamem.h"
 
@@ -17,13 +18,15 @@ class SingleHook;
 struct FeatureStruct;
 
 enum class ChallengeResponseCommand : char {
-	ChallengeRequest = 1,
-	ChallengeReply = 2,
-	TDrawVersionRequest = 3,
-	Gp3VersionRequest = 4,
-	TPlayVersionRequest = 5,
-	ExeVersionRequest = 6,
-	AllVersionRequest = 7
+	ChallengeRequest = 1,				// Request remote players to calculate and reply verification hashes
+	LegacyCrc32Reply = 2,
+	TDrawVersionRequest = 3,			// Request remote players to reply advertise their TDraw crc in chat
+	Gp3VersionRequest = 4,				// Request remote players to reply advertise their gp3 crc in chat
+	TPlayVersionRequest = 5,			// Request remote players to reply advertise their D/TPlayX crc in chat
+	ExeVersionRequest = 6,				// Request remote players to reply advertise their TotalA.exe crc in chat
+	AllVersionRequest = 7,				// Request remote players to reply advertise all crcs in chat
+	ChallengeHashReplyModules = 32,		// Challenge Reply with hash of exe/dll modules
+	ChallengeHashReplyGameData = 33,	// Challenge Reply with hash of game data
 };
 
 #pragma pack(1)
@@ -33,9 +36,10 @@ struct ChallengeResponseMessage {
 	char msgId;		// 0x2b
 	short size;		// sizeof(ChallengeReponseMessage)
 	ChallengeResponseCommand command;
-	unsigned data[2];// for requests, data[0] is the nonce; for replys data are the crcs
-	char pad[51];
+	char data[32];  // for requests, data is the nonce; for replys data is the hash
+	char pad[27];
 };	// 65 bytes
+
 #pragma pack()
 
 class ChallengeResponse
@@ -54,14 +58,14 @@ public:
 	void SnapshotModules();
 	void SnapshotFeatureMap();
 	void ClearPersistentMessages();
-	unsigned NewNonse();
-	void ComputeChallengeResponse(unsigned nonse, unsigned crcs[2]);
-	void InitPlayerResponse(unsigned dpid, unsigned nonse);
-	void SetPlayerResponse(unsigned dpid, unsigned crc1, unsigned crc2);
+	void NewNonse(char *nonse, int len);
+	void ComputeChallengeResponse(const char *nonse, char *modulesHash, char *gameDataHash);
+	void InitPlayerResponse(unsigned dpid, char *nonse, int len);
+	void SetPlayerModulesResponse(unsigned dpid, const char *hash, int len);
+	void SetPlayerGameDataResponse(unsigned dpid, const char *hash, int len);
 	void VerifyResponses();
 	void Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch);
 	void Blit(OFFSCREEN* offscreen);
-	void SetBroadcastNoReplyWarnings(bool broadcastNoReplyWarnings);
 
 	static std::string GetReportString(const std::pair<unsigned, std::string> &crcAndFilename, const std::string* optionalVersion);
 	std::string GetAllReportString();
@@ -73,29 +77,48 @@ public:
 	std::pair<unsigned, std::string> GetGp3Crc();
 
 private:
+
+	struct ResponseContext
+	{
+		bool modulesResponseReceived;
+		bool gameDataResponseReceived;
+		char nonse[SHA256_DIGEST_LENGTH];
+		char modulesResponse[SHA256_DIGEST_LENGTH];
+		char gameDataResponse[SHA256_DIGEST_LENGTH];
+	};
+
 	static std::unique_ptr<ChallengeResponse> m_instance;
+
+	static const unsigned FEATURE_MASK = 0x0fff;
+	static const unsigned LOS_TYPE_MASK = 7u;
+	static const unsigned SOFTWARE_DEBUG_MODE_MASK =
+		softwaredebugmode::CheatsEnabled |
+		softwaredebugmode::InvulnerableFeatures |
+		softwaredebugmode::Doubleshot |
+		softwaredebugmode::Halfshot |
+		softwaredebugmode::Radar;
 
 	std::shared_ptr<FeatureStruct[]> m_featureMapSnapshot;
 	std::vector< std::shared_ptr<std::vector<unsigned char> > > m_moduleInitialDiskSnapshots;
 	std::vector< std::string > m_moduleInitialDiskSnapshotFilenames;
 	std::vector< std::unique_ptr<SingleHook> > m_hooks;
-	std::map<unsigned, std::tuple<unsigned, unsigned, unsigned> > m_responses;	// nonse, crc1, crc2
+	std::map<unsigned, ResponseContext> m_responses;	// keyed by dpid
+
 	taflib::CRC32 m_crc;
 	std::mt19937 m_rng;
-	bool m_broadcastNoReplyWarnings;
 	std::vector<std::string> m_persistentCheatWarnings;
 	std::vector<bool> getUsedWeaponIds();
 
-	std::vector<std::string> GetModules();
+	std::vector<std::string> GetModulePaths();
 	void SnapshotModule(HMODULE hModule);
 	void SnapshotFile(const char* filename);
 
-	void CrcModules(unsigned* crc);
-	void CrcWeapons(unsigned* crc);
-	void CrcFeatures(unsigned* crc);
-	void CrcUnits(unsigned* crc);
-	void CrcGamingState(unsigned* crc);
-	void CrcMapSnapshot(unsigned* crc);
+	void HashModules(HmacSha256Calculator &hmac);
+	void HashWeapons(HmacSha256Calculator& hmac);
+	void HashFeatures(HmacSha256Calculator& hmac);
+	void HashUnits(HmacSha256Calculator& hmac);
+	void HashGamingState(HmacSha256Calculator& hmac);
+	void HashMapSnapshot(HmacSha256Calculator& hmac);
 
 	void LogAll(const std::string &filename);
 	void LogWeapons(const std::string& filename);
