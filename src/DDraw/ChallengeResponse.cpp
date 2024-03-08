@@ -124,6 +124,7 @@ static std::map<std::string, std::string> gamePathToHpiLookup;
 static std::string UnitsStr = toLowerCase((const char*)0x503920);
 static std::string WeaponsStr = toLowerCase((const char*)0x50392c);
 static std::string FeaturesStr = toLowerCase((const char*)0x502c7c);
+static std::string ScriptsStr = toLowerCase((const char*)0x503740);
 
 // requested game path is file on the native file system
 unsigned int LogGamePathAddr1 = 0x4bb332;
@@ -132,7 +133,7 @@ int __stdcall LogGamePathProc1(PInlineX86StackBuffer X86StrackBuffer)
 {
 	if (X86StrackBuffer->Eax) {
 		std::string gameFile = toLowerCase((const char*)X86StrackBuffer->Edi);
-		if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0) {
+		if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0 || gameFile.find(ScriptsStr) == 0) {
 			gamePathToHpiLookup[gameFile] = gameFile;
 		}
 	}
@@ -147,7 +148,7 @@ int __stdcall LogGamePathProc2(PInlineX86StackBuffer X86StrackBuffer)
 {
 	std::string gameFile = toLowerCase(*(const char**)(X86StrackBuffer->Esp + 0x14));
 	std::string hpiFile = (const char*)(X86StrackBuffer->Eax + 0x14);
-	if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0) {
+	if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0 || gameFile.find(ScriptsStr) == 0) {
 		gamePathToHpiLookup[gameFile] = hpiFile;
 	}
 	return 0;
@@ -578,7 +579,7 @@ void ChallengeResponse::HashUnits(HmacSha256Calculator& hmac)
 			hmac.processChunk((unsigned char*)&u->FootX, 4);
 			if (u->YardMap) hmac.processChunk((unsigned char*)u->YardMap, u->FootX * u->FootY);
 			hmac.processChunk((unsigned char*)&u->buildLimit, 4);
-			hmac.processChunk((unsigned char*)&u->__X_Width, (char*)&u->data_14 - (char*)&u->__X_Width);
+			hmac.processChunk((unsigned char*)&u->__X_Width, (char*)&u->cobDataPtr - (char*)&u->__X_Width);
 			hmac.processChunk((unsigned char*)&u->lRawSpeed_maxvelocity, (char*)&u->weapon1 - (char*)&u->lRawSpeed_maxvelocity);
 			if (u->weapon1) hmac.processChunk((unsigned char*)&u->weapon1->ID, 1);
 			if (u->weapon2) hmac.processChunk((unsigned char*)&u->weapon2->ID, 1);
@@ -588,6 +589,19 @@ void ChallengeResponse::HashUnits(HmacSha256Calculator& hmac)
 			hmac.processChunk((unsigned char*)&u->nMaxHP, (char*)&u->ExplodeAs - (char*)&u->nMaxHP);
 			hmac.processChunk((unsigned char*)&u->maxslope, (char*)&u->wpri_badTargetCategory_MaskAryPtr - (char*)&u->maxslope);
 			hmac.processChunk((unsigned char*)&u->UnitTypeMask_0, 2 * sizeof(long));
+			if (u->cobDataPtr) {
+				CobHeader* c = u->cobDataPtr;
+				hmac.processChunk((unsigned char*)&c->Version, sizeof(c->Version));
+				hmac.processChunk((unsigned char*)&c->StaticVariablesCount, sizeof(c->StaticVariablesCount));
+				hmac.processChunk(c->ByteCodeStart, c->BytecodeLength);
+				for (int i = 0; i < c->MethodCount; ++i) {
+					hmac.processChunk((unsigned char*)&c->MethodEntryPoints[i], 4);
+					hmac.processChunk((unsigned char*)c->MethodNameOffsets[i], std::strlen(c->MethodNameOffsets[i]));
+				}
+				for (int i = 0; i < c->PieceCount; ++i) {
+					hmac.processChunk((unsigned char*)c->PieceNameOffsets[i], std::strlen(c->PieceNameOffsets[i]));
+				}
+			}
 		}
 	}
 }
@@ -778,7 +792,9 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 		"maxhp,data8,workertime,healtime,sightdistance,radardistance,sonardistance,mincloakdistance,"
 		"radardistancejam,sonardistancejam,nbuilddistance,builddistance,nmaneuverleashlength,attackrunlength,kamikazedistance,sortbias,"
 		"cruisealt,data4,maxslope,badslope,transportsize,transportcapacity,waterline,makesmetal,"
-		"bmcode,mask0,mask1\n";
+		"bmcode,mask0,mask1,"
+		"cobcrc32\n";
+
 	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
 		UnitDefStruct* u = &taPtr->UnitDef[n];
 		fs << n << ',' << u->UnitTypeID << ',' << u->Name << ',' << u->buildLimit << ',' << u->FootX << ',' << u->FootY << ',' << u->__X_Width << ',' << u->X_Width << ','
@@ -787,6 +803,7 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 			<< u->cceleration << ',' << u->bankscale << ',' << u->pitchscale << ',' << u->damagemodifier << ',' << u->moverate1 << ',' << u->moverate2 << ',' << u->movementclass << ',' << u->turnrate << ','
 			<< u->corpse << ',' << u->maxwaterdepth << ',' << u->minwaterdepth << ',' << u->energymake << ',' << u->energyuse << ',' << u->metalmake << ',' << u->extractsmetal << ',' << u->windgenerator << ','
 			<< u->tidalgenerator << ',' << u->cloakcost << ',' << u->cloakcostmoving << ',' << u->energystorage << ',' << u->metalstorage << ',' << u->buildtime << ',';
+
 		if (u->YardMap) {
 			for (int i = 0; i < u->FootX * u->FootY; ++i) {
 				fs << int(u->YardMap[i]);
@@ -799,14 +816,17 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 		else {
 			fs << "NULL,";
 		}
+
 		if (u->weapon1 && u->weapon1->WeaponName)
 			fs << u->weapon1->WeaponName << ',' << int(u->weapon1->ID) << ',';
 		else
 			fs << "NULL,NULL,";
+
 		if (u->weapon2 && u->weapon2->WeaponName)
 			fs << u->weapon2->WeaponName << ',' << int(u->weapon2->ID) << ',';
 		else
 			fs << "NULL,NULL,";
+
 		if (u->weapon3 && u->weapon3->WeaponName)
 			fs << u->weapon3->WeaponName << ',' << int(u->weapon3->ID) << ',';
 		else
@@ -815,7 +835,26 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 			<< u->nMaxHP << ',' << u->data8 << ',' << u->nWorkerTime << ',' << u->nHealTime << ',' << u->nSightDistance << ',' << u->nRadarDistance << ',' << u->nSonarDistance << ',' << u->mincloakdistance << ','
 			<< u->radardistancejam << ',' << u->sonardistancejam << ',' << u->nBuildDistance << ',' << u->builddistance << ',' << u->nManeuverLeashLength << ',' << u->attackrunlength << ',' << u->kamikazedistance << ',' << u->sortbias << ','
 			<< int(u->cruisealt) << ',' << int(u->data4) << ',' << int(u->maxslope) << ',' << int(u->badslope) << ',' << int(u->transportsize) << ',' << int(u->transportcapacity) << ',' << int(u->waterline) << ',' << u->makesmetal << ','
-			<< int(u->bmcode) << ',' << u->UnitTypeMask_0 << ',' << u->UnitTypeMask_1 << '\n';
+			<< int(u->bmcode) << ',' << u->UnitTypeMask_0 << ',' << u->UnitTypeMask_1 << ',';
+
+		if (u->cobDataPtr) {
+			CobHeader* c = u->cobDataPtr;
+			unsigned crc = -1;
+			m_crc.PartialCRC(&crc, (unsigned char*)&c->Version, sizeof(c->Version));
+			m_crc.PartialCRC(&crc, (unsigned char*)&c->Version, sizeof(c->Version));
+			m_crc.PartialCRC(&crc, (unsigned char*)&c->StaticVariablesCount, sizeof(c->StaticVariablesCount));
+			m_crc.PartialCRC(&crc, c->ByteCodeStart, c->BytecodeLength);
+			for (int i = 0; i < c->MethodCount; ++i) {
+				m_crc.PartialCRC(&crc, (unsigned char*)&c->MethodEntryPoints[i], 4);
+				m_crc.PartialCRC(&crc, (unsigned char*)c->MethodNameOffsets[i], std::strlen(c->MethodNameOffsets[i]));
+			}
+			for (int i = 0; i < c->PieceCount; ++i) {
+				m_crc.PartialCRC(&crc, (unsigned char*)c->PieceNameOffsets[i], std::strlen(c->PieceNameOffsets[i]));
+			}
+			crc ^= -1;
+			fs << crc;
+		}
+		fs << '\n';
 	}
 }
 #pragma code_seg(pop)
@@ -1147,7 +1186,13 @@ void ChallengeResponse::LogGameFileLookup(const std::string & filename)
 	fs << "========== GameFilesLookup:\n";
 
 	for (auto p : gamePathToHpiLookup) {
-		fs << p.first << ":" << p.second << '\n';
+		if (endsWith(p.second, ".gp3") || endsWith(p.second, ".ccx") || endsWith(p.second, ".hpi") || endsWith(p.second, ".ufo")) {
+			auto components = getFilenameComponents(p.second);
+			fs << p.first << " -> " << std::get<1>(components) << '.' << std::get<2>(components) << '\n';
+		}
+		else {
+			fs << p.first << " -> " << p.second << '\n';
+		}
 	}
 }
 #pragma code_seg(pop)
