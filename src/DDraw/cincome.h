@@ -40,7 +40,8 @@ class CIncome
     CIncome(BOOL VidMem);
     ~CIncome();
     void BlitIncome(LPDIRECTDRAWSURFACE DestSurf);
-    void Set(int BGType);
+	void BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch);
+	void Set(int BGType);
     bool Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 
 	bool IsShow (RECT * Rect_p);

@@ -2,8 +2,6 @@
 #include "iddraw.h"
 #include "iddrawsurface.h"
 
-
-#include "ChallengeResponse.h"
 #include "hook/etc.h"
 #include "hook/hook.h"
 
@@ -14,8 +12,6 @@
 
 
 #include "ddraw.h"
-
-#include <vector>
 
 TABugFixing * FixTABug;
 ///////---------------------
@@ -119,27 +115,15 @@ int __stdcall DrawPlayer11DTProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
-unsigned int DisplayWindSpeedAddr = 0x46a2a3;	// just after having drawn the +clock Game Time
-int __stdcall DisplayWindSpeedProc(PInlineX86StackBuffer X86StrackBuffer)
+// the resource strip draws more line that it should
+unsigned int ResourceStripHeightFixAddr = 0x469078;
+int __stdcall ResourceStripHeightFixProc(PInlineX86StackBuffer X86StrackBuffer)
 {
-	char Textbuf[0x100];
-	if (!(GetAsyncKeyState(VK_SPACE) & 0x8000) &&
-		GetWeatherReport(Textbuf, sizeof(Textbuf))) {
-
-		// y-coordinate on which the +clock Game Time was drawn
-		int yOff = X86StrackBuffer->Esi;
-
-		// local OFFSCREEN that was used for drawing +clock Game Time
-		OFFSCREEN* offScreen = (OFFSCREEN*)(X86StrackBuffer->Esp + 52);
-
-		DrawTextInScreen(offScreen, Textbuf, 260, yOff, -1);
-
-		TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-		if (taPtr->GameTime < 2*60*30) {	// 2 mins
-			ChallengeResponse::GetInstance()->Blit(offScreen);
-		}
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	short* gaf = (short*)X86StrackBuffer->Eax;
+	if (gaf[1] >= taPtr->GameSreen_Rect.top) {
+		gaf[1] = taPtr->GameSreen_Rect.top - 1;
 	}
-
 	return 0;
 }
 
@@ -534,7 +518,7 @@ TABugFixing::TABugFixing ()
     SavePlayerColor.reset(new InlineSingleHook(SavePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, SavePlayerColorProc));
     RestorePlayerColor.reset(new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc));
 	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
-	DisplayWindSpeed.reset(new InlineSingleHook(DisplayWindSpeedAddr, 5, INLINE_5BYTESLAGGERJMP, DisplayWindSpeedProc));
+	ResourceStripHeightFix.reset(new InlineSingleHook(ResourceStripHeightFixAddr, 5, INLINE_5BYTESLAGGERJMP, ResourceStripHeightFixProc));
 	PatrolDisableBuildRepair.reset(new InlineSingleHook(PatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableBuildRepairProc));
 	//PatrolDisableReclaim.reset(new InlineSingleHook(PatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableReclaimProc));
 	VTOLPatrolDisableBuildRepair.reset(new InlineSingleHook(VTOLPatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableBuildRepairProc));
