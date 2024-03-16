@@ -642,7 +642,7 @@ void CIncome::DrawPlayerRect(int posx, int posy, char Color)
 
 void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch)
 {
-	if (SurfaceMemory == NULL || DataShare->TAProgress != TAInGame) {
+	if (GetCurrentThreadId() != LocalShare->GuiThreadId || SurfaceMemory == NULL || DataShare->TAProgress != TAInGame) {
 		return;
 	}
 
