@@ -50,6 +50,8 @@ typedef int(__stdcall* DrawTextInScreen_)(OFFSCREEN* offscreen_p, char* text, in
 extern DrawTextInScreen_ DrawTextInScreen;
 typedef bool(__stdcall* _DrawColorTextInScreen)(OFFSCREEN* offscreen_p, char* text, int y_off, int x_off, int len_, int color_);
 extern _DrawColorTextInScreen DrawColorTextInScreen;
+typedef int(__stdcall* _GetTextExtent)(void* fontHandle, const char* str);
+extern _GetTextExtent GetTextExtent;
 typedef unsigned short (__stdcall *_FindMouseUnit)(void); //find BeginUnitsArray_p  under mousepointer
 extern _FindMouseUnit FindMouseUnit;
 //fill TAdynmem->MouseMapPosX & TAdynmem->MouseMapPosY first
@@ -260,7 +262,7 @@ int DrawDotteCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int 
 
 BOOL IsPlayerAllyUnit (int  UnitID,int PlayerLosID);
 
-bool GetWeatherReport(char* buffer, int len);
+void GetWeatherReport(int& _solar, int& windPower, int& windPowerMin, int& windPowerMax, int& tidalPower);
 
 PlayerStruct* FindPlayerByName(const char* name);
 PlayerStruct* FindPlayerByDPID(unsigned dpid);

@@ -511,8 +511,8 @@ struct TAdynmemStruct{
 	int data34;
 	int State_GUI_CallBack;//0x0391F1
 	LPVOID GUI_CallBack;
-	int lengthOfCOMIXFNT;
-	int lengthOFsmlfontFNT;
+	void* COMIXFontHandle;
+	void* smalFontHandle;
 	RECT field_39201     ;
 	int DPLAY_CONNECTION_INFO;
 	int field_39215    ;
@@ -1399,10 +1399,10 @@ typedef struct _TAProgramStruct
 	int MainMenuWidth;
 	int MainMenuHeight;
 	__int16 IsFullScreen;
-	unsigned char* Font_Height;
-	int field_208;
-	int field_20C;
-	int field_210;
+	unsigned char* fontHandle;	// fontHandle[0] == font height
+	int fontFrontColour;
+	int fontBackColour;
+	int fontAlpha;
 	char field_214;
 	char field_215[111];
 	int field_284;

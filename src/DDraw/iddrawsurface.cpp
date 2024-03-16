@@ -10,6 +10,7 @@ using namespace std;
 #include "tamem.h"
 #include "tafunctions.h"
 
+#include "ChallengeResponse.h"
 #include "whiteboard.h"
 #include "MinimapHandler.h"
 #include "dddta.h"
@@ -609,11 +610,11 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			{
 				Income->BlitIncome(lpBack);
 			}
-			
+			Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 
 			SettingsDialog->BlitDialog(lpBack);
 			TAHook->Blit(lpBack);
-
+			ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 
 			//////////////////////////////////////////////////////////////////////////
 			//unicode
@@ -720,10 +721,12 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			{
 				Income->BlitIncome(lpBack);
 			}
-			
+			Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+
 
 			SettingsDialog->BlitDialog(lpBack);
 			TAHook->Blit(lpBack);
+			ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 
 			//////////////////////////////////////////////////////////////////////////
 			//unicode
