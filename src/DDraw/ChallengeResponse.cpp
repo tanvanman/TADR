@@ -515,7 +515,7 @@ void ChallengeResponse::CrcFeatures(unsigned* crc)
 		m_crc.PartialCRC(crc, (unsigned char*)&f->Energy, 4);
 		m_crc.PartialCRC(crc, (unsigned char*)&f->Metal, 4);
 		m_crc.PartialCRC(crc, (unsigned char*)&f->Height, 1);
-		short fm = f->FeatureMask & 0x0fff;
+		short fm = f->FeatureMask & 0x0ff0;
 		m_crc.PartialCRC(crc, (unsigned char*)&fm, 2);
 	}
 }
@@ -731,7 +731,7 @@ void ChallengeResponse::LogFeatures(const std::string& filename)
 			fs << int(f->BurnWeapon->ID) << ',';
 		else
 			fs << "NULL,";
-		fs << f->SparkTime << ',' << f->Damage << ',' << f->Energy << ',' << f->Metal << ',' << int(f->Height) << ',' << (f->FeatureMask&0x0fff) << '\n';
+		fs << f->SparkTime << ',' << f->Damage << ',' << f->Energy << ',' << f->Metal << ',' << int(f->Height) << ',' << (f->FeatureMask&0x0ff0) << '\n';
 	}
 }
 #pragma code_seg(pop)
