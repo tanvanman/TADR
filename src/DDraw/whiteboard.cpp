@@ -313,7 +313,6 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		}
 	}
 
-
 	switch(Msg)
 	{
 	case WM_KEYUP:
@@ -335,7 +334,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 
 	case WM_LBUTTONDOWN:
 		{
-			if(WBKeyDown)
+			if(WBKeyDown && IsInGameArea(lParam))
 			{
 				CurrentElement = GetTextElementAt(*MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32, 5);
 				if(Move)
@@ -364,8 +363,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		break;
 
 	case WM_LBUTTONDBLCLK:
-		IDDrawSurface::OutptTxt ( "WM_LBUTTONDBLCLK and Key Down?");
-		if(WBKeyDown)
+		if(WBKeyDown && IsInGameArea(lParam))
 		{
 			IDDrawSurface::OutptTxt ( "Get Mark Text");
 			CurrentElement = GetTextElementAt(*MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32, 5);
@@ -384,7 +382,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		break;
 
 	case WM_RBUTTONDBLCLK:
-		if(WBKeyDown)
+		if(WBKeyDown && IsInGameArea(lParam))
 		{
 			DeleteMarker(*MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32);
 			Rtn_Bool= true;
@@ -393,7 +391,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		break;
 
 	case WM_MBUTTONDOWN:
-		if(WBKeyDown)
+		if(WBKeyDown && IsInGameArea(lParam))
 		{
 			if(GetTextElementAt(*MapX+LOWORD(lParam)-128, *MapY+HIWORD(lParam)-32, 5)==0)
 			{
@@ -447,7 +445,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 		}
 		break;
 	case WM_MOUSEMOVE:
-		if (WBKeyDown)
+		if (WBKeyDown && IsInGameArea(lParam))
 		{
 			if (Paint)
 			{
@@ -763,13 +761,15 @@ void AlliesWhiteboard::DrawTextMarker(LPDIRECTDRAWSURFACE DestSurf, int X, int Y
 	Source.top = 0;
 	Source.right = Source.left+PerPlayerMarkerWidth;
 	Source.bottom = PerPlayerMarkerHeight;
-	if(DestSurf->Blt(&Dest, lpSmallCircle, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx)!=DD_OK)
-	{
-		DestSurf->Blt(&Dest, lpSmallCircle, &Source, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
-	}
+	if (IsInGameArea(Dest.left, Dest.top)) {
+		if (DestSurf->Blt(&Dest, lpSmallCircle, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx) != DD_OK)
+		{
+			DestSurf->Blt(&Dest, lpSmallCircle, &Source, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
+		}
 
-	Dialog *pDialog = (Dialog*)LocalShare->Dialog;
-	pDialog->DrawText(DestSurf, x+TextMarkerWidth , y-(PerPlayerMarkerHeight/ 2), cText);
+		Dialog* pDialog = (Dialog*)LocalShare->Dialog;
+		pDialog->DrawText(DestSurf, x + TextMarkerWidth, y - (PerPlayerMarkerHeight / 2), cText);
+	}
 }
 
 void AlliesWhiteboard::DeleteMarker(int X, int Y)
@@ -1528,4 +1528,15 @@ void AlliesWhiteboard::GenerateLookupTables()
 		cos_look[ang] = cos(theta);
 		sin_look[ang] = sin(theta);
 	}
+}
+
+bool AlliesWhiteboard::IsInGameArea(LPARAM lParam)
+{
+	return IsInGameArea(LOWORD(lParam), HIWORD(lParam));
+}
+
+bool AlliesWhiteboard::IsInGameArea(LONG x, LONG y)
+{
+	TAdynmemStruct *Ptr = *(TAdynmemStruct**)0x00511de8;
+	return x >= Ptr->GameSreen_Rect.left && y >= Ptr->GameSreen_Rect.top;
 }
