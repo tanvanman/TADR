@@ -223,6 +223,42 @@ static InternalCommandTableEntryStruct AUTO_TEAMS_COMMAND_TABLE[] = {
 
 static std::default_random_engine RNG(std::chrono::system_clock::now().time_since_epoch().count());
 
+static void SetBattleroomTeamsAndAlliances(const StartPositionsData& spd, int teamCount)
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	for (int n = 0; n < spd.positionCount; ++n)
+	{
+		PlayerStruct* player = FindPlayerByName(spd.orderedPlayerNames[n]);
+		if (player && player->PlayerActive && !(player->PlayerInfo->PropertyMask & WATCH))
+		{
+			ta->Players[player->PlayerAryIndex].AllyTeam = n % teamCount;
+			TeamMessage teamMessage;
+			teamMessage.id24 = 0x24;
+			teamMessage.subjectDPID = player->DirectPlayID;
+			teamMessage.teamNumber = n % teamCount;
+			HAPI_BroadcastMessage(ta->Players[ta->LocalHumanPlayer_PlayerID].DirectPlayID, (const char*)&teamMessage, sizeof(teamMessage));
+		}
+	}
+
+	for (int n = 0; n < spd.positionCount; ++n)
+	{
+		PlayerStruct* player = FindPlayerByName(spd.orderedPlayerNames[n]);
+		if (player && player->PlayerActive && !(player->PlayerInfo->PropertyMask & WATCH))
+		{
+			for (int m = 0; m < spd.positionCount; ++m)
+			{
+				PlayerStruct* playerOther = FindPlayerByName(spd.orderedPlayerNames[m]);
+				if (playerOther && playerOther != player && playerOther->PlayerActive && !(playerOther->PlayerInfo->PropertyMask & WATCH))
+				{
+					OfferAlliance(*player, *playerOther, n % teamCount == m % teamCount);
+				}
+			}
+		}
+	}
+}
+
 // callback for battleroom autoteam: assign teams as prescribed by external process via shared memory (or randomly if shared mem unavailable)
 static void BattleroomAutoteamCommandHandler(const std::vector<std::string> &args)
 {
@@ -266,35 +302,44 @@ static void BattleroomAutoteamCommandHandler(const std::vector<std::string> &arg
 		SendText("Setting autobalanced teams", 0);
 	}
 
-	for (int n = 0; n < sm->positionCount; ++n)
+	SetBattleroomTeamsAndAlliances(*sm, teamCount);
+}
+
+// callback for battleroom autoteam: assign teams as prescribed by external process via shared memory (or randomly if shared mem unavailable)
+static void BattleroomRandomteamCommandHandler(const std::vector<std::string>& args)
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	if (ta->Players[ta->LocalHumanPlayer_PlayerID].PlayerNum != 1)
 	{
-		PlayerStruct* player = FindPlayerByName(sm->orderedPlayerNames[n]);
-		if (player && player->PlayerActive && !(player->PlayerInfo->PropertyMask & WATCH))
+		SendText("+randomteam can only be used by host", 0);
+		return;
+	}
+
+	const int teamCount = args.size() > 1
+		? std::max(2, std::min(5, std::atoi(args[1].c_str())))
+		: 2;
+
+	SendText("Setting random teams", 0);
+
+	StartPositionsData sm;
+	std::memset(&sm, 0, sizeof(sm));
+
+	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	std::shuffle(shuffle, shuffle + 10, RNG);
+
+	for (int n = 0; n < 10; ++n)
+	{
+		int idx = shuffle[n];
+		if (ta->Players[idx].PlayerActive && !(ta->Players[idx].PlayerInfo->PropertyMask & WATCH))
 		{
-			ta->Players[player->PlayerAryIndex].AllyTeam = n % teamCount;
-			TeamMessage teamMessage;
-			teamMessage.id24 = 0x24;
-			teamMessage.subjectDPID = player->DirectPlayID;
-			teamMessage.teamNumber = n % teamCount;
-			HAPI_BroadcastMessage(ta->Players[ta->LocalHumanPlayer_PlayerID].DirectPlayID, (const char*)&teamMessage, sizeof(teamMessage));
+			std::strncpy(sm.orderedPlayerNames[sm.positionCount], ta->Players[idx].Name, 32);
+			++sm.positionCount;
 		}
 	}
 
-	for (int n = 0; n < sm->positionCount; ++n)
-	{
-		PlayerStruct* player = FindPlayerByName(sm->orderedPlayerNames[n]);
-		if (player && player->PlayerActive && !(player->PlayerInfo->PropertyMask & WATCH))
-		{
-			for (int m = 0; m < sm->positionCount; ++m)
-			{
-				PlayerStruct* playerOther = FindPlayerByName(sm->orderedPlayerNames[m]);
-				if (playerOther && playerOther != player && playerOther->PlayerActive && !(playerOther->PlayerInfo->PropertyMask & WATCH))
-				{
-					OfferAlliance(*player, *playerOther, n % teamCount == m % teamCount);
-				}
-			}
-		}
-	}
+	SetBattleroomTeamsAndAlliances(sm, teamCount);
 }
 
 // In Send_PacketPlayerInfo, right after broadcasting PLAYER_STATUS(0x20).
@@ -349,6 +394,7 @@ std::unique_ptr<AutoTeam> AutoTeam::m_instance;
 AutoTeam::AutoTeam()
 {
 	BattleroomCommands::GetInstance()->RegisterCommand("+autoteam", BattleroomAutoteamCommandHandler);
+	BattleroomCommands::GetInstance()->RegisterCommand("+randomteam", BattleroomRandomteamCommandHandler);
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(initAutoTeamCommandHookAddr, 5, INLINE_5BYTESLAGGERJMP, initAutoTeamCommandHookProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(AlliancesBroadcastHookAddr, 5, INLINE_5BYTESLAGGERJMP, AlliancesBroadcastHookProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoteAllianceRequestHookAddr, 5, INLINE_5BYTESLAGGERJMP, RemoteAllianceRequestHookProc));
