@@ -94,9 +94,9 @@ NEW FEATURES IN DETAIL:
   Press ctrl-f2, click on the "MexSnap" or "WreckSnap" field and press a number 0 to 9.
   0 disables the Mex/WreckSnap and a larger radius results in snapping to features further away.
 
-  Note that the maximum Mex/WreckSnap radius is capped at 0 by default, effectively disabling the Mex/WreckSnap.
+  Note that Mex/WreckSnap is disabled by default.
   It needs to be enabled by the mod maintainer.
-  If your Mex/WreckSnap radius won't increase above 0 in the ctrl-f2 menu,
+  If your Mex/WreckSnap radius shows as "NA" in the ctrl-f2 menu,
   it is likely that Mex/WreckSnap hasn't been enabled by your mod maintainer.
 
 - Move Queued Orders
