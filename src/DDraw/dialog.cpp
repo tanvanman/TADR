@@ -1431,8 +1431,8 @@ void Dialog::DrawDelay()
 
 void Dialog::DrawClickSnapRadius()
 {
-	DrawSmallText(lpDialogSurf, MexSnapRadiusPosX-120, MexSnapRadiusPosY, "Mex-Snap Radius");
-	DrawSmallText(lpDialogSurf, WreckSnapRadiusPosX-120, WreckSnapRadiusPosY, "Wreck-Snap Radius");
+	DrawSmallText(lpDialogSurf, MexSnapRadiusPosX-110, MexSnapRadiusPosY, "Mex-Snap Radius");
+	DrawSmallText(lpDialogSurf, WreckSnapRadiusPosX-110, WreckSnapRadiusPosY, "Wreck-Snap Radius");
 	DDSURFACEDESC ddsd;
 	DDRAW_INIT_STRUCT(ddsd);
 	if (lpDialogSurf->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL) == DD_OK)
@@ -1440,19 +1440,36 @@ void Dialog::DrawClickSnapRadius()
 		SurfaceMemory = ddsd.lpSurface;
 		lPitch = ddsd.lPitch;
 
-		FillRect(MexSnapRadiusPosX, MexSnapRadiusPosY, (MexSnapRadiusPosX)+MexSnapRadiusWidth, MexSnapRadiusPosY + MexSnapRadiusHeight, 0);
-		FillRect(WreckSnapRadiusPosX, WreckSnapRadiusPosY, (WreckSnapRadiusPosX)+WreckSnapRadiusWidth, WreckSnapRadiusPosY + WreckSnapRadiusHeight, 0);
+		FillRect(MexSnapRadiusPosX, MexSnapRadiusPosY, MexSnapRadiusPosX + MexSnapRadiusWidth, MexSnapRadiusPosY + MexSnapRadiusHeight, 0);
+		FillRect(WreckSnapRadiusPosX, WreckSnapRadiusPosY, WreckSnapRadiusPosX + WreckSnapRadiusWidth, WreckSnapRadiusPosY + WreckSnapRadiusHeight, 0);
 
-		if (MexSnapRadiusFocus)
-			DrawTinyText(MexSnapRadiusText, static_cast<int>(MexSnapRadiusPosX + 2), static_cast<int>(MexSnapRadiusPosY + 3), 255U);
-		else
-			DrawTinyText(MexSnapRadiusText, static_cast<int>(MexSnapRadiusPosX + 2), static_cast<int>(MexSnapRadiusPosY + 3), 208U);
+		if (CTAHook::GetMaxMexSnapRadius() > 0) {
+			if (MexSnapRadiusFocus)
+				DrawTinyText(MexSnapRadiusText, static_cast<int>(MexSnapRadiusPosX + 2), static_cast<int>(MexSnapRadiusPosY + 2), 255U);
+			else
+				DrawTinyText(MexSnapRadiusText, static_cast<int>(MexSnapRadiusPosX + 2), static_cast<int>(MexSnapRadiusPosY + 2), 208U);
 
-		if (WreckSnapRadiusFocus)
-			DrawTinyText(WreckSnapRadiusText, static_cast<int>(WreckSnapRadiusPosX + 2), static_cast<int>(WreckSnapRadiusPosY + 3), 255U);
-		else
-			DrawTinyText(WreckSnapRadiusText, static_cast<int>(WreckSnapRadiusPosX + 2), static_cast<int>(WreckSnapRadiusPosY + 3), 208U);
+			char buf[16];
+			std::sprintf(buf, "(0-%d)", CTAHook::GetMaxMexSnapRadius());
+			DrawSmallText(lpDialogSurf, static_cast<int>(MexSnapRadiusPosX + 28), static_cast<int>(MexSnapRadiusPosY), buf);
+		}
+		else {
+			DrawTinyText("NA", static_cast<int>(MexSnapRadiusPosX + 2 * MexSnapRadiusWidth + 2), static_cast<int>(MexSnapRadiusPosY), 208U);
+		}
 
+		if (CTAHook::GetMaxWreckSnapRadius() > 0) {
+			if (WreckSnapRadiusFocus)
+				DrawTinyText(WreckSnapRadiusText, static_cast<int>(WreckSnapRadiusPosX + 2), static_cast<int>(WreckSnapRadiusPosY + 2), 255U);
+			else
+				DrawTinyText(WreckSnapRadiusText, static_cast<int>(WreckSnapRadiusPosX + 2), static_cast<int>(WreckSnapRadiusPosY + 2), 208U);
+
+			char buf[16];
+			std::sprintf(buf, "(0-%d)", CTAHook::GetMaxWreckSnapRadius());
+			DrawSmallText(lpDialogSurf, static_cast<int>(WreckSnapRadiusPosX + 28), static_cast<int>(WreckSnapRadiusPosY + 2), buf);
+		}
+		else {
+			DrawTinyText("NA", static_cast<int>(WreckSnapRadiusPosX + 2), static_cast<int>(WreckSnapRadiusPosY + 2), 208U);
+		}
 
 		lpDialogSurf->Unlock(NULL);
 	}
