@@ -1,3 +1,15 @@
+WHAT IS THIS
+
+tdraw.dll is an upgrade for Total Annihilation.  It patches the game to fix many bugs and add many features.
+It is an integral component of the TA Community Patch, the other parts being tplayx.dll (the recorder) and server.exe (the replayer).
+
+tdraw.dll has a long provenance dating back to the work of SY_Yeha, who introduced whiteboard markers and the TA Hook and new hotkeys to TA.
+Later work by Xpoy extended hotkey support, added new shortcut commands, uni-code font support, megamap, weapon-id crack (not present in current release) and porting music patch from GOG version,
+and later support was provided by Rime.
+
+The present release includes contributions from Axle and FunkyFresh, and owes a debt to TAG_Venom for extensive testing and critical feeback, and to Gamma and Wotan for further testing and feature suggestions.
+
+
 INSTALLATION
 
 Drop tdraw.dll into your TA directory.

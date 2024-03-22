@@ -2,7 +2,6 @@
 #include "BattleroomCommands.h"
 #include "hook/hook.h"
 #include "iddrawsurface.h"
-#include "nswfl_crc32.h"
 #include "random_code_seg_keys.h"
 #include "tafunctions.h"
 
@@ -10,6 +9,7 @@
 #include <sstream>
 
 #include <psapi.h>
+#include <wincrypt.h>
 
 #pragma comment(lib, "Version.lib")
 
@@ -17,21 +17,21 @@
 #define CONCAT(x, y) CONCAT_HELPER(x, y)
 #define STRINGIFY_HELPER(x) #x
 #define STRINGIFY(x) STRINGIFY_HELPER(x)
+#define RANDOM_CODE_SEG_NEXT CONCAT(RANDOM_CODE_SEG_, __COUNTER__)
+//#define RANDOM_CODE_SEG_NEXT 0
 
 std::unique_ptr<ChallengeResponse> ChallengeResponse::m_instance = NULL;
 
 extern HINSTANCE HInstance;
 
-static void SetChallengeResponseMessage(ChallengeResponseMessage &msg, ChallengeResponseCommand cmd, unsigned data0, unsigned data1)
+static void InitChallengeResponseMessage(ChallengeResponseMessage &msg, ChallengeResponseCommand cmd)
 {
+	std::memset(&msg, 0, sizeof(msg));
 	msg.chatByte = 0x05;
 	msg.nullText = 0x00;
 	msg.msgId = 0x2b;
 	msg.size = sizeof(ChallengeResponseMessage);
 	msg.command = cmd;
-	msg.data[0] = data0;
-	msg.data[1] = data1;
-	std::memset(msg.pad, 0, sizeof(msg.pad));
 }
 
 static bool IsChallengeResponseMessage(const ChallengeResponseMessage& msg)
@@ -109,46 +109,54 @@ static void encodeInteger(unsigned x, char* s, int nDigits)
 	}
 }
 
-static void broadcastChatMessage(const std::string& msg)
+static void broadcastChatMessage(const std::string& text)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	char buffer[65] = { 0 };
 	buffer[0] = 0x05; // chat
-	std::memcpy(buffer + 1, msg.c_str(), std::min(msg.size(), sizeof(buffer)-2));
+	std::memcpy(buffer + 1, text.c_str(), std::min(text.size(), sizeof(buffer)-2));
 	unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
 	HAPI_BroadcastMessage(fromDpid, buffer, sizeof(buffer));
 }
 
+// keep a record of which units, weapon and features come from which file/hpi/ccx/ufo/gp3
 static std::map<std::string, std::string> gamePathToHpiLookup;
 static std::string UnitsStr = toLowerCase((const char*)0x503920);
 static std::string WeaponsStr = toLowerCase((const char*)0x50392c);
 static std::string FeaturesStr = toLowerCase((const char*)0x502c7c);
+static std::string ScriptsStr = toLowerCase((const char*)0x503740);
 
+// requested game path is file on the native file system
 unsigned int LogGamePathAddr1 = 0x4bb332;
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 int __stdcall LogGamePathProc1(PInlineX86StackBuffer X86StrackBuffer)
 {
 	if (X86StrackBuffer->Eax) {
 		std::string gameFile = toLowerCase((const char*)X86StrackBuffer->Edi);
-		if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0) {
+		if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0 || gameFile.find(ScriptsStr) == 0) {
 			gamePathToHpiLookup[gameFile] = gameFile;
 		}
 	}
 	return 0;
 }
+#pragma code_seg(pop)
 
+// request game path is in an hpi/ccx/ufo/gp3 archive
 unsigned int LogGamePathAddr2 = 0x4bb3a7;
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 int __stdcall LogGamePathProc2(PInlineX86StackBuffer X86StrackBuffer)
 {
 	std::string gameFile = toLowerCase(*(const char**)(X86StrackBuffer->Esp + 0x14));
 	std::string hpiFile = (const char*)(X86StrackBuffer->Eax + 0x14);
-	if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0) {
+	if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0 || gameFile.find(ScriptsStr) == 0) {
 		gamePathToHpiLookup[gameFile] = hpiFile;
 	}
 	return 0;
 }
+#pragma code_seg(pop)
 
 unsigned int ChallengeResponseUpdateAddr = 0x4954b7;
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_1)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	// send out challenge-response requests at the right time
@@ -169,11 +177,10 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 		for (int n = 0; n < 10; ++n) {
 			PlayerStruct* p = &taPtr->Players[n];
 			if (p->PlayerActive && p->DirectPlayID != 0 && GetInferredPlayerType(p) == Player_RemoteHuman && !(p->PlayerInfo->PropertyMask & WATCH)) {
-				unsigned nonse = cr->NewNonse();
-				cr->InitPlayerResponse(p->DirectPlayID, nonse);
-
 				ChallengeResponseMessage msg;
-				SetChallengeResponseMessage(msg, ChallengeResponseCommand::ChallengeRequest, nonse, 0u);
+				InitChallengeResponseMessage(msg, ChallengeResponseCommand::ChallengeRequest);
+				cr->NewNonse(msg.data, sizeof(msg.data));
+				cr->InitPlayerResponse(p->DirectPlayID, msg.data, sizeof(msg.data));
 				HAPI_SendBuf(me->DirectPlayID, p->DirectPlayID, (const char*) & msg, sizeof(msg));
 			}
 		}
@@ -188,7 +195,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 #pragma code_seg(pop)
 
 unsigned int ReceiveChallengeOrResponseAddr = 0x45522e;
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_2)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -204,22 +211,30 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 
 	switch (msg->command) {
 	case ChallengeResponseCommand::ChallengeRequest: {
-		unsigned nonse = msg->data[0];
-		unsigned crcs[2];
-		ChallengeResponse::GetInstance()->ComputeChallengeResponse(nonse, crcs);
-		ChallengeResponse::GetInstance()->SetBroadcastNoReplyWarnings(true);	// ie enable if at least one peer requests verification
+		ChallengeResponseMessage replies[2];
+		InitChallengeResponseMessage(replies[0], ChallengeResponseCommand::ChallengeHashReplyModules);
+		InitChallengeResponseMessage(replies[1], ChallengeResponseCommand::ChallengeHashReplyGameData);
+		ChallengeResponse::GetInstance()->ComputeChallengeResponse(msg->data, replies[0].data, replies[1].data);
 
 		unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
 		unsigned replyDpid = taPtr->HAPI_net_data0;
-
-		ChallengeResponseMessage reply;
-		SetChallengeResponseMessage(reply, ChallengeResponseCommand::ChallengeReply, crcs[0], crcs[1]);
-		HAPI_SendBuf(fromDpid, replyDpid, (char*)&reply, sizeof(reply));
+		HAPI_SendBuf(fromDpid, replyDpid, (char*)&replies[0], sizeof(replies));
 		break;
 	}
 
-	case ChallengeResponseCommand::ChallengeReply: {
-		ChallengeResponse::GetInstance()->SetPlayerResponse(taPtr->HAPI_net_data0, msg->data[0], msg->data[1]);
+	case ChallengeResponseCommand::LegacyCrc32Reply: {
+		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(taPtr->HAPI_net_data0, msg->data, 4);
+		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(taPtr->HAPI_net_data0, msg->data+4, 4);
+		break;
+	}
+
+	case ChallengeResponseCommand::ChallengeHashReplyModules: {
+		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(taPtr->HAPI_net_data0, msg->data, SHA256_DIGEST_LENGTH);
+		break;
+	}
+
+	case ChallengeResponseCommand::ChallengeHashReplyGameData: {
+		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(taPtr->HAPI_net_data0, msg->data, SHA256_DIGEST_LENGTH);
 		break;
 	}
 
@@ -268,10 +283,9 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_3)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 ChallengeResponse::ChallengeResponse():
-	m_rng(std::random_device()()),
-	m_broadcastNoReplyWarnings(false)
+	m_rng(std::random_device()())
 {
 #ifndef NDEBUG
 	std::ofstream fs("ErrorLog.txt");	// clear the errorlog
@@ -294,7 +308,7 @@ ChallengeResponse::ChallengeResponse():
 #pragma code_seg(pop)
 
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_4)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 ChallengeResponse *ChallengeResponse::GetInstance()
 {
 	if (m_instance == NULL) {
@@ -304,7 +318,7 @@ ChallengeResponse *ChallengeResponse::GetInstance()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_5)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::SnapshotFeatureMap()
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -317,7 +331,7 @@ void ChallengeResponse::SnapshotFeatureMap()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_6)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::SnapshotModules()
 {
 	HMODULE hModule = NULL;
@@ -332,19 +346,7 @@ void ChallengeResponse::SnapshotModules()
 	SnapshotModule(hModule);
 
 	// all dlls loaded from current working directory
-	std::vector<std::string> modules = GetModules();
-
-	// The outermost wrapper of DDraw.dll
-	// Should be this module
-	//std::string DDrawOutermostWrapper((const char*)0x4ff618);
-	//for (auto it = modules.begin(); it != modules.end(); ++it) {
-	//	std::string path = *it;
-	//	if (endsWith(toLowerCase(path), toLowerCase("\\" + DDrawOutermostWrapper))) {
-	//		SnapshotFile(path.c_str());
-	//		modules.erase(it);
-	//		break;
-	//	}
-	//}
+	std::vector<std::string> modules = GetModulePaths();
 
 	// The outermost wrapper of DPlayX.dll
 	// Will be the patchloader if the patchloader is being used,
@@ -368,7 +370,7 @@ void ChallengeResponse::SnapshotModules()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_7)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::SnapshotModule(HMODULE hModule)
 {
 	CHAR moduleFileName[MAX_PATH];
@@ -377,49 +379,95 @@ void ChallengeResponse::SnapshotModule(HMODULE hModule)
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_8)))
-unsigned ChallengeResponse::NewNonse()
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::NewNonse(char* nonse, int len)
 {
-	return m_rng();
-}
-#pragma code_seg(pop)
-
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_9)))
-void ChallengeResponse::ComputeChallengeResponse(unsigned nonse, unsigned crcs[2])
-{
-	crcs[0] = crcs[1] = RANDOM_CODE_SEG_0;
-	m_crc.PartialCRC(&crcs[0], (unsigned char*)&nonse, sizeof(nonse));
-	m_crc.PartialCRC(&crcs[1], (unsigned char*)&nonse, sizeof(nonse));
-
-	CrcModules(&crcs[0]);
-	CrcWeapons(&crcs[1]);
-	CrcFeatures(&crcs[1]);
-	CrcUnits(&crcs[1]);
-	CrcGamingState(&crcs[1]);
-	CrcMapSnapshot(&crcs[1]);
-
-	for (int i = 0; i < 2; ++i) {
-		crcs[i] = std::max(crcs[i], 1u);
+	for (int n = 0; n < len; n += 4) {
+		unsigned x = m_rng();
+		std::memcpy(&nonse[n], &x, std::min(4, len - n));
 	}
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_10)))
-void ChallengeResponse::InitPlayerResponse(unsigned dpid, unsigned nonse)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modulesHash, char* gameDataHash)
 {
-	m_responses[dpid] = std::make_tuple(nonse, 0u, 0u);
+	const unsigned* nonse = (const unsigned*)_nonse;
+	unsigned hmacKey[] = {
+		RANDOM_CODE_SEG_0, nonse[0],
+		RANDOM_CODE_SEG_1, nonse[1],
+		RANDOM_CODE_SEG_2, nonse[2],
+		RANDOM_CODE_SEG_3, nonse[3],
+		RANDOM_CODE_SEG_4, nonse[4],
+		RANDOM_CODE_SEG_5, nonse[5],
+		RANDOM_CODE_SEG_6, nonse[6],
+		RANDOM_CODE_SEG_7, nonse[7]
+	};
+
+	try {
+		HmacSha256Calculator hmacModules((unsigned char*)hmacKey, sizeof(hmacKey));
+		HashModules(hmacModules);
+		if (!hmacModules.finalize((unsigned char*)modulesHash, SHA256_DIGEST_LENGTH)) {
+			std::memset(modulesHash, 0, SHA256_DIGEST_LENGTH);
+		}
+
+		HmacSha256Calculator hmacGameData((unsigned char*)hmacKey, sizeof(hmacKey));
+		HashWeapons(hmacGameData);
+		HashFeatures(hmacGameData);
+		HashUnits(hmacGameData);
+		HashGamingState(hmacGameData);
+		HashMapSnapshot(hmacGameData);
+		if (!hmacGameData.finalize((unsigned char*)gameDataHash, SHA256_DIGEST_LENGTH)) {
+			std::memset(gameDataHash, 0, SHA256_DIGEST_LENGTH);
+		}
+	}
+	catch (std::exception& e) {
+		std::string errorMessage;
+		DWORD errorMessageID = GetLastError();
+		if (errorMessageID != 0) {
+			LPSTR messageBuffer = nullptr;
+			size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+				NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+			errorMessage = std::string(messageBuffer, size);
+			LocalFree(messageBuffer);
+		}
+
+		IDDrawSurface::OutptTxt("Error: %s: %s", e.what(), errorMessage.c_str());
+	}
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_11)))
-void ChallengeResponse::SetPlayerResponse(unsigned dpid, unsigned crc1, unsigned crc2)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::InitPlayerResponse(unsigned dpid, char *nonse, int len)
 {
-	std::get<1>(m_responses[dpid]) = crc1;
-	std::get<2>(m_responses[dpid]) = crc2;
+	auto& r = m_responses[dpid];
+	r.modulesResponseReceived = r.gameDataResponseReceived = false;
+	std::memset(r.nonse, 0, sizeof(r.nonse));
+	std::memset(r.modulesResponse, 0, sizeof(r.modulesResponse));
+	std::memset(r.gameDataResponse, 0, sizeof(r.gameDataResponse));
+	std::memcpy(r.nonse, nonse, std::min(sizeof(r.nonse), unsigned(len)));
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_12)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::SetPlayerModulesResponse(unsigned dpid, const char* hash, int len)
+{
+	auto& r = m_responses[dpid];
+	r.modulesResponseReceived = true;
+	std::memcpy(r.modulesResponse, hash, std::min(sizeof(r.modulesResponse), unsigned(len)));
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::SetPlayerGameDataResponse(unsigned dpid, const char* hash, int len)
+{
+	auto& r = m_responses[dpid];
+	r.gameDataResponseReceived = true;
+	std::memcpy(r.gameDataResponse, hash, std::min(sizeof(r.gameDataResponse), unsigned(len)));
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::VerifyResponses()
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -427,165 +475,173 @@ void ChallengeResponse::VerifyResponses()
 
 	for (auto it = m_responses.begin(); it != m_responses.end(); ++it) {
 		unsigned dpid = it->first;
-		unsigned nonse = std::get<0>(it->second);
-		unsigned replyCrc[] = { std::get<1>(it->second), std::get<2>(it->second) };
+		ResponseContext& r = it->second;
 
-		unsigned ourCrc[2];
-		ComputeChallengeResponse(nonse, ourCrc);
+		char ourModulesHash[SHA256_DIGEST_LENGTH];
+		char ourGameDataHash[SHA256_DIGEST_LENGTH];
+		ComputeChallengeResponse(r.nonse, ourModulesHash, ourGameDataHash);
+
+		bool noReply = !r.modulesResponseReceived || !r.gameDataResponseReceived;
+		bool modulesMismatch = memcmp(r.modulesResponse, ourModulesHash, SHA256_DIGEST_LENGTH);
+		bool gameDataMismatch = memcmp(r.gameDataResponse, ourGameDataHash, SHA256_DIGEST_LENGTH);
 
 		PlayerStruct* p = FindPlayerByDPID(dpid);
 		std::string playerName = p ? p->Name : std::to_string(dpid);
 
-		char msg[65] = { 0 };
+		std::string broadcastMessage;
 		std::ostringstream ss;
-		ss << "[VerCheck] ";
+		ss << "*** ";
 
-		if (replyCrc[0] == 0u) {
+		if (noReply) {
 			ss << playerName << " did not reply to VerCheck query!";
-			SendText(ss.str().c_str(), 0);
-			msg[0] = 0x05;	// chat
-			std::strncpy(msg + 1, ss.str().c_str(), 64);
+			broadcastMessage = ss.str();
 			ss << " Their dll lacks version checking (or packet loss/crash)";
 			m_persistentCheatWarnings.push_back(ss.str());
 		}
-		else if (replyCrc[0] == ourCrc[0] && replyCrc[1] == ourCrc[1]) {
+		else if (!modulesMismatch && !gameDataMismatch) {
 		}
-		else if (replyCrc[0] != ourCrc[0]) {
+		else if (modulesMismatch) {
 			ss << playerName << '/' << localPlayer->Name << " exe or dll mismatch!";
-			SendText(ss.str().c_str(), 0);
-			msg[0] = 0x05;	// chat
-			std::strncpy(msg + 1, ss.str().c_str(), 64);
+			broadcastMessage = ss.str();
 			ss << " Players use different exe/dll versions";
 			m_persistentCheatWarnings.push_back(ss.str());
+
 		}
-		else if (replyCrc[1] != ourCrc[1]) {
+		else if (gameDataMismatch) {
 			ss << playerName << '/' << localPlayer->Name << " game data mismatch!";
-			SendText(ss.str().c_str(), 0);
-			msg[0] = 0x05;	// chat
-			std::strncpy(msg + 1, ss.str().c_str(), 64);
+			broadcastMessage = ss.str();
 			ss << " Compare ErrorLog.txt to diagnose";
 			m_persistentCheatWarnings.push_back(ss.str());
 			LogAll("ErrorLog.txt");
 		}
 
-		if (msg[0] != 0 && m_broadcastNoReplyWarnings) {
-			HAPI_BroadcastMessage(localPlayer->DirectPlayID, msg, sizeof(msg));
+		if (!broadcastMessage.empty()) {
+			SendText(broadcastMessage.c_str(), 0);
+			broadcastChatMessage(broadcastMessage);
 		}
 	}
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_13)))
-void ChallengeResponse::CrcModules(unsigned* crc)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::HashModules(HmacSha256Calculator& hmac)
 {
 	std::size_t M = m_moduleInitialDiskSnapshots.size();
 	for (std::size_t m = 0u; m < M; ++m) {
-		m_crc.PartialCRC(crc, m_moduleInitialDiskSnapshots[m]->data(), m_moduleInitialDiskSnapshots[m]->size());
+		hmac.processChunk(m_moduleInitialDiskSnapshots[m]->data(), m_moduleInitialDiskSnapshots[m]->size());
 	}
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_14)))
-void ChallengeResponse::CrcWeapons(unsigned* crc)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::HashWeapons(HmacSha256Calculator& hmac)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	std::vector<bool> usedWeapons = getUsedWeaponIds();
 	for (int n = 0; n < 256; ++n) {
 		WeaponStruct* w = &taPtr->Weapons[n];
 		if (w->WeaponName[0] != '\0' && usedWeapons[n]) {
-			m_crc.PartialCRC(crc, (unsigned char*)&w->Damage, 16);
-			m_crc.PartialCRC(crc, (unsigned char*)&w->ID, 1);
-			m_crc.PartialCRC(crc, (unsigned char*)&w->WeaponTypeMask, 4);
+			hmac.processChunk((unsigned char*)&w->Damage, 16);
+			hmac.processChunk((unsigned char*)&w->ID, 1);
+			hmac.processChunk((unsigned char*)&w->WeaponTypeMask, 4);
 		}
 	}
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_15)))
-void ChallengeResponse::CrcFeatures(unsigned* crc)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::HashFeatures(HmacSha256Calculator& hmac)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	for (int n = 0; n < taPtr->NumFeatureDefs; ++n) {
 		FeatureDefStruct* f = &taPtr->FeatureDef[n];
-		m_crc.PartialCRC(crc, (unsigned char*)&f->FootprintX, 2);
-		m_crc.PartialCRC(crc, (unsigned char*)&f->FootprintZ, 2);
-		if (f->BurnWeapon) m_crc.PartialCRC(crc, &f->BurnWeapon->ID, 1);
-		m_crc.PartialCRC(crc, (unsigned char*)&f->SparkTime, 2);
-		m_crc.PartialCRC(crc, (unsigned char*)&f->Damage, 2);
-		m_crc.PartialCRC(crc, (unsigned char*)&f->Energy, 4);
-		m_crc.PartialCRC(crc, (unsigned char*)&f->Metal, 4);
-		m_crc.PartialCRC(crc, (unsigned char*)&f->Height, 1);
-		short fm = f->FeatureMask & 0x0ff0;
-		m_crc.PartialCRC(crc, (unsigned char*)&fm, 2);
+		hmac.processChunk((unsigned char*)&f->FootprintX, 2);
+		hmac.processChunk((unsigned char*)&f->FootprintZ, 2);
+		if (f->BurnWeapon) hmac.processChunk(&f->BurnWeapon->ID, 1);
+		hmac.processChunk((unsigned char*)&f->SparkTime, 2);
+		hmac.processChunk((unsigned char*)&f->Damage, 2);
+		hmac.processChunk((unsigned char*)&f->Energy, 4);
+		hmac.processChunk((unsigned char*)&f->Metal, 4);
+		hmac.processChunk((unsigned char*)&f->Height, 1);
+		short fm = f->FeatureMask & FEATURE_MASK;
+		hmac.processChunk((unsigned char*)&fm, 2);
 	}
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_16)))
-void ChallengeResponse::CrcUnits(unsigned* crc)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::HashUnits(HmacSha256Calculator& hmac)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
 		UnitDefStruct* u = &taPtr->UnitDef[n];
 		if (u->buildLimit != 0) {
-			m_crc.PartialCRC(crc, (unsigned char*)&u->FootX, 4);
-			if (u->YardMap) m_crc.PartialCRC(crc, (unsigned char*)u->YardMap, u->FootX * u->FootY);
+			hmac.processChunk((unsigned char*)&u->FootX, 4);
+			if (u->YardMap) hmac.processChunk((unsigned char*)u->YardMap, u->FootX * u->FootY);
 			int buildLimit = u->buildLimit == -1 ? taPtr->PlayerUnitsNumber_Skim : u->buildLimit;
-			m_crc.PartialCRC(crc, (unsigned char*)&u->buildLimit, 4);
-			m_crc.PartialCRC(crc, (unsigned char*)&u->__X_Width, (char*)&u->data_14 - (char*)&u->__X_Width);
-			m_crc.PartialCRC(crc, (unsigned char*)&u->lRawSpeed_maxvelocity, (char*)&u->weapon1 - (char*)&u->lRawSpeed_maxvelocity);
-			if (u->weapon1) m_crc.PartialCRC(crc, (unsigned char*)&u->weapon1->ID, 1);
-			if (u->weapon2) m_crc.PartialCRC(crc, (unsigned char*)&u->weapon2->ID, 1);
-			if (u->weapon3) m_crc.PartialCRC(crc, (unsigned char*)&u->weapon3->ID, 1);
-			if (u->ExplodeAs) m_crc.PartialCRC(crc, (unsigned char*)&u->ExplodeAs->ID, 1);
-			if (u->SelfeDestructAs) m_crc.PartialCRC(crc, (unsigned char*)&u->SelfeDestructAs->ID, 1);
-			m_crc.PartialCRC(crc, (unsigned char*)&u->nMaxHP, (char*)&u->ExplodeAs - (char*)&u->nMaxHP);
-			m_crc.PartialCRC(crc, (unsigned char*)&u->maxslope, (char*)&u->wpri_badTargetCategory_MaskAryPtr - (char*)&u->maxslope);
-			m_crc.PartialCRC(crc, (unsigned char*)&u->UnitTypeMask_0, 2 * sizeof(long));
+			hmac.processChunk((unsigned char*)&buildLimit, 4);
+			hmac.processChunk((unsigned char*)&u->__X_Width, (char*)&u->cobDataPtr - (char*)&u->__X_Width);
+			hmac.processChunk((unsigned char*)&u->lRawSpeed_maxvelocity, (char*)&u->weapon1 - (char*)&u->lRawSpeed_maxvelocity);
+			if (u->weapon1) hmac.processChunk((unsigned char*)&u->weapon1->ID, 1);
+			if (u->weapon2) hmac.processChunk((unsigned char*)&u->weapon2->ID, 1);
+			if (u->weapon3) hmac.processChunk((unsigned char*)&u->weapon3->ID, 1);
+			if (u->ExplodeAs) hmac.processChunk((unsigned char*)&u->ExplodeAs->ID, 1);
+			if (u->SelfeDestructAs) hmac.processChunk((unsigned char*)&u->SelfeDestructAs->ID, 1);
+			hmac.processChunk((unsigned char*)&u->nMaxHP, (char*)&u->ExplodeAs - (char*)&u->nMaxHP);
+			hmac.processChunk((unsigned char*)&u->maxslope, (char*)&u->wpri_badTargetCategory_MaskAryPtr - (char*)&u->maxslope);
+			hmac.processChunk((unsigned char*)&u->UnitTypeMask_0, 2 * sizeof(long));
+			if (u->cobDataPtr) {
+				CobHeader* c = u->cobDataPtr;
+				hmac.processChunk((unsigned char*)&c->Version, sizeof(c->Version));
+				hmac.processChunk((unsigned char*)&c->StaticVariablesCount, sizeof(c->StaticVariablesCount));
+				hmac.processChunk(c->ByteCodeStart, c->BytecodeLength);
+				for (int i = 0; i < c->MethodCount; ++i) {
+					hmac.processChunk((unsigned char*)&c->MethodEntryPoints[i], 4);
+					hmac.processChunk((unsigned char*)c->MethodNameOffsets[i], std::strlen(c->MethodNameOffsets[i]));
+				}
+				for (int i = 0; i < c->PieceCount; ++i) {
+					hmac.processChunk((unsigned char*)c->PieceNameOffsets[i], std::strlen(c->PieceNameOffsets[i]));
+				}
+			}
 		}
 	}
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_17)))
-void ChallengeResponse::CrcGamingState(unsigned* crc)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::HashGamingState(HmacSha256Calculator& hmac)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	GameingState* g = taPtr->GameingState_Ptr;
 
-	m_crc.PartialCRC(crc, (unsigned char*)&g->surfaceMetal, (char*)&g->schemaInfo[0] - (char*)&g->surfaceMetal);
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->MinWindSpeed, (char*)&taPtr->data16 - (char*)&taPtr->MinWindSpeed);
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->SeaLevel, 1);
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->mapDebugMode, 1);
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->WindSpeedHardLimit, 4);
-	unsigned short losType = taPtr->LosType & 7;
-	m_crc.PartialCRC(crc, (unsigned char*)&losType, 2);
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->PlayerUnitsNumber_Skim, 2);
-	m_crc.PartialCRC(crc, (unsigned char*)&taPtr->MaxUnitNumberPerPlayer, 2);
-	unsigned short softwareDebugMode = taPtr->SoftwareDebugMode & (
-		softwaredebugmode::CheatsEnabled |
-		softwaredebugmode::InvulnerableFeatures |
-		softwaredebugmode::Doubleshot |
-		softwaredebugmode::Halfshot |
-		softwaredebugmode::Radar);
-	m_crc.PartialCRC(crc, (unsigned char*)&softwareDebugMode, 2);
+	hmac.processChunk((unsigned char*)&g->surfaceMetal, (char*)&g->schemaInfo[0] - (char*)&g->surfaceMetal);
+	hmac.processChunk((unsigned char*)&taPtr->MinWindSpeed, (char*)&taPtr->data16 - (char*)&taPtr->MinWindSpeed);
+	hmac.processChunk((unsigned char*)&taPtr->SeaLevel, 1);
+	hmac.processChunk((unsigned char*)&taPtr->mapDebugMode, 1);
+	hmac.processChunk((unsigned char*)&taPtr->WindSpeedHardLimit, 4);
+	unsigned short losType = taPtr->LosType & LOS_TYPE_MASK;
+	hmac.processChunk((unsigned char*)&losType, 2);
+	hmac.processChunk((unsigned char*)&taPtr->PlayerUnitsNumber_Skim, 2);
+	hmac.processChunk((unsigned char*)&taPtr->MaxUnitNumberPerPlayer, 2);
+	unsigned short softwareDebugMode = taPtr->SoftwareDebugMode & SOFTWARE_DEBUG_MODE_MASK;
+	hmac.processChunk((unsigned char*)&softwareDebugMode, 2);
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_18)))
-void ChallengeResponse::CrcMapSnapshot(unsigned* crc)
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::HashMapSnapshot(HmacSha256Calculator& hmac)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	const int N = taPtr->FeatureMapSizeX * taPtr->FeatureMapSizeY;
 	for (int n = 0; n < N; ++n) {
 		FeatureStruct* f = &m_featureMapSnapshot.get()[n];
-		m_crc.PartialCRC(crc, (unsigned char*)&f->height, (char*)&f->field_0c - (char*)&f->height);
+		hmac.processChunk((unsigned char*)&f->height, (char*)&f->field_0c - (char*)&f->height);
 	}
 }
 #pragma code_seg(pop)
 
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_19)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch)
 {
 	if (lpSurfaceMem == NULL || DataShare->TAProgress != TAInGame) {
@@ -611,7 +667,7 @@ void ChallengeResponse::Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_20)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::Blit(OFFSCREEN* offscreen)
 {
 	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
@@ -639,15 +695,15 @@ void ChallengeResponse::Blit(OFFSCREEN* offscreen)
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_21)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::ClearPersistentMessages(void)
 {
 	m_persistentCheatWarnings.clear();
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_22)))
-std::vector<std::string> ChallengeResponse::GetModules()
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+std::vector<std::string> ChallengeResponse::GetModulePaths()
 {
 	std::vector<std::string> results;
 
@@ -679,7 +735,7 @@ std::vector<std::string> ChallengeResponse::GetModules()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_23)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::SnapshotFile(const char* moduleFileName)
 {
 	std::ifstream file(moduleFileName, std::ios::binary);
@@ -701,16 +757,17 @@ void ChallengeResponse::SnapshotFile(const char* moduleFileName)
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_24)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::LogWeapons(const std::string& filename)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	std::ofstream fs(filename, std::ios::app);
 	fs << "========== Weapons:\n";
 	fs << "n,ID,name,damage,AEO,edgeeffectiveness,range,data5,coverage,weapontypemask\n";
+	std::vector<bool> usedWeapons = getUsedWeaponIds();
 	for (int n = 0; n < 256; ++n) {
 		WeaponStruct* w = &taPtr->Weapons[n];
-		if (w->WeaponName[0] != '\0') {
+		if (w->WeaponName[0] != '\0' && usedWeapons[n]) {
 			fs << n << ',' << int(w->ID) << ',' << w->WeaponName << ',' << w->Damage << ',' << w->AOE << ',' << w->EdgeEffectivnes << ',' 
 				<< w->Range << ',' << w->data5 << ',' << w->coverage << ',' << w->WeaponTypeMask << '\n';
 		}
@@ -718,7 +775,7 @@ void ChallengeResponse::LogWeapons(const std::string& filename)
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_25)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::LogFeatures(const std::string& filename)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -732,12 +789,12 @@ void ChallengeResponse::LogFeatures(const std::string& filename)
 			fs << int(f->BurnWeapon->ID) << ',';
 		else
 			fs << "NULL,";
-		fs << f->SparkTime << ',' << f->Damage << ',' << f->Energy << ',' << f->Metal << ',' << int(f->Height) << ',' << (f->FeatureMask&0x0ff0) << '\n';
+		fs << f->SparkTime << ',' << f->Damage << ',' << f->Energy << ',' << f->Metal << ',' << int(f->Height) << ',' << (f->FeatureMask & FEATURE_MASK) << '\n';
 	}
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_26)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::LogUnits(const std::string &filename)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -756,7 +813,9 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 		"maxhp,data8,workertime,healtime,sightdistance,radardistance,sonardistance,mincloakdistance,"
 		"radardistancejam,sonardistancejam,nbuilddistance,builddistance,nmaneuverleashlength,attackrunlength,kamikazedistance,sortbias,"
 		"cruisealt,data4,maxslope,badslope,transportsize,transportcapacity,waterline,makesmetal,"
-		"bmcode,mask0,mask1\n";
+		"bmcode,mask0,mask1,"
+		"cobcrc32\n";
+
 	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
 		UnitDefStruct* u = &taPtr->UnitDef[n];
 		int buildLimit = u->buildLimit == -1 ? taPtr->PlayerUnitsNumber_Skim : u->buildLimit;
@@ -766,21 +825,30 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 			<< u->cceleration << ',' << u->bankscale << ',' << u->pitchscale << ',' << u->damagemodifier << ',' << u->moverate1 << ',' << u->moverate2 << ',' << u->movementclass << ',' << u->turnrate << ','
 			<< u->corpse << ',' << u->maxwaterdepth << ',' << u->minwaterdepth << ',' << u->energymake << ',' << u->energyuse << ',' << u->metalmake << ',' << u->extractsmetal << ',' << u->windgenerator << ','
 			<< u->tidalgenerator << ',' << u->cloakcost << ',' << u->cloakcostmoving << ',' << u->energystorage << ',' << u->metalstorage << ',' << u->buildtime << ',';
+
 		if (u->YardMap) {
-			fs.write(u->YardMap, u->FootX * u->FootY);
+			for (int i = 0; i < u->FootX * u->FootY; ++i) {
+				fs << int(u->YardMap[i]);
+				if (i + 1 < u->FootX * u->FootY) {
+					fs << ' ';
+				}
+			}
 			fs << ',';
 		}
 		else {
 			fs << "NULL,";
 		}
+
 		if (u->weapon1 && u->weapon1->WeaponName)
 			fs << u->weapon1->WeaponName << ',' << int(u->weapon1->ID) << ',';
 		else
 			fs << "NULL,NULL,";
+
 		if (u->weapon2 && u->weapon2->WeaponName)
 			fs << u->weapon2->WeaponName << ',' << int(u->weapon2->ID) << ',';
 		else
 			fs << "NULL,NULL,";
+
 		if (u->weapon3 && u->weapon3->WeaponName)
 			fs << u->weapon3->WeaponName << ',' << int(u->weapon3->ID) << ',';
 		else
@@ -789,12 +857,31 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 			<< u->nMaxHP << ',' << u->data8 << ',' << u->nWorkerTime << ',' << u->nHealTime << ',' << u->nSightDistance << ',' << u->nRadarDistance << ',' << u->nSonarDistance << ',' << u->mincloakdistance << ','
 			<< u->radardistancejam << ',' << u->sonardistancejam << ',' << u->nBuildDistance << ',' << u->builddistance << ',' << u->nManeuverLeashLength << ',' << u->attackrunlength << ',' << u->kamikazedistance << ',' << u->sortbias << ','
 			<< int(u->cruisealt) << ',' << int(u->data4) << ',' << int(u->maxslope) << ',' << int(u->badslope) << ',' << int(u->transportsize) << ',' << int(u->transportcapacity) << ',' << int(u->waterline) << ',' << u->makesmetal << ','
-			<< int(u->bmcode) << ',' << u->UnitTypeMask_0 << ',' << u->UnitTypeMask_1 << '\n';
+			<< int(u->bmcode) << ',' << u->UnitTypeMask_0 << ',' << u->UnitTypeMask_1 << ',';
+
+		if (u->cobDataPtr) {
+			CobHeader* c = u->cobDataPtr;
+			unsigned crc = -1;
+			m_crc.PartialCRC(&crc, (unsigned char*)&c->Version, sizeof(c->Version));
+			m_crc.PartialCRC(&crc, (unsigned char*)&c->Version, sizeof(c->Version));
+			m_crc.PartialCRC(&crc, (unsigned char*)&c->StaticVariablesCount, sizeof(c->StaticVariablesCount));
+			m_crc.PartialCRC(&crc, c->ByteCodeStart, c->BytecodeLength);
+			for (int i = 0; i < c->MethodCount; ++i) {
+				m_crc.PartialCRC(&crc, (unsigned char*)&c->MethodEntryPoints[i], 4);
+				m_crc.PartialCRC(&crc, (unsigned char*)c->MethodNameOffsets[i], std::strlen(c->MethodNameOffsets[i]));
+			}
+			for (int i = 0; i < c->PieceCount; ++i) {
+				m_crc.PartialCRC(&crc, (unsigned char*)c->PieceNameOffsets[i], std::strlen(c->PieceNameOffsets[i]));
+			}
+			crc ^= -1;
+			fs << crc;
+		}
+		fs << '\n';
 	}
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_27)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::LogGamingState(const std::string& filename)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -810,11 +897,11 @@ void ChallengeResponse::LogGamingState(const std::string& filename)
 	fs << g->surfaceMetal << ',' << g->minWindSpeed << ',' << g->maxWindSpeed << ',' << g->gravity << ',' << g->tidalStrength << ',' << g->isLavaMap << ','
 		<< taPtr->MinWindSpeed << ',' << taPtr->MaxWindSpeed << ',' << taPtr->Gravity << ',' << taPtr->TidalStrength << ','
 		<< int(taPtr->SeaLevel) << ',' << int(taPtr->mapDebugMode) << ','
-		<< taPtr->WindSpeedHardLimit << ',' << taPtr->LosType << ',' << taPtr->PlayerUnitsNumber_Skim << ',' << taPtr->MaxUnitNumberPerPlayer << ',' << taPtr->SoftwareDebugMode << '\n';
+		<< taPtr->WindSpeedHardLimit << ',' << (taPtr->LosType & LOS_TYPE_MASK) << ',' << taPtr->PlayerUnitsNumber_Skim << ',' << taPtr->MaxUnitNumberPerPlayer << ',' << (taPtr->SoftwareDebugMode & SOFTWARE_DEBUG_MODE_MASK) << '\n';
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_28)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::LogMapSnapshot(const std::string& filename)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -832,7 +919,7 @@ void ChallengeResponse::LogMapSnapshot(const std::string& filename)
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_29)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::LogAll(const std::string& filename)
 {
 	LogWeapons(filename);
@@ -844,14 +931,7 @@ void ChallengeResponse::LogAll(const std::string& filename)
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_30)))
-void ChallengeResponse::SetBroadcastNoReplyWarnings(bool broadcastNoReplyWarnings)
-{
-	m_broadcastNoReplyWarnings = broadcastNoReplyWarnings;
-}
-#pragma code_seg(pop)
-
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_31)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::vector<bool> ChallengeResponse::getUsedWeaponIds()
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -872,27 +952,27 @@ std::vector<bool> ChallengeResponse::getUsedWeaponIds()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_32)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::handleBattleroomReportCommand(const std::string& str, ChallengeResponseCommand cmd)
 {
 	ChatText(str.c_str());
 
 	char buffer[2][65] = { 0 };	// two 0x05 "chat" messages back-to-back
 
-	// 1st "chat" message
+	// 1st: "chat" message
 	buffer[0][0] = 0x05;
 	std::memcpy(&buffer[0][1], str.c_str(), str.size());
 
-	// 2nd "chat" message
+	// 2nd: remote request message
 	ChallengeResponseMessage* msg = (ChallengeResponseMessage*)&buffer[1][0];
-	SetChallengeResponseMessage(*msg, cmd, 0u, 0u);
+	InitChallengeResponseMessage(*msg, cmd);
 
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
 	HAPI_BroadcastMessage(fromDpid, &buffer[0][0], sizeof(buffer));
 }
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_33)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::OnBattleroomCommandExeReport(const std::vector<std::string>&)
 {
 	auto crcAndFilename = ChallengeResponse::GetInstance()->GetTotalACrc();
@@ -901,7 +981,7 @@ void ChallengeResponse::OnBattleroomCommandExeReport(const std::vector<std::stri
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_34)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::OnBattleroomCommandTdReport(const std::vector<std::string>&)
 {
 	std::string versionString = ChallengeResponse::GetInstance()->GetTDrawVersionString();
@@ -911,7 +991,7 @@ void ChallengeResponse::OnBattleroomCommandTdReport(const std::vector<std::strin
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_35)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::OnBattleroomCommandTpReport(const std::vector<std::string>&)
 {
 	auto crcAndFilename = ChallengeResponse::GetInstance()->GetTPlayXCrc();
@@ -921,7 +1001,7 @@ void ChallengeResponse::OnBattleroomCommandTpReport(const std::vector<std::strin
 #pragma code_seg(pop)
 
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_36)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::OnBattleroomCommandGp3Report(const std::vector<std::string>&)
 {
 	auto crcAndFilename = ChallengeResponse::GetInstance()->GetGp3Crc();
@@ -930,7 +1010,7 @@ void ChallengeResponse::OnBattleroomCommandGp3Report(const std::vector<std::stri
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_37)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::OnBattleroomCommandCrcReport(const std::vector<std::string>&)
 {
 	std::string str = ChallengeResponse::GetInstance()->GetAllReportString();
@@ -938,7 +1018,7 @@ void ChallengeResponse::OnBattleroomCommandCrcReport(const std::vector<std::stri
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_38)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::string ChallengeResponse::GetTDrawVersionString()
 {
 	std::string tDrawVersion("<unknown>");
@@ -974,7 +1054,7 @@ std::string ChallengeResponse::GetTDrawVersionString()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_39)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::pair<unsigned, std::string> ChallengeResponse::GetTotalACrc()
 {
 	unsigned crc = 0;
@@ -992,7 +1072,7 @@ std::pair<unsigned, std::string> ChallengeResponse::GetTotalACrc()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_40)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::pair<unsigned, std::string> ChallengeResponse::GetTDrawCrc()
 {
 	const std::string DDrawOutermostWrapper((const char*)0x4ff618);
@@ -1015,7 +1095,7 @@ std::pair<unsigned, std::string> ChallengeResponse::GetTDrawCrc()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_41)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::pair<unsigned, std::string> ChallengeResponse::GetTPlayXCrc()
 {
 	const std::string DPlayXOutermostWrapper((const char*)0x4ff9e4);
@@ -1033,7 +1113,7 @@ std::pair<unsigned, std::string> ChallengeResponse::GetTPlayXCrc()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_42)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::pair<unsigned, std::string> ChallengeResponse::GetGp3Crc()
 {
 	unsigned crc = 0;
@@ -1061,7 +1141,7 @@ std::pair<unsigned, std::string> ChallengeResponse::GetGp3Crc()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_43)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::string ChallengeResponse::GetReportString(const std::pair<unsigned, std::string>& crcAndFilename, const std::string* optionalVersion)
 {
 	const unsigned crc = std::get<0>(crcAndFilename);
@@ -1086,7 +1166,7 @@ std::string ChallengeResponse::GetReportString(const std::pair<unsigned, std::st
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_44)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::string ChallengeResponse::GetAllReportString()
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -1121,14 +1201,20 @@ std::string ChallengeResponse::GetAllReportString()
 }
 #pragma code_seg(pop)
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_45)))
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::LogGameFileLookup(const std::string & filename)
 {
 	std::ofstream fs(filename, std::ios::app);
 	fs << "========== GameFilesLookup:\n";
 
 	for (auto p : gamePathToHpiLookup) {
-		fs << p.first << ":" << p.second << '\n';
+		if (endsWith(p.second, ".gp3") || endsWith(p.second, ".ccx") || endsWith(p.second, ".hpi") || endsWith(p.second, ".ufo")) {
+			auto components = getFilenameComponents(p.second);
+			fs << p.first << " -> " << std::get<1>(components) << '.' << std::get<2>(components) << '\n';
+		}
+		else {
+			fs << p.first << " -> " << p.second << '\n';
+		}
 	}
 }
 #pragma code_seg(pop)
