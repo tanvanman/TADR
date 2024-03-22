@@ -157,6 +157,9 @@ class AlliesWhiteboard
 	void DebugPlayerNumberFromInitialColor();
 	void InitialisePlayerNumberFromInitialColor();
 
+	static bool IsInGameArea(LPARAM lParam);
+	static bool IsInGameArea(LONG x, LONG y);
+
   public:
     AlliesWhiteboard(BOOL VidMem);
     ~AlliesWhiteboard();
