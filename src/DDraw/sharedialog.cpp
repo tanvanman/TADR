@@ -168,13 +168,27 @@ int __stdcall ShareDialogInit (PInlineX86StackBuffer X86StrackBuffer)
 	{//
 		GUI1IDControl * shootall;
 		shootall= (GUI1IDControl *)SubControl_str2ptr ( UpperControl, "EN_SHOOTALL");
-		if (0!=(Shootall& ((*(TAmainStruct_PtrPtr))->SoftwareDebugMode)))
+		if (0!=(softwaredebugmode::Shootall & ((*(TAmainStruct_PtrPtr))->SoftwareDebugMode)))
 		{
 			shootall->status_curnt= 1;
 		}
 		else
 		{
 			shootall->status_curnt= 0;
+		}
+	}
+
+	if (0xffffffff != SubGUIIndex(UpperControl, "EN_NOSHAKE", 0xe))
+	{//
+		GUI1IDControl* noshake;
+		noshake = (GUI1IDControl*)SubControl_str2ptr(UpperControl, "EN_NOSHAKE");
+		if (0 != (softwaredebugmode::Noshake & ((*(TAmainStruct_PtrPtr))->SoftwareDebugMode)))
+		{
+			noshake->status_curnt = 1;
+		}
+		else
+		{
+			noshake->status_curnt = 0;
 		}
 	}
 
@@ -230,6 +244,23 @@ int __stdcall ShareDialogProc (PInlineX86StackBuffer X86StrackBuffer)
 		if (IsPressCommand ( TAUI_p, "EN_SHOOTALL"))
 		{
 			ChatText ( "+shootall");
+		}
+	}
+
+	if (0xffffffff != SubGUIIndex(UpperControl, "EN_NOSHAKE", 0xe))
+	{//
+		if (IsPressCommand(TAUI_p, "EN_NOSHAKE"))
+		{
+			ChatText("+noshake");
+		}
+	}
+
+	if (0xffffffff != SubGUIIndex(UpperControl, "EN_READY", 0xe))
+	{//
+		if (IsPressCommand(TAUI_p, "EN_READY"))
+		{
+			TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+			ShowText(&ta->Players[ta->LocalHumanPlayer_PlayerID], ".ready", 0, 0);
 		}
 	}
 
@@ -289,13 +320,34 @@ int __stdcall ShareDialogProc (PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+int __stdcall BattleroomDialogProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	bool isLocalPlayerHost = X86StrackBuffer->Eax;
+	if (!isLocalPlayerHost) {
+		return 0;
+	}
+
+	GUIInfo* TAUI_p = *reinterpret_cast<GUIInfo**> (X86StrackBuffer->Esp + 0x150);
+	GUI0IDControl* UpperControl = TAUI_p->TheActive_GUIMEM->ControlsAry;
+
+	if (0xffffffff != SubGUIIndex(UpperControl, "AUTOPAUSE", 0xe))
+	{
+		if (IsPressCommand(TAUI_p, "AUTOPAUSE"))
+		{
+			TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+			ShowText(&ta->Players[ta->LocalHumanPlayer_PlayerID], ".autopause", 0, 0);
+		}
+	}
+	return 0;
+}
 
 ShareDialogExpand::ShareDialogExpand(BOOL Expand_b)
 {
 	if (Expand_b)
 	{
 		ShareDialogInitHok= new InlineSingleHook ( 0x0493A92, 5, INLINE_5BYTESLAGGERJMP, ShareDialogInit);
-		ShareDialogProcHok= new InlineSingleHook ( 0x004934F5, 5, INLINE_5BYTESLAGGERJMP, ShareDialogProc);
+		ShareDialogProcHok = new InlineSingleHook(0x004934F5, 5, INLINE_5BYTESLAGGERJMP, ShareDialogProc);
+		ShareDialogProcHok= new InlineSingleHook ( 0x447b9c, 5, INLINE_5BYTESLAGGERJMP, BattleroomDialogProc);
 	}
 	else
 	{
