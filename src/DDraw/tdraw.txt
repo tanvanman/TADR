@@ -46,9 +46,12 @@ NEW FEATURES IN BRIEF:
 - Option to render DTs and fortwalls that belong to the map (not built by a player)
 - Supress "qqqqqq" whiteboard marker lables when "q" is used as the whiteboard key
 - Show weather report (solar, wind and tidal strength) along side +clock
+- Sync wind speed across all players
 - Set default resolution on new installs to 1024x768 (.ini setting "DisplayModeMinHeight768 = TRUE/FALSE")
 - Disable relay of F11 chatmacro text to other players
 - Enable start button in multiplayer lobby if only one player + AI are present
+- Add +noshake and .ready buttons to alliances menu
+- Add .autopause button to battleroom screen
 - Change whiteboard, mappos and resource indicator colours in response to +logo commands
 - Prevent +logo commands from affecting other players
 - Ctrl-B doesn't select aircraft carriers
