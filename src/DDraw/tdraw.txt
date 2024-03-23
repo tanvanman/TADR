@@ -45,7 +45,7 @@ NEW FEATURES IN BRIEF:
 - Fix the "units exploding in factories" bug by holding back recycling of deceased units' IDs for 5 seconds
 - Option to render DTs and fortwalls that belong to the map (not built by a player)
 - Supress "qqqqqq" whiteboard marker lables when "q" is used as the whiteboard key
-- Show weather report (solar, wind and tidal strength) along side +clock
+- Show clock and weather report (wind and tidal strength) on top resource panel
 - Sync wind speed across all players
 - Set default resolution on new installs to 1024x768 (.ini setting "DisplayModeMinHeight768 = TRUE/FALSE")
 - Disable relay of F11 chatmacro text to other players
