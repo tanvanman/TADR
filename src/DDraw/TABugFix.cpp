@@ -10,8 +10,10 @@
 #include "TAbugfix.h"
 #include "TAConfig.h"
 
-
 #include "ddraw.h"
+
+#include <chrono>
+#include <random>
 
 TABugFixing * FixTABug;
 ///////---------------------
@@ -417,6 +419,38 @@ int __stdcall PutDeadHostInWatchModeProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+// Ensure the random wind speed speed is the same for all players by using host's DPID as a random seed
+unsigned int WindSpeedSyncAddr = 0x490c5a;
+int __stdcall WindSpeedSyncProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+
+	static std::unique_ptr<std::default_random_engine> RNG;
+	if (RNG.get() == NULL) {
+		PlayerStruct* host = FindPlayerByPlayerNum(1);
+		if (host && (host->DirectPlayID > 0)) {
+			IDDrawSurface::OutptTxt("[WindSpeedSyncProc] initialsing RNG using host DPID. host=%s, dpid=0x%x",
+				host->Name, host->DirectPlayID);
+			RNG = std::make_unique<std::default_random_engine>(host->DirectPlayID);
+		}
+		else {
+			unsigned t = std::chrono::system_clock::now().time_since_epoch().count();
+			IDDrawSurface::OutptTxt("[WindSpeedSyncProc] initialsing RNG using current time. t=%d", t);
+			RNG = std::make_unique<std::default_random_engine>(t);
+		}
+	}
+
+	taPtr->WindSpeedGameTicksNextUpdate += 30 * (5 + (*RNG)() % 10);
+	taPtr->WindSpeed = (*RNG)() % (taPtr->MaxWindSpeed - taPtr->MinWindSpeed) + taPtr->MinWindSpeed;
+	if (taPtr->WindSpeed > 0) {
+		taPtr->WindDirection = (*RNG)() % 0x10000;
+	}
+
+	X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x490ce8;
+	return X86STRACKBUFFERCHANGE;
+}
+
 // allocate 0x48 bytes instead of 0x3c bytes
 // copy 0x12 dwords intead of 0x0f dwords
 unsigned int CanBuildArrayBufferOverrunFixAddr = 0x42dac7;
@@ -533,6 +567,7 @@ TABugFixing::TABugFixing ()
 	HostDoesntLeave.reset(new InlineSingleHook(PutDeadHostInWatchModeAddr, 5, INLINE_5BYTESLAGGERJMP, PutDeadHostInWatchModeProc));
 	JunkYardmapFix.reset(new InlineSingleHook(JunkYardmapFixAddr, 5, INLINE_5BYTESLAGGERJMP, JunkYardmapFixProc));
 	CanBuildArrayBufferOverrunFix.reset(new SingleHook(CanBuildArrayBufferOverrunFixAddr, sizeof(CanBuildArrayBufferOverrunFixBytes), INLINE_UNPROTECTEVINMENT, CanBuildArrayBufferOverrunFixBytes));
+	WindSpeedSync.reset(new InlineSingleHook(WindSpeedSyncAddr, 5, INLINE_5BYTESLAGGERJMP, WindSpeedSyncProc));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }

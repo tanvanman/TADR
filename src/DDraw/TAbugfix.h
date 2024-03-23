@@ -54,6 +54,7 @@ private:
 	std::unique_ptr <SingleHook> JunkYardmapFix;
 	std::unique_ptr <SingleHook> CanBuildArrayBufferOverrunFix;
 	std::unique_ptr <SingleHook> HostDoesntLeave;
+	std::unique_ptr <SingleHook> WindSpeedSync;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 
