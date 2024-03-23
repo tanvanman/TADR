@@ -324,7 +324,7 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 	UnitStruct* units = (UnitStruct*)X86StrackBuffer->Esi;
 	if (unitIndexRequested > 0) {
 		if (units->UnitID == 0) {
-			IDDrawSurface::OutptTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId(requested)=%d\n", playerIndex, unitIndexRequested);
+			//IDDrawSurface::OutptTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId(requested)=%d\n", playerIndex, unitIndexRequested);
 			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x48605d;
 			return X86STRACKBUFFERCHANGE;
 		}
@@ -337,7 +337,7 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 
 	for (int n = 0; n < taPtr->PlayerUnitsNumber_Skim; ++n) {
 		if (0 == player->Units[n].UnitID && taPtr->GameTime >= unitIdRecycleTimestamps[playerIndex][n]) {
-			IDDrawSurface::OutptTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId=%d\n", playerIndex, n);
+			//IDDrawSurface::OutptTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId=%d\n", playerIndex, n);
 			X86StrackBuffer->Esi = (DWORD)&player->Units[n];
 			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x48605d;
 			return X86STRACKBUFFERCHANGE;

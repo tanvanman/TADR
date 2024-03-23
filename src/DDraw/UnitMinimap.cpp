@@ -1116,7 +1116,6 @@ LPBYTE UnitsMinimap::UnitPicture(UnitStruct * unitPtr,int PlayerID, LPBYTE * Pix
 	{
 		return NULL;
 	}
-	IDDrawSurface::OutptTxt ( "units picture");
 	BOOL Update_b= FALSE;
 	int CurtColor= (*TAmainStruct_PtrPtr)->Players[PlayerID].PlayerInfo->PlayerLogoColor;
 	if (PlayerColros[PlayerID]!=CurtColor)
@@ -1634,7 +1633,7 @@ void UnitsMinimap::NowDrawUnits ( LPBYTE PixelBitsBack, POINT * AspectSrc)
 	{
 		return ;
 	}
-	IDDrawSurface::OutptTxt ( "Draw units");
+	//IDDrawSurface::OutptTxt ( "Draw units");
 	POINT Aspect= {0, 0};
 	LPBYTE PixelBits= NULL;
 

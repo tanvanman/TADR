@@ -392,7 +392,7 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 		}
 		if (TAInGame==DataShare->TAProgress)
 		{
-			IDDrawSurface::OutptTxt ( "FullScreenMinimap blit");
+			//IDDrawSurface::OutptTxt ( "FullScreenMinimap blit");
 
 
 

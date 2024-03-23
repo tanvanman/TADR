@@ -49,7 +49,7 @@ BOOL MappedMap::NowDrawMapped (LPBYTE PixelBits, POINT * AspectSrc)
 	{
 		return FALSE;
 	}
-	IDDrawSurface::OutptTxt ( "Draw Mapped");
+	//IDDrawSurface::OutptTxt ( "Draw Mapped");
 
 	if (NULL==Event_h)
 	{

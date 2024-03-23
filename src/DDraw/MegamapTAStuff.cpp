@@ -760,7 +760,7 @@ void MegamapTAStuff::DrawOrderPath (OFFSCREEN * OffScreen, UnitOrdersStruct * Or
 
 void MegamapTAStuff::BlitOrder (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch)
 {
-	IDDrawSurface::OutptTxt ( "BlitOrder");
+	//IDDrawSurface::OutptTxt ( "BlitOrder");
 	int ColorIndex;
 	OFFSCREEN OffScreen;
 	memset ( &OffScreen, 0, sizeof(OFFSCREEN));

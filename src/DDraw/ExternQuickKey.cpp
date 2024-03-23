@@ -341,7 +341,7 @@ void ExternQuickKey::FindIdleConst()
 	//FixAck();
 	//
 
-	IDDrawSurface::OutptTxt ( "Search Idle Const");
+	//IDDrawSurface::OutptTxt ( "Search Idle Const");
 
 	DWORD Wait_rtn= WaitForSingleObject ( Semaphore_IdleCons, INFINITE);
 	if (WAIT_FAILED==Wait_rtn)
