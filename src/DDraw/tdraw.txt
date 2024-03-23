@@ -50,7 +50,7 @@ NEW FEATURES IN BRIEF:
 - Set default resolution on new installs to 1024x768 (.ini setting "DisplayModeMinHeight768 = TRUE/FALSE")
 - Disable relay of F11 chatmacro text to other players
 - Enable start button in multiplayer lobby if only one player + AI are present
-- Add +noshake and .ready buttons to alliances menu
+- Add +noshake and .ready buttons to sharing menu
 - Add .autopause button to battleroom screen
 - Change whiteboard, mappos and resource indicator colours in response to +logo commands
 - Prevent +logo commands from affecting other players
