@@ -320,6 +320,20 @@ int __stdcall ShareDialogProc (PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+int __stdcall BattleroomDialogInit(PInlineX86StackBuffer X86StrackBuffer)
+{
+	GUI0IDControl* UpperControl = (*TAmainStruct_PtrPtr)->desktopGUI.TheActive_GUIMEM->ControlsAry;
+
+	if (0xffffffff != SubGUIIndex(UpperControl, "AUTOPAUSE", 0xe))
+	{//
+		GUI1IDControl* autopause;
+		autopause = (GUI1IDControl*)SubControl_str2ptr(UpperControl, "AUTOPAUSE");
+		unsigned id = (*TAmainStruct_PtrPtr)->LocalHumanPlayer_PlayerID;
+		autopause->grayedout = 0 == (IsHost & (*TAmainStruct_PtrPtr)->Players[id].PlayerInfo->SharedBits);
+	}
+	return 0;
+}
+
 int __stdcall BattleroomDialogProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	bool isLocalPlayerHost = X86StrackBuffer->Eax;
@@ -345,9 +359,10 @@ ShareDialogExpand::ShareDialogExpand(BOOL Expand_b)
 {
 	if (Expand_b)
 	{
-		ShareDialogInitHok= new InlineSingleHook ( 0x0493A92, 5, INLINE_5BYTESLAGGERJMP, ShareDialogInit);
+		ShareDialogInitHok= new InlineSingleHook (0x0493A92, 5, INLINE_5BYTESLAGGERJMP, ShareDialogInit);
 		ShareDialogProcHok = new InlineSingleHook(0x004934F5, 5, INLINE_5BYTESLAGGERJMP, ShareDialogProc);
-		ShareDialogProcHok= new InlineSingleHook ( 0x447b9c, 5, INLINE_5BYTESLAGGERJMP, BattleroomDialogProc);
+		ShareDialogProcHok = new InlineSingleHook(0x449d71, 5, INLINE_5BYTESLAGGERJMP, BattleroomDialogInit);
+		ShareDialogProcHok= new InlineSingleHook (0x447b9c, 5, INLINE_5BYTESLAGGERJMP, BattleroomDialogProc);
 	}
 	else
 	{
