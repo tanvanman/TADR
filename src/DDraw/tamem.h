@@ -463,7 +463,7 @@ struct TAdynmemStruct{
 
 	unsigned short field_37EC0;
 	unsigned short field_37EC2;
-	unsigned int  field_37EC4;
+	unsigned int  WindSpeedGameTicksNextUpdate;// 0x37ec4
 	unsigned int  WindSpeedHardLimit;		//0x37ec8
 	unsigned int  field_37ECC;
 	unsigned int  field_37ED0;
@@ -1509,6 +1509,7 @@ enum WeaponMask
 
 enum SharedStates
 {
+	 IsHost           = 1,
 	 SharedMetal      = 2,
 	 SharedEnergy     = 4,
 	 SharedLOS        = 8,
