@@ -1454,7 +1454,7 @@ void Dialog::DrawClickSnapRadius()
 			DrawSmallText(lpDialogSurf, static_cast<int>(MexSnapRadiusPosX + 28), static_cast<int>(MexSnapRadiusPosY), buf);
 		}
 		else {
-			DrawTinyText("NA", static_cast<int>(MexSnapRadiusPosX + 2 * MexSnapRadiusWidth + 2), static_cast<int>(MexSnapRadiusPosY), 208U);
+			DrawTinyText("NA", static_cast<int>(MexSnapRadiusPosX + 2), static_cast<int>(MexSnapRadiusPosY + 2), 208U);
 		}
 
 		if (CTAHook::GetMaxWreckSnapRadius() > 0) {
