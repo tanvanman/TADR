@@ -71,6 +71,8 @@ NEW FEATURES IN BRIEF:
 - Fix crash on simultaneous whiteboard marker move and delete
 - Fix rare crash on TA Hook line drawing
 - Radar and sonar jammers no longer jam your own radar and sonar in >3 player multiplayer
+- Use CTRL_F and CTRL_B unit category tags for ctrl+f and ctrl+b hotkeys in preference to heuristics
+- Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
 
