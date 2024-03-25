@@ -442,7 +442,13 @@ int __stdcall WindSpeedSyncProc(PInlineX86StackBuffer X86StrackBuffer)
 	}
 
 	taPtr->WindSpeedGameTicksNextUpdate += 30 * (5 + (*RNG)() % 10);
-	taPtr->WindSpeed = (*RNG)() % (taPtr->MaxWindSpeed - taPtr->MinWindSpeed) + taPtr->MinWindSpeed;
+	if (taPtr->MaxWindSpeed == taPtr->MinWindSpeed) {
+		taPtr->WindSpeed = taPtr->MinWindSpeed;
+	}
+	else {
+		taPtr->WindSpeed = (*RNG)() % (taPtr->MaxWindSpeed - taPtr->MinWindSpeed) + taPtr->MinWindSpeed;
+	}
+
 	if (taPtr->WindSpeed > 0) {
 		taPtr->WindDirection = (*RNG)() % 0x10000;
 	}
