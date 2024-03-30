@@ -4,9 +4,13 @@
 #include "hook/hook.h"
 #include "tafunctions.h"
 
+#ifdef min
+#undef min
+#endif
 #ifdef max
 #undef max
 #endif
+
 #include <algorithm>
 #include <chrono>
 
@@ -150,10 +154,58 @@ StartPositionsData* StartPositions::GetSharedMemory()
 
 void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositions[10], bool randomised)
 {
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	IDDrawSurface::OutptTxt("[InitStartPositions] alliances matrix ...");
+	for (int i = 0; i < 10; ++i) {
+		bool isWatching = ta->Players[i].PlayerInfo->PropertyMask & PlayerPropertyMask::WATCH;
+		const char* a = ta->Players[i].AllyFlagAry;
+		IDDrawSurface::OutptTxt("%d: %d %d %d %d %d %d %d %d %d %d (%s:%d:%d)",
+			i,
+			int(a[0]), int(a[1]), int(a[2]), int(a[3]), int(a[4]), int(a[5]), int(a[6]), int(a[7]), int(a[8]), int(a[9]),
+			ta->Players[i].Name, ta->Players[i].PlayerActive, isWatching);
+	}
+
 	int playerTeamNumbers[10] = { 0 };
-	GetTeamsFromAlliances(playerTeamNumbers, randomised);
+	IDDrawSurface::OutptTxt("[InitStartPositions] GetTeamsFromAlliances randomised ...");
+	GetTeamsFromAlliances(playerTeamNumbers, true);
 	for (int i = 0; i < 10; ++i) {
 		IDDrawSurface::OutptTxt("[InitStartPositions] i=%d, playerTeamNumbers=%d", i, playerTeamNumbers[i]);
+	}
+
+	IDDrawSurface::OutptTxt("[InitStartPositions] GetTeamsFromAlliances not randomised ...");
+	GetTeamsFromAlliances(playerTeamNumbers, false);
+	for (int i = 0; i < 10; ++i) {
+		IDDrawSurface::OutptTxt("[InitStartPositions] i=%d, playerTeamNumbers=%d", i, playerTeamNumbers[i]);
+	}
+
+	// GetTeamsFromAlliances sometimes doesn't work.  until we know why, we'll override with the explicit teams selection
+	int numUnteamedPlayers = 0;
+	for (int i = 0; i < 10; ++i) {
+		if (ta->Players[i].PlayerActive &&
+			!(ta->Players[i].PlayerInfo->PropertyMask & PlayerPropertyMask::WATCH) &&
+			unsigned(ta->Players[i].AllyTeam) >= 5) {
+			++numUnteamedPlayers;
+		}
+	}
+	IDDrawSurface::OutptTxt("[InitStartPositions] numUnteamedPlayers=%d", numUnteamedPlayers);
+
+	if (numUnteamedPlayers == 0)
+	{
+		IDDrawSurface::OutptTxt("[InitStartPositions] GetTeamsFromTeams ...");
+		for (int i = 0; i < 10; ++i) {
+			if (ta->Players[i].PlayerActive && !(ta->Players[i].PlayerInfo->PropertyMask & PlayerPropertyMask::WATCH)) {
+				// AllyTeam guaranteed [0 ... 5)
+				playerTeamNumbers[i] = 1 + ta->Players[i].AllyTeam;
+			}
+			else {
+				playerTeamNumbers[i] = 0;
+			}
+		}
+		for (int i = 0; i < 10; ++i) {
+			IDDrawSurface::OutptTxt("[InitStartPositions] i=%d, playerTeamNumbers=%d", i, playerTeamNumbers[i]);
+		}
 	}
 
 	if (CountLargestTeamSize(playerTeamNumbers) > 1)
