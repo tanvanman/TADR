@@ -635,7 +635,15 @@ void ChallengeResponse::HashMapSnapshot(HmacSha256Calculator& hmac)
 	const int N = taPtr->FeatureMapSizeX * taPtr->FeatureMapSizeY;
 	for (int n = 0; n < N; ++n) {
 		FeatureStruct* f = &m_featureMapSnapshot.get()[n];
-		hmac.processChunk((unsigned char*)&f->height, (char*)&f->field_0c - (char*)&f->height);
+		hmac.processChunk((unsigned char*)&f->height, 1);
+		if (f->FeatureDefIndex == 0x0fffe)
+		{
+			hmac.processChunk((unsigned char*)&f->MetalValue, (char*)&f->field_0c - (char*)&f->MetalValue);
+		}
+		else
+		{
+			hmac.processChunk((unsigned char*)&f->MetalValue, (char*)&f->FeatureDefDy - (char*)&f->MetalValue);
+		}
 	}
 }
 #pragma code_seg(pop)
@@ -913,8 +921,10 @@ void ChallengeResponse::LogMapSnapshot(const std::string& filename)
 		FeatureStruct* f = &m_featureMapSnapshot.get()[n];
 		int x = n % taPtr->FeatureMapSizeX;
 		int y = n / taPtr->FeatureMapSizeX;
+		int dx = f->FeatureDefIndex == 0x0fffe ? int(f->FeatureDefDx) : 0;
+		int dy = f->FeatureDefIndex == 0x0fffe ? int(f->FeatureDefDy) : 0;
 		fs << n << ',' << x << ',' << y << ',' <<
-			int(f->height) << ',' << int(f->MetalValue) << ',' << f->FeatureDefIndex << ',' << int(f->FeatureDefDx) << ',' << int(f->FeatureDefDy) << '\n';
+			int(f->height) << ',' << int(f->MetalValue) << ',' << f->FeatureDefIndex << ',' << dx << ',' << dy << '\n';
 	}
 }
 #pragma code_seg(pop)
@@ -941,7 +951,7 @@ std::vector<bool> ChallengeResponse::getUsedWeaponIds()
 		const UnitDefStruct* u = &taPtr->UnitDef[n];
 		if (u->weapon1) isUsed[u->weapon1->ID] = true;
 		if (u->weapon2) isUsed[u->weapon2->ID] = true;
-		if (u->weapon3) isUsed[u->weapon2->ID] = true;
+		if (u->weapon3) isUsed[u->weapon3->ID] = true;
 	}
 	for (int n = 0; n < taPtr->NumFeatureDefs; ++n) {
 		const FeatureDefStruct* f = &taPtr->FeatureDef[n];
@@ -1024,16 +1034,22 @@ std::string ChallengeResponse::GetTDrawVersionString()
 	std::string tDrawVersion("<unknown>");
 	{
 		HRSRC hResInfo = FindResource(HInstance, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
-		if (hResInfo == NULL)
+		if (hResInfo == NULL) {
 			IDDrawSurface::OutptTxt("hResInfo NULL");
+			return tDrawVersion;
+		}
 
 		HGLOBAL hResData = LoadResource(HInstance, hResInfo);
-		if (hResData == NULL)
+		if (hResData == NULL) {
 			IDDrawSurface::OutptTxt("hResData NULL");
+			return tDrawVersion;
+		}
 
 		LPVOID lpResData = LockResource(hResData);
-		if (lpResData == NULL)
+		if (lpResData == NULL) {
 			IDDrawSurface::OutptTxt("lpResData NULL");
+			return tDrawVersion;
+		}
 
 		VS_FIXEDFILEINFO* pFileInfo = nullptr;
 		UINT dwFileInfoSize = 0;

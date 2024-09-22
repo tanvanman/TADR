@@ -98,7 +98,7 @@ void CElementHandler::DeleteBetween(int x1, int y1, int x2, int y2)
 		for(int x=sx1;x<=sx2;x++){
 			ElementList::iterator eli;
 			for(eli=map[y][x].begin();eli!=map[y][x].end();++eli){
-				if(((*eli)->x1 >= x1) && ((*eli)->y1 >= y1))
+				if ((*eli)->x1 >= x1 && (*eli)->y1 >= y1 && (*eli)->x1 < x2 && (*eli)->y1 < y2)
 					toBeDeleted.push_back(*eli);
 			}
 			while(!toBeDeleted.empty()){
