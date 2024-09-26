@@ -138,6 +138,7 @@ public:
 		{
 			throw std::runtime_error("Error in CryptHashData");
 		}
+		return true;
 	}
 
 	bool finalize(unsigned char* buffer, DWORD len) {
@@ -174,5 +175,6 @@ public:
 		{
 			throw std::runtime_error("Error in CryptGetHashParam");
 		}
+		return true;
 	}
 };

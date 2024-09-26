@@ -545,8 +545,8 @@ struct WreckageInfoStruct{
 struct FeatureStruct{
 	unsigned occupyingUnitNumber;
 	unsigned char height;
-	unsigned char maxHeight2x2;  // maximum height of 2x2 patch starting at this coordinate
-	unsigned char minHeight2x2;  // minimum height of 2x2 patch starting at this coordinate
+	unsigned char maxHeight2x2;  // maximum height of 2x2 patch starting at this coordinate. TA bug gives unpredictable values on right-hand edge of map?
+	unsigned char minHeight2x2;  // minimum height of 2x2 patch starting at this coordinate  TA bug gives unpredictable values on right-hand edge of map?
 	unsigned char MetalValue;
 	unsigned short FeatureDefIndex;
 	unsigned char FeatureDefDy;  // if FeatureDefIndex is 0xfffe, offset in map coordinates to the real FeatureDefIndex

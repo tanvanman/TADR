@@ -83,7 +83,7 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 		{
 			DDSURFACEDESC ddsd;
 			DDRAW_INIT_STRUCT(ddsd);
-			int PlayerDrawn;
+			int PlayerDrawn = 0;
 			TAdynmemStruct * Ptr= *(TAdynmemStruct* *)0x00511de8;
 			
 			if(lpIncomeSurf->Lock(NULL, &ddsd, DDLOCK_WAIT | DDLOCK_SURFACEMEMORYPTR, NULL)==DD_OK)
@@ -700,7 +700,7 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 
 	char tideText[32];
 	programPtr->fontFrontColour = GREY;
-	sprintf(tideText, "Tidal :", tidal);
+	sprintf(tideText, "Tidal :");
 	DrawTextInScreen(&offScreen, tideText, x1 - GetTextExtent(programPtr->fontHandle, "Tidal : "), y2, -1);
 
 	programPtr->fontFrontColour = GREEN;
