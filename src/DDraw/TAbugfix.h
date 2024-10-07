@@ -55,6 +55,8 @@ private:
 	std::unique_ptr <SingleHook> CanBuildArrayBufferOverrunFix;
 	std::unique_ptr <SingleHook> HostDoesntLeave;
 	std::unique_ptr <SingleHook> WindSpeedSync;
+	std::unique_ptr <SingleHook> NetworkRawReceiveLog;
+	std::unique_ptr <SingleHook> NetworkDispatchLog;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 

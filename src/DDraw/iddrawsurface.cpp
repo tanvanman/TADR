@@ -781,6 +781,11 @@ void IDDrawSurface::OutptTxt(const char* format, ...)
 	_vsnprintf_s(buffer, sizeof(buffer), format, args);
 #endif
 
+	OutptRawTxt(buffer);
+}
+
+void IDDrawSurface::OutptRawTxt(const char* buffer, bool newline)
+{
 #if defined(DEBUG_INFO_2) || defined(_DEBUG)
 	OutputDebugStringA(buffer);
 #endif
@@ -790,14 +795,27 @@ void IDDrawSurface::OutptTxt(const char* format, ...)
 		TDrawLogFile = CreateFileA("tdrawlog.txt", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
 	}
 	if (TDrawLogFile != INVALID_HANDLE_VALUE) {
-		DWORD t = GetTickCount();
-		std::string s = std::to_string(t) + " " + std::to_string(GetCurrentThreadId()) + " --- " + buffer;
+
+		time_t rawtime;
+		struct tm* timeinfo;
+		char datetimestr[80];
+
+		time(&rawtime);
+		timeinfo = std::localtime(&rawtime);
+
+		std::strftime(datetimestr, sizeof(buffer), "%d-%m-%Y %H:%M:%S", timeinfo);
+
+		std::string s = std::string(datetimestr) + " " + std::to_string(GetCurrentThreadId()) + " --- " + buffer;
 		DWORD tempWritten;
 		WriteFile(TDrawLogFile, s.c_str(), s.size(), &tempWritten, NULL);
-		WriteFile(TDrawLogFile, "\r\n", 2, &tempWritten, NULL);
+		if (newline)
+		{
+			WriteFile(TDrawLogFile, "\r\n", 2, &tempWritten, NULL);
+		}
 	}
 #endif //DEBUG
 }
+
 
 void IDDrawSurface::OutptInt(int Int_I)
 {

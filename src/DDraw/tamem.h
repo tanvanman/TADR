@@ -111,7 +111,7 @@ struct PlayerStruct
 	UnitStruct * UnitsAry_End;
 	__int16 UnitsIndex_Begin;
 	__int16 UnitsIndex_End;
-	char My_PlayerType;
+	char My_PlayerType;		// aka PlayerStruct.Controller.Controller
 	int AiConfig;
 	int field_78;
 	unsigned char * LOS_MEMORY_p;
@@ -317,17 +317,24 @@ typedef struct _Position_Dword
 } Position_Dword ;
 //settimer 4fb368
 
+struct HAPINETStruct {
+	char data0[1205];			// 0x0000
+	unsigned fromDpid;			// 0x04b5
+	unsigned toDpid;			// 0x04b9
+	char data4bd[8];			// 0x04bd
+	void* directPlayInterface;	// 0x04c5
+								// 0x04c9
+};
+
 struct TAdynmemStruct{
 	char data1[12];				// 0x0000
 	_TAProgramStruct * TAProgramStruct_Ptr;	// 0x000c
 	DSoundStruct *DSound;		// 0x0010
-	char data2a[0x4b5];			// 0x0014
-	unsigned HAPI_net_data0;	// 0x04c9	from DirectPlayID
-	char data2b[0x4c];
-	_GUIInfo desktopGUI;
+	HAPINETStruct hapinet;		// 0x0014	..	0x04dd
+	char data2b[0x3c];			// 0x04dd   ..  0x0519
+	_GUIInfo desktopGUI;		// 0x0519
 	char data3[0x97C];
 	PlayerStruct Players[10];	//0x1B63 , end at 0x2851
-	
 	char data4[331];			// 0x2851
 	unsigned int data5;			// 0x299c
 	unsigned int AllyStruct_Ptr;// 0x29a0
@@ -336,7 +343,7 @@ struct TAdynmemStruct{
 	char data6b[0x0c];				// 0x2a24
 	void* RestrictUnitList;			// 0x2a30
 	unsigned int PacketBufferSize;	// 0x2a34
-	unsigned int PacketBuffer_p;
+	char* PacketBuffer_p;
 	unsigned short PlayerCounters;
 	unsigned int ChatTextIndex;
 	char LocalHumanPlayer_PlayerID;

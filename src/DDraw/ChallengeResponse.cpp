@@ -217,24 +217,24 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 		ChallengeResponse::GetInstance()->ComputeChallengeResponse(msg->data, replies[0].data, replies[1].data);
 
 		unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
-		unsigned replyDpid = taPtr->HAPI_net_data0;
+		unsigned replyDpid = taPtr->hapinet.fromDpid;
 		HAPI_SendBuf(fromDpid, replyDpid, (char*)&replies[0], sizeof(replies));
 		break;
 	}
 
 	case ChallengeResponseCommand::LegacyCrc32Reply: {
-		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(taPtr->HAPI_net_data0, msg->data, 4);
-		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(taPtr->HAPI_net_data0, msg->data+4, 4);
+		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(taPtr->hapinet.fromDpid, msg->data, 4);
+		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(taPtr->hapinet.fromDpid, msg->data+4, 4);
 		break;
 	}
 
 	case ChallengeResponseCommand::ChallengeHashReplyModules: {
-		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(taPtr->HAPI_net_data0, msg->data, SHA256_DIGEST_LENGTH);
+		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(taPtr->hapinet.fromDpid, msg->data, SHA256_DIGEST_LENGTH);
 		break;
 	}
 
 	case ChallengeResponseCommand::ChallengeHashReplyGameData: {
-		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(taPtr->HAPI_net_data0, msg->data, SHA256_DIGEST_LENGTH);
+		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(taPtr->hapinet.fromDpid, msg->data, SHA256_DIGEST_LENGTH);
 		break;
 	}
 
