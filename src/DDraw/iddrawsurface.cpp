@@ -11,6 +11,7 @@ using namespace std;
 #include "tafunctions.h"
 
 #include "ChallengeResponse.h"
+#include "TenPlayerReplay.h"
 #include "whiteboard.h"
 #include "MinimapHandler.h"
 #include "dddta.h"
@@ -511,6 +512,10 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 	HRESULT result;
 	UpdateTAProcess ( );
+	if (GetCurrentThreadId() == LocalShare->GuiThreadId && DataShare->PlayingDemo)
+	{
+		TenPlayerReplay::GetInstance();
+	}
 
 	GameingState * GameingState_P= (*TAmainStruct_PtrPtr)->GameingState_Ptr;
 
