@@ -173,6 +173,7 @@ public:
 	void CorrectName(char *Name);
 
 	static void OutptTxt(const char* format, ...);
+	static void OutptRawTxt(const char* text, bool newline=true);
 	static void OutptInt(int Int_I);
 	void Set(bool EnableVSync);
 	void FrontSurface (LPDIRECTDRAWSURFACE lpTASurf);

@@ -1,6 +1,8 @@
 
 #include "iddraw.h"
 #include "iddrawsurface.h"
+#include "HexDump.h"
+#include "TPacket.h"
 
 #include "hook/etc.h"
 #include "hook/hook.h"
@@ -14,6 +16,7 @@
 
 #include <chrono>
 #include <random>
+#include <sstream>
 
 TABugFixing * FixTABug;
 ///////---------------------
@@ -457,6 +460,50 @@ int __stdcall WindSpeedSyncProc(PInlineX86StackBuffer X86StrackBuffer)
 	return X86STRACKBUFFERCHANGE;
 }
 
+unsigned int NetworkRawReceiveLogAddr = 0x44fa68;
+int __stdcall NetworkRawReceiveLogProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+
+	HAPINETStruct* hapinet = *(HAPINETStruct**)(X86StrackBuffer->Esp + 0x118 + 0x04);
+	std::uint8_t* buffer = *(std::uint8_t**)(X86StrackBuffer->Esp + 0x118 + 0x08);
+	std::uint32_t* bufferSize = *(std::uint32_t**)(X86StrackBuffer->Esp + 0x118 + 0x0c);
+
+	std::ostringstream ss;
+	ss << "[NetworkRawReceiveLogAddr] fromDpid: " << std::dec << hapinet->fromDpid << '(' << std::hex << hapinet->fromDpid
+		<< "), toDpid: " << std::dec << hapinet->toDpid << "(" << std::hex << hapinet->toDpid << ")\n";
+	taflib::HexDump(buffer, *bufferSize, ss);
+	std::string dump = ss.str();
+	IDDrawSurface::OutptRawTxt(dump.c_str(), false);
+
+	return 0;
+}
+
+unsigned int NetworkDispatchLogAddr = 0x453db4;
+int __stdcall NetworkDispatchLogProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+
+	unsigned fromDpid = taPtr->hapinet.fromDpid;
+	int len = tapacket::TPacket::getExpectedSubPacketSize((std::uint8_t*)taPtr->PacketBuffer_p, taPtr->PacketBufferSize);
+	std::ostringstream ss;
+	ss << "[NetworkDispatchLogProc] fromDpid: " << fromDpid << std::hex << '(' << fromDpid << ")\n";
+	taflib::HexDump(taPtr->PacketBuffer_p, len, ss);
+	std::string dump = ss.str();
+	IDDrawSurface::OutptRawTxt(dump.c_str(), false);
+	return 0;
+}
+
+#define LOG_TRACE_HOOK(hookAddr, n, regDisplay) \
+unsigned int LogTrace##n##Addr = (hookAddr); \
+int __stdcall LogTrace##n##Proc(PInlineX86StackBuffer X86StrackBuffer) \
+{ \
+	IDDrawSurface::OutptTxt("[LogTrace%d] %x", n, X86StrackBuffer->##regDisplay); \
+    return 0; \
+}
+
 // allocate 0x48 bytes instead of 0x3c bytes
 // copy 0x12 dwords intead of 0x0f dwords
 unsigned int CanBuildArrayBufferOverrunFixAddr = 0x42dac7;
@@ -472,7 +519,6 @@ LONG CALLBACK VectoredHandler(
 	//return EXCEPTION_CONTINUE_EXECUTION;
 	return EXCEPTION_CONTINUE_SEARCH;
 }
-
 
 TABugFixing::TABugFixing ()
 {
@@ -574,6 +620,8 @@ TABugFixing::TABugFixing ()
 	JunkYardmapFix.reset(new InlineSingleHook(JunkYardmapFixAddr, 5, INLINE_5BYTESLAGGERJMP, JunkYardmapFixProc));
 	CanBuildArrayBufferOverrunFix.reset(new SingleHook(CanBuildArrayBufferOverrunFixAddr, sizeof(CanBuildArrayBufferOverrunFixBytes), INLINE_UNPROTECTEVINMENT, CanBuildArrayBufferOverrunFixBytes));
 	WindSpeedSync.reset(new InlineSingleHook(WindSpeedSyncAddr, 5, INLINE_5BYTESLAGGERJMP, WindSpeedSyncProc));
+	//NetworkRawReceiveLog.reset(new InlineSingleHook(NetworkRawReceiveLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkRawReceiveLogProc));
+	//NetworkDispatchLog.reset(new InlineSingleHook(NetworkDispatchLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkDispatchLogProc));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
