@@ -198,7 +198,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 		int failCount = ChallengeResponse::GetInstance()->VerifyResponses();
 		if (failCount > 0 && taPtr->GameTime == 20 * 30)		// at 20 secs
 		{
-			std::string text = std::string(me->Name) + " reports " + std::to_string(failCount) + " VerCheck issues with other players";
+			std::string text = std::string(me->Name) + " reports VerCheck issues with " + std::to_string(failCount) + " other players";
 			SendText(text.c_str(), 0);
 			broadcastChatMessage(text);
 		}
@@ -524,13 +524,13 @@ int ChallengeResponse::VerifyResponses()
 
 		std::ostringstream ss;
 		if (!r.gameDataResponseReceived && !r.modulesResponseReceived) {
-			ss << std::setw(12) << std::right << name << ": has not yet replied to verification queries ...";
+			ss << std::setw(12) << std::right << name << ": has not replied to verification queries ...";
 		}
 		else if (!r.modulesResponseReceived) {
-			ss << std::setw(12) << std::right << name << ": has not yet replied to dll/exe verification query ...";
+			ss << std::setw(12) << std::right << name << ": has not replied to dll/exe verification query ...";
 		}
 		else if (!r.gameDataResponseReceived) {
-			ss << std::setw(12) << std::right << name << ": has not yet replied to game data verification query ...";
+			ss << std::setw(12) << std::right << name << ": has not replied to game data verification query ...";
 		}
 		else if (!modulesCompareOk) {
 			ss << std::setw(12) << std::right << name << ": fails dll/exe verification!";
