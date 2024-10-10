@@ -423,8 +423,8 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					WriteDTLine();
 
 
-					StartX= TAdynmem->MouseMapPos.X;
-					StartY= TAdynmem->MouseMapPos.Y;
+					StartX= ClickSnapPreviewBuild ? this->ClickSnapPreviewPosXY[0] * 16 : TAdynmem->MouseMapPos.X;
+					StartY= ClickSnapPreviewBuild ? this->ClickSnapPreviewPosXY[1] * 16 : TAdynmem->MouseMapPos.Y;
 					//StartX = (LOWORD(lParam)-128) + TAdynmem->EyeBallMapXPos;
 					//StartY = (HIWORD(lParam)) + TAdynmem->EyeBallMapYPos - 32 + TAdynmem->CircleSelect_Pos1TAz/2;
 					/*if(ScrollEnabled)
@@ -450,8 +450,8 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 
 					DisableTABuildRect();
 
-					StartX= TAdynmem->MouseMapPos.X;
-					StartY= TAdynmem->MouseMapPos.Y;
+					StartX = ClickSnapPreviewBuild ? this->ClickSnapPreviewPosXY[0] * 16 : TAdynmem->MouseMapPos.X;
+					StartY = ClickSnapPreviewBuild ? this->ClickSnapPreviewPosXY[1] * 16 : TAdynmem->MouseMapPos.Y;
 					EndX= TAdynmem->MouseMapPos.X;
 					EndY= TAdynmem->MouseMapPos.Y;
 					//StartX = (LOWORD(lParam)-128) + TAdynmem->EyeBallMapXPos;
