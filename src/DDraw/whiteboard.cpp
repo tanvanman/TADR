@@ -598,7 +598,7 @@ void AlliesWhiteboard::TextInputChar(char C)
 	if(uC==' ' || (uC<91 && uC>=33) || (uC<123 && uC>=97))
 	{
 		int Length = strlen(Text);
-		if(Length > 50)
+		if(Length >= 50)
 			return;
 		Text[Length] = C;
 		Text[Length+1] = '\0';

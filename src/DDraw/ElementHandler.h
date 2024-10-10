@@ -63,7 +63,7 @@ public:
 	GraphicText(int x,int y,char* intext,char cC)
 		:GraphicElement(x,y,ClassGraphicText,cC)
 		{
-			size_t temp_Size= strnlen(intext, 16)+1;
+			size_t temp_Size= strnlen(intext, 50)+1;
 			text=new char[temp_Size];
             memcpy(text, intext, temp_Size);
             text[temp_Size - 1] = 0;
