@@ -63,7 +63,7 @@ public:
 	void InitPlayerResponse(unsigned dpid, char *nonse, int len);
 	void SetPlayerModulesResponse(unsigned dpid, const char *hash, int len);
 	void SetPlayerGameDataResponse(unsigned dpid, const char *hash, int len);
-	void VerifyResponses();
+	int VerifyResponses();
 	void Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch);
 	void Blit(OFFSCREEN* offscreen);
 
@@ -75,6 +75,7 @@ public:
 	std::pair<unsigned, std::string> GetTDrawCrc();
 	std::pair<unsigned, std::string> GetTPlayXCrc();
 	std::pair<unsigned, std::string> GetGp3Crc();
+	void logResponses();
 
 private:
 
@@ -85,6 +86,8 @@ private:
 		char nonse[SHA256_DIGEST_LENGTH];
 		char modulesResponse[SHA256_DIGEST_LENGTH];
 		char gameDataResponse[SHA256_DIGEST_LENGTH];
+		char ourModulesHash[SHA256_DIGEST_LENGTH];
+		char ourGameDataHash[SHA256_DIGEST_LENGTH];
 	};
 
 	static std::unique_ptr<ChallengeResponse> m_instance;

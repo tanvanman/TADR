@@ -255,6 +255,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="BattleroomCommands.cpp" />
     <ClCompile Include="ChallengeResponse.cpp" />
     <ClCompile Include="Guiexport.cpp" />
+    <ClCompile Include="HexDump.cpp" />
     <ClCompile Include="MappedMAP.cpp" />
     <ClCompile Include="MegamapControl.cpp" />
     <ClCompile Include="MegamapTAStuff.cpp" />
@@ -263,6 +264,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="AutoTeam.h" />
     <ClInclude Include="BattleroomCommands.h" />
     <ClInclude Include="ChallengeResponse.h" />
+    <ClInclude Include="HexDump.h" />
     <ClInclude Include="HmacSha256.h" />
     <ClInclude Include="MegamapControl.h" />
     <ClInclude Include="megamaptastuff.h" />
@@ -271,6 +273,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <FileType>CppCode</FileType>
     </ClInclude>
     <ClCompile Include="StartPositions.cpp" />
+    <ClCompile Include="TenPlayerReplay.cpp" />
+    <ClCompile Include="TPacket.cpp" />
     <ClCompile Include="UnitIcon.cpp" />
     <ClCompile Include="ddraw.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -434,6 +438,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="taHPI.h" />
     <ClInclude Include="tamem.h" />
     <ClInclude Include="AiSeardchMapEntriesLimit.h" />
+    <ClInclude Include="TenPlayerReplay.h" />
+    <ClInclude Include="TPacket.h" />
     <ClInclude Include="UnicodeSupport.h" />
     <ClInclude Include="UnitDrawer.h" />
     <ClInclude Include="UnitLimit.h" />

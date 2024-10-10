@@ -619,7 +619,9 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 			SettingsDialog->BlitDialog(lpBack);
 			TAHook->Blit(lpBack);
-			ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
+				ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+			}
 
 			//////////////////////////////////////////////////////////////////////////
 			//unicode
@@ -731,7 +733,9 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 			SettingsDialog->BlitDialog(lpBack);
 			TAHook->Blit(lpBack);
-			ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
+				ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+			}
 
 			//////////////////////////////////////////////////////////////////////////
 			//unicode
