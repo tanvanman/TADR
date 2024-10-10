@@ -5,6 +5,7 @@
 #include "random_code_seg_keys.h"
 #include "tafunctions.h"
 
+#include <iomanip>
 #include <fstream>
 #include <sstream>
 
@@ -173,7 +174,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 		cr->ClearPersistentMessages();
 	}
 
-	else if (taPtr->GameTime == 150) {
+	else if (taPtr->GameTime == 6 * 30) { // at 6 sec
 		for (int n = 0; n < 10; ++n) {
 			PlayerStruct* p = &taPtr->Players[n];
 			if (p->PlayerActive && p->DirectPlayID != 0 && GetInferredPlayerType(p) == Player_RemoteHuman && !(p->PlayerInfo->PropertyMask & WATCH)) {
@@ -181,13 +182,26 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 				InitChallengeResponseMessage(msg, ChallengeResponseCommand::ChallengeRequest);
 				cr->NewNonse(msg.data, sizeof(msg.data));
 				cr->InitPlayerResponse(p->DirectPlayID, msg.data, sizeof(msg.data));
+				IDDrawSurface::OutptTxt("[ChallengeResponseUpdateProc] sending msg=%d fromDpid=%u(%x) toDpid=%u(%x)",
+					int(msg.command),
+					me->DirectPlayID, me->DirectPlayID,
+					p->DirectPlayID, p->DirectPlayID);
 				HAPI_SendBuf(me->DirectPlayID, p->DirectPlayID, (const char*) & msg, sizeof(msg));
 			}
 		}
 	}
 
-	else if (taPtr->GameTime == 300) {
-		ChallengeResponse::GetInstance()->VerifyResponses();
+	else if (taPtr->GameTime >= 15 * 30 &&	// after 15 sec
+		taPtr->GameTime < 120 * 30 &&		// until 2 mins
+		taPtr->GameTime % 30 == 0)			// every 1 sec
+	{
+		int failCount = ChallengeResponse::GetInstance()->VerifyResponses();
+		if (failCount > 0 && taPtr->GameTime == 20 * 30)		// at 20 secs
+		{
+			std::string text = std::string(me->Name) + " reports VerCheck issues with " + std::to_string(failCount) + " other players";
+			SendText(text.c_str(), 0);
+			broadcastChatMessage(text);
+		}
 	}
 
 	return 0;
@@ -209,32 +223,43 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 		return 0;
 	}
 
+	unsigned replyDpid = taPtr->hapinet.fromDpid;
+	IDDrawSurface::OutptTxt("[ReceiveChallengeOrResponseProc] received msg=%d from dpid=%u(%x) ...", int(msg->command), replyDpid, replyDpid);
+
 	switch (msg->command) {
 	case ChallengeResponseCommand::ChallengeRequest: {
 		ChallengeResponseMessage replies[2];
 		InitChallengeResponseMessage(replies[0], ChallengeResponseCommand::ChallengeHashReplyModules);
 		InitChallengeResponseMessage(replies[1], ChallengeResponseCommand::ChallengeHashReplyGameData);
 		ChallengeResponse::GetInstance()->ComputeChallengeResponse(msg->data, replies[0].data, replies[1].data);
-
 		unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
-		unsigned replyDpid = taPtr->hapinet.fromDpid;
+		if (replyDpid != taPtr->hapinet.fromDpid) {
+			IDDrawSurface::OutptTxt("[ReceiveChallengeOrResponseProc] hapinet.fromDpid changed! was=%u(%x) now %u(%x)",
+				replyDpid, taPtr->hapinet.fromDpid);
+		}
+		IDDrawSurface::OutptTxt("[ReceiveChallengeOrResponseProc] replying msg=%d and %d fromDpid=%u(%x) toDpid=%u(%x)",
+			int(replies[0].command), int(replies[1].command),
+			fromDpid, fromDpid,
+			replyDpid, replyDpid);
 		HAPI_SendBuf(fromDpid, replyDpid, (char*)&replies[0], sizeof(replies));
 		break;
 	}
 
 	case ChallengeResponseCommand::LegacyCrc32Reply: {
-		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(taPtr->hapinet.fromDpid, msg->data, 4);
-		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(taPtr->hapinet.fromDpid, msg->data+4, 4);
+		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(replyDpid, msg->data, 4);
+		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(replyDpid, msg->data+4, 4);
 		break;
 	}
 
 	case ChallengeResponseCommand::ChallengeHashReplyModules: {
-		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(taPtr->hapinet.fromDpid, msg->data, SHA256_DIGEST_LENGTH);
+		IDDrawSurface::OutptTxt("[ReceiveChallengeOrResponseProc] received ChallengeHashReplyModules");
+		ChallengeResponse::GetInstance()->SetPlayerModulesResponse(replyDpid, msg->data, SHA256_DIGEST_LENGTH);
 		break;
 	}
 
 	case ChallengeResponseCommand::ChallengeHashReplyGameData: {
-		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(taPtr->hapinet.fromDpid, msg->data, SHA256_DIGEST_LENGTH);
+		IDDrawSurface::OutptTxt("[ReceiveChallengeOrResponseProc] received ChallengeHashReplyGameData");
+		ChallengeResponse::GetInstance()->SetPlayerGameDataResponse(replyDpid, msg->data, SHA256_DIGEST_LENGTH);
 		break;
 	}
 
@@ -279,6 +304,7 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 	}
 
 	}
+
 	return 0;
 }
 #pragma code_seg(pop)
@@ -446,12 +472,18 @@ void ChallengeResponse::InitPlayerResponse(unsigned dpid, char *nonse, int len)
 	std::memset(r.modulesResponse, 0, sizeof(r.modulesResponse));
 	std::memset(r.gameDataResponse, 0, sizeof(r.gameDataResponse));
 	std::memcpy(r.nonse, nonse, std::min(sizeof(r.nonse), unsigned(len)));
+
+	ComputeChallengeResponse(r.nonse, r.ourModulesHash, r.ourGameDataHash);
 }
 #pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::SetPlayerModulesResponse(unsigned dpid, const char* hash, int len)
 {
+	if (m_responses.count(dpid) == 0u)
+	{
+		IDDrawSurface::OutptTxt("[SetPlayerModulesResponse] response not initialised for dpid=%u(%x)!", dpid, dpid);
+	}
 	auto& r = m_responses[dpid];
 	r.modulesResponseReceived = true;
 	std::memcpy(r.modulesResponse, hash, std::min(sizeof(r.modulesResponse), unsigned(len)));
@@ -461,6 +493,10 @@ void ChallengeResponse::SetPlayerModulesResponse(unsigned dpid, const char* hash
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::SetPlayerGameDataResponse(unsigned dpid, const char* hash, int len)
 {
+	if (m_responses.count(dpid) == 0u)
+	{
+		IDDrawSurface::OutptTxt("[SetPlayerGameDataResponse] response not initialised for dpid=%u(%x)!", dpid, dpid);
+	}
 	auto& r = m_responses[dpid];
 	r.gameDataResponseReceived = true;
 	std::memcpy(r.gameDataResponse, hash, std::min(sizeof(r.gameDataResponse), unsigned(len)));
@@ -468,58 +504,54 @@ void ChallengeResponse::SetPlayerGameDataResponse(unsigned dpid, const char* has
 #pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-void ChallengeResponse::VerifyResponses()
+int ChallengeResponse::VerifyResponses()
 {
-	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	PlayerStruct* localPlayer = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
-
-	for (auto it = m_responses.begin(); it != m_responses.end(); ++it) {
+	static const unsigned MAX_NAME = 12u;
+	int verificationIssueCount = 0;
+	m_persistentCheatWarnings.clear();
+	for (auto it = m_responses.begin(); it != m_responses.end(); ++it)
+	{
 		unsigned dpid = it->first;
-		ResponseContext& r = it->second;
+		auto& r = it->second;
+		PlayerStruct* player = FindPlayerByDPID(dpid);
+		std::string name = player ? player->Name : std::to_string(dpid);
+		if (name.length() > MAX_NAME) {
+			name = name.substr(0, MAX_NAME);
+		}
 
-		char ourModulesHash[SHA256_DIGEST_LENGTH];
-		char ourGameDataHash[SHA256_DIGEST_LENGTH];
-		ComputeChallengeResponse(r.nonse, ourModulesHash, ourGameDataHash);
+		bool modulesCompareOk = !std::memcmp(r.modulesResponse, r.ourModulesHash, sizeof(r.modulesResponse));
+		bool gameDataCompareOk = !std::memcmp(r.gameDataResponse, r.ourGameDataHash, sizeof(r.gameDataResponse));
 
-		bool noReply = !r.modulesResponseReceived || !r.gameDataResponseReceived;
-		bool modulesMismatch = memcmp(r.modulesResponse, ourModulesHash, SHA256_DIGEST_LENGTH);
-		bool gameDataMismatch = memcmp(r.gameDataResponse, ourGameDataHash, SHA256_DIGEST_LENGTH);
-
-		PlayerStruct* p = FindPlayerByDPID(dpid);
-		std::string playerName = p ? p->Name : std::to_string(dpid);
-
-		std::string broadcastMessage;
 		std::ostringstream ss;
-		ss << "*** ";
-
-		if (noReply) {
-			ss << playerName << " did not reply to VerCheck query!";
-			broadcastMessage = ss.str();
-			ss << " Their dll lacks version checking (or packet loss/crash)";
-			m_persistentCheatWarnings.push_back(ss.str());
+		if (!r.gameDataResponseReceived && !r.modulesResponseReceived) {
+			ss << std::setw(12) << std::right << name << ": has not replied to verification queries ...";
 		}
-		else if (!modulesMismatch && !gameDataMismatch) {
+		else if (!r.modulesResponseReceived) {
+			ss << std::setw(12) << std::right << name << ": has not replied to dll/exe verification query ...";
 		}
-		else if (modulesMismatch) {
-			ss << playerName << '/' << localPlayer->Name << " exe or dll mismatch!";
-			broadcastMessage = ss.str();
-			ss << " Players use different exe/dll versions";
-			m_persistentCheatWarnings.push_back(ss.str());
-
+		else if (!r.gameDataResponseReceived) {
+			ss << std::setw(12) << std::right << name << ": has not replied to game data verification query ...";
 		}
-		else if (gameDataMismatch) {
-			ss << playerName << '/' << localPlayer->Name << " game data mismatch!";
-			broadcastMessage = ss.str();
-			ss << " Compare ErrorLog.txt to diagnose";
-			m_persistentCheatWarnings.push_back(ss.str());
+		else if (!modulesCompareOk) {
+			ss << std::setw(12) << std::right << name << ": fails dll/exe verification!";
+		}
+		else if (!gameDataCompareOk) {
+			ss << std::setw(12) << std::right << name << ": fails game data verification!";
 			LogAll("ErrorLog.txt");
 		}
 
-		if (!broadcastMessage.empty()) {
-			SendText(broadcastMessage.c_str(), 0);
-			broadcastChatMessage(broadcastMessage);
+		std::string text = ss.str();
+		if (!text.empty()) {
+			m_persistentCheatWarnings.push_back(text);
+			++verificationIssueCount;
 		}
 	}
+
+	if (verificationIssueCount > 0) {
+		m_persistentCheatWarnings.push_back("VERCHECK REPORT");
+	}
+
+	return verificationIssueCount;
 }
 #pragma code_seg(pop)
 
@@ -1234,3 +1266,18 @@ void ChallengeResponse::LogGameFileLookup(const std::string & filename)
 	}
 }
 #pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::logResponses()
+{
+	for (auto it = m_responses.begin(); it != m_responses.end(); ++it)
+	{
+		unsigned dpid = it->first;
+		PlayerStruct* player = FindPlayerByDPID(dpid);
+		std::string name = player ? player->Name : "<unknown>";
+		IDDrawSurface::OutptTxt("[ChallengeResponse::logResponses] %s(%u/%x) modules=%d gamedata=%d",
+			name.c_str(), dpid, dpid, it->second.modulesResponseReceived, it->second.gameDataResponseReceived);
+	}
+}
+#pragma code_seg(pop)
+

@@ -470,9 +470,16 @@ int __stdcall NetworkRawReceiveLogProc(PInlineX86StackBuffer X86StrackBuffer)
 	std::uint8_t* buffer = *(std::uint8_t**)(X86StrackBuffer->Esp + 0x118 + 0x08);
 	std::uint32_t* bufferSize = *(std::uint32_t**)(X86StrackBuffer->Esp + 0x118 + 0x0c);
 
+	unsigned fromDpid = taPtr->hapinet.fromDpid;
+	unsigned toDpid = taPtr->hapinet.toDpid;
+	PlayerStruct* fromPlayer = FindPlayerByDPID(fromDpid);
+	PlayerStruct* toPlayer = FindPlayerByDPID(toDpid);
+	std::string fromName = fromPlayer ? fromPlayer->Name : "<unknown>";
+	std::string toName = toPlayer ? toPlayer->Name : "<unknown>";
+
 	std::ostringstream ss;
-	ss << "[NetworkRawReceiveLogAddr] fromDpid: " << std::dec << hapinet->fromDpid << '(' << std::hex << hapinet->fromDpid
-		<< "), toDpid: " << std::dec << hapinet->toDpid << "(" << std::hex << hapinet->toDpid << ")\n";
+	ss << "[NetworkRawReceiveLogAddr] from: " << fromName << "(" << std::dec << fromDpid << '/' << std::hex << fromDpid << "), "
+		<< "to: " << toName << "(" << std::dec << toDpid << '/' << std::hex << toDpid << ")\n";
 	taflib::HexDump(buffer, *bufferSize, ss);
 	std::string dump = ss.str();
 	IDDrawSurface::OutptRawTxt(dump.c_str(), false);
@@ -486,13 +493,23 @@ int __stdcall NetworkDispatchLogProc(PInlineX86StackBuffer X86StrackBuffer)
 	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 
-	unsigned fromDpid = taPtr->hapinet.fromDpid;
-	int len = tapacket::TPacket::getExpectedSubPacketSize((std::uint8_t*)taPtr->PacketBuffer_p, taPtr->PacketBufferSize);
-	std::ostringstream ss;
-	ss << "[NetworkDispatchLogProc] fromDpid: " << fromDpid << std::hex << '(' << fromDpid << ")\n";
-	taflib::HexDump(taPtr->PacketBuffer_p, len, ss);
-	std::string dump = ss.str();
-	IDDrawSurface::OutptRawTxt(dump.c_str(), false);
+	if (taPtr->GameTime < 60 * 30)
+	{
+		unsigned fromDpid = taPtr->hapinet.fromDpid;
+		unsigned toDpid = taPtr->hapinet.toDpid;
+		PlayerStruct* fromPlayer = FindPlayerByDPID(fromDpid);
+		PlayerStruct* toPlayer = FindPlayerByDPID(toDpid);
+		std::string fromName = fromPlayer ? fromPlayer->Name : "<unknown>";
+		std::string toName = toPlayer ? toPlayer->Name : "<unknown>";
+
+		int len = tapacket::TPacket::getExpectedSubPacketSize((std::uint8_t*)taPtr->PacketBuffer_p, taPtr->PacketBufferSize);
+		std::ostringstream ss;
+		ss << "[NetworkDispatchLogProc] from: " << fromName << "(" << std::dec << fromDpid << '/' << std::hex << fromDpid << "), "
+			<< "to: " << toName << "(" << std:: dec << toDpid << '/' << std::hex << toDpid << ")\n";
+		taflib::HexDump(taPtr->PacketBuffer_p, len, ss);
+		std::string dump = ss.str();
+		IDDrawSurface::OutptRawTxt(dump.c_str(), false);
+	}
 	return 0;
 }
 
