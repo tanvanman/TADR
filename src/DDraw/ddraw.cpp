@@ -25,6 +25,7 @@ using namespace std;
 #include "GUIExpand.h"
 #include "StartPositions.h"
 #include "AutoTeam.h"
+#include "MultiplayerSchemaUnits.h"
 
 #include "TAConfig.h"
 //---------------------------------------------------------------------------
@@ -175,6 +176,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 		StartPositions::GetInstance();
 		AutoTeam::Install();
+		MultiplayerSchemaUnits::GetInstance();
 
 		GUIExpander= new GUIExpand;
 

@@ -662,7 +662,8 @@ _PacketBuilder_Initialise PacketBuilder_Initialise = (_PacketBuilder_Initialise)
 _PacketBuilder_AppendBits PacketBuilder_AppendBits = (_PacketBuilder_AppendBits)0x415c10;
 _PacketBuilder_Resize PacketBuilder_Resize = (_PacketBuilder_Resize)0x415bb0;
 _PacketBuilder_AssignByteAtOfs PacketBuilder_AssignByteAtOfs = (_PacketBuilder_AssignByteAtOfs)0x415da0;
-_InitTAPath InitTAPath= (_InitTAPath)0x4BCE10;
+_InitTAPath InitTAPath = (_InitTAPath)0x4BCE10;
+_InitPlayerStruct InitPlayerStruct = (_InitPlayerStruct)0x464700;
 _TaCalcCRC CalcCRC = (_TaCalcCRC)0x4b6ba0;
 
 LPCSTR TAIniStr=  reinterpret_cast<LPCSTR> (0x5098A3);

@@ -632,6 +632,19 @@ struct ProjectileStruct {
 }; //0x6B
 
 
+struct MissionUnitsStruct {
+	const char* Unitname;		// 0x0000
+	const char* Ident;			// 0x0004
+	char data08[4];				// 0x0008
+	int XPos;	// *65k			// 0x000e
+	int YPos;	// elevation	// 0x0012
+	int ZPos;	// *65k			// 0x0016
+	short unk3;
+	char HealthPercentage;		// 0x001a
+	char dataA[7];				// 0x001b
+	short Player;	// 1..10	// 0x0022
+};								// 0x0024
+
 struct GameingState{
 	unsigned int  State;		// 0x0000
 	char data[0x200];			// 0x0004
@@ -644,7 +657,7 @@ struct GameingState{
 	unsigned tidalStrength;		// 0x0d40
 	unsigned isLavaMap;			// 0x0d44
 	char schemaInfo[100];		// 0x0d48
-	void* uniqueIdentifiers;	// 0x0dac
+	MissionUnitsStruct* uniqueIdentifiers;	// 0x0dac
 	unsigned uniqueIdentifierCount;// 0x0db0
 	MapStartPosStruct* mapStartPosAry_;// 0x0db4
 	unsigned mapStartPosCount;	// 0x0db8

@@ -259,8 +259,10 @@ int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 		for (int i = 0; i < 10; ++i) {
 			PlayerStruct* p = &taPtr->Players[i];
 			if (p->PlayerActive &&
-				!(p->PlayerInfo->PropertyMask & WATCH) && 
-				(p->My_PlayerType == Player_LocalHuman || p->My_PlayerType == Player_LocalAI)) {
+				!(p->PlayerInfo->PropertyMask & WATCH) &&
+				p->Units[0].IsUnit &&
+				(p->My_PlayerType == Player_LocalHuman || p->My_PlayerType == Player_LocalAI))
+			{
 				// send out a dummy move command to assist GhostComFix
 				PacketBuilderStruct pb;
 				PacketBuilder_Initialise(&pb, 0);
@@ -513,11 +515,11 @@ int __stdcall NetworkDispatchLogProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
-#define LOG_TRACE_HOOK(hookAddr, n, regDisplay) \
+#define LOG_TRACE_HOOK(hookAddr, n, fmtstr, regDisplay) \
 unsigned int LogTrace##n##Addr = (hookAddr); \
 int __stdcall LogTrace##n##Proc(PInlineX86StackBuffer X86StrackBuffer) \
 { \
-	IDDrawSurface::OutptTxt("[LogTrace%d] %x", n, X86StrackBuffer->##regDisplay); \
+	IDDrawSurface::OutptTxt("[LogTrace%d] "##fmtstr, n, X86StrackBuffer->##regDisplay); \
     return 0; \
 }
 
@@ -639,6 +641,7 @@ TABugFixing::TABugFixing ()
 	WindSpeedSync.reset(new InlineSingleHook(WindSpeedSyncAddr, 5, INLINE_5BYTESLAGGERJMP, WindSpeedSyncProc));
 	//NetworkRawReceiveLog.reset(new InlineSingleHook(NetworkRawReceiveLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkRawReceiveLogProc));
 	//NetworkDispatchLog.reset(new InlineSingleHook(NetworkDispatchLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkDispatchLogProc));
+	//SingleHooks.push_back(std::make_unique<InlineSingleHook>(LogTrace1Addr, 5, INLINE_5BYTESLAGGERJMP, LogTrace1Proc));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }

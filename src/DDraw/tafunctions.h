@@ -212,6 +212,9 @@ typedef LPDWORD (__stdcall * __GetUnitIDMaskAryByCategory) (LPSTR);
 typedef int  (__cdecl * _InitTAPath) (void);
 extern _InitTAPath InitTAPath;
 
+typedef int(__stdcall* _InitPlayerStruct) (PlayerStruct* PlayerPtr);
+extern _InitPlayerStruct InitPlayerStruct;
+
 typedef int (__stdcall * _Init_srand)(int seed);
 extern _Init_srand Init_srand;
 
