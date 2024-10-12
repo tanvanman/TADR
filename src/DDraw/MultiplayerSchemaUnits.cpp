@@ -37,12 +37,7 @@ static bool SpawnUnits(PlayerStruct* targetPlayer, int targetPlayerPosition)
 		}
 	}
 
-	bool anyNeutralUnits = false;
-	for (int iMissionUnit = 0; iMissionUnit < taPtr->GameingState_Ptr->uniqueIdentifierCount; ++iMissionUnit)
-	{
-		MissionUnitsStruct* missionUnit = &taPtr->GameingState_Ptr->uniqueIdentifiers[iMissionUnit];
-		anyNeutralUnits |= missionUnit->Player == 11;
-	}
+	bool anyNeutralUnits = MultiplayerSchemaUnits::GetInstance()->hasNeutralSpawnUnits();
 
 	PlayerStruct* neutralPlayer = NULL;
 	if (anyNeutralUnits &&
@@ -65,8 +60,9 @@ static bool SpawnUnits(PlayerStruct* targetPlayer, int targetPlayerPosition)
 		MissionUnitsStruct* missionUnit = &taPtr->GameingState_Ptr->uniqueIdentifiers[iMissionUnit];
 
 		std::string unitName = missionUnit->Unitname;
-		if (allCommanderUnitNames.count(unitName) > 0u) {
-			unitName = taPtr->RaceSideDataAry[targetPlayer->PlayerInfo->RaceSide].commanderUnitName;
+		bool isCommanderUnit = allCommanderUnitNames.count(unitName);
+		if (isCommanderUnit) {
+			//unitName = taPtr->RaceSideDataAry[targetPlayer->PlayerInfo->RaceSide].commanderUnitName;
 		}
 		int unitInfoId = -1;
 		for (int i = 0; i < taPtr->UNITINFOCount; ++i) {
@@ -84,9 +80,11 @@ static bool SpawnUnits(PlayerStruct* targetPlayer, int targetPlayerPosition)
 			y = unsigned(f->height) << 16;
 		}
 
+		// Ghost-Commander bugfix only works for commanders.  90 + iMissionUnit is a workaround for other types of units
+		int unitNumber = isCommanderUnit ? 0 : 90 + iMissionUnit + targetPlayer->UnitsIndex_Begin;
 		if (targetPlayer == neutralPlayer && missionUnit->Player == 11)
 		{
-			UNITS_CreateUnit(targetPlayer->PlayerAryIndex, unitInfoId, x, y, z, true, 1, 0);
+			UNITS_CreateUnit(targetPlayer->PlayerAryIndex, unitInfoId, x, y, z, true, 1, unitNumber);
 			anySpawnedUnits = true;
 		}
 		else if (targetPlayer != neutralPlayer &&
@@ -94,7 +92,7 @@ static bool SpawnUnits(PlayerStruct* targetPlayer, int targetPlayerPosition)
 			(targetPlayer->My_PlayerType == Player_LocalHuman || targetPlayer->My_PlayerType == Player_LocalAI) &&
 			!(targetPlayer->PlayerInfo->PropertyMask & WATCH))
 		{
-			UNITS_CreateUnit(targetPlayer->PlayerAryIndex, unitInfoId, x, y, z, true, 1, 0);
+			UNITS_CreateUnit(targetPlayer->PlayerAryIndex, unitInfoId, x, y, z, true, 1, unitNumber);
 			anySpawnedUnits = true;
 		}
 	}
@@ -173,3 +171,21 @@ MultiplayerSchemaUnits::~MultiplayerSchemaUnits()
 
 }
 
+bool MultiplayerSchemaUnits::hasSpawnUnits()
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	return taPtr->GameingState_Ptr->uniqueIdentifierCount > 0;
+}
+
+bool MultiplayerSchemaUnits::hasNeutralSpawnUnits()
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	for (int iMissionUnit = 0; iMissionUnit < taPtr->GameingState_Ptr->uniqueIdentifierCount; ++iMissionUnit)
+	{
+		MissionUnitsStruct* missionUnit = &taPtr->GameingState_Ptr->uniqueIdentifiers[iMissionUnit];
+		if (missionUnit->Player == 11) {
+			return true;
+		}
+	}
+	return false;
+}

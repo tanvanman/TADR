@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cinttypes>
 #include <memory>
 #include <random>
@@ -15,6 +17,9 @@ public:
 	// Create and Get the instance
 	static MultiplayerSchemaUnits* GetInstance();
 	~MultiplayerSchemaUnits();
+
+	bool hasSpawnUnits();
+	bool hasNeutralSpawnUnits();
 
 private:
 	MultiplayerSchemaUnits();
