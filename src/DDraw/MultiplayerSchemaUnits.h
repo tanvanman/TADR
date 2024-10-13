@@ -18,12 +18,17 @@ public:
 	static MultiplayerSchemaUnits* GetInstance();
 	~MultiplayerSchemaUnits();
 
-	bool hasSpawnUnits();
-	bool hasNeutralSpawnUnits();
+	bool mapHasSpawnUnits();
+	bool mapHasNeutralSpawnUnits();
+
+	bool isUserSpawnEnabled();
+	void setUserSpawnEnabled(bool enabled);
 
 private:
 	MultiplayerSchemaUnits();
 
 	static std::unique_ptr<MultiplayerSchemaUnits> m_instance;
 	std::vector<std::shared_ptr<SingleHook> > m_hooks;
+
+	bool m_spawnEnabled;
 };

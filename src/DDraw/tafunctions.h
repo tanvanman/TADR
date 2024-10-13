@@ -240,6 +240,12 @@ extern _PacketBuilder_AssignByteAtOfs PacketBuilder_AssignByteAtOfs;
 typedef int(__stdcall* _TaCalcCRC)(unsigned char* data, int len);
 extern _TaCalcCRC TaCalcCRC;
 
+typedef void(__stdcall* _DPlayAddNewPlayer)(int newPlayerIndex, PlayerType playerType);
+extern _DPlayAddNewPlayer DPlayAddNewPlayer;
+
+typedef void(__stdcall* _battleroom_OnCommand)(GUIInfo *guiInfo);
+extern _battleroom_OnCommand battleroom_OnCommand;
+
 int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl= FALSE);
 int UpdateTAProcess (void);
 void SendOrder (unsigned int TAX, unsigned int TAY, unsigned int TAZ, int OrderType, bool Shift);

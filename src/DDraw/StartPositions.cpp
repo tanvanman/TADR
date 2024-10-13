@@ -222,7 +222,7 @@ void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositio
 		GetStartPositionsSequentialy(isActivePlayer, startPositions, randomised);
 	}
 
-	if (MultiplayerSchemaUnits::GetInstance()->hasNeutralSpawnUnits())
+	if (MultiplayerSchemaUnits::GetInstance()->mapHasNeutralSpawnUnits())
 	{
 		int idxLastAI = -1;
 		int idxLastHuman = -1;

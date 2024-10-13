@@ -4,6 +4,7 @@
 #include "hook/hook.h"
 #include "tafunctions.h"
 #include "StartPositions.h"
+#include "BattleroomCommands.h"
 
 #include <set>
 #include <string>
@@ -37,13 +38,13 @@ static bool SpawnUnits(PlayerStruct* targetPlayer, int targetPlayerPosition)
 		}
 	}
 
-	bool anyNeutralUnits = MultiplayerSchemaUnits::GetInstance()->hasNeutralSpawnUnits();
+	bool anyNeutralUnits = MultiplayerSchemaUnits::GetInstance()->mapHasNeutralSpawnUnits();
 
 	PlayerStruct* neutralPlayer = NULL;
 	if (anyNeutralUnits &&
 		targetPlayer->PlayerActive &&
 		1 + targetPlayerPosition == countActivePlayers &&
-		(targetPlayer->My_PlayerType == Player_LocalAI || targetPlayer->My_PlayerType == Player_LocalHuman) &&
+		GetInferredPlayerType(targetPlayer) == Player_LocalAI &&
 		!(targetPlayer->PlayerInfo->PropertyMask & WATCH))
 	{
 		neutralPlayer = targetPlayer;
@@ -89,7 +90,7 @@ static bool SpawnUnits(PlayerStruct* targetPlayer, int targetPlayerPosition)
 		}
 		else if (targetPlayer != neutralPlayer &&
 			1 + targetPlayerPosition == missionUnit->Player &&
-			(targetPlayer->My_PlayerType == Player_LocalHuman || targetPlayer->My_PlayerType == Player_LocalAI) &&
+			InferredPlayerTypeIsLocal(targetPlayer) &&
 			!(targetPlayer->PlayerInfo->PropertyMask & WATCH))
 		{
 			UNITS_CreateUnit(targetPlayer->PlayerAryIndex, unitInfoId, x, y, z, true, 1, unitNumber);
@@ -100,40 +101,131 @@ static bool SpawnUnits(PlayerStruct* targetPlayer, int targetPlayerPosition)
 	return anySpawnedUnits;
 }
 
-static unsigned int SkirmishSpawnPlayerCommanderHookAddr = 0x496fe1;
-static unsigned int SkirmishSpawnPlayerCommanderHookProc(PInlineX86StackBuffer X86StrackBuffer)
+static bool BattleroomAddAi(const std::string controlPrefix, int numClicks)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	if (taPtr->GameingState_Ptr->uniqueIdentifierCount == 0u) {
-		return 0;
-	}
-	if (DataShare->PlayingDemo) {
-		return 0;
-	}
-
-	int* targetPlayerIndex = (int*)(X86StrackBuffer->Esp + 0x9c + 0x04);
-	int* startPosMapPlayerId = (int*)(X86StrackBuffer->Esp + 0x9c + 0x08);
-	PlayerStruct* targetPlayer = &taPtr->Players[*targetPlayerIndex];
-
-	int positionNumber = targetPlayer->mapStartPos;
+	int availableSlot = -1;
 	for (int i = 0; i < 10; ++i)
 	{
-		if (taPtr->GameingState_Ptr->mapStartPosAry_[i].validStartMapPos &&
-			taPtr->GameingState_Ptr->mapStartPosAry_[i].playerId == *startPosMapPlayerId)
+		if (taPtr->Players[i].My_PlayerType == Player_none)
 		{
-			positionNumber = i;
+			availableSlot = i;
+			break;
 		}
 	}
 
-	if (SpawnUnits(targetPlayer, positionNumber))
+	if (availableSlot >= 0)
 	{
-		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x497026;
-		return X86STRACKBUFFERCHANGE;
+		// Theres a bit that needs doing and the required functionality is baked into the battleroom callback, not an encapsulated function.
+		// So we'll invoke it by faking a GUI button press ...
+
+		std::string targetControlName = controlPrefix + std::to_string(availableSlot);
+		_GUI0IDControl* playerGuiControl = taPtr->desktopGUI.TheActive_GUIMEM->ControlsAry;
+		int idxPlayerGuiControl = -1;
+		if (playerGuiControl)
+		{
+			int totalGadgets = playerGuiControl->totalgadgets;
+			for (int i = 1; i <= totalGadgets; ++i)
+			{
+				if (targetControlName == playerGuiControl[i].name)
+				{
+					idxPlayerGuiControl = i;
+					break;
+				}
+			}
+		}
+
+		for (int i = 0; i < numClicks; ++i)
+		{
+			// cycle from "open" to "blocked" to "AI" (numClicks=2)
+			taPtr->desktopGUI.UIChange_f = idxPlayerGuiControl;
+			taPtr->desktopGUI.GUIUpdated_b = idxPlayerGuiControl;
+			battleroom_OnCommand(&taPtr->desktopGUI);
+		}
 	}
-	else
+
+	return availableSlot >= 0;
+}
+
+static unsigned int SkirmishStartButtonHookAddr = 0x47aedf;
+static unsigned int SkirmishStartButtonHookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (!MultiplayerSchemaUnits::GetInstance()->isUserSpawnEnabled()) {
+		return 0;
+	}
+	if (!MultiplayerSchemaUnits::GetInstance()->mapHasSpawnUnits())
 	{
 		return 0;
 	}
+
+	if (MultiplayerSchemaUnits::GetInstance()->mapHasNeutralSpawnUnits())
+	{
+		TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+		bool alreadyHasAi = false;
+		for (int i = 0; i < 10; ++i)
+		{
+			if (taPtr->Players[i].PlayerInfo->PlayerType == Player_LocalAI)
+			{
+				alreadyHasAi = true;
+				break;
+			}
+		}
+		if (!alreadyHasAi)
+		{
+			BattleroomAddAi("PLAYER", 1);
+		}
+	}
+
+	return 0;
+}
+
+static unsigned int BattleroomStartButtonHookAddr = 0x44872a;
+static unsigned int BattleroomStartButtonHookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	static bool userNotified = false;
+
+	if (!MultiplayerSchemaUnits::GetInstance()->isUserSpawnEnabled()) {
+		return 0;
+	}
+	if (!MultiplayerSchemaUnits::GetInstance()->mapHasSpawnUnits())
+	{
+		return 0;
+	}
+	if (userNotified)
+	{
+		return 0;
+	}
+
+	bool aiAdded = false;
+	if (MultiplayerSchemaUnits::GetInstance()->mapHasNeutralSpawnUnits())
+	{
+		TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+		bool alreadyHasAi = false;
+		for (int i = 0; i < 10; ++i)
+		{
+			if (taPtr->Players[i].PlayerInfo->PlayerType == Player_LocalAI)
+			{
+				alreadyHasAi = true;
+				break;
+			}
+		}
+		if (!alreadyHasAi)
+		{
+			aiAdded = BattleroomAddAi("PLAYER", 2);
+		}
+	}
+
+	if (aiAdded)
+	{
+		SendText("An AI has been added to accept neutral units for this map", 0);
+		SendText("Remove the AI now if you don't want it", 0);
+		SendText("Use +spawnoff to disable extra unit spawn in general", 0);
+		userNotified = true;
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x448a62;		// discard the START command
+		return X86STRACKBUFFERCHANGE;
+	}
+
+	return 0;
 }
 
 static unsigned int MultiplayerSpawnPlayerCommanderHookAddr = 0x497794;
@@ -144,6 +236,9 @@ static unsigned int MultiplayerSpawnPlayerCommanderHookProc(PInlineX86StackBuffe
 		return 0;
 	}
 	if (DataShare->PlayingDemo) {
+		return 0;
+	}
+	if (!MultiplayerSchemaUnits::GetInstance()->isUserSpawnEnabled()) {
 		return 0;
 	}
 
@@ -160,10 +255,27 @@ static unsigned int MultiplayerSpawnPlayerCommanderHookProc(PInlineX86StackBuffe
 	}
 }
 
-MultiplayerSchemaUnits::MultiplayerSchemaUnits()
+static void BattleroomCommand_SpawnOff(const std::vector<std::string>&)
 {
-	m_hooks.push_back(std::make_shared<InlineSingleHook>(SkirmishSpawnPlayerCommanderHookAddr, 5, INLINE_5BYTESLAGGERJMP, SkirmishSpawnPlayerCommanderHookProc));
+	MultiplayerSchemaUnits::GetInstance()->setUserSpawnEnabled(false);
+	SendText("Unit spawn is disabled ...", 0);
+}
+
+static void BattleroomCommand_SpawnOn(const std::vector<std::string>&)
+{
+	MultiplayerSchemaUnits::GetInstance()->setUserSpawnEnabled(true);
+	SendText("Unit spawn is enabled ...", 0);
+}
+
+MultiplayerSchemaUnits::MultiplayerSchemaUnits():
+	m_spawnEnabled(true)
+{
 	m_hooks.push_back(std::make_shared<InlineSingleHook>(MultiplayerSpawnPlayerCommanderHookAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerSpawnPlayerCommanderHookProc));
+	m_hooks.push_back(std::make_shared<InlineSingleHook>(BattleroomStartButtonHookAddr, 5, INLINE_5BYTESLAGGERJMP, BattleroomStartButtonHookProc));
+	m_hooks.push_back(std::make_shared<InlineSingleHook>(SkirmishStartButtonHookAddr, 5, INLINE_5BYTESLAGGERJMP, SkirmishStartButtonHookProc));
+
+	BattleroomCommands::GetInstance()->RegisterCommand("+spawnoff", &BattleroomCommand_SpawnOff);
+	BattleroomCommands::GetInstance()->RegisterCommand("+spawnon", &BattleroomCommand_SpawnOn);
 }
 
 MultiplayerSchemaUnits::~MultiplayerSchemaUnits()
@@ -171,13 +283,23 @@ MultiplayerSchemaUnits::~MultiplayerSchemaUnits()
 
 }
 
-bool MultiplayerSchemaUnits::hasSpawnUnits()
+bool MultiplayerSchemaUnits::isUserSpawnEnabled()
+{
+	return m_spawnEnabled;
+}
+
+void MultiplayerSchemaUnits::setUserSpawnEnabled(bool enabled)
+{
+	m_spawnEnabled = enabled;
+}
+
+bool MultiplayerSchemaUnits::mapHasSpawnUnits()
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	return taPtr->GameingState_Ptr->uniqueIdentifierCount > 0;
 }
 
-bool MultiplayerSchemaUnits::hasNeutralSpawnUnits()
+bool MultiplayerSchemaUnits::mapHasNeutralSpawnUnits()
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	for (int iMissionUnit = 0; iMissionUnit < taPtr->GameingState_Ptr->uniqueIdentifierCount; ++iMissionUnit)

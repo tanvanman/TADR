@@ -516,7 +516,7 @@ PlayerType GetInferredPlayerType(PlayerStruct* p)
 
 bool InferredPlayerTypeIsLocal(PlayerStruct* p)
 {
-	return p->My_PlayerType != Player_RemoteHuman;
+	return p->My_PlayerType != Player_RemoteHuman && p->My_PlayerType != Player_none;
 }
 
 bool InferredPlayerTypeIsHuman(PlayerStruct* p)
@@ -665,6 +665,8 @@ _PacketBuilder_AssignByteAtOfs PacketBuilder_AssignByteAtOfs = (_PacketBuilder_A
 _InitTAPath InitTAPath = (_InitTAPath)0x4BCE10;
 _InitPlayerStruct InitPlayerStruct = (_InitPlayerStruct)0x464700;
 _TaCalcCRC CalcCRC = (_TaCalcCRC)0x4b6ba0;
+_DPlayAddNewPlayer DPlayAddNewPlayer = (_DPlayAddNewPlayer)0x451220;
+_battleroom_OnCommand battleroom_OnCommand = (_battleroom_OnCommand)0x447b10;
 
 LPCSTR TAIniStr=  reinterpret_cast<LPCSTR> (0x5098A3);
 

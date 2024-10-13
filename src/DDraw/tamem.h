@@ -253,7 +253,7 @@ typedef struct _GUIInfo
 	int field_54;
 	int field_58;
 	int field_5C;
-	int UIChange_f;
+	int UIChange_f;  // index into TheActive_GUIMEM->ControlsAry that was fiddled, or -1
 	int field_64;
 	int field_68;
 	int field_6C;
