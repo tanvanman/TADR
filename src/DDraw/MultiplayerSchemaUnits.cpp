@@ -147,38 +147,6 @@ static bool BattleroomAddAi(const std::string controlPrefix, int numClicks)
 	return availableSlot >= 0;
 }
 
-static unsigned int SkirmishStartButtonHookAddr = 0x47aedf;
-static unsigned int SkirmishStartButtonHookProc(PInlineX86StackBuffer X86StrackBuffer)
-{
-	if (!MultiplayerSchemaUnits::GetInstance()->isUserSpawnEnabled()) {
-		return 0;
-	}
-	if (!MultiplayerSchemaUnits::GetInstance()->mapHasSpawnUnits())
-	{
-		return 0;
-	}
-
-	if (MultiplayerSchemaUnits::GetInstance()->mapHasNeutralSpawnUnits())
-	{
-		TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-		bool alreadyHasAi = false;
-		for (int i = 0; i < 10; ++i)
-		{
-			if (taPtr->Players[i].PlayerInfo->PlayerType == Player_LocalAI)
-			{
-				alreadyHasAi = true;
-				break;
-			}
-		}
-		if (!alreadyHasAi)
-		{
-			BattleroomAddAi("PLAYER", 1);
-		}
-	}
-
-	return 0;
-}
-
 static unsigned int BattleroomStartButtonHookAddr = 0x44872a;
 static unsigned int BattleroomStartButtonHookProc(PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -228,6 +196,42 @@ static unsigned int BattleroomStartButtonHookProc(PInlineX86StackBuffer X86Strac
 	return 0;
 }
 
+static unsigned int SkirmishSpawnPlayerCommanderHookAddr = 0x496fe1;
+static unsigned int SkirmishSpawnPlayerCommanderHookProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	if (taPtr->GameingState_Ptr->uniqueIdentifierCount == 0u) {
+		return 0;
+	}
+	if (DataShare->PlayingDemo) {
+		return 0;
+	}
+
+	int* targetPlayerIndex = (int*)(X86StrackBuffer->Esp + 0x9c + 0x04);
+	int* startPosMapPlayerId = (int*)(X86StrackBuffer->Esp + 0x9c + 0x08);
+	PlayerStruct* targetPlayer = &taPtr->Players[*targetPlayerIndex];
+
+	int positionNumber = targetPlayer->mapStartPos;
+	for (int i = 0; i < 10; ++i)
+	{
+		if (taPtr->GameingState_Ptr->mapStartPosAry_[i].validStartMapPos &&
+			taPtr->GameingState_Ptr->mapStartPosAry_[i].playerId == *startPosMapPlayerId)
+		{
+			positionNumber = i;
+		}
+	}
+
+	if (SpawnUnits(targetPlayer, positionNumber))
+	{
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x497026;
+		return X86STRACKBUFFERCHANGE;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 static unsigned int MultiplayerSpawnPlayerCommanderHookAddr = 0x497794;
 static unsigned int MultiplayerSpawnPlayerCommanderHookProc(PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -270,9 +274,9 @@ static void BattleroomCommand_SpawnOn(const std::vector<std::string>&)
 MultiplayerSchemaUnits::MultiplayerSchemaUnits():
 	m_spawnEnabled(true)
 {
+	m_hooks.push_back(std::make_shared<InlineSingleHook>(SkirmishSpawnPlayerCommanderHookAddr, 5, INLINE_5BYTESLAGGERJMP, SkirmishSpawnPlayerCommanderHookProc));
 	m_hooks.push_back(std::make_shared<InlineSingleHook>(MultiplayerSpawnPlayerCommanderHookAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerSpawnPlayerCommanderHookProc));
 	m_hooks.push_back(std::make_shared<InlineSingleHook>(BattleroomStartButtonHookAddr, 5, INLINE_5BYTESLAGGERJMP, BattleroomStartButtonHookProc));
-	m_hooks.push_back(std::make_shared<InlineSingleHook>(SkirmishStartButtonHookAddr, 5, INLINE_5BYTESLAGGERJMP, SkirmishStartButtonHookProc));
 
 	BattleroomCommands::GetInstance()->RegisterCommand("+spawnoff", &BattleroomCommand_SpawnOff);
 	BattleroomCommands::GetInstance()->RegisterCommand("+spawnon", &BattleroomCommand_SpawnOn);
