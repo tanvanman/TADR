@@ -211,17 +211,40 @@ static unsigned int SkirmishSpawnPlayerCommanderHookProc(PInlineX86StackBuffer X
 	int* startPosMapPlayerId = (int*)(X86StrackBuffer->Esp + 0x9c + 0x08);
 	PlayerStruct* targetPlayer = &taPtr->Players[*targetPlayerIndex];
 
-	int positionNumber = targetPlayer->mapStartPos;
-	for (int i = 0; i < 10; ++i)
+	if (MultiplayerSchemaUnits::GetInstance()->mapHasNeutralSpawnUnits() &&
+		taPtr->skirmishInfo->location[0] == 0u) // random position
 	{
-		if (taPtr->GameingState_Ptr->mapStartPosAry_[i].validStartMapPos &&
-			taPtr->GameingState_Ptr->mapStartPosAry_[i].playerId == *startPosMapPlayerId)
+		int* startPosArray = (int*)(X86StrackBuffer->Esp + 0x9c + 0x40);	// beware, parent scope only valid when called from "random positions" context
+
+		int mapPositionLastHuman = -1;
+		int mapPositionLastAi = -1;
+		int idxLastHuman = -1;
+		int idxLastAi = -1;
+		for (int i = 0; i < 10; ++i)
 		{
-			positionNumber = i;
+			int mapPosition = startPosArray[i];
+			if (taPtr->Players[i].My_PlayerType == Player_LocalHuman && mapPosition > mapPositionLastHuman)
+			{
+				mapPositionLastHuman = mapPosition;
+				idxLastHuman = i;
+			}
+			else if (taPtr->Players[i].My_PlayerType == Player_LocalAI && mapPosition > mapPositionLastAi)
+			{
+				mapPositionLastAi = mapPosition;
+				idxLastAi = i;
+			}
+		}
+
+		if (mapPositionLastAi < mapPositionLastHuman)
+		{
+			*startPosMapPlayerId = *startPosMapPlayerId == mapPositionLastHuman
+				? mapPositionLastAi
+				: mapPositionLastHuman;
+			std::swap(startPosArray[idxLastHuman], startPosArray[idxLastAi]);
 		}
 	}
 
-	if (SpawnUnits(targetPlayer, positionNumber))
+	if (SpawnUnits(targetPlayer, *startPosMapPlayerId))
 	{
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x497026;
 		return X86STRACKBUFFERCHANGE;

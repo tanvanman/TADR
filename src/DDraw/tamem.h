@@ -326,6 +326,16 @@ struct HAPINETStruct {
 								// 0x04c9
 };
 
+struct SkirmishInfo
+{
+	char data0[268];
+	unsigned mapping;
+	unsigned lineOfSight;
+	unsigned lineOfSightType;
+	char location[260];
+	char field_21c[16];
+};
+
 struct TAdynmemStruct{
 	char data1[12];				// 0x0000
 	_TAProgramStruct * TAProgramStruct_Ptr;	// 0x000c
@@ -337,7 +347,7 @@ struct TAdynmemStruct{
 	PlayerStruct Players[10];	//0x1B63 , end at 0x2851
 	char data4[331];			// 0x2851
 	unsigned int data5;			// 0x299c
-	unsigned int AllyStruct_Ptr;// 0x29a0
+	SkirmishInfo* skirmishInfo;	// 0x29a0
 	char data6[0x2c];			// 0x29a4
 	StartPositionsStruct startPositions;// 0x29d0		// populated during multiplayer load
 	char data6b[0x0c];				// 0x2a24
