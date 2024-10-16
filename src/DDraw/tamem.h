@@ -651,7 +651,9 @@ struct MissionUnitsStruct {
 	int ZPos;	// *65k			// 0x0016
 	short unk3;
 	char HealthPercentage;		// 0x001a
-	char dataA[7];				// 0x001b
+	char data1b;				// 0x001b
+	int creationCountdown;		// 0x001c
+	char data20[2];				// 0x0020
 	short Player;	// 1..10	// 0x0022
 };								// 0x0024
 
