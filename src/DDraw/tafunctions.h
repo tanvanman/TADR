@@ -218,9 +218,15 @@ extern _InitPlayerStruct InitPlayerStruct;
 typedef int (__stdcall * _Init_srand)(int seed);
 extern _Init_srand Init_srand;
 
-typedef int(__stdcall* _UNITS_CreateUnit)(
+typedef UnitStruct*(__stdcall* _UNITS_CreateUnit)(
 	int playerIndex, int unitInfoId, int posX, int posZ, int posY, bool fullHp, unsigned unitStateMask, int unitId);
 extern _UNITS_CreateUnit UNITS_CreateUnit;
+
+typedef int(__stdcall* _LoadCampaign_UniqueUnits)(void);
+extern _LoadCampaign_UniqueUnits LoadCampaign_UniqueUnits;
+
+typedef char(__stdcall* _Campaign_ParseUnitInitialMissionCommands)(UnitStruct* UnitPtr, const char* Source, int* outUniqueUnitID);
+extern _Campaign_ParseUnitInitialMissionCommands Campaign_ParseUnitInitialMissionCommands;
 
 typedef int(__fastcall* _SerialBitArrayRead)(SerialBitArrayStruct* serialBitArray, int ignored, int nBitsToRead);
 extern _SerialBitArrayRead SerialBitArrayRead;

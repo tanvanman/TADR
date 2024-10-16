@@ -26,6 +26,7 @@ static void DoSpawnUnit(PlayerStruct *targetPlayer, MissionUnitsStruct* missionU
 	for (int i = 0; i < taPtr->UNITINFOCount; ++i) {
 		if (std::string(taPtr->UnitDef[i].UnitName) == unitName) {
 			unitInfoId = i;
+			break;
 		}
 	}
 
@@ -39,7 +40,13 @@ static void DoSpawnUnit(PlayerStruct *targetPlayer, MissionUnitsStruct* missionU
 	}
 
 	int unitNumber = playerUnitNumberOverride ? playerUnitNumberOverride + targetPlayer->UnitsIndex_Begin : 0;
-	UNITS_CreateUnit(targetPlayer->PlayerAryIndex, unitInfoId, x, y, z, true, 1, unitNumber);
+	UnitStruct *newUnit = UNITS_CreateUnit(targetPlayer->PlayerAryIndex, unitInfoId, x, y, z, true, 1, unitNumber);
+
+	if (missionUnit->InitialMission && missionUnit->InitialMission[0] != '\0')
+	{
+		int outUniqueId = std::distance(taPtr->GameingState_Ptr->uniqueIdentifiers, missionUnit);
+		Campaign_ParseUnitInitialMissionCommands(newUnit, missionUnit->InitialMission, &outUniqueId);
+	}
 }
 
 static bool BattleroomAddAi(const std::string controlPrefix, int numClicks)
@@ -269,9 +276,10 @@ MultiplayerSchemaUnits::MultiplayerSchemaUnits():
 	m_hooks.push_back(std::make_shared<InlineSingleHook>(BattleroomStartButtonHookAddr, 5, INLINE_5BYTESLAGGERJMP, BattleroomStartButtonHookProc));
 	m_hooks.push_back(std::make_shared<InlineSingleHook>(InitMissionUnitSpawnQueueAddr, 5, INLINE_5BYTESLAGGERJMP, InitMissionUnitSpawnQueueProc));
 
+	GameTickHook::GetInstance()->addCallback(&SpawnLaterUnits);
+
 	BattleroomCommands::GetInstance()->RegisterCommand("+spawnoff", &BattleroomCommand_SpawnOff);
 	BattleroomCommands::GetInstance()->RegisterCommand("+spawnon", &BattleroomCommand_SpawnOn);
-	GameTickHook::GetInstance()->addCallback(&SpawnLaterUnits);
 }
 
 MultiplayerSchemaUnits::~MultiplayerSchemaUnits()
@@ -419,38 +427,35 @@ void MultiplayerSchemaUnits::spawnLaterUnits(int gameTime)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 
-	if (gameTime % 30 == 0)
+	int gameTimeSecs = gameTime / 30;
+	int iMissionUnit = peekNextMissionUnit(gameTimeSecs);
+	while (unsigned(iMissionUnit) < taPtr->GameingState_Ptr->uniqueIdentifierCount)
 	{
-		int gameTimeSecs = gameTime / 30;
-		int iMissionUnit = peekNextMissionUnit(gameTimeSecs);
-		while (unsigned(iMissionUnit) < taPtr->GameingState_Ptr->uniqueIdentifierCount)
+		popMissionUnit();
+		MissionUnitsStruct* missionUnit = &taPtr->GameingState_Ptr->uniqueIdentifiers[iMissionUnit];
+		if (missionUnit->Unitname[0] != '\0')
 		{
-			popMissionUnit();
-			MissionUnitsStruct* missionUnit = &taPtr->GameingState_Ptr->uniqueIdentifiers[iMissionUnit];
-			if (missionUnit->Unitname[0] != '\0')
-			{
-				int idxPosition = missionUnit->Player - 1;
-				int idxPlayer = unsigned(idxPosition) < 10 ? m_playersByStartPosition[idxPosition] : -1;
+			int idxPosition = missionUnit->Player - 1;
+			int idxPlayer = unsigned(idxPosition) < 10 ? m_playersByStartPosition[idxPosition] : -1;
 
-				PlayerStruct* targetPlayer = NULL;
-				if (idxPosition == 10) {
-					targetPlayer = m_neutralPlayer;
-				}
-				else if (unsigned(idxPlayer) < 10) {
-					targetPlayer = &taPtr->Players[idxPlayer];
-				}
-
-				if (missionUnit->Player < 11 && targetPlayer == m_neutralPlayer) {
-					targetPlayer = NULL;
-				}
-
-				if (targetPlayer && InferredPlayerTypeIsLocal(targetPlayer) && !(targetPlayer->PlayerInfo->PropertyMask & WATCH))
-				{
-					DoSpawnUnit(targetPlayer, missionUnit, 0);
-				}
+			PlayerStruct* targetPlayer = NULL;
+			if (idxPosition == 10) {
+				targetPlayer = m_neutralPlayer;
+			}
+			else if (unsigned(idxPlayer) < 10) {
+				targetPlayer = &taPtr->Players[idxPlayer];
 			}
 
-			iMissionUnit = peekNextMissionUnit(gameTimeSecs);
+			if (missionUnit->Player < 11 && targetPlayer == m_neutralPlayer) {
+				targetPlayer = NULL;
+			}
+
+			if (targetPlayer && InferredPlayerTypeIsLocal(targetPlayer) && !(targetPlayer->PlayerInfo->PropertyMask & WATCH))
+			{
+				DoSpawnUnit(targetPlayer, missionUnit, 0);
+			}
 		}
+
+		iMissionUnit = peekNextMissionUnit(gameTimeSecs);
 	}
 }

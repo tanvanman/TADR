@@ -645,7 +645,7 @@ struct ProjectileStruct {
 struct MissionUnitsStruct {
 	const char* Unitname;		// 0x0000
 	const char* Ident;			// 0x0004
-	char data08[4];				// 0x0008
+	const char* InitialMission;	// 0x0008
 	int XPos;	// *65k			// 0x000e
 	int YPos;	// elevation	// 0x0012
 	int ZPos;	// *65k			// 0x0016
