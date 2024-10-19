@@ -513,6 +513,16 @@ int __stdcall NetworkDispatchLogProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+unsigned int RemoveSharedResourcesFromTotalAddr = 0x401bae;
+int __stdcall RemoveSharedResourcesFromTotalProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	PlayerStruct *player = (PlayerStruct*)X86StrackBuffer->Edi;
+	player->PlayerRes.fTotalMetalProduced -= player->resourcesShared->fMetalReceived;
+	player->PlayerRes.fTotalEnergyProduced -= player->resourcesShared->fEnergyReceived;
+	return 0;
+}
+
 #define LOG_TRACE_HOOK(hookAddr, n, regDisplay) \
 unsigned int LogTrace##n##Addr = (hookAddr); \
 int __stdcall LogTrace##n##Proc(PInlineX86StackBuffer X86StrackBuffer) \
@@ -639,6 +649,8 @@ TABugFixing::TABugFixing ()
 	WindSpeedSync.reset(new InlineSingleHook(WindSpeedSyncAddr, 5, INLINE_5BYTESLAGGERJMP, WindSpeedSyncProc));
 	//NetworkRawReceiveLog.reset(new InlineSingleHook(NetworkRawReceiveLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkRawReceiveLogProc));
 	//NetworkDispatchLog.reset(new InlineSingleHook(NetworkDispatchLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkDispatchLogProc));
+
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoveSharedResourcesFromTotalAddr, 5, INLINE_5BYTESLAGGERJMP, RemoveSharedResourcesFromTotalProc));
 
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
