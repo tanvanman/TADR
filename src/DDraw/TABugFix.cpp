@@ -513,6 +513,21 @@ int __stdcall NetworkDispatchLogProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+unsigned int MultiplayerVictorySoundAddr = 0x46a182;
+int __stdcall MultiplayerVictorySoundProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	static int victoryTime = 0;
+
+	// this is running in the main drawscreen loop so it gets called many times
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	if (taPtr->GameTime < victoryTime || taPtr->GameTime - victoryTime > 10 * 30)
+	{
+		PlaySound_Effect("Victory Condition", 0);
+	}
+	victoryTime = taPtr->GameTime;
+	return 0;
+}
+
 #define LOG_TRACE_HOOK(hookAddr, n, regDisplay) \
 unsigned int LogTrace##n##Addr = (hookAddr); \
 int __stdcall LogTrace##n##Proc(PInlineX86StackBuffer X86StrackBuffer) \
@@ -639,7 +654,7 @@ TABugFixing::TABugFixing ()
 	WindSpeedSync.reset(new InlineSingleHook(WindSpeedSyncAddr, 5, INLINE_5BYTESLAGGERJMP, WindSpeedSyncProc));
 	//NetworkRawReceiveLog.reset(new InlineSingleHook(NetworkRawReceiveLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkRawReceiveLogProc));
 	//NetworkDispatchLog.reset(new InlineSingleHook(NetworkDispatchLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkDispatchLogProc));
-
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(MultiplayerVictorySoundAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerVictorySoundProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
