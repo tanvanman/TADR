@@ -259,8 +259,9 @@ int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 		for (int i = 0; i < 10; ++i) {
 			PlayerStruct* p = &taPtr->Players[i];
 			if (p->PlayerActive &&
-				!(p->PlayerInfo->PropertyMask & WATCH) && 
-				(p->My_PlayerType == Player_LocalHuman || p->My_PlayerType == Player_LocalAI)) {
+				!(p->PlayerInfo->PropertyMask & WATCH) &&
+				(p->My_PlayerType == Player_LocalHuman || p->My_PlayerType == Player_LocalAI) &&
+				p->Units[0].UnitID > 0) {
 				// send out a dummy move command to assist GhostComFix
 				PacketBuilderStruct pb;
 				PacketBuilder_Initialise(&pb, 0);
