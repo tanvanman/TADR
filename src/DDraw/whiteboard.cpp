@@ -1006,10 +1006,15 @@ void AlliesWhiteboard::EchoMarker(char *cText, char color)
 	int idxPlayer = 10;
 	for (int i = 0; i < 10; ++i)
 	{
-		if (GetPlayer(i)->PlayerInfo->PlayerLogoColor == color)
+		PlayerStruct* player = GetPlayer(i);
+		if (player->PlayerInfo->PlayerLogoColor == color)
 		{
-			idxPlayer = GetPlayer(i)->PlayerAryIndex;
-			break;
+			idxPlayer = player->PlayerAryIndex;
+			if ((player->PlayerInfo->PropertyMask & WATCH) == 0u &&
+				(!DataShare->PlayingDemo || player->My_PlayerType == Player_RemoteHuman))
+			{
+				break;
+			}
 		}
 	}
 
