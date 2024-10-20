@@ -619,7 +619,7 @@ void AlliesWhiteboard::AddTextMarker(int X, int Y, char *cText, char C)
 {
 	ElementHandler.AddElement(new GraphicText(X, Y, cText, C));
 
-	EchoMarker(cText);
+	EchoMarker(cText, C);
 
 	LastMarkerX = X;
 	LastMarkerY = Y;
@@ -673,46 +673,31 @@ void AlliesWhiteboard::DrawMinimapMarkers(char *VidBuf, int Pitch, bool Receive)
 
 	CMapRect *MapRect = (CMapRect*)LocalShare->MapRect;
 
-	for(size_t i=0; i<MinimapMarkerHandler.size(); i++)
+	const unsigned rotatedRectMillis = 1000;
+	const unsigned flashingCrossMillis = 2000;
+
+	for (size_t i = 0; i < MinimapMarkerHandler.size(); i++)
 	{
-		//DrawRotateRect(100, 100, 300, VidBuf, Pitch);
 		int XPos = MapRect->WorldToMiniX(MinimapMarkerHandler[i].XPos);
 		int YPos = MapRect->WorldToMiniY(MinimapMarkerHandler[i].YPos);
-		if(MinimapMarkerHandler[i].State == 0)
+		unsigned frameNumber = MinimapMarkerHandler[i].getFrameNumberMillisecs();
+		if (frameNumber < rotatedRectMillis)
 		{
-			if(MinimapMarkerHandler[i].SubState < 2)
-			{
-				MinimapMarkerHandler[i].State = 1;
-			}
-			else
-			{
-				MinimapMarkerHandler[i].SubState -= 3;
-				DrawRotateRect(XPos, YPos, MinimapMarkerHandler[i].SubState, VidBuf, Pitch);
-			}
+			int rotation = 360 - 360 * frameNumber / rotatedRectMillis;
+			DrawRotateRect(XPos, YPos, rotation, VidBuf, Pitch);
 		}
-		else
+		else if (frameNumber < flashingCrossMillis)
 		{
-			if(MinimapMarkerHandler[i].State%2 == 1)
-			{
-				//show cross
-				DrawFreeLine(XPos, YPos-2, XPos, YPos+2, 1, VidBuf, Pitch);
-				DrawFreeLine(XPos-2, YPos, XPos+2, YPos, 1, VidBuf, Pitch);
-			}
-			else
-			{
-				//do nothing
-			}
-			MinimapMarkerHandler[i].SubState++;
-			if(MinimapMarkerHandler[i].SubState == 20)
-			{
-				MinimapMarkerHandler[i].State++;
-				MinimapMarkerHandler[i].SubState = 0;
-			}
+			int color = frameNumber % 256;
+			DrawFreeLine(XPos, YPos - 2, XPos, YPos + 2, color, VidBuf, Pitch);
+			DrawFreeLine(XPos - 2, YPos, XPos + 2, YPos, color, VidBuf, Pitch);
 		}
 	}
 
-	if(MinimapMarkerHandler.back().State == 16)
+	while (!MinimapMarkerHandler.empty() && MinimapMarkerHandler.back().getFrameNumberMillisecs() >= flashingCrossMillis)
+	{
 		MinimapMarkerHandler.pop_back();
+	}
 }
 
 void AlliesWhiteboard::GetMarkers(MarkerArray *Markers)
@@ -820,16 +805,13 @@ void AlliesWhiteboard::ReceiveMarkers()
 		{
 			PtC *ptc = (PtC*)Data;
 			Data += sizeof(PtC);
+
 			ElementHandler.AddElement(new GraphicText(ptc->x, ptc->y, Data, ptc->Color));
-			EchoMarker(Data);
+			EchoMarker(Data, ptc->Color);
 			LastMarkerX = ptc->x;
 			LastMarkerY = ptc->y;
 
-			MMHS mmhs;
-			mmhs.XPos = ptc->x;
-			mmhs.YPos = ptc->y;
-			mmhs.State = 0;
-			mmhs.SubState = 360;
+			MMHS mmhs(ptc->x, ptc->y);
 			MinimapMarkerHandler.push_front(mmhs);
 		}
 		else if(*Type == PacketGraphicLine)
@@ -1019,14 +1001,30 @@ void AlliesWhiteboard::DrawFreeLine(int x1, int y1, int x2, int y2, char C, char
 		Draw_Line(x1, y1, x2, y2, C, (UCHAR*)VidBuf, Pitch);
 }
 
-void AlliesWhiteboard::EchoMarker(char *cText)
+void AlliesWhiteboard::EchoMarker(char *cText, char color)
 {
-	char OutString[80];
-	lstrcpyA(OutString, "New marker added: ");
-	lstrcatA(OutString, cText);
+	int idxPlayer = 10;
+	for (int i = 0; i < 10; ++i)
+	{
+		if (GetPlayer(i)->PlayerInfo->PlayerLogoColor == color)
+		{
+			idxPlayer = GetPlayer(i)->PlayerAryIndex;
+			break;
+		}
+	}
 
-	lstrcpyA(DataShare->Chat, OutString);
-	DataShare->NewData = 1;
+	char OutString[80];
+	if (strlen(cText) > 0)
+	{
+		snprintf(OutString, sizeof(OutString), "*%s> %s", GetPlayer(idxPlayer)->Name, cText);
+	}
+	else
+	{
+		snprintf(OutString, sizeof(OutString), "*%s> new marker added", GetPlayer(idxPlayer)->Name);
+	}
+	OutString[79] = '\0';
+
+	NewChatText(OutString, 1, 0, idxPlayer);
 }
 
 GraphicElement *AlliesWhiteboard::GetTextElementAt(int x, int y, int Area)
@@ -1091,11 +1089,11 @@ void AlliesWhiteboard::DrawRotateRect(int x, int y, int Rotation, char *VidBuf, 
 	x4 = static_cast<int>( x-(cos_look[abs(V)%360]*Length));
 	y4 = static_cast<int>(y+(sin_look[abs(V)%360]*Length));
 
-	DrawFreeLine(x1, y1, x2, y2, 1, VidBuf, Pitch);
-	DrawFreeLine(x2, y2, x3, y3, 1, VidBuf, Pitch);
-	DrawFreeLine(x3, y3, x4, y4, 1, VidBuf, Pitch);
-	DrawFreeLine(x4, y4, x1, y1, 1, VidBuf, Pitch);
-
+	int color = Rotation % 256;
+	DrawFreeLine(x1, y1, x2, y2, color, VidBuf, Pitch);
+	DrawFreeLine(x2, y2, x3, y3, color, VidBuf, Pitch);
+	DrawFreeLine(x3, y3, x4, y4, color, VidBuf, Pitch);
+	DrawFreeLine(x4, y4, x1, y1, color, VidBuf, Pitch);
 }
 
 void AlliesWhiteboard::Line(int x1, int y1, int x2, int y2, byte Colour, char *VidBuf, int Pitch)
