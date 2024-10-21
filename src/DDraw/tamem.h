@@ -93,6 +93,21 @@ struct PlayerResourcesStruct
 	float fPlayerEnergyStorage ;
 	float fPlayerMetalStorage ;
 };
+
+struct PlayerSharedResourcesStruct
+{
+	float fEnergyReceived;
+	int field_4;
+	int field_8;
+	int field_c;
+	int field_10;
+	int field_14;
+	float fMetalReceived;
+	int field_1c;
+	int field_20;
+	int field_24;
+};
+
 struct PlayerStruct
 {
 	int PlayerActive;
@@ -121,7 +136,7 @@ struct PlayerStruct
 	PlayerResourcesStruct PlayerRes;
 	float ShareMetal;
 	float ShareEnergy;
-	int field_EC;
+	PlayerSharedResourcesStruct* resourcesShared;
 	int UpdateTime;
 	int WinLoseTime;
 	int DisplayTimer;

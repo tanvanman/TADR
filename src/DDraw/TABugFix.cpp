@@ -325,17 +325,6 @@ int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 static std::vector<int> unitIdRecycleTimestamps[10];	// The timestamp at which the ID becomes available
 static const int RECYCLE_MARGIN_TIME = 5 * 30;			// 5 sec
 
-unsigned int FixFactoryExplosionsInitAddr = 0x4854a0;	// around the time that the UnitStructs are being initialised
-int __stdcall FixFactoryExplosionsInitProc(PInlineX86StackBuffer X86StrackBuffer)
-{
-	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	const int nIds = taPtr->PlayerUnitsNumber_Skim;
-	for (int i = 0; i < 10; ++i) {
-		unitIdRecycleTimestamps[i].resize(nIds, 0);		// all IDs available since t=0
-	}
-	return 0;
-}
-
 unsigned int FixFactoryExplosionsAssignUnitIdAddr = 0x486036;
 int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86StrackBuffer)
 {
@@ -344,6 +333,14 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	int playerIndex = *(int*)(X86StrackBuffer->Esp + 0x14 - 4) / 0x14b;
 	int unitIndexRequested = X86StrackBuffer->Edx;
+
+	unsigned nIds = taPtr->PlayerUnitsNumber_Skim;
+	for (int i = 0; i < 10; ++i) {
+		if (taPtr->GameTime == 0 || unitIdRecycleTimestamps[i].size() < nIds) {
+			unitIdRecycleTimestamps[i].clear();
+			unitIdRecycleTimestamps[i].resize(nIds, 0);		// all IDs available since t=0
+		}
+	}
 
 	PlayerStruct* player = &taPtr->Players[playerIndex];
 	UnitStruct* units = (UnitStruct*)X86StrackBuffer->Esi;
@@ -384,6 +381,14 @@ int __stdcall FixFactoryExplosionsRecycleUnitIdProc(PInlineX86StackBuffer X86Str
 	char* packetData = *(char**)(X86StrackBuffer->Esp + 0x7c);
 	int unitInGameIndex = *(unsigned short*)(packetData + 1);
 	
+	unsigned nIds = taPtr->PlayerUnitsNumber_Skim;
+	for (int i = 0; i < 10; ++i) {
+		if (taPtr->GameTime == 0 || unitIdRecycleTimestamps[i].size() < nIds) {
+			unitIdRecycleTimestamps[i].clear();
+			unitIdRecycleTimestamps[i].resize(nIds, 0);		// all IDs available since t=0
+		}
+	}
+
 	if (!unit) {
 		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] null unit!\n");
 	}
@@ -533,7 +538,32 @@ int __stdcall NetworkDispatchLogProc(PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
-#define LOG_TRACE_HOOK(hookAddr, n, fmtstr, regDisplay) \
+unsigned int RemoveSharedResourcesFromTotalAddr = 0x401bae;
+int __stdcall RemoveSharedResourcesFromTotalProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	PlayerStruct *player = (PlayerStruct*)X86StrackBuffer->Edi;
+	player->PlayerRes.fTotalMetalProduced -= player->resourcesShared->fMetalReceived;
+	player->PlayerRes.fTotalEnergyProduced -= player->resourcesShared->fEnergyReceived;
+    return 0;
+}
+
+unsigned int MultiplayerVictorySoundAddr = 0x46a182;
+int __stdcall MultiplayerVictorySoundProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	static int victoryTime = 0;
+
+	// this is running in the main drawscreen loop so it gets called many times
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	if (taPtr->GameTime < victoryTime || taPtr->GameTime - victoryTime > 10 * 30)
+	{
+		PlaySound_Effect("Victory Condition", 0);
+	}
+	victoryTime = taPtr->GameTime;
+    return 0;
+}
+
+#define LOG_TRACE_HOOK(hookAddr, n, regDisplay) \
 unsigned int LogTrace##n##Addr = (hookAddr); \
 int __stdcall LogTrace##n##Proc(PInlineX86StackBuffer X86StrackBuffer) \
 { \
@@ -650,7 +680,6 @@ TABugFixing::TABugFixing ()
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
 	GhostComFix.reset(new InlineSingleHook(GhostComFixAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixProc));
 	GhostComFixAssist.reset(new InlineSingleHook(GhostComFixAssistAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixAssistProc));
-	FixFactoryExplosionsInit.reset(new InlineSingleHook(FixFactoryExplosionsInitAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsInitProc));
 	FixFactoryExplosionsAssignUnitId.reset(new InlineSingleHook(FixFactoryExplosionsAssignUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsAssignUnitIdProc));
 	FixFactoryExplosionsRecycleUnitId.reset(new InlineSingleHook(FixFactoryExplosionsRecycleUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsRecycleUnitIdProc));
 	HostDoesntLeave.reset(new InlineSingleHook(PutDeadHostInWatchModeAddr, 5, INLINE_5BYTESLAGGERJMP, PutDeadHostInWatchModeProc));
@@ -659,8 +688,9 @@ TABugFixing::TABugFixing ()
 	WindSpeedSync.reset(new InlineSingleHook(WindSpeedSyncAddr, 5, INLINE_5BYTESLAGGERJMP, WindSpeedSyncProc));
 	//NetworkRawReceiveLog.reset(new InlineSingleHook(NetworkRawReceiveLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkRawReceiveLogProc));
 	//NetworkDispatchLog.reset(new InlineSingleHook(NetworkDispatchLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkDispatchLogProc));
-	//SingleHooks.push_back(std::make_unique<InlineSingleHook>(LogTrace1Addr, 5, INLINE_5BYTESLAGGERJMP, LogTrace1Proc));
-
+	//m_hooks.push_back(std::make_unique<InlineSingleHook>(LogTrace1Addr, 5, INLINE_5BYTESLAGGERJMP, LogTrace1Proc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoveSharedResourcesFromTotalAddr, 5, INLINE_5BYTESLAGGERJMP, RemoveSharedResourcesFromTotalProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(MultiplayerVictorySoundAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerVictorySoundProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 

@@ -57,7 +57,7 @@ private:
 	std::unique_ptr <SingleHook> WindSpeedSync;
 	std::unique_ptr <SingleHook> NetworkRawReceiveLog;
 	std::unique_ptr <SingleHook> NetworkDispatchLog;
-	std::vector<std::unique_ptr<SingleHook> > SingleHooks;
+	std::vector<std::unique_ptr<SingleHook> > m_hooks;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
 

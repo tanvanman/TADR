@@ -545,10 +545,14 @@ _TAMapClick TAMapClick = (_TAMapClick)0x498F70;
 
 _TestBuildSpot TestBuildSpot = (_TestBuildSpot)0x4197D0;
 
-//Type - 0 = chat, 1 = popup
+//Type - 0 = chat, no logo, wraps NewChatText, 1 = popup
 _SendText SendText = (_SendText)0x46bc70;
 
+//Send message to player by BroadcastText and echo locally using NewChatText with no logo
 _ShowText ShowText = (_ShowText)0x463E50;
+
+//Local chat text with (playerIndex<10) or without (playerIndex=10) logo
+_NewChatText NewChatText = (_NewChatText)0x463ca0;
 
 _TADrawRect TADrawRect = (_TADrawRect)0x4BF8C0;
 
