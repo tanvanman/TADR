@@ -5,6 +5,7 @@
 
 #include "elementhandler.h"
 #include "IRenderer.h"
+#include <chrono>
 #include <deque>
 
 #define InputBoxHeight 32
@@ -75,13 +76,26 @@ class AlliesWhiteboard
 
 	#pragma pack()
 
-    struct MMHS
-      {
-      unsigned short XPos;
-      unsigned short YPos;
-      char State;
-      int SubState;
-      };
+	struct MMHS
+	{
+		MMHS(unsigned short _XPos, unsigned short _YPos) :
+			XPos(_XPos), YPos(_YPos)
+		{
+			auto now = std::chrono::system_clock::now();
+			timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+		}
+
+		unsigned getFrameNumberMillisecs()
+		{
+			auto now = std::chrono::system_clock::now();
+			auto t = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+			return t - timestamp;
+		}
+
+		unsigned short XPos;
+		unsigned short YPos;
+		long long timestamp;
+	};
 
     float cos_look[360];
     float sin_look[360];
@@ -137,7 +151,7 @@ class AlliesWhiteboard
     void AddTextMarker(int X, int Y, char *cText, char C);
     void DeleteMarker(int X, int Y);
     void RestoreAll();
-    void EchoMarker(char *cText);
+    void EchoMarker(char *cText, char color);
     void EreaseArea(int x, int y);
 	GraphicElement *GetTextElementAt(int x, int y, int Area);
 

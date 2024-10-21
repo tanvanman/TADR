@@ -64,6 +64,8 @@ typedef int (__stdcall *_SendText)(const char *Text, int Type);
 extern _SendText SendText;
 typedef void (__stdcall *_ShowText)(PlayerStruct *Player, char *Text, int Unk1, int Unk2);
 extern _ShowText ShowText;
+typedef void(__stdcall* _NewChatText)(char* Text, char fontColor /* 1,2,4,8,16,32 but no practical effect?*/, short unkZero, char playerIndex);
+extern _NewChatText NewChatText;
 typedef void (__stdcall *_TADrawRect)(OFFSCREEN * Context, tagRECT *rect, int color);
 extern _TADrawRect TADrawRect;
 typedef void (__cdecl *_TADrawLine)(char *Context, int x1,int y1,int x2,int y2,int color);
