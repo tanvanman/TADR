@@ -48,7 +48,7 @@ typedef int(__stdcall* _getFrate)();
 extern _getFrate getFrate;
 typedef int(__stdcall* DrawTextInScreen_)(OFFSCREEN* offscreen_p, char* text, int xOff, int yOff, int length);
 extern DrawTextInScreen_ DrawTextInScreen;
-typedef bool(__stdcall* _DrawColorTextInScreen)(OFFSCREEN* offscreen_p, char* text, int y_off, int x_off, int len_, int color_);
+typedef bool(__stdcall* _DrawColorTextInScreen)(OFFSCREEN* offscreen_p, const char* text, int x_off, int y_off, int max_x_pixels, int color_);
 extern _DrawColorTextInScreen DrawColorTextInScreen;
 typedef int(__stdcall* _GetTextExtent)(void* fontHandle, const char* str);
 extern _GetTextExtent GetTextExtent;
@@ -73,9 +73,13 @@ extern _TADrawLine TADrawLine;
 
 typedef int (__stdcall *_GetContext)(char *ptr);
 extern _GetContext GetContext;
+
 //CirclePointer = CirclePointer in tadynmemstruct
 typedef void (__stdcall *_TADrawCircle)(OFFSCREEN * context, void *CirclePointer, Position_Dword *pos, int radius, int color, char *text, LPSTR comment);
 extern _TADrawCircle TADrawCircle;
+
+typedef int(__stdcall* _TADrawTransparentBox)(OFFSCREEN* context, RECT *box, int arg8);
+extern _TADrawTransparentBox TADrawTransparentBox;
 
 typedef void (__stdcall * _ApplySelectUnitMenu) (void);
 extern _ApplySelectUnitMenu ApplySelectUnitMenu;
@@ -113,6 +117,8 @@ extern _ChangeGameSpeed ChangeGameSpeed;
 typedef _GAFFrame * (__stdcall * _Index2Frame_InSequence)(_GAFSequence * ParsedGaf, int index);
 extern _Index2Frame_InSequence  Index2Frame_InSequence;
 
+typedef void(__stdcall* _GAF_DrawTransformed)(_OFFSCREEN *, _GAFFrame *, POINT destCorners[4], POINT sourceCorners[4]);
+extern _GAF_DrawTransformed GAF_DrawTransformed;
  
 typedef	int (__stdcall * _CopyGafToContext)(_OFFSCREEN * OFFSCREN_ptr, _GAFFrame * GafFrame, int Off_X, int Off_Y);
 extern _CopyGafToContext CopyGafToContext;

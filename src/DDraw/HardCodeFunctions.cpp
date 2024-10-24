@@ -563,6 +563,7 @@ _GetContext GetContext = (_GetContext)0x4C5E70;
 //CirclePointer = CirclePointer in tadynmemstruct
 _TADrawCircle TADrawCircle = (_TADrawCircle)0x438EA0;				
 
+_TADrawTransparentBox TADrawTransparentBox = (_TADrawTransparentBox)0x4bf4d0;
 
 _ApplySelectUnitMenu ApplySelectUnitMenu= (_ApplySelectUnitMenu)0x00495860;
 
@@ -587,7 +588,7 @@ _CallInternalCommandHandler CallInternalCommandHandler= (_CallInternalCommandHan
 _ChangeGameSpeed ChangeGameSpeed= (_ChangeGameSpeed)0x0490DF0;
 
 _Index2Frame_InSequence Index2Frame_InSequence= (_Index2Frame_InSequence )0x04B7F30;
-
+_GAF_DrawTransformed GAF_DrawTransformed = (_GAF_DrawTransformed)0x4c7580;
 _CopyGafToContext CopyGafToContext= (_CopyGafToContext)0x04B7F90;
 
 _CheckUnitInPlayerLOS CheckUnitInPlayerLOS= (_CheckUnitInPlayerLOS)0x00465AC0;

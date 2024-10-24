@@ -2,6 +2,7 @@
 #define tamemH
 
 #include <dsound.h>
+#include <ddraw.h>
 
 
 struct _GAFFrame; 
@@ -464,8 +465,13 @@ struct TAdynmemStruct{
 	_GAFSequence * igpaused;
 	char data26_[0x60];///[0x94];
 	_GAFSequence * cursor_ary [0x15];//0x1487F
-	_GAFSequence * pathicon;
-	char data27[0x44];
+	_GAFSequence * pathicon;		//0x148d3
+
+	//char data27[0x44];				//0x148d7
+	char data27[4];						//0x148d7
+	_GAFSequence* _32xLogos;			//0x148db
+	char data27b[0x3c];					//0x148df
+
 	int NumExplosions; //0x1491B
 	//char data9[0x6270];
 	ExplosionStruct Explosions[300]; //0x1491F
@@ -503,7 +509,12 @@ struct TAdynmemStruct{
 	unsigned int  field_37EF6;
 
 	int InterfaceType;						//0x37efa
-	char data31[0x31];						//0x37efe
+
+	//char data31[0x31];					//0x37efe
+	char data37efe[8];						//0x37efe
+	char GameOptionMask;					//0x37f06		DrawScoreBoard:0x80
+	char data37f07[40];						//0x37f07
+
 	unsigned short SoftwareDebugMode;		//0x37f2f
 	unsigned int  field_37F31;
 	unsigned int  Senderror;
@@ -1024,7 +1035,46 @@ typedef struct _Vertices
 
 typedef struct _OFFSCREEN
 {
-	int  Width ;
+	//_OFFSCREEN()
+	//{ }
+
+	//_OFFSCREEN(
+	//	int width, int height, int pitch, LPVOID surface, int surfaceSize,
+	//	int windowLeft, int windowTop, int windowRight, int windowBottom) :
+	//	Width(width),
+	//	Height(height),
+	//	lPitch(pitch),
+	//	lpSurface(surface),
+	//	field_10(10000),
+	//	field_14(0),
+	//	field_18(0),
+	//	field_1A(0),
+	//	field_2C(1)
+	//{
+	//	ScreenRect.left = windowLeft;
+	//	ScreenRect.top = windowTop;
+	//	ScreenRect.right = windowRight;
+	//	ScreenRect.bottom = windowBottom;
+	//}
+
+	//_OFFSCREEN(const DDSURFACEDESC& ddsd) :
+	//	Width(ddsd.dwWidth),
+	//	Height(ddsd.dwHeight),
+	//	lPitch(ddsd.lPitch < ddsd.dwWidth ? ddsd.dwWidth : ddsd.lPitch),
+	//	lpSurface(ddsd.lpSurface),
+	//	field_10(10000),
+	//	field_14(0),
+	//	field_18(0),
+	//	field_1A(0),
+	//	field_2C(1)
+	//{
+	//	ScreenRect.left = 0;
+	//	ScreenRect.top = 0;
+	//	ScreenRect.right = ddsd.dwWidth - 1;
+	//	ScreenRect.bottom = ddsd.dwHeight - 1;
+	//}
+
+	int  Width;
 	int  Height ;
 	int  lPitch  ;
 	LPVOID  lpSurface ;
@@ -1034,8 +1084,7 @@ typedef struct _OFFSCREEN
 	unsigned short field_1A;
 	RECT ScreenRect;
 	unsigned int field_2C ;
-}OFFSCREEN;
-
+} OFFSCREEN;
 
 /*  105 */
 

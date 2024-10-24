@@ -25,8 +25,28 @@
 
 int X,Y;
 
-CIncome::CIncome(BOOL VidMem)
+#define EnergyBar 1
+#define MetalBar 2
+
+#define PlayerHight 30
+#define PlayerWidth 210
+
+#define MinimiseWidgetPosX PlayerWidth
+#define MinimiseWidgetPosY 0
+#define MinimiseWidgetColour 208u
+#define MinimiseWidgetSize 9
+
+//https://www.tauniverse.com/forum/showthread.php?t=43867
+#define PlayerNameColour 81u
+#define ResourceValueColour 254u
+#define MyOriginalCameraColour 208u
+
+CIncome::CIncome(BOOL VidMem):
+	Minimised(false)
 {
+	std::memset(MinimiseWidgetBoxMin, 0, sizeof(MinimiseWidgetBoxMin));
+	std::memset(MinimiseWidgetBoxMax, 0, sizeof(MinimiseWidgetBoxMax));
+
 	LocalShare->Income = this;
 	LPDIRECTDRAW TADD = (IDirectDraw*)LocalShare->TADirectDraw;
 
@@ -79,13 +99,23 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 	//ShowAllIncome();
 	if(DataShare->TAProgress == TAInGame)
 	{
-		if(BlitState%30 == 1)
+		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+		int targetPosX = GetMinimiseWidgetXPos()
+			? Ptr->GameSreen_Rect.right - MinimiseWidgetSize
+			: Ptr->GameSreen_Rect.left;
+
+		if (GetCurrentThreadId() == LocalShare->GuiThreadId &&
+			(BlitState % 30 == 1 || Minimised && posX != targetPosX))
 		{
 			DDSURFACEDESC ddsd;
 			DDRAW_INIT_STRUCT(ddsd);
 			int PlayerDrawn = 0;
-			TAdynmemStruct * Ptr= *(TAdynmemStruct* *)0x00511de8;
-			
+
+			if (Minimised)
+			{
+				posX += (targetPosX - posX) / 10;
+			}
+
 			if(lpIncomeSurf->Lock(NULL, &ddsd, DDLOCK_WAIT | DDLOCK_SURFACEMEMORYPTR, NULL)==DD_OK)
 			{
 				SurfaceMemory = ddsd.lpSurface;
@@ -93,10 +123,13 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 
 				if((0!=(WATCH& (Ptr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask)))
 					||DataShare->PlayingDemo)
+				{
 					PlayerDrawn = ShowAllIncome();
+				}
 				else
+				{
 					PlayerDrawn = ShowAllyIncome();
-				//PlayerDrawn = ShowAllIncome();
+				}
 			}
 			else
 				SurfaceMemory = NULL;
@@ -125,9 +158,9 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 		DDRAW_INIT_STRUCT(ddbltfx);
 		ddbltfx.ddckSrcColorkey.dwColorSpaceLowValue = 1;
 		ddbltfx.ddckSrcColorkey.dwColorSpaceHighValue = 1;
-		if(DestSurf->Blt(&Dest, lpIncomeSurf, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE , &ddbltfx)!=DD_OK)
+		if (DestSurf->Blt(&Dest, lpIncomeSurf, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx) != DD_OK)
 		{
-			DestSurf->Blt(&Dest, lpIncomeSurf, &Source, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE , &ddbltfx);
+			DestSurf->Blt(&Dest, lpIncomeSurf, &Source, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
 		}
 		
 		//BlitCursor
@@ -140,14 +173,86 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 	
 }
 
+// replication of F4 scoreboard background
+//
+//int CIncome::ShowBackground(OFFSCREEN *offscreen, int nPlayers, const char *title)
+//{
+//	RECT rect;
+//	rect.left = 0;
+//	rect.top = 0;
+//	rect.right = PlayerWidth;
+//	rect.bottom = nPlayers * PlayerHight + TitleHight;
+//	TADrawTransparentBox(offscreen, &rect, -24);
+//	DrawColorTextInScreen(offscreen, title, 0, TitleHight+8, PlayerWidth, 0);
+//	LocalShare->Height = rect.bottom;
+//	LocalShare->Width = rect.right;
+//	return true;
+//}
+//
+//int CIncome::ShowPlayerCard(OFFSCREEN* offscreen, PlayerStruct* player, int nPlayer, bool highlighted)
+//{
+//	int ypos = nPlayer * PlayerHight + TitleHight;
+//	if (highlighted)
+//	{
+//		RECT rect;
+//		rect.left = 4;
+//		rect.top = ypos;
+//		rect.right = PlayerWidth - 4;
+//		rect.bottom = ypos + PlayerHight;
+//		TADrawTransparentBox(offscreen, &rect, 31);
+//		TADrawTransparentBox(offscreen, &rect, 20);
+//	}
+//
+//	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+//	_GAFFrame *gafFrame = Index2Frame_InSequence(taPtr->_32xLogos, player->PlayerInfo->PlayerLogoColor);
+//	POINT source[4];
+//	source[0].x = source[0].y = source[1].y = source[3].x = 1;
+//	source[1].x = source[2].x = gafFrame->Width;
+//	source[2].y = source[3].y = gafFrame->Height;
+//	POINT dest[4];
+//	dest[0].x = dest[3].x = 8;
+//	dest[0].y = dest[1].y = ypos + 4;
+//	dest[1].x = dest[2].x = PlayerWidth - 8;
+//	dest[2].y = dest[3].y = ypos + PlayerHight - 4;
+//	GAF_DrawTransformed(offscreen, gafFrame, dest, source);
+//
+//	//DrawColorTextInScreen(offscreen, player->Name, 8, ypos + 8, PlayerWidth-16, 0);
+//
+//	return 1;
+//}
+
+int CIncome::GetMinimiseWidgetXPos()
+{
+	TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+	
+	return posX >= Ptr->ScreenWidth / 2
+		? PlayerWidth
+		: 0;
+}
+
 int CIncome::ShowAllIncome()
 {
-	if(BackgroundType==2)
+	DataShare->IsRunning = 15;
+
+	if (Minimised)
+	{
+		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+		int targetPosX = GetMinimiseWidgetXPos()
+			? Ptr->GameSreen_Rect.right - MinimiseWidgetSize
+			: Ptr->GameSreen_Rect.left;
+
+		if (std::abs(targetPosX - posX) < 10)
+		{
+			FillRect(1);
+			LocalShare->Width = LocalShare->Height = DrawMinimiseWidget(0, 0, MinimiseWidgetColour);
+			return 1;
+		}
+	}
+
+	if (BackgroundType == 2)
 		FillRect(0);
 	else
 		FillRect(1);
-
-	DataShare->IsRunning = 15;
 
 	LocalShare->Width = PlayerWidth;
 
@@ -166,6 +271,7 @@ int CIncome::ShowAllIncome()
 	
 
 	ShowMyViewIncome ( 0, j*PlayerHight);
+	DrawMinimiseWidget(GetMinimiseWidgetXPos(), MinimiseWidgetPosY, MinimiseWidgetColour);
 
 	j++;
 	LocalShare->Height = PlayerHight*j;
@@ -174,12 +280,27 @@ int CIncome::ShowAllIncome()
 
 int CIncome::ShowAllyIncome()
 {
-	if(BackgroundType==2)
+	DataShare->IsRunning = 15;
+
+	if (Minimised)
+	{
+		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+		int targetPosX = GetMinimiseWidgetXPos()
+			? Ptr->GameSreen_Rect.right
+			: Ptr->GameSreen_Rect.left;
+
+		if (std::abs(targetPosX - posX) < 10)
+		{
+			FillRect(1);
+			LocalShare->Width = LocalShare->Height = DrawMinimiseWidget(0, 0, MinimiseWidgetColour);
+			return 1;
+		}
+	}
+
+	if (BackgroundType == 2)
 		FillRect(0);
 	else
 		FillRect(1);
-
-	DataShare->IsRunning = 15;
 
 	LocalShare->Width = PlayerWidth;
 
@@ -196,6 +317,8 @@ int CIncome::ShowAllyIncome()
 			j++;
 		}
 	}
+
+	DrawMinimiseWidget(GetMinimiseWidgetXPos(), MinimiseWidgetPosY, MinimiseWidgetColour);
 
 	LocalShare->Height = PlayerHight*j;
 	return j;
@@ -214,18 +337,12 @@ void CIncome::ShowMyViewIncome (int posx, int posy)
 		memset(&SurfMem[posx+(posy+i)*lPitch+ 44], 90, 100);
 	}
 
-	//int Backup= BackgroundType;
-	//BackgroundType = 1;
-	DrawText ( "My Original Camera", posx+30, posy+8, 208u);
-	//DrawText ( "Press Name To Player View", posx+30, posy+18, 208u);
+	DrawText ( "My Original Camera", posx+30, posy+8, MyOriginalCameraColour);
 
 	for(int i=0; i<4; i++)
 	{
 		memset(&SurfMem[posx+(posy+24 +i)*lPitch+ 44], 90, 100);
 	}
-
-
-	//BackgroundType= Backup;
 }
 
 void CIncome::ShowPlayerIncome(int Player, int posx, int posy)
@@ -267,7 +384,7 @@ void CIncome::ShowPlayerIncome(int Player, int posx, int posy)
 	//DrawText(DataShare->PlayerNames[Player], posx+45, posy+1, 0);
 	DrawPlayerRect(posx+36, posy+1, C);
 
-	DrawText(DataShare->PlayerNames[Player], posx+44, posy, 7);
+	DrawText(DataShare->PlayerNames[Player], posx+44, posy, PlayerNameColour);
 
 	DrawStorageText(DataShare->storedM[Player], posx, posy+10);
 	DrawStorageText(DataShare->storedE[Player], posx, posy+20);
@@ -275,14 +392,12 @@ void CIncome::ShowPlayerIncome(int Player, int posx, int posy)
 	PaintStoragebar(posx+44, posy+10, Player , MetalBar);
 	ValueF = DataShare->incomeM[Player];
 	sprintf_s(Value, 100, "+%.1f", ValueF);
-	DrawText(Value, posx+150, posy+11, 0);
-	DrawText(Value, posx+149, posy+10, 6);
+	DrawText(Value, posx+149, posy+10, ResourceValueColour);
 
 	PaintStoragebar(posx+44, posy+20, Player , EnergyBar);
 	ValueF = DataShare->incomeE[Player];
 	sprintf_s(Value, 100, "+%.0f", ValueF);
-	DrawText(Value, posx+150, posy+21, 0);
-	DrawText(Value, posx+149, posy+20, 6);
+	DrawText(Value, posx+149, posy+20, ResourceValueColour);
 }
 
 int CIncome::DrawStorageText(float Storage, int posx, int posy)
@@ -302,13 +417,27 @@ int CIncome::DrawStorageText(float Storage, int posx, int posy)
 		Storage = Storage/1000;
 		sprintf_s(Value, "%.0fK", Storage);
 	}
-	DrawText(Value, posx+1 + (5-strlen(Value))*8, posy+1, 0);
-	DrawText(Value, posx + (5-strlen(Value))*8, posy, 6);
+	DrawText(Value, posx + (5-strlen(Value))*8, posy, ResourceValueColour);
 
 	return 0;
 }
 
-void CIncome::DrawText(char *String, int posx, int posy, char Color)
+void CIncome::DrawText(char* String, int posx, int posy, char Color)
+{
+	if (BackgroundType == 0)
+	{
+		for (int dx = -1; dx <= 1; ++dx)
+		{
+			for (int dy = -1; dy <= 1; ++dy)
+			{
+				_DrawText(String, posx + dx, posy + dy, 0);
+			}
+		}
+	}
+	_DrawText(String, posx, posy, Color);// BackgroundType > 0 ? Color : 255);
+}
+
+void CIncome::_DrawText(char *String, int posx, int posy, char Color)
 {
 	if(SurfaceMemory == NULL)
 		return;
@@ -332,11 +461,49 @@ void CIncome::DrawText(char *String, int posx, int posy, char Color)
 			for(int k=0; k<8; k++)
 			{
 				bool b = 0!=(ThinFont[String[i]*8+j] & (1 << k));//windowsÀïµÄfalse==0
-				if(b)
-					SurfMem[(posx+(i*8)+(7-k))+(posy+j)*lPitch] = Color;
+				if (b)
+				{
+					int idx = (posx + (i * 8) + (7 - k)) + (posy + j) * lPitch;
+					if (idx >= 0 && idx < PlayerWidth * 11 * PlayerHight)
+					{
+						SurfMem[idx] = Color;
+					}
+				}
 			}
 		}
 	}
+}
+
+int CIncome::DrawMinimiseWidget(int posx, int posy, char Color)
+{
+	if (SurfaceMemory == NULL)
+		return 0;
+
+	if (posx + MinimiseWidgetSize > PlayerWidth)
+	{
+		posx = PlayerWidth - MinimiseWidgetSize;
+	}
+
+	bool leftArrow = 
+		GetMinimiseWidgetXPos() == 0 && !Minimised ||
+		GetMinimiseWidgetXPos() > 0 && Minimised;
+
+	char* SurfMem = (char*)SurfaceMemory;
+	for (int col = 0; col < MinimiseWidgetSize; ++col)
+	{
+		int nRows = leftArrow ? 1 + col : MinimiseWidgetSize - col;
+		for (int row = 0; row < nRows; ++row)
+		{
+			int x = posx + col;
+			int y = posy + row + (MinimiseWidgetSize - nRows) / 2;
+			SurfMem[x + y * lPitch] = Color;
+		}
+	}
+	MinimiseWidgetBoxMin[0] = posX + posx;
+	MinimiseWidgetBoxMin[1] = posY + posy;
+	MinimiseWidgetBoxMax[0] = posX + posx + MinimiseWidgetSize;
+	MinimiseWidgetBoxMax[1] = posY + posy + MinimiseWidgetSize;
+	return MinimiseWidgetSize;
 }
 
 void CIncome::PaintStoragebar(int posx, int posy, int Player, int Type)
@@ -349,6 +516,11 @@ void CIncome::PaintStoragebar(int posx, int posy, int Player, int Type)
 	char FillColor;
 	for(int i=0; i<100; i++)
 	{
+		if (BackgroundType == 0)
+		{
+			SurfMem[(posx + i) + (posy - 1) * lPitch] = 0;
+			SurfMem[(posx + i) + (posy + 3) * lPitch] = 0;
+		}
 		SurfMem[(posx+i)+posy*lPitch] = 0;
 		SurfMem[(posx+i)+(posy+1)*lPitch] = 0;
 		SurfMem[(posx+i)+(posy+2)*lPitch] = 0;
@@ -417,7 +589,7 @@ void CIncome::ReadPos()
 	else
 	{
 		//default pos
-		posX = LocalShare->ScreenWidth - 254;
+		posX = LocalShare->ScreenWidth - PlayerWidth;
 	}
 
 	if(RegQueryValueEx(hKey, "IncomePosY", NULL, NULL, (unsigned char*)&posY, &Size) == ERROR_SUCCESS)
@@ -482,6 +654,7 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 
 			if((wParam&MK_LBUTTON)>0 && StartedInRect == true)
 			{
+				Minimised = false;
 				posX += LOWORD(lParam)-X;
 				posY += HIWORD(lParam)-Y;
                 CorrectPos();
@@ -501,8 +674,47 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				return true;
 			}
 			break;
+		case WM_KEYDOWN:
+			if ((int)wParam == VK_F4 && LocalShare->Height > 0)
+			{
+				TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+				bool scoreboardEnabled = Ptr->GameOptionMask & 0x80;
+				if (Minimised && !scoreboardEnabled)
+				{
+					return false;	// let TA enable scoreboard
+				}
+				else if (Minimised && scoreboardEnabled)
+				{
+					Minimised = false;
+					First = true;	// cause CorrectPos to be called
+					return true;	// don't let TA enable scoreboard
+				}
+				else if (!Minimised && scoreboardEnabled)
+				{
+					return false;	// let TA disable scoreboard
+				}
+				else //if (!Minimised && !scoreboardEnabled)
+				{
+					Minimised = true;
+					//posX = GetMinimiseWidgetXPos() ? 65535 : 0;
+					//First = true;	// cause CorrectPos to be called
+					return true;	// don't let TA enable scoreboard
+				}
+			}
+			break;
 		case WM_LBUTTONDBLCLK:
-			if(LOWORD(lParam)>posX && LOWORD(lParam)<(posX+LocalShare->Width) && HIWORD(lParam)>(posY) && HIWORD(lParam)<((posY)+LocalShare->Height))
+			if (LOWORD(lParam) >= MinimiseWidgetBoxMin[0] && LOWORD(lParam) < MinimiseWidgetBoxMax[0] &&
+				HIWORD(lParam) >= MinimiseWidgetBoxMin[1] && HIWORD(lParam) < MinimiseWidgetBoxMax[1])
+			{
+				Minimised = !Minimised;
+				if (Minimised)
+				{
+					//posX = GetMinimiseWidgetXPos() ? 65535 : 0;
+				}
+				First = true;	// cause CorrectPos to be called
+				return true;
+			}
+			else if(LOWORD(lParam)>posX && LOWORD(lParam)<(posX+LocalShare->Width) && HIWORD(lParam)>(posY) && HIWORD(lParam)<((posY)+LocalShare->Height))
 			{
 				TAdynmemStruct * Ptr;
 				Ptr	= *(TAdynmemStruct* *)0x00511de8;
