@@ -1021,11 +1021,11 @@ void AlliesWhiteboard::EchoMarker(char *cText, char color)
 	char OutString[80];
 	if (strlen(cText) > 0)
 	{
-		snprintf(OutString, sizeof(OutString), "*%s> %s", GetPlayer(idxPlayer)->Name, cText);
+		snprintf(OutString, sizeof(OutString), "*%s: %s", GetPlayer(idxPlayer)->Name, cText);
 	}
 	else
 	{
-		snprintf(OutString, sizeof(OutString), "*%s> new marker added", GetPlayer(idxPlayer)->Name);
+		snprintf(OutString, sizeof(OutString), "*%s added a new marker", GetPlayer(idxPlayer)->Name);
 	}
 	OutString[79] = '\0';
 
