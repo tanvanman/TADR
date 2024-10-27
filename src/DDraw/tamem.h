@@ -269,7 +269,7 @@ typedef struct _GUIInfo
 	int field_54;
 	int field_58;
 	int field_5C;
-	int UIChange_f;
+	int UIChange_f;  // index into TheActive_GUIMEM->ControlsAry that was fiddled, or -1
 	int field_64;
 	int field_68;
 	int field_6C;
@@ -342,6 +342,16 @@ struct HAPINETStruct {
 								// 0x04c9
 };
 
+struct SkirmishInfo
+{
+	char data0[268];
+	unsigned mapping;
+	unsigned lineOfSight;
+	unsigned lineOfSightType;
+	char location[260];
+	char field_21c[16];
+};
+
 struct TAdynmemStruct{
 	char data1[12];				// 0x0000
 	_TAProgramStruct * TAProgramStruct_Ptr;	// 0x000c
@@ -353,7 +363,7 @@ struct TAdynmemStruct{
 	PlayerStruct Players[10];	//0x1B63 , end at 0x2851
 	char data4[331];			// 0x2851
 	unsigned int data5;			// 0x299c
-	unsigned int AllyStruct_Ptr;// 0x29a0
+	SkirmishInfo* skirmishInfo;	// 0x29a0
 	char data6[0x2c];			// 0x29a4
 	StartPositionsStruct startPositions;// 0x29d0		// populated during multiplayer load
 	char data6b[0x0c];				// 0x2a24
@@ -658,6 +668,21 @@ struct ProjectileStruct {
 }; //0x6B
 
 
+struct MissionUnitsStruct {
+	const char* Unitname;		// 0x0000
+	const char* Ident;			// 0x0004
+	const char* InitialMission;	// 0x0008
+	int XPos;	// *65k			// 0x000e
+	int YPos;	// elevation	// 0x0012
+	int ZPos;	// *65k			// 0x0016
+	short unk3;
+	char HealthPercentage;		// 0x001a
+	char data1b;				// 0x001b
+	int creationCountdown;		// 0x001c
+	char data20[2];				// 0x0020
+	short Player;	// 1..10	// 0x0022
+};								// 0x0024
+
 struct GameingState{
 	unsigned int  State;		// 0x0000
 	char data[0x200];			// 0x0004
@@ -670,7 +695,7 @@ struct GameingState{
 	unsigned tidalStrength;		// 0x0d40
 	unsigned isLavaMap;			// 0x0d44
 	char schemaInfo[100];		// 0x0d48
-	void* uniqueIdentifiers;	// 0x0dac
+	MissionUnitsStruct* uniqueIdentifiers;	// 0x0dac
 	unsigned uniqueIdentifierCount;// 0x0db0
 	MapStartPosStruct* mapStartPosAry_;// 0x0db4
 	unsigned mapStartPosCount;	// 0x0db8

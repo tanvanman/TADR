@@ -255,45 +255,64 @@ int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 	unsigned char* data = (unsigned char*)X86StrackBuffer->Edx;
 	PlayerStruct* player = (PlayerStruct*)X86StrackBuffer->Edi;
 
-	if (taPtr->GameTime == 90) { // 3 secs
-		for (int i = 0; i < 10; ++i) {
-			PlayerStruct* p = &taPtr->Players[i];
+	if (taPtr->GameTime == 90) // 3 secs
+	{
+		for (int iPlayer = 0; iPlayer < 10; ++iPlayer)
+		{
+			PlayerStruct* p = &taPtr->Players[iPlayer];
 			if (p->PlayerActive &&
 				!(p->PlayerInfo->PropertyMask & WATCH) &&
-				(p->My_PlayerType == Player_LocalHuman || p->My_PlayerType == Player_LocalAI) &&
-				p->Units[0].UnitID > 0) {
-				// send out a dummy move command to assist GhostComFix
-				PacketBuilderStruct pb;
-				PacketBuilder_Initialise(&pb, 0);
-				PacketBuilder_AppendBits(&pb, 0, 0x2c, 8);	// packet code
-				PacketBuilder_AppendBits(&pb, 0, 0, 16);	// placeholder for size
-				PacketBuilder_AppendBits(&pb, 0, taPtr->GameTime, 32);
-				PacketBuilder_AppendBits(&pb, 0, 0, 16);	// unit index (commander=0)
-				PacketBuilder_AppendBits(&pb, 0, p->Units[0].UnitID, taPtr->UNITINFOCount_SignificantBitsCount);
-				PacketBuilder_AppendBits(&pb, 0, 4, 3);		// bits
+				(p->My_PlayerType == Player_LocalHuman || p->My_PlayerType == Player_LocalAI))
+			{
+				for (int iUnit = 0; iUnit < taPtr->PlayerUnitsNumber_Skim && iUnit < taPtr->GameTime; ++iUnit)
+				{
+					unsigned** moveClassVirtualFunction1C = (unsigned**)p->Units[iUnit].IsUnit;
+					if (p->Units[iUnit].UnitID > 0 &&
+						moveClassVirtualFunction1C && *moveClassVirtualFunction1C)
+					{
+						// send out a dummy move command to assist GhostComFix
+						PacketBuilderStruct pb;
+						PacketBuilder_Initialise(&pb, 0);
+						PacketBuilder_AppendBits(&pb, 0, 0x2c, 8);	// packet code
+						PacketBuilder_AppendBits(&pb, 0, 0, 16);	// placeholder for size
+						PacketBuilder_AppendBits(&pb, 0, taPtr->GameTime, 32);
 
-				int fromX = p->Units[0].XPos;
-				int fromY = p->Units[0].YPos;
-				PacketBuilder_AppendBits(&pb, 0, fromX, 16);
-				PacketBuilder_AppendBits(&pb, 0, fromY, 16);
+						switch (0x1c + **moveClassVirtualFunction1C)
+						{
+						case 0x4fd474:	//MoveClass_Land_Vtbl
+						{
+							PacketBuilder_AppendBits(&pb, 0, 0, 16);	// unit index (commander=0)
+							PacketBuilder_AppendBits(&pb, 0, p->Units[iUnit].UnitID, taPtr->UNITINFOCount_SignificantBitsCount);
+							PacketBuilder_AppendBits(&pb, 0, 4, 3);		// bits
 
-				int toX = fromX, toY = fromY;
-				UnitOrdersStruct* uo = p->Units[0].UnitOrders;
-				if (uo != NULL && uo->Pos.X > 0 && uo->Pos.Y > 0) {
-					// com has already been orderd to move but we continue regardless
-					// because the remote might have missed the move command
-					toX = uo->Pos.X;
-					toY = uo->Pos.Y;
+							int fromX = p->Units[iUnit].XPos;
+							int fromY = p->Units[iUnit].YPos;
+							PacketBuilder_AppendBits(&pb, 0, fromX, 16);
+							PacketBuilder_AppendBits(&pb, 0, fromY, 16);
+
+							int toX = fromX, toY = fromY;
+							UnitOrdersStruct* uo = p->Units[iUnit].UnitOrders;
+							if (uo != NULL && uo->Pos.X > 0 && uo->Pos.Y > 0) {
+								// com has already been orderd to move but we continue regardless
+								// because the remote might have missed the move command
+								toX = uo->Pos.X;
+								toY = uo->Pos.Y;
+							}
+
+							PacketBuilder_AppendBits(&pb, 0, toX, 16);
+							PacketBuilder_AppendBits(&pb, 0, toY, 16);
+							PacketBuilder_AppendBits(&pb, 0, 0xffff, 16);
+
+							int size = (pb.bit_count + 7) / 8 + 4 * pb.dword_count;
+							PacketBuilder_AssignByteAtOfs(&pb, 0, 1, size);
+							PacketBuilder_AssignByteAtOfs(&pb, 0, 2, size >> 8);
+							HAPI_BroadcastMessage(p->DirectPlayID, (char*)pb.buffer_ptr, size);
+							break;
+						}
+						//case 0x4fd4a4:	//MoveClass_RemoteLand_Vtbl
+						};
+					}
 				}
-
-				PacketBuilder_AppendBits(&pb, 0, toX, 16);
-				PacketBuilder_AppendBits(&pb, 0, toY, 16);
-				PacketBuilder_AppendBits(&pb, 0, 0xffff, 16);
-
-				int size = (pb.bit_count + 7) / 8 + 4 * pb.dword_count;
-				PacketBuilder_AssignByteAtOfs(&pb, 0, 1, size);
-				PacketBuilder_AssignByteAtOfs(&pb, 0, 2, size >> 8);
-				HAPI_BroadcastMessage(p->DirectPlayID, (char*)pb.buffer_ptr, size);
 			}
 		}
 	}
@@ -526,7 +545,7 @@ int __stdcall RemoveSharedResourcesFromTotalProc(PInlineX86StackBuffer X86Strack
 	PlayerStruct *player = (PlayerStruct*)X86StrackBuffer->Edi;
 	player->PlayerRes.fTotalMetalProduced -= player->resourcesShared->fMetalReceived;
 	player->PlayerRes.fTotalEnergyProduced -= player->resourcesShared->fEnergyReceived;
-  return 0;
+    return 0;
 }
 
 unsigned int MultiplayerVictorySoundAddr = 0x46a182;
@@ -541,14 +560,14 @@ int __stdcall MultiplayerVictorySoundProc(PInlineX86StackBuffer X86StrackBuffer)
 		PlaySound_Effect("Victory Condition", 0);
 	}
 	victoryTime = taPtr->GameTime;
-  return 0;
+    return 0;
 }
 
 #define LOG_TRACE_HOOK(hookAddr, n, regDisplay) \
 unsigned int LogTrace##n##Addr = (hookAddr); \
 int __stdcall LogTrace##n##Proc(PInlineX86StackBuffer X86StrackBuffer) \
 { \
-	IDDrawSurface::OutptTxt("[LogTrace%d] %x", n, X86StrackBuffer->##regDisplay); \
+	IDDrawSurface::OutptTxt("[LogTrace%d] "##fmtstr, n, X86StrackBuffer->##regDisplay); \
     return 0; \
 }
 
@@ -669,6 +688,7 @@ TABugFixing::TABugFixing ()
 	WindSpeedSync.reset(new InlineSingleHook(WindSpeedSyncAddr, 5, INLINE_5BYTESLAGGERJMP, WindSpeedSyncProc));
 	//NetworkRawReceiveLog.reset(new InlineSingleHook(NetworkRawReceiveLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkRawReceiveLogProc));
 	//NetworkDispatchLog.reset(new InlineSingleHook(NetworkDispatchLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkDispatchLogProc));
+	//m_hooks.push_back(std::make_unique<InlineSingleHook>(LogTrace1Addr, 5, INLINE_5BYTESLAGGERJMP, LogTrace1Proc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoveSharedResourcesFromTotalAddr, 5, INLINE_5BYTESLAGGERJMP, RemoveSharedResourcesFromTotalProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(MultiplayerVictorySoundAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerVictorySoundProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );

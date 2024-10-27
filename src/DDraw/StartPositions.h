@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cinttypes>
 #include <memory>
 #include <random>

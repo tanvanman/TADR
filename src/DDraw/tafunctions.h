@@ -220,12 +220,21 @@ typedef LPDWORD (__stdcall * __GetUnitIDMaskAryByCategory) (LPSTR);
 typedef int  (__cdecl * _InitTAPath) (void);
 extern _InitTAPath InitTAPath;
 
+typedef int(__stdcall* _InitPlayerStruct) (PlayerStruct* PlayerPtr);
+extern _InitPlayerStruct InitPlayerStruct;
+
 typedef int (__stdcall * _Init_srand)(int seed);
 extern _Init_srand Init_srand;
 
-typedef int(__stdcall* _UNITS_CreateUnit)(
+typedef UnitStruct*(__stdcall* _UNITS_CreateUnit)(
 	int playerIndex, int unitInfoId, int posX, int posZ, int posY, bool fullHp, unsigned unitStateMask, int unitId);
 extern _UNITS_CreateUnit UNITS_CreateUnit;
+
+typedef int(__stdcall* _LoadCampaign_UniqueUnits)(void);
+extern _LoadCampaign_UniqueUnits LoadCampaign_UniqueUnits;
+
+typedef char(__stdcall* _Campaign_ParseUnitInitialMissionCommands)(UnitStruct* UnitPtr, const char* Source, int* outUniqueUnitID);
+extern _Campaign_ParseUnitInitialMissionCommands Campaign_ParseUnitInitialMissionCommands;
 
 typedef int(__fastcall* _SerialBitArrayRead)(SerialBitArrayStruct* serialBitArray, int ignored, int nBitsToRead);
 extern _SerialBitArrayRead SerialBitArrayRead;
@@ -244,6 +253,12 @@ extern _PacketBuilder_AssignByteAtOfs PacketBuilder_AssignByteAtOfs;
 
 typedef int(__stdcall* _TaCalcCRC)(unsigned char* data, int len);
 extern _TaCalcCRC TaCalcCRC;
+
+typedef void(__stdcall* _DPlayAddNewPlayer)(int newPlayerIndex, PlayerType playerType);
+extern _DPlayAddNewPlayer DPlayAddNewPlayer;
+
+typedef void(__stdcall* _battleroom_OnCommand)(GUIInfo *guiInfo);
+extern _battleroom_OnCommand battleroom_OnCommand;
 
 int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl= FALSE);
 int UpdateTAProcess (void);

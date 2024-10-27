@@ -1,4 +1,5 @@
 #include "StartPositions.h"
+#include "MultiplayerSchemaUnits.h"
 #include "tamem.h"
 #include "iddrawsurface.h"
 #include "hook/hook.h"
@@ -219,6 +220,31 @@ void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositio
 	else
 	{
 		GetStartPositionsSequentialy(isActivePlayer, startPositions, randomised);
+	}
+
+	if (MultiplayerSchemaUnits::GetInstance()->mapHasNeutralSpawnUnits())
+	{
+		int idxLastAI = -1;
+		int idxLastHuman = -1;
+		for (int i = 0; i < 10; ++i)
+		{
+			PlayerType playerType = GetInferredPlayerType(&ta->Players[i]);
+			bool isHuman = ta->Players[i].PlayerInfo->PlayerType == Player_LocalHuman;
+			bool isAI = ta->Players[i].PlayerInfo->PlayerType == Player_LocalAI;
+			if (isActivePlayer[i] && isHuman && (idxLastHuman < 0 || startPositions[i] > startPositions[idxLastHuman]))
+			{
+				idxLastHuman = i;
+			}
+			else if (isActivePlayer[i] && isAI && (idxLastAI < 0 || startPositions[i] > startPositions[idxLastAI]))
+			{
+				idxLastAI = i;
+			}
+		}
+		if (idxLastAI >= 0 && idxLastHuman >=0 && startPositions[idxLastAI] < startPositions[idxLastHuman])
+		{
+			IDDrawSurface::OutptTxt("[InitStartPositions] map has neutral spawn units.  swapping %d(AI) with %d(human) to ensure last position is occupied by an IA", idxLastAI, idxLastHuman);
+			std::swap(startPositions[idxLastAI], startPositions[idxLastHuman]);
+		}
 	}
 
 	for (int i = 0; i < 10; ++i) {

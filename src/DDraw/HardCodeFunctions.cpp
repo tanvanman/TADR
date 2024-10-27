@@ -516,7 +516,7 @@ PlayerType GetInferredPlayerType(PlayerStruct* p)
 
 bool InferredPlayerTypeIsLocal(PlayerStruct* p)
 {
-	return p->My_PlayerType != Player_RemoteHuman;
+	return p->My_PlayerType != Player_RemoteHuman && p->My_PlayerType != Player_none;
 }
 
 bool InferredPlayerTypeIsHuman(PlayerStruct* p)
@@ -662,13 +662,18 @@ _ApplySelectUnitGUI ApplySelectUnitGUI= (_ApplySelectUnitGUI)0x00495860;
 
 _Init_srand Init_srand= (_Init_srand)0x4B62D0;
 _UNITS_CreateUnit UNITS_CreateUnit = (_UNITS_CreateUnit)0x485f50;
+_LoadCampaign_UniqueUnits LoadCampaign_UniqueUnits = (_LoadCampaign_UniqueUnits)0x488310;
+_Campaign_ParseUnitInitialMissionCommands Campaign_ParseUnitInitialMissionCommands = (_Campaign_ParseUnitInitialMissionCommands)0x487bf0;
 _SerialBitArrayRead SerialBitArrayRead = (_SerialBitArrayRead)0x415dc0;
 _PacketBuilder_Initialise PacketBuilder_Initialise = (_PacketBuilder_Initialise)0x415b60;
 _PacketBuilder_AppendBits PacketBuilder_AppendBits = (_PacketBuilder_AppendBits)0x415c10;
 _PacketBuilder_Resize PacketBuilder_Resize = (_PacketBuilder_Resize)0x415bb0;
 _PacketBuilder_AssignByteAtOfs PacketBuilder_AssignByteAtOfs = (_PacketBuilder_AssignByteAtOfs)0x415da0;
-_InitTAPath InitTAPath= (_InitTAPath)0x4BCE10;
+_InitTAPath InitTAPath = (_InitTAPath)0x4BCE10;
+_InitPlayerStruct InitPlayerStruct = (_InitPlayerStruct)0x464700;
 _TaCalcCRC CalcCRC = (_TaCalcCRC)0x4b6ba0;
+_DPlayAddNewPlayer DPlayAddNewPlayer = (_DPlayAddNewPlayer)0x451220;
+_battleroom_OnCommand battleroom_OnCommand = (_battleroom_OnCommand)0x447b10;
 
 LPCSTR TAIniStr=  reinterpret_cast<LPCSTR> (0x5098A3);
 
