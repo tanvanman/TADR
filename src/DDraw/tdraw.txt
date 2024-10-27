@@ -29,6 +29,21 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*v2024.10.24
+- Ability to create multiplayer/skirmish maps with neutral units and/or additional per-player spawn units
+- Add a controls to hide/minimise the allies resource bar
+- Make the allies resource bar actually work with ctrl-f2 setting "background=None"
+- Fix incorrect player logo colour for "new marker added" messages
+- Player the "Mission Complete" sound upon winning a multiplayer/skirmish game
+- Fix bug causing "unit limit reached" in between single player missions
+- Remove shared metal/energy from player "totals"
+- Get TAHook to use the click-snapped start position
+- Increase size capacity of whiteboard marker messages
+- Fix for 10 player (and other) VerCheck false positives
+- Support for watching all 10 players in 10 player replays (pending a corresponding TAF update to activate it)
+
+
+*v2024.3.31 and prior
 - Set start positions based on battleroom teams (or alliances)
 - Repair battleroom teams icons so they can be used to create teams before to launching
 - Add +autoteam battleroom and in-game commands to automatically assign teams
@@ -133,3 +148,55 @@ NEW FEATURES IN DETAIL:
 
   Mash the 'v' key to get the desired movement order and then set a patrol route.
 
+- Neutral unit and/or per-player additional unit spawn
+
+  To enable this feature add a "[units]" section under the "[Schema 0]" section of your map's .ota file.  eg
+  
+      [Schema 0]
+          {
+          ....
+          [units]
+            {
+            [unit0]
+                {
+                Unitname=ARMHLT;
+                Ident=;
+                XPos=3164;
+                YPos=0;
+                ZPos=2250;
+                Player=11;
+                HealthPercentage=100;
+                }
+            [unit0]
+                {
+                Unitname=ARMPEEP;
+                Ident=;
+                XPos=268;
+                YPos=0;
+                ZPos=384;
+                Player=1;
+                HealthPercentage=100;
+                CreationCountdown=30;
+                InitialMission=p 1750 1828;
+                }
+            }
+
+  These additional units will spawn in for skirmish/multiplayer.
+
+  The "Player" key in the .ota file refers to the map position 1..10.
+  Whichever player is spawned into these positions will receive ownership of the respective units.
+
+  You can set Player=11.  If any Player=11 units are defined, then the last player (eg the 6th in a 3v3)
+  receives ownership of the Player=11 units as long as they are an AI.  He does not receive ownership of any other units.
+
+  If a player receives any units by this mechanism, they won't receive a commander.
+  If you want the player to have a commander,
+  then either don't define any units for that position,
+  or include a commander unit in the list of units.
+
+  The required fields for each unit are UnitName, XPos, ZPos and Player.
+  Ident, YPos and HealthPercentage are ignored.
+  Optional CreationCountdown is in seconds and InitialMission works.
+  You'll have to look at eg totala4.hpi/maps/*.OTA for examples of InitialMission scripts to copy.
+
+  Needless to say this is experimental at this time, theres likely lots of issues.
