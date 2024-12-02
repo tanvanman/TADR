@@ -286,7 +286,7 @@ int CIncome::ShowAllyIncome()
 	{
 		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
 		int targetPosX = GetMinimiseWidgetXPos()
-			? Ptr->GameSreen_Rect.right
+			? Ptr->GameSreen_Rect.right - MinimiseWidgetSize
 			: Ptr->GameSreen_Rect.left;
 
 		if (std::abs(targetPosX - posX) < 10)
