@@ -104,8 +104,10 @@ public:
 };
 //----------------------------------------------------------
 
-#define ELEMENT_HASH_SIZE 400
-#define HASH_SQUARE_SIZE 20
+// Largest map (Seven Islands) will have coordinates up to ~20000.
+// We require ELEMENT_HASH_SIZE * 2^HASH_SQUARE_SIZE > 20,000
+#define ELEMENT_HASH_SIZE 256		// should be a power of 2!
+#define HASH_SQUARE_SIZE 8			// a bitshift, not a divide!
 
 class CElementHandler  
 {
