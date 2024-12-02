@@ -11,6 +11,7 @@
 #include "pcxread.h"
 #include "maprect.h"
 #include <stdio.h>
+#include <fstream>
 #include <math.h>
 
 #include "fullscreenminimap.h"
@@ -172,13 +173,13 @@ void AlliesWhiteboard::DebugPlayerNumberFromInitialColor()
 		int n = PlayerNumbersByInitialColor[c];
 		PlayerStruct* player = GetPlayer(n);
 		if (player) {
-			sprintf(buff, "initialColor:%d, playerNumber:%d, playerName:%s, nowColor:%d",
+			sprintf(buff, "initialColor:%d, playerNumber:%d, playerName:%s, nowColor:%d\n",
 				c, n, player->Name, int(player->PlayerInfo->PlayerLogoColor)
 			);
 			IDDrawSurface::OutptTxt(buff);
 		}
 	}
-	sprintf(buff, "LocalPlayerColorAtLaunch:%d", int(LocalPlayerColorAtLaunch));
+	sprintf(buff, "LocalPlayerColorAtLaunch:%d\n", int(LocalPlayerColorAtLaunch));
 	IDDrawSurface::OutptTxt(buff);
 }
 
@@ -615,16 +616,6 @@ void AlliesWhiteboard::AddTextMarker()
 	PacketHandler.push_back(new GraphicText(PosX, PosY, Text, LocalPlayerColorAtLaunch));
 }
 
-void AlliesWhiteboard::AddTextMarker(int X, int Y, char *cText, char C)
-{
-	ElementHandler.AddElement(new GraphicText(X, Y, cText, C));
-
-	EchoMarker(cText, C);
-
-	LastMarkerX = X;
-	LastMarkerY = Y;
-}
-
 void AlliesWhiteboard::RestoreAll()
 {
 	lpInputBox->Restore();
@@ -1003,19 +994,18 @@ void AlliesWhiteboard::DrawFreeLine(int x1, int y1, int x2, int y2, char C, char
 
 void AlliesWhiteboard::EchoMarker(char *cText, char color)
 {
-	int idxPlayer = 10;
-	for (int i = 0; i < 10; ++i)
+	char idxPlayer = 10;
+	if (unsigned(color) < 10)
 	{
-		PlayerStruct* player = GetPlayer(i);
-		if (player->PlayerInfo->PlayerLogoColor == color)
-		{
-			idxPlayer = player->PlayerAryIndex;
-			if ((player->PlayerInfo->PropertyMask & WATCH) == 0u &&
-				(!DataShare->PlayingDemo || player->My_PlayerType == Player_RemoteHuman))
-			{
-				break;
-			}
-		}
+		idxPlayer = PlayerNumbersByInitialColor[color];
+	}
+
+	if (unsigned(idxPlayer) >= 10)
+	{
+		std::ofstream fs("ErrorLog.txt", std::ios::app);
+		fs << "[EchoMarker] unable to find idxPlayer for color " << int(color) << ".  See tdrawlog.txt" << std::endl;
+		DebugPlayerNumberFromInitialColor();
+		idxPlayer = 0;
 	}
 
 	char OutString[80];

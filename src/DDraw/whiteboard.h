@@ -148,7 +148,6 @@ class AlliesWhiteboard
     void TextInputKeyDown(int Key);
     void TextInputChar(char C);
     void AddTextMarker();
-    void AddTextMarker(int X, int Y, char *cText, char C);
     void DeleteMarker(int X, int Y);
     void RestoreAll();
     void EchoMarker(char *cText, char color);
