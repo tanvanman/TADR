@@ -29,7 +29,11 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*v2024.10.24
+*v2024.12.03
+- Fix crash on +logo
+- Fix rare intermitent crash on adding / moving / deleting whiteboard markers
+
+*v2024.10.27
 - Ability to create multiplayer/skirmish maps with neutral units and/or additional per-player spawn units
 - Add a controls to hide/minimise the allies resource bar
 - Make the allies resource bar actually work with ctrl-f2 setting "background=None"
