@@ -511,6 +511,24 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 #endif
 
 	HRESULT result;
+	if (GetCurrentThreadId() != LocalShare->GuiThreadId)
+	{
+		// mouse update thread.  just unlock back surface and return.
+		//
+		// If we're not the "GuiThread", we don't want to access any resources
+		// here that are also accessed by our WinProc.
+		// At this point, TA should have already synchronised access to the backsurface,
+		// but all our stuff (notably WhiteBoardMarker and its ElementHandler,
+		// which is definitely accessed by our WinProc) are not synchronised!
+		// In the extreme case we could enable the SYNCHRONISE_THREADS #define.
+		// But if we can get away without it, so much the better.
+		//
+		// So therefore: just unlock back surface and return!
+		lpDDClipper->SetClipList(ScreenRegion, 0);
+		result = lpBack->Unlock(arg1);
+		return result;
+	}
+
 	UpdateTAProcess ( );
 	if (GetCurrentThreadId() == LocalShare->GuiThreadId && DataShare->PlayingDemo)
 	{
