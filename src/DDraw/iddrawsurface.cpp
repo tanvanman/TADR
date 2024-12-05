@@ -526,6 +526,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 		// So therefore: just unlock back surface and return!
 		lpDDClipper->SetClipList(ScreenRegion, 0);
 		result = lpBack->Unlock(arg1);
+		lpBackLockOn = false;
 		return result;
 	}
 
