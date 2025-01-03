@@ -17,7 +17,7 @@
 #undef max
 #endif
 
-static void DoSpawnUnit(PlayerStruct *targetPlayer, MissionUnitsStruct* missionUnit, int playerUnitNumberOverride = 0)
+static UnitStruct* DoSpawnUnit(PlayerStruct *targetPlayer, MissionUnitsStruct* missionUnit, int playerUnitNumberOverride = 0)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 
@@ -28,6 +28,19 @@ static void DoSpawnUnit(PlayerStruct *targetPlayer, MissionUnitsStruct* missionU
 			unitInfoId = i;
 			break;
 		}
+	}
+
+	{
+		int missionUnitIndex = std::distance(taPtr->GameingState_Ptr->uniqueIdentifiers, missionUnit);
+		const char* identity = missionUnit->Ident ? missionUnit->Ident : "<null>";
+		const char* initialMission = missionUnit->InitialMission ? missionUnit->InitialMission : "<null>";
+		IDDrawSurface::OutptTxt("[DoSpawnUnit] unitNumber=%d unitInfoId=%d, player=%d unitName=%s identity=%s mission=%s",
+			missionUnitIndex, unitInfoId, int(missionUnit->Player), missionUnit->Unitname, identity, initialMission);
+	}
+
+	if (unitInfoId < 0)
+	{
+		return NULL;
 	}
 
 	unsigned x = missionUnit->XPos;
@@ -42,10 +55,25 @@ static void DoSpawnUnit(PlayerStruct *targetPlayer, MissionUnitsStruct* missionU
 	int unitNumber = playerUnitNumberOverride ? playerUnitNumberOverride + targetPlayer->UnitsIndex_Begin : 0;
 	UnitStruct *newUnit = UNITS_CreateUnit(targetPlayer->PlayerAryIndex, unitInfoId, x, y, z, true, 1, unitNumber);
 
+	return newUnit;
+}
+
+static void DoParseInitialMissionCommands(int iMissionUnit, MissionUnitsStruct* missionUnit, UnitStruct *spawnedUnit, UnitStruct *allSpawnedUnits[])
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+
 	if (missionUnit->InitialMission && missionUnit->InitialMission[0] != '\0')
 	{
-		int outUniqueId = std::distance(taPtr->GameingState_Ptr->uniqueIdentifiers, missionUnit);
-		Campaign_ParseUnitInitialMissionCommands(newUnit, missionUnit->InitialMission, &outUniqueId);
+		struct
+		{
+			int iMissionUnit;
+			UnitStruct** spawnedUnitsAry;
+		}
+		spawnedUnitsAry;
+		spawnedUnitsAry.iMissionUnit = iMissionUnit;
+		spawnedUnitsAry.spawnedUnitsAry = allSpawnedUnits;
+
+		Campaign_ParseUnitInitialMissionCommands(spawnedUnit, missionUnit->InitialMission, (void*)&spawnedUnitsAry);
 	}
 }
 
@@ -394,8 +422,10 @@ bool MultiplayerSchemaUnits::spawnInitialUnits(PlayerStruct* targetPlayer, int t
 	}
 
 	bool anySpawnedUnits = false;
+	std::vector<UnitStruct*> newUnits(taPtr->GameingState_Ptr->uniqueIdentifierCount);
 	for (int iMissionUnit = 0; iMissionUnit < taPtr->GameingState_Ptr->uniqueIdentifierCount; ++iMissionUnit)
 	{
+		UnitStruct* newUnit = NULL;
 		MissionUnitsStruct* missionUnit = &taPtr->GameingState_Ptr->uniqueIdentifiers[iMissionUnit];
 		if (missionUnit->creationCountdown <= 0)
 		{
@@ -406,7 +436,7 @@ bool MultiplayerSchemaUnits::spawnInitialUnits(PlayerStruct* targetPlayer, int t
 			int unitNumber = isCommanderUnit ? 0 : 90 + iMissionUnit;
 			if (targetPlayer == neutralPlayer && missionUnit->Player == 11)
 			{
-				DoSpawnUnit(targetPlayer, missionUnit, unitNumber);
+				newUnit = DoSpawnUnit(targetPlayer, missionUnit, unitNumber);
 				anySpawnedUnits = true;
 			}
 			else if (targetPlayer != neutralPlayer &&
@@ -414,9 +444,19 @@ bool MultiplayerSchemaUnits::spawnInitialUnits(PlayerStruct* targetPlayer, int t
 				InferredPlayerTypeIsLocal(targetPlayer) &&
 				!(targetPlayer->PlayerInfo->PropertyMask & WATCH))
 			{
-				DoSpawnUnit(targetPlayer, missionUnit, unitNumber);
+				newUnit = DoSpawnUnit(targetPlayer, missionUnit, unitNumber);
 				anySpawnedUnits = true;
 			}
+		}
+		newUnits[iMissionUnit] = newUnit;
+	}
+
+	for (int iMissionUnit = 0; iMissionUnit < taPtr->GameingState_Ptr->uniqueIdentifierCount; ++iMissionUnit)
+	{
+		if (newUnits[iMissionUnit])
+		{
+			MissionUnitsStruct* missionUnit = &taPtr->GameingState_Ptr->uniqueIdentifiers[iMissionUnit];
+			DoParseInitialMissionCommands(iMissionUnit, missionUnit, newUnits[iMissionUnit], newUnits.data());
 		}
 	}
 
