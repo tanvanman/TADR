@@ -543,6 +543,7 @@ int ChallengeResponse::VerifyResponses()
 		std::string text = ss.str();
 		if (!text.empty()) {
 			m_persistentCheatWarnings.push_back(text);
+			IDDrawSurface::OutptTxt("[ChallengeResponse::VerifyResponses] %s", text.c_str());
 			++verificationIssueCount;
 		}
 	}
