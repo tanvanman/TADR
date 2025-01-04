@@ -110,9 +110,21 @@ LOCAL_PLAYER_CHECK_HACK(0x455237, 18, Ebx, 0x455241) // Packet_Dispatcher CHAT_0
 LOCAL_PLAYER_CHECK_HACK(0x45339d, 19, Edx-0x73, 0x4534c2) // BroadcastText
 
 
-unsigned int PermSonarLosAddr = 0x46754a;
+//unsigned int PermSonarLosAddr = 0x42c3e6;  // patch commander unit definition
+unsigned int PermSonarLosAddr = 0x46754a;	 // patch sonar calculation
 int __stdcall PermSonarLosProc(PInlineX86StackBuffer X86StrackBuffer)
 {
+	static const int RADIUS = 30000;
+
+	// patch commander unit definition
+	//UnitDefStruct* u = (UnitDefStruct*)X86StrackBuffer->Ebp;
+	//if (DataShare->PlayingDemo && !strcmp(u->Name, "Commander"))
+	//{
+	//	u->nSonarDistance = RADIUS;
+	//}
+	//return 0;
+
+	// patch sonar calculation
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	if (DataShare->PlayingDemo && TAInGame == DataShare->TAProgress &&
 		taPtr->LOS_Sight_PlayerID == taPtr->LocalHumanPlayer_PlayerID)
@@ -129,12 +141,20 @@ int __stdcall PermSonarLosProc(PInlineX86StackBuffer X86StrackBuffer)
 					{
 						// viewing player's first unit gets a sonar buff
 						int posy = *(short*)(X86StrackBuffer->Esi + 0x70);
-						X86StrackBuffer->Ecx = 30000 + 2 * posy;
-						X86StrackBuffer->Edx = 30000;
-						X86StrackBuffer->Eax = 30000;
+						X86StrackBuffer->Ecx = RADIUS;// +2 * posy;
+						X86StrackBuffer->Edx = RADIUS;
+						X86StrackBuffer->Eax = RADIUS;
 						X86StrackBuffer->Ecx *= X86StrackBuffer->Ecx;
 						X86StrackBuffer->Edx *= X86StrackBuffer->Edx;
-						X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x467586;
+
+						//X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x467586;
+						//return X86STRACKBUFFERCHANGE;
+
+						// large nSonarDistance doesn't seem to work unless unit is near top left of map ...
+						static DWORD fakePosition[3] = { 0, 0, 0 };
+						*(DWORD*)(X86StrackBuffer->Esp + 0x24) = X86StrackBuffer->Ecx;
+						X86StrackBuffer->Ecx = (DWORD)&fakePosition[0];
+						X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x46758d;
 						return X86STRACKBUFFERCHANGE;
 					}
 					return 0;
