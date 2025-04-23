@@ -29,6 +29,14 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*v2025.04.24
+- Fix crash on parsing spawned unit initial commands - its now possible to copy-paste mission scripts from campaign
+- Log cheat warnings to tdrawlog.txt for offline analysis
+- Fix for non functional perm-los sonar patch (which otherwise requires watcher's com to be in top-left of map to work)
+
+*v2024.12.05
+- Fix crash on print-screen (and presumably many other related crashes)
+
 *v2024.12.03
 - Fix crash on +logo
 - Fix rare intermitent crash on adding / moving / deleting whiteboard markers
