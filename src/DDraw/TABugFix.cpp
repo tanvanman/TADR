@@ -563,6 +563,42 @@ int __stdcall MultiplayerVictorySoundProc(PInlineX86StackBuffer X86StrackBuffer)
     return 0;
 }
 
+unsigned int FixedPositionGuardingConsAddr = 0x4066ac;
+int __stdcall FixedPositionGuardingConsProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	UnitOrdersStruct* const orders = (UnitOrdersStruct*)(X86StrackBuffer->Ebx);
+	UnitStruct* const guardingUnit = orders->Unit_ptr;
+
+	int guardOffset;
+	//if (((guardingUnit->UnitSelected & 0x000c0000) >> 18) == 0 /* holdpos*/)
+	{
+		guardOffset = 7 * orders->BuildUnitID / 20;	// Not really BuildUnitID in this context ...
+	}
+	//else if (((guardingUnit->UnitSelected & 0x000c0000) >> 18) == 2 /* roam */)
+	//{
+	//	guardOffset = orders->BuildUnitID;			// Not really BuildUnitID in this context ...
+	//}
+	//else // maneuvre
+	//{
+	//	return 0;			// OTA behaviour
+	//}
+
+	// change con's home position to point on the closest diagonal
+	UnitStruct* guardedUnit = (UnitStruct*)(X86StrackBuffer->Eax);
+	int dx = (int)guardingUnit->XPos - (int)guardedUnit->XPos;
+	int dy = (int)guardingUnit->YPos - (int)guardedUnit->YPos;
+
+	orders->Pos.X = dx >= 0
+		? guardOffset
+		: -guardOffset;
+
+	orders->Pos.Y = dy >= 0
+		? guardOffset
+		: -guardOffset;
+
+	return 0;
+}
+
 #define LOG_TRACE_HOOK(hookAddr, n, regDisplay) \
 unsigned int LogTrace##n##Addr = (hookAddr); \
 int __stdcall LogTrace##n##Proc(PInlineX86StackBuffer X86StrackBuffer) \
@@ -691,6 +727,7 @@ TABugFixing::TABugFixing ()
 	//m_hooks.push_back(std::make_unique<InlineSingleHook>(LogTrace1Addr, 5, INLINE_5BYTESLAGGERJMP, LogTrace1Proc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoveSharedResourcesFromTotalAddr, 5, INLINE_5BYTESLAGGERJMP, RemoveSharedResourcesFromTotalProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(MultiplayerVictorySoundAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerVictorySoundProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(FixedPositionGuardingConsAddr, 5, INLINE_5BYTESLAGGERJMP, FixedPositionGuardingConsProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
