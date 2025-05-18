@@ -29,6 +29,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*v2025.05.18
+- Improved behaviour of con units when guarding a factory - they stay put after finishing a build
+
 *v2025.04.24
 - Fix crash on parsing spawned unit initial commands - its now possible to copy-paste mission scripts from campaign
 - Log cheat warnings to tdrawlog.txt for offline analysis
