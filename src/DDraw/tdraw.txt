@@ -29,6 +29,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*v????.??.??
+- Fix bug with erroneous game results reported to TAF when using in-game +autoteam
+
 *v2025.05.18
 - Improved behaviour of con units when guarding a factory - they stay put after finishing a build
 
@@ -210,8 +213,7 @@ NEW FEATURES IN DETAIL:
   or include a commander unit in the list of units.
 
   The required fields for each unit are UnitName, XPos, ZPos and Player.
-  Ident, YPos and HealthPercentage are ignored.
+  YPos and HealthPercentage are ignored.
   Optional CreationCountdown is in seconds and InitialMission works.
+  Optional Ident makes it possible to refer to the unit in InitialMission of another unit.
   You'll have to look at eg totala4.hpi/maps/*.OTA for examples of InitialMission scripts to copy.
-
-  Needless to say this is experimental at this time, theres likely lots of issues.
