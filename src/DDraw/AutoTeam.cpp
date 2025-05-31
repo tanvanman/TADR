@@ -61,6 +61,17 @@ static void OfferAlliance(PlayerStruct& p1, PlayerStruct& p2, bool isAllied)
 		return;
 	}
 
+	// in-game +autoteam only works properly with broadcast=true
+	// (otherwise some players' gpgnet4ta doesn't know about the alliance and therefore may report incorrect game outcome)
+	bool broadcast = true;
+	if (broadcast)
+	{
+		p1.AllyFlagAry[p2.PlayerAryIndex] = isAllied;
+		DataShare->allies[p2.PlayerAryIndex] = isAllied;	// Needed for battleroom +autoteam otherwise host's ally is missing resource bars ...
+		HAPI_BroadcastMessage(p1.DirectPlayID, (const char*)&msg, sizeof(msg));
+		return;
+	}
+
 	if (!p2IsLocal)
 	{
 		// as p1, offer alliance to p2
