@@ -211,11 +211,14 @@ void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositio
 
 	if (CountLargestTeamSize(playerTeamNumbers) > 1)
 	{
-		GetStartPositionsFromTeamNumbers(playerTeamNumbers, isActivePlayer, startPositions, randomised);
+		GetStartPositionsFromTeamNumbers(playerTeamNumbers, isActivePlayer, startPositions, randomised, GetSharedMemory());
 	}
 	else if (!randomised && GetSharedMemory() && GetSharedMemory()->positionCount > 0)
 	{
-		GetStartPositionsFromSharedMemory(GetSharedMemory(), isActivePlayer, startPositions);
+		if (!GetStartPositionsFromSharedMemory(GetSharedMemory(), isActivePlayer, startPositions))
+		{
+			GetStartPositionsSequentialy(isActivePlayer, startPositions, randomised);
+		}
 	}
 	else
 	{
@@ -318,7 +321,7 @@ int StartPositions::CountLargestTeamSize(const int playerTeamNumbers[10])
 	return largestTeamSize;
 }
 
-void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10], int isActivePlayer[10], int positions[10], bool randomise)
+void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10], int isActivePlayer[10], int positions[10], bool randomise, StartPositionsData *startPositionsData)
 {
 	// track which positions have been assigned
 	bool isUsedPosition[10] = { false };
@@ -353,11 +356,42 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 		nextPositionByTeam[i] = i;
 	}
 
-	// randomise order of assignment if required
+	// fiddle order of assignment if required
 	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	if (randomise)
 	{
+		// random order
 		std::shuffle(shuffle, shuffle + 10, m_rng);
+	}
+	else if (startPositionsData && startPositionsData->positionCount > 0 && startPositionsData->positionCount <= 10)
+	{
+		// order specified by shared memory
+		int foundPlayerCount = 0;
+		for (int i = 0; i < startPositionsData->positionCount; ++i)
+		{
+			for (int nPlayer = 0; nPlayer < 10; ++nPlayer)
+			{
+				int* PTR = (int*)0x00511de8;
+				TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+				if (!strncmp(
+					ta->Players[nPlayer].Name,
+					startPositionsData->orderedPlayerNames[i],
+					sizeof(startPositionsData->orderedPlayerNames[i])))
+				{
+					shuffle[i] = nPlayer;
+					++foundPlayerCount;
+					break;
+				}
+			}
+		}
+		// revert the order to something sane if we couldn't find all the players specified in shared memory
+		if (foundPlayerCount != startPositionsData->positionCount)
+		{
+			for (int i = 0; i < 10; ++i)
+			{
+				shuffle[i] = i;
+			}
+		}
 	}
 
 	for (int i = 0; i < 10; ++i) {
@@ -365,9 +399,9 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 	}
 
 	// make 1st pass naive assignments.  they might out of the range >= 10
-	for (int _i = 0; _i < 10; ++_i)
+	for (int _i = 0; _i < 10; ++_i)	// for each player
 	{
-		int i = shuffle[_i];
+		int i = shuffle[_i];		// ith player
 		if (teamNumbers[i] > 0)
 		{
 			int teamNumber = teamNumbers[i] - 1;
@@ -412,7 +446,7 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 	}
 }
 
-void StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData* sm, int isActivePlayer[10], int startPositions[10])
+bool StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData* sm, int isActivePlayer[10], int startPositions[10])
 {
 	int* PTR = (int*)0x00511de8;
 	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
@@ -434,14 +468,21 @@ void StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData*
 		{
 			continue;
 		}
+		bool foundIt = false;
 		for (int nStartPosition = 0; nStartPosition < 10; ++nStartPosition)
 		{
 			if (!strncmp(ta->Players[nPlayer].Name, sm->orderedPlayerNames[nStartPosition], sizeof(sm->orderedPlayerNames[nStartPosition])))
 			{
 				startPositions[nPlayer] = nStartPosition;
 				assignedPositions[nStartPosition] = true;
+				foundIt = true;
 				break;
 			}
+		}
+		if (!foundIt)
+		{
+			IDDrawSurface::OutptTxt("[GetStartPositionsFromSharedMemory] no position is assigned for player '%s'. aborting", ta->Players[nPlayer].Name);
+			return false;
 		}
 	}
 
@@ -477,6 +518,8 @@ void StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData*
 	for (int i = 0; i < 10; ++i) {
 		IDDrawSurface::OutptTxt("[GetStartPositionsFromSharedMemory] i=%d, 2nd pass startPositions=%d", i, startPositions[i]);
 	}
+
+	return true;
 }
 
 int StartPositions::GetStartPositionsSequentialy(int isActivePlayer[10], int startPositions[10], bool randomise)
