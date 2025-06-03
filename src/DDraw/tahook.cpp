@@ -19,6 +19,7 @@
 
 #include "megamaptastuff.h"
 #include "MegamapControl.h"
+#include "HackableOptions.h"
 
 #include <algorithm>
 #include <list>
@@ -1741,8 +1742,7 @@ int CTAHook::GetDefaultMexSnapRadius()
 {
 	// dead space at the end of "Copyright 0000 Humongous Entertainment"
 	// Is 0 unless exe is patched to make it something else
-	const unsigned char* byte = (const unsigned char*)0x50390a;
-	int radius = *byte;
+	int radius = *TA_HOOK_DEFAULT_MEX_SNAP_RADIUS;
 	if (radius > 9) { 
 		radius = 9;
 	}
@@ -1758,8 +1758,7 @@ int CTAHook::GetMaxMexSnapRadius()
 {
 	// dead space at the end of "Copyright 0000 Humongous Entertainment"
 	// Is 0 unless exe is patched to make it something else
-	const unsigned char* byte = (const unsigned char*)0x50390b;
-	int radius = *byte;
+	int radius = *TA_HOOK_MAX_MEX_SNAP_RADIUS;
 	if (radius > 9) {
 		radius = 9;
 	}
@@ -1770,8 +1769,7 @@ int CTAHook::GetDefaultWreckSnapRadius()
 {
 	// dead space at the end of "0000"
 	// Is 0 unless exe is patched to make it something else
-	const unsigned char* byte = (const unsigned char*)0x503912;
-	int radius = *byte;
+	int radius = *TA_HOOK_DEFAULT_WRECK_SNAP_RADIUS;
 	if (radius > 9) {
 		radius = 9;
 	}
@@ -1787,8 +1785,7 @@ int CTAHook::GetMaxWreckSnapRadius()
 {
 	// dead space at the end of "0000"
 	// Is 0 unless exe is patched to make it something else
-	const unsigned char* byte = (const unsigned char*)0x503913;
-	int radius = *byte;
+	int radius = *TA_HOOK_MAX_WRECK_SNAP_RADIUS;
 	if (radius > 9) {
 		radius = 9;
 	}

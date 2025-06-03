@@ -13,6 +13,7 @@
 #include "TAConfig.h"
 
 #include "ddraw.h"
+#include "HackableOptions.h"
 
 #include <chrono>
 #include <random>
@@ -727,7 +728,9 @@ TABugFixing::TABugFixing ()
 	//m_hooks.push_back(std::make_unique<InlineSingleHook>(LogTrace1Addr, 5, INLINE_5BYTESLAGGERJMP, LogTrace1Proc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoveSharedResourcesFromTotalAddr, 5, INLINE_5BYTESLAGGERJMP, RemoveSharedResourcesFromTotalProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(MultiplayerVictorySoundAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerVictorySoundProc));
-	m_hooks.push_back(std::make_unique<InlineSingleHook>(FixedPositionGuardingConsAddr, 5, INLINE_5BYTESLAGGERJMP, FixedPositionGuardingConsProc));
+	if (0 == *TA_BUGFIX_FIXED_POSN_GUARDING_CONS_DISABLE) {
+		m_hooks.push_back(std::make_unique<InlineSingleHook>(FixedPositionGuardingConsAddr, 5, INLINE_5BYTESLAGGERJMP, FixedPositionGuardingConsProc));
+	}
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
