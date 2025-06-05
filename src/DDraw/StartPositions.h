@@ -35,8 +35,9 @@ private:
 	static void GetTeamsFromAlliances(int playerTeamNumbers[10], bool randomise);
 	static int CountLargestTeamSize(const int playerTeamNumbers[10]);
 	static void GetStartPositionsFromTeamNumbers(const int playerTeamNumbers[10], int isActivePlayer[10], int startPositions[10], bool randomise, StartPositionsData*);
-	static bool GetStartPositionsFromSharedMemory(const StartPositionsData* sm, int isActivePlayer[10], int startPositions[10]);
+	static void GetStartPositionsFromSharedMemory(const StartPositionsData* sm, int isActivePlayer[10], int startPositions[10]);
 	static int GetStartPositionsSequentialy(int isActivePlayer[10], int startPositions[10], bool randomise);
+	static int SortSolitaryLocalAisLast(int playerIndices[10], const int teamNumbers[10], const int teamSize[10]);
 
 	static std::unique_ptr<StartPositions> m_instance;
 	static std::default_random_engine m_rng;
