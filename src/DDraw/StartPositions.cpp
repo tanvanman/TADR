@@ -215,10 +215,7 @@ void StartPositions::InitStartPositions(int isActivePlayer[10], int startPositio
 	}
 	else if (!randomised && GetSharedMemory() && GetSharedMemory()->positionCount > 0)
 	{
-		if (!GetStartPositionsFromSharedMemory(GetSharedMemory(), isActivePlayer, startPositions))
-		{
-			GetStartPositionsSequentialy(isActivePlayer, startPositions, randomised);
-		}
+		GetStartPositionsFromSharedMemory(GetSharedMemory(), isActivePlayer, startPositions);
 	}
 	else
 	{
@@ -349,13 +346,6 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, teamSize=%d", i, teamSize[i]);
 	}
 
-	// track next positions to assign to each team
-	int nextPositionByTeam[10] = { -1 };
-	for (int i = 0; i < numTeams; ++i)
-	{
-		nextPositionByTeam[i] = i;
-	}
-
 	// fiddle order of assignment if required
 	int shuffle[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	if (randomise)
@@ -398,28 +388,57 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, shuffle=%d", i, shuffle[i]);
 	}
 
+	int teamPositionStride = numTeams;
+	if (MultiplayerSchemaUnits::GetInstance()->mapHasNeutralSpawnUnits())
+	{
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] Map has neutral spawn units.  Moving solitary AI's to end of shuffle");
+		int numSolitaryLocalAis = SortSolitaryLocalAisLast(shuffle, teamNumbers, teamSize);
+		if (numSolitaryLocalAis > 0 && numTeams > 2) {
+			--teamPositionStride;	// the neutral AI must not affect team position stride
+			IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] And reduced teamPositionStride count to %d", teamPositionStride);
+		}
+		for (int i = 0; i < 10; ++i) {
+			IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, shuffle=%d", i, shuffle[i]);
+		}
+	}
+
+	// track next positions to assign to each team
+	// Only the fist numTeams are normally referenced
+	// Except with with neutral units AI present (because we fiddled numTeams)
+	int nextPositionByTeam[10];
+	for (int i = 0; i < 10; ++i)
+	{
+		nextPositionByTeam[i] = i;
+	}
+
 	// make 1st pass naive assignments.  they might out of the range >= 10
+	IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] 1st pass assignments ...");
 	for (int _i = 0; _i < 10; ++_i)	// for each player
 	{
 		int i = shuffle[_i];		// ith player
 		if (teamNumbers[i] > 0)
 		{
-			int teamNumber = teamNumbers[i] - 1;
-			positions[i] = nextPositionByTeam[teamNumber];
-			nextPositionByTeam[teamNumber] += numTeams;
-			if (positions[i] < 10)
-			{
-				isUsedPosition[positions[i]] = true;
+			int teamIndex = teamNumbers[i] - 1;
+			int nextPosition = nextPositionByTeam[teamIndex];
+			positions[i] = nextPosition;
+			IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d teamIndex=%d nextPosition=%d isUsedPosition=%d",
+				i, teamIndex, nextPosition, isUsedPosition[nextPosition]);
+			if (!isUsedPosition[nextPosition]) {
+				nextPositionByTeam[teamIndex] += teamPositionStride;
+				if (positions[i] < 10)
+				{
+					isUsedPosition[positions[i]] = true;
+				}
+			}
+			else {
+				positions[i] = 10; // mark a collision for resolution in 2nd pass
 			}
 		}
 	}
 
 	for (int i = 0; i < 10; ++i) {
-		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, 1st pass isUsedPosition=%d", i, isUsedPosition[i]);
-	}
-
-	for (int i = 0; i < 10; ++i) {
-		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d, 1st pass position=%d", i, positions[i]);
+		IDDrawSurface::OutptTxt("[GetStartPositionsFromTeamNumbers] i=%d 1st pass isUsedPosition=%d position=%d",
+			i, isUsedPosition[i], positions[i]);
 	}
 
 	// repair out of range position assignments >= 10
@@ -446,7 +465,7 @@ void StartPositions::GetStartPositionsFromTeamNumbers(const int teamNumbers[10],
 	}
 }
 
-bool StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData* sm, int isActivePlayer[10], int startPositions[10])
+void StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData* sm, int isActivePlayer[10], int startPositions[10])
 {
 	int* PTR = (int*)0x00511de8;
 	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
@@ -468,21 +487,14 @@ bool StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData*
 		{
 			continue;
 		}
-		bool foundIt = false;
 		for (int nStartPosition = 0; nStartPosition < 10; ++nStartPosition)
 		{
 			if (!strncmp(ta->Players[nPlayer].Name, sm->orderedPlayerNames[nStartPosition], sizeof(sm->orderedPlayerNames[nStartPosition])))
 			{
 				startPositions[nPlayer] = nStartPosition;
 				assignedPositions[nStartPosition] = true;
-				foundIt = true;
 				break;
 			}
-		}
-		if (!foundIt)
-		{
-			IDDrawSurface::OutptTxt("[GetStartPositionsFromSharedMemory] no position is assigned for player '%s'. aborting", ta->Players[nPlayer].Name);
-			return false;
 		}
 	}
 
@@ -518,8 +530,6 @@ bool StartPositions::GetStartPositionsFromSharedMemory(const StartPositionsData*
 	for (int i = 0; i < 10; ++i) {
 		IDDrawSurface::OutptTxt("[GetStartPositionsFromSharedMemory] i=%d, 2nd pass startPositions=%d", i, startPositions[i]);
 	}
-
-	return true;
 }
 
 int StartPositions::GetStartPositionsSequentialy(int isActivePlayer[10], int startPositions[10], bool randomise)
@@ -543,6 +553,14 @@ int StartPositions::GetStartPositionsSequentialy(int isActivePlayer[10], int sta
 		std::shuffle(shuffle, shuffle + 10, m_rng);
 	}
 
+	if (MultiplayerSchemaUnits::GetInstance()->mapHasNeutralSpawnUnits())
+	{
+		IDDrawSurface::OutptTxt("[GetStartPositionsSequentialy] Map has neutral spawn units.  Moving AI's to end of shuffle");
+		const int teamNumbers[10] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+		const int teamSize[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+		SortSolitaryLocalAisLast(shuffle, teamNumbers, teamSize);
+	}
+
 	for (int i = 0; i < 10; ++i) {
 		IDDrawSurface::OutptTxt("[GetStartPositionsSequentialy] i=%d, shuffle=%d", i, shuffle[i]);
 	}
@@ -562,4 +580,63 @@ int StartPositions::GetStartPositionsSequentialy(int isActivePlayer[10], int sta
 	}
 
 	return nextStartPosition;
+}
+
+/**
+ * @brief sort playerIndices such that solitary (teamSize of 1) local AI players are last. Otherwise order of indices is unchanged
+ * @param playerIndices player indices (index of ta->Players) to be sorted
+ * @param teamNumbers teamNumbers[i] is the team that ta->Players[i] is on
+ * @param teamSize teamSize[n] is the number of players in team n=teamNumbers[i]
+ * @return number of solitary local AI's
+ */
+int StartPositions::SortSolitaryLocalAisLast(int playerIndices[10], const int teamNumbers[10], const int teamSize[10])
+{
+	int* PTR = (int*)0x00511de8;
+	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
+
+	// We'll use two separate arrays to maintain the order:
+	// one for non-solitary-local-AI players, one for solitary-local-AI players
+	int solitaryLocalAis[10];
+	int solitaryLocalAisCount = 0;
+	int others[10];
+	int othersCount = 0;
+
+	for (int i = 0; i < 10; i++) {
+		int playerIndex = playerIndices[i];
+		if (playerIndex < 0 || playerIndex >= 10) continue; // skip invalid indices
+
+		int playerTeamNumber = teamNumbers[playerIndex];
+		int playerTeamSize = playerTeamNumber > 0 && playerTeamNumber <= 10
+			? teamSize[playerTeamNumber - 1]
+			: 0;
+
+		PlayerType inferredPlayerType = GetInferredPlayerType(&ta->Players[playerIndex]);
+
+		IDDrawSurface::OutptTxt("[SortSolitaryLocalAisLast] i=%d playerIndex=%d playerTeamNumber=%d playerTeamSize=%d playerType=%d",
+			i, playerIndex, playerTeamNumber, playerTeamSize, int(inferredPlayerType));
+
+		// Check if this is a solitary local AI player
+		if (inferredPlayerType == Player_LocalAI && playerTeamSize == 1) {
+			solitaryLocalAis[solitaryLocalAisCount++] = playerIndex;
+		}
+		else {
+			others[othersCount++] = playerIndex;
+		}
+	}
+
+	// Combine the arrays (non-solitary first, solitary local AIs last)
+	int combinedIndex = 0;
+	for (int i = 0; i < othersCount; i++) {
+		playerIndices[combinedIndex++] = others[i];
+	}
+	for (int i = 0; i < solitaryLocalAisCount; i++) {
+		playerIndices[combinedIndex++] = solitaryLocalAis[i];
+	}
+
+	// Fill remaining slots with -1 (if there were less than 10 valid indices)
+	while (combinedIndex < 10) {
+		playerIndices[combinedIndex++] = -1;
+	}
+
+	return solitaryLocalAisCount;
 }
