@@ -571,18 +571,15 @@ int __stdcall FixedPositionGuardingConsProc(PInlineX86StackBuffer X86StrackBuffe
 	UnitStruct* const guardingUnit = orders->Unit_ptr;
 
 	int guardOffset;
-	//if (((guardingUnit->UnitSelected & 0x000c0000) >> 18) == 0 /* holdpos*/)
+	if (*TA_BUGFIX_FIXED_POSN_GUARDING_CONS_OPTION == 1 && ((guardingUnit->UnitSelected & 0x000c0000) >> 18) == 0 /* holdpos */ ||
+		*TA_BUGFIX_FIXED_POSN_GUARDING_CONS_OPTION == 2)
 	{
 		guardOffset = 7 * orders->BuildUnitID / 20;	// Not really BuildUnitID in this context ...
 	}
-	//else if (((guardingUnit->UnitSelected & 0x000c0000) >> 18) == 2 /* roam */)
-	//{
-	//	guardOffset = orders->BuildUnitID;			// Not really BuildUnitID in this context ...
-	//}
-	//else // maneuvre
-	//{
-	//	return 0;			// OTA behaviour
-	//}
+	else
+	{
+		return 0;
+	}
 
 	// change con's home position to point on the closest diagonal
 	UnitStruct* guardedUnit = (UnitStruct*)(X86StrackBuffer->Eax);
@@ -728,7 +725,7 @@ TABugFixing::TABugFixing ()
 	//m_hooks.push_back(std::make_unique<InlineSingleHook>(LogTrace1Addr, 5, INLINE_5BYTESLAGGERJMP, LogTrace1Proc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoveSharedResourcesFromTotalAddr, 5, INLINE_5BYTESLAGGERJMP, RemoveSharedResourcesFromTotalProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(MultiplayerVictorySoundAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerVictorySoundProc));
-	if (0 != *TA_BUGFIX_FIXED_POSN_GUARDING_CONS_ENABLE) {
+	if (0 != *TA_BUGFIX_FIXED_POSN_GUARDING_CONS_OPTION) {
 		m_hooks.push_back(std::make_unique<InlineSingleHook>(FixedPositionGuardingConsAddr, 5, INLINE_5BYTESLAGGERJMP, FixedPositionGuardingConsProc));
 	}
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );

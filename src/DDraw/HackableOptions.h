@@ -8,4 +8,4 @@ static const unsigned char* TA_HOOK_MAX_MEX_SNAP_RADIUS =       (const unsigned 
 static const unsigned char* TA_HOOK_DEFAULT_WRECK_SNAP_RADIUS = (const unsigned char*)0x503912; // TotalA.exe:0x101f12
 static const unsigned char* TA_HOOK_MAX_WRECK_SNAP_RADIUS =     (const unsigned char*)0x503913; // TotalA.exe:0x101f13
 
-static const unsigned char* TA_BUGFIX_FIXED_POSN_GUARDING_CONS_ENABLE= (const unsigned char*)0x50391f; // TotalA.exe:0x101f1f
+static const unsigned char* TA_BUGFIX_FIXED_POSN_GUARDING_CONS_OPTION= (const unsigned char*)0x50391f; // TotalA.exe:0x101f1f

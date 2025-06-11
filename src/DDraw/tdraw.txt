@@ -29,11 +29,17 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*v2025.6.3
+*????.??.??
 - Fix bug with erroneous game results reported to TAF when using in-game +autoteam
 - With fixed position, start positions are assigned in order given by TAF auto balance
   so that players are positioned opposite an opponent of similar skill
-- Mod developers can opt out of "Improved behaviour of con units" (set byte at TotalA.exe:0x101f1f to non-zero)
+- Fixed bugs with player placement in 2v2+ games on maps with neutral units
+- Mod developers can opt-in to "Improved behaviour of con units".
+  Construction units that are guarding a factory will now stay put after completing each unit rather than wandering around randomly.
+  Set byte at TotalA.exe:0x101f1f to 0x00: disables the feature (default)
+  Set byte at TotalA.exe:0x101f1f to 0x01: cons stay put after building only when set to Hold Position.
+  Set byte at TotalA.exe:0x101f1f to 0x02: cons stay put after building regardless of the Hold/Maneuvre/Roam setting.
+  Note that if one player's setting doesn't match that of other players, an in-game cheat warning will be triggered.
 
 *v2025.05.18
 - Improved behaviour of con units when guarding a factory - they stay put after finishing a build
