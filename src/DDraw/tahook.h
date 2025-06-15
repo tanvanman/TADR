@@ -141,7 +141,7 @@ class CTAHook
     CTAHook(BOOL VidMem);
     ~CTAHook();
     bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-    void Set(int KeyCodei, char *ChatMacroi, bool FullRingsi, bool VisualizeRowsi, int iDelay, int iMexSnapRadius, int iWreckSnapRadius, int ClickSnapOverrideKey);
+    void Set(int KeyCodei, const char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iMexSnapRadius, int iWreckSnapRadius, int ClickSnapOverrideKey);
     void WriteShareMacro();
     void Blit(LPDIRECTDRAWSURFACE DestSurf);
 	void TABlit();
