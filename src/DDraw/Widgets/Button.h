@@ -10,7 +10,7 @@ class Button : public Widget
 {
 public:
 	Button(int x, int y, LPDIRECTDRAWSURFACE skin, int initialState, int numStates, bool depressable,
-		const std::vector<std::string>& stateLabels, const std::string& registryKey, std::function<void(int)> onStateChange);
+		const std::vector<std::string>& stateLabels, const std::string& registryKey, std::function<void(int)> onStateChange = std::function<void(int)>());
 	virtual ~Button() { }
 
 	virtual bool DoMessage(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam);

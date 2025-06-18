@@ -87,7 +87,7 @@ void Button::DoDraw(Dialog* dialog)
 	if (unsigned(m_state) < m_stateLabels.size())
 	{
 		std::string label = m_stateLabels[m_state];
-		int dx = m_numStates > 0 ? 5 : (m_width - 8 * label.size()) / 2;
+		int dx = m_numStates > 0 ? 4 : (m_width - 8 * label.size()) / 2;
 		int dy = 3;
 		dialog->DrawText(dialog->lpDialogSurf, m_x + dx, m_y + dy, label.c_str());
 	}

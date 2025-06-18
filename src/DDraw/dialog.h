@@ -3,9 +3,9 @@
 
 #include "oddraw.h"
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 struct tagInlineX86StackBuffer;
 typedef struct tagInlineX86StackBuffer * PInlineX86StackBuffer;
@@ -17,16 +17,49 @@ class TextField;
 class Button;
 class Widget;
 
-#define DialogHeight 234
-#define DialogWidth 382
 #define ROW_HEIGHT 18
-#define ROW(n) (8+n*ROW_HEIGHT)
+#define ROW(n) (n*ROW_HEIGHT + ROW_HEIGHT/2 - 1)
+#define DialogHeight (14*ROW_HEIGHT)
+#define DialogWidth 382
 
 class Dialog
 {
   friend class Widget;
   friend class Button;
   friend class Label;
+
+public:
+	Dialog(BOOL VidMem_a);
+	~Dialog();
+	void ShowDialog();
+	void HideDialog();
+	bool IsShow(LPRECT rect_p);
+	void BlitDialog(LPDIRECTDRAWSURFACE DestSurf);
+	bool Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+
+	void SetAll();
+
+	static const int RECLAIM_ONLY = 0;
+	static const int RECLAIM_AND_ASSIST = 1;
+	static const int ASSIST_ONLY = 2;
+	int GetConUnitPatrolHoldPosOption();
+	int GetConUnitPatrolManeuverOption();
+	int GetConUnitPatrolRoamOption();
+	int GetConUnitPatrolOption(int unitMovementSetting);
+
+	static const int STAY = 0;
+	static const int CAVEDOG = 1;
+	static const int SCATTER = 2;
+	int GetConUnitGuardHoldPosOption();
+	int GetConUnitGuardManeuverOption();
+	int GetConUnitGuardRoamOption();
+	int GetConUnitGuardOption(int unitMovementSetting);
+
+	int DrawTextField(int posX, int posY, int width, int height, const std::string& text, char color);
+	void DrawText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char* Text);
+	void DrawSmallText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char* Text);
+	void DrawTexture(int x, int y, int width, int height, LPDIRECTDRAWSURFACE texture, int texturePosX, int texturePosY);
+	void BlitCursor(LPDIRECTDRAWSURFACE DestSurf, int x, int y);
 
   private:
 	// all widgets
@@ -35,7 +68,6 @@ class Dialog
 	// those widgets that we need to refer to after construction
 	std::shared_ptr <VirtualKeyField> m_clickSnapOverrideVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_autoClickVirtualKeyField;
-	std::shared_ptr <IntegerField> m_autoClickDelayIntegerField;
 	std::shared_ptr <VirtualKeyField> m_whiteboardVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_megaMapVirtualKeyField;
 	std::shared_ptr <IntegerField> m_mexSnapRadiusIntegerField;
@@ -46,6 +78,12 @@ class Dialog
 	std::shared_ptr <Button> m_optimiseDtRowsButton;
 	std::shared_ptr <Button> m_enableFullRingsButton;
 	std::shared_ptr <Button> m_okButton;
+	std::shared_ptr <Button> m_conUnitPatrolHoldPosButton;
+	std::shared_ptr <Button> m_conUnitPatrolManeuverButton;
+	std::shared_ptr <Button> m_conUnitPatrolRoamButton;
+	std::shared_ptr <Button> m_conUnitGuardHoldPosButton;
+	std::shared_ptr <Button> m_conUnitGuardManeuverButton;
+	std::shared_ptr <Button> m_conUnitGuardRoamButton;
 
     LPDIRECTDRAWSURFACE lpDialogSurf;
     LPDIRECTDRAWSURFACE lpBackground;
@@ -95,22 +133,6 @@ class Dialog
     void RestoreAll();
 
 	void RestoreCursor ();
-  public:
-    Dialog(BOOL VidMem_a);
-    ~Dialog();
-    void ShowDialog();
-    void HideDialog();
-	bool IsShow (LPRECT rect_p);
-    void BlitDialog(LPDIRECTDRAWSURFACE DestSurf);
-    bool Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-
-	void SetAll();
-
-	void DrawTextField(int posX, int posY, int width, int height, const std::string& text, char color);
-    void DrawText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char *Text);
-    void DrawSmallText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char *Text);
-	void DrawTexture(int x, int y, int width, int height, LPDIRECTDRAWSURFACE texture, int texturePosX, int texturePosY);
-    void BlitCursor(LPDIRECTDRAWSURFACE DestSurf, int x, int y);
 };
 
 

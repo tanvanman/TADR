@@ -14,5 +14,6 @@ public:
 	virtual void RegistryWrite(HKEY hKey);
 
 	int m_maxLines;
+	int m_currentLines;
 	std::string m_registryKey;
 };

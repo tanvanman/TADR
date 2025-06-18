@@ -3,7 +3,8 @@
 
 TextField::TextField(int x, int y, int width, int height, const std::string& text, const std::string &registryKey) :
 	Label(x, y, width, height, text),
-	m_maxLines((height - 4) / 8),
+	m_maxLines((height - 5) / 10),
+	m_currentLines(0),
 	m_registryKey(registryKey)
 { }
 
@@ -12,12 +13,14 @@ bool TextField::DoMessage(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wPa
 	if (m_focused && msg == WM_CHAR)
 	{
 		const TCHAR ch = wParam;
-		if (ch == 8 && !m_text.empty())
+		if (ch == 8) // backspace
 		{
-			// backspace
-			m_text.pop_back();
+			if (!m_text.empty())
+			{
+				m_text.pop_back();
+			}
 		}
-		else
+		else if (m_currentLines <= m_maxLines)
 		{
 			m_text.push_back(ch);
 		}
@@ -33,7 +36,7 @@ std::string TextField::ToString()
 
 void TextField::DoDraw(Dialog* dialog)
 {
-	dialog->DrawTextField(m_x, m_y, m_width, m_height, m_text, m_focused ? 255 : 208);
+	m_currentLines = dialog->DrawTextField(m_x, m_y, m_width, m_height, m_text, m_focused ? 255 : 208);
 }
 
 void TextField::RegistryRead(HKEY hKey)

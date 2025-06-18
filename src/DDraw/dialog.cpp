@@ -1,46 +1,30 @@
 #include "Dialog.h"
 
-#include "iddrawsurface.h"
-
-#include "tahook.h"
-#include "tamem.h"
-#include "tafunctions.h"
-#include "taHPI.h"
-#include "gaf.h"
-
-#include "pcxread.h"
-#include "font.h"
-#include <stdio.h>
-#include "whiteboard.h"
 #include "cincome.h"
-#include "hook\etc.h"
-#include "hook\hook.h"
-
-#include "fullscreenminimap.h"
+#include "font.h"
+#include "gaf.h"
 #include "GUIExpand.h"
-
+#include "HackableOptions.h"
+#include "hook\hook.h"
+#include "iddrawsurface.h"
 #include "MegamapControl.h"
-
-#ifdef min
-  #undef min
-#endif
-
-#include <algorithm>
-#include <functional>
-
-#include "UnicodeSupport.h"
-#include "TAConfig.h"
-
-#include "Widgets/Widget.h"
+#include "whiteboard.h"
+#include "pcxread.h"
+#include "tahook.h"
+#include "tafunctions.h"
 #include "Widgets/Button.h"
-#include "Widgets/Label.h"
 #include "Widgets/IntegerField.h"
+#include "Widgets/Label.h"
 #include "Widgets/TextField.h"
 #include "Widgets/VirtualKeyField.h"
+#include "Widgets/Widget.h"
 
+#include <stdio.h>
 
-#define COL0 20
-#define COL1 130
+#define COL0 16
+#define COL0b 22
+#define COL0c 74
+#define COL1 126
 #define COL2 200
 #define COL3 310
 #define COL4 340
@@ -58,9 +42,6 @@ Dialog::Dialog(BOOL Vidmem_a)
 
 	// column 0, 1
 
-	m_widgets.push_back(m_autoClickDelayIntegerField = std::make_shared<IntegerField>(10, 10, 50, ROW_HEIGHT, 10, 1, 999, "Delay"));
-	m_autoClickDelayIntegerField->m_hidden = true;
-
 	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(0), "Snap Override Key"));
 	m_widgets.push_back(m_clickSnapOverrideVirtualKeyField = std::make_shared<VirtualKeyField>(COL1, ROW(0), 50, ROW_HEIGHT, VK_MENU, "ClickSnapOverrideKey"));
 
@@ -73,9 +54,36 @@ Dialog::Dialog(BOOL Vidmem_a)
 	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(3), "Megamap Key"));
 	m_widgets.push_back(m_megaMapVirtualKeyField = std::make_shared<VirtualKeyField>(COL1, ROW(3), 50, ROW_HEIGHT, VK_TAB, "MegamapKey"));
 
-	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(7), "Resource Bar Background"));
-	m_widgets.push_back(m_resourceBarBackgroundButton = std::make_shared<Button>(COL0, ROW(8), lpStagedButton3,
-		1, 3, true, std::vector<std::string>({"None", "Text", "Solid"}), "BackGround", std::function<void(int)>()));
+	static const std::vector<std::string> patrolButtonLabels({ "Reclaim Only", "Both", "Assist Only" });
+	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(4), "PATROLLING CONSTRUCTION UNITS"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(5), "Hold Pos"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(6), "Maneuver"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(7), "Roam"));
+	m_widgets.push_back(m_conUnitPatrolHoldPosButton = std::make_shared<Button>(COL0c, ROW(5), lpStagedButton3,
+		RECLAIM_ONLY, 3, true, patrolButtonLabels, "ConUnitsPatrolHoldPosOption"));
+	m_widgets.push_back(m_conUnitPatrolManeuverButton = std::make_shared<Button>(COL0c, ROW(6), lpStagedButton3,
+		RECLAIM_AND_ASSIST, 3, true, patrolButtonLabels, "ConUnitsPatrolManeuverOption"));
+	m_widgets.push_back(m_conUnitPatrolRoamButton = std::make_shared<Button>(COL0c, ROW(7), lpStagedButton3,
+		ASSIST_ONLY, 3, true, patrolButtonLabels, "ConUnitsPatrolRoamOption"));
+
+	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(8), "GUARDING CONSTRUCTION UNITS"));
+	if (*TA_BUGFIX_FIXED_POSN_GUARDING_CONS_ENABLE)
+	{
+		m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(9), "Hold Pos"));
+		m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(10), "Maneuver"));
+		m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(11), "Roam"));
+		static const std::vector<std::string> guardButtonLabels({ "Stay", "Cavedog", "Scatter" });
+		m_widgets.push_back(m_conUnitGuardHoldPosButton = std::make_shared<Button>(COL0c, ROW(9), lpStagedButton3,
+			STAY, 3, true, guardButtonLabels, "ConUnitsGuardHoldPosOption"));
+		m_widgets.push_back(m_conUnitGuardManeuverButton = std::make_shared<Button>(COL0c, ROW(10), lpStagedButton3,
+			CAVEDOG, 3, true, guardButtonLabels, "ConUnitsGuardManeuverOption"));
+		m_widgets.push_back(m_conUnitGuardRoamButton = std::make_shared<Button>(COL0c, ROW(11), lpStagedButton3,
+			SCATTER, 3, true, guardButtonLabels, "ConUnitsGuardRoamOption"));
+	}
+	else
+	{
+		m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(9), "Options not available"));
+	}
 
 	// column 2, 3, 4
 
@@ -101,20 +109,24 @@ Dialog::Dialog(BOOL Vidmem_a)
 	m_widgets.push_back(m_chatMacroTextField = std::make_shared<TextField>(COL2, ROW(3), 170, 5 * ROW_HEIGHT,
 		"+setshareenergy 1000\x0d+setsharemetal 1000\x0d+shareall\x0d+shootall", "ShareText"));
 
-	m_widgets.push_back(m_optimiseDtRowsButton = std::make_shared<Button>(COL2, ROW(9), lpCheckBox,
+	m_widgets.push_back(std::make_shared<Label>(COL2, ROW(8), "Resource Bar Background"));
+	m_widgets.push_back(m_resourceBarBackgroundButton = std::make_shared<Button>(COL2, ROW(9), lpStagedButton3,
+		1, 3, true, std::vector<std::string>({ "None", "Text", "Solid" }), "BackGround", std::function<void(int)>()));
+
+	m_widgets.push_back(m_optimiseDtRowsButton = std::make_shared<Button>(COL2, ROW(10), lpCheckBox,
 		1, 2, false, std::vector<std::string>(), "OptimizeDT", std::function<void(int)>()));
-	m_widgets.push_back(std::make_shared<Label>(COL2 + m_optimiseDtRowsButton->m_width + 4, ROW(9), "Optimize DT Rows"));
+	m_widgets.push_back(std::make_shared<Label>(COL2 + m_optimiseDtRowsButton->m_width + 4, ROW(10), "Optimize DT Rows"));
 
-	m_widgets.push_back(m_enableFullRingsButton = std::make_shared<Button>(COL2, ROW(10), lpCheckBox,
+	m_widgets.push_back(m_enableFullRingsButton = std::make_shared<Button>(COL2, ROW(11), lpCheckBox,
 		1, 2, false, std::vector<std::string>(), "FullRings", std::function<void(int)>()));
-	m_widgets.push_back(std::make_shared<Label>(COL2 + m_enableFullRingsButton->m_width + 4, ROW(10), "Enable FullRings"));
+	m_widgets.push_back(std::make_shared<Label>(COL2 + m_enableFullRingsButton->m_width + 4, ROW(11), "Enable FullRings"));
 
-	m_widgets.push_back(m_vsyncButton = std::make_shared<Button>(COL2, ROW(11), lpCheckBox,
-		0, 2, false, std::vector<std::string>(), "VSync", std::function<void(int)>()));
-	m_widgets.push_back(std::make_shared<Label>(COL2 + m_vsyncButton->m_width + 4, ROW(11), "VSync"));
+	m_widgets.push_back(m_vsyncButton = std::make_shared<Button>(COL2, ROW(12), lpCheckBox,
+		0, 2, false, std::vector<std::string>(), "VSync"));
+	m_widgets.push_back(std::make_shared<Label>(COL2 + m_vsyncButton->m_width + 4, ROW(12), "VSync"));
 
-	m_widgets.push_back(m_okButton = std::make_shared<Button>(COL3-16, ROW(11), lpOKButton,
-		0, 1, true, std::vector<std::string>(), "BackGround",
+	m_widgets.push_back(m_okButton = std::make_shared<Button>(COL3-16, ROW(12), lpOKButton,
+		0, 1, true, std::vector<std::string>(), "",
 		[this](int)
 	{
 		SetAll();
@@ -484,7 +496,7 @@ void Dialog::RenderDialog()
 	}
 }
 
-void Dialog::DrawTextField(int posX, int posY, int width, int height, const std::string& text, char color)
+int Dialog::DrawTextField(int posX, int posY, int width, int height, const std::string& text, char color)
 {
 	DDSURFACEDESC ddsd;
 	DDRAW_INIT_STRUCT(ddsd);
@@ -538,7 +550,9 @@ void Dialog::DrawTextField(int posX, int posY, int width, int height, const std:
 		}
 		DrawTinyText(Line, static_cast<int>(posX + 2), static_cast<int>(posY + LineNum * 9), color);
 		lpDialogSurf->Unlock(NULL);
+		return LineNum + (LinePos == CharsPerLine);
 	}
+	return 0;
 }
 
 void Dialog::DrawText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char *Text)
@@ -643,9 +657,7 @@ void Dialog::SetAll()
 		SurfClass->Set (m_vsyncButton->GetState());
 	}
 	
-
 	CTAHook *TAHook = (CTAHook*)LocalShare->TAHook;
-
 	if (TAHook)
 	{
 		TAHook->Set(
@@ -653,7 +665,7 @@ void Dialog::SetAll()
 			m_chatMacroTextField->m_text.c_str(),
 			m_optimiseDtRowsButton->GetState(),
 			m_enableFullRingsButton->GetState(),
-			m_autoClickDelayIntegerField->m_value,
+			10,
 			m_mexSnapRadiusIntegerField->m_value,
 			m_wreckSnapRadiusIntegerField->m_value,
 			m_clickSnapOverrideVirtualKeyField->m_vk
@@ -674,6 +686,70 @@ void Dialog::SetAll()
 	}
 #endif
 
+}
+
+int Dialog::GetConUnitPatrolHoldPosOption()
+{
+	return m_conUnitPatrolHoldPosButton
+		? m_conUnitPatrolHoldPosButton->GetState()
+		: RECLAIM_AND_ASSIST;
+}
+
+int Dialog::GetConUnitPatrolManeuverOption()
+{
+	return m_conUnitPatrolManeuverButton
+		? m_conUnitPatrolManeuverButton->GetState()
+		: RECLAIM_AND_ASSIST;
+}
+
+int Dialog::GetConUnitPatrolRoamOption()
+{
+	return m_conUnitPatrolRoamButton
+		? m_conUnitPatrolRoamButton->GetState()
+		: RECLAIM_AND_ASSIST;
+}
+
+int Dialog::GetConUnitPatrolOption(int unitMovementSetting)
+{
+	switch (unitMovementSetting)
+	{
+	case 0: return GetConUnitPatrolHoldPosOption();
+	case 1: return GetConUnitPatrolManeuverOption();
+	case 2: return GetConUnitPatrolRoamOption();
+	default: return RECLAIM_AND_ASSIST;
+	};
+}
+
+int Dialog::GetConUnitGuardHoldPosOption()
+{
+	return m_conUnitGuardHoldPosButton
+		? m_conUnitGuardHoldPosButton->GetState()
+		: CAVEDOG;
+}
+
+int Dialog::GetConUnitGuardManeuverOption()
+{
+	return m_conUnitGuardManeuverButton
+		? m_conUnitGuardManeuverButton->GetState()
+		: CAVEDOG;
+}
+
+int Dialog::GetConUnitGuardRoamOption()
+{
+	return m_conUnitGuardRoamButton
+		? m_conUnitGuardRoamButton->GetState()
+		: CAVEDOG;
+}
+
+int Dialog::GetConUnitGuardOption(int unitMovementSetting)
+{
+	switch (unitMovementSetting)
+	{
+	case 0: return GetConUnitGuardHoldPosOption();
+	case 1: return GetConUnitGuardManeuverOption();
+	case 2: return GetConUnitGuardRoamOption();
+	default: return RECLAIM_AND_ASSIST;
+	};
 }
 
 //reads dialog position from registry
@@ -724,7 +800,10 @@ void Dialog::ReadSettings()
 
 	for (auto w : m_widgets)
 	{
-		w->RegistryRead(hKey);
+		if (!w->m_disabled)
+		{
+			w->RegistryRead(hKey);
+		}
 	}
 
 	RegCloseKey(hKey);
