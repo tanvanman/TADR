@@ -257,6 +257,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="GameTickHook.cpp" />
     <ClCompile Include="Guiexport.cpp" />
     <ClCompile Include="HexDump.cpp" />
+    <ClCompile Include="HmacSha256.cpp" />
     <ClCompile Include="MappedMAP.cpp" />
     <ClCompile Include="MegamapControl.cpp" />
     <ClCompile Include="MegamapTAStuff.cpp" />

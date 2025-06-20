@@ -6,8 +6,10 @@
 #include "tafunctions.h"
 
 #include <iomanip>
+#include <functional>
 #include <fstream>
 #include <sstream>
+#include <thread>
 
 #include <psapi.h>
 #include <wincrypt.h>
@@ -164,17 +166,18 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 	// and then later make a big song and dance about anyone who failed or who hasn't replied
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	PlayerStruct* me = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
-	if (!me->PlayerActive || me->DirectPlayID == 0 || (me->PlayerInfo->PropertyMask & WATCH) || DataShare->PlayingDemo) {
+	if (!me->PlayerActive || me->DirectPlayID == 0 || (me->PlayerInfo->PropertyMask & WATCH) || DataShare->PlayingDemo || DataShare->TAProgress != TAInGame) {
 		return 0;
 	}
 
 	auto *cr = ChallengeResponse::GetInstance();
-	if (taPtr->GameTime == 0) {
+	if (!cr->HasFeatureMapSnapshot()) {
 		cr->SnapshotFeatureMap();
 		cr->ClearPersistentMessages();
 	}
 
 	else if (taPtr->GameTime == 6 * 30) { // at 6 sec
+		// send out challenge requests
 		for (int n = 0; n < 10; ++n) {
 			PlayerStruct* p = &taPtr->Players[n];
 			if (p->PlayerActive && p->DirectPlayID != 0 && GetInferredPlayerType(p) == Player_RemoteHuman && !(p->PlayerInfo->PropertyMask & WATCH)) {
@@ -191,11 +194,34 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 		}
 	}
 
+	else if (taPtr->GameTime < 15 * 30)		// until 15 sec
+	{
+		// attend to m_challengeResponseReplyQueue
+		for (auto reply : ChallengeResponse::GetInstance()->m_challengeResponseReplyQueue)
+		{
+			if (reply->ready && !reply->sent)
+			{
+				reply->sent = true;
+				IDDrawSurface::OutptTxt("[ChallengeResponseUpdateProc] ComputeChallengeResponse completed with output:");
+				IDDrawSurface::OutptTxt(reply->completionMessage.c_str());
+				if (reply->completionMessage.find_first_of("OK") == 0u)
+				{
+					IDDrawSurface::OutptTxt("[ChallengeResponseUpdateProc] replying msg=%d and %d fromDpid=%u(%x) toDpid=%u(%x)",
+						int(reply->results[0].command), int(reply->results[1].command),
+						reply->fromDpid, reply->fromDpid,
+						reply->toDpid, reply->toDpid);
+					HAPI_SendBuf(reply->fromDpid, reply->toDpid, (char*)&reply->results[0], sizeof(reply->results));
+				}
+			}
+		}
+	}
+
 	else if (taPtr->GameTime >= 15 * 30 &&	// after 15 sec
 		taPtr->GameTime < 120 * 30 &&		// until 2 mins
 		taPtr->GameTime % 30 == 0)			// every 1 sec
 	{
-		int failCount = ChallengeResponse::GetInstance()->VerifyResponses();
+		// verify responses
+		int failCount = ChallengeResponse::GetInstance()->VerifyResponses(taPtr->GameTime == 20 * 30);
 		if (failCount > 0 && taPtr->GameTime == 20 * 30)		// at 20 secs
 		{
 			std::string text = std::string(me->Name) + " reports VerCheck issues with " + std::to_string(failCount) + " other players";
@@ -228,20 +254,24 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 
 	switch (msg->command) {
 	case ChallengeResponseCommand::ChallengeRequest: {
-		ChallengeResponseMessage replies[2];
-		InitChallengeResponseMessage(replies[0], ChallengeResponseCommand::ChallengeHashReplyModules);
-		InitChallengeResponseMessage(replies[1], ChallengeResponseCommand::ChallengeHashReplyGameData);
-		ChallengeResponse::GetInstance()->ComputeChallengeResponse(msg->data, replies[0].data, replies[1].data);
 		unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
-		if (replyDpid != taPtr->hapinet.fromDpid) {
-			IDDrawSurface::OutptTxt("[ReceiveChallengeOrResponseProc] hapinet.fromDpid changed! was=%u(%x) now %u(%x)",
-				replyDpid, taPtr->hapinet.fromDpid);
-		}
-		IDDrawSurface::OutptTxt("[ReceiveChallengeOrResponseProc] replying msg=%d and %d fromDpid=%u(%x) toDpid=%u(%x)",
-			int(replies[0].command), int(replies[1].command),
-			fromDpid, fromDpid,
-			replyDpid, replyDpid);
-		HAPI_SendBuf(fromDpid, replyDpid, (char*)&replies[0], sizeof(replies));
+		ChallengeResponse::GetInstance()->m_challengeResponseReplyQueue.push_back(
+			std::make_shared<ChallengeResponse::ComputeChallengeResponseResult>(fromDpid, replyDpid));
+		auto reply = ChallengeResponse::GetInstance()->m_challengeResponseReplyQueue.back();
+		InitChallengeResponseMessage(reply->results[0], ChallengeResponseCommand::ChallengeHashReplyModules);
+		InitChallengeResponseMessage(reply->results[1], ChallengeResponseCommand::ChallengeHashReplyGameData);
+
+		std::thread([msg, reply]() {
+			ChallengeResponse::GetInstance()->ComputeChallengeResponse(
+				msg->data,
+				reply->results[0].data,
+				reply->results[1].data,
+				&reply->ready,
+				&reply->completionMessage
+			);
+		})
+			.detach();
+			//.join();
 		break;
 	}
 
@@ -337,7 +367,7 @@ ChallengeResponse::ChallengeResponse():
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 ChallengeResponse *ChallengeResponse::GetInstance()
 {
-	if (m_instance == NULL) {
+	if (!m_instance) {
 		m_instance.reset(new ChallengeResponse());
 	}
 	return m_instance.get();
@@ -416,8 +446,18 @@ void ChallengeResponse::NewNonse(char* nonse, int len)
 #pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modulesHash, char* gameDataHash)
+void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modulesHash, char* gameDataHash, bool *done, std::string* completionMessage)
 {
+	std::ostringstream log;
+	log << "OK" << std::endl;
+
+	log << "  nonse:";
+	for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+	{
+		log << std::hex << std::setw(2) << std::setfill('0') << (unsigned(_nonse[i]) & 0x0ff);
+	}
+	log << std::endl;
+
 	const unsigned* nonse = (const unsigned*)_nonse;
 	unsigned hmacKey[] = {
 		RANDOM_CODE_SEG_0, nonse[0],
@@ -432,19 +472,28 @@ void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modul
 
 	try {
 		HmacSha256Calculator hmacModules((unsigned char*)hmacKey, sizeof(hmacKey));
-		HashModules(hmacModules);
+		HashModules(hmacModules, log);
 		if (!hmacModules.finalize((unsigned char*)modulesHash, SHA256_DIGEST_LENGTH)) {
 			std::memset(modulesHash, 0, SHA256_DIGEST_LENGTH);
 		}
 
 		HmacSha256Calculator hmacGameData((unsigned char*)hmacKey, sizeof(hmacKey));
 		HashWeapons(hmacGameData);
+		log << "  weapons:" << hmacGameData << std::endl;
 		HashFeatures(hmacGameData);
+		log << "  features:" << hmacGameData << std::endl;
 		HashUnits(hmacGameData);
+		log << "  units:" << hmacGameData << std::endl;
 		HashGamingState(hmacGameData);
+		log << "  gamingstate:" << hmacGameData << std::endl;
 		HashMapSnapshot(hmacGameData);
+		log << "  map:" << hmacGameData << std::endl;
 		if (!hmacGameData.finalize((unsigned char*)gameDataHash, SHA256_DIGEST_LENGTH)) {
 			std::memset(gameDataHash, 0, SHA256_DIGEST_LENGTH);
+		}
+		if (completionMessage)
+		{
+			*completionMessage = log.str();
 		}
 	}
 	catch (std::exception& e) {
@@ -457,8 +506,14 @@ void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modul
 			errorMessage = std::string(messageBuffer, size);
 			LocalFree(messageBuffer);
 		}
-
-		IDDrawSurface::OutptTxt("Error: %s: %s", e.what(), errorMessage.c_str());
+		if (completionMessage)
+		{
+			*completionMessage = std::string("ERROR: ") + e.what() + ": " + errorMessage;
+		}
+	}
+	if (done)
+	{
+		*done = true;
 	}
 }
 #pragma code_seg(pop)
@@ -467,13 +522,17 @@ void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modul
 void ChallengeResponse::InitPlayerResponse(unsigned dpid, char *nonse, int len)
 {
 	auto& r = m_responses[dpid];
-	r.modulesResponseReceived = r.gameDataResponseReceived = false;
+	r.ourHashesComputed = r.modulesResponseReceived = r.gameDataResponseReceived = false;
 	std::memset(r.nonse, 0, sizeof(r.nonse));
 	std::memset(r.modulesResponse, 0, sizeof(r.modulesResponse));
 	std::memset(r.gameDataResponse, 0, sizeof(r.gameDataResponse));
 	std::memcpy(r.nonse, nonse, std::min(sizeof(r.nonse), unsigned(len)));
 
-	ComputeChallengeResponse(r.nonse, r.ourModulesHash, r.ourGameDataHash);
+	std::thread([this, &r]() {
+		ComputeChallengeResponse(r.nonse, r.ourModulesHash, r.ourGameDataHash, &r.ourHashesComputed, &r.completionMessage);
+	})
+		.detach();
+		//.join();
 }
 #pragma code_seg(pop)
 
@@ -504,11 +563,12 @@ void ChallengeResponse::SetPlayerGameDataResponse(unsigned dpid, const char* has
 #pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-int ChallengeResponse::VerifyResponses()
+int ChallengeResponse::VerifyResponses(bool logEnable)
 {
 	static const unsigned MAX_NAME = 12u;
 	int verificationIssueCount = 0;
 	m_persistentCheatWarnings.clear();
+	std::ostringstream logstream;
 	for (auto it = m_responses.begin(); it != m_responses.end(); ++it)
 	{
 		unsigned dpid = it->first;
@@ -523,21 +583,30 @@ int ChallengeResponse::VerifyResponses()
 		bool gameDataCompareOk = !std::memcmp(r.gameDataResponse, r.ourGameDataHash, sizeof(r.gameDataResponse));
 
 		std::ostringstream ss;
-		if (!r.gameDataResponseReceived && !r.modulesResponseReceived) {
-			ss << std::setw(12) << std::right << name << ": has not replied to verification queries ...";
+		if (!r.ourHashesComputed) {
+			ss << std::setw(12) << std::right << name << ": we haven't computed the expected hashes yet ...";
 		}
-		else if (!r.modulesResponseReceived) {
-			ss << std::setw(12) << std::right << name << ": has not replied to dll/exe verification query ...";
-		}
-		else if (!r.gameDataResponseReceived) {
-			ss << std::setw(12) << std::right << name << ": has not replied to game data verification query ...";
-		}
-		else if (!modulesCompareOk) {
-			ss << std::setw(12) << std::right << name << ": fails dll/exe verification!";
-		}
-		else if (!gameDataCompareOk) {
-			ss << std::setw(12) << std::right << name << ": fails game data verification!";
-			LogAll("ErrorLog.txt");
+		else
+		{
+			if (!r.gameDataResponseReceived && !r.modulesResponseReceived) {
+				ss << std::setw(12) << std::right << name << ": has not replied to verification queries ...";
+			}
+			else if (!r.modulesResponseReceived) {
+				ss << std::setw(12) << std::right << name << ": has not replied to dll/exe verification query ...";
+			}
+			else if (!r.gameDataResponseReceived) {
+				ss << std::setw(12) << std::right << name << ": has not replied to game data verification query ...";
+			}
+			else if (!modulesCompareOk) {
+				ss << std::setw(12) << std::right << name << ": fails dll/exe verification!";
+
+				logstream << ss.str() << std::endl;
+				logstream << "Hash response expected by us:" << std::endl;
+				logstream << r.completionMessage << std::endl;
+			}
+			else if (!gameDataCompareOk) {
+				ss << std::setw(12) << std::right << name << ": fails game data verification!";
+			}
 		}
 
 		std::string text = ss.str();
@@ -550,6 +619,20 @@ int ChallengeResponse::VerifyResponses()
 
 	if (verificationIssueCount > 0) {
 		m_persistentCheatWarnings.push_back("VERCHECK REPORT");
+
+		if (logEnable)
+		{
+			logstream << "Our hash responses (sent to peers) were:" << std::endl;
+			for (auto cr : ChallengeResponse::GetInstance()->m_challengeResponseReplyQueue)
+			{
+				logstream << cr->completionMessage << std::endl;
+			}
+			{
+				std::ofstream fs("ErrorLog.txt", std::ios::app);
+				fs << logstream.str();
+			}
+			ChallengeResponse::GetInstance()->LogAll("ErrorLog.txt");
+		}
 	}
 
 	return verificationIssueCount;
@@ -557,11 +640,13 @@ int ChallengeResponse::VerifyResponses()
 #pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-void ChallengeResponse::HashModules(HmacSha256Calculator& hmac)
+void ChallengeResponse::HashModules(HmacSha256Calculator& hmac, std::ostream &log)
 {
 	std::size_t M = m_moduleInitialDiskSnapshots.size();
 	for (std::size_t m = 0u; m < M; ++m) {
+		log << "  module[" << m << "]:";
 		hmac.processChunk(m_moduleInitialDiskSnapshots[m]->data(), m_moduleInitialDiskSnapshots[m]->size());
+		log << hmac << std::endl;
 	}
 }
 #pragma code_seg(pop)
@@ -781,6 +866,7 @@ void ChallengeResponse::SnapshotFile(const char* moduleFileName)
 {
 	std::ifstream file(moduleFileName, std::ios::binary);
 	if (!file.is_open()) {
+		IDDrawSurface::OutptTxt("[ChallengeResponse::SnapshotFile] Unable to add %s to snapshot list because !file.is_open()", moduleFileName);
 		return;
 	}
 
@@ -790,11 +876,13 @@ void ChallengeResponse::SnapshotFile(const char* moduleFileName)
 
 	std::shared_ptr<std::vector<unsigned char> > moduleOnDisk(new std::vector<unsigned char>(fileSize));
 	if (!file.read(reinterpret_cast<char*>(moduleOnDisk->data()), fileSize)) {
+		IDDrawSurface::OutptTxt("[ChallengeResponse::SnapshotFile] Unable to add %s to snapshot list because !file.read()", moduleFileName);
 		return;
 	}
 
 	m_moduleInitialDiskSnapshots.push_back(moduleOnDisk);
 	m_moduleInitialDiskSnapshotFilenames.push_back(moduleFileName);
+	IDDrawSurface::OutptTxt("[ChallengeResponse::SnapshotFile] Added %s to snapshot list", moduleFileName);
 }
 #pragma code_seg(pop)
 

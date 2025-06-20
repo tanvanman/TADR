@@ -55,17 +55,19 @@ public:
 	static void OnBattleroomCommandGp3Report(const std::vector<std::string>&);
 	static void OnBattleroomCommandCrcReport(const std::vector<std::string>&);
 
+	bool HasFeatureMapSnapshot() { return m_featureMapSnapshot.get() != NULL; }
 	void SnapshotModules();
 	void SnapshotFeatureMap();
 	void ClearPersistentMessages();
 	void NewNonse(char *nonse, int len);
-	void ComputeChallengeResponse(const char *nonse, char *modulesHash, char *gameDataHash);
+	void ComputeChallengeResponse(const char *nonse, char *modulesHash, char *gameDataHash, bool *done=NULL, std::string *completionMessage=NULL);
 	void InitPlayerResponse(unsigned dpid, char *nonse, int len);
 	void SetPlayerModulesResponse(unsigned dpid, const char *hash, int len);
 	void SetPlayerGameDataResponse(unsigned dpid, const char *hash, int len);
-	int VerifyResponses();
+	int VerifyResponses(bool logEnable);
 	void Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch);
 	void Blit(OFFSCREEN* offscreen);
+	void LogAll(const std::string& filename);
 
 	static std::string GetReportString(const std::pair<unsigned, std::string> &crcAndFilename, const std::string* optionalVersion);
 	std::string GetAllReportString();
@@ -77,12 +79,34 @@ public:
 	std::pair<unsigned, std::string> GetGp3Crc();
 	void logResponses();
 
+#pragma pack(1)
+	struct ComputeChallengeResponseResult
+	{
+		ComputeChallengeResponseResult(unsigned _fromDpid, unsigned _toDpid) :
+			ready(false),
+			sent(false),
+			fromDpid(_fromDpid),
+			toDpid(_toDpid)
+		{ }
+
+		bool ready;
+		bool sent;
+		std::string completionMessage;
+		unsigned fromDpid;
+		unsigned toDpid;
+		ChallengeResponseMessage results[2];
+	};
+#pragma pack()
+	std::vector < std::shared_ptr<ComputeChallengeResponseResult> > m_challengeResponseReplyQueue;
+
 private:
 
 	struct ResponseContext
 	{
 		bool modulesResponseReceived;
 		bool gameDataResponseReceived;
+		bool ourHashesComputed;
+		std::string completionMessage;
 		char nonse[SHA256_DIGEST_LENGTH];
 		char modulesResponse[SHA256_DIGEST_LENGTH];
 		char gameDataResponse[SHA256_DIGEST_LENGTH];
@@ -110,20 +134,20 @@ private:
 	taflib::CRC32 m_crc;
 	std::mt19937 m_rng;
 	std::vector<std::string> m_persistentCheatWarnings;
+
 	std::vector<bool> getUsedWeaponIds();
 
 	std::vector<std::string> GetModulePaths();
 	void SnapshotModule(HMODULE hModule);
 	void SnapshotFile(const char* filename);
 
-	void HashModules(HmacSha256Calculator &hmac);
+	void HashModules(HmacSha256Calculator &hmac, std::ostream &log);
 	void HashWeapons(HmacSha256Calculator& hmac);
 	void HashFeatures(HmacSha256Calculator& hmac);
 	void HashUnits(HmacSha256Calculator& hmac);
 	void HashGamingState(HmacSha256Calculator& hmac);
 	void HashMapSnapshot(HmacSha256Calculator& hmac);
 
-	void LogAll(const std::string &filename);
 	void LogWeapons(const std::string& filename);
 	void LogFeatures(const std::string& filename);
 	void LogUnits(const std::string& filename);
