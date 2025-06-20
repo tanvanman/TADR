@@ -166,7 +166,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 	// and then later make a big song and dance about anyone who failed or who hasn't replied
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	PlayerStruct* me = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
-	if (!me->PlayerActive || me->DirectPlayID == 0 || (me->PlayerInfo->PropertyMask & WATCH) || DataShare->PlayingDemo || DataShare->TAProgress != TAInGame) {
+	if (!me->PlayerActive || me->DirectPlayID == 0 || (me->PlayerInfo->PropertyMask & WATCH) || DataShare->PlayingDemo) {
 		return 0;
 	}
 
@@ -644,7 +644,7 @@ void ChallengeResponse::HashModules(HmacSha256Calculator& hmac, std::ostream &lo
 {
 	std::size_t M = m_moduleInitialDiskSnapshots.size();
 	for (std::size_t m = 0u; m < M; ++m) {
-		log << "  module[" << m << "]:";
+		log << "  " << m_moduleInitialDiskSnapshotFilenames[m] << ":";
 		hmac.processChunk(m_moduleInitialDiskSnapshots[m]->data(), m_moduleInitialDiskSnapshots[m]->size());
 		log << hmac << std::endl;
 	}
