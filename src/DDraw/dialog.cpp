@@ -89,7 +89,7 @@ Dialog::Dialog(BOOL Vidmem_a)
 
 	m_widgets.push_back(std::make_shared<Label>(COL2, ROW(0), "Mex-Snap Radius"));
 	m_widgets.push_back(m_mexSnapRadiusIntegerField = std::make_shared<IntegerField>(COL3, ROW(0), 20, ROW_HEIGHT,
-		CTAHook::GetDefaultMexSnapRadius(), 0, CTAHook::GetMaxMexSnapRadius(), "MexSnapRadius"));
+		CTAHook::GetDefaultMexSnapRadius(), 0, CTAHook::GetMaxMexSnapRadius(), "MexSnapRadius_"));
 	m_mexSnapRadiusIntegerField->m_disabled = CTAHook::GetMaxMexSnapRadius() == 0;
 	if (!m_mexSnapRadiusIntegerField->m_disabled)
 	{
@@ -98,7 +98,7 @@ Dialog::Dialog(BOOL Vidmem_a)
 
 	m_widgets.push_back(std::make_shared<Label>(COL2, ROW(1), "Wreck-Snap Radius"));
 	m_widgets.push_back(m_wreckSnapRadiusIntegerField = std::make_shared<IntegerField>(COL3, ROW(1), 20, ROW_HEIGHT,
-		CTAHook::GetDefaultWreckSnapRadius(), 0, CTAHook::GetMaxWreckSnapRadius(), "WreckSnapRadius"));
+		CTAHook::GetDefaultWreckSnapRadius(), 0, CTAHook::GetMaxWreckSnapRadius(), "WreckSnapRadius_"));
 	m_wreckSnapRadiusIntegerField->m_disabled = CTAHook::GetMaxWreckSnapRadius() == 0;
 	if (!m_wreckSnapRadiusIntegerField->m_disabled)
 	{
