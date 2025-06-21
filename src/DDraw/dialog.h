@@ -1,113 +1,90 @@
 #ifndef dialogH
 #define dialogH
 
+#include "oddraw.h"
 
-#define DialogHeight 234
-#define DialogWidth 382
+#include <memory>
+#include <string>
+#include <vector>
 
-#define COL0 20
-#define COL1 200
-#define ROW(n) (30+n*35)
-
-#define None 0
-
-#define SetVisible 1
-#define SetVisibleWidth 96
-#define SetVisibleHeight 20
-#define SetVisiblePosX 35
-#define SetVisiblePosY 115
-
-#define OKButton 2
-#define OKButtonWidth 78
-#define OKButtonHeight 20
-#define OKButtonPosX 296
-#define OKButtonPosY ROW(5)
-
-//////////////// COL0
-
-#define ClickSnapOverrideKeyId 3
-#define ClickSnapOverrideKeyWidth 60
-#define ClickSnapOverrideKeyHeight 15
-#define ClickSnapOverrideKeyPosX COL0
-#define ClickSnapOverrideKeyPosY ROW(0)
-
-#define KeyCode 4
-#define KeyCodeWidth 60
-#define KeyCodeHeight 15
-#define KeyCodePosX COL0
-#define KeyCodePosY ROW(1)
-
-#define WhiteboardKey 5
-#define WhiteboardKeyWidth 60
-#define WhiteboardKeyHeight 15
-#define WhiteboardKeyPosX COL0
-#define WhiteboardKeyPosY ROW(2)
-
-#define MegaMapKey (6)
-#define MegamapKeyWidth (60)
-#define MegamapKeyHeight (15)
-#define MegaMapKeyPosX (COL0)
-#define MegaMapKeyPoxY ROW(3)
-
-#define StagedButton3 7
-#define StagedButton3Width 120
-#define StagedButton3Height 20
-#define StagedButton3PosX COL0
-#define StagedButton3PosY ROW(4)
-
-#define VSync 8
-#define VSyncWidth 120
-#define VSyncHeight 20
-#define VSyncPosX COL0
-#define VSyncPosY ROW(5)
-
-/////////// COL1
-
-#define MexSnapRadiusId 9
-#define MexSnapRadiusWidth 18
-#define MexSnapRadiusHeight 15
-#define MexSnapRadiusPosX COL1 +110
-#define MexSnapRadiusPosY ROW(0) -13
-
-#define WreckSnapRadiusId 10
-#define WreckSnapRadiusWidth 18
-#define WreckSnapRadiusHeight 15
-#define WreckSnapRadiusPosX COL1 +110
-#define WreckSnapRadiusPosY ROW(0)
-
-#define AutoClickDelay 11
-#define AutoClickDelayWidth 28
-#define AutoClickDelayHeight 15
-#define AutoClickDelayPosX COL1
-#define AutoClickDelayPosY ROW(0)
-
-#define ShareBox 12
-#define ShareBoxWidth 170
-#define ShareBoxHeight 103
-#define ShareBoxPosX COL1
-#define ShareBoxPosY 60
-
-#define OptimizeDT 13
-#define OptimizeDTWidth 16
-#define OptimizeDTHeight 16
-#define OptimizeDTPosX COL1
-#define OptimizeDTPosY 170
-
-#define FullRings 14
-#define FullRingsWidth 16
-#define FullRingsHeight 16
-#define FullRingsPosX COL1
-#define FullRingsPosY 190
-
-extern HINSTANCE HInstance;
 struct tagInlineX86StackBuffer;
 typedef struct tagInlineX86StackBuffer * PInlineX86StackBuffer;
 
 class InlineSingleHook;
+class VirtualKeyField;
+class IntegerField;
+class TextField;
+class Button;
+class Widget;
+
+#define ROW_HEIGHT 18
+#define ROW(n) (n*ROW_HEIGHT + ROW_HEIGHT/2 - 1)
+#define DialogHeight (14*ROW_HEIGHT)
+#define DialogWidth 382
+
 class Dialog
 {
+  friend class Widget;
+  friend class Button;
+  friend class Label;
+
+public:
+	Dialog(BOOL VidMem_a);
+	~Dialog();
+	void ShowDialog();
+	void HideDialog();
+	bool IsShow(LPRECT rect_p);
+	void BlitDialog(LPDIRECTDRAWSURFACE DestSurf);
+	bool Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+
+	void SetAll();
+
+	static const int RECLAIM_ONLY = 0;
+	static const int RECLAIM_AND_ASSIST = 1;
+	static const int ASSIST_ONLY = 2;
+	int GetConUnitPatrolHoldPosOption();
+	int GetConUnitPatrolManeuverOption();
+	int GetConUnitPatrolRoamOption();
+	int GetConUnitPatrolOption(int unitMovementSetting);
+
+	static const int STAY = 0;
+	static const int CAVEDOG = 1;
+	static const int SCATTER = 2;
+	int GetConUnitGuardHoldPosOption();
+	int GetConUnitGuardManeuverOption();
+	int GetConUnitGuardRoamOption();
+	int GetConUnitGuardOption(int unitMovementSetting);
+
+	int DrawTextField(int posX, int posY, int width, int height, const std::string& text, char color);
+	void DrawText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char* Text);
+	void DrawSmallText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char* Text);
+	void DrawTexture(int x, int y, int width, int height, LPDIRECTDRAWSURFACE texture, int texturePosX, int texturePosY);
+	void BlitCursor(LPDIRECTDRAWSURFACE DestSurf, int x, int y);
+
   private:
-    bool DialogVisible;
+	// all widgets
+	std::vector<std::shared_ptr<Widget> > m_widgets;
+
+	// those widgets that we need to refer to after construction
+	std::shared_ptr <VirtualKeyField> m_clickSnapOverrideVirtualKeyField;
+	std::shared_ptr <VirtualKeyField> m_autoClickVirtualKeyField;
+	std::shared_ptr <VirtualKeyField> m_whiteboardVirtualKeyField;
+	std::shared_ptr <VirtualKeyField> m_megaMapVirtualKeyField;
+	std::shared_ptr <IntegerField> m_mexSnapRadiusIntegerField;
+	std::shared_ptr <IntegerField> m_wreckSnapRadiusIntegerField;
+	std::shared_ptr <TextField> m_chatMacroTextField;
+	std::shared_ptr <Button> m_resourceBarBackgroundButton;
+	std::shared_ptr <Button> m_vsyncButton;
+	std::shared_ptr <Button> m_optimiseDtRowsButton;
+	std::shared_ptr <Button> m_enableFullRingsButton;
+	std::shared_ptr <Button> m_okButton;
+	std::shared_ptr <Button> m_conUnitPatrolHoldPosButton;
+	std::shared_ptr <Button> m_conUnitPatrolManeuverButton;
+	std::shared_ptr <Button> m_conUnitPatrolRoamButton;
+	std::shared_ptr <Button> m_conUnitGuardHoldPosButton;
+	std::shared_ptr <Button> m_conUnitGuardManeuverButton;
+	std::shared_ptr <Button> m_conUnitGuardRoamButton;
+
     LPDIRECTDRAWSURFACE lpDialogSurf;
     LPDIRECTDRAWSURFACE lpBackground;
     LPDIRECTDRAWSURFACE lpCursor;
@@ -124,79 +101,27 @@ class Dialog
 
 	InlineSingleHook * EnterOption_hook;
 	InlineSingleHook * PressInOption_hook;
-    int posX;
-    int posY;
-    int CursorPosX;
-    int CursorPosY;
+
+	bool DialogVisible;
+	bool VidMem;
+	bool Move;
+	int posX, posY;
+	int posXPrev, posYPrev;
+	int CursorPosX, CursorPosY;
 	int CursorBackground;
-    int X,Y;
-    bool Move;
-    bool First;
+    bool FirstBlit;
+
+	// surface and pitch of current target of DrawTextField
     LPVOID SurfaceMemory;
     int lPitch;
-    bool OKButtonPushed;
-    int StagedButton3State;
-    bool StagedButton3Pushed;
-    int StartedIn;
+	// helpers of DrawTextField
+	void DrawTinyText(char* String, int posx, int posy, char Color);
+	void FillRect(int x, int y, int x2, int y2, char Color);
 
-    bool ShareBoxFocus;
-    char ShareText[1000];
-    int ShareHeight;
-    int MaxLines;
-    int Lines;
-
-    bool OptimizeDTEnabled;
-
-    bool VSyncEnabled;
-    bool VSyncPushed;
-	bool VidMem;
-
-    bool FullRingsEnabled;
-
-    char AutoClickDelayText[10];
-    bool AutoClickDelayFocus;
-
-	char MexSnapRadiusText[10];
-	bool MexSnapRadiusFocus;
-
-	char WreckSnapRadiusText[10];
-	bool WreckSnapRadiusFocus;
-
-    int VirtualKeyCode;
-    bool KeyCodeFocus;
-
-    int VirtualWhiteboardKey;
-    bool WhiteboardKeyFocus;
-
-	int ClickSnapOverrideKey;
-	bool ClickSnapOverrideKeyFocus;
-
-	int VirtualMegamap;
-	bool MegmapFocus;
-
-    bool SetVisiblePushed;
-    
-    bool Inside(int x, int y, int Control);
+	bool _Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
     void RenderDialog();
-    void DrawTinyText(char *String, int posx, int posy, char Color);
-    void FillRect(int x, int y, int x2, int y2, char Color);
 
-    void DrawBackgroundButton();
-    void DrawKeyCode();
-    void DrawShareBox();
-    void DrawOptimizeDT();
-    void DrawVSync();
-    void DrawFullRings();
-	void DrawDelay();
-	void DrawClickSnapRadius();
-    void DrawWhiteboardKey();
-	void DrawClickSnapOverrideKey();
-    void DrawVisibleButton();
-
-	void DrawMegaMapKey ();
-
-    
-    void ReadRegistry();
+	void ReadRegistry();
     void WriteRegistry();
 
     void ReadPos();
@@ -207,22 +132,7 @@ class Dialog
     void CorrectPos();
     void RestoreAll();
 
-    void SetVisibleList();
 	void RestoreCursor ();
-  public:
-    Dialog(BOOL VidMem_a);
-    ~Dialog();
-    void ShowDialog();
-    void HideDialog();
-	bool IsShow (LPRECT rect_p);
-    void BlitDialog(LPDIRECTDRAWSURFACE DestSurf);
-    bool Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-
-	void SetAll();
-
-    void DrawText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, char *Text);
-    void DrawSmallText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, char *Text);
-    void BlitCursor(LPDIRECTDRAWSURFACE DestSurf, int x, int y);
 };
 
 

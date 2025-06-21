@@ -105,6 +105,8 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <CallingConvention>StdCall</CallingConvention>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -127,11 +129,37 @@
       <OutputFile>.\Debug/ddraw.bsc</OutputFile>
     </Bscmake>
     <PostBuildEvent>
-      <Command>
-if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
-    copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
+      <Command>echo ====== POST-BUILD EVENT: VARIABLE EVALUATION ======
+echo ProjectDir: "$(ProjectDir)"
+echo LocalDebuggerWorkingDirectory: "$(LocalDebuggerWorkingDirectory)"
+echo LocalDebuggerCommand: "$(LocalDebuggerCommand)"
+echo TargetPath: "$(TargetPath)"
+echo TargetFileName: "$(TargetFileName)"
+
+if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" (
+    echo "LocalDebuggerWorkingDirectory differs from ProjectDir."
+    if exist "$(LocalDebuggerCommand)" (
+        echo "LocalDebuggerCommand exists: $(LocalDebuggerCommand)"
+        if exist "$(LocalDebuggerWorkingDirectory)" (
+            echo "LocalDebuggerWorkingDirectory exists: $(LocalDebuggerWorkingDirectory)"
+            echo "Copying $(TargetPath) to $(LocalDebuggerWorkingDirectory)\$(TargetFileName)"
+            copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)\$(TargetFileName)"
+            if %ERRORLEVEL% EQU 0 (
+                echo "Copy succeeded!"
+            ) else (
+                echo "ERROR: Copy failed! (ErrorLevel: %ERRORLEVEL%)"
+            )
+        ) else (
+            echo "WARNING: LocalDebuggerWorkingDirectory does not exist."
+        )
+    ) else (
+        echo "WARNING: LocalDebuggerCommand does not exist."
+    )
+) else (
+    echo "LocalDebuggerWorkingDirectory is the same as ProjectDir. No copy needed."
 )
-</Command>
+
+echo ====== POST-BUILD EVENT FINISHED ======</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -159,6 +187,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <CallingConvention>StdCall</CallingConvention>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -182,11 +212,37 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <OutputFile>.\Release/ddraw.bsc</OutputFile>
     </Bscmake>
     <PostBuildEvent>
-      <Command>
-if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDebuggerCommand)" if exist "$(LocalDebuggerWorkingDirectory)"  (
-    copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)$(TargetFileName)"
+      <Command>echo ====== POST-BUILD EVENT: VARIABLE EVALUATION ======
+echo ProjectDir: "$(ProjectDir)"
+echo LocalDebuggerWorkingDirectory: "$(LocalDebuggerWorkingDirectory)"
+echo LocalDebuggerCommand: "$(LocalDebuggerCommand)"
+echo TargetPath: "$(TargetPath)"
+echo TargetFileName: "$(TargetFileName)"
+
+if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" (
+    echo "LocalDebuggerWorkingDirectory differs from ProjectDir."
+    if exist "$(LocalDebuggerCommand)" (
+        echo "LocalDebuggerCommand exists: $(LocalDebuggerCommand)"
+        if exist "$(LocalDebuggerWorkingDirectory)" (
+            echo "LocalDebuggerWorkingDirectory exists: $(LocalDebuggerWorkingDirectory)"
+            echo "Copying $(TargetPath) to $(LocalDebuggerWorkingDirectory)\$(TargetFileName)"
+            copy "$(TargetPath)" "$(LocalDebuggerWorkingDirectory)\$(TargetFileName)"
+            if %ERRORLEVEL% EQU 0 (
+                echo "Copy succeeded!"
+            ) else (
+                echo "ERROR: Copy failed! (ErrorLevel: %ERRORLEVEL%)"
+            )
+        ) else (
+            echo "WARNING: LocalDebuggerWorkingDirectory does not exist."
+        )
+    ) else (
+        echo "WARNING: LocalDebuggerCommand does not exist."
+    )
+) else (
+    echo "LocalDebuggerWorkingDirectory is the same as ProjectDir. No copy needed."
 )
-</Command>
+
+echo ====== POST-BUILD EVENT FINISHED ======</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>powershell -ExecutionPolicy Bypass -File "random_code_seg_keys.ps1"</Command>
@@ -263,10 +319,17 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="MultiplayerSchemaUnits.cpp" />
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
+    <ClCompile Include="Widgets\Button.cpp" />
+    <ClCompile Include="Widgets\IntegerField.cpp" />
+    <ClCompile Include="Widgets\Label.cpp" />
+    <ClCompile Include="Widgets\TextField.cpp" />
+    <ClCompile Include="Widgets\VirtualKeyField.cpp" />
+    <ClCompile Include="Widgets\Widget.cpp" />
     <ClInclude Include="AutoTeam.h" />
     <ClInclude Include="BattleroomCommands.h" />
     <ClInclude Include="ChallengeResponse.h" />
     <ClInclude Include="GameTickHook.h" />
+    <ClInclude Include="HackableOptions.h" />
     <ClInclude Include="HexDump.h" />
     <ClInclude Include="HmacSha256.h" />
     <ClInclude Include="MegamapControl.h" />
@@ -341,7 +404,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <ClCompile Include="dialog.cpp">
+    <ClCompile Include="Dialog.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -395,6 +458,12 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClInclude Include="Widgets\Button.h" />
+    <ClInclude Include="Widgets\IntegerField.h" />
+    <ClInclude Include="Widgets\Label.h" />
+    <ClInclude Include="Widgets\TextField.h" />
+    <ClInclude Include="Widgets\VirtualKeyField.h" />
+    <ClInclude Include="Widgets\Widget.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BMP.h" />
@@ -405,7 +474,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="cincome.h" />
     <ClInclude Include="commanderwarp.h" />
     <ClInclude Include="ddraw.h" />
-    <ClInclude Include="dialog.h" />
+    <ClInclude Include="Dialog.h" />
     <ClInclude Include="ElementHandler.h" />
     <ClInclude Include="ExternQuickKey.h" />
     <ClInclude Include="fullscreenminimap.h" />

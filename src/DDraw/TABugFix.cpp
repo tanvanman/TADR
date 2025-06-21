@@ -1,4 +1,5 @@
 
+#include "Dialog.h"
 #include "iddraw.h"
 #include "iddrawsurface.h"
 #include "HexDump.h"
@@ -137,7 +138,10 @@ unsigned int PatrolDisableBuildRepairAddr = 0x4059e4;
 int __stdcall PatrolDisableBuildRepairProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Esi;
-	if (((unit->UnitSelected & 0x000c0000) >> 18) == 0 /* holdpos*/)
+	Dialog* settingsDialog = (Dialog*)LocalShare->Dialog;
+	int unitMovementSetting = ((unit->UnitSelected & 0x000c0000) >> 18);
+	int patrolOption = settingsDialog->GetConUnitPatrolOption(unitMovementSetting);
+	if (patrolOption == Dialog::RECLAIM_ONLY)
 	{
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x405b18;	// skip check for build/repair, return directly to find-reclaim
 		return X86STRACKBUFFERCHANGE;
@@ -149,7 +153,10 @@ unsigned int PatrolDisableReclaimAddr = 0x405b18;
 int __stdcall PatrolDisableReclaimProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Esi;
-	if (((unit->UnitSelected & 0x000c0000) >> 18) == 2 /* roam */)
+	Dialog* settingsDialog = (Dialog*)LocalShare->Dialog;
+	int unitMovementSetting = ((unit->UnitSelected & 0x000c0000) >> 18);
+	int patrolOption = settingsDialog->GetConUnitPatrolOption(unitMovementSetting);
+	if (patrolOption == Dialog::ASSIST_ONLY)
 	{
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x405d4a;	// skip check for reclaim, return early
 		return X86STRACKBUFFERCHANGE;
@@ -161,7 +168,10 @@ unsigned int VTOLPatrolDisableBuildRepairAddr = 0x41547d;
 int __stdcall VTOLPatrolDisableBuildRepairProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Edi;
-	if (((unit->UnitSelected & 0x000c0000) >> 18) == 0 /* holdpos */)
+	Dialog* settingsDialog = (Dialog*)LocalShare->Dialog;
+	int unitMovementSetting = ((unit->UnitSelected & 0x000c0000) >> 18);
+	int patrolOption = settingsDialog->GetConUnitPatrolOption(unitMovementSetting);
+	if (patrolOption == Dialog::RECLAIM_ONLY)
 	{
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x415621;	// skip check for build/repair, return directly to find-reclaim
 		return X86STRACKBUFFERCHANGE;
@@ -173,7 +183,10 @@ unsigned int VTOLPatrolDisableReclaimAddr = 0x415621;
 int __stdcall VTOLPatrolDisableReclaimProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Edi;
-	if (((unit->UnitSelected & 0x000c0000) >> 18) == 2 /* roam */)
+	Dialog* settingsDialog = (Dialog*)LocalShare->Dialog;
+	int unitMovementSetting = ((unit->UnitSelected & 0x000c0000) >> 18);
+	int patrolOption = settingsDialog->GetConUnitPatrolOption(unitMovementSetting);
+	if (patrolOption == Dialog::ASSIST_ONLY)
 	{
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4157bd;	// skip check for reclaim, return early
 		return X86STRACKBUFFERCHANGE;
@@ -569,15 +582,21 @@ int __stdcall FixedPositionGuardingConsProc(PInlineX86StackBuffer X86StrackBuffe
 {
 	UnitOrdersStruct* const orders = (UnitOrdersStruct*)(X86StrackBuffer->Ebx);
 	UnitStruct* const guardingUnit = orders->Unit_ptr;
+	Dialog* settingsDialog = (Dialog*)LocalShare->Dialog;
+
+	int unitMovementSetting = ((guardingUnit->UnitSelected & 0x000c0000) >> 18);
+	int guardOption = settingsDialog->GetConUnitGuardOption(unitMovementSetting);
 
 	int guardOffset;
-	if (*TA_BUGFIX_FIXED_POSN_GUARDING_CONS_OPTION == 1 && ((guardingUnit->UnitSelected & 0x000c0000) >> 18) == 0 /* holdpos */ ||
-		*TA_BUGFIX_FIXED_POSN_GUARDING_CONS_OPTION == 2)
+	switch (guardOption)
 	{
+	case Dialog::STAY:
 		guardOffset = 7 * orders->BuildUnitID / 20;	// Not really BuildUnitID in this context ...
-	}
-	else
-	{
+		break;
+	case Dialog::SCATTER:
+		guardOffset = orders->BuildUnitID;	// Not really BuildUnitID in this context ...
+		break;
+	default:
 		return 0;
 	}
 
@@ -707,9 +726,9 @@ TABugFixing::TABugFixing ()
 	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
 	ResourceStripHeightFix.reset(new InlineSingleHook(ResourceStripHeightFixAddr, 5, INLINE_5BYTESLAGGERJMP, ResourceStripHeightFixProc));
 	PatrolDisableBuildRepair.reset(new InlineSingleHook(PatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableBuildRepairProc));
-	//PatrolDisableReclaim.reset(new InlineSingleHook(PatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableReclaimProc));
+	PatrolDisableReclaim.reset(new InlineSingleHook(PatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableReclaimProc));
 	VTOLPatrolDisableBuildRepair.reset(new InlineSingleHook(VTOLPatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableBuildRepairProc));
-	//VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
+	VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
 	JammingOwnRadar.reset(new InlineSingleHook(JammingOwnRadarAddr, 5, INLINE_5BYTESLAGGERJMP, JammingOwnRadarProc));
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
 	GhostComFix.reset(new InlineSingleHook(GhostComFixAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixProc));
@@ -725,7 +744,7 @@ TABugFixing::TABugFixing ()
 	//m_hooks.push_back(std::make_unique<InlineSingleHook>(LogTrace1Addr, 5, INLINE_5BYTESLAGGERJMP, LogTrace1Proc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoveSharedResourcesFromTotalAddr, 5, INLINE_5BYTESLAGGERJMP, RemoveSharedResourcesFromTotalProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(MultiplayerVictorySoundAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerVictorySoundProc));
-	if (0 != *TA_BUGFIX_FIXED_POSN_GUARDING_CONS_OPTION) {
+	if (0 != *TA_BUGFIX_FIXED_POSN_GUARDING_CONS_ENABLE) {
 		m_hooks.push_back(std::make_unique<InlineSingleHook>(FixedPositionGuardingConsAddr, 5, INLINE_5BYTESLAGGERJMP, FixedPositionGuardingConsProc));
 	}
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );

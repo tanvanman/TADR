@@ -743,7 +743,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	return false;
 }
 
-void CTAHook::Set(int KeyCodei, char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iMexSnapRadius, int iWreckSnapRadius, int iClickSnapOverrideKey)
+void CTAHook::Set(int KeyCodei, const char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iMexSnapRadius, int iWreckSnapRadius, int iClickSnapOverrideKey)
 {
 	VirtualKeyCode = KeyCodei;
 	lstrcpyA(ShareText, ChatMacroi);
