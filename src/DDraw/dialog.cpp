@@ -64,7 +64,7 @@ Dialog::Dialog(BOOL Vidmem_a)
 	m_widgets.push_back(m_conUnitPatrolManeuverButton = std::make_shared<Button>(COL0c, ROW(6), lpStagedButton3,
 		RECLAIM_AND_ASSIST, 3, true, patrolButtonLabels, "ConUnitsPatrolManeuverOption"));
 	m_widgets.push_back(m_conUnitPatrolRoamButton = std::make_shared<Button>(COL0c, ROW(7), lpStagedButton3,
-		ASSIST_ONLY, 3, true, patrolButtonLabels, "ConUnitsPatrolRoamOption"));
+		RECLAIM_AND_ASSIST, 3, true, patrolButtonLabels, "ConUnitsPatrolRoamOption"));
 
 	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(8), "GUARDING CONSTRUCTION UNITS"));
 	if (*TA_BUGFIX_FIXED_POSN_GUARDING_CONS_ENABLE)
@@ -74,11 +74,11 @@ Dialog::Dialog(BOOL Vidmem_a)
 		m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(11), "Roam"));
 		static const std::vector<std::string> guardButtonLabels({ "Stay", "Cavedog", "Scatter" });
 		m_widgets.push_back(m_conUnitGuardHoldPosButton = std::make_shared<Button>(COL0c, ROW(9), lpStagedButton3,
-			STAY, 3, true, guardButtonLabels, "ConUnitsGuardHoldPosOption"));
+			CAVEDOG, 3, true, guardButtonLabels, "ConUnitsGuardHoldPosOption"));
 		m_widgets.push_back(m_conUnitGuardManeuverButton = std::make_shared<Button>(COL0c, ROW(10), lpStagedButton3,
 			CAVEDOG, 3, true, guardButtonLabels, "ConUnitsGuardManeuverOption"));
 		m_widgets.push_back(m_conUnitGuardRoamButton = std::make_shared<Button>(COL0c, ROW(11), lpStagedButton3,
-			SCATTER, 3, true, guardButtonLabels, "ConUnitsGuardRoamOption"));
+			CAVEDOG, 3, true, guardButtonLabels, "ConUnitsGuardRoamOption"));
 	}
 	else
 	{
