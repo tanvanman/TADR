@@ -4,6 +4,7 @@
 #include "iddrawsurface.h"
 #include "whiteboard.h"
 //#include "font.h"              
+#include <algorithm>
 #include <stdio.h>
 #include <sstream>
 #include "Gaf.h"
@@ -25,6 +26,9 @@
 #include <list>
 #include <tuple>
 
+#ifdef min
+#undef min
+#endif
 #ifdef max
 #undef max
 #endif
@@ -148,8 +152,8 @@ CTAHook::CTAHook(BOOL VidMem)
 	int *PTR = (int*)0x00511de8;
 	TAdynmem = (TAdynmemStruct*)(*PTR);
 
-	m_hooks.push_back(std::unique_ptr<SingleHook>(new InlineSingleHook(SuppressShowReclaimCursorAddr, 5, INLINE_5BYTESLAGGERJMP, SuppressShowReclaimCursorProc)));
-	m_hooks.push_back(std::unique_ptr<SingleHook>(new InlineSingleHook(ReduceCancelOrderToleranceAddr, 5, INLINE_5BYTESLAGGERJMP, ReduceCancelOrderToleranceProc)));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(SuppressShowReclaimCursorAddr, 5, INLINE_5BYTESLAGGERJMP, SuppressShowReclaimCursorProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(ReduceCancelOrderToleranceAddr, 5, INLINE_5BYTESLAGGERJMP, ReduceCancelOrderToleranceProc));
 
 	IDDrawSurface::OutptTxt ( "New CTAHook");
 }
@@ -163,8 +167,6 @@ CTAHook::~CTAHook()
 	lpRectSurf= NULL;
 	if(DataShare->ehaOff == 1)
 		return;
-
-
 }
 
 struct CountFeetExceedingSurfaceMetalAdapter
@@ -653,7 +655,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 
 								char yardMap[65] = { 0 };
 								if (GetBuildUnit().YardMap) {
-									int N = min(64, GetFootX() * GetFootY());
+									int N = std::min(64, GetFootX() * GetFootY());
 									std::memcpy(yardMap, GetBuildUnit().YardMap, N);
 									yardMap[N] = 0;
 								}

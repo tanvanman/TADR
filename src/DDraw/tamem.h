@@ -586,7 +586,8 @@ struct WreckageInfoStruct{
 };
 
 struct FeatureStruct{
-	unsigned occupyingUnitNumber;
+	unsigned short occupyingUnitNumber;
+	unsigned short deadspace;
 	unsigned char height;
 	unsigned char maxHeight2x2;  // maximum height of 2x2 patch starting at this coordinate. TA bug gives unpredictable values on right-hand edge of map?
 	unsigned char minHeight2x2;  // minimum height of 2x2 patch starting at this coordinate  TA bug gives unpredictable values on right-hand edge of map?
@@ -739,105 +740,100 @@ struct CobHeader {
 };
 
 struct UnitDefStruct {
-	char Name[0x20];
-	char UnitName[0x20];
-	char UnitDescription[0x40];
-	char ObjectName[0x20];
-	char Side[8];
-	char data5[0xA2];
-	short FootX;  //0x14A
-	short FootY;  //0x14C
-	char *YardMap;
-	int canbuildCount;
-	short* CANBUILD_ptr;
-	int buildLimit;
-	unsigned short __X_Width;
-	unsigned short X_Width;
-	unsigned long data_7;
-	unsigned short Y_Width;
-	unsigned short __Y_Width;
-	unsigned long data_8;
-	unsigned short __Z_Width;
-	unsigned short Z_Width;
-	unsigned long data_9;
-	unsigned long data_10;
-	unsigned long data_11;
-	unsigned long data_12;
-	unsigned long data_13;
-	unsigned long buildcostenergy;
-	unsigned long buildcostmetal;
-	CobHeader* cobDataPtr;
-	unsigned long lRawSpeed_maxvelocity;
-	unsigned long data_15;
-	unsigned long data_16;
-	unsigned long cceleration;
-	unsigned long  bankscale;
-	unsigned long  pitchscale;
-	unsigned long  damagemodifier;
-	unsigned long  moverate1;
-	unsigned long  moverate2;
-	unsigned long  movementclass;
-	unsigned short  turnrate;
-	unsigned short  corpse;
-	unsigned short  maxwaterdepth;
-	unsigned short   minwaterdepth;
-	unsigned long   energymake;
-	float energyuse ;
-	unsigned long   metalmake;
-	unsigned long   extractsmetal;
-	float   windgenerator;
-	unsigned long   tidalgenerator ;
-	unsigned long   cloakcost ;
-	unsigned long   cloakcostmoving;
-	unsigned long   energystorage ;
-	unsigned long   metalstorage ;
-	unsigned long   buildtime;
-	WeaponStruct *  weapon1  ;
-	WeaponStruct *  weapon2 ;
-	WeaponStruct *  weapon3;
-	unsigned short   nMaxHP;
-	unsigned short   data8  ;
-	unsigned short nWorkerTime;
-	unsigned short nHealTime ;
-	unsigned short nSightDistance;
-	unsigned short nRadarDistance ;
-	unsigned short nSonarDistance;
-	unsigned short mincloakdistance ;
-	unsigned short radardistancejam;
-	unsigned short sonardistancejam ;
-	unsigned short SoundClassIndex;
-	unsigned short nBuildDistance;
-	unsigned short builddistance;
-	unsigned short nManeuverLeashLength;
-	unsigned short attackrunlength ;
-	unsigned short kamikazedistance ;
-	unsigned short sortbias     ;
-	unsigned char cruisealt  ;
-	unsigned char data4  ;
-	unsigned short  UnitTypeID  ;
-
-	WeaponStruct *ExplodeAs;
-	WeaponStruct *SelfeDestructAs;
-	unsigned char  maxslope;
-	unsigned char  badslope  ;
-	unsigned char  transportsize;
-	unsigned char  transportcapacity;
-	unsigned char  waterline ;
-	unsigned short  makesmetal;
-	unsigned char  bmcode  ;
-	unsigned char  defaultmissiontypeIndex;
-	unsigned long *  wpri_badTargetCategory_MaskAryPtr ;
-	unsigned long *  wsec_badTargetCategory_MaskAryPtr;
-	unsigned long *  wspe_badTargetCategory_MaskAryPtr;
-	unsigned long *  noChaseCategory_MaskAryPtr;
-	unsigned long  UnitTypeMask_0;
-	unsigned long  UnitTypeMask_1 ;
-
-	/*
-	char data7[0x36];
-	unsigned short WorkerTime;
-	char data8[0x49];*/
-}; //0x249
+	/* 0x000 */ char Name[0x20];
+	/* 0x020 */ char UnitName[0x20];
+	/* 0x040 */ char UnitDescription[0x40];
+	/* 0x080 */ char ObjectName[0x20];
+	/* 0x0A0 */ char Side[8];
+	/* 0x0A8 */ char data5[0xA2];
+	/* 0x14A */ short FootX;
+	/* 0x14C */ short FootY;
+	/* 0x14E */ char* YardMap;
+	/* 0x152 */ int canbuildCount;
+	/* 0x156 */ short* CANBUILD_ptr;
+	/* 0x15A */ int buildLimit;
+	/* 0x15E */ unsigned short __X_Width;
+	/* 0x160 */ unsigned short X_Width;
+	/* 0x162 */ unsigned long data_7;
+	/* 0x166 */ unsigned short Y_Width;
+	/* 0x168 */ unsigned short __Y_Width;
+	/* 0x16A */ unsigned long data_8;
+	/* 0x16E */ unsigned short __Z_Width;
+	/* 0x170 */ unsigned short Z_Width;
+	/* 0x172 */ unsigned long data_9;
+	/* 0x176 */ unsigned long data_10;
+	/* 0x17A */ unsigned long data_11;
+	/* 0x17E */ unsigned long data_12;
+	/* 0x182 */ unsigned long data_13;
+	/* 0x186 */ float buildcostenergy;
+	/* 0x18A */ float buildcostmetal;
+	/* 0x18E */ CobHeader* cobDataPtr;
+	/* 0x192 */ unsigned long lRawSpeed_maxvelocity;
+	/* 0x196 */ unsigned long data_15;
+	/* 0x19A */ unsigned long data_16;
+	/* 0x19E */ unsigned long cceleration;
+	/* 0x1A2 */ unsigned long bankscale;
+	/* 0x1A6 */ unsigned long pitchscale;
+	/* 0x1AA */ unsigned long damagemodifier;
+	/* 0x1AE */ unsigned long moverate1;
+	/* 0x1B2 */ unsigned long moverate2;
+	/* 0x1B6 */ unsigned long movementclass;
+	/* 0x1BA */ unsigned short turnrate;
+	/* 0x1BC */ unsigned short corpse;
+	/* 0x1BE */ unsigned short maxwaterdepth;
+	/* 0x1C0 */ unsigned short minwaterdepth;
+	/* 0x1C2 */ unsigned long energymake;
+	/* 0x1C6 */ float energyuse;
+	/* 0x1CA */ unsigned long metalmake;
+	/* 0x1CE */ unsigned long extractsmetal;
+	/* 0x1D2 */ float windgenerator;
+	/* 0x1D6 */ unsigned long tidalgenerator;
+	/* 0x1DA */ unsigned long cloakcost;
+	/* 0x1DE */ unsigned long cloakcostmoving;
+	/* 0x1E2 */ unsigned long energystorage;
+	/* 0x1E6 */ unsigned long metalstorage;
+	/* 0x1EA */ unsigned long buildtime;
+	/* 0x1EE */ WeaponStruct* weapon1;
+	/* 0x1F2 */ WeaponStruct* weapon2;
+	/* 0x1F6 */ WeaponStruct* weapon3;
+	/* 0x1FA */ unsigned short nMaxHP;
+	/* 0x1FC */ unsigned short data8;
+	/* 0x1FE */ unsigned short nWorkerTime;
+	/* 0x200 */ unsigned short nHealTime;
+	/* 0x202 */ unsigned short nSightDistance;
+	/* 0x204 */ unsigned short nRadarDistance;
+	/* 0x206 */ unsigned short nSonarDistance;
+	/* 0x208 */ unsigned short mincloakdistance;
+	/* 0x20A */ unsigned short radardistancejam;
+	/* 0x20C */ unsigned short sonardistancejam;
+	/* 0x20E */ unsigned short SoundClassIndex;
+	/* 0x210 */ unsigned short nBuildDistance;
+	/* 0x212 */ unsigned short builddistance;
+	/* 0x214 */ unsigned short nManeuverLeashLength;
+	/* 0x216 */ unsigned short attackrunlength;
+	/* 0x218 */ unsigned short kamikazedistance;
+	/* 0x21A */ unsigned short sortbias;
+	/* 0x21C */ unsigned char cruisealt;
+	/* 0x21D */ unsigned char data4;
+	/* 0x21E */ unsigned short UnitTypeID;
+	/* 0x220 */ WeaponStruct* ExplodeAs;
+	/* 0x224 */ WeaponStruct* SelfeDestructAs;
+	/* 0x228 */ unsigned char maxslope;
+	/* 0x229 */ unsigned char badslope;
+	/* 0x22A */ unsigned char transportsize;
+	/* 0x22B */ unsigned char transportcapacity;
+	/* 0x22C */ unsigned char waterline;
+	/* 0x22D */ unsigned short makesmetal;
+	/* 0x22F */ unsigned char bmcode;
+	/* 0x230 */ unsigned char defaultmissiontypeIndex;
+	/* 0x231 */ unsigned long* wpri_badTargetCategory_MaskAryPtr;
+	/* 0x235 */ unsigned long* wsec_badTargetCategory_MaskAryPtr;
+	/* 0x239 */ unsigned long* wspe_badTargetCategory_MaskAryPtr;
+	/* 0x23D */ unsigned long* noChaseCategory_MaskAryPtr;
+	/* 0x241 */ unsigned long UnitTypeMask_0;
+	/* 0x245 */ unsigned long UnitTypeMask_1;
+	// 0x249
+};
 
 enum UnitSelectState
 {
@@ -960,7 +956,7 @@ struct PrimitiveStruct{
 
 
 struct UnitOrdersStruct {
-  UnitOrdersStruct* PriorOrder_uosp; // 0x00
+  void* functionPtrPtr;              // 0x00
   unsigned char COBHandler_index;    // 0x04
   unsigned char State;               // 0x05
   unsigned short unknow_1;           // 0x06
@@ -977,7 +973,7 @@ struct UnitOrdersStruct {
   short RemeberY;                    // 0x34
   unsigned int BuildUnitID;          // 0x36
   char data4[8];                     // 0x3A
-  unsigned int Order_State;          // 0x42
+  unsigned int Order_State;          // 0x42		// 0x40000: background order
   unsigned int StartTime;            // 0x46
   UnitOrdersStruct* NextOrder;       // 0x4A
   unsigned int mask;                 // 0x4E

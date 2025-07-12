@@ -2,6 +2,7 @@
 
 #include "cincome.h"
 #include "font.h"
+#include "fullscreenminimap.h"
 #include "gaf.h"
 #include "GUIExpand.h"
 #include "HackableOptions.h"
@@ -641,6 +642,11 @@ void Dialog::DrawSmallText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const cha
 		if(Text[i] == ' ')
 			Dest.left += 6;
 	}
+}
+
+int Dialog::GetClickSnapOverrideKey()
+{
+	return m_clickSnapOverrideVirtualKeyField->m_vk;
 }
 
 void Dialog::SetAll()

@@ -11,6 +11,7 @@ using namespace std;
 #include "tafunctions.h"
 
 #include "ChallengeResponse.h"
+#include "ConstructionKickout.h"
 #include "TenPlayerReplay.h"
 #include "whiteboard.h"
 #include "MinimapHandler.h"
@@ -180,6 +181,7 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	SharedRect= new CMapRect ( VidMem) ;
 	ChangeQueue= new CChangeQueue ;
 	DDDTA= new CDDDTA ;
+	ConstructionKickout::GetInstance();
 
 #ifdef USEMEGAMAP
 
@@ -1122,11 +1124,14 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 			&&(((CWarp*)LocalShare->CommanderWarp)->Message(WinProcWnd, Msg, wParam, lParam)))
 			return 0;
 
+		if (ConstructionKickout::GetInstance()->Message(WinProcWnd, Msg, wParam, lParam))
+		{
+			return 0;
+		}
 
 		if((NULL!=LocalShare->TAHook)
 			&&(((CTAHook*)LocalShare->TAHook)->Message(WinProcWnd, Msg, wParam, lParam)))
 			return 0;  //message handled by tahook class
-
 
 		//   if(((CChangeQueue*)LocalShare->ChangeQueue)->Message(WinProcWnd, Msg, wParam, lParam))
 		//     return 0;

@@ -153,6 +153,67 @@ void SendOrder (unsigned int TAX, unsigned int TAY, unsigned int TAZ, int OrderT
 	MOUSE_EVENT_2UnitOrder_ ( &Mevent, OrderType, 0, &Pos, 0, 0);
 }
 
+void SendOrder(UnitStruct* unit, unsigned int TAX, unsigned int TAY, unsigned int TAZ, UnitStruct* target, ordertype::ORDERTYPE orderType, int orCobIndex, bool shift)
+{
+	typedef char*(__stdcall* _ScriptAction_Type2Index)(int* RtnIndex_ptr, unsigned Action_ID, UnitStruct* OrderUnit, UnitStruct* TargetUnittr, Position_Dword* Position);
+	_ScriptAction_Type2Index ScriptAction_Type2Index = (_ScriptAction_Type2Index)0x043f0e0;
+
+	typedef int* (__thiscall* _ScriptAction_Index2Handler)(char* indexTo_trn);
+	_ScriptAction_Index2Handler ScriptAction_Index2Handler = (_ScriptAction_Index2Handler)0x0438830;
+
+	typedef void(__stdcall* _ORDERS_NewMainOrder2Unit)(int ActionIndex, int shift_key, UnitStruct* OrderUnit_p, UnitStruct* TargatUnit, Position_Dword* Position_DWORD_p, int lPar1, int lPar2);
+	_ORDERS_NewMainOrder2Unit ORDERS_NewMainOrder2Unit = (_ORDERS_NewMainOrder2Unit)0x043afc0;
+
+	(*TAmainStruct_PtrPtr)->MouseMapPos;
+	Position_Dword pos;
+	std::memset(&pos, 0, sizeof(pos));
+	pos.X = TAX;
+	pos.Y = TAY;
+	pos.Z = TAZ;
+
+	int index = orCobIndex;
+	char* actionIndex = int(orderType) != 0
+		? ScriptAction_Type2Index(&index, orderType, unit, target, &pos)
+		: (char*)&orCobIndex;
+
+	if (actionIndex)
+	{
+		ScriptAction_Index2Handler(actionIndex);
+		ORDERS_NewMainOrder2Unit(*actionIndex, shift, unit, target, &pos, 0, shift);
+	}
+}
+
+void PushOrder(UnitStruct* unit, unsigned int TAX, unsigned int TAY, unsigned int TAZ, UnitStruct* target, ordertype::ORDERTYPE orderType)
+{
+	typedef char* (__stdcall* _ScriptAction_Type2Index)(int* RtnIndex_ptr, unsigned Action_ID, UnitStruct* OrderUnit, UnitStruct* TargetUnittr, Position_Dword* Position);
+	_ScriptAction_Type2Index ScriptAction_Type2Index = (_ScriptAction_Type2Index)0x043f0e0;
+
+	typedef int(__cdecl* _cmalloc_MM__)(size_t Size);
+	_cmalloc_MM__ cmalloc_MM__ = (_cmalloc_MM__)0x04b4f10;
+
+	typedef int(__thiscall* _UnitOrdersStructConstructor)(UnitOrdersStruct* orders, int Scrip_index, UnitStruct* TargatUnit, Position_Dword* Position_DWORD_p, int lPar1, int lPar2, int UnitOrderFlags);
+	_UnitOrdersStructConstructor UnitOrdersStructConstructor = (_UnitOrdersStructConstructor)0x43a0c0;
+
+	typedef void(__stdcall* _ORDERS_PushOrder)(UnitStruct * UnitInGame_ptr, UnitOrdersStruct *UnitOrder_ptr);
+	_ORDERS_PushOrder ORDERS_PushOrder = (_ORDERS_PushOrder)0x43acb0;
+
+	(*TAmainStruct_PtrPtr)->MouseMapPos;
+	Position_Dword pos;
+	std::memset(&pos, 0, sizeof(pos));
+	pos.X = TAX;
+	pos.Y = TAY;
+	pos.Z = TAZ;
+
+	int index = -1;
+	char actionIndex = *ScriptAction_Type2Index(&index, orderType, unit, target, &pos);
+
+	UnitOrdersStruct* mainOrder = unit->UnitOrders;
+
+	UnitOrdersStruct* newOrders = (UnitOrdersStruct*)cmalloc_MM__(sizeof(UnitOrdersStruct));
+	UnitOrdersStructConstructor(newOrders, actionIndex, target, &pos, 0, 0, 0);
+	ORDERS_PushOrder(unit, newOrders);
+}
+
 LPDWORD GetUnitIDMaskAryByCategory (LPSTR CategoryName_cstrp)
 {
 	__try
