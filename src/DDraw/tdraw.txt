@@ -29,17 +29,18 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*????.??.??
+*2025.07.12
+- Allow user to queue build orders underneath their own mobile units; and auto kickout of units that are under a build order
+- Mod developers can opt-in to "Improved behaviour of con units".
+  Modifies what construction units that are guarding factories do after completing each unit: either stay put; cavedog; or scatter.
+  Set byte at TotalA.exe:0x101f1f to 0x00 to disable the feature (default) or 0x01 to enable the feature.
+  Note that if one player's 0x101f1f setting doesn't match that of other players, an in-game cheat warning will be triggered.
+  Once enabled, see ctrl-f2 menu for related user configurable options.
 - Fix bug with erroneous game results reported to TAF when using in-game +autoteam
 - With fixed position, start positions are assigned in order given by TAF auto balance
   so that players are positioned opposite an opponent of similar skill
 - Fixed bugs with player placement in 2v2+ games on maps with neutral units
-- Mod developers can opt-in to "Improved behaviour of con units".
-  Construction units that are guarding a factory will now stay put after completing each unit rather than wandering around randomly.
-  Set byte at TotalA.exe:0x101f1f to 0x00: disables the feature (default)
-  Set byte at TotalA.exe:0x101f1f to 0x01: cons stay put after building only when set to Hold Position.
-  Set byte at TotalA.exe:0x101f1f to 0x02: cons stay put after building regardless of the Hold/Maneuvre/Roam setting.
-  Note that if one player's setting doesn't match that of other players, an in-game cheat warning will be triggered.
+- Push anticheat hashing functions into background threads so as to reduce in-game slowdown experienced by some users
 
 *v2025.05.18
 - Improved behaviour of con units when guarding a factory - they stay put after finishing a build
