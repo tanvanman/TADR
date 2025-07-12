@@ -310,6 +310,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="AutoTeam.cpp" />
     <ClCompile Include="BattleroomCommands.cpp" />
     <ClCompile Include="ChallengeResponse.cpp" />
+    <ClCompile Include="ConstructionKickout.cpp" />
     <ClCompile Include="GameTickHook.cpp" />
     <ClCompile Include="Guiexport.cpp" />
     <ClCompile Include="HexDump.cpp" />
@@ -328,6 +329,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="AutoTeam.h" />
     <ClInclude Include="BattleroomCommands.h" />
     <ClInclude Include="ChallengeResponse.h" />
+    <ClInclude Include="ConstructionKickout.h" />
     <ClInclude Include="GameTickHook.h" />
     <ClInclude Include="HackableOptions.h" />
     <ClInclude Include="HexDump.h" />

@@ -263,6 +263,8 @@ extern _battleroom_OnCommand battleroom_OnCommand;
 int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl= FALSE);
 int UpdateTAProcess (void);
 void SendOrder (unsigned int TAX, unsigned int TAY, unsigned int TAZ, int OrderType, bool Shift);
+void SendOrder(UnitStruct* unit, unsigned int TAX, unsigned int TAY, unsigned int TAZ, UnitStruct* target, ordertype::ORDERTYPE orderType, int orCobIndex, bool shift);
+void PushOrder(UnitStruct* unit, unsigned int TAX, unsigned int TAY, unsigned int TAZ, UnitStruct* target, ordertype::ORDERTYPE orderType);
 void DeselectUnits(void);
 void freeTAMem (LPVOID MemAddress);
 LPDWORD GetUnitIDMaskAryByCategory (LPSTR CategoryName_cstrp);

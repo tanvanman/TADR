@@ -55,6 +55,8 @@ public:
 	int GetConUnitGuardRoamOption();
 	int GetConUnitGuardOption(int unitMovementSetting);
 
+	int GetClickSnapOverrideKey();
+
 	int DrawTextField(int posX, int posY, int width, int height, const std::string& text, char color);
 	void DrawText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char* Text);
 	void DrawSmallText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char* Text);
