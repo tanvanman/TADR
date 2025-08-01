@@ -29,6 +29,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*2025.08.01
+- Set build square preview to yellow if user can build there but it contains a unit that will be kicked out
+
 *2025.07.12
 - Allow user to queue build orders underneath their own mobile units; and auto kickout of units that are under a build order
 - Mod developers can opt-in to "Improved behaviour of con units".
