@@ -41,8 +41,8 @@ int __stdcall EnableBuildUnderOwnUnitsProc(PInlineX86StackBuffer X86StrackBuffer
 	if (ConstructionKickout::IsUnitControlledByPlayerOrCheats(unit))
 	{
 		// set build square colour to yellow
-		// char byte = 10;
-		// WriteProcessMemory(GetCurrentProcess(), (void*)0x469e7f, &byte, 1, NULL);
+		char byte = 10;
+		WriteProcessMemory(GetCurrentProcess(), (void*)0x469e7f, &byte, 1, NULL);
 		// and allow user to build under the unit
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x47d567;
 		return X86STRACKBUFFERCHANGE;
@@ -88,7 +88,7 @@ ConstructionKickout::ConstructionKickout()
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(KickoutOnWaitingForTargetAreaToClearAddr_VTOL, 5, INLINE_5BYTESLAGGERJMP, KickoutOnWaitingForTargetAreaToClearProc));
 	m_hooks.push_back(std::make_unique<SingleHook>(TargetAreaWasBlockedTimeoutAddr, sizeof(TargetAreaWasBlockedTimeoutBytes), INLINE_UNPROTECTEVINMENT, TargetAreaWasBlockedTimeoutBytes));
 	m_hooks.push_back(std::make_unique<SingleHook>(TargetAreaWasBlockedTimeoutAddr_VTOL, sizeof(TargetAreaWasBlockedTimeoutBytes), INLINE_UNPROTECTEVINMENT, TargetAreaWasBlockedTimeoutBytes));
-	//m_hooks.push_back(std::make_unique<InlineSingleHook>(TestGridSpot_Start_Addr, 5, INLINE_5BYTESLAGGERJMP, TestGridSpot_Start_Proc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(TestGridSpot_Start_Addr, 5, INLINE_5BYTESLAGGERJMP, TestGridSpot_Start_Proc));
 }
 
 ConstructionKickout* ConstructionKickout::GetInstance()

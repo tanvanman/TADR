@@ -1123,7 +1123,17 @@ void CTAHook::VisualizeRow()
 
 		TestBuildSpot ( );
 
-		int color = TAdynmem->BuildSpotState==70 ? 234 : 214; 
+		int color;
+		if (TAdynmem->BuildSpotState == 70)
+		{
+			color = *(char*)0x469e7f == 6		// build rectangle square colour is fiddled by ConstructionKickout
+				? 234	// green
+				: 240;	// yellow
+		}
+		else
+		{
+			color = 214;	// red
+		}
 
 		DrawBuildRect( (TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
 			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz/2),
@@ -1191,7 +1201,17 @@ void CTAHook::VisualizeRow_ForME_megamap (OFFSCREEN * argc)
 
 		TestBuildSpot ( );
 
-		int color = TAdynmem->BuildSpotState==70 ? 234 : 214; 
+		int color;
+		if (TAdynmem->BuildSpotState == 70)
+		{
+			color = *(char*)0x469e7f == 6		// build rectangle square colour is fiddled by ConstructionKickout
+				? 234	// green
+				: 240;	// yellow
+		}
+		else
+		{
+			color = 214;	// red
+		}
 
 		GUIExpander->myMinimap->TAStuff->TADrawRect ( (OFFSCREEN *)argc, TAdynmem->CircleSelect_Pos1TAx, TAdynmem->CircleSelect_Pos1TAy, TAdynmem->CircleSelect_Pos1TAz, 
 			TAdynmem->CircleSelect_Pos2TAx, TAdynmem->CircleSelect_Pos2TAy, TAdynmem->CircleSelect_Pos2TAz, color);
@@ -1635,7 +1655,18 @@ void CTAHook::VisualizeMexSnapPreview()
 		TAdynmem->BuildSpotState = 70;
 		TestBuildSpot();
 
-		int color = TAdynmem->BuildSpotState == 70 ? 234 : 214;
+		int color;
+		if (TAdynmem->BuildSpotState == 70)
+		{
+			color = *(char*)0x469e7f == 6		// build rectangle square colour is fiddled by ConstructionKickout
+				? 234	// green
+				: 240;	// yellow
+		}
+		else
+		{
+			color = 214;	// red
+		}
+
 		DrawBuildRect((TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
 			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz / 2),
 			ClickSnapPreviewFootXY[0] * 16,
