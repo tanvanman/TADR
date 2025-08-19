@@ -214,7 +214,7 @@ bool ConstructionKickout::IsUnitControlledByPlayerOrCheats(UnitStruct* unit)
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	bool isOwnUnit = unit->Owner_PlayerPtr0->PlayerAryIndex == taPtr->LocalHumanPlayer_PlayerID;
 	bool isCheatsEnabled = taPtr->SoftwareDebugMode & softwaredebugmode::CheatsEnabled;
-	return isOwnUnit || isCheatsEnabled;
+	return isOwnUnit;// || isCheatsEnabled;
 }
 
 ordertype::ORDERTYPE ConstructionKickout::GetOrderType(UnitOrdersStruct* orders)
