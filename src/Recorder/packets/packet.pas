@@ -101,16 +101,16 @@ assert( BufferData <> nil );
 assert( index < BufferData.Size );
 value := BufferData.Data[index];
 case value of
-  $02       :Result := 13;
+  $02       :Result := 13; // dword_512AE0
   $06       :Result := 1;
   $07       :Result := 1;
-  $20       :Result := 192;
+  $20       :Result := 192; // PacketPlayerInfo_Len? Length in TA 0BA = 186
   $1a       :Result := 14;
   $17       :Result := 2;
   $18       :Result := 2;
   $15       :Result := 1;
   $08       :Result := 1;
-  $05       :
+  $05       : // dword_512AEC
             begin
             Result := 65; // text message, 64 bytes of actual message
             if BufferData.GetByte(index+Result-1) <> 0 then
@@ -125,7 +125,7 @@ case value of
               end;
             end;
   $24       :Result := 6;
-  $26       :Result := 41; // byte('&')
+  $26       :Result := 41; // byte('&') dword_512B70
   $2e       :Result := 9;
   $22       :Result := 6;  // byte('"')
   $2a       :Result := 2;  // byte('*')
@@ -136,35 +136,35 @@ case value of
 
   // Appears as the packet that gives the orders that something newly built
   // shall be shown immediately. But it shows/is shown to the wrong person...
-  $09       :result := 23;
+  $09       :result := 23; //  Packet_NewUnits_Len
   $11       :result := 4;         // ?? crash
   // Gives/does/creates explosions! They are shown in the wrong place, though.
   $10       :result := 22;
   $12       :result := 5;         //?? crash
   $0a       :result := 7;         //?? crash
   //- ?? No difference
-  $28       :result := 58;
+  $28       :result := 58; // PacketPlayerResLen
   // Speed/pause change
   $19       :result := 3;
-  //Bullet. They stay put, though. And they miss...
+  //Bullet. They stay put, though. And they miss... Packet_WeaponProjectile_Len
   $0d       :if iniSettings.weaponidpatch then Result:= 40 else Result := 36;
   // Eliminates bullet scraps/rests of bullets
   $0b       :result := 9;
   // Makes the Commander's upperbody/torso to turn correctly when he's building, among other things (or perhaps: etc).
   $0f       :if iniSettings.weaponidpatch then Result:= 8 else Result := 6;
   // Hmm. Seems to give/do/create explosions too/with
-  $0c       :result := 11;      
+  $0c       :result := 11; // Packet_UnitDeath_len   
 
   $1f       :result := 5;
   $23       :result := 14;
-  $16       :result := 17;
+  $16       :result := 17; // Packet_WeaponProjectile_len? Length off as in TA it is 24hex = 18
   $1b       :result := 6;
   $29       :result := 3;
   $14       :result := 24;
 
   $21       :result := 10;
   $03       :result := 7;
-  $0e       :if iniSettings.weaponidpatch then Result:= 17 else result := 14;
+  $0e       :if iniSettings.weaponidpatch then Result:= 17 else result := 14; // Packet_AraeOfDamage_Len
 
   // TADR packet types
   $f6       :result := 1;
