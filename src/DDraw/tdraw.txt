@@ -29,6 +29,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*2025.08.29
+- Bugfix for multithreaded version/cheat check
+
 *2025.08.19
 - Auto kickout of units under build order is now strictly only for own units (previously allowed kickout anyone's units if cheats enabled)
 
