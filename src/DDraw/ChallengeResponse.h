@@ -82,18 +82,22 @@ public:
 #pragma pack(1)
 	struct ComputeChallengeResponseResult
 	{
-		ComputeChallengeResponseResult(unsigned _fromDpid, unsigned _toDpid) :
+		ComputeChallengeResponseResult(unsigned _fromDpid, unsigned _toDpid, const char *_nonse, unsigned _nonseLen) :
 			ready(false),
 			sent(false),
 			fromDpid(_fromDpid),
 			toDpid(_toDpid)
-		{ }
+		{
+			std::memset(nonse, 0, sizeof(nonse));
+			std::memcpy(nonse, _nonse, std::min(sizeof(nonse), _nonseLen));
+		}
 
 		bool ready;
 		bool sent;
 		std::string completionMessage;
 		unsigned fromDpid;
 		unsigned toDpid;
+		char nonse[SHA256_DIGEST_LENGTH];
 		ChallengeResponseMessage results[2];
 	};
 #pragma pack()

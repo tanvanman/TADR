@@ -256,14 +256,14 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 	case ChallengeResponseCommand::ChallengeRequest: {
 		unsigned fromDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
 		ChallengeResponse::GetInstance()->m_challengeResponseReplyQueue.push_back(
-			std::make_shared<ChallengeResponse::ComputeChallengeResponseResult>(fromDpid, replyDpid));
+			std::make_shared<ChallengeResponse::ComputeChallengeResponseResult>(fromDpid, replyDpid, msg->data, sizeof(msg->data)));
 		auto reply = ChallengeResponse::GetInstance()->m_challengeResponseReplyQueue.back();
 		InitChallengeResponseMessage(reply->results[0], ChallengeResponseCommand::ChallengeHashReplyModules);
 		InitChallengeResponseMessage(reply->results[1], ChallengeResponseCommand::ChallengeHashReplyGameData);
 
 		std::thread([msg, reply]() {
 			ChallengeResponse::GetInstance()->ComputeChallengeResponse(
-				msg->data,
+				reply->nonse,
 				reply->results[0].data,
 				reply->results[1].data,
 				&reply->ready,
@@ -449,7 +449,7 @@ void ChallengeResponse::NewNonse(char* nonse, int len)
 void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modulesHash, char* gameDataHash, bool *done, std::string* completionMessage)
 {
 	std::ostringstream log;
-	log << "OK" << std::endl;
+	log << "OK" << std::endl;	// don't get rid of this.  its a sentinel for successful completion
 
 	log << "  nonse:";
 	for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
@@ -1194,9 +1194,9 @@ std::string ChallengeResponse::GetTDrawVersionString()
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::pair<unsigned, std::string> ChallengeResponse::GetTotalACrc()
 {
-	unsigned crc = 0;
+	unsigned crc = 0u;
 	std::string filename;
-	for (int n = 0; n < m_moduleInitialDiskSnapshotFilenames.size(); ++n) {
+	for (unsigned n = 0u; n < m_moduleInitialDiskSnapshotFilenames.size(); ++n) {
 		auto components = getFilenameComponents(m_moduleInitialDiskSnapshotFilenames[n]);
 		if (toLowerCase(std::get<2>(components)) == "exe") {
 			filename = std::get<1>(components) + "." + std::get<2>(components);
@@ -1236,9 +1236,9 @@ std::pair<unsigned, std::string> ChallengeResponse::GetTDrawCrc()
 std::pair<unsigned, std::string> ChallengeResponse::GetTPlayXCrc()
 {
 	const std::string DPlayXOutermostWrapper((const char*)0x4ff9e4);
-	unsigned crc = 0;
+	unsigned crc = 0u;
 	std::string filename;
-	for (int n = 0; n < m_moduleInitialDiskSnapshotFilenames.size(); ++n) {
+	for (unsigned n = 0u; n < m_moduleInitialDiskSnapshotFilenames.size(); ++n) {
 		auto components = getFilenameComponents(m_moduleInitialDiskSnapshotFilenames[n]);
 		if (toLowerCase(std::get<1>(components) + "." + std::get<2>(components)) == toLowerCase(DPlayXOutermostWrapper)) {
 			filename = std::get<1>(components) + "." + std::get<2>(components);
