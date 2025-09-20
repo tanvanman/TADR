@@ -26,6 +26,8 @@ using namespace std;
 #include "StartPositions.h"
 #include "AutoTeam.h"
 #include "MultiplayerSchemaUnits.h"
+#include "UnitDefExtensions.h"
+#include "VeterancyHack.h"
 
 #include "TAConfig.h"
 //---------------------------------------------------------------------------
@@ -184,6 +186,8 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 			INLINE_5BYTESLAGGERJMP, AddtionInitAfterDDraw);
 
 		ChallengeResponse::GetInstance();
+		UnitDefExtensions::GetInstance();
+		VeterancyHack::GetInstance();
 
 	}
 	if(reason==DLL_PROCESS_DETACH)

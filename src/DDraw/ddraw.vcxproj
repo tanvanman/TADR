@@ -321,6 +321,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="MultiplayerSchemaUnits.cpp" />
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
+    <ClCompile Include="UnitDefExtensions.cpp" />
+    <ClCompile Include="VeterancyHack.cpp" />
     <ClCompile Include="Widgets\Button.cpp" />
     <ClCompile Include="Widgets\IntegerField.cpp" />
     <ClCompile Include="Widgets\Label.cpp" />
@@ -461,6 +463,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClInclude Include="UnitDefExtensions.h" />
+    <ClInclude Include="VeterancyHack.h" />
     <ClInclude Include="Widgets\Button.h" />
     <ClInclude Include="Widgets\IntegerField.h" />
     <ClInclude Include="Widgets\Label.h" />
