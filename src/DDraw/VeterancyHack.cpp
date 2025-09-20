@@ -206,7 +206,10 @@ unsigned VeterancyHack::accuracyBuffProc(PInlineX86StackBuffer X86StrackBuffer)
 	}
 	else
 	{
-		return 0;
+		X86StrackBuffer->Ebx = 0u;
+		X86StrackBuffer->Ecx += 0x800;
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x49d702;
+		return X86STRACKBUFFERCHANGE;
 	}
 }
 

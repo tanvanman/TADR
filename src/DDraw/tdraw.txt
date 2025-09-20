@@ -264,7 +264,7 @@ NEW FEATURES IN DETAIL:
     - 12 kills for VetLevel 2
     - 18 kills for VetLevel 3
     - etc.
-    OTA’s default thresholds are "5 10 15 20 25".
+    OTA's default thresholds are "5 10 15 20 25".
   
   - VeterancyAccuracyBuffRate:
     Controls how quickly a unit’s weapon accuracy improves with kills, independently of veterancy levels.
@@ -272,6 +272,7 @@ NEW FEATURES IN DETAIL:
     - This factor increases by +1 every VeterancyAccuracyBuffRate kills.
     - Formula: accuracyFactor = 1 + floor(kills / VeterancyAccuracyBuffRate)
     - OTA’s default rate is 12.
+    - Set to zero to disable accuracy buff altogether
   
   Veterancy Effects (Unchanged)
   
