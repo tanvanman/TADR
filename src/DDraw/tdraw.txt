@@ -29,6 +29,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*????.??.??
+- New keys for unit definitions (units/*.fbi) to customise per-unit veterancy
+
 *2025.08.29
 - Bugfix for multithreaded version/cheat check
 
@@ -236,3 +239,70 @@ NEW FEATURES IN DETAIL:
   Optional CreationCountdown is in seconds and InitialMission works.
   Optional Ident makes it possible to refer to the unit in InitialMission of another unit.
   You'll have to look at eg totala4.hpi/maps/*.OTA for examples of InitialMission scripts to copy.
+
+- Per-Unit Veterancy Customization
+
+  This patch introduces new optional keys for unit definition files (units/*.fbi)
+  that allow you to customize veterancy behavior for individual units.
+  
+  Example
+  
+    [UNITINFO]
+    {
+    UnitName=ARMMART;
+    ...
+    VeterancyThresholds=6 12 18 24 30; // OTA default: 5 10 15 20 25
+    VeterancyAccuracyBuffRate=3; // OTA default: 12
+    }
+  
+  New Keys
+  
+  - VeterancyThresholds:
+    Sets the number of kills required to reach each veterancy level (VetLevel).
+    Example: "6 12 18 24 30" means:
+    - 6 kills for VetLevel 1
+    - 12 kills for VetLevel 2
+    - 18 kills for VetLevel 3
+    - etc.
+    OTA's default thresholds are "5 10 15 20 25".
+  
+  - VeterancyAccuracyBuffRate:
+    Controls how quickly a unit’s weapon accuracy improves with kills, independently of veterancy levels.
+    - Accuracy starts at a factor of 1 with 0 kills.
+    - This factor increases by +1 every VeterancyAccuracyBuffRate kills.
+    - Formula: accuracyFactor = 1 + floor(kills / VeterancyAccuracyBuffRate)
+    - OTA’s default rate is 12.
+    - Set to zero to disable accuracy buff altogether
+  
+  Veterancy Effects (Unchanged)
+  
+  This patch does NOT change what veterancy levels do, only how they are earned.
+  For reference, each VetLevel in OTA gives:
+  
+  - Capture cost: +10% worker time needed to capture the unit
+  - Damage taken: -4% damage received
+  - Damage dealt: +6% damage dealt
+  - Target tracking: improved weapon target tracking (effect uncertain)
+  - Reload time: -6% weapon reload time
+  - Accuracy buff: improved firing accuracy (randomness reduced by an increasing factor)
+  
+  Note: Reload time also appears to be affected by the unit’s health.
+  
+  Veterancy Limits
+  
+  OTA limits:
+  - Capture cost: no limit
+  - Damage taken: up to 5 levels
+  - Damage dealt: up to 5 levels
+  - Target tracking: up to 1 level
+  - Reload time: up to 5 levels
+  - Accuracy buff: no limit
+  
+  With this patch:
+  - Capture cost: no limit
+    Beyond the last specified threshold, kill requirements are extrapolated linearly from the last two thresholds.
+  - Damage taken: up to 25 levels or the number of VeterancyThresholds, whichever is lower
+  - Damage dealt: up to the number of VeterancyThresholds
+  - Target tracking: up to 1 level
+  - Reload time: up to 16 levels or the number of VeterancyThresholds, whichever is lower
+  - Accuracy buff: no limit

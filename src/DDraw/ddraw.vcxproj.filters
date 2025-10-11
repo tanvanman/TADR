@@ -211,6 +211,9 @@
     <ClCompile Include="ConstructionKickout.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="UnitDefExtensions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AutoTeam.h">
@@ -427,6 +430,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ConstructionKickout.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="UnitDefExtensions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
