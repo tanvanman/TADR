@@ -29,7 +29,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*????.??.??
+*2025.11.26
 - New keys for unit definitions (units/*.fbi) to customise per-unit veterancy
 
 *2025.08.29
