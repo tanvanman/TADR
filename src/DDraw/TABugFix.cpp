@@ -360,7 +360,7 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 	UnitStruct* units = (UnitStruct*)X86StrackBuffer->Esi;
 	if (unitIndexRequested > 0) {
 		if (units->UnitID == 0) {
-			//IDDrawSurface::OutptTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId(requested)=%d\n", playerIndex, unitIndexRequested);
+			//IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId(requested)=%d\n", playerIndex, unitIndexRequested);
 			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x48605d;
 			return X86STRACKBUFFERCHANGE;
 		}
@@ -373,7 +373,7 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 
 	for (int n = 0; n < taPtr->PlayerUnitsNumber_Skim; ++n) {
 		if (0 == player->Units[n].UnitID && taPtr->GameTime >= unitIdRecycleTimestamps[playerIndex][n]) {
-			//IDDrawSurface::OutptTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId=%d\n", playerIndex, n);
+			//IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId=%d\n", playerIndex, n);
 			X86StrackBuffer->Esi = (DWORD)&player->Units[n];
 			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x48605d;
 			return X86STRACKBUFFERCHANGE;
@@ -410,21 +410,21 @@ int __stdcall FixFactoryExplosionsRecycleUnitIdProc(PInlineX86StackBuffer X86Str
 		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] null unit->Owner_PlayerPtr0!\n");
 	}
 	else if (unit->UnitInGameIndex != unitInGameIndex) {
-		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] UnitInGameIndex misatch! packet:%d, unit:%d\n",
+		IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsRecycleUnitIdProc] UnitInGameIndex misatch! packet:%d, unit:%d\n",
 			unitInGameIndex, unit->UnitInGameIndex);
 	}
 	else if (unit->OwnerIndex < 0 || unit->OwnerIndex >= 10) {
-		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] Invalid unit->OwnerIndex:%d\n", unit->OwnerIndex);
+		IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsRecycleUnitIdProc] Invalid unit->OwnerIndex:%d\n", unit->OwnerIndex);
 	}
 	else {
 		int playerUnitIndex = unit->UnitInGameIndex - unit->Owner_PlayerPtr0->UnitsIndex_Begin;
 		if (unsigned(playerUnitIndex) >= taPtr->PlayerUnitsNumber_Skim) {
-			IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] Out of range unit->UnitInGameIndex:%d. owner->UnitsIndex_Begin=%d, PlayerUnitsNumber_Skim=%d\n",
+			IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsRecycleUnitIdProc] Out of range unit->UnitInGameIndex:%d. owner->UnitsIndex_Begin=%d, PlayerUnitsNumber_Skim=%d\n",
 				unit->UnitInGameIndex, unit->Owner_PlayerPtr0->UnitsIndex_Begin, taPtr->PlayerUnitsNumber_Skim);
 		}
 		else {
 			unitIdRecycleTimestamps[unit->OwnerIndex][playerUnitIndex] = taPtr->GameTime + RECYCLE_MARGIN_TIME;
-			//IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] player=%d, UnitId=%d, timestampWhenAvailable=%d\n",
+			//IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsRecycleUnitIdProc] player=%d, UnitId=%d, timestampWhenAvailable=%d\n",
 			//	int(unit->OwnerIndex), playerUnitIndex, unitIdRecycleTimestamps[unit->OwnerIndex][playerUnitIndex]);
 		}
 	}
@@ -472,13 +472,13 @@ int __stdcall WindSpeedSyncProc(PInlineX86StackBuffer X86StrackBuffer)
 	if (RNG.get() == NULL) {
 		PlayerStruct* host = FindPlayerByPlayerNum(1);
 		if (host && (host->DirectPlayID > 0)) {
-			IDDrawSurface::OutptTxt("[WindSpeedSyncProc] initialsing RNG using host DPID. host=%s, dpid=0x%x",
+			IDDrawSurface::OutptFmtTxt("[WindSpeedSyncProc] initialsing RNG using host DPID. host=%s, dpid=0x%x",
 				host->Name, host->DirectPlayID);
 			RNG = std::make_unique<std::default_random_engine>(host->DirectPlayID);
 		}
 		else {
 			unsigned t = std::chrono::system_clock::now().time_since_epoch().count();
-			IDDrawSurface::OutptTxt("[WindSpeedSyncProc] initialsing RNG using current time. t=%d", t);
+			IDDrawSurface::OutptFmtTxt("[WindSpeedSyncProc] initialsing RNG using current time. t=%d", t);
 			RNG = std::make_unique<std::default_random_engine>(t);
 		}
 	}
@@ -521,7 +521,7 @@ int __stdcall NetworkRawReceiveLogProc(PInlineX86StackBuffer X86StrackBuffer)
 		<< "to: " << toName << "(" << std::dec << toDpid << '/' << std::hex << toDpid << ")\n";
 	taflib::HexDump(buffer, *bufferSize, ss);
 	std::string dump = ss.str();
-	IDDrawSurface::OutptRawTxt(dump.c_str(), false);
+	IDDrawSurface::OutptTxt(dump.c_str(), false);
 
 	return 0;
 }
@@ -547,7 +547,7 @@ int __stdcall NetworkDispatchLogProc(PInlineX86StackBuffer X86StrackBuffer)
 			<< "to: " << toName << "(" << std:: dec << toDpid << '/' << std::hex << toDpid << ")\n";
 		taflib::HexDump(taPtr->PacketBuffer_p, len, ss);
 		std::string dump = ss.str();
-		IDDrawSurface::OutptRawTxt(dump.c_str(), false);
+		IDDrawSurface::OutptTxt(dump.c_str(), false);
 	}
 	return 0;
 }
@@ -620,7 +620,7 @@ int __stdcall FixedPositionGuardingConsProc(PInlineX86StackBuffer X86StrackBuffe
 unsigned int LogTrace##n##Addr = (hookAddr); \
 int __stdcall LogTrace##n##Proc(PInlineX86StackBuffer X86StrackBuffer) \
 { \
-	IDDrawSurface::OutptTxt("[LogTrace%d] "##fmtstr, n, X86StrackBuffer->##regDisplay); \
+	IDDrawSurface::OutptFmtTxt("[LogTrace%d] "##fmtstr, n, X86StrackBuffer->##regDisplay); \
     return 0; \
 }
 
