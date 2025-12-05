@@ -33,7 +33,7 @@ unsigned UnitDefExtensions::registerIntKey(const std::string& key, int defaultVa
 {
 	if (m_keyIndices.count(key) > 0u)
 	{
-		IDDrawSurface::OutptTxt("[UnitDefExtensions::registerIntKey] key %s is already defined with index=0x%x!", key.c_str(), m_keyIndices[key]);
+		IDDrawSurface::OutptFmtTxt("[UnitDefExtensions::registerIntKey] key %s is already defined with index=0x%x!", key.c_str(), m_keyIndices[key]);
 		return m_keyIndices[key];
 	}
 
@@ -45,7 +45,7 @@ unsigned UnitDefExtensions::registerFloatKey(const std::string& key, double defa
 {
 	if (m_keyIndices.count(key) > 0u)
 	{
-		IDDrawSurface::OutptTxt("[UnitDefExtensions::registerFloatKey] key %s is already defined with index=0x%x!", key.c_str(), m_keyIndices[key]);
+		IDDrawSurface::OutptFmtTxt("[UnitDefExtensions::registerFloatKey] key %s is already defined with index=0x%x!", key.c_str(), m_keyIndices[key]);
 		return m_keyIndices[key];
 	}
 
@@ -57,7 +57,7 @@ unsigned UnitDefExtensions::registerStringKey(const std::string& key, std::strin
 {
 	if (m_keyIndices.count(key) > 0u)
 	{
-		IDDrawSurface::OutptTxt("[UnitDefExtensions::registerStringKey] key %s is already defined with index=0x%x!", key.c_str(), m_keyIndices[key]);
+		IDDrawSurface::OutptFmtTxt("[UnitDefExtensions::registerStringKey] key %s is already defined with index=0x%x!", key.c_str(), m_keyIndices[key]);
 		return m_keyIndices[key];
 	}
 
@@ -69,7 +69,7 @@ unsigned UnitDefExtensions::getKeyIndex(const std::string& key)
 {
 	if (m_keyIndices.count(key) == 0u)
 	{
-		IDDrawSurface::OutptTxt("[UnitDefExtensions::getKeyIndex] key %s is not known!", key.c_str(), m_keyIndices[key]);
+		IDDrawSurface::OutptFmtTxt("[UnitDefExtensions::getKeyIndex] key %s is not known!", key.c_str(), m_keyIndices[key]);
 		return -1;
 	}
 	return m_keyIndices[key];

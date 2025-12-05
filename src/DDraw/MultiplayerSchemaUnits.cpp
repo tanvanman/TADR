@@ -34,7 +34,7 @@ static UnitStruct* DoSpawnUnit(PlayerStruct *targetPlayer, MissionUnitsStruct* m
 		int missionUnitIndex = std::distance(taPtr->GameingState_Ptr->uniqueIdentifiers, missionUnit);
 		const char* identity = missionUnit->Ident ? missionUnit->Ident : "<null>";
 		const char* initialMission = missionUnit->InitialMission ? missionUnit->InitialMission : "<null>";
-		IDDrawSurface::OutptTxt("[DoSpawnUnit] unitNumber=%d unitInfoId=%d, player=%d unitName=%s identity=%s mission=%s",
+		IDDrawSurface::OutptFmtTxt("[DoSpawnUnit] unitNumber=%d unitInfoId=%d, player=%d unitName=%s identity=%s mission=%s",
 			missionUnitIndex, unitInfoId, int(missionUnit->Player), missionUnit->Unitname, identity, initialMission);
 	}
 

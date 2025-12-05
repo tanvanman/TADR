@@ -232,7 +232,7 @@ ULONG __stdcall IDDrawSurface::AddRef()
 
 ULONG __stdcall IDDrawSurface::Release()
 {
-    OutptTxt("[DDrawSurface::Release] ...");
+	OutptTxt("[DDrawSurface::Release] ...");
 	if(lpDDClipper)
 	{
 		lpDDClipper->Release();
@@ -802,19 +802,43 @@ HRESULT __stdcall IDDrawSurface::UpdateOverlayZOrder(DWORD arg1, LPDIRECTDRAWSUR
 	return lpFront->UpdateOverlayZOrder(arg1, arg2);
 }
 
-void IDDrawSurface::OutptTxt(const char* format, ...)
+void IDDrawSurface::OutptFmtTxt(const char* format, ...)
 {
+	if (!format) {
+		OutptTxt("");
+		return;
+	}
+
+	char buffer[16384] = { 0 };
+
 #if defined(DEBUG_INFO) || defined(DEBUG_INFO_2) || defined(_DEBUG)
+
 	va_list args;
 	va_start(args, format);
-	char buffer[1024] = { 0 };
-	_vsnprintf_s(buffer, sizeof(buffer), format, args);
+
+	// Try formatting — this version NEVER fastfails.
+	int result = vsnprintf(buffer, sizeof(buffer), format, args);
+
+	va_end(args);
+
+	// If formatting failed (negative return), fall back to raw text.
+	// Common reason: mismatched format tags, e.g., "%s" with no args.
+	if (result < 0) {
+		// Copy raw string safely into buffer
+		strncpy(buffer, format, sizeof(buffer) - 1);
+		buffer[sizeof(buffer) - 1] = '\0';
+	}
+
+#else
+	// In non-debug builds, just output raw text as-is.
+	strncpy(buffer, format, sizeof(buffer) - 1);
+	buffer[sizeof(buffer) - 1] = '\0';
 #endif
 
-	OutptRawTxt(buffer);
+	OutptTxt(buffer);
 }
 
-void IDDrawSurface::OutptRawTxt(const char* buffer, bool newline)
+void IDDrawSurface::OutptTxt(const char* buffer, bool newline)
 {
 #if defined(DEBUG_INFO_2) || defined(_DEBUG)
 	OutputDebugStringA(buffer);
@@ -852,7 +876,7 @@ void IDDrawSurface::OutptInt(int Int_I)
 #ifdef DEBUG_INFO
 	char Buffer_Int[0x10];
 	wsprintf ( Buffer_Int, "%x", Int_I);
-	OutptTxt ( Buffer_Int);
+	OutptTxt( Buffer_Int);
 #endif //DEBUG
 }
 void IDDrawSurface::FrontSurface (LPDIRECTDRAWSURFACE lpTASurf)

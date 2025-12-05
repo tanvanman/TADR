@@ -43,7 +43,7 @@ int __stdcall HapiReceiveHookProc(PInlineX86StackBuffer X86StrackBuffer)
 			if (!LOCAL_HUMAN_PLAYER && taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].My_PlayerType == Player_LocalHuman)
 			{
 				LOCAL_HUMAN_PLAYER = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
-				IDDrawSurface::OutptTxt("[HapiReceiveHookProc] LOCAL_HUMAN_PLAYER.dpid=%d(%x)", LOCAL_HUMAN_PLAYER->DirectPlayID, LOCAL_HUMAN_PLAYER->DirectPlayID);
+				IDDrawSurface::OutptFmtTxt("[HapiReceiveHookProc] LOCAL_HUMAN_PLAYER.dpid=%d(%x)", LOCAL_HUMAN_PLAYER->DirectPlayID, LOCAL_HUMAN_PLAYER->DirectPlayID);
 			}
 
 			if (LOCAL_HUMAN_PLAYER)
@@ -67,7 +67,7 @@ int __stdcall GetLocalPlayerDpidHackProc(PInlineX86StackBuffer X86StrackBuffer)
 	if (LOCAL_HUMAN_PLAYER)
 	{
 		X86StrackBuffer->Eax = LOCAL_HUMAN_PLAYER->DirectPlayID;
-		//IDDrawSurface::OutptTxt("[GetLocalPlayerDpidHackProc] dpid=%d(%x)", X86StrackBuffer->Eax, X86StrackBuffer->Eax);
+		//IDDrawSurface::OutptFmtTxt("[GetLocalPlayerDpidHackProc] dpid=%d(%x)", X86StrackBuffer->Eax, X86StrackBuffer->Eax);
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x44fdf3;	// return eax
 		return X86STRACKBUFFERCHANGE;
 	}
@@ -82,7 +82,7 @@ int __stdcall LocalPlayerCheckHack##n##Proc(PInlineX86StackBuffer X86StrackBuffe
     PlayerStruct* fromPlayer = (PlayerStruct*)(X86StrackBuffer->##playerRegister); \
     if (fromPlayer == LOCAL_HUMAN_PLAYER) \
     { \
-		/*IDDrawSurface::OutptTxt("[LocalPlayerCheckHack%d] fromPlayer=%d(%x)", n, fromPlayer->DirectPlayID, fromPlayer->DirectPlayID);*/ \
+		/*IDDrawSurface::OutptFmtTxt("[LocalPlayerCheckHack%d] fromPlayer=%d(%x)", n, fromPlayer->DirectPlayID, fromPlayer->DirectPlayID);*/ \
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)(returnAddr); \
         return X86STRACKBUFFERCHANGE; \
     } \

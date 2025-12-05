@@ -23,6 +23,8 @@
 #define RANDOM_CODE_SEG_NEXT CONCAT(RANDOM_CODE_SEG_, __COUNTER__)
 //#define RANDOM_CODE_SEG_NEXT 0
 
+#define MULTITHREADED
+
 std::unique_ptr<ChallengeResponse> ChallengeResponse::m_instance = NULL;
 
 extern HINSTANCE HInstance;
@@ -185,7 +187,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 				InitChallengeResponseMessage(msg, ChallengeResponseCommand::ChallengeRequest);
 				cr->NewNonse(msg.data, sizeof(msg.data));
 				cr->InitPlayerResponse(p->DirectPlayID, msg.data, sizeof(msg.data));
-				IDDrawSurface::OutptTxt("[ChallengeResponseUpdateProc] sending msg=%d fromDpid=%u(%x) toDpid=%u(%x)",
+				IDDrawSurface::OutptFmtTxt("[ChallengeResponseUpdateProc] sending msg=%d fromDpid=%u(%x) toDpid=%u(%x)",
 					int(msg.command),
 					me->DirectPlayID, me->DirectPlayID,
 					p->DirectPlayID, p->DirectPlayID);
@@ -206,7 +208,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 				IDDrawSurface::OutptTxt(reply->completionMessage.c_str());
 				if (reply->completionMessage.find_first_of("OK") == 0u)
 				{
-					IDDrawSurface::OutptTxt("[ChallengeResponseUpdateProc] replying msg=%d and %d fromDpid=%u(%x) toDpid=%u(%x)",
+					IDDrawSurface::OutptFmtTxt("[ChallengeResponseUpdateProc] replying msg=%d and %d fromDpid=%u(%x) toDpid=%u(%x)",
 						int(reply->results[0].command), int(reply->results[1].command),
 						reply->fromDpid, reply->fromDpid,
 						reply->toDpid, reply->toDpid);
@@ -250,7 +252,7 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 	}
 
 	unsigned replyDpid = taPtr->hapinet.fromDpid;
-	IDDrawSurface::OutptTxt("[ReceiveChallengeOrResponseProc] received msg=%d from dpid=%u(%x) ...", int(msg->command), replyDpid, replyDpid);
+	IDDrawSurface::OutptFmtTxt("[ReceiveChallengeOrResponseProc] received msg=%d from dpid=%u(%x) ...", int(msg->command), replyDpid, replyDpid);
 
 	switch (msg->command) {
 	case ChallengeResponseCommand::ChallengeRequest: {
@@ -261,7 +263,9 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 		InitChallengeResponseMessage(reply->results[0], ChallengeResponseCommand::ChallengeHashReplyModules);
 		InitChallengeResponseMessage(reply->results[1], ChallengeResponseCommand::ChallengeHashReplyGameData);
 
+#ifdef MULTITHREADED
 		std::thread([msg, reply]() {
+#endif
 			ChallengeResponse::GetInstance()->ComputeChallengeResponse(
 				reply->nonse,
 				reply->results[0].data,
@@ -269,9 +273,11 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 				&reply->ready,
 				&reply->completionMessage
 			);
+#ifdef MULTITHREADED
 		})
 			.detach();
 			//.join();
+#endif
 		break;
 	}
 
@@ -528,11 +534,15 @@ void ChallengeResponse::InitPlayerResponse(unsigned dpid, char *nonse, int len)
 	std::memset(r.gameDataResponse, 0, sizeof(r.gameDataResponse));
 	std::memcpy(r.nonse, nonse, std::min(sizeof(r.nonse), unsigned(len)));
 
+#ifdef MULTITHREADED
 	std::thread([this, &r]() {
+#endif
 		ComputeChallengeResponse(r.nonse, r.ourModulesHash, r.ourGameDataHash, &r.ourHashesComputed, &r.completionMessage);
+#ifdef MULTITHREADED
 	})
 		.detach();
 		//.join();
+#endif
 }
 #pragma code_seg(pop)
 
@@ -541,7 +551,7 @@ void ChallengeResponse::SetPlayerModulesResponse(unsigned dpid, const char* hash
 {
 	if (m_responses.count(dpid) == 0u)
 	{
-		IDDrawSurface::OutptTxt("[SetPlayerModulesResponse] response not initialised for dpid=%u(%x)!", dpid, dpid);
+		IDDrawSurface::OutptFmtTxt("[SetPlayerModulesResponse] response not initialised for dpid=%u(%x)!", dpid, dpid);
 	}
 	auto& r = m_responses[dpid];
 	r.modulesResponseReceived = true;
@@ -554,7 +564,7 @@ void ChallengeResponse::SetPlayerGameDataResponse(unsigned dpid, const char* has
 {
 	if (m_responses.count(dpid) == 0u)
 	{
-		IDDrawSurface::OutptTxt("[SetPlayerGameDataResponse] response not initialised for dpid=%u(%x)!", dpid, dpid);
+		IDDrawSurface::OutptFmtTxt("[SetPlayerGameDataResponse] response not initialised for dpid=%u(%x)!", dpid, dpid);
 	}
 	auto& r = m_responses[dpid];
 	r.gameDataResponseReceived = true;
@@ -612,7 +622,7 @@ int ChallengeResponse::VerifyResponses(bool logEnable)
 		std::string text = ss.str();
 		if (!text.empty()) {
 			m_persistentCheatWarnings.push_back(text);
-			IDDrawSurface::OutptTxt("[ChallengeResponse::VerifyResponses] %s", text.c_str());
+			IDDrawSurface::OutptFmtTxt("[ChallengeResponse::VerifyResponses] %s", text.c_str());
 			++verificationIssueCount;
 		}
 	}
@@ -866,7 +876,7 @@ void ChallengeResponse::SnapshotFile(const char* moduleFileName)
 {
 	std::ifstream file(moduleFileName, std::ios::binary);
 	if (!file.is_open()) {
-		IDDrawSurface::OutptTxt("[ChallengeResponse::SnapshotFile] Unable to add %s to snapshot list because !file.is_open()", moduleFileName);
+		IDDrawSurface::OutptFmtTxt("[ChallengeResponse::SnapshotFile] Unable to add %s to snapshot list because !file.is_open()", moduleFileName);
 		return;
 	}
 
@@ -876,13 +886,13 @@ void ChallengeResponse::SnapshotFile(const char* moduleFileName)
 
 	std::shared_ptr<std::vector<unsigned char> > moduleOnDisk(new std::vector<unsigned char>(fileSize));
 	if (!file.read(reinterpret_cast<char*>(moduleOnDisk->data()), fileSize)) {
-		IDDrawSurface::OutptTxt("[ChallengeResponse::SnapshotFile] Unable to add %s to snapshot list because !file.read()", moduleFileName);
+		IDDrawSurface::OutptFmtTxt("[ChallengeResponse::SnapshotFile] Unable to add %s to snapshot list because !file.read()", moduleFileName);
 		return;
 	}
 
 	m_moduleInitialDiskSnapshots.push_back(moduleOnDisk);
 	m_moduleInitialDiskSnapshotFilenames.push_back(moduleFileName);
-	IDDrawSurface::OutptTxt("[ChallengeResponse::SnapshotFile] Added %s to snapshot list", moduleFileName);
+	IDDrawSurface::OutptFmtTxt("[ChallengeResponse::SnapshotFile] Added %s to snapshot list", moduleFileName);
 }
 #pragma code_seg(pop)
 
@@ -1364,7 +1374,7 @@ void ChallengeResponse::logResponses()
 		unsigned dpid = it->first;
 		PlayerStruct* player = FindPlayerByDPID(dpid);
 		std::string name = player ? player->Name : "<unknown>";
-		IDDrawSurface::OutptTxt("[ChallengeResponse::logResponses] %s(%u/%x) modules=%d gamedata=%d",
+		IDDrawSurface::OutptFmtTxt("[ChallengeResponse::logResponses] %s(%u/%x) modules=%d gamedata=%d",
 			name.c_str(), dpid, dpid, it->second.modulesResponseReceived, it->second.gameDataResponseReceived);
 	}
 }
