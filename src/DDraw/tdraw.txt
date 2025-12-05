@@ -29,6 +29,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*2025.12.6
+- Fix crash when game installed in a long path (eg C:\Program Files (x86)\Steam\steamapps\common\Total Annihilation\PROTA)
+
 *2025.11.26
 - New keys for unit definitions (units/*.fbi) to customise per-unit veterancy
 
