@@ -1,4 +1,4 @@
-
+﻿
 #include "Dialog.h"
 #include "iddraw.h"
 #include "iddrawsurface.h"
@@ -632,6 +632,161 @@ BYTE CanBuildArrayBufferOverrunFixBytes[] = {
 	0x89, 0x86, 0x56, 0x01, 0x00, 0x00, 0xb9, 0x12
 };
 
+unsigned int CrashFix004cbed5Addr = 0x4CBE81;
+int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
+{
+	uintptr_t ebp = (uintptr_t)X->Ebp;
+
+	OFFSCREEN* srcCtx = *(OFFSCREEN**)(ebp + 0x0C);
+	OFFSCREEN* dstCtx = *(OFFSCREEN**)(ebp + 0x08);
+
+	RECT* srcRect = *(RECT**)(ebp + 0x10);
+	RECT* dstRect = *(RECT**)(ebp + 0x14);
+
+	bool hasProblem = false;
+
+	// Null pointer checks
+	if (!srcCtx || !dstCtx || !srcRect || !dstRect)
+		hasProblem = true;
+
+	int srcWidth = 0, srcHeight = 0;
+	int dstWidth = 0, dstHeight = 0;
+
+	if (srcRect && dstRect)
+	{
+		srcWidth = srcRect->right - srcRect->left + 1;
+		srcHeight = srcRect->bottom - srcRect->top + 1;
+		dstWidth = dstRect->right - dstRect->left + 1;
+		dstHeight = dstRect->bottom - dstRect->top + 1;
+	}
+
+	// Range checks only if pointers valid
+	if (srcCtx && srcRect)
+	{
+		if (srcWidth > srcCtx->lPitch) hasProblem = true;
+		if (srcRect->left < 0 || srcRect->top < 0 ||
+			srcRect->right >= srcCtx->Width ||
+			srcRect->bottom >= srcCtx->Height)
+			hasProblem = true;
+
+		if (!srcCtx->lpSurface) hasProblem = true;
+		if (srcCtx->lPitch <= 0) hasProblem = true;
+	}
+
+	if (dstCtx && dstRect)
+	{
+		if (dstWidth > dstCtx->lPitch) hasProblem = true;
+		if (dstRect->left < 0 || dstRect->top < 0 ||
+			dstRect->right >= dstCtx->Width ||
+			dstRect->bottom >= dstCtx->Height)
+			hasProblem = true;
+
+		if (!dstCtx->lpSurface) hasProblem = true;
+		if (dstCtx->lPitch <= 0) hasProblem = true;
+	}
+
+	// If everything is normal, just execute normally, no log file write
+	if (!hasProblem)
+	{
+		return 0;
+	}
+
+	// ---- LOGGING ONLY WHEN A PROBLEM EXISTS ----
+	FILE* f = fopen("Errorlog.txt", "a");
+	if (f)
+	{
+		fprintf(f, "\n----- CopyScreenContext PROBLEM DETECTED -----\n");
+		fprintf(f, "Hook=0x4CBE81  EBP=0x%08X  Resume=0x4CBE86\n",
+			(unsigned)ebp);
+
+		fprintf(f, "Pointers: srcCtx=%p dstCtx=%p srcRect=%p dstRect=%p\n",
+			srcCtx, dstCtx, srcRect, dstRect);
+
+		if (srcCtx)
+			fprintf(f, "SRC CTX: W=%d H=%d pitch=%d surf=%p\n",
+				srcCtx->Width, srcCtx->Height,
+				srcCtx->lPitch, srcCtx->lpSurface);
+		else
+			fprintf(f, "SRC CTX: NULL\n");
+
+		if (dstCtx)
+			fprintf(f, "DST CTX: W=%d H=%d pitch=%d surf=%p\n",
+				dstCtx->Width, dstCtx->Height,
+				dstCtx->lPitch, dstCtx->lpSurface);
+		else
+			fprintf(f, "DST CTX: NULL\n");
+
+		if (srcRect)
+			fprintf(f, "SRC RECT: L=%d T=%d R=%d B=%d W=%d H=%d\n",
+				srcRect->left, srcRect->top,
+				srcRect->right, srcRect->bottom,
+				srcWidth, srcHeight);
+		else
+			fprintf(f, "SRC RECT: NULL\n");
+
+		if (dstRect)
+			fprintf(f, "DST RECT: L=%d T=%d R=%d B=%d W=%d H=%d\n",
+				dstRect->left, dstRect->top,
+				dstRect->right, dstRect->bottom,
+				dstWidth, dstHeight);
+		else
+			fprintf(f, "DST RECT: NULL\n");
+
+		if (srcRect && srcCtx && srcWidth > srcCtx->lPitch)
+			fprintf(f, "ERROR: srcWidth (%d) > srcPitch (%d)\n",
+				srcWidth, srcCtx->lPitch);
+
+		if (dstRect && dstCtx && dstWidth > dstCtx->lPitch)
+			fprintf(f, "ERROR: dstWidth (%d) > dstPitch (%d)\n",
+				dstWidth, dstCtx->lPitch);
+
+		if (srcRect && srcCtx &&
+			(srcRect->left < 0 || srcRect->top < 0 ||
+				srcRect->right >= srcCtx->Width ||
+				srcRect->bottom >= srcCtx->Height))
+			fprintf(f, "ERROR: srcRect out of bounds\n");
+
+		if (dstRect && dstCtx &&
+			(dstRect->left < 0 || dstRect->top < 0 ||
+				dstRect->right >= dstCtx->Width ||
+				dstRect->bottom >= dstCtx->Height))
+			fprintf(f, "ERROR: dstRect out of bounds\n");
+
+		if (srcCtx && !srcCtx->lpSurface)
+			fprintf(f, "ERROR: srcCtx->lpSurface is NULL\n");
+
+		if (dstCtx && !dstCtx->lpSurface)
+			fprintf(f, "ERROR: dstCtx->lpSurface is NULL\n");
+
+		if (srcCtx && srcCtx->lPitch <= 0)
+			fprintf(f, "ERROR: srcCtx->lPitch invalid (%d)\n",
+				srcCtx->lPitch);
+
+		if (dstCtx && dstCtx->lPitch <= 0)
+			fprintf(f, "ERROR: dstCtx->lPitch invalid (%d)\n",
+				dstCtx->lPitch);
+
+		uintptr_t* sub_458810_ret_addr = (uintptr_t*)(ebp + 0x148);
+		if (*sub_458810_ret_addr == 0x0045AE78)
+		{
+			UnitStruct** unit = (UnitStruct**)(ebp + 0x120);
+			if (unit && *unit && (*unit)->UnitType && (*unit)->UnitType->Name)
+			{
+				fprintf(f, "Unit=%s\n", (*unit)->UnitType->Name);
+			}
+			else
+			{
+				fprintf(f, "Unit=NULL\n");
+			}
+		}
+
+		fclose(f);
+	}
+
+	// Continue execution normally (and allow the crash)
+	return 0;
+}
+
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
@@ -747,6 +902,7 @@ TABugFixing::TABugFixing ()
 	if (0 != *TA_BUGFIX_FIXED_POSN_GUARDING_CONS_ENABLE) {
 		m_hooks.push_back(std::make_unique<InlineSingleHook>(FixedPositionGuardingConsAddr, 5, INLINE_5BYTESLAGGERJMP, FixedPositionGuardingConsProc));
 	}
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(CrashFix004cbed5Addr, 5, INLINE_5BYTESLAGGERJMP, CrashFix004cbed5Proc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
