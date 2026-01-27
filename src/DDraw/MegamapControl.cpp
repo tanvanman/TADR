@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 
 #include "hook/etc.h"
@@ -21,7 +22,7 @@
 #include <vector>
 using namespace std;
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 using namespace ordertype;
 

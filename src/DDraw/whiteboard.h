@@ -1,8 +1,6 @@
 #ifndef whiteboardH
 #define whiteboardH
 
-#define USEWHITEBOARD
-
 #include "elementhandler.h"
 #include "IRenderer.h"
 #include <chrono>

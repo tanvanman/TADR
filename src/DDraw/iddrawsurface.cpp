@@ -1,6 +1,7 @@
 //---------------------------------------------------------------------------
 #pragma hdrstop
 
+#include "config.h"
 #include "oddraw.h"
 #include <mutex>
 #include <vector>
@@ -56,21 +57,6 @@ bool StartedInRect;
 #ifdef SYNCHRONISE_THREADS
 std::recursive_mutex WinProcMutex;
 #endif
-
-//#define XPOYDEBG
-
-/*
-IDDrawSurface::~IDDrawSurface()
-{
-	delete WhiteBoard;
-	delete Income;
-	delete TAHook;
-	delete CommanderWarp;
-	delete SharedRect;
-	delete SettingsDialog;
-	delete ChangeQueue;
-	delete DDDTA;
-}*/
 
 HANDLE IDDrawSurface::TDrawLogFile = 0;
 
@@ -176,14 +162,20 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	SettingsDialog= new Dialog ( VidMem);
 	WhiteBoard= new AlliesWhiteboard ( VidMem);
 	Income= new CIncome ( VidMem);
+	TAHook = nullptr;
+#if TA_HOOK_ENABLE
 	TAHook= new CTAHook ( VidMem);
+#endif
 	CommanderWarp= new CWarp ( VidMem);
 	SharedRect= new CMapRect ( VidMem) ;
 	ChangeQueue= new CChangeQueue ;
 	DDDTA= new CDDDTA ;
-	ConstructionKickout::GetInstance();
 
-#ifdef USEMEGAMAP
+#if CONSTRUCTION_KICKOUT_ENABLE
+	ConstructionKickout::GetInstance();
+#endif
+
+#if USEMEGAMAP
 
 	if (GUIExpander
 		&&(GUIExpander->myMinimap))
@@ -196,7 +188,7 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	DataShare->IsRunning = 10;
 	SettingsDialog->SetAll  ( );
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 	if (GUIExpander
 		&&GUIExpander->myMinimap)
 	{
@@ -265,8 +257,10 @@ ULONG __stdcall IDDrawSurface::Release()
 	WhiteBoard= NULL;
 	delete Income;
 	Income= NULL;
+#if TA_HOOK_ENABLE
 	delete TAHook;
 	TAHook= NULL;
+#endif
 	delete CommanderWarp;
 	CommanderWarp= NULL;
 	delete SharedRect;
@@ -277,7 +271,7 @@ ULONG __stdcall IDDrawSurface::Release()
 	ChangeQueue= NULL;
 	delete DDDTA;
 	DDDTA= NULL;
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 	if (GUIExpander
 		&&(GUIExpander->myMinimap))
 	{
@@ -449,9 +443,12 @@ HRESULT __stdcall IDDrawSurface::Lock(LPRECT arg1, LPDDSURFACEDESC arg2, DWORD a
 #ifdef SYNCHRONISE_THREADS
     std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
 #endif
+
+#if TA_HOOK_ENABLE
     if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
         TAHook->TABlit();
     }
+#endif
 
 	if(result == DD_OK)
 		SurfaceMemory = arg2->lpSurface;
@@ -593,7 +590,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				{
 					SharedRect->LockBlit ( (char*)SurfaceMemory, lPitch);
 				}
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 				if ((GUIExpander)
 					&&(GUIExpander->myMinimap))
 				{
@@ -621,7 +618,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			}
 
 			
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 			if ((GUIExpander)
 				&&(GUIExpander->myMinimap))
 			{
@@ -636,10 +633,15 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			{
 				Income->BlitIncome(lpBack);
 			}
+
+#if WEATHER_REPORT
 			Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+#endif
 
 			SettingsDialog->BlitDialog(lpBack);
+#if TA_HOOK_ENABLE
 			TAHook->Blit(lpBack);
+#endif
 			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
 				ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 			}
@@ -703,7 +705,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 					SharedRect->LockBlit ( (char*)SurfaceMemory, lPitch);
 				}
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 				if ((GUIExpander)
 					&&(GUIExpander->myMinimap))
 				{
@@ -734,7 +736,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			}
 
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 			if ((GUIExpander)
 				&&(GUIExpander->myMinimap))
 			{
@@ -749,11 +751,15 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			{
 				Income->BlitIncome(lpBack);
 			}
-			Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 
+#if WEATHER_REPORT
+			Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+#endif
 
 			SettingsDialog->BlitDialog(lpBack);
+#if TA_HOOK_ENABLE
 			TAHook->Blit(lpBack);
+#endif
 			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
 				ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 			}
@@ -1148,14 +1154,18 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 			&&(((CWarp*)LocalShare->CommanderWarp)->Message(WinProcWnd, Msg, wParam, lParam)))
 			return 0;
 
+#if CONSTRUCTION_KICKOUT_ENABLE
 		if (ConstructionKickout::GetInstance()->Message(WinProcWnd, Msg, wParam, lParam))
 		{
 			return 0;
 		}
+#endif
 
+#if TA_HOOK_ENABLE
 		if((NULL!=LocalShare->TAHook)
 			&&(((CTAHook*)LocalShare->TAHook)->Message(WinProcWnd, Msg, wParam, lParam)))
 			return 0;  //message handled by tahook class
+#endif
 
 		//   if(((CChangeQueue*)LocalShare->ChangeQueue)->Message(WinProcWnd, Msg, wParam, lParam))
 		//     return 0;
@@ -1170,7 +1180,7 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 		if(DataShare->F1Disable)
 			if(Msg == WM_KEYDOWN && wParam == 112)
 				return 0;
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 		if (GUIExpander
 			&&(GUIExpander->myMinimap))
 		{

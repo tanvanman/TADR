@@ -1,5 +1,6 @@
 //扩展的快捷键
 
+#include "config.h"
 #include "oddraw.h"
 #include "iddrawsurface.h"
 #include "tamem.h"
@@ -162,7 +163,7 @@ bool ExternQuickKey::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 // // 					break;
 // // 				}
 // 			}
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 			if (GUIExpander)
 			{
@@ -1009,7 +1010,7 @@ int __stdcall AddtionRoutine_UnitINFOInit (PInlineX86StackBuffer X86StrackBuffer
 
 void AddRoutine_InitAfterExternKey ( void)
 {
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 	if (GUIExpander)
 	{

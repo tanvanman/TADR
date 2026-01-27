@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 #include <vector>
 using namespace std;
@@ -9,7 +10,6 @@ using namespace std;
 #include "hook\etc.h"
 #include "hook\hook.h"
 #include "GUIExpand.h"
-
 
 
 //-----------
@@ -112,11 +112,13 @@ int  __stdcall  sub_0049E91C (PInlineX86StackBuffer X86StrackBuffer)
 {
 	DWORD Width;
 	
+#if USEMEGAMAP
 	if (0!=GUIExpander->SyncMenuResolution->Width)
 	{
 		Width= GUIExpander->SyncMenuResolution->Width;
 	}
 	else
+#endif
 	{
 		Width= MyConfig->FindRegDword ( "DisplayModeWidth",0);
 	}
@@ -140,11 +142,13 @@ int  __stdcall  sub_0049E93B (PInlineX86StackBuffer X86StrackBuffer)
 {
 	DWORD Height;
 
+#if USEMEGAMAP
 	if (0!=GUIExpander->SyncMenuResolution->Height)
 	{
 		Height= GUIExpander->SyncMenuResolution->Height;
 	}
 	else
+#endif
 	{
 		Height= MyConfig->FindRegDword ( "DisplayModeHeight",0);
 	}
@@ -175,6 +179,7 @@ int  __stdcall  sub_00491A75 (PInlineX86StackBuffer X86StrackBuffer)
 	DWORD Height= 0;
 	DWORD Width= 0;
 
+#if USEMEGAMAP
 	if ((0!=GUIExpander->SyncMenuResolution->Width)
 		&&(0!=GUIExpander->SyncMenuResolution->Height))
 	{
@@ -182,6 +187,7 @@ int  __stdcall  sub_00491A75 (PInlineX86StackBuffer X86StrackBuffer)
 		Height= GUIExpander->SyncMenuResolution->Height;
 	}
 	else
+#endif
 	{
 		MyConfig->ReadTAReg_Dword ( "DisplayModeWidth", &Width);
 		MyConfig->ReadTAReg_Dword ( "DisplayModeHeight", &Height);
@@ -214,6 +220,7 @@ int __stdcall sub_00491B01 (PInlineX86StackBuffer X86StrackBuffer)
 	DWORD Height= 0;
 	DWORD Width= 0;
 
+#if USEMEGAMAP
 	if ((0!=GUIExpander->SyncMenuResolution->Width)
 		&&(0!=GUIExpander->SyncMenuResolution->Height))
 	{
@@ -221,6 +228,7 @@ int __stdcall sub_00491B01 (PInlineX86StackBuffer X86StrackBuffer)
 		Height= GUIExpander->SyncMenuResolution->Height;
 	}
 	else
+#endif
 	{
 		MyConfig->ReadTAReg_Dword ( "DisplayModeWidth", &Width);
 		MyConfig->ReadTAReg_Dword ( "DisplayModeHeight", &Height);

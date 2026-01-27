@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 
 #include "hook/etc.h"
@@ -24,7 +25,7 @@
 #include "iddrawsurface.h"
 using namespace std;
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 MegamapTAStuff::MegamapTAStuff (FullScreenMinimap * parent_p, RECT * MegaMapScreen_p, RECT * TAMap_p, RECT * GameScreen_p,
 	int MaxIconWidth, int MaxIconHeight, BOOL UseSurfaceCursor_a)
 {
@@ -1049,6 +1050,7 @@ void MegamapTAStuff::BlitSelect (LPVOID lpSurfaceMem, int dwWidth, int dwHeight,
 		}
 		else if (ordertype::BUILD==TAmainStruct_Ptr->PrepareOrder_Type)
 		{// draw build rect
+#if TA_HOOK_ENABLE
 			if (((CTAHook*)LocalShare->TAHook)->IsLineBuilding())
 			{
 				
@@ -1056,6 +1058,7 @@ void MegamapTAStuff::BlitSelect (LPVOID lpSurfaceMem, int dwWidth, int dwHeight,
 	
 			}
 			else
+#endif
 			{
 				if (! parent->Controler->IsInMap ( ))
 				{

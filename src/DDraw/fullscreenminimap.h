@@ -1,8 +1,5 @@
 #pragma once
 
-#define USEMEGAMAP
-
-
 #define MAXCURSORWIDTH (0x30)
 #define MAXCURSORHEIGHT (0x30)
 

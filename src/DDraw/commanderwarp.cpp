@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 #include "commanderwarp.h"
 #include "iddrawsurface.h"
@@ -51,7 +52,7 @@ bool CWarp::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	__try
 	{
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 		if (GUIExpander
 			&&GUIExpander->myMinimap)
 		{

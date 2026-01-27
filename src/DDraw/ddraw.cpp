@@ -1,4 +1,5 @@
 //---------------------------------------------------------------------------
+#include "config.h"
 #include "oddraw.h"
 #include "iddraw.h"
 
@@ -142,7 +143,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 	if(reason==DLL_PROCESS_ATTACH)
 	{
-		IDDrawSurface::OutptTxt("Process Attached");
+		IDDrawSurface::OutptTxt("Process Attached.  config=" TDRAW_CONFIG_NAME);
 
 		/* 
 			dplayx.dll TA Patch loader - https://github.com/FunkyFr3sh/Total-Annihilation-Patch-Loader 
@@ -180,7 +181,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		AutoTeam::Install();
 		MultiplayerSchemaUnits::GetInstance();
 
+#if USEMEGAMAP
 		GUIExpander= new GUIExpand;
+#endif
 
 		AddtionInitAfterDDrawHook= new InlineSingleHook ( AddtionInitAfterDDrawAddr, 5, 
 			INLINE_5BYTESLAGGERJMP, AddtionInitAfterDDraw);

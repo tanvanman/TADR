@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 
 
@@ -11,7 +12,7 @@
 #include "iddrawsurface.h"
 
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 MappedMap::MappedMap (int Width, int Height)
 {

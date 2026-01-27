@@ -15,6 +15,16 @@ jobs:
       contents: write
       pull-requests: write
 
+    strategy:
+      matrix:
+        config:
+          - name: full
+            define: TDRAW_CONFIG_FULL
+          - name: nosnap
+            define: TDRAW_CONFIG_NOSNAP
+          - name: minimal
+            define: TDRAW_CONFIG_MINIMAL
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -24,34 +34,48 @@ jobs:
       with:
         arch: amd64_x86
 
-    - name: Build tdraw.dll
+    - name: Build tdraw.dll (${{ matrix.config.name }})
       run: |
-        msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=x86
+        msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=x86 /p:TDRAW_CONFIG=${{ matrix.config.define }}
 
-    - name: Create archive
+    - name: Create archive (${{ matrix.config.name }})
       run: |
-        Compress-Archive -Path src\DDraw\Public\tdraw.dll,src\DDraw\totala.ini,src\DDraw\tdraw.txt,LICENSE -Destination src\DDraw\Public\tdraw.zip
+        Compress-Archive -Path src\DDraw\Public\tdraw.dll,src\DDraw\totala.ini,src\DDraw\tdraw.txt,LICENSE -Destination src\DDraw\Public\tdraw-${{ matrix.config.name }}.zip
 
-    - name: Create pre-release
-      uses: "marvinpinto/action-automatic-releases@latest"
-      if: github.ref == 'refs/heads/master'
+    #
+    # MASTER → prerelease ("latest")
+    #
+
+    - name: Create prerelease (FULL only)
+      uses: marvinpinto/action-automatic-releases@latest
+      if: github.ref == 'refs/heads/master' && matrix.config.name == 'full'
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "latest"
         prerelease: true
         title: "Development Build"
-        files: |
-          src/DDraw/Public/tdraw.zip
+
+    - name: Upload prerelease asset
+      if: github.ref == 'refs/heads/master'
+      run: |
+        gh release upload latest src/DDraw/Public/tdraw-${{ matrix.config.name }}.zip --clobber
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create release
-      uses: "marvinpinto/action-automatic-releases@latest"
-      if: startsWith(github.ref, 'refs/tags/')
+    #
+    # TAGS → real releases
+    #
+
+    - name: Create release (FULL only)
+      uses: marvinpinto/action-automatic-releases@latest
+      if: startsWith(github.ref, 'refs/tags/') && matrix.config.name == 'full'
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: false
-        files: |
-          src/DDraw/Public/tdraw.zip
+
+    - name: Upload release asset
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        gh release upload "${{ github.ref_name }}" src/DDraw/Public/tdraw-${{ matrix.config.name }}.zip --clobber
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 #include "tamem.h"
 #include "tafunctions.h"
@@ -20,7 +21,6 @@
 
 #include "megamaptastuff.h"
 #include "MegamapControl.h"
-#include "HackableOptions.h"
 
 #include <algorithm>
 #include <list>
@@ -524,7 +524,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						}
 						else if ((ordertype::STOP == TAdynmem->PrepareOrder_Type) && 
 							(GetAsyncKeyState(VK_SHIFT) & 0x8000) &&
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 							!GUIExpander->myMinimap->Controler->IsBliting() &&
 #endif
 							DraggingUnitOrdersState == DraggingOrderStateEnum::IDLE)
@@ -581,7 +581,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					GetAsyncKeyState(VK_SHIFT) & 0x8000 &&
 					DraggingUnitOrders->AttackTargat == NULL &&
 					IsAnOrder(DraggingUnitOrders->Unit_ptr->UnitOrders, DraggingUnitOrders)
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 					&& !GUIExpander->myMinimap->Controler->IsBliting()
 #endif
 					)
@@ -839,7 +839,7 @@ void CTAHook::TABlit()
 	if(IsLineBuilding ( ))
 	{
 		PaintMinimapRect();
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 		if (GUIExpander
 			&&GUIExpander->myMinimap
 			&&GUIExpander->myMinimap->Controler
@@ -1182,7 +1182,7 @@ void CTAHook::VisualizeRow()
 	}*/
 
 }
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 void CTAHook::VisualizeRow_ForME_megamap (OFFSCREEN * argc)
 {
@@ -1773,9 +1773,7 @@ void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
 
 int CTAHook::GetDefaultMexSnapRadius()
 {
-	// dead space at the end of "Copyright 0000 Humongous Entertainment"
-	// Is 0 unless exe is patched to make it something else
-	int radius = *TA_HOOK_DEFAULT_MEX_SNAP_RADIUS;
+	int radius = DEFAULT_MEX_SNAP_RADIUS;
 	if (radius > 9) { 
 		radius = 9;
 	}
@@ -1789,9 +1787,7 @@ int CTAHook::GetDefaultMexSnapRadius()
 
 int CTAHook::GetMaxMexSnapRadius()
 {
-	// dead space at the end of "Copyright 0000 Humongous Entertainment"
-	// Is 0 unless exe is patched to make it something else
-	int radius = *TA_HOOK_MAX_MEX_SNAP_RADIUS;
+	int radius = MAX_MEX_SNAP_RADIUS;
 	if (radius > 9) {
 		radius = 9;
 	}
@@ -1800,9 +1796,7 @@ int CTAHook::GetMaxMexSnapRadius()
 
 int CTAHook::GetDefaultWreckSnapRadius()
 {
-	// dead space at the end of "0000"
-	// Is 0 unless exe is patched to make it something else
-	int radius = *TA_HOOK_DEFAULT_WRECK_SNAP_RADIUS;
+	int radius = DEFAULT_WRECK_SNAP_RADIUS;
 	if (radius > 9) {
 		radius = 9;
 	}
@@ -1816,9 +1810,7 @@ int CTAHook::GetDefaultWreckSnapRadius()
 
 int CTAHook::GetMaxWreckSnapRadius()
 {
-	// dead space at the end of "0000"
-	// Is 0 unless exe is patched to make it something else
-	int radius = *TA_HOOK_MAX_WRECK_SNAP_RADIUS;
+	int radius = MAX_WRECK_SNAP_RADIUS;
 	if (radius > 9) {
 		radius = 9;
 	}

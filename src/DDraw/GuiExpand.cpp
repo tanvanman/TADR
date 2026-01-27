@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 
 #include <vector>
@@ -10,24 +11,21 @@ using namespace std;
 #include "GUIExpand.h"
 #include "iddrawsurface.h"
 
-
-
-GUIExpand * GUIExpander;
-
+GUIExpand * GUIExpander = nullptr;
 
 	//////////////-------
 GUIExpand::GUIExpand ()
 {
 	myShareDialog= NULL;
 	SyncMenuResolution= NULL;
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 	myMinimap= NULL;
 #endif
 	if (MyConfig->GetIniBool ( "ShareDialogExpand", TRUE))
 	{
 		myShareDialog = new ShareDialogExpand(TRUE);
 	}
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 	myMinimap= new FullScreenMinimap ( MyConfig->GetIniBool ( "FullScreenMinimap", FALSE), MyConfig->GetIniInt("MegamapFpsLimit", 60));
 #endif
 
@@ -60,7 +58,7 @@ GUIExpand::~GUIExpand ()
 	{
 		delete SyncMenuResolution;
 	}
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 	if (NULL!=myMinimap)
 	{
 		delete myMinimap;

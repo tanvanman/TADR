@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 
 #include "iddrawsurface.h"
@@ -185,7 +186,7 @@ void AlliesWhiteboard::DebugPlayerNumberFromInitialColor()
 
 void AlliesWhiteboard::Blit(LPDIRECTDRAWSURFACE DestSurf)
 {
-#ifdef USEWHITEBOARD
+#if USEWHITEBOARD
 	if(lpInputBox->IsLost() != DD_OK)
 	{
 		RestoreAll();
@@ -225,7 +226,7 @@ void AlliesWhiteboard::InitialisePlayerNumberFromInitialColor()
 
 void AlliesWhiteboard::LockBlit(char *VidBuf, int Pitch)
 {
-#ifdef USEWHITEBOARD
+#if USEWHITEBOARD
 
 	min_clip_y = 32;
 	min_clip_x = 128;
@@ -274,7 +275,7 @@ bool AlliesWhiteboard::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM 
 	static bool Move = false;
 	static bool Paint = false;
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 	if (GUIExpander
 		&&GUIExpander->myMinimap)
 	{

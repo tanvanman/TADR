@@ -214,6 +214,9 @@
     <ClCompile Include="UnitDefExtensions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="VeterancyHack.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AutoTeam.h">
@@ -408,9 +411,6 @@
     <ClInclude Include="MultiplayerSchemaUnits.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="HackableOptions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Widgets\Button.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -433,6 +433,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="UnitDefExtensions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VeterancyHack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config_prota.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config_escalation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config_ota.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

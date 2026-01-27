@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 
 #include "hook/hook.h"
@@ -12,7 +13,7 @@
 #include "fullscreenminimap.h"
 
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 ProjectileMap::ProjectileMap (FullScreenMinimap * par_arg, UnitsMinimap * UnitMap_p)
 {

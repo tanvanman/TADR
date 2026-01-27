@@ -1,4 +1,5 @@
 //用来从TNT地图上创建一个随意大小的小地图出来。
+#include "config.h"
 #include "oddraw.h"
 //#include "ddraw.h"
 #include "tamem.h"
@@ -9,7 +10,7 @@
 
 #include <initializer_list>
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 TAGameAreaReDrawer::TAGameAreaReDrawer()
 {

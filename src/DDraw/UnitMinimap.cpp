@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 
 
@@ -23,7 +24,7 @@ using namespace std;
 #include "ExternQuickKey.h"
 
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 //hook .text:00466DC0 000 83 EC 1C                                                        sub     esp, 1Ch
 //  .text:00466E83 02C 0F BF 43 6C      movsx   eax, word ptr [ebx+(UnitsInGame.UnitPosition.X+2)] ; //0x6A

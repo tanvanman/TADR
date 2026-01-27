@@ -1,4 +1,5 @@
-﻿
+﻿#include "config.h"
+
 #include "Dialog.h"
 #include "iddraw.h"
 #include "iddrawsurface.h"
@@ -14,7 +15,6 @@
 #include "TAConfig.h"
 
 #include "ddraw.h"
-#include "HackableOptions.h"
 
 #include <chrono>
 #include <random>
@@ -98,11 +98,6 @@ unsigned int DisplayModeMinWidth1024RegAddr = 0x42FA2E;
 
 unsigned int SinglePlayerStartButtonAddr = 0x456780;
 BYTE SinglePlayerStartButtonBits[] = { 0x02, 0x7d };
-
-// dead space at the end of "Copyright 0000 Humongous Entertainment"
-// Is 0 unless exe is patched to make it something else
-unsigned int EnableClickSnapAddr = 0x50390a;
-BYTE EnableClickSnapBits[] = { 3, 5 };	// default radius, maximum radius
 
 // Patch map features to be owned by player_idx = 11 (instead of player_idx = 10 as per original behaviour)
 // This enables the DrawPlayer11DT patch to draw the features
@@ -839,7 +834,9 @@ TABugFixing::TABugFixing ()
 
 	//new SingleHook(EnableClickSnapAddr, sizeof(EnableClickSnapBits), INLINE_UNPROTECTEVINMENT, EnableClickSnapBits);
 
+#if VISIBLE_MAP_DTS
 	DrawPlayer11DT.reset(new InlineSingleHook(DrawPlayer11DTAddr, 5, INLINE_5BYTESLAGGERJMP, DrawPlayer11DTProc));
+#endif
 	//DrawPlayer11DTEnable[0].reset(new SingleHook(DrawPlayer11DTEnableAddrs[0], sizeof(DrawPlayer11DTEnableBits), INLINE_UNPROTECTEVINMENT, DrawPlayer11DTEnableBits));
 	//DrawPlayer11DTEnable[1].reset(new SingleHook(DrawPlayer11DTEnableAddrs[1], sizeof(DrawPlayer11DTEnableBits), INLINE_UNPROTECTEVINMENT, DrawPlayer11DTEnableBits));
 	//DrawPlayer11DTEnable[2].reset(new SingleHook(DrawPlayer11DTEnableAddrs[2], sizeof(DrawPlayer11DTEnableBits), INLINE_UNPROTECTEVINMENT, DrawPlayer11DTEnableBits));
@@ -880,10 +877,14 @@ TABugFixing::TABugFixing ()
     RestorePlayerColor.reset(new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc));
 	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
 	ResourceStripHeightFix.reset(new InlineSingleHook(ResourceStripHeightFixAddr, 5, INLINE_5BYTESLAGGERJMP, ResourceStripHeightFixProc));
+	
+#if PATROLING_CONS_RECLAIM_OR_ASSIST_ENABLE
 	PatrolDisableBuildRepair.reset(new InlineSingleHook(PatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableBuildRepairProc));
 	PatrolDisableReclaim.reset(new InlineSingleHook(PatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, PatrolDisableReclaimProc));
 	VTOLPatrolDisableBuildRepair.reset(new InlineSingleHook(VTOLPatrolDisableBuildRepairAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableBuildRepairProc));
 	VTOLPatrolDisableReclaim.reset(new InlineSingleHook(VTOLPatrolDisableReclaimAddr, 5, INLINE_5BYTESLAGGERJMP, VTOLPatrolDisableReclaimProc));
+#endif
+
 	JammingOwnRadar.reset(new InlineSingleHook(JammingOwnRadarAddr, 5, INLINE_5BYTESLAGGERJMP, JammingOwnRadarProc));
 	KeepOnReclaimPreparedOrder.reset(new InlineSingleHook(KeepOnReclaimPreparedOrderAddr, 5, INLINE_5BYTESLAGGERJMP, KeepOnReclaimPreparedOrderProc));
 	GhostComFix.reset(new InlineSingleHook(GhostComFixAddr, 5, INLINE_5BYTESLAGGERJMP, GhostComFixProc));
@@ -893,15 +894,21 @@ TABugFixing::TABugFixing ()
 	HostDoesntLeave.reset(new InlineSingleHook(PutDeadHostInWatchModeAddr, 5, INLINE_5BYTESLAGGERJMP, PutDeadHostInWatchModeProc));
 	JunkYardmapFix.reset(new InlineSingleHook(JunkYardmapFixAddr, 5, INLINE_5BYTESLAGGERJMP, JunkYardmapFixProc));
 	CanBuildArrayBufferOverrunFix.reset(new SingleHook(CanBuildArrayBufferOverrunFixAddr, sizeof(CanBuildArrayBufferOverrunFixBytes), INLINE_UNPROTECTEVINMENT, CanBuildArrayBufferOverrunFixBytes));
+
+#if WIND_SPEED_SYNC
 	WindSpeedSync.reset(new InlineSingleHook(WindSpeedSyncAddr, 5, INLINE_5BYTESLAGGERJMP, WindSpeedSyncProc));
+#endif
+
 	//NetworkRawReceiveLog.reset(new InlineSingleHook(NetworkRawReceiveLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkRawReceiveLogProc));
 	//NetworkDispatchLog.reset(new InlineSingleHook(NetworkDispatchLogAddr, 5, INLINE_5BYTESLAGGERJMP, NetworkDispatchLogProc));
 	//m_hooks.push_back(std::make_unique<InlineSingleHook>(LogTrace1Addr, 5, INLINE_5BYTESLAGGERJMP, LogTrace1Proc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(RemoveSharedResourcesFromTotalAddr, 5, INLINE_5BYTESLAGGERJMP, RemoveSharedResourcesFromTotalProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(MultiplayerVictorySoundAddr, 5, INLINE_5BYTESLAGGERJMP, MultiplayerVictorySoundProc));
-	if (0 != *TA_BUGFIX_FIXED_POSN_GUARDING_CONS_ENABLE) {
-		m_hooks.push_back(std::make_unique<InlineSingleHook>(FixedPositionGuardingConsAddr, 5, INLINE_5BYTESLAGGERJMP, FixedPositionGuardingConsProc));
-	}
+
+#if FIXED_POSN_GUARDING_CONS_ENABLE
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(FixedPositionGuardingConsAddr, 5, INLINE_5BYTESLAGGERJMP, FixedPositionGuardingConsProc));
+#endif
+
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(CrashFix004cbed5Addr, 5, INLINE_5BYTESLAGGERJMP, CrashFix004cbed5Proc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }

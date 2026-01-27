@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 #include "cincome.h"
 #include "iddrawsurface.h"
@@ -636,7 +637,7 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				CursorX = LOWORD(lParam);
 				CursorY = HIWORD(lParam);
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 				if ((GUIExpander)
 					&&(GUIExpander->myMinimap)
 					&&(GUIExpander->myMinimap->Controler))

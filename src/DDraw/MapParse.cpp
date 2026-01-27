@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 //one pixel mean 1 byte in TA. 
 //use TA tiles Pos in TNT class. use pixel Pos in minimap class.
@@ -6,7 +7,7 @@
 #include <CString>
 #include "fullscreenminimap.h"
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 using namespace std;
 LPLOGPALETTE TNTtoMiniMap::TALogPalette_Ptr= NULL;

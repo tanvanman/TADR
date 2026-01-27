@@ -1,6 +1,7 @@
 // .text:00483638 0B4 8B D8                                                           mov     ebx, eax
 // 	.text:0048363A 0B4 8B 03                                                           mov     eax, [ebx]
 // .text:0048363C 0B4 3D 20 10 00 00                                                  cmp     eax, 4128
+#include "config.h"
 #include "oddraw.h"
 
 
@@ -26,7 +27,7 @@
 using namespace std;
 #include "TAConfig.h"
 
-#ifdef USEMEGAMAP
+#if USEMEGAMAP
 
 int __stdcall LoadMap_Routine (PInlineX86StackBuffer X86StrackBuffer)
 {
