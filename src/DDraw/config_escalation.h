@@ -7,8 +7,8 @@
 //
 #define DEFAULT_MEX_SNAP_RADIUS 0
 #define MAX_MEX_SNAP_RADIUS 0
-#define DEFAULT_WRECK_SNAP_RADIUS 0
-#define MAX_WRECK_SNAP_RADIUS 0
+#define DEFAULT_WRECK_SNAP_RADIUS 1
+#define MAX_WRECK_SNAP_RADIUS 1
 
 //
 // Construction / AI behavior

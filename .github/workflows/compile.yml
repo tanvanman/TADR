@@ -21,7 +21,7 @@ jobs:
           - name: full
             define: TDRAW_CONFIG_FULL
           - name: nosnap
-            define: TDRAW_CONFIG_NOSNAP
+            define: TDRAW_CONFIG_ESCALATION
           - name: minimal
             define: TDRAW_CONFIG_MINIMAL
 

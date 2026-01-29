@@ -335,7 +335,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="config.h" />
     <ClInclude Include="config_full.h" />
     <ClInclude Include="config_minimal.h" />
-    <ClInclude Include="config_nosnap.h" />
+    <ClInclude Include="config_escalation.h" />
     <ClInclude Include="ConstructionKickout.h" />
     <ClInclude Include="GameTickHook.h" />
     <ClInclude Include="HexDump.h" />
