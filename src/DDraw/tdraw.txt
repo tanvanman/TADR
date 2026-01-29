@@ -10,6 +10,23 @@ and later support was provided by Rime.
 The present release includes contributions from Axle and FunkyFresh, and owes a debt to TAG_Venom for extensive testing and critical feeback, and to Gamma and Wotan for further testing and feature suggestions.
 
 
+CONFIGURATIONS
+
+The release .zip files are annotated with a build configuration tag: "tdraw-<config>.zip".  The various configurations are:
+  * tdraw-full.zip: all features enabled
+  * tdraw-escalation.zip: built for TA:Escalation.  disables the following features
+    - mex snap
+    - that is all
+  * tdraw-minimal.zip: disables the following features
+    - mex/wreck snap
+    - options for construction units to stay put when guarding
+    - options for construction units to only reclaim or onlt assist while patrolling
+    - auto kickout construction units that are blocking another builder
+    - weather report at top of screen
+    - sync wind speed between players
+    - map DT's always visible.
+
+
 INSTALLATION
 
 Drop tdraw.dll into your TA directory.
@@ -29,15 +46,8 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-2026.01.27
-- Create seperate builds for full-featured (tdraw-full.zip), no-snap (tdraw-nosnap.zip), and minimal (tdraw-minimal.zip) feature sets.  the minimal zip disables the following features:
-  - mex/wreck snap
-  - options for construction units to stay put when guarding
-  - options for construction units to only reclaim or onlt assist while patrolling
-  - auto kickout construction units that are blocking another builder
-  - weather report at top of screen
-  - sync wind speed between players
-  - map DT's always visible.
+*2026.01.29
+- Create seperate builds for full-featured (tdraw-full.zip), escalation (tdraw-escalation.zip), and minimal (tdraw-minimal.zip) feature sets.
 
 *2025.12.13
 - Add diagnostics for crash at 004cbed5
