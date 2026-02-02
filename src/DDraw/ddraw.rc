@@ -2,6 +2,20 @@
 //
 #include "resource.h"
 
+#define BASE_VERSION "2026.1.29.0"
+
+#if defined(TDRAW_CONFIG_FULL)
+#define VERSION_TAG ""
+#elif defined(TDRAW_CONFIG_ESCALATION)
+#define VERSION_TAG "-esc"
+#elif defined(TDRAW_CONFIG_MINIMAL)
+#define VERSION_TAG "-min"
+#else
+#define VERSION_TAG ""
+#endif
+
+#define FULL_VERSION_STR BASE_VERSION VERSION_TAG
+
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -67,14 +81,14 @@ BEGIN
     BEGIN
         BLOCK "041d04b0"
         BEGIN
-            VALUE "CompanyName", "Swedish Yankspankers"
-            VALUE "FileDescription", "Community enhancements for Total Annihilation"
-            VALUE "FileVersion", "2026.1.29.0"
+            VALUE "CompanyName", "TA Community"
+            VALUE "FileDescription", "TA Demo Recorder & Patches"
+            VALUE "FileVersion", FULL_VERSION_STR
             VALUE "InternalName", "Swedish Eye"
             VALUE "LegalCopyright", "Copyright 2026"
             VALUE "OriginalFilename", "tdraw.dll"
             VALUE "ProductName", "TA PATCH"
-            VALUE "ProductVersion", "2026.1.29.0"
+            VALUE "ProductVersion", FULL_VERSION_STR
         END
     END
     BLOCK "VarFileInfo"
@@ -89,20 +103,43 @@ END
 // RCDATA
 //
 
-BGBITMAP                RCDATA                  "bitmaps/ControPanelBG.pcx"
-TACURSOR                RCDATA                  "bitmaps/tacursor.pcx"
-OKBUTTON                RCDATA                  "bitmaps/okbutton.pcx"
-TTTSTAGEDBUTTON         RCDATA                  "bitmaps/3stagedbutton.pcx"
-HATFONT12UC             RCDATA                  "bitmaps/hatfontUC.pcx"
-HATFONT12LC             RCDATA                  "bitmaps/hatfontLC.pcx"
-HATFONT11UC             RCDATA                  "bitmaps/hatfontsmallUC.pcx"
-HATFONT11LC             RCDATA                  "bitmaps/hatfontsmallLC.pcx"
-CHECKBOXBITMAP          RCDATA                  "bitmaps/CheckBox.pcx"
-STAGEDBUTTN1            RCDATA                  "bitmaps/StagedButtn1.pcx"
-GREENRECT               RCDATA                  "bitmaps/greenrect.pcx"
-STANDARBUTTON           RCDATA                  "bitmaps/standarbutton.pcx"
-INPUTBOX                RCDATA                  "bitmaps/inputbox.pcx"
-SMALLCIRCLE             RCDATA                  "bitmaps/smallcircle.pcx"
+#if defined(TDRAW_CONFIG_ESCALATION)
+	BGBITMAP           RCDATA    "resources/escalation/bitmaps/ControPanelBG.pcx"
+	TACURSOR           RCDATA    "resources/default/bitmaps/tacursor.pcx"
+	OKBUTTON           RCDATA    "resources/escalation/bitmaps/okbutton.pcx"
+	TTTSTAGEDBUTTON    RCDATA    "resources/escalation/bitmaps/3stagedbutton.pcx"
+	HATFONT12UC        RCDATA    "resources/default/bitmaps/hatfontUC.pcx"
+	HATFONT12LC        RCDATA    "resources/default/bitmaps/hatfontLC.pcx"
+	HATFONT11UC        RCDATA    "resources/default/bitmaps/hatfontsmallUC.pcx"
+	HATFONT11LC        RCDATA    "resources/default/bitmaps/hatfontsmallLC.pcx"
+	CHECKBOXBITMAP     RCDATA    "resources/escalation/bitmaps/CheckBox.pcx"
+	STAGEDBUTTN1       RCDATA    "resources/escalation/bitmaps/StagedButtn1.pcx"
+	GREENRECT          RCDATA    "resources/default/bitmaps/greenrect.pcx"
+	STANDARBUTTON      RCDATA    "resources/escalation/bitmaps/standarbutton.pcx"
+	INPUTBOX           RCDATA    "resources/escalation/bitmaps/inputbox.pcx"
+	SMALLCIRCLE        RCDATA    "resources/escalation/bitmaps/smallcircle.pcx"
+
+#else
+	BGBITMAP           RCDATA    "resources/default/bitmaps/ControPanelBG.pcx"
+	TACURSOR           RCDATA    "resources/default/bitmaps/tacursor.pcx"
+	OKBUTTON           RCDATA    "resources/default/bitmaps/okbutton.pcx"
+	TTTSTAGEDBUTTON    RCDATA    "resources/default/bitmaps/3stagedbutton.pcx"
+	HATFONT12UC        RCDATA    "resources/default/bitmaps/hatfontUC.pcx"
+	HATFONT12LC        RCDATA    "resources/default/bitmaps/hatfontLC.pcx"
+	HATFONT11UC        RCDATA    "resources/default/bitmaps/hatfontsmallUC.pcx"
+	HATFONT11LC        RCDATA    "resources/default/bitmaps/hatfontsmallLC.pcx"
+	CHECKBOXBITMAP     RCDATA    "resources/default/bitmaps/CheckBox.pcx"
+	STAGEDBUTTN1       RCDATA    "resources/default/bitmaps/StagedButtn1.pcx"
+	GREENRECT          RCDATA    "resources/default/bitmaps/greenrect.pcx"
+	STANDARBUTTON      RCDATA    "resources/default/bitmaps/standarbutton.pcx"
+	INPUTBOX           RCDATA    "resources/default/bitmaps/inputbox.pcx"
+	SMALLCIRCLE        RCDATA    "resources/default/bitmaps/smallcircle.pcx"
+
+#endif
+
+
+
+
 #endif    // 瑞典语(瑞典) resources
 /////////////////////////////////////////////////////////////////////////////
 

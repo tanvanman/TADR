@@ -1,6 +1,6 @@
 #pragma once
 
-#define TDRAW_CONFIG_NAME "nosnap"
+#define TDRAW_CONFIG_NAME "escalation"
 
 //
 // Snap radii

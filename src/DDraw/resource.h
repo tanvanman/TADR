@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by publicddraw.rc
+// Used by ddraw.rc
 //
 #define VERSIONINFO_1                   1
 #define BGBITMAP                        2

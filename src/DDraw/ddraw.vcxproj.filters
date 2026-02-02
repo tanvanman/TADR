@@ -438,16 +438,16 @@
     <ClInclude Include="VeterancyHack.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="config_prota.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="config_escalation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="config_ota.h">
+    <ClInclude Include="config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="config.h">
+    <ClInclude Include="config_full.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config_minimal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
