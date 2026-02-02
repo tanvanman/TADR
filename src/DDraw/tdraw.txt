@@ -46,6 +46,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*2026.02.02
+- Custom ctrl-f2 menu skin for escalation
+
 *2026.01.29
 - Create seperate builds for full-featured (tdraw-full.zip), escalation (tdraw-escalation.zip), and minimal (tdraw-minimal.zip) feature sets.
 
