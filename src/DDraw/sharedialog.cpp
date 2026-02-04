@@ -353,7 +353,7 @@ int __stdcall BattleroomDialogProc(PInlineX86StackBuffer X86StrackBuffer)
 			ShowText(&ta->Players[ta->LocalHumanPlayer_PlayerID], ".autopause", 0, 0);
 		}
 	}
-	else if (0xffffffff != SubGUIIndex(UpperControl, "AUTOTEAM", 0xe))
+	if (0xffffffff != SubGUIIndex(UpperControl, "AUTOTEAM", 0xe))
 	{
 		if (IsPressCommand(TAUI_p, "AUTOTEAM"))
 		{
@@ -362,7 +362,7 @@ int __stdcall BattleroomDialogProc(PInlineX86StackBuffer X86StrackBuffer)
 			BattleroomCommands::GetInstance()->RunCommand("+autoteam");
 		}
 	}
-	else if (0xffffffff != SubGUIIndex(UpperControl, "RANDOMTEAM", 0xe))
+	if (0xffffffff != SubGUIIndex(UpperControl, "RANDOMTEAM", 0xe))
 	{
 		if (IsPressCommand(TAUI_p, "RANDOMTEAM"))
 		{
@@ -371,7 +371,7 @@ int __stdcall BattleroomDialogProc(PInlineX86StackBuffer X86StrackBuffer)
 			BattleroomCommands::GetInstance()->RunCommand("+randomteam");
 		}
 	}
-	else if (0xffffffff != SubGUIIndex(UpperControl, "CRCREPORT", 0xe))
+	if (0xffffffff != SubGUIIndex(UpperControl, "CRCREPORT", 0xe))
 	{
 		if (IsPressCommand(TAUI_p, "CRCREPORT"))
 		{
