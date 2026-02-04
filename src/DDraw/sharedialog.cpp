@@ -7,6 +7,7 @@
 #include "hook/etc.h"
 #include "hook/hook.h"
 #include "sharedialog.h"
+#include "BattleroomCommands.h"
 
 using namespace softwaredebugmode;
 
@@ -350,6 +351,33 @@ int __stdcall BattleroomDialogProc(PInlineX86StackBuffer X86StrackBuffer)
 		{
 			TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
 			ShowText(&ta->Players[ta->LocalHumanPlayer_PlayerID], ".autopause", 0, 0);
+		}
+	}
+	else if (0xffffffff != SubGUIIndex(UpperControl, "AUTOTEAM", 0xe))
+	{
+		if (IsPressCommand(TAUI_p, "AUTOTEAM"))
+		{
+			TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+			ShowText(&ta->Players[ta->LocalHumanPlayer_PlayerID], "+autoteam", 0, 0);
+			BattleroomCommands::GetInstance()->RunCommand("+autoteam");
+		}
+	}
+	else if (0xffffffff != SubGUIIndex(UpperControl, "RANDOMTEAM", 0xe))
+	{
+		if (IsPressCommand(TAUI_p, "RANDOMTEAM"))
+		{
+			TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+			ShowText(&ta->Players[ta->LocalHumanPlayer_PlayerID], "+randomteam", 0, 0);
+			BattleroomCommands::GetInstance()->RunCommand("+randomteam");
+		}
+	}
+	else if (0xffffffff != SubGUIIndex(UpperControl, "CRCREPORT", 0xe))
+	{
+		if (IsPressCommand(TAUI_p, "CRCREPORT"))
+		{
+			TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+			ShowText(&ta->Players[ta->LocalHumanPlayer_PlayerID], ".crcreport", 0, 0);
+			BattleroomCommands::GetInstance()->RunCommand(".crcreport");
 		}
 	}
 	return 0;
