@@ -327,10 +327,31 @@ int __stdcall BattleroomDialogInit(PInlineX86StackBuffer X86StrackBuffer)
 
 	if (0xffffffff != SubGUIIndex(UpperControl, "AUTOPAUSE", 0xe))
 	{//
-		GUI1IDControl* autopause;
-		autopause = (GUI1IDControl*)SubControl_str2ptr(UpperControl, "AUTOPAUSE");
+		GUI1IDControl* button;
+		button = (GUI1IDControl*)SubControl_str2ptr(UpperControl, "AUTOPAUSE");
 		unsigned id = (*TAmainStruct_PtrPtr)->LocalHumanPlayer_PlayerID;
-		autopause->grayedout = 0 == (IsHost & (*TAmainStruct_PtrPtr)->Players[id].PlayerInfo->SharedBits);
+		button->grayedout = 0 == (IsHost & (*TAmainStruct_PtrPtr)->Players[id].PlayerInfo->SharedBits);
+	}
+	if (0xffffffff != SubGUIIndex(UpperControl, "AUTOTEAM", 0xe))
+	{//
+		GUI1IDControl* button;
+		button = (GUI1IDControl*)SubControl_str2ptr(UpperControl, "AUTOTEAM");
+		unsigned id = (*TAmainStruct_PtrPtr)->LocalHumanPlayer_PlayerID;
+		button->grayedout = 0 == (IsHost & (*TAmainStruct_PtrPtr)->Players[id].PlayerInfo->SharedBits);
+	}
+	if (0xffffffff != SubGUIIndex(UpperControl, "RANDOMTEAM", 0xe))
+	{//
+		GUI1IDControl* button;
+		button = (GUI1IDControl*)SubControl_str2ptr(UpperControl, "RANDOMTEAM");
+		unsigned id = (*TAmainStruct_PtrPtr)->LocalHumanPlayer_PlayerID;
+		button->grayedout = 0 == (IsHost & (*TAmainStruct_PtrPtr)->Players[id].PlayerInfo->SharedBits);
+	}
+	if (0xffffffff != SubGUIIndex(UpperControl, "CRCREPORT", 0xe))
+	{//
+		GUI1IDControl* button;
+		button = (GUI1IDControl*)SubControl_str2ptr(UpperControl, "CRCREPORT");
+		unsigned id = (*TAmainStruct_PtrPtr)->LocalHumanPlayer_PlayerID;
+		button->grayedout = 0 == (IsHost & (*TAmainStruct_PtrPtr)->Players[id].PlayerInfo->SharedBits);
 	}
 	return 0;
 }

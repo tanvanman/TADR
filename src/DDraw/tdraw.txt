@@ -46,6 +46,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*2026.02.07
+- Disable AUTOTEAM, RANDOMTEAM and CRCREPORT buttons for non-host players
+
 *2026.02.05
 - Add support for AUTOTEAM, RANDOMTEAM and CRCREPORT buttons in battleroom (guis/lounge2.gui)
 
