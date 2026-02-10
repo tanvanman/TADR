@@ -46,35 +46,17 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*2026.02.07
-- Disable AUTOTEAM, RANDOMTEAM and CRCREPORT buttons for non-host players
-
-*2026.02.05
-- Add support for AUTOTEAM, RANDOMTEAM and CRCREPORT buttons in battleroom (guis/lounge2.gui)
-
-*2026.02.02
-- Custom ctrl-f2 menu skin for escalation
-
-*2026.01.29
-- Create seperate builds for full-featured (tdraw-full.zip), escalation (tdraw-escalation.zip), and minimal (tdraw-minimal.zip) feature sets.
-
-*2025.12.13
-- Add diagnostics for crash at 004cbed5
-
-*2025.12.6
-- Fix crash when game installed in a long path (eg C:\Program Files (x86)\Steam\steamapps\common\Total Annihilation\PROTA)
-
-*2025.11.26
-- New keys for unit definitions (units/*.fbi) to customise per-unit veterancy
-
-*2025.08.29
-- Bugfix for multithreaded version/cheat check
-
-*2025.08.19
-- Auto kickout of units under build order is now strictly only for own units (previously allowed kickout anyone's units if cheats enabled)
-
-*2025.08.01
-- Set build square preview to yellow if user can build there but it contains a unit that will be kicked out
+*2026.02.10 - Minor adjustment to diagnostic crash detection ("ERROR: dstRect out of bounds", allow CopyScreenContext all the way to the edge of destination context)
+*2026.02.07 - Disable AUTOTEAM, RANDOMTEAM and CRCREPORT buttons for non-host players
+*2026.02.05 - Add support for AUTOTEAM, RANDOMTEAM and CRCREPORT buttons in battleroom (guis/lounge2.gui)
+*2026.02.02 - Custom ctrl-f2 menu skin for escalation
+*2026.01.29 - Create seperate builds for full-featured (tdraw-full.zip), escalation (tdraw-escalation.zip), and minimal (tdraw-minimal.zip) feature sets.
+*2025.12.13 - Add diagnostics for crash at 004cbed5
+*2025.12.6  - Fix crash when game installed in a long path (eg C:\Program Files (x86)\Steam\steamapps\common\Total Annihilation\PROTA)
+*2025.11.26 - New keys for unit definitions (units/*.fbi) to customise per-unit veterancy
+*2025.08.29 - Bugfix for multithreaded version/cheat check
+*2025.08.19 - Auto kickout of units under build order is now strictly only for own units (previously allowed kickout anyone's units if cheats enabled)
+*2025.08.01 - Set build square preview to yellow if user can build there but it contains a unit that will be kicked out
 
 *2025.07.12
 - Allow user to queue build orders underneath their own mobile units; and auto kickout of units that are under a build order

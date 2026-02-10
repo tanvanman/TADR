@@ -743,8 +743,9 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 
 		if (dstRect && dstCtx &&
 			(dstRect->left < 0 || dstRect->top < 0 ||
-				dstRect->right >= dstCtx->Width ||
-				dstRect->bottom >= dstCtx->Height))
+				// occurs frequently with right==Width and bottom==Height but without crashing
+				dstRect->right > dstCtx->Width ||
+				dstRect->bottom > dstCtx->Height))
 			fprintf(f, "ERROR: dstRect out of bounds\n");
 
 		if (srcCtx && !srcCtx->lpSurface)
