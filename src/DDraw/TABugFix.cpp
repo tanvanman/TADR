@@ -672,8 +672,8 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 	{
 		if (dstWidth > dstCtx->lPitch) hasProblem = true;
 		if (dstRect->left < 0 || dstRect->top < 0 ||
-			dstRect->right >= dstCtx->Width ||
-			dstRect->bottom >= dstCtx->Height)
+			dstRect->right > dstCtx->Width ||
+			dstRect->bottom > dstCtx->Height)
 			hasProblem = true;
 
 		if (!dstCtx->lpSurface) hasProblem = true;
