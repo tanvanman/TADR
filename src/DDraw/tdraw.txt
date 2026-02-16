@@ -46,6 +46,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*2026.02.17 - Fix false trigger on version check
 *2026.02.10 - Minor adjustment to diagnostic crash detection ("ERROR: dstRect out of bounds", allow CopyScreenContext all the way to the edge of destination context)
 *2026.02.07 - Disable AUTOTEAM, RANDOMTEAM and CRCREPORT buttons for non-host players
 *2026.02.05 - Add support for AUTOTEAM, RANDOMTEAM and CRCREPORT buttons in battleroom (guis/lounge2.gui)
