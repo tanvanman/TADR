@@ -951,7 +951,7 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 		"weapon3name,weapon3id,"
 		"maxhp,data8,workertime,healtime,sightdistance,radardistance,sonardistance,mincloakdistance,"
 		"radardistancejam,sonardistancejam,nbuilddistance,builddistance,nmaneuverleashlength,attackrunlength,kamikazedistance,sortbias,"
-		"cruisealt,data4,maxslope,badslope,transportsize,transportcapacity,waterline,makesmetal,"
+		"cruisealt,maxslope,badslope,transportsize,transportcapacity,waterline,makesmetal,"
 		"bmcode,mask0,mask1,"
 		"cobcrc32\n";
 
@@ -995,7 +995,7 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 		fs
 			<< u->nMaxHP << ',' << u->data8 << ',' << u->nWorkerTime << ',' << u->nHealTime << ',' << u->nSightDistance << ',' << u->nRadarDistance << ',' << u->nSonarDistance << ',' << u->mincloakdistance << ','
 			<< u->radardistancejam << ',' << u->sonardistancejam << ',' << u->nBuildDistance << ',' << u->builddistance << ',' << u->nManeuverLeashLength << ',' << u->attackrunlength << ',' << u->kamikazedistance << ',' << u->sortbias << ','
-			<< int(u->cruisealt) << ',' << int(u->data4) << ',' << int(u->maxslope) << ',' << int(u->badslope) << ',' << int(u->transportsize) << ',' << int(u->transportcapacity) << ',' << int(u->waterline) << ',' << u->makesmetal << ','
+			<< u->cruisealt << ',' << int(u->maxslope) << ',' << int(u->badslope) << ',' << int(u->transportsize) << ',' << int(u->transportcapacity) << ',' << int(u->waterline) << ',' << int(u->makesmetal) << ','
 			<< int(u->bmcode) << ',' << u->UnitTypeMask_0 << ',' << u->UnitTypeMask_1 << ',';
 
 		if (u->cobDataPtr) {

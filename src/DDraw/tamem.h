@@ -568,7 +568,8 @@ struct TAdynmemStruct{
 	int MultiLineOfSight;
 	int LOSTypeOptions ;
 	short NetStateMask0;//  maybe another game state mask
-	short GameStateMask;
+	short GameStateMask;	// & 0x0020: victory
+							// & 0x0040: defeat
 
 };
 
@@ -782,16 +783,16 @@ struct UnitDefStruct {
 	/* 0x1BC */ unsigned short corpse;
 	/* 0x1BE */ unsigned short maxwaterdepth;
 	/* 0x1C0 */ unsigned short minwaterdepth;
-	/* 0x1C2 */ unsigned long energymake;
+	/* 0x1C2 */ float energymake;
 	/* 0x1C6 */ float energyuse;
-	/* 0x1CA */ unsigned long metalmake;
-	/* 0x1CE */ unsigned long extractsmetal;
+	/* 0x1CA */ float metalmake;
+	/* 0x1CE */ float extractsmetal;
 	/* 0x1D2 */ float windgenerator;
-	/* 0x1D6 */ unsigned long tidalgenerator;
+	/* 0x1D6 */ float tidalgenerator;
 	/* 0x1DA */ unsigned long cloakcost;
-	/* 0x1DE */ unsigned long cloakcostmoving;
-	/* 0x1E2 */ unsigned long energystorage;
-	/* 0x1E6 */ unsigned long metalstorage;
+	/* 0x1DE */ float cloakcostmoving;
+	/* 0x1E2 */ float energystorage;
+	/* 0x1E6 */ float metalstorage;
 	/* 0x1EA */ unsigned long buildtime;
 	/* 0x1EE */ WeaponStruct* weapon1;
 	/* 0x1F2 */ WeaponStruct* weapon2;
@@ -813,8 +814,7 @@ struct UnitDefStruct {
 	/* 0x216 */ unsigned short attackrunlength;
 	/* 0x218 */ unsigned short kamikazedistance;
 	/* 0x21A */ unsigned short sortbias;
-	/* 0x21C */ unsigned char cruisealt;
-	/* 0x21D */ unsigned char data4;
+	/* 0x21C */ unsigned short cruisealt;
 	/* 0x21E */ unsigned short UnitTypeID;
 	/* 0x220 */ WeaponStruct* ExplodeAs;
 	/* 0x224 */ WeaponStruct* SelfeDestructAs;
@@ -823,7 +823,8 @@ struct UnitDefStruct {
 	/* 0x22A */ unsigned char transportsize;
 	/* 0x22B */ unsigned char transportcapacity;
 	/* 0x22C */ unsigned char waterline;
-	/* 0x22D */ unsigned short makesmetal;
+	/* 0x22D */ unsigned char makesmetal;
+	/* 0x22E */ unsigned char GUINum;
 	/* 0x22F */ unsigned char bmcode;
 	/* 0x230 */ unsigned char defaultmissiontypeIndex;
 	/* 0x231 */ unsigned long* wpri_badTargetCategory_MaskAryPtr;
