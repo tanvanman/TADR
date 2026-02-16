@@ -73,6 +73,10 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: false
 
+    - name: Sleep 30 seconds (non-full or not master)
+      if: github.ref != 'refs/heads/master' || matrix.config.name != 'full'
+      run: Start-Sleep -Seconds 30
+
     - name: Upload release asset
       if: startsWith(github.ref, 'refs/tags/')
       run: |
