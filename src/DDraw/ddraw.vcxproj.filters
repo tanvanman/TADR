@@ -253,6 +253,9 @@
     <ClCompile Include="DebugPipeServer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="tafstatusexporter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AutoTeam.h">
@@ -514,6 +517,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DebugPipeServer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tafstatusexporter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tafgamestate.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
