@@ -29,6 +29,7 @@ using namespace std;
 #include "MultiplayerSchemaUnits.h"
 #include "UnitDefExtensions.h"
 #include "VeterancyHack.h"
+#include "NotToAir.h"
 
 #include "TAConfig.h"
 //---------------------------------------------------------------------------
@@ -191,6 +192,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
 		VeterancyHack::GetInstance();
+		NotToAir::Install();
 
 	}
 	if(reason==DLL_PROCESS_DETACH)

@@ -322,6 +322,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
     <ClCompile Include="UnitDefExtensions.cpp" />
+    <ClCompile Include="NotToAir.cpp" />
     <ClCompile Include="VeterancyHack.cpp" />
     <ClCompile Include="Widgets\Button.cpp" />
     <ClCompile Include="Widgets\IntegerField.cpp" />
