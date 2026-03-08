@@ -1591,13 +1591,45 @@ enum LOSTYPE
 	 Updated         = 8
 };
 
-enum WeaponMask
+// WeaponTypedef::WeaponTypeMask bits
+enum WeaponTypeMask
 {
-	 cruise= 0x2000000,
-	 commandfire= 0x4000000,
-	 stockpile_mask   = 0x1000000,
-	 targetable_mask  = 0x20000000,
-	 interceptor_mask  = 0x40000000
+	WTM_LineOfSight = 1u << 0,   // lineofsight
+	WTM_Ballistic = 1u << 1,   // ballistic
+	WTM_ShellWeapon = 1u << 2,   // shellweapon
+	WTM_BeamWeapon = 1u << 3,   // beamweapon
+	WTM_VLaunch = 1u << 4,   // vlaunch
+	WTM_Meteor = 1u << 5,   // meteor
+	WTM_NoRadar = 1u << 6,   // noradar
+	WTM_Paralyzer = 1u << 7,   // paralyzer
+
+	WTM_Dropped = 1u << 8,   // dropped
+	WTM_StartSmoke = 1u << 9,   // startsmoke
+	WTM_EndSmoke = 1u << 10,  // endsmoke
+	WTM_SoundTrigger = 1u << 11,  // soundtrigger
+	WTM_Guidance = 1u << 12,  // guidance
+	WTM_Tracks = 1u << 13,  // tracks
+	WTM_UnitsOnly = 1u << 14,  // unitsonly
+	WTM_GroundBounce = 1u << 15,  // groundbounce
+
+	WTM_WaterWeapon = 1u << 16,  // waterweapon
+	WTM_ToAirWeapon = 1u << 17,  // toairweapon
+	WTM_SmokeTrail = 1u << 18,  // smoketrail
+	WTM_Turret = 1u << 19,  // turret
+	WTM_SelfPropelled = 1u << 20,  // selfprop
+	WTM_Propeller = 1u << 21,  // propeller
+	WTM_NoExplode = 1u << 22,  // noexplode
+	WTM_BurnBlow = 1u << 23,  // burnblow
+
+	WTM_TwoPhase = 1u << 24,  // twophase
+	WTM_Cruise = 1u << 25,  // cruise
+	WTM_CommandFire = 1u << 26,  // commandfire
+	WTM_NoAutoRange = 1u << 27,  // noautorange
+	WTM_Stockpile = 1u << 28,  // stockpile
+
+	WTM_Targetable = 1u << 29,  // targetable
+	WTM_Interceptor = 1u << 30,  // interceptor
+	WTM_NotToAir    = 1u << 31,  // nottoair: weapon cannot target flying units
 };
 
 enum SharedStates

@@ -886,9 +886,9 @@ int ExternQuickKey::InitExternTypeMask (void)
 	{
 		Current= &Begin[i];
 	
-		if(((NULL!=Current->weapon1)&&(0==(stockpile_mask&(Current->weapon1->WeaponTypeMask))))
-			|| ((NULL!=Current->weapon2)&&(0==(stockpile_mask&(Current->weapon2->WeaponTypeMask))))
-			|| ((NULL!=Current->weapon3)&&(0==(stockpile_mask&(Current->weapon3->WeaponTypeMask))))
+		if(((NULL!=Current->weapon1)&&(0==(WTM_Stockpile &(Current->weapon1->WeaponTypeMask))))
+			|| ((NULL!=Current->weapon2)&&(0==(WTM_Stockpile &(Current->weapon2->WeaponTypeMask))))
+			|| ((NULL!=Current->weapon3)&&(0==(WTM_Stockpile &(Current->weapon3->WeaponTypeMask))))
 			)
 		{
 

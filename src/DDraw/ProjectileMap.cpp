@@ -114,7 +114,7 @@ void  ProjectileMap::DrawProjectile (LPBYTE PixelBits, POINT * Aspect, Projectil
 		int X_Screen= static_cast<int>(static_cast<float>(X)* (static_cast<float>(Aspect->x)/ static_cast<float>(parent->TAMAPTAPos.right)));
 		int Y_Screen= static_cast<int>(static_cast<float>(Y)* (static_cast<float>(Aspect->y)/ static_cast<float>(parent->TAMAPTAPos.bottom)));
 
-		if ((cruise| targetable_mask | stockpile_mask)==((cruise| targetable_mask | stockpile_mask)& Projectile_p->Weapon->WeaponTypeMask))
+		if ((WTM_Cruise | WTM_Targetable | WTM_Stockpile)==((WTM_Cruise | WTM_Targetable | WTM_Stockpile)& Projectile_p->Weapon->WeaponTypeMask))
 		{//
 			DrawNuke ( PixelBits, Aspect, X_Screen, Y_Screen, Projectile_p);
 		}

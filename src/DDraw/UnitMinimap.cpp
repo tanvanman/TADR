@@ -1548,7 +1548,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 			if (0!=(antiweapons& unitPtr->UnitType->UnitTypeMask_0))
 			{//
 				
-				if (0!=(interceptor_mask&unitPtr->Weapon1->WeaponTypeMask))
+				if (0!=(WTM_Interceptor &unitPtr->Weapon1->WeaponTypeMask))
 				{
 					if (MegamapAntiNukeMinimum<static_cast<int>(unitPtr->Weapon1->coverage))
 					{
@@ -1572,7 +1572,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 					}
 				}
 
-				if (0!=(interceptor_mask&unitPtr->Weapon2->WeaponTypeMask))
+				if (0!=(WTM_Interceptor &unitPtr->Weapon2->WeaponTypeMask))
 				{
 					if (MegamapAntiNukeMinimum<static_cast<int>(unitPtr->Weapon2->coverage))
 					{
@@ -1596,7 +1596,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 					}
 				}
 
-				if (0!=(interceptor_mask&unitPtr->Weapon3->WeaponTypeMask))
+				if (0!=(WTM_Interceptor &unitPtr->Weapon3->WeaponTypeMask))
 				{
 					if (MegamapAntiNukeMinimum<static_cast<int>(unitPtr->Weapon3->coverage))
 					{
