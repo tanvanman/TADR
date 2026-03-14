@@ -13,9 +13,9 @@ public:
 		const std::vector<std::string>& stateLabels, const std::string& registryKey, std::function<void(int)> onStateChange = std::function<void(int)>());
 	virtual ~Button() { }
 
-	virtual bool DoMessage(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	virtual bool DoMessage(DialogBase* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	virtual std::string ToString();
-	virtual void DoDraw(Dialog*);
+	virtual void DoDraw(DialogBase*);
 	virtual void RegistryRead(HKEY hKey);
 	virtual void RegistryWrite(HKEY hKey);
 	virtual int GetState() { return m_state; }

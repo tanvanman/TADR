@@ -7,9 +7,9 @@ class IntegerField : public Widget
 public:
 	IntegerField(int x, int y, int width, int height, int value, int minValue, int maxValue, const std::string &registryKey);
 	virtual ~IntegerField() { }
-	virtual bool DoMessage(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	virtual bool DoMessage(DialogBase* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	virtual std::string ToString();
-	virtual void DoDraw(Dialog*);
+	virtual void DoDraw(DialogBase*);
 	virtual void RegistryRead(HKEY hKey);
 	virtual void RegistryWrite(HKEY hKey);
 

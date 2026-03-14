@@ -5,7 +5,7 @@
 
 #include <string>
 
-class Dialog;
+class DialogBase;
 
 class Widget
 {
@@ -13,13 +13,13 @@ public:
 	Widget(int x, int y, int width, int height);
 	virtual ~Widget() { }
 
-	virtual bool Message(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-	virtual bool DoMessage(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam) { return false; }
+	virtual bool Message(DialogBase* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	virtual bool DoMessage(DialogBase* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam) { return false; }
 
 	virtual bool IsInside(int x, int y);
 	virtual std::string ToString() = 0;
-	virtual void Draw(Dialog*);
-	virtual void DoDraw(Dialog*) = 0;
+	virtual void Draw(DialogBase*);
+	virtual void DoDraw(DialogBase*) = 0;
 	virtual void RegistryRead(HKEY hKey) { }
 	virtual void RegistryWrite(HKEY hKey) { }
 

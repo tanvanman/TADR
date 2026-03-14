@@ -9,6 +9,6 @@ public:
 	Label(int x, int y, int width, int height, const std::string& text);
 	virtual ~Label() { }
 	virtual std::string ToString();
-	virtual void DoDraw(Dialog*);
+	virtual void DoDraw(DialogBase*);
 	std::string m_text;
 };

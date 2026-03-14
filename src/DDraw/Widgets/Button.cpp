@@ -1,5 +1,5 @@
 #include "Button.h"
-#include "../Dialog.h"
+#include "../DialogBase.h"
 
 Button::Button(int x, int y, LPDIRECTDRAWSURFACE skin, int initialState, int numStates, bool depressable,
 	const std::vector<std::string>& stateLabels, const std::string& registryKey, std::function<void(int)> onStateChange) :
@@ -24,7 +24,7 @@ Button::Button(int x, int y, LPDIRECTDRAWSURFACE skin, int initialState, int num
 	}
 }
 
-bool Button::DoMessage(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+bool Button::DoMessage(DialogBase* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	bool mouseInside = IsInside(LOWORD(lParam) - dialog->posX, HIWORD(lParam) - dialog->posY);
 	if (msg == WM_LBUTTONDOWN)
@@ -66,7 +66,7 @@ std::string Button::ToString()
 	}
 }
 
-void Button::DoDraw(Dialog* dialog)
+void Button::DoDraw(DialogBase* dialog)
 {
 	int xofs = m_skinWidth;
 
@@ -80,7 +80,7 @@ void Button::DoDraw(Dialog* dialog)
 	}
 	if (xofs <= m_skinWidth - m_width)
 	{
-		int dy = (ROW_HEIGHT - m_height) / 2;
+		int dy = (dialog->m_rowHeight - m_height) / 2;
 		dialog->DrawTexture(m_x, m_y + dy, m_width, m_height, m_skin, xofs, 0);
 	}
 
