@@ -3,6 +3,7 @@
 #include "etc.h"
 //InlineSingleHook:
 //禁止掉格式转化的warn提示，这个的原因是确定了转化没问题的:
+// EN: Suppress format-conversion warnings; these conversions are known safe:
 #pragma warning(disable:4311)
 #pragma warning(disable:4312)
 //
@@ -13,10 +14,14 @@ const int Global_OffOfEnteredFlagFromInlineX86StackBuffer= (int)&((PInlineX86Sta
 
 void __declspec(naked) X86InlineHookRouter (void)
 {//多线程的时候就出错了。需要保存的堆栈做成动态申请的内存，以及一个是否已进入过HOOK的标志。
+// EN: Fails under multiple threads. The saved stack must be heap-allocated, and a flag is needed to track whether we have already entered this HOOK.
  //重入的情况用一个标志处理过
+ // EN: Re-entrant case is handled with a single flag
 	//__asm lea esp, DWORD PTR [esp+ 4]//当是jmp的时候，这个堆栈平衡。是call类型这儿要NOP掉
+	// EN: When the hook is a JMP, this instruction balances the stack. For CALL-type hooks, NOP this out.
 #define X86INLINEROUTERSTRACKADD4 0x0
 	__asm lea esp, DWORD PTR [esp+ 4]//当是JMP的时候，这个堆栈平衡。是jmp类型这儿要NOP掉
+	// EN: When the hook is a JMP, this instruction balances the stack. For JMP-type hooks, NOP this out.
 
 	__asm pushad
 	__asm pushfd
@@ -26,6 +31,7 @@ void __declspec(naked) X86InlineHookRouter (void)
 #define X86INLINEROUTERSTACKBUFFEROFF 0xb
 addrOfStrackBuffer:
 	__asm __emit 0x00  ;//这儿的4个0是填充为以后放pushfd/ad的东西用的。 off 0x7
+	// EN: These 4 zero bytes are padding — later filled with the pushfd/pushad instructions. off 0x7
 	__asm __emit 0x00
 	__asm __emit 0x00
 	__asm __emit 0x00
@@ -43,13 +49,16 @@ TempAddr:
 	__asm mov eax, Global_OffOfEnteredFlagFromInlineX86StackBuffer;
 	__asm mov DWORD PTR [ebx+ eax], 0xbd88
 	__asm mov ecx, 0x9 //多保存1个堆栈中的数据。以前写的0xa，不改了。
+	// EN: Save 1 extra item from the stack. Was 0xa originally; left unchanged.
 	__asm lea edi, DWORD PTR[ebx+ 4]
 	__asm mov esi, esp
 	__asm rep movsd
 
 #define X86INLINEROUTERSTRACKSUB4 0x44
 	__asm push ebx //移动一下堆栈
+	// EN: Adjust the stack pointer
 	__asm mov edi, esp//恢复寄存器
+	// EN: Restore registers
 	__asm lea esi, DWORD PTR[ebx+ 0x4]
 	__asm mov ecx, 0x9
 	__asm rep movsd
@@ -59,13 +68,16 @@ TempAddr:
 
 
 	__asm __emit 0xe8  ;//这儿的也是要被填充的
+	// EN: This byte is also patched at runtime
 #define X86INLINEROUTERCALLADDROFF 0x58
 	__asm __emit 0x00  ;//这儿的4个0是填充为以后保存要调用的目标PROC用的。
+	// EN: These 4 zero bytes are filled at init time with the address of the target PROC to call.
 	__asm __emit 0x00
 	__asm __emit 0x00
 	__asm __emit 0x00
 	
 	__asm mov edi, eax//保存hookrouter返回值
+	// EN: Save the hook router return value
 
 	__asm call OffToStrackBuffer
 OffToStrackBuffer:
@@ -78,13 +90,17 @@ OffToStrackBuffer:
 	__asm mov ebx, eax;
 
 	__asm mov esp, DWORD PTR[ebx]InlineX86StackBuffer.Esp;//popad修改不了esp,只是+0x20，需要自己设置好ESP。
+	// EN: popad cannot restore esp (it only adds 0x20); ESP must be set manually.
 
 	__asm cmp edi, X86STRACKBUFFERCHANGE//判断hook router返回值
+	// EN: Check the hook router return value
 	__asm jne NormalJmpBack
 	//修改了STRACKBUFFER，返回地址就要看hook router里指定的是什么了。但寄存器还是要恢复成HOOK ROUTER参数里的那个结构中的值。
+	// EN: If STRACKBUFFER was modified, the return address is taken from what the hook router specified. Registers are still restored from the struct in the HOOK ROUTER argument.
 
 	__asm mov eax, Global_OffOfEnteredFlagFromInlineX86StackBuffer;
 	__asm mov DWORD PTR [ebx+ eax], 0//释放这个位置的标志
+	// EN: Release the entered-flag at this position
 
 	
 
@@ -101,7 +117,9 @@ OffToStrackBuffer:
 
 NormalJmpBack:
 	__asm sub esp, 0x9* 0x4//把pushad pushfd和call的堆栈空间减出来,jmp会改成0x9。
+	// EN: Subtract stack space consumed by pushad, pushfd and the call. Changed to 0x9 for JMP mode.
 	__asm mov ecx, 0x9 //恢复堆栈
+	// EN: Restore the stack
 	__asm mov edi, esp
 	__asm lea esi, DWORD PTR[ebx+ 4]
 	__asm rep movsd
@@ -109,10 +127,12 @@ NormalJmpBack:
 AfterCallRouter:
 	__asm mov eax, Global_OffOfEnteredFlagFromInlineX86StackBuffer;
 	__asm mov DWORD PTR [ebx+ eax], 0//释放这个位置的标志
+	// EN: Release the entered-flag at this position
 
 	__asm popfd
 	__asm popad;
 	//这儿的没返回，是为以后放原始代码+ jmp/call返回的代码用的。
+	// EN: No return here — space reserved for the original instruction bytes + the jmp/call back.
 #define X86INLINEROUTERENDOFF 0xC1
 }
 
@@ -203,6 +223,7 @@ InlineSingleHook::~InlineSingleHook ()
 {
 // 	if (Inline_5Bytes!=m_NewBytes_Pbyte)
 // 	{//外部的buffer不用管
+// 	// EN: External buffer; no need to free here
 // 
 // 	}
 	if (NULL!=m_OrgBytes_Pbyte)
@@ -260,6 +281,7 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 /*
 	if (! IsBadWritePtr ( , 1))
 	{//怎么判断m_OrgBytes_Pbyte是不是有效的指针呢？
+	// EN: How to determine whether m_OrgBytes_Pbyte is a valid pointer?
 		delete [] m_OrgBytes_Pbyte;
 	}
 */
@@ -280,6 +302,7 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 	case INLINE_5BYTESLAGGERCALL:
 		if (NULL==m_NewBytes_Pbyte)
 		{//还没有指定NewBytes_Pvoid,就自己初始化一个。
+		// EN: NewBytes_Pvoid not specified yet — initialise one internally.
 			Inline_5Bytes[0]= 0xe8;
 			m_NewBytes_Pbyte= Inline_5Bytes;
 		}
@@ -289,25 +312,30 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 
 		if (5>Len_Dw)
 		{//JMP和CALL方式的不能在5字节以内实现。
+		// EN: JMP/CALL mode cannot be implemented within 5 bytes.
 			HookMode= ERRORMODE;
 		}	
 
 		if (NULL==m_NewBytes_Pbyte)
 		{//还没有指定NewBytes_Pvoid,就自己初始化一个。
+		// EN: NewBytes_Pvoid not specified yet — initialise one internally.
 			Inline_5Bytes[0]= 0xe9;
 			m_NewBytes_Pbyte= Inline_5Bytes;
 		}
 		
 		//这儿是初始化HOOK的wapper m_HookRouter_Pproc
+		// EN: Initialise the hook wrapper buffer m_HookRouter_Pproc
 		DWORD HookRouterLen;
 		HookRouterLen= X86INLINEROUTERENDOFF+ Len_Dw* 0x4+ 0x4+ 0x5;
 		m_HookRouter_Pproc= new BYTE[HookRouterLen];//X86InlineHookRouter+ orgcode+ jmp back, orgcode可能全是要被扩充4被大小的jecxz
+		// EN: X86InlineHookRouter + orgcode + jmp-back. orgcode may be all jecxz instructions, each expanding up to 4x.
 		LPBYTE CurrentPtrIn_m_HookRouter_Pproc;
 		DWORD tempForProtect_Dw;
 		VirtualProtect ( m_HookRouter_Pproc, HookRouterLen, PAGE_EXECUTE_READWRITE, &tempForProtect_Dw);
 		
 #ifdef DEBUG
 		//VC的debug模式，调用的函数都是0xe9 ?? ?? ?? ??这样的地址。
+		// EN: In VC debug mode, function calls use a 0xe9 ?? ?? ?? ?? JMP trampoline.
 		LPBYTE tempCopyFrom_Pproc;
 		tempCopyFrom_Pproc= *((LPBYTE *)((DWORD)&X86InlineHookRouter+ 1));
 		tempCopyFrom_Pproc= (DWORD)&X86InlineHookRouter+ tempCopyFrom_Pproc+ 5;
@@ -323,18 +351,23 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 		tempPtrToX86StackBufForRouter->rtnAddr_Pvoid= RtnAddrOfHook ();
 		tempPtrToX86StackBufForRouter->myInlineHookClass_Pish= this;
 		*((PInlineX86StackBuffer *)CurrentPtrIn_m_HookRouter_Pproc)= tempPtrToX86StackBufForRouter;//设置保存堆栈的缓冲地址。
+		// EN: Set the buffer address used to save the stack.
 		
 		if (INLINE_5BYTESLAGGERJMP==HookMode)
 		{//当JMP==hookmode时，把恢复堆栈+4的代码nop掉。
+		// EN: When JMP==hookmode, NOP out the stack-restore +4 instruction.
 			CurrentPtrIn_m_HookRouter_Pproc= &m_HookRouter_Pproc[X86INLINEROUTERSTRACKADD4];
 			*((DWORD *)CurrentPtrIn_m_HookRouter_Pproc)= 0x90909090u;//设置为4字节(lea esp, DWORD PTR[esp+ 4])的nop nop nop nop
+			// EN: Replace the 4-byte (lea esp, DWORD PTR[esp+4]) with nop nop nop nop
 // 
 // 			CurrentPtrIn_m_HookRouter_Pproc= &m_HookRouter_Pproc[X86INLINEROUTERSTRACKSUB4];
 // 			*((BYTE *)CurrentPtrIn_m_HookRouter_Pproc)= 0x90u;//设置为4字节(lea esp, DWORD PTR[esp+ 4])的nop nop nop nop
+// 			// EN: Replace the 4-byte (lea esp, DWORD PTR[esp+4]) with a single nop
 		}
 
 		CurrentPtrIn_m_HookRouter_Pproc= &m_HookRouter_Pproc[X86INLINEROUTERCALLADDROFF];
 		*((DWORD *)CurrentPtrIn_m_HookRouter_Pproc)= (DWORD) ((LPBYTE)RouterAddr- &m_HookRouter_Pproc[X86INLINEROUTERCALLADDROFF]+ 1- 0x5);//设置HOOK中跳转往的目标。注意X86INLINEROUTERCALLADDROFF不是指向的0xe8，而是0xe8之后1个字节，需要+1
+		// EN: Set the jump target for the HOOK. Note: X86INLINEROUTERCALLADDROFF points to the byte AFTER 0xe8, so +1 is required.
 
 
 		CurrentPtrIn_m_HookRouter_Pproc= &m_HookRouter_Pproc[X86INLINEROUTERENDOFF];
@@ -355,7 +388,9 @@ void InlineSingleHook::InitHookClass (const LPBYTE AddrToHook_Pvoid, DWORD Len_D
 
 		//if (INLINE_5BYTESLAGGERCALL==HookMode||INLINE_5BYTESLAGGERJMP==HookMode)
 		{//jmp这样跳过来的，就jmp回去
+		// EN: If we arrived here via JMP, JMP back.
 		//其他的类型不可能在这儿出现。
+		// EN: Other hook types cannot reach this point.
 			CurrentPtrIn_m_HookRouter_Pproc[0]= 0xe9;
 			*((DWORD *)&CurrentPtrIn_m_HookRouter_Pproc [1])= (DWORD)((AddrToHook_Pvoid+ Len_Dw)- CurrentPtrIn_m_HookRouter_Pproc - 0x5);
 		}

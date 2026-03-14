@@ -109,6 +109,7 @@ void SingleHook::InitHookClass (LPBYTE AddrToHook_Pvoid, DWORD Len_Dw, int HookM
 		m_LenToModify_Dw= Len_Dw;
 
 		//和dafault的申请org byte是一样的。
+		// EN: Same as the default allocation for org bytes.
 		m_OrgBytes_Pbyte= new BYTE[Len_Dw];
 		memcpy ( m_OrgBytes_Pbyte, AddrToHook_Pvoid, Len_Dw);
 	}
