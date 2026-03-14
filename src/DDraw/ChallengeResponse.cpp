@@ -1,5 +1,7 @@
 #include "ChallengeResponse.h"
 #include "BattleroomCommands.h"
+#include "PacketChatRouter.h"
+#include "HudNotifications.h"
 #include "hook/hook.h"
 #include "iddrawsurface.h"
 #include "random_code_seg_keys.h"
@@ -175,7 +177,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 	auto *cr = ChallengeResponse::GetInstance();
 	if (!cr->HasFeatureMapSnapshot()) {
 		cr->SnapshotFeatureMap();
-		cr->ClearPersistentMessages();
+		HudNotifications::GetInstance()->ClearLines("challenge");
 	}
 
 	else if (taPtr->GameTime == 6 * 30) { // at 6 sec
@@ -232,27 +234,25 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 		}
 	}
 
+	else if (taPtr->GameTime == 120 * 30)	// at 2 mins: verification period over
+	{
+		HudNotifications::GetInstance()->ClearLines("challenge");
+	}
+
 	return 0;
 }
 #pragma code_seg(pop)
 
-unsigned int ReceiveChallengeOrResponseAddr = 0x45522e;
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuffer)
+static void HandleChallengeResponsePacket(unsigned replyDpid, const void* buf)
 {
+	// Guards (player active, not spectator, not demo) are enforced by PacketChatRouter.
+	const ChallengeResponseMessage* msg = (const ChallengeResponseMessage*)buf;
+	if (!IsChallengeResponseMessage(*msg))
+		return;
+
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	PlayerStruct* me = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
-	if (!me->PlayerActive || me->DirectPlayID == 0 || (me->PlayerInfo->PropertyMask & WATCH) || DataShare->PlayingDemo) {
-		return 0;
-	}
-
-	const ChallengeResponseMessage *msg = (ChallengeResponseMessage*)taPtr->PacketBuffer_p;
-	if (!msg || !IsChallengeResponseMessage(*msg)) {
-		return 0;
-	}
-
-	unsigned replyDpid = taPtr->hapinet.fromDpid;
-	IDDrawSurface::OutptFmtTxt("[ReceiveChallengeOrResponseProc] received msg=%d from dpid=%u(%x) ...", int(msg->command), replyDpid, replyDpid);
+	IDDrawSurface::OutptFmtTxt("[ChallengeResponse] received msg=%d from dpid=%u(%x) ...", int(msg->command), replyDpid, replyDpid);
 
 	switch (msg->command) {
 	case ChallengeResponseCommand::ChallengeRequest: {
@@ -340,8 +340,6 @@ int __stdcall ReceiveChallengeOrResponseProc(PInlineX86StackBuffer X86StrackBuff
 	}
 
 	}
-
-	return 0;
 }
 #pragma code_seg(pop)
 
@@ -355,9 +353,10 @@ ChallengeResponse::ChallengeResponse():
 
 	m_crc.Initialize();
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(ChallengeResponseUpdateAddr, 5, INLINE_5BYTESLAGGERJMP, ChallengeResponseUpdateProc));
-	m_hooks.push_back(std::make_unique<InlineSingleHook>(ReceiveChallengeOrResponseAddr, 5, INLINE_5BYTESLAGGERJMP, ReceiveChallengeOrResponseProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(LogGamePathAddr1, 5, INLINE_5BYTESLAGGERJMP, LogGamePathProc1));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(LogGamePathAddr2, 5, INLINE_5BYTESLAGGERJMP, LogGamePathProc2));
+
+	PacketChatRouter::GetInstance()->RegisterHandler(0x2b, HandleChallengeResponsePacket);
 
 	SnapshotModules();
 
@@ -577,7 +576,7 @@ int ChallengeResponse::VerifyResponses(bool logEnable)
 {
 	static const unsigned MAX_NAME = 12u;
 	int verificationIssueCount = 0;
-	m_persistentCheatWarnings.clear();
+	std::vector<std::string> warnings;
 	std::ostringstream logstream;
 	for (auto it = m_responses.begin(); it != m_responses.end(); ++it)
 	{
@@ -621,14 +620,14 @@ int ChallengeResponse::VerifyResponses(bool logEnable)
 
 		std::string text = ss.str();
 		if (!text.empty()) {
-			m_persistentCheatWarnings.push_back(text);
+			warnings.push_back(text);
 			IDDrawSurface::OutptFmtTxt("[ChallengeResponse::VerifyResponses] %s", text.c_str());
 			++verificationIssueCount;
 		}
 	}
 
 	if (verificationIssueCount > 0) {
-		m_persistentCheatWarnings.push_back("VERCHECK REPORT");
+		warnings.push_back("VERCHECK REPORT");
 
 		if (logEnable)
 		{
@@ -645,6 +644,7 @@ int ChallengeResponse::VerifyResponses(bool logEnable)
 		}
 	}
 
+	HudNotifications::GetInstance()->SetLines("challenge", std::move(warnings));
 	return verificationIssueCount;
 }
 #pragma code_seg(pop)
@@ -777,66 +777,6 @@ void ChallengeResponse::HashMapSnapshot(HmacSha256Calculator& hmac)
 #pragma code_seg(pop)
 
 
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-void ChallengeResponse::Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch)
-{
-	if (lpSurfaceMem == NULL || DataShare->TAProgress != TAInGame) {
-		return;
-	}
-
-	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-
-	OFFSCREEN OffScreen;
-	memset(&OffScreen, 0, sizeof(OFFSCREEN));
-	OffScreen.Height = dwHeight;
-	OffScreen.Width = lPitch;
-	OffScreen.lPitch = lPitch;
-	OffScreen.lpSurface = lpSurfaceMem;
-
-	OffScreen.ScreenRect.left = 0;
-	OffScreen.ScreenRect.right = dwWidth;
-
-	OffScreen.ScreenRect.top = 0;
-	OffScreen.ScreenRect.bottom = dwHeight;
-
-	Blit(&OffScreen);
-}
-#pragma code_seg(pop)
-
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-void ChallengeResponse::Blit(OFFSCREEN* offscreen)
-{
-	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
-	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-
-	if (taPtr->GameTime > 2 * 60 * 30) {	// 2 mins
-		return;
-	}
-
-	programPtr->fontHandle = (unsigned char*)taPtr->COMIXFontHandle;
-	programPtr->fontFrontColour = taPtr->desktopGUI.RadarObjecColor[15];
-	programPtr->fontBackColour = programPtr->fontAlpha;
-	int fontHeight = programPtr->fontHandle[0];
-
-	for (int n = 0u; n < int(m_persistentCheatWarnings.size()); ++n) {
-		// bottom of map
-		int yOff = offscreen->Height - fontHeight * (n - 1) - 64;
-		if (taPtr->SoftwareDebugMode & softwaredebugmode::Clock) {
-			yOff -= fontHeight;
-		}
-
-		std::string msg = m_persistentCheatWarnings[n];
-		DrawTextInScreen(offscreen, const_cast<char*>(msg.c_str()), 129, yOff, -1);
-	}
-}
-#pragma code_seg(pop)
-
-#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-void ChallengeResponse::ClearPersistentMessages(void)
-{
-	m_persistentCheatWarnings.clear();
-}
-#pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 std::vector<std::string> ChallengeResponse::GetModulePaths()

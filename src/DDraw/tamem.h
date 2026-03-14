@@ -117,9 +117,15 @@ struct PlayerStruct
 	char PlayerNum;
 	char field_D[3];
 	int field_10;
-	char field_14[14];
-	char field_22;
-	char field_23[4];
+	__int16 nPing;            // 0x14
+	__int16 field_16;         // 0x16
+	__int16 field_18;         // 0x18
+	__int16 field_1A;         // 0x1A
+	int LastMsgTimeStamp;     // 0x1C: written by Packet_Dispatcher on every received packet (IDA/Ghidra wrongly splits as dw+field_1E dw)
+	char MultiLoadProgress;   // 0x20
+	__int16 field_21;         // 0x21
+	__int16 field_23;         // 0x23
+	__int16 field_25;         // 0x25
 	PlayerInfoStruct * PlayerInfo;
 	char Name[30];
 	char SecondName[30];
@@ -129,7 +135,7 @@ struct PlayerStruct
 	__int16 UnitsIndex_End;
 	char My_PlayerType;		// aka PlayerStruct.Controller.Controller
 	int AiConfig;
-	int field_78;
+	int SQUADS_p;             // 0x78: aka field_78 in Ghidra (PlayerControllerStruct.SQUADS_p)
 	unsigned char * LOS_MEMORY_p;
 	int LOS_Tilewidth;
 	int LOS_Tileheight;
@@ -143,9 +149,9 @@ struct PlayerStruct
 	int DisplayTimer;
 	__int16 Kills;
 	__int16 Losses;
-	int field_100;
-	__int16 kills_2;
-	__int16 losse_2;
+	int field_8D;             // PS+0x100 / Controller+0x8D
+	__int16 Kills_Last;       // PS+0x104 / Controller+0x91
+	__int16 Losses_Last;      // PS+0x106 / Controller+0x93
 	char AllyFlagAry[10];
 	char field_112;
 	char field_113;
@@ -157,7 +163,7 @@ struct PlayerStruct
 	__int16 UnitsNumber;
 	char PlayerAryIndex;
 	char mapStartPos;
-	char field_148;
+	char cPlayerScoreboard;   // 0x148: aka field_148; named cPlayerScoreboard in IDA/Ghidra
 	__int16 AddPlayerStorage_word;
 };
 

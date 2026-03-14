@@ -311,6 +311,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="BattleroomCommands.cpp" />
     <ClCompile Include="ChallengeResponse.cpp" />
     <ClCompile Include="ConstructionKickout.cpp" />
+    <ClCompile Include="DialogBase.cpp" />
     <ClCompile Include="GameTickHook.cpp" />
     <ClCompile Include="Guiexport.cpp" />
     <ClCompile Include="HexDump.cpp" />
@@ -322,7 +323,12 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
     <ClCompile Include="UnitDefExtensions.cpp" />
+    <ClCompile Include="PacketChatRouter.cpp" />
+    <ClCompile Include="HudNotifications.cpp" />
     <ClCompile Include="NotToAir.cpp" />
+    <ClCompile Include="DebugPipeServer.cpp" />
+    <ClCompile Include="VoteDialog.cpp" />
+    <ClCompile Include="VoteReject.cpp" />
     <ClCompile Include="VeterancyHack.cpp" />
     <ClCompile Include="Widgets\Button.cpp" />
     <ClCompile Include="Widgets\IntegerField.cpp" />
@@ -333,6 +339,12 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="AutoTeam.h" />
     <ClInclude Include="BattleroomCommands.h" />
     <ClInclude Include="ChallengeResponse.h" />
+    <ClInclude Include="DialogBase.h" />
+    <ClInclude Include="PacketChatRouter.h" />
+    <ClInclude Include="HudNotifications.h" />
+    <ClInclude Include="DebugPipeServer.h" />
+    <ClInclude Include="VoteDialog.h" />
+    <ClInclude Include="VoteReject.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="config_full.h" />
     <ClInclude Include="config_minimal.h" />

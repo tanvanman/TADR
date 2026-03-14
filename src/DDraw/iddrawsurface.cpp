@@ -11,7 +11,8 @@ using namespace std;
 #include "tamem.h"
 #include "tafunctions.h"
 
-#include "ChallengeResponse.h"
+#include "HudNotifications.h"
+#include "VoteReject.h"
 #include "ConstructionKickout.h"
 #include "TenPlayerReplay.h"
 #include "whiteboard.h"
@@ -19,6 +20,7 @@ using namespace std;
 #include "dddta.h"
 #include "cincome.h"
 #include "dialog.h"
+#include "VoteDialog.h"
 #include "tahook.h"
 #include "commanderwarp.h"
 #include "maprect.h"
@@ -160,6 +162,7 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 
 
 	SettingsDialog= new Dialog ( VidMem);
+	VoteRejectDlg = new VoteDialog(VidMem);
 	WhiteBoard= new AlliesWhiteboard ( VidMem);
 	Income= new CIncome ( VidMem);
 	TAHook = nullptr;
@@ -267,6 +270,8 @@ ULONG __stdcall IDDrawSurface::Release()
 	SharedRect= NULL;
 	delete SettingsDialog;
 	SettingsDialog= NULL;
+	delete VoteRejectDlg;
+	VoteRejectDlg = nullptr;
 	delete ChangeQueue;
 	ChangeQueue= NULL;
 	delete DDDTA;
@@ -639,11 +644,13 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 #endif
 
 			SettingsDialog->BlitDialog(lpBack);
+			if (VoteRejectDlg) VoteRejectDlg->BlitDialog(lpBack);
 #if TA_HOOK_ENABLE
 			TAHook->Blit(lpBack);
 #endif
 			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
-				ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+				VoteReject::GetInstance()->Tick();
+				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 			}
 
 			//////////////////////////////////////////////////////////////////////////
@@ -757,11 +764,13 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 #endif
 
 			SettingsDialog->BlitDialog(lpBack);
+			if (VoteRejectDlg) VoteRejectDlg->BlitDialog(lpBack);
 #if TA_HOOK_ENABLE
 			TAHook->Blit(lpBack);
 #endif
 			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
-				ChallengeResponse::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+				VoteReject::GetInstance()->Tick();
+				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 			}
 
 			//////////////////////////////////////////////////////////////////////////
@@ -822,7 +831,7 @@ void IDDrawSurface::OutptFmtTxt(const char* format, ...)
 	va_list args;
 	va_start(args, format);
 
-	// Try formatting — this version NEVER fastfails.
+	// Try formatting ï¿½ this version NEVER fastfails.
 	int result = vsnprintf(buffer, sizeof(buffer), format, args);
 
 	va_end(args);
@@ -1141,6 +1150,9 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 			if (((Dialog*)LocalShare->Dialog)->Message(WinProcWnd, Msg, wParam, lParam))
 				return 0;  //message handled by the dialog
 		}
+
+		if (g_VoteDialog && g_VoteDialog->Message(WinProcWnd, Msg, wParam, lParam))
+			return 0;
 
 		if((NULL!=LocalShare->Whiteboard)
 			&&(((AlliesWhiteboard*)LocalShare->Whiteboard)->Message(WinProcWnd, Msg, wParam, lParam)))

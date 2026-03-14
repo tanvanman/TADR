@@ -31,6 +31,7 @@ class CWarp ;
 class CMapRect;
 class CIdleUnits;
 class Dialog;
+class VoteDialog;
 class CChangeQueue;
 class CDDDTA;
 
@@ -146,6 +147,7 @@ private:
 	CWarp * CommanderWarp;
 	CMapRect * SharedRect;
 	Dialog * SettingsDialog;
+	VoteDialog * VoteRejectDlg;
 	CChangeQueue * ChangeQueue;
 	CDDDTA * DDDTA;
 	static HANDLE TDrawLogFile;
