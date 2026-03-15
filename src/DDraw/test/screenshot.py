@@ -1,6 +1,7 @@
 """Capture the TA window to a file using only ctypes (no extra deps)."""
 import ctypes
 import ctypes.wintypes as wt
+import os
 import sys
 import struct
 import zlib
@@ -118,7 +119,7 @@ def write_png(path, bgra_bytes, w, h):
 # -------------------------------------------------------------------
 # Main
 # -------------------------------------------------------------------
-output = sys.argv[1] if len(sys.argv) > 1 else r'C:\Users\Alex\AppData\Local\Temp\ta_screenshot.png'
+output = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), 'ta_screenshot.png')
 
 windows = find_window(title_substr='Total Annihilation')
 if not windows:

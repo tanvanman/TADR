@@ -37,6 +37,7 @@ private:
         std::shared_ptr<Label>  statusLabel;
         std::shared_ptr<Button> yesButton;
         std::shared_ptr<Button> noButton;
+        std::shared_ptr<Button> takeButton;  // present only for ally timeout votes
     };
 
     // Rebuild m_widgets and m_voteRows from the given vote snapshots.

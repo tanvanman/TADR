@@ -12,16 +12,18 @@
 // -----------------------------------------------------------------------
 // Layout constants
 // -----------------------------------------------------------------------
-// VOTE_DLG_W = 420,  max height = VOTE_DLG_H (9 votes + padding)
+// VOTE_DLG_W = 530,  max height = VOTE_DLG_H (9 votes + padding)
 // Per vote (rowBase = voteIndex * 54):
-//   Title  label:  x=10,  y=TOP_PAD+rowBase+2,  400px wide
+//   Title  label:  x=10,  y=TOP_PAD+rowBase+2,  510px wide
 //   Status label:  x=10,  y=TOP_PAD+rowBase+20, 190px wide
 //   YES button:    x=208, y=TOP_PAD+rowBase+18  (96px wide skin)
-//   NO  button:    x=314, y=TOP_PAD+rowBase+18  (96px wide skin, 10px gap, 10px right margin)
+//   NO  button:    x=314, y=TOP_PAD+rowBase+18  (96px wide skin, 10px gap)
+//   .take button:  x=420, y=TOP_PAD+rowBase+18  (96px wide skin, 10px gap, 10px right margin)
+//                  only present for ally timeout votes (rejectMask==6 && isAllyOfLocal)
 //   Padding row:   y=TOP_PAD+rowBase+36..rowBase+53 (visual separation between votes)
 // -----------------------------------------------------------------------
 
-static const int VOTE_DLG_W         = 420;
+static const int VOTE_DLG_W         = 530;
 static const int VOTE_DLG_MAX_VOTES = 9;
 static const int VOTE_DLG_ROW_H     = 18;                               // one font row
 static const int ROWS_PER_VOTE      = 3;                                // font rows per vote entry
@@ -37,6 +39,7 @@ static const int VOTE_DLG_H         = VOTE_DLG_MAX_VOTES * VOTE_ROW_H  // 502px 
 static const int VOTE_DLG_BORDER_H  = 11;
 static const int BTN_YES_X          = 208;
 static const int BTN_NO_X           = 314;
+static const int BTN_TAKE_X         = 420;
 
 VoteDialog* g_VoteDialog = nullptr;
 
@@ -128,7 +131,7 @@ void VoteDialog::RebuildRows(const std::vector<VoteReject::VoteDisplayInfo>& vot
 
         VoteRow row;
         row.targetDpid  = dpid;
-        row.titleLabel  = std::make_shared<Label>(10, titleY,  400, 16, "");
+        row.titleLabel  = std::make_shared<Label>(10, titleY,  510, 16, "");
         row.statusLabel = std::make_shared<Label>(10, statusY, 190, 14, "");
 
         row.yesButton = std::make_shared<Button>(
@@ -147,10 +150,23 @@ void VoteDialog::RebuildRows(const std::vector<VoteReject::VoteDisplayInfo>& vot
                 if (g_VoteDialog) g_VoteDialog->Refresh();
             });
 
+        if (v.isAllyOfLocal && v.rejectMask == 6)
+        {
+            row.takeButton = std::make_shared<Button>(
+                BTN_TAKE_X, buttonY, m_lpButtonSkin, 0, 1, true,
+                std::vector<std::string>{".take"}, "",
+                [](int) {
+                    TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+                    ShowText(&taPtr->Players[taPtr->LocalHumanPlayer_PlayerID], ".take", 0, 0);
+                });
+        }
+
         m_widgets.push_back(row.titleLabel);
         m_widgets.push_back(row.statusLabel);
         m_widgets.push_back(row.yesButton);
         m_widgets.push_back(row.noButton);
+        if (row.takeButton)
+            m_widgets.push_back(row.takeButton);
         m_voteRows.push_back(std::move(row));
     }
 

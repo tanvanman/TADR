@@ -188,12 +188,19 @@ bool DialogBase::Message(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     // Route to widgets first.
-    for (auto& w : m_widgets)
+    // Take a snapshot so that a widget callback that rebuilds m_widgets
+    // (e.g. a YES/NO vote button calling Refresh() -> RebuildRows() ->
+    // m_widgets.clear()) does not invalidate the iterator or destroy the
+    // widget we are about to call Draw() on after Message() returns.
     {
-        if (w->Message(this, hWnd, msg, wParam, lParam))
+        std::vector<std::shared_ptr<Widget>> snapshot = m_widgets;
+        for (auto& w : snapshot)
         {
-            w->Draw(this);
-            return true;
+            if (w->Message(this, hWnd, msg, wParam, lParam))
+            {
+                w->Draw(this);
+                return true;
+            }
         }
     }
 

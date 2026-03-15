@@ -532,7 +532,7 @@ struct TAdynmemStruct{
 	char data37f07[40];						//0x37f07
 
 	unsigned short SoftwareDebugMode;		//0x37f2f
-	unsigned int  field_37F31;
+	unsigned int  NetworkDropoutTimeoutSec;  // dropout timeout seconds; default 30, range [30,300], set via -T cmd-line flag
 	unsigned int  Senderror;
 	unsigned int  RaceCounter;
 	RaceSideData RaceSideDataAry[5];

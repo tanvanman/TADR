@@ -117,11 +117,6 @@ VoteReject::VoteReject()
 
 
 	PacketChatRouter::GetInstance()->RegisterHandler(0x2c, HandleVoteRejectPacket);
-	PacketChatRouter::GetInstance()->RegisterChatHandler(
-		[](unsigned fromDpid, const char* text) {
-			VoteReject::GetInstance()->OnIncomingChat(fromDpid, text);
-		});
-
 }
 
 // -----------------------------------------------------------------------
@@ -263,7 +258,7 @@ int __stdcall VoteReject::ShowRejectWindowRouter(PInlineX86StackBuffer pBuf)
 //
 //   TA's second loop skips ShowRejectWindow for all players when bMultiDropout=true,
 //   so our ShowRejectWindowHook never fires for this case.  We replicate the same
-//   gap check (gameNow - max(LastMsgTimeStamp, GameTimeSec) > field_37F31 * 30) and
+//   gap check (gameNow - max(LastMsgTimeStamp, GameTimeSec) > NetworkDropoutTimeoutSec * 30) and
 //   call ProposeReject for each qualifying player, then redirect to the function
 //   epilogue (0x00453D16) to skip the second loop entirely.
 //
@@ -283,7 +278,7 @@ int __stdcall VoteReject::MultiDropoutRouter(PInlineX86StackBuffer pBuf)
 		TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 		if (taPtr)
 		{
-			int threshold = (int)taPtr->field_37F31 * 30;
+			int threshold = (int)taPtr->NetworkDropoutTimeoutSec * 30;
 			for (int i = 0; i < 10; ++i)
 			{
 				PlayerStruct& p = taPtr->Players[i];
@@ -302,65 +297,6 @@ int __stdcall VoteReject::MultiDropoutRouter(PInlineX86StackBuffer pBuf)
 	// Skip the second loop; jump to CheckForDroppedPlayers epilogue.
 	pBuf->rtnAddr_Pvoid = (LPVOID)0x00453D16;
 	return X86STRACKBUFFERCHANGE;
-}
-
-// -----------------------------------------------------------------------
-// OnIncomingChat: called by PacketChatRouter for every incoming chat message.
-//   Detects the recorder's acceptance signal: "<taker> taking <target>s units".
-//   When a confirmed .take for a timeout-vote target is seen:
-//     - If a vote is still active, cancel it (recorder is taking over).
-//     - If a completed-reject window is open for the target, close it.
-// -----------------------------------------------------------------------
-void VoteReject::OnIncomingChat(unsigned fromDpid, const char* text)
-{
-	if (!text)
-		return;
-
-	// Match "<taker> taking <target>s units"
-	// The recorder sends exactly: Players[1].Name + ' taking ' + Players[i].Name + 's units'
-	const char* takingPtr = strstr(text, " taking ");
-	if (!takingPtr)
-		return;
-	const char* suffix = "s units";
-	size_t textLen = strlen(text);
-	size_t sufLen  = strlen(suffix);
-	if (textLen < sufLen || strcmp(text + textLen - sufLen, suffix) != 0)
-		return;
-
-	// Extract target name: between " taking " and "s units" at end
-	const char* targetStart = takingPtr + 8;  // skip " taking "
-	size_t targetLen = (text + textLen - sufLen) - targetStart;
-	if (targetLen == 0 || targetLen > 64)
-		return;
-	std::string targetName(targetStart, targetLen);
-
-	// Cancel any active timeout vote whose target name matches
-	for (auto it = m_votes.begin(); it != m_votes.end(); ++it)
-	{
-		if (it->second.rejectMask != 6) continue;
-		if (it->second.targetName == targetName)
-		{
-			IDDrawSurface::OutptFmtTxt(
-				"[VoteReject] recorder accepted .take for %s — cancelling timeout vote",
-				targetName.c_str());
-			CancelTimeoutVote(it->first);
-			return;
-		}
-	}
-
-	// No active vote — if a completed-reject window is open for this target, close it
-	for (auto it = m_completedTimeoutRejects.begin(); it != m_completedTimeoutRejects.end(); ++it)
-	{
-		if (it->second.targetName == targetName)
-		{
-			IDDrawSurface::OutptFmtTxt(
-				"[VoteReject] recorder accepted .take for %s — closing completed-reject window",
-				targetName.c_str());
-			HudNotifications::GetInstance()->RemoveLine(it->second.hudLineId);
-			m_completedTimeoutRejects.erase(it);
-			return;
-		}
-	}
 }
 
 // -----------------------------------------------------------------------
@@ -670,7 +606,6 @@ void VoteReject::ExecuteReject(unsigned targetDpid, char rejectMask, const std::
 
 	if (rejectMask == 6)
 	{
-		// Open the .take window so allies of the rejected player can take over.
 		// Use the stored targetName (player may already be gone from the game tables).
 		CompletedTimeoutReject ctr;
 		ctr.targetName = targetName;
@@ -743,8 +678,6 @@ void VoteReject::Tick()
 	// Expire .take windows
 	for (auto it = m_completedTimeoutRejects.begin(); it != m_completedTimeoutRejects.end(); ) {
 		if (now >= it->second.expiryTime) {
-			IDDrawSurface::OutptFmtTxt(
-				"[VoteReject] .take window expired for %s", it->second.targetName.c_str());
 			HudNotifications::GetInstance()->RemoveLine(it->second.hudLineId);
 			it = m_completedTimeoutRejects.erase(it);
 		} else {
@@ -1018,6 +951,13 @@ void VoteReject::GetActiveVotes(std::vector<VoteDisplayInfo>& out) const
 			info.votesNeeded = (nonTarget <= 1) ? 1 : 2;
 		else
 			info.votesNeeded = (nonTarget <= 1) ? 1 : ((nonTarget * 2 + 2) / 3);
+
+		info.isAllyOfLocal = false;
+		if (s.rejectMask == 6 && s.targetSlot >= 0) {
+			int localSlot = (int)(unsigned char)taPtr->LocalHumanPlayer_PlayerID;
+			if (localSlot >= 0 && localSlot < 10)
+				info.isAllyOfLocal = AreAllies(taPtr, localSlot, s.targetSlot);
+		}
 
 		out.push_back(std::move(info));
 	}

@@ -100,6 +100,7 @@ public:
 		int         votesNeeded;
 		DWORD       expiryTime;
 		bool        votingClosed;    // NO majority reached; auto-reject still pending
+		bool        isAllyOfLocal;   // true if local player is allied with the vote target (timeout votes only)
 	};
 	void GetActiveVotes(std::vector<VoteDisplayInfo>& out) const;
 
