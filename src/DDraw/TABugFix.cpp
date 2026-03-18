@@ -627,6 +627,52 @@ BYTE CanBuildArrayBufferOverrunFixBytes[] = {
 	0x89, 0x86, 0x56, 0x01, 0x00, 0x00, 0xb9, 0x12
 };
 
+// ---- Diagnostic ring buffer for 0x4CBED5 crash ----
+struct CrashRingEntry {
+    uintptr_t  callerEip;
+    OFFSCREEN* srcCtx;
+    void*      lpSurface;
+    int        Width;
+    int        Height;
+    int        lPitch;
+    RECT       srcRect;
+    bool       badReadPtr;  // IsBadReadPtr(lpSurface,1) was true at hook time
+};
+static const int CRASH_RING_SIZE = 64;
+static CrashRingEntry g_crashRing[CRASH_RING_SIZE];
+static volatile LONG  g_crashRingHead = 0;
+
+// ---- Diagnostic ring buffer for GAF_GetCurrentFramePtr ----
+struct GafRingEntry {
+    uintptr_t seqPtr;     // GAF sequence struct pointer (identifies animation/unit type)
+    int       frame;      // requested frame index
+    void*     pixelPtr;   // computed return value (may be a freed pointer)
+    bool      badReadPtr; // IsBadReadPtr(pixelPtr,1) was true
+};
+static const int GAF_RING_SIZE = 64;
+static GafRingEntry g_gafRing[GAF_RING_SIZE];
+static volatile LONG g_gafRingHead = 0;
+
+// ---- Diagnostic ring buffer for DrawCompsiteBuf_Unit AABB clamp ----
+// Filled whenever the composite sprite AABB exceeds the 600x600 fixed buffer,
+// recording the oversized dimensions and the unit that triggered it.
+// This is the primary evidence for confirming the ARMGEO_UPGRADE cargo-chain bug
+// (UNITS_BroadcastUnitBuildFinished skips detach for RemoteHuman controller type 3):
+//   Option A fix: hook UNITS_BroadcastUnitBuildFinished (0x41B8D0) — after it returns,
+//     if builtUnit->+0x86 (BeingTransportedByUnit) is still non-zero, force-call
+//     AttachUnitToUnitByPieceIdx(builtUnit, 0, 0xFF, 1) to detach.
+//   Option B fix: 2-byte patch at 0x41B957 — extend the controller-type switch to
+//     also handle type 3 (Player_RemoteHuman), jumping to the existing detach code
+//     at 0x41B990 instead of falling through to the skip at 0x41B9A6.
+struct ClampRingEntry {
+    int  origWidth;       // new_width  before clamp (from SI at 0x458B87)
+    int  origHeight;      // new_height before clamp (from DX at 0x458B87)
+    char unitName[32];    // UnitType->Name of the unit being drawn (best-effort)
+};
+static const int CLAMP_RING_SIZE = 16;
+static ClampRingEntry g_clampRing[CLAMP_RING_SIZE];
+static volatile LONG  g_clampRingHead = 0;
+
 unsigned int CrashFix004cbed5Addr = 0x4CBE81;
 int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 {
@@ -665,6 +711,7 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 			hasProblem = true;
 
 		if (!srcCtx->lpSurface) hasProblem = true;
+		if (srcCtx->lpSurface && IsBadReadPtr(srcCtx->lpSurface, 1)) hasProblem = true;
 		if (srcCtx->lPitch <= 0) hasProblem = true;
 	}
 
@@ -678,6 +725,20 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 
 		if (!dstCtx->lpSurface) hasProblem = true;
 		if (dstCtx->lPitch <= 0) hasProblem = true;
+	}
+
+	// Always record into the rotating ring buffer (no disk I/O on happy path).
+	{
+		LONG slot = InterlockedIncrement(&g_crashRingHead) - 1;
+		CrashRingEntry& e = g_crashRing[slot % CRASH_RING_SIZE];
+		e.callerEip  = *(uintptr_t*)X->Esp;
+		e.srcCtx     = srcCtx;
+		e.lpSurface  = srcCtx ? srcCtx->lpSurface : nullptr;
+		e.Width      = srcCtx ? srcCtx->Width  : 0;
+		e.Height     = srcCtx ? srcCtx->Height : 0;
+		e.lPitch     = srcCtx ? srcCtx->lPitch : 0;
+		e.srcRect    = (srcRect && !IsBadReadPtr(srcRect, sizeof(RECT))) ? *srcRect : RECT{};
+		e.badReadPtr = srcCtx && srcCtx->lpSurface && IsBadReadPtr(srcCtx->lpSurface, 1);
 	}
 
 	// If everything is normal, just execute normally, no log file write
@@ -751,6 +812,10 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 		if (srcCtx && !srcCtx->lpSurface)
 			fprintf(f, "ERROR: srcCtx->lpSurface is NULL\n");
 
+		if (srcCtx && srcCtx->lpSurface && IsBadReadPtr(srcCtx->lpSurface, 1))
+			fprintf(f, "ERROR: srcCtx->lpSurface=%p is NOT readable (freed/unmapped heap)\n",
+				srcCtx->lpSurface);
+
 		if (dstCtx && !dstCtx->lpSurface)
 			fprintf(f, "ERROR: dstCtx->lpSurface is NULL\n");
 
@@ -787,8 +852,311 @@ LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
 {
-	//return EXCEPTION_CONTINUE_EXECUTION;
+	if (ExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+		(uintptr_t)ExceptionInfo->ExceptionRecord->ExceptionAddress == 0x4CBED5u)
+	{
+		FILE* f = fopen("Errorlog.txt", "a");
+		if (f)
+		{
+			// --- Crash registers ---
+			const CONTEXT* ctx = ExceptionInfo->ContextRecord;
+			fprintf(f, "\n===== CRASH AT 0x4CBED5 =====\n");
+			fprintf(f, "Registers: EAX=%08X EBX=%08X ECX=%08X EDX=%08X\n",
+				ctx->Eax, ctx->Ebx, ctx->Ecx, ctx->Edx);
+			fprintf(f, "           ESI=%08X EDI=%08X EBP=%08X ESP=%08X\n",
+				ctx->Esi, ctx->Edi, ctx->Ebp, ctx->Esp);
+			fprintf(f, "ESI is the faulting src pixel ptr. "
+				"ECX=bytes-remaining-in-scanline, EDX=row-advance-delta.\n");
+			fprintf(f, "Effective srcCtx stride = ECX+EDX = %u\n",
+				ctx->Ecx + ctx->Edx);
+
+			// --- srcCtx from crash EBP ---
+			// CopyScreenContext frame: [EBP+0x0C] = srcCtx*; srcCtx+0x08 = lPitch.
+			// (EBP chain above is broken — CopyGafToContext clobbers EBP at 0x4B802C
+			//  to hold composite_frame->Top, so we cannot walk further up to UnitStruct.)
+			uintptr_t crashEbp = (uintptr_t)ctx->Ebp;
+			if (!IsBadReadPtr((void*)(crashEbp + 0x0C), 4))
+			{
+				OFFSCREEN* srcCtx = *(OFFSCREEN**)(crashEbp + 0x0C);
+				if (srcCtx && !IsBadReadPtr(srcCtx, 12))
+				{
+					fprintf(f, "srcCtx @ %p: W=%d H=%d lPitch=%d surf=%p%s\n",
+						(void*)srcCtx,
+						srcCtx->Width, srcCtx->Height, srcCtx->lPitch,
+						srcCtx->lpSurface,
+						srcCtx->lPitch > 600
+							? " <-- COMPOSITE OVERFLOW (lPitch>600, fixed buf=600x600)"
+							: "");
+				}
+			}
+
+			// --- AABB clamp ring (primary evidence for composite overflow bug) ---
+			// If lPitch>600 entries appear above AND clamp ring shows a unit name here,
+			// that unit is the one whose sub-unit cargo chain caused the AABB explosion.
+			// A non-empty clamp ring confirms the DrawCompsiteBuf_Unit overflow path.
+			// See Options A/B in the ClampRingEntry comment block for the real fix.
+			fprintf(f, "\n--- Composite AABB clamp ring (last %d oversized draws) ---\n",
+				CLAMP_RING_SIZE);
+			bool anyClamp = false;
+			LONG clampHead = g_clampRingHead;
+			for (int i = 0; i < CLAMP_RING_SIZE; ++i)
+			{
+				int idx = (int)((clampHead + i) % CLAMP_RING_SIZE);
+				const ClampRingEntry& e = g_clampRing[idx];
+				if (!e.origWidth) continue;
+				anyClamp = true;
+				fprintf(f, "[%2d] origW=%d origH=%d unit=%s\n",
+					i, e.origWidth, e.origHeight,
+					e.unitName[0] ? e.unitName : "(unknown)");
+			}
+			if (!anyClamp)
+				fprintf(f, "(empty — crash was NOT a composite overflow, "
+					"see blit/GAF rings below)\n");
+
+			// --- Blit ring buffer ---
+			fprintf(f, "\n--- Blit ring buffer (last %d CopyScreenContext calls) ---\n",
+				CRASH_RING_SIZE);
+			LONG head = g_crashRingHead;
+			for (int i = 0; i < CRASH_RING_SIZE; ++i)
+			{
+				int idx = (int)((head + i) % CRASH_RING_SIZE);
+				const CrashRingEntry& e = g_crashRing[idx];
+				if (!e.callerEip) continue;
+				const char* flag = e.badReadPtr       ? " <-- BAD-READ-PTR"
+				                 : e.lPitch > 600     ? " <-- lPitch>600"
+				                 :                      "";
+				fprintf(f, "[%2d] EIP=%08X src=%p surf=%p W=%d H=%d pitch=%d "
+					"rect=(%d,%d,%d,%d)%s\n",
+					i, (unsigned)e.callerEip,
+					(void*)e.srcCtx, e.lpSurface,
+					e.Width, e.Height, e.lPitch,
+					e.srcRect.left, e.srcRect.top,
+					e.srcRect.right, e.srcRect.bottom,
+					flag);
+			}
+
+			// --- GAF ring buffer ---
+			fprintf(f, "\n--- GAF frame ptr ring (last %d GAF_GetCurrentFramePtr calls) ---\n",
+				GAF_RING_SIZE);
+			LONG ghead = g_gafRingHead;
+			for (int i = 0; i < GAF_RING_SIZE; ++i)
+			{
+				int idx = (int)((ghead + i) % GAF_RING_SIZE);
+				const GafRingEntry& e = g_gafRing[idx];
+				if (!e.seqPtr) continue;
+				fprintf(f, "[%2d] seq=%08X frame=%d pixel=%p%s\n",
+					i, (unsigned)e.seqPtr, e.frame, e.pixelPtr,
+					e.badReadPtr ? " <-- BAD-READ-PTR" : "");
+			}
+
+			fprintf(f, "===== end crash diagnostics =====\n");
+			fclose(f);
+		}
+	}
+	// ---- Ballistic projectile divide-by-zero (0x49CF19) ----
+	//
+	// UNITS_FireProjectile_Ballistic (entry 0x49CDE0) computes:
+	//   horizSpeedComponent = TurnZLookup(elevAngle) * muzzleVelocity  → stored in EBP (FPO fn)
+	//   arrivalTick = GameTime + horizRange / EBP                       ← CRASH if EBP==0
+	//
+	// EBP is zero in two cases:
+	//   A) weaponDef->muzzleVelocity (+0x68) == 0  (weaponvelocity=0 in TDF)
+	//   B) elevAngle == 0x800 (90° straight up → cos(90°)=0, e.g. target directly overhead)
+	//
+	// Fix: hook before 0x49CF19; if EBP==0, jump to non-ballistic fallback at 0x49CF29
+	// which uses weaponDef[+0xE6] as a fixed travel time instead of dividing.
+	else if (ExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_INT_DIVIDE_BY_ZERO &&
+		(uintptr_t)ExceptionInfo->ExceptionRecord->ExceptionAddress == 0x49CF19u)
+	{
+		FILE* f = fopen("Errorlog.txt", "a");
+		if (f)
+		{
+			const CONTEXT* ctx = ExceptionInfo->ContextRecord;
+			fprintf(f, "\n===== CRASH AT 0x49CF19: IDIV EBP=0 in UNITS_FireProjectile_Ballistic =====\n");
+			fprintf(f, "Registers: EAX=%08X EBX=%08X ECX=%08X EDX=%08X ESI=%08X\n",
+				ctx->Eax, ctx->Ebx, ctx->Ecx, ctx->Edx, ctx->Esi);
+			fprintf(f, "EAX=horizRange EBX=UnitStruct* ESI=UnitWeapon* EBP=horizSpeedComponent(=0)\n");
+
+			// Firing unit name (EBX = UnitStruct*)
+			UnitStruct* pUnit = (UnitStruct*)ctx->Ebx;
+			if (pUnit && !IsBadReadPtr(pUnit, 4) &&
+				pUnit->UnitType && !IsBadReadPtr(pUnit->UnitType, 4) &&
+				pUnit->UnitType->Name && !IsBadReadPtr(pUnit->UnitType->Name, 1))
+			{
+				fprintf(f, "Firing unit: %s\n", pUnit->UnitType->Name);
+			}
+
+			// UnitWeapon fields (ESI = UnitWeapon*)
+			uintptr_t pWeaponSlot = (uintptr_t)ctx->Esi;
+			if (pWeaponSlot && !IsBadReadPtr((void*)pWeaponSlot, 0x20))
+			{
+				short elevAngle = *(short*)(pWeaponSlot + 0x18);  // nTrajectoryResult
+				fprintf(f, "UnitWeapon.nTrajectoryResult(+0x18) = %d (0x%04X)%s\n",
+					(int)elevAngle, (unsigned short)elevAngle,
+					elevAngle == (short)0x800
+						? " <-- 90deg (cos=0): target directly overhead or geometry overflow"
+						: "");
+
+				// Weapon definition (UnitWeapon+0x0C = p_Weapon)
+				void* weaponDef = *(void**)(pWeaponSlot + 0x0C);
+				if (weaponDef && !IsBadReadPtr(weaponDef, 0x70))
+				{
+					int muzzleVel = *(int*)((uintptr_t)weaponDef + 0x68);
+					fprintf(f, "WeaponDef @%p: muzzleVelocity(+0x68) = %d%s\n",
+						weaponDef, muzzleVel,
+						muzzleVel == 0
+							? " <-- ZERO: weaponvelocity=0 in TDF/FBI (case A)"
+							: "");
+
+					// Weapon flags: bit 23 = ballistic flag
+					if (!IsBadReadPtr((void*)((uintptr_t)weaponDef + 0x10C), 8))
+					{
+						unsigned flags = *(unsigned*)((uintptr_t)weaponDef + 0x111);
+						fprintf(f, "WeaponDef flags(+0x111) = 0x%08X  ballistic(bit23)=%d\n",
+							flags, (flags >> 23) & 1);
+					}
+				}
+				else
+				{
+					fprintf(f, "WeaponDef ptr invalid: %p\n", weaponDef);
+				}
+			}
+
+			fprintf(f, "===== end crash diagnostics =====\n");
+			fclose(f);
+		}
+	}
+
 	return EXCEPTION_CONTINUE_SEARCH;
+}
+
+// Hook at entry of GAF_GetCurrentFramePtr (0x4B7EE0).
+// At function entry (before prolog): [ESP+0]=retaddr, [ESP+4]=seq, [ESP+8]=frame.
+// The function returns *(void**)((uint8_t*)seq + 0x28 + frame*8).
+// We compute that value here and check IsBadReadPtr to catch freed pixel buffers
+// before they reach the color-key copy and crash at 0x4CBED5.
+unsigned int GAFGetCurrentFramePtrAddr = 0x4B7EE0;
+int __stdcall GAFGetCurrentFramePtrProc(PInlineX86StackBuffer X)
+{
+	void*  seq   = *(void**) (X->Esp + 4);
+	int    frame = *(int*)   (X->Esp + 8);
+
+	if (!seq || frame < 0 || frame > 65535)
+		return 0;
+
+	// Read the pixel-data pointer the function will return.
+	uintptr_t slotAddr = (uintptr_t)seq + 0x28 + (uintptr_t)(unsigned)frame * 8;
+	if (IsBadReadPtr((void*)slotAddr, 4))
+		return 0;
+
+	void* pixelPtr = *(void**)slotAddr;
+
+	// Only flag addresses that look like real heap pointers gone bad.
+	// Values <= 0xFFFF (including 0x0 and 0x1) are TA sentinel values used
+	// in the frame array for RLE-compressed frames not yet decompressed —
+	// IsBadReadPtr correctly rejects them but CopyGafToContext never blits
+	// from them (dispatches to UncompressFrameBits_Gaf instead). Logging
+	// them produces thousands of false-positive lines per game session.
+	bool bad = (uintptr_t)pixelPtr > 0xFFFF && IsBadReadPtr(pixelPtr, 1);
+
+	// Always record into the rotating ring buffer, but skip sentinel values
+	// (pixel <= 0xFFFF) to keep the ring meaningful for real pointer failures.
+	if ((uintptr_t)pixelPtr > 0xFFFF)
+	{
+		LONG slot = InterlockedIncrement(&g_gafRingHead) - 1;
+		GafRingEntry& e = g_gafRing[slot % GAF_RING_SIZE];
+		e.seqPtr     = (uintptr_t)seq;
+		e.frame      = frame;
+		e.pixelPtr   = pixelPtr;
+		e.badReadPtr = bad;
+	}
+
+	// Bad pointers are captured in the ring buffer above and will be dumped
+	// by VectoredHandler if/when a crash actually occurs.  No per-frame log
+	// write here — same (seq, frame) pair is hit every render frame and would
+	// spam ErrorLog.txt thousands of times before any crash.
+
+	return 0;
+}
+
+// Hook at 0x458B87 inside DrawCompsiteBuf_Unit, just before the composite GAFFrame
+// header is written with the computed AABB dimensions.
+//
+// Replaced bytes: 8B 4B 10  = MOV ECX,[EBX+0x10]  (load CompositeBuffer* into ECX)
+//                 F7 D8     = NEG EAX              (negate new_left for header storage)
+//
+// Registers at hook point:
+//   SI (low 16 of ESI) = new_width  (right_x - left_x, in screen pixels)
+//   DX (low 16 of EDX) = new_height (right_y - top_y,  in screen pixels)
+//   EBX = ModelLayer* ; [EBX+0x10] = composite GAFFrame* (fixed 600x600 allocation)
+//   EAX = new_left (about to be negated)
+//
+// The fixed composite pixel+depth buffer is allocated as width*height*2+0x18 bytes
+// with width=height=600.  Writing new_width/new_height >600 into the header causes
+// CopyScreenContext to compute row offsets past the end of the allocation → crash.
+//
+// DEFENSIVE FIX: clamp to 600x600 so the existing buffer is never overrun.
+// REAL FIX (implement when the clamp ring confirms this unit/path):
+//   Option A — hook UNITS_BroadcastUnitBuildFinished (0x41B8D0): after it returns,
+//     if builtUnit->+0x86 (BeingTransportedByUnit) != 0, call
+//     AttachUnitToUnitByPieceIdx(builtUnit, 0, 0xFF, 1) to force-detach.
+//   Option B — 2-byte patch at 0x41B957: extend controller-type switch to handle
+//     type 3 (Player_RemoteHuman), routing to existing detach code at 0x41B990.
+static const int COMPOSITE_BUF_LIMIT = 600;
+unsigned int CompositeAABBClampAddr = 0x458B87;
+int __stdcall CompositeAABBClampProc(PInlineX86StackBuffer X)
+{
+	int origWidth  = (int)(X->Esi & 0xFFFF);
+	int origHeight = (int)(X->Edx & 0xFFFF);
+
+	bool clamped = false;
+	if (origWidth > COMPOSITE_BUF_LIMIT)
+	{
+		X->Esi = (X->Esi & 0xFFFF0000u) | (unsigned)COMPOSITE_BUF_LIMIT;
+		clamped = true;
+	}
+	if (origHeight > COMPOSITE_BUF_LIMIT)
+	{
+		X->Edx = (X->Edx & 0xFFFF0000u) | (unsigned)COMPOSITE_BUF_LIMIT;
+		clamped = true;
+	}
+
+	if (clamped)
+	{
+		LONG slot = InterlockedIncrement(&g_clampRingHead) - 1;
+		ClampRingEntry& e = g_clampRing[slot % CLAMP_RING_SIZE];
+		e.origWidth  = origWidth;
+		e.origHeight = origHeight;
+		e.unitName[0] = '\0';
+
+		// Best-effort unit name lookup.
+		// Object3do* is the first arg of DrawCompsiteBuf_Unit, sitting at
+		// [ESP+0x8C] or [ESP+0x98] from this point (offset varies by whether
+		// the sub-unit loop ran at least one iteration due to a SUB ESP,0xC
+		// at 0x458A3B that is not balanced before 0x458B87).
+		// Object3do+0x0C = UnitStruct* ; UnitStruct->UnitType->Name = unit name.
+		for (int spOff : { 0x8C, 0x98 })
+		{
+			void** obj3doSlot = (void**)(X->Esp + spOff);
+			if (IsBadReadPtr(obj3doSlot, 4)) continue;
+			void* obj3do = *obj3doSlot;
+			if (!obj3do || IsBadReadPtr(obj3do, 0x10)) continue;
+
+			UnitStruct** unitSlot = (UnitStruct**)((uintptr_t)obj3do + 0x0C);
+			if (IsBadReadPtr(unitSlot, 4)) continue;
+			UnitStruct* unit = *unitSlot;
+			if (!unit || IsBadReadPtr(unit, 4)) continue;
+			if (!unit->UnitType || IsBadReadPtr(unit->UnitType, 4)) continue;
+			const char* name = unit->UnitType->Name;
+			if (!name || IsBadReadPtr(name, 1)) continue;
+
+			strncpy(e.unitName, name, sizeof(e.unitName) - 1);
+			e.unitName[sizeof(e.unitName) - 1] = '\0';
+			break;
+		}
+	}
+
+	return 0;
 }
 
 TABugFixing::TABugFixing ()
@@ -911,6 +1279,8 @@ TABugFixing::TABugFixing ()
 #endif
 
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(CrashFix004cbed5Addr, 5, INLINE_5BYTESLAGGERJMP, CrashFix004cbed5Proc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(GAFGetCurrentFramePtrAddr, 5, INLINE_5BYTESLAGGERJMP, GAFGetCurrentFramePtrProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(CompositeAABBClampAddr, 5, INLINE_5BYTESLAGGERJMP, CompositeAABBClampProc));
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
