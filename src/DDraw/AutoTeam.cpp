@@ -32,9 +32,17 @@ struct TeamMessage
 {
 	std::uint8_t id24;				//0
 	std::uint32_t subjectDPID;		//1
-	std::uint8_t teamNumber;		//5
+	std::uint8_t teamNumber;		//5  bits 0-2 = team (0-5); bit 7 = TEAM24_NO_CASCADE flag
 									//6
 };
+
+// Bit 7 of TeamMessage::teamNumber.  Set by SetBattleroomTeamsAndAlliances to suppress
+// the per-TEAM24 alliance cascade in TeamMessageDispatchHookProc on all clients.
+// The alliance state is fully managed by the explicit ALLY23 pass that follows, so the
+// intermediate cascade (which races with stale AllyTeam values) is unnecessary and harmful.
+// Bit 7 is safe to use: teamNumber valid values are 0-5 (3 bits), so bit 7 is always 0
+// in normal TA packets and the packet size is unchanged.
+static const std::uint8_t TEAM24_NO_CASCADE = 0x80;
 
 // do what ever is necessary to make p1 offer alliance to p2
 // regardless of whether or not p1 or p2 is local
@@ -136,32 +144,64 @@ static unsigned int TeamMessageDispatchHookProc(PInlineX86StackBuffer X86StrackB
 	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
 
 	const TeamMessage* msg = (TeamMessage*)(X86StrackBuffer->Eax);
-	if (msg && msg->teamNumber < 6u)
+	if (msg)
 	{
-		PlayerStruct* subjectPlayer = FindPlayerByDPID(msg->subjectDPID);
-		if (subjectPlayer)
+		const bool noCascade      = (msg->teamNumber & TEAM24_NO_CASCADE) != 0;
+		const std::uint8_t team   = msg->teamNumber & ~TEAM24_NO_CASCADE;
+
+		if (team < 6u)
 		{
-			for (int n = 0; n < 10; ++n)
+			PlayerStruct* subjectPlayer = FindPlayerByDPID(msg->subjectDPID);
+			if (subjectPlayer)
 			{
-				PlayerStruct* localPlayer = &ta->Players[n];
-				if (localPlayer->PlayerActive &&
-					subjectPlayer != localPlayer &&
-					!(localPlayer->PlayerInfo->PropertyMask & WATCH) &&
-					(localPlayer->AllyTeam < 5 || msg->teamNumber < 5) &&
-					(localPlayer->My_PlayerType == Player_LocalAI || localPlayer->My_PlayerType == Player_LocalHuman))
+				// When noCascade is clear (manual team click): update alliances for every
+				// local player whose state disagrees with the new team assignment.
+				// Only the local-player→subject direction is sent here; the subject player's
+				// own client handles the reciprocal direction when it processes the same
+				// TEAM24 packet.  Sending a remote-request (unknown=-1) for the subject
+				// player creates a second cascade wave that races against these packets with
+				// stale AllyTeam values, so it is intentionally omitted.
+				//
+				// When noCascade is set (autoteam): skip the cascade entirely.
+				// SetBattleroomTeamsAndAlliances sends an explicit ALLY23 for every pair
+				// immediately after all TEAM24s, so the cascade is redundant and harmful
+				// (it runs before all TEAM24s have been processed, producing wrong intermediate
+				// states that race against the authoritative ALLY23 packets from the host).
+				if (!noCascade)
 				{
-					bool isAllied = localPlayer->AllyTeam == msg->teamNumber;
-					if (isAllied != bool(localPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex]))
+					// Manual team click: each client updates its own local player's alliance
+					// toward the subject, and sends a remote request (unknown=-1) asking the
+					// subject's client to reciprocate.  The remote request is the only mechanism
+					// that causes the subject player's own AllyFlagAry to be updated on their
+					// machine — their client excludes them from their own loop iteration.
+					// This second wave is harmless for single team-click events because only one
+					// TEAM24 is in-flight at a time (no intermediate stale-AllyTeam problem).
+					// It is suppressed by TEAM24_NO_CASCADE for autoteam, where the host's
+					// explicit ALLY23 pass handles everything instead.
+					for (int n = 0; n < 10; ++n)
 					{
-						OfferAlliance(*localPlayer, *subjectPlayer, isAllied);
-					}
-					if (isAllied != bool(subjectPlayer->AllyFlagAry[localPlayer->PlayerAryIndex]))
-					{
-						OfferAlliance(*subjectPlayer, *localPlayer, isAllied);
+						PlayerStruct* localPlayer = &ta->Players[n];
+						if (localPlayer->PlayerActive &&
+							subjectPlayer != localPlayer &&
+							!(localPlayer->PlayerInfo->PropertyMask & WATCH) &&
+							(localPlayer->AllyTeam < 5 || team < 5) &&
+							(localPlayer->My_PlayerType == Player_LocalAI || localPlayer->My_PlayerType == Player_LocalHuman))
+						{
+							bool isAllied = localPlayer->AllyTeam == team;
+							if (isAllied != bool(localPlayer->AllyFlagAry[subjectPlayer->PlayerAryIndex]))
+							{
+								OfferAlliance(*localPlayer, *subjectPlayer, isAllied);
+							}
+							if (isAllied != bool(subjectPlayer->AllyFlagAry[localPlayer->PlayerAryIndex]))
+							{
+								OfferAlliance(*subjectPlayer, *localPlayer, isAllied);
+							}
+						}
 					}
 				}
+
+				subjectPlayer->AllyTeam = team;
 			}
-			subjectPlayer->AllyTeam = msg->teamNumber;
 		}
 	}
 
@@ -239,6 +279,33 @@ static void SetBattleroomTeamsAndAlliances(const StartPositionsData& spd, int te
 	int* PTR = (int*)0x00511de8;
 	TAdynmemStruct* ta = (TAdynmemStruct*)(*PTR);
 
+	// Pass 0: break every existing alliance before assigning new ones.
+	// TA's native TEAM24 handler does not clear AllyFlagAry, so stale alliances from
+	// previous manual selections or a prior +autoteam can linger.  Explicitly clearing
+	// them first ensures the subsequent ALLY23 pass writes a clean authoritative state.
+	for (int n = 0; n < 10; ++n)
+	{
+		PlayerStruct* pn = &ta->Players[n];
+		if (!pn->PlayerActive || (pn->PlayerInfo->PropertyMask & WATCH))
+			continue;
+		for (int m = n + 1; m < 10; ++m)
+		{
+			PlayerStruct* pm = &ta->Players[m];
+			if (!pm->PlayerActive || (pm->PlayerInfo->PropertyMask & WATCH))
+				continue;
+			if (pn->AllyFlagAry[pm->PlayerAryIndex] || pm->AllyFlagAry[pn->PlayerAryIndex])
+			{
+				OfferAlliance(*pn, *pm, false);
+				OfferAlliance(*pm, *pn, false);
+			}
+		}
+	}
+
+	// Pass 1: assign team numbers.
+	// TEAM24_NO_CASCADE is set in teamNumber so that TeamMessageDispatchHookProc on every
+	// client skips the per-TEAM24 alliance cascade.  The cascade derives alliances from
+	// AllyTeam values that may not yet reflect the other TEAM24s in-flight, producing wrong
+	// intermediate state that races against the authoritative ALLY23 pass below.
 	for (int n = 0; n < spd.positionCount; ++n)
 	{
 		PlayerStruct* player = FindPlayerByName(spd.orderedPlayerNames[n]);
@@ -248,11 +315,16 @@ static void SetBattleroomTeamsAndAlliances(const StartPositionsData& spd, int te
 			TeamMessage teamMessage;
 			teamMessage.id24 = 0x24;
 			teamMessage.subjectDPID = player->DirectPlayID;
-			teamMessage.teamNumber = n % teamCount;
+			teamMessage.teamNumber = (n % teamCount) | TEAM24_NO_CASCADE;
 			HAPI_BroadcastMessage(ta->Players[ta->LocalHumanPlayer_PlayerID].DirectPlayID, (const char*)&teamMessage, sizeof(teamMessage));
 		}
 	}
 
+	// Pass 2: send explicit alliance state for every ordered pair.
+	// This is the authoritative pass.  Because TEAM24_NO_CASCADE suppresses the cascade on
+	// all clients, these packets are the only ones setting AllyFlagAry.  Sending them after
+	// all TEAM24s means all clients have correct AllyTeam values before any alliance packet
+	// arrives, so AlliancesBroadcastHookProc will faithfully re-broadcast the right state.
 	for (int n = 0; n < spd.positionCount; ++n)
 	{
 		PlayerStruct* player = FindPlayerByName(spd.orderedPlayerNames[n]);
@@ -383,9 +455,12 @@ static unsigned int AlliancesBroadcastHookProc(PInlineX86StackBuffer X86StrackBu
 			continue;
 		}
 
-		bool isAlliedAB =
-			localPlayer.AllyTeam == 5 && localPlayer.AllyFlagAry[n] ||
-			localPlayer.AllyTeam < 5 && localPlayer.AllyTeam == remotePlayer.AllyTeam;
+		// Use AllyFlagAry directly as the single source of truth.
+		// Previously this derived alliance from AllyTeam when AllyTeam<5, but that
+		// silently overwrites manual cross-team alliances and creates a second source of
+		// truth that can diverge from AllyFlagAry (which is what TA actually enforces
+		// at runtime for resource sharing and combat AI).
+		bool isAlliedAB = bool(localPlayer.AllyFlagAry[n]);
 
 		OfferAlliance(localPlayer, remotePlayer, isAlliedAB);
 	}
