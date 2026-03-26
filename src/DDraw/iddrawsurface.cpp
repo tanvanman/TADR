@@ -13,6 +13,7 @@ using namespace std;
 
 #include "HudNotifications.h"
 #include "VoteReject.h"
+#include "LagSwitchGuard.h"
 #include "ConstructionKickout.h"
 #include "TenPlayerReplay.h"
 #include "whiteboard.h"
@@ -650,6 +651,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 #endif
 			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
 				VoteReject::GetInstance()->Tick();
+				LagSwitchGuard::GetInstance()->Tick();
 				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 			}
 
@@ -770,6 +772,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 #endif
 			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
 				VoteReject::GetInstance()->Tick();
+				LagSwitchGuard::GetInstance()->Tick();
 				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 			}
 

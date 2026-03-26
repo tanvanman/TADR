@@ -47,6 +47,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Lag-switch mitigation: detects and freezes local simulation when network goes dark
 - Vote-to-reject system for in-progress multiplayer games (see NEW FEATURES IN DETAIL)
 - add "nottoair" flag for weapons (see NEW FEATURES IN DETAIL)
 - add "surfacefire" flag for weapons (see NEW FEATURES IN DETAIL)
