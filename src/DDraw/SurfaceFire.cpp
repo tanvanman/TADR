@@ -1,5 +1,6 @@
 #include "SurfaceFire.h"
 #include "WeaponTdfHook.h"
+#include "tamem.h"
 #include <unordered_set>
 
 // -----------------------------------------------------------------------
@@ -22,7 +23,9 @@ static const DWORD kRejectHookLen  = 5u;
 static const DWORD kCheckHookAddr  = 0x49ac20u;
 static const DWORD kCheckHookLen   = 5u;
 
-static const DWORD kRangeCheckAddr = 0x49AC47u;
+static const DWORD kRangeCheckAddr    = 0x49AC47u;
+static const DWORD kWeaponMaskOff     = 0x111u;   // WeaponTypedef::WeaponTypeMask
+static const DWORD kUnitStateMaskOff  = 0x110u;   // UnitStruct::UnitStateMask
 
 // -----------------------------------------------------------------------
 // WeaponCanAim hook @ 0x49AB18
@@ -49,6 +52,21 @@ static const DWORD kCanAimSuccessAddr = 0x49AB9Eu;
 static const DWORD kScriptHookAddr  = 0x43F24Fu;
 static const DWORD kScriptHookLen   = 6u;
 static const DWORD kScriptAllowAddr = 0x43F27Eu;
+
+// -----------------------------------------------------------------------
+// ProjectilesEngine guidance gate hook @ 0x49B9EB
+//   Bytes: TEST EAX,0x10000 (A9 00 00 01 00) -- 5 bytes, position-independent
+//   EAX = WeaponTypeMask, ESI = WeaponTypedef*
+//   Fires every tick for self-propelled projectiles (bit 20 set) while alive.
+//   When waterweapon=1 AND projectile Y >= SeaLevel: kills all guidance —
+//   applies gravity only, zeros ElevationAngle, skips Projectile_Cruise/Turn.
+//   This prevents two-phase/VLaunch missiles from homing during the second stage.
+//   For surfacefire: redirect to 0x49BA16 (normal guidance path) so the missile
+//   continues to steer toward its target above sea level.
+// -----------------------------------------------------------------------
+static const DWORD kGuidanceHookAddr    = 0x49B9EBu;
+static const DWORD kGuidanceHookLen     = 5u;
+static const DWORD kGuidanceNormalAddr  = 0x49BA16u;
 
 // -----------------------------------------------------------------------
 
@@ -90,6 +108,11 @@ SurfaceFire::SurfaceFire()
         INLINE_5BYTESLAGGERJMP,
         (InlineX86HookRouter)ScriptActionRouter));
 
+    m_guidanceHook.reset(new InlineSingleHook(
+        kGuidanceHookAddr, kGuidanceHookLen,
+        INLINE_5BYTESLAGGERJMP,
+        (InlineX86HookRouter)GuidanceRouter));
+
     WeaponTdfHook::Register([](const WeaponTdfHook::Context& ctx) {
         if (ctx.getInt(kSurfaceFireKey) & 1)
             s_surfaceFireWeapons.insert((DWORD)ctx.pWeaponDef);
@@ -102,13 +125,25 @@ SurfaceFire::~SurfaceFire()
     m_weaponCheckHook.reset();
     m_canAimHook.reset();
     m_scriptActionHook.reset();
+    m_guidanceHook.reset();
 }
 
 // UnitAutoAim_CheckUnitWeapon: bypass water-path surface rejection → range check.
+// Also respects nottoair: if the weapon has WTM_NotToAir and the target is flying,
+// let the rejection proceed (don't allow surfacefire to override nottoair).
+// At both hook sites: EAX = pTargetUnit, EDI = pWeaponDef.
 int __stdcall SurfaceFire::CheckRouter(PInlineX86StackBuffer pBuf)
 {
     if (s_surfaceFireWeapons.count(pBuf->Edi))
     {
+        DWORD weaponMask = *(DWORD*)((BYTE*)pBuf->Edi + kWeaponMaskOff);
+        if (weaponMask & WTM_NotToAir)
+        {
+            DWORD stateMask = *(DWORD*)((BYTE*)pBuf->Eax + kUnitStateMaskOff);
+            if ((stateMask & 3u) == 2u)
+                return 0;   // nottoair + flying target: let rejection proceed
+        }
+
         pBuf->rtnAddr_Pvoid = (LPVOID)kRangeCheckAddr;
         return X86STRACKBUFFERCHANGE;
     }
@@ -133,6 +168,18 @@ int __stdcall SurfaceFire::ScriptActionRouter(PInlineX86StackBuffer pBuf)
     if (s_surfaceFireWeapons.count(pBuf->Esi))
     {
         pBuf->rtnAddr_Pvoid = (LPVOID)kScriptAllowAddr;
+        return X86STRACKBUFFERCHANGE;
+    }
+    return 0;
+}
+
+// ProjectilesEngine: allow surfacefire missile guidance above sea level.
+// ESI = WeaponTypedef* for the current projectile.
+int __stdcall SurfaceFire::GuidanceRouter(PInlineX86StackBuffer pBuf)
+{
+    if (s_surfaceFireWeapons.count(pBuf->Esi))
+    {
+        pBuf->rtnAddr_Pvoid = (LPVOID)kGuidanceNormalAddr;
         return X86STRACKBUFFERCHANGE;
     }
     return 0;
