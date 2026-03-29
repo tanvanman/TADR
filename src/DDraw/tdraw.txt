@@ -369,7 +369,7 @@ NEW FEATURES IN DETAIL:
   nottoair=1
     The weapon cannot target or fire at flying units (units with an airborne movement state).
     Useful for weapons that are physically implausible against air targets, such as depth charges
-    or large ballistic artillery, without having to rely on the toairweapon/notairweapon distinction.
+    or large ballistic artillery.
 
     Example:
 
