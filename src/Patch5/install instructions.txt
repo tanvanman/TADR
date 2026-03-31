@@ -1,0 +1,29 @@
+install instructions:
+-------------------------------------
+
+build totalapatchincpp to Patch5.dll
+build dsound_loader to dsound.dll
+copy Patch5.dll to an OTA game folder
+copy dsound.dll to game folder
+copy tplayx.dll to game folder
+
+
+
+
+
+
+usage:
+-------------------------------------
+weapon ids up to 4096 supported 
+unit types up to 4096 supported
+
+
+
+
+
+
+
+footnotes:
+--------------------------------------
+weapons ids should be fine
+unit types need more testing (in case of possible crashes)

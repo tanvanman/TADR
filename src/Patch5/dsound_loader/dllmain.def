@@ -1,0 +1,4 @@
+
+LIBRARY	DSOUND
+EXPORTS
+	DirectSoundCreate	@1

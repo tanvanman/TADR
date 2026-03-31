@@ -1,0 +1,5 @@
+use a program such as HxD Hex Editor to see the diffs.
+the tplayx.dll is sourced from the widely used build of the Recorder.
+
+there are 6 hex diffs (byte adjustments) to adjust the packet sizes for the recorder to handle new weapon ids.
+the patch5.dll (totalapatchincpp project) handles the rest of the adjustments needed for Weapon IDs.
