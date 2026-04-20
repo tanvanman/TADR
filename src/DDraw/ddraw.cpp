@@ -30,6 +30,7 @@ using namespace std;
 #include "UnitDefExtensions.h"
 #include "VeterancyHack.h"
 #include "NotToAir.h"
+#include "SurfaceFire.h"
 #include "PacketChatRouter.h"
 #include "VoteReject.h"
 #ifdef TADR_DEBUG_PIPE
@@ -199,6 +200,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		UnitDefExtensions::GetInstance();
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
+		SurfaceFire::Install();
 		VoteReject::Install();
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Start();

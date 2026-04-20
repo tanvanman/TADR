@@ -46,8 +46,13 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*????.??.?? - Vote-to-reject system for in-progress multiplayer games (see NEW FEATURES IN DETAIL)
-            - add "nottoair" flag for weapons
+*????.??.??
+- Vote-to-reject system for in-progress multiplayer games (see NEW FEATURES IN DETAIL)
+- add "nottoair" flag for weapons (see NEW FEATURES IN DETAIL)
+- add "surfacefire" flag for weapons (see NEW FEATURES IN DETAIL)
+- +autoteam bugfix for occasional players stranded by themselves
+- Diagnostic logging for crashes 004cbed5 and 0049cf19
+
 *2026.02.17 - Fix false trigger on version check
 *2026.02.10 - Minor adjustment to diagnostic crash detection ("ERROR: dstRect out of bounds", allow CopyScreenContext all the way to the edge of destination context)
 *2026.02.07 - Disable AUTOTEAM, RANDOMTEAM and CRCREPORT buttons for non-host players
@@ -355,3 +360,37 @@ NEW FEATURES IN DETAIL:
   - Target tracking: up to 1 level
   - Reload time: up to 16 levels or the number of VeterancyThresholds, whichever is lower
   - Accuracy buff: no limit
+
+- Weapon TDF flags: nottoair and surfacefire
+
+  Two new optional keys for weapon definition files (weapons/*.tdf) give mod developers
+  finer control over which unit types a weapon can target.
+
+  nottoair=1
+    The weapon cannot target or fire at flying units (units with an airborne movement state).
+    Useful for weapons that are physically implausible against air targets, such as depth charges
+    or large ballistic artillery.
+
+    Example:
+
+      [DEPTH_CHARGE]
+      {
+      ...
+      nottoair=1;
+      }
+
+  surfacefire=1
+    Used together with waterweapon=1.  Normally a water weapon can only target submarines and
+    other units that are at or below sea level.  With surfacefire=1 the weapon can also target
+    surface units above sea level, such as hovercraft or land units near the shoreline.
+    Both auto-aim and manual targeting are affected.
+
+    Example:
+
+      [TORPEDO_SURFACE]
+      {
+      ...
+      waterweapon=1;
+      surfacefire=1;
+      }
+

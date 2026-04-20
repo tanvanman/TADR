@@ -325,7 +325,9 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="UnitDefExtensions.cpp" />
     <ClCompile Include="PacketChatRouter.cpp" />
     <ClCompile Include="HudNotifications.cpp" />
+    <ClCompile Include="WeaponTdfHook.cpp" />
     <ClCompile Include="NotToAir.cpp" />
+    <ClCompile Include="SurfaceFire.cpp" />
     <ClCompile Include="DebugPipeServer.cpp" />
     <ClCompile Include="VoteDialog.cpp" />
     <ClCompile Include="VoteReject.cpp" />

@@ -223,7 +223,13 @@
     <ClCompile Include="HudNotifications.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="WeaponTdfHook.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="NotToAir.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SurfaceFire.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="VoteReject.cpp">
