@@ -537,9 +537,9 @@ struct TAdynmemStruct{
 	unsigned int  RaceCounter;
 	RaceSideData RaceSideDataAry[5];
 	unsigned int  RandNum_ ;
-	unsigned int  field_38A3B;
-	unsigned int  field_38A3F ;
-	unsigned int  field_38A43 ;
+	unsigned int  DeltaTime;       // 0x38A3B: simulation ticks to execute this frame (0..5), computed by ApplyDeltaTime, consumed by InGameAsynchronousThread
+	unsigned int  scrollLen_buf;   // 0x38A3F: raw elapsed time (current - previous GameRunSec())
+	unsigned int  field_38A43;     // 0x38A43: fractional tick accumulator (used as float)
 
 	int GameTime; //0x38A47
 	short int GameSpeed;

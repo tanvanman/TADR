@@ -232,6 +232,9 @@
     <ClCompile Include="SurfaceFire.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LagSwitchGuard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="VoteReject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -481,6 +484,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HudNotifications.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LagSwitchGuard.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="VoteReject.h">
