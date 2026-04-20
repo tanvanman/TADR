@@ -15,6 +15,9 @@
 //   WeaponCanAim @ 0x49AB18: allows surfacefire weapons to aim regardless of firer depth.
 //   ScriptAction_Type2Index @ 0x43F24F: allows a submarine to issue an ATTACK COB action
 //     at a surface target when its weapon0 has surfacefire=1.
+//   ProjectilesEngine @ 0x49B9EB: allows surfacefire missile guidance above sea level.
+//     Without this, waterweapon+twophase missiles have guidance killed when above sea level
+//     (gravity-only, elevation zeroed, Projectile_Cruise/Turn skipped).
 //
 // Terrain/projectile detonation notes:
 //   The waterweapon pass-through in ProjectileUnitCollisionDetection @ 0x49B3A1 fires when
@@ -36,7 +39,9 @@ private:
 	std::unique_ptr<InlineSingleHook> m_weaponCheckHook; // REJECT 2 @ 0x49AC20
 	std::unique_ptr<InlineSingleHook> m_canAimHook;
 	std::unique_ptr<InlineSingleHook> m_scriptActionHook;
+	std::unique_ptr<InlineSingleHook> m_guidanceHook;
 	static int __stdcall CheckRouter(PInlineX86StackBuffer pBuf);
 	static int __stdcall CanAimRouter(PInlineX86StackBuffer pBuf);
 	static int __stdcall ScriptActionRouter(PInlineX86StackBuffer pBuf);
+	static int __stdcall GuidanceRouter(PInlineX86StackBuffer pBuf);
 };
