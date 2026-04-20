@@ -1,7 +1,7 @@
 #ifndef dialogH
 #define dialogH
 
-#include "oddraw.h"
+#include "DialogBase.h"
 
 #include <memory>
 #include <string>
@@ -22,20 +22,20 @@ class Widget;
 #define DialogHeight (14*ROW_HEIGHT)
 #define DialogWidth 382
 
-class Dialog
+class Dialog : public DialogBase
 {
-  friend class Widget;
-  friend class Button;
-  friend class Label;
-
 public:
 	Dialog(BOOL VidMem_a);
 	~Dialog();
 	void ShowDialog();
 	void HideDialog();
 	bool IsShow(LPRECT rect_p);
-	void BlitDialog(LPDIRECTDRAWSURFACE DestSurf);
-	bool Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+
+	// BlitDialog: handles FirstBlit initialisation, then delegates to DialogBase.
+	void BlitDialog(LPDIRECTDRAWSURFACE DestSurf) override;
+
+	// Message: handles ctrl-F2 toggle and wraps DialogBase::Message in SEH.
+	bool Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam) override;
 
 	void SetAll();
 
@@ -57,15 +57,9 @@ public:
 
 	int GetClickSnapOverrideKey();
 
-	int DrawTextField(int posX, int posY, int width, int height, const std::string& text, char color);
-	void DrawText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char* Text);
-	void DrawSmallText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char* Text);
-	void DrawTexture(int x, int y, int width, int height, LPDIRECTDRAWSURFACE texture, int texturePosX, int texturePosY);
-	void BlitCursor(LPDIRECTDRAWSURFACE DestSurf, int x, int y);
-
   private:
 	// all widgets
-	std::vector<std::shared_ptr<Widget> > m_widgets;
+	// (m_widgets vector is inherited from DialogBase)
 
 	// those widgets that we need to refer to after construction
 	std::shared_ptr <VirtualKeyField> m_clickSnapOverrideVirtualKeyField;
@@ -87,41 +81,21 @@ public:
 	std::shared_ptr <Button> m_conUnitGuardManeuverButton;
 	std::shared_ptr <Button> m_conUnitGuardRoamButton;
 
-    LPDIRECTDRAWSURFACE lpDialogSurf;
-    LPDIRECTDRAWSURFACE lpBackground;
-    LPDIRECTDRAWSURFACE lpCursor;
+	// Button skin surfaces (Dialog-specific; fonts/background/cursor are in DialogBase)
     LPDIRECTDRAWSURFACE lpOKButton;
     LPDIRECTDRAWSURFACE lpStagedButton3;
     LPDIRECTDRAWSURFACE lpCheckBox;
     LPDIRECTDRAWSURFACE lpStagedButton1;
     LPDIRECTDRAWSURFACE lpStandardButton;
 
-    LPDIRECTDRAWSURFACE lpUCFont;
-    LPDIRECTDRAWSURFACE lpLCFont;
-    LPDIRECTDRAWSURFACE lpSmallUCFont;
-    LPDIRECTDRAWSURFACE lpSmallLCFont;
-
 	InlineSingleHook * EnterOption_hook;
 	InlineSingleHook * PressInOption_hook;
 
-	bool DialogVisible;
-	bool VidMem;
-	bool Move;
-	int posX, posY;
-	int posXPrev, posYPrev;
-	int CursorPosX, CursorPosY;
-	int CursorBackground;
-    bool FirstBlit;
+	bool FirstBlit;
 
-	// surface and pitch of current target of DrawTextField
-    LPVOID SurfaceMemory;
-    int lPitch;
-	// helpers of DrawTextField
-	void DrawTinyText(char* String, int posx, int posy, char Color);
-	void FillRect(int x, int y, int x2, int y2, char Color);
-
-	bool _Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-    void RenderDialog();
+	void RestoreAll() override;
+	void OnDragMoved() override;
+	void OnMouseInsideDialog(int mx, int my) override;
 
 	void ReadRegistry();
     void WriteRegistry();
@@ -132,9 +106,6 @@ public:
     void WriteSettings();
 
     void CorrectPos();
-    void RestoreAll();
-
-	void RestoreCursor ();
 };
 
 

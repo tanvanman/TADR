@@ -1,5 +1,5 @@
 #include "Label.h"
-#include "../Dialog.h"
+#include "../DialogBase.h"
 
 Label::Label(int x, int y, const std::string& text) :
 	Widget(x, y, 0, 0),
@@ -16,7 +16,7 @@ std::string Label::ToString()
 	return m_text;
 }
 
-void Label::DoDraw(Dialog* dialog)
+void Label::DoDraw(DialogBase* dialog)
 {
 	dialog->DrawSmallText(dialog->lpDialogSurf, m_x, m_y + 5, m_text.c_str());
 }

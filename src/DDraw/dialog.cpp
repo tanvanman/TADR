@@ -2,7 +2,6 @@
 #include "Dialog.h"
 
 #include "cincome.h"
-#include "font.h"
 #include "fullscreenminimap.h"
 #include "gaf.h"
 #include "GUIExpand.h"
@@ -31,15 +30,13 @@
 #define COL4 340
 
 Dialog::Dialog(BOOL Vidmem_a)
+    : DialogBase(Vidmem_a, DialogWidth, DialogHeight, ROW_HEIGHT)
 {
-	lpOKButton = CreateSurfPCXResource(5, Vidmem_a);
-	lpStagedButton3 = CreateSurfPCXResource(6, Vidmem_a);
-	lpLCFont = CreateSurfPCXResource(7, Vidmem_a);
-	lpSmallUCFont = CreateSurfPCXResource(8, Vidmem_a);
-	lpSmallLCFont = CreateSurfPCXResource(9, Vidmem_a);
-	lpCheckBox = CreateSurfPCXResource(10, Vidmem_a);
+	lpOKButton      = CreateSurfPCXResource(5,  Vidmem_a);
+	lpStagedButton3 = CreateSurfPCXResource(6,  Vidmem_a);
+	lpCheckBox      = CreateSurfPCXResource(10, Vidmem_a);
 	lpStagedButton1 = CreateSurfPCXResource(11, Vidmem_a);
-	lpStandardButton = CreateSurfPCXResource(12, Vidmem_a);
+	lpStandardButton= CreateSurfPCXResource(12, Vidmem_a);
 
 	// column 0, 1
 
@@ -144,56 +141,12 @@ Dialog::Dialog(BOOL Vidmem_a)
 		HideDialog();
 	}));
 
-	lpCursor= NULL;
-	CursorBackground= -1;
-	CursorPosX = -1;
-	CursorPosY = -1;
-	Move = false;
-
 	LocalShare->Dialog = this;
-	posX = 0;
-	posY = 0;
 	FirstBlit = true;
-	DialogVisible = false;
 
-	VidMem= Vidmem_a;
 	ReadPos();
 	ReadSettings();
-	
-	LPDIRECTDRAW TADD = (IDirectDraw*)LocalShare->TADirectDraw;
 
-	DDSURFACEDESC ddsd;
-	DDRAW_INIT_STRUCT(ddsd);
-	ddsd.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT;
-
-	if (m_vsyncButton->GetState())
-	{
-		ddsd.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-	}
-	else	
-	{
-		ddsd.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY;
-	}
-	
-	ddsd.dwWidth = DialogWidth;
-	ddsd.dwHeight = DialogHeight;
-	TADD->CreateSurface(&ddsd, &lpDialogSurf, NULL);
-
-	lpBackground = CreateSurfPCXResource(2, VidMem);
-	lpUCFont = CreateSurfPCXResource(3, VidMem);
-	//RestoreCursor ( );
-	PGAFSequence CursorSequence= (*TAmainStruct_PtrPtr)->cursor_ary[cursornormal];
-	if (NULL!=CursorSequence)
-	{
-		PGAFFrame GafFrame= CursorSequence->PtrFrameAry[0].PtrFrame;
-		lpCursor= CreateSurfByGafFrame ( (LPDIRECTDRAW)LocalShare->TADirectDraw, GafFrame, VidMem);
-		CursorBackground= GafFrame->Background;
-	}
-// 	else
-// 	{
-// 		lpCursor=  CreateSurfPCXResource(4, VidMem);
-// 	}
-	
 	EnterOption_hook= new InlineSingleHook ( EnterOption_Address, 5, INLINE_5BYTESLAGGERJMP, EnterOption);
 	PressInOption_hook= new InlineSingleHook ( PressInOption_Address, 5, INLINE_5BYTESLAGGERJMP, PressInOption);
 	
@@ -202,24 +155,11 @@ Dialog::Dialog(BOOL Vidmem_a)
 
 Dialog::~Dialog()
 {
-	if(lpDialogSurf)
-		lpDialogSurf->Release();
-	if(lpBackground)
-		lpBackground->Release();
-	if(lpUCFont)
-		lpUCFont->Release();
-	if(lpCursor)
-		lpCursor->Release();
+	// lpDialogSurf, background, fonts, and cursor are released by ~DialogBase().
 	if(lpOKButton)
 		lpOKButton->Release();
 	if(lpStagedButton3)
 		lpStagedButton3->Release();
-	if(lpLCFont)
-		lpLCFont->Release();
-	if(lpSmallUCFont)
-		lpSmallUCFont->Release();
-	if(lpSmallLCFont)
-		lpSmallLCFont->Release();
 	if(lpCheckBox)
 		lpCheckBox->Release();
 	if(lpStagedButton1)
@@ -252,12 +192,12 @@ void Dialog::ShowDialog()
 	CorrectPos(); //make sure dialog is inside screen
 	RestoreAll ( );
 	RenderDialog();
-	DialogVisible = true;
+	m_visible = true;
 }
 
 void Dialog::HideDialog()
 {
-	DialogVisible = false;
+	m_visible  = false;
 	CursorPosX = -1;
 	CursorPosY = -1;
 
@@ -272,104 +212,21 @@ void Dialog::BlitDialog(LPDIRECTDRAWSURFACE DestSurf)
 		SetAll();
 		FirstBlit = false;
 	}
-	if (DialogVisible)
-	{
-		if(lpDialogSurf->IsLost() != DD_OK)
-		{
-			RestoreAll();
-		}
-
-		if(!DialogVisible)
-			return;
-
-		RECT Dest;
-		Dest.left = posX;
-		Dest.top = posY;
-		Dest.right = posX + DialogWidth;
-		Dest.bottom = posY + DialogHeight;
-
-		if(DestSurf->Blt(&Dest, lpDialogSurf, NULL, DDBLT_ASYNC, NULL)!=DD_OK)
-		{
-			DestSurf->Blt(&Dest, lpDialogSurf, NULL, DDBLT_WAIT, NULL);
-		}
-
-		if(CursorPosX!=-1 && CursorPosY!=-1)
-		{
-			BlitCursor(DestSurf, CursorPosX, CursorPosY);
-		}
-	}
-}
-
-void Dialog::RestoreCursor ()
-{
-	if (NULL!=lpCursor)
-	{
-		if (DD_OK!=lpCursor->IsLost ( ))
-		{
-			lpCursor->Restore ( );
-		}
-
-		PGAFSequence CursorSequence= (*TAmainStruct_PtrPtr)->cursor_ary[cursornormal];
-
-		if (NULL!=CursorSequence)
-		{
-			PGAFFrame GafFrame= CursorSequence->PtrFrameAry[0].PtrFrame;
-
-			DDSURFACEDESC ddsd;
-			DDRAW_INIT_STRUCT(ddsd);
-
-			lpCursor->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL);
-
-			unsigned char *SurfPTR = (unsigned char*)ddsd.lpSurface;
-			CursorBackground= GafFrame->Background;
-			POINT Aspect= { ddsd.lPitch, ddsd.dwHeight};
-			memset ( SurfPTR, CursorBackground, ddsd.lPitch* ddsd.dwHeight );
-			CopyGafToBits ( SurfPTR, &Aspect, 0, 0, GafFrame);
-
-			lpCursor->Unlock ( NULL);
-		}
-		else
-		{
-			RestoreFromPCX(4, lpCursor);
-		}
-	}
-	else
-	{
-		PGAFSequence CursorSequence= (*TAmainStruct_PtrPtr)->cursor_ary[cursornormal];
-
-		if (NULL!=CursorSequence)
-		{
-			PGAFFrame GafFrame= CursorSequence->PtrFrameAry[0].PtrFrame;
-			lpCursor= CreateSurfByGafFrame ( (LPDIRECTDRAW)LocalShare->TADirectDraw, GafFrame, VidMem);
-			CursorBackground= GafFrame->Background;
-		}
-	}
+	DialogBase::BlitDialog(DestSurf);
 }
 
 void Dialog::RestoreAll()
 {
-	lpDialogSurf->Restore();
-	lpBackground->Restore();
+	DialogBase::RestoreAll();  // shared surfaces + cursor
 
-	lpUCFont->Restore();
-	lpLCFont->Restore();
-	lpSmallUCFont->Restore();
-	lpSmallLCFont->Restore();
 	lpOKButton->Restore();
 	lpStagedButton3->Restore();
 	lpCheckBox->Restore();
 	lpStagedButton1->Restore();
 	lpStandardButton->Restore();
 
-	RestoreCursor ();
-	RestoreFromPCX(2, lpBackground);
-	RestoreFromPCX(3, lpUCFont);
-
-	RestoreFromPCX(5, lpOKButton);
-	RestoreFromPCX(6, lpStagedButton3);
-	RestoreFromPCX(7, lpLCFont);
-	RestoreFromPCX(8, lpSmallUCFont);
-	RestoreFromPCX(9, lpSmallLCFont);
+	RestoreFromPCX(5,  lpOKButton);
+	RestoreFromPCX(6,  lpStagedButton3);
 	RestoreFromPCX(10, lpCheckBox);
 	RestoreFromPCX(11, lpStagedButton1);
 	RestoreFromPCX(12, lpStandardButton);
@@ -379,279 +236,45 @@ void Dialog::RestoreAll()
 
 bool Dialog::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
+	// ctrl-F2: open dialog (Dialog-specific shortcut).
+	if (!m_visible)
+	{
+		if (DataShare->TAProgress == TAInGame &&
+			Msg == WM_KEYDOWN && wParam == 113 && (GetAsyncKeyState(17) & 0x8000) > 0 /*ctrl*/)
+		{
+			ShowDialog();
+			return true;
+		}
+		return false;
+	}
+
 	__try
 	{
-		return _Message(WinProchWnd, Msg, wParam, lParam);
+		return DialogBase::Message(WinProchWnd, Msg, wParam, lParam);
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER)
 	{
-		;// return LocalShare->TAWndProc(WinProcWnd, Msg, wParam, lParam);
+		;
 	}
 	return false;
 }
 
-bool Dialog::_Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+void Dialog::OnDragMoved()
 {
-		if(!DialogVisible)
-		{
-            if (DataShare->TAProgress == TAInGame &&
-                Msg == WM_KEYDOWN && wParam == 113 && (GetAsyncKeyState(17) & 0x8000) > 0 /*ctrl*/) {
-                ShowDialog();
-                return true;
-            }
-			return false;
-		}
+	CorrectPos();
+}
 
-		if (Msg == WM_LBUTTONDOWN)
-		{
-			int x = LOWORD(lParam) - posX;
-			int y = HIWORD(lParam) - posY;
-			for (auto w : m_widgets)
-			{
-				bool isInside = !w->m_hidden && !w->m_disabled && w->IsInside(x, y);
-				if (isInside != w->m_focused)
-				{
-					w->m_focused = isInside;
-					w->Draw(this);
-				}
-			}
-		}
-
-		for (auto w : m_widgets)
-		{
-			if (w->Message(this, WinProchWnd, Msg, wParam, lParam))
-			{
-				w->Draw(this);
-				return true;
-			}
-		}
-
-		switch(Msg)
-		{
-		case WM_LBUTTONDBLCLK:
-			if(LOWORD(lParam)>posX && LOWORD(lParam)<(posX+DialogWidth) && HIWORD(lParam)>posY && HIWORD(lParam)<(posY+DialogHeight))
-			{
-				return true;
-			}
-			break;
-
-		case WM_LBUTTONDOWN:
-			if(LOWORD(lParam)>posX && LOWORD(lParam)<(posX+DialogWidth) && HIWORD(lParam)>posY && HIWORD(lParam)<(posY+DialogHeight))
-			{
-				Move = true;
-				return true;
-			}
-			break;
-
-		case WM_LBUTTONUP:
-			Move = false;
-			break;
-
-		case WM_MOUSEMOVE:
-			if(LOWORD(lParam)>=(posX-10) && LOWORD(lParam)<(posX+DialogWidth) && HIWORD(lParam)>=(posY-20) && HIWORD(lParam)<(posY+DialogHeight))
-			{
-				CursorPosX = LOWORD(lParam);
-				CursorPosY = HIWORD(lParam);
-
+void Dialog::OnMouseInsideDialog(int /*mx*/, int /*my*/)
+{
 #if USEMEGAMAP
-				if ((GUIExpander)
-					&&(GUIExpander->myMinimap)
-					&&(GUIExpander->myMinimap->Controler))
-				{
-					GUIExpander->myMinimap->Controler->PubCursorX= -1;
-					GUIExpander->myMinimap->Controler->PubCursorY= -1;
-				}
+	if ((GUIExpander)
+		&& (GUIExpander->myMinimap)
+		&& (GUIExpander->myMinimap->Controler))
+	{
+		GUIExpander->myMinimap->Controler->PubCursorX = -1;
+		GUIExpander->myMinimap->Controler->PubCursorY = -1;
+	}
 #endif
-			}
-			else
-			{
-				CursorPosX = -1;
-				CursorPosY = -1;
-			}
-			if(Move)
-			{
-				posX += LOWORD(lParam)-posXPrev;
-				posY += HIWORD(lParam)-posYPrev;
-                CorrectPos();
-				posXPrev = LOWORD(lParam);
-				posYPrev = HIWORD(lParam);
-				return true;
-			}
-			
-			posXPrev = LOWORD(lParam);
-			posYPrev = HIWORD(lParam);
-			if(LOWORD(lParam)>=posX && LOWORD(lParam)<(posX+DialogWidth) && HIWORD(lParam)>=posY && HIWORD(lParam)<(posY+DialogHeight))
-			{
-				return true;
-			}
-			break;
-		case WM_KEYDOWN:
-			break;
-		case WM_CHAR:
-			break;
-		}
-
-	return false;//mesage not handled by this dialog
-}
-
-void Dialog::RenderDialog()
-{
-	if(lpDialogSurf->Blt(NULL, lpBackground, NULL, DDBLT_ASYNC, NULL)!=DD_OK)
-	{
-		lpDialogSurf->Blt(NULL, lpBackground, NULL, DDBLT_WAIT , NULL);
-	}
-
-	for (auto w : m_widgets)
-	{
-		w->Draw(this);
-	}
-}
-
-int Dialog::DrawTextField(int posX, int posY, int width, int height, const std::string& text, char color)
-{
-	DDSURFACEDESC ddsd;
-	DDRAW_INIT_STRUCT(ddsd);
-	if (lpDialogSurf->Lock(NULL, &ddsd, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL) == DD_OK)
-	{
-		SurfaceMemory = ddsd.lpSurface;
-		lPitch = ddsd.lPitch;
-
-		FillRect(posX, posY, posX + width, posY + height, 0);
-		posY += 7;
-
-		int CharsPerLine = (width - 4) / 8;
-		char Line[100];
-		Line[0] = '\0';
-		char LineNum = 0;
-		char LinePos = 0;
-		size_t i;
-		bool WasLineBreak = false;
-		for (i = 0; i < text.size(); i++)
-		{
-			if (LinePos > CharsPerLine)
-			{
-				DrawTinyText(Line, static_cast<int>(posX + 2), static_cast<int>(posY + LineNum * 9), color);
-				LineNum++;
-				LinePos = 0;
-				Line[0] = ' ';
-				Line[1] = '\0';
-				LinePos++;
-				i--;
-				WasLineBreak = true;
-			}
-			else
-			{
-				if (text[i] != 13/*enter*/)
-				{
-					Line[LinePos] = text[i];
-					Line[LinePos + 1] = '\0';
-					LinePos++;
-					WasLineBreak = false;
-				}
-				else
-				{
-					DrawTinyText(Line, static_cast<int>(posX + 2), static_cast<int>(posY + LineNum * 9), color);
-					if (!WasLineBreak)
-						LineNum++;
-					LinePos = 0;
-					Line[0] = '\0';
-					WasLineBreak = false;
-				}
-			}
-		}
-		DrawTinyText(Line, static_cast<int>(posX + 2), static_cast<int>(posY + LineNum * 9), color);
-		lpDialogSurf->Unlock(NULL);
-		return LineNum + (LinePos == CharsPerLine);
-	}
-	return 0;
-}
-
-void Dialog::DrawText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char *Text)
-{
-	RECT Dest;
-	Dest.left = x;
-	Dest.top = y;
-	Dest.bottom = Dest.top + 14;
-	RECT Source;
-	Source.left = 0;
-	Source.top = 0;
-	Source.bottom = 14;
-	DDBLTFX ddbltfx;
-	DDRAW_INIT_STRUCT(ddbltfx);
-	ddbltfx.ddckSrcColorkey.dwColorSpaceLowValue = 102;
-	ddbltfx.ddckSrcColorkey.dwColorSpaceHighValue = 102;
-
-	for(size_t i=0; i<strlen(Text); i++)
-	{
-		if(Text[i]<91 && Text[i]>=33) //upper case or special character
-		{
-			Dest.right = Dest.left + FontOffsetUC[Text[i]-33][0];
-			Source.left = FontOffsetUC[Text[i]-33][1];
-			Source.right = Source.left + FontOffsetUC[Text[i]-33][0];
-			if(DestSurf->Blt(&Dest, lpUCFont, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx)!=DD_OK)
-			{
-				DestSurf->Blt(&Dest, lpUCFont, &Source, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
-			}
-			Dest.left += FontOffsetUC[Text[i]-33][0];
-		}
-		else if(Text[i]<123 && Text[i]>=97)
-		{
-			Dest.right = Dest.left + FontOffsetLC[Text[i]-97][0];
-			Source.left = FontOffsetLC[Text[i]-97][1];
-			Source.right = Source.left + FontOffsetLC[Text[i]-97][0];
-			if(DestSurf->Blt(&Dest, lpLCFont, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx)!=DD_OK)
-			{
-				DestSurf->Blt(&Dest, lpLCFont, &Source, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
-			}
-			Dest.left += FontOffsetLC[Text[i]-97][0];
-		}
-		if(Text[i] == ' ')
-			Dest.left += 7;
-	}
-}
-
-void Dialog::DrawSmallText(LPDIRECTDRAWSURFACE DestSurf, int x, int y, const char *Text)
-{
-	RECT Dest;
-	Dest.left = x;
-	Dest.top = y;
-	Dest.bottom = Dest.top + 12;
-	RECT Source;
-	Source.left = 0;
-	Source.top = 0;
-	Source.bottom = 12;
-	DDBLTFX ddbltfx;
-	DDRAW_INIT_STRUCT(ddbltfx);
-	ddbltfx.ddckSrcColorkey.dwColorSpaceLowValue = 102;
-	ddbltfx.ddckSrcColorkey.dwColorSpaceHighValue = 102;
-
-	for(size_t i=0; i<strlen(Text); i++)
-	{
-		if(Text[i]<91 && Text[i]>=33) //upper case
-		{
-			Dest.right = Dest.left + SmallFontOffsetUC[Text[i]-33][0];
-			Source.left = SmallFontOffsetUC[Text[i]-33][1];
-			Source.right = Source.left + SmallFontOffsetUC[Text[i]-33][0];
-			if(DestSurf->Blt(&Dest, lpSmallUCFont, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx)!=DD_OK)
-			{
-				DestSurf->Blt(&Dest, lpSmallUCFont, &Source, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
-			}
-			Dest.left += SmallFontOffsetUC[Text[i]-33][0];
-		}
-		else if(Text[i]<123 && Text[i]>=97)
-		{
-			Dest.right = Dest.left + SmallFontOffsetLC[Text[i]-97][0];
-			Source.left = SmallFontOffsetLC[Text[i]-97][1];
-			Source.right = Source.left + SmallFontOffsetLC[Text[i]-97][0];
-			if(DestSurf->Blt(&Dest, lpSmallLCFont, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx)!=DD_OK)
-			{
-				DestSurf->Blt(&Dest, lpSmallLCFont, &Source, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
-			}
-			Dest.left += SmallFontOffsetLC[Text[i]-97][0];
-		}
-		if(Text[i] == ' ')
-			Dest.left += 6;
-	}
 }
 
 int Dialog::GetClickSnapOverrideKey()
@@ -872,95 +495,6 @@ void Dialog::CorrectPos()
 		posY = 1+ bounds.bottom - DialogHeight;
 }
 
-void Dialog::DrawTinyText(char *String, int posx, int posy, char Color)
-{
-	if(SurfaceMemory == NULL)
-		return;
-
-	char *SurfMem = (char*)SurfaceMemory;
-
-	for(size_t i=0; i<strlen(String); i++)
-	{
-		for(int j=0; j<8; j++)
-		{
-			for(int k=0; k<8; k++)
-			{
-				bool b = 0!=(ThinFont[String[i]*8+j] & (1 << k));
-				if(b)
-					SurfMem[(posx+(i*8)+(7-k))+(posy+j)*lPitch] = Color;
-			}
-		}
-	}
-}
-
-void Dialog::FillRect(int x, int y, int x2, int y2, char Color)
-{
-	if(SurfaceMemory == NULL)
-		return;
-
-	char *SurfMem = (char*)SurfaceMemory;
-
-	for(int i=y; i<y2; i++)
-	{
-		memset(&SurfMem[x+i*lPitch], Color, x2-x);
-	}
-}
-
-void Dialog::DrawTexture(int x, int y, int width, int height, LPDIRECTDRAWSURFACE texture, int texturePosX, int texturePosY)
-{
-	RECT Dest;
-	RECT Source;
-
-	Dest.left = x;
-	Dest.top = y;
-	Dest.right = x + width;
-	Dest.bottom = y + height;
-	Source.left = texturePosX;
-	Source.top = texturePosY;
-	Source.right = Source.left + width;
-	Source.bottom = Source.top + height;
-	if (lpDialogSurf->Blt(&Dest, texture, &Source, DDBLT_ASYNC, NULL) != DD_OK)
-	{
-		lpDialogSurf->Blt(&Dest, texture, &Source, DDBLT_WAIT, NULL);
-	}
-}
-
-void Dialog::BlitCursor(LPDIRECTDRAWSURFACE DestSurf, int x, int y)
-{
-	if (NULL==lpCursor
-		||lpCursor->IsLost ( ))
-	{
-		RestoreCursor ( );
-	}
-	//blit cursor
-	DDSURFACEDESC ddsc;
-	DDRAW_INIT_STRUCT(ddsc);
-
-	DDBLTFX ddbltfx;
-	DDRAW_INIT_STRUCT(ddbltfx);
-
-
-	lpCursor->GetSurfaceDesc ( &ddsc);
-// 0xc0dcc0
-	ddbltfx.ddckSrcColorkey.dwColorSpaceLowValue = CursorBackground& 0xffff;
-	ddbltfx.ddckSrcColorkey.dwColorSpaceHighValue = CursorBackground>> 16;
-
-	RECT Dest;
-	Dest.left = x;
-	Dest.top = y;
-	Dest.right = x + ddsc.dwWidth;
-	Dest.bottom = y + ddsc.dwHeight;
-	RECT Src;
-	Src.left= 0;
-	Src.top= 0;
-	Src.right= ddsc.dwWidth;
-	Src.bottom= ddsc.dwHeight;
-	if(DestSurf->Blt(&Dest, lpCursor, &Src, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx)!=DD_OK)
-	{
-		DestSurf->Blt(&Dest, lpCursor, &Src, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
-	}
-}
-
 bool Dialog::IsShow (LPRECT rect_p)
 {
 	if (NULL!=rect_p)
@@ -970,7 +504,7 @@ bool Dialog::IsShow (LPRECT rect_p)
 		rect_p->right = posX + DialogWidth;
 		rect_p->bottom = posY + DialogHeight;
 	}
-	return DialogVisible;
+	return m_visible;
 }
 int __stdcall EnterOption (PInlineX86StackBuffer X86StrackBuffer)
 {

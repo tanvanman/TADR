@@ -30,6 +30,11 @@ using namespace std;
 #include "UnitDefExtensions.h"
 #include "VeterancyHack.h"
 #include "NotToAir.h"
+#include "PacketChatRouter.h"
+#include "VoteReject.h"
+#ifdef TADR_DEBUG_PIPE
+#include "DebugPipeServer.h"
+#endif
 
 #include "TAConfig.h"
 //---------------------------------------------------------------------------
@@ -189,14 +194,22 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		AddtionInitAfterDDrawHook= new InlineSingleHook ( AddtionInitAfterDDrawAddr, 5, 
 			INLINE_5BYTESLAGGERJMP, AddtionInitAfterDDraw);
 
+		PacketChatRouter::GetInstance();
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
+		VoteReject::Install();
+#ifdef TADR_DEBUG_PIPE
+		DebugPipeServer::Start();
+#endif
 
 	}
 	if(reason==DLL_PROCESS_DETACH)
 	{
+#ifdef TADR_DEBUG_PIPE
+		DebugPipeServer::Stop();
+#endif
 		/* KillTimer(NULL, Timer);
 		KillTimer(NULL, DetectTimer); */
 		AddtionReleaseAfterDDraw ( );

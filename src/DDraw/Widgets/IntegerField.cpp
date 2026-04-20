@@ -1,5 +1,5 @@
 #include "IntegerField.h"
-#include "../Dialog.h"
+#include "../DialogBase.h"
 
 IntegerField::IntegerField(int x, int y, int width, int height, int value, int minValue, int maxValue, const std::string &registryKey) :
 	Widget(x, y, width, height),
@@ -19,7 +19,7 @@ IntegerField::IntegerField(int x, int y, int width, int height, int value, int m
 	}
 }
 
-bool IntegerField::DoMessage(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+bool IntegerField::DoMessage(DialogBase* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	if (m_focused && msg == WM_CHAR)
 	{
@@ -81,7 +81,7 @@ std::string IntegerField::ToString()
 	}
 }
 
-void IntegerField::DoDraw(Dialog* dialog)
+void IntegerField::DoDraw(DialogBase* dialog)
 {
 	std::string text = this->ToString();
 	dialog->DrawTextField(m_x, m_y, m_width, m_height, text.c_str(), m_focused ? 255 : 208);

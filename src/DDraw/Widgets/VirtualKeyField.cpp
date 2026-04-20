@@ -1,5 +1,5 @@
 #include "VirtualKeyField.h"
-#include "../Dialog.h"
+#include "../DialogBase.h"
 #include "../hook/etc.h"	// vtkToStr
 
 VirtualKeyField::VirtualKeyField(int x, int y, int width, int height, int vk_value, const std::string &registryKey) :
@@ -8,7 +8,7 @@ VirtualKeyField::VirtualKeyField(int x, int y, int width, int height, int vk_val
 	m_registryKey(registryKey)
 { }
 
-bool VirtualKeyField::DoMessage(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+bool VirtualKeyField::DoMessage(DialogBase* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	if (m_focused && msg == WM_KEYDOWN)
 	{
@@ -29,7 +29,7 @@ std::string VirtualKeyField::ToString()
 	return buffer;
 }
 
-void VirtualKeyField::DoDraw(Dialog* dialog)
+void VirtualKeyField::DoDraw(DialogBase* dialog)
 {
 	std::string text = this->ToString();
 	dialog->DrawTextField(m_x, m_y, m_width, m_height, text.c_str(), m_focused ? 255 : 208);

@@ -58,15 +58,12 @@ public:
 	bool HasFeatureMapSnapshot() { return m_featureMapSnapshot.get() != NULL; }
 	void SnapshotModules();
 	void SnapshotFeatureMap();
-	void ClearPersistentMessages();
 	void NewNonse(char *nonse, int len);
 	void ComputeChallengeResponse(const char *nonse, char *modulesHash, char *gameDataHash, bool *done=NULL, std::string *completionMessage=NULL);
 	void InitPlayerResponse(unsigned dpid, char *nonse, int len);
 	void SetPlayerModulesResponse(unsigned dpid, const char *hash, int len);
 	void SetPlayerGameDataResponse(unsigned dpid, const char *hash, int len);
 	int VerifyResponses(bool logEnable);
-	void Blit(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch);
-	void Blit(OFFSCREEN* offscreen);
 	void LogAll(const std::string& filename);
 
 	static std::string GetReportString(const std::pair<unsigned, std::string> &crcAndFilename, const std::string* optionalVersion);
@@ -137,7 +134,6 @@ private:
 
 	taflib::CRC32 m_crc;
 	std::mt19937 m_rng;
-	std::vector<std::string> m_persistentCheatWarnings;
 
 	std::vector<bool> getUsedWeaponIds();
 

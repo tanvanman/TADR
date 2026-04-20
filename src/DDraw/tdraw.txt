@@ -46,6 +46,8 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*????.??.?? - Vote-to-reject system for in-progress multiplayer games (see NEW FEATURES IN DETAIL)
+            - add "nottoair" flag for weapons
 *2026.02.17 - Fix false trigger on version check
 *2026.02.10 - Minor adjustment to diagnostic crash detection ("ERROR: dstRect out of bounds", allow CopyScreenContext all the way to the edge of destination context)
 *2026.02.07 - Disable AUTOTEAM, RANDOMTEAM and CRCREPORT buttons for non-host players
@@ -257,6 +259,35 @@ NEW FEATURES IN DETAIL:
   Optional CreationCountdown is in seconds and InitialMission works.
   Optional Ident makes it possible to refer to the unit in InitialMission of another unit.
   You'll have to look at eg totala4.hpi/maps/*.OTA for examples of InitialMission scripts to copy.
+
+- Vote-to-Reject
+
+  When a player is to be rejected during an in-progress multiplayer game, the rejection must now be
+  approved by a majority vote rather than taking effect immediately.
+
+  Manual reject (initiated via Tab → Control → player → reject prompt):
+    The proposer's YES is counted automatically.  All other non-target players are shown a vote dialog
+    and may click YES or NO.  The reject passes if at least 2/3 of non-target active players vote YES
+    (minimum 1).  If the target has a teammate, that teammate must vote YES for the reject to pass.
+    If the vote fails by a NO majority it is cancelled immediately; otherwise the vote times out after
+    60 seconds with no effect and a 90-second cooldown is imposed before another vote can be proposed.
+
+  Timeout reject (triggered automatically when a player stops responding for 30 seconds):
+    All players are shown the vote dialog.  The reject passes if at least 2 players vote YES
+    (or just 1 in a 2-player game), provided at least one ally of the timed-out player has voted YES.
+    If a NO majority makes the threshold unreachable, voting closes early and the player is
+    automatically rejected when the 90-second vote timer expires.
+
+  The vote dialog:
+    Each active vote appears as a row in an overlay dialog at the top-centre of the screen.
+    Each row shows the vote subject ("X has timed out - vote to reject?" or
+    "VOTE: X wants to reject Y"), the current tally (Ny/Nn/total, countdown), and YES / NO buttons.
+    Clicking YES or NO casts your vote and broadcasts it to all other players.
+
+    For timeout votes where the local player is an ally of the timed-out player, a ".take" button
+    is also shown.  Clicking it broadcasts the chat message ".take", which the recorder (tplayx.dll)
+    interprets as the player taking over the timed-out player's units.  Once the recorder confirms
+    the take, the corresponding vote is automatically cancelled.
 
 - Per-Unit Veterancy Customization
 

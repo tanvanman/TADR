@@ -1,4 +1,5 @@
 #include "Widget.h"
+#include "../DialogBase.h"
 
 Widget::Widget(int x, int y, int width, int height) :
 	m_x(x),
@@ -10,7 +11,7 @@ Widget::Widget(int x, int y, int width, int height) :
 	m_hidden(false)
 { }
 
-bool Widget::Message(Dialog *dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+bool Widget::Message(DialogBase *dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	if (m_hidden || m_disabled)
 	{
@@ -25,7 +26,7 @@ bool Widget::IsInside(int x, int y)
 	return !m_disabled && !m_hidden && x >= m_x && x < m_x + m_width && y >= m_y && y < m_y + m_height;
 }
 
-void Widget::Draw(Dialog* dialog)
+void Widget::Draw(DialogBase* dialog)
 {
 	if (!m_hidden)
 	{

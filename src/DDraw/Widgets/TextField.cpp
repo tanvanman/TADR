@@ -1,5 +1,5 @@
 #include "TextField.h"
-#include "../Dialog.h"
+#include "../DialogBase.h"
 
 TextField::TextField(int x, int y, int width, int height, const std::string& text, const std::string &registryKey) :
 	Label(x, y, width, height, text),
@@ -8,7 +8,7 @@ TextField::TextField(int x, int y, int width, int height, const std::string& tex
 	m_registryKey(registryKey)
 { }
 
-bool TextField::DoMessage(Dialog* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+bool TextField::DoMessage(DialogBase* dialog, HWND winProchWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	if (m_focused && msg == WM_CHAR)
 	{
@@ -34,7 +34,7 @@ std::string TextField::ToString()
 	return m_text;
 }
 
-void TextField::DoDraw(Dialog* dialog)
+void TextField::DoDraw(DialogBase* dialog)
 {
 	m_currentLines = dialog->DrawTextField(m_x, m_y, m_width, m_height, m_text, m_focused ? 255 : 208);
 }
