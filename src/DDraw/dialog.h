@@ -57,6 +57,10 @@ public:
 
 	int GetClickSnapOverrideKey();
 
+	// VK code the player has assigned to the build-rotation cycle action.
+	// Default VK_OEM_2 ('/'). Read by CUnitRotate::Message.
+	int GetRotateBuildKey();
+
   private:
 	// all widgets
 	// (m_widgets vector is inherited from DialogBase)
@@ -66,6 +70,7 @@ public:
 	std::shared_ptr <VirtualKeyField> m_autoClickVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_whiteboardVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_megaMapVirtualKeyField;
+	std::shared_ptr <VirtualKeyField> m_rotateBuildVirtualKeyField;
 	std::shared_ptr <IntegerField> m_mexSnapRadiusIntegerField;
 	std::shared_ptr <IntegerField> m_wreckSnapRadiusIntegerField;
 	std::shared_ptr <TextField> m_chatMacroTextField;

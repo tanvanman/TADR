@@ -10,6 +10,7 @@
 
 #include "megamaptastuff.h"
 #include "fullscreenminimap.h"
+#include "unitrotate.h"
 
 
 #include "MegamapControl.h"
@@ -553,16 +554,24 @@ void MegamapTAStuff::TADrawRect (OFFSCREEN * offscreen, int TAx1, int TAy1, int 
 
 	::TADrawRect ( offscreen, &Rect, color);
 }
-void MegamapTAStuff::DrawBuildRect (OFFSCREEN * offscren_p, unsigned char  Color, 
-	UnitDefStruct * BuildTargat, int TAx, int TAy, int TAz)
+void MegamapTAStuff::DrawBuildRect (OFFSCREEN * offscren_p, unsigned char  Color,
+	UnitDefStruct * BuildTargat, int TAx, int TAy, int TAz, int rotation)
 {// draw in TA screen
+	// For 90° / 270° rotations the world footprint has X/Y swapped.
+	int footX = BuildTargat->FootX;
+	int footY = BuildTargat->FootY;
+	if ((rotation & 1) == 1)
+	{
+		int tmp = footX; footX = footY; footY = tmp;
+	}
+
 	POINT Pos;
 	TAPos2ScreenPos (  &Pos, TAx, TAy, TAz);
 	RECT Rect;
 	Rect.left= Pos.x;
 	Rect.top= Pos.y;
 
-	TAPos2ScreenPos (  &Pos, BuildTargat->FootX* 16, BuildTargat->FootY* 16, 0);
+	TAPos2ScreenPos (  &Pos, footX* 16, footY* 16, 0);
 	Rect.left-= Pos.x/ 2;
 	Rect.top-= Pos.y/ 2;
 
@@ -576,7 +585,7 @@ void MegamapTAStuff::DrawBuildRect (OFFSCREEN * offscren_p, unsigned char  Color
 	}
 
 
-	
+
 	Rect.left+= MegaMapScreen.left;//- TAGameScreen.left;
 	Rect.top+= MegaMapScreen.top;//- TAGameScreen.top;
 
@@ -870,8 +879,14 @@ void MegamapTAStuff::BlitOrder (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 							{
 								ColorIndex= TAmainStruct_Ptr->desktopGUI.RadarObjecColor[1];
 							}
-							DrawBuildRect ( &OffScreen, ColorIndex, 
-								&(TAmainStruct_Ptr->UnitDef[Order->BuildUnitID]), Order->Pos.X, Order->Pos.Y, Order->Pos.Z);
+							{
+								CUnitRotate* rot = CUnitRotate::GetInstance();
+								int orderRotation = rot ? rot->TakeOrderRotation(Order) : 0;
+								DrawBuildRect ( &OffScreen, ColorIndex,
+									&(TAmainStruct_Ptr->UnitDef[Order->BuildUnitID]),
+									Order->Pos.X, Order->Pos.Y, Order->Pos.Z,
+									orderRotation);
+							}
 
 							if (Draw)
 							{
@@ -1066,7 +1081,11 @@ void MegamapTAStuff::BlitSelect (LPVOID lpSurfaceMem, int dwWidth, int dwHeight,
 				}
 
 				ColorIndex = ((TAmainStruct_Ptr->BuildSpotState) & 0x40 )!= 0 ? 10 : 4;
-				DrawBuildRect ( &OffScreen, TAmainStruct_Ptr->desktopGUI.RadarObjecColor[ColorIndex], &(TAmainStruct_Ptr->UnitDef[TAmainStruct_Ptr->BuildUnitID]), TAmainStruct_Ptr->MouseMapPos.X, TAmainStruct_Ptr->MouseMapPos.Y, TAmainStruct_Ptr->MouseMapPos.Z);
+				{
+					CUnitRotate* rot = CUnitRotate::GetInstance();
+					int cursorRotation = rot ? rot->GetRotation() : 0;
+					DrawBuildRect ( &OffScreen, TAmainStruct_Ptr->desktopGUI.RadarObjecColor[ColorIndex], &(TAmainStruct_Ptr->UnitDef[TAmainStruct_Ptr->BuildUnitID]), TAmainStruct_Ptr->MouseMapPos.X, TAmainStruct_Ptr->MouseMapPos.Y, TAmainStruct_Ptr->MouseMapPos.Z, cursorRotation);
+				}
 			}
 		}
 	}

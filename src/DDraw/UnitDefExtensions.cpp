@@ -192,6 +192,7 @@ unsigned UnitDefExtensions::LoadUnitDefs(PInlineX86StackBuffer X86StrackBuffer)
 {
 	TaTdfFile* tdf = (TaTdfFile*)X86StrackBuffer->Ecx;
 	UnitDefStruct* unitDef = (UnitDefStruct*)X86StrackBuffer->Ebp;
+
 	for (auto it = m_keyIndices.begin(); it != m_keyIndices.end(); ++it)
 	{
 		unsigned _index = it->second;

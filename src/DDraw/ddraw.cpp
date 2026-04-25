@@ -28,6 +28,7 @@ using namespace std;
 #include "AutoTeam.h"
 #include "MultiplayerSchemaUnits.h"
 #include "UnitDefExtensions.h"
+#include "unitrotate.h"
 #include "VeterancyHack.h"
 #include "NotToAir.h"
 #include "SurfaceFire.h"
@@ -198,6 +199,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		PacketChatRouter::GetInstance();
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
+		CUnitRotate::RegisterUnitDefKeys();
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
 		SurfaceFire::Install();

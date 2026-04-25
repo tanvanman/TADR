@@ -8,3 +8,9 @@
 **/*.log
 **/*.tlog
 **/*.res
+
+# Throwaway debug artifacts
+**/scripts/
+**/test/
+**/*.bak.*
+**/ghidra_analysis_log.md

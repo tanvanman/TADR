@@ -53,6 +53,9 @@ NEW FEATURES IN BRIEF:
 - add "surfacefire" flag for weapons (see NEW FEATURES IN DETAIL)
 - +autoteam bugfix for occasional players stranded by themselves
 - Diagnostic logging for crashes 004cbed5 and 0049cf19
+- Building rotation: press '/' (configurable) to cycle the build cursor
+  facing for buildings whose FBI permits it (see NEW FEATURES IN DETAIL)
+- Nanoframe ghost preview at the build cursor (see NEW FEATURES IN DETAIL)
 
 *2026.02.17 - Fix false trigger on version check
 *2026.02.10 - Minor adjustment to diagnostic crash detection ("ERROR: dstRect out of bounds", allow CopyScreenContext all the way to the edge of destination context)
@@ -394,4 +397,29 @@ NEW FEATURES IN DETAIL:
       waterweapon=1;
       surfacefire=1;
       }
+
+- Building rotation
+
+  While a building is selected for placement, press '/' to cycle through the
+  facings the unit allows.  Most buildings only allow their default facing,
+  in which case the key does nothing.  The key can be reassigned in the
+  ctrl-f2 menu.
+
+  Mod developers opt-in per unit by adding a "Rotations=" key to the
+  [UNITINFO] section of the FBI listing the cardinal letters they want
+  to allow, e.g.
+
+      [UNITINFO]
+      {
+      ...
+      Rotations=SENW;
+      }
+
+- Nanoframe ghost preview
+
+  A small green animated preview of the building you're about to place
+  is drawn inside the build rectangle.  It rotates in step with the
+  rotate-build key, and disappears on red (can't-build) squares.  When
+  shift-line / shift-row building, the preview is shown at every
+  rectangle in the row.
 

@@ -205,7 +205,7 @@ echo ====== POST-BUILD EVENT FINISHED ======</Command>
       <ImportLibrary>.\Release/tdraw.lib</ImportLibrary>
       <TargetMachine>MachineX86</TargetMachine>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -455,6 +455,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="UnicodeSupport.cpp" />
     <ClCompile Include="LimitCrack.cpp" />
     <ClCompile Include="UnitMinimap.cpp" />
+    <ClCompile Include="unitrotate.cpp" />
+    <ClCompile Include="buildghost.cpp" />
     <ClCompile Include="whiteboard.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -544,6 +546,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="UnitDrawer.h" />
     <ClInclude Include="UnitLimit.h" />
     <ClInclude Include="UnitTypeLimit.h" />
+    <ClInclude Include="unitrotate.h" />
+    <ClInclude Include="buildghost.h" />
     <ClInclude Include="whiteboard.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>

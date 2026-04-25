@@ -24,8 +24,9 @@ public:
 		int TAx2, int TAy2, int TAz2, 
 		int color);
 
-	void DrawBuildRect (OFFSCREEN * offscren_p, unsigned char  Color, 
-		UnitDefStruct * BuildTargat, int TAx, int TAy, int TAz);
+	void DrawBuildRect (OFFSCREEN * offscren_p, unsigned char  Color,
+		UnitDefStruct * BuildTargat, int TAx, int TAy, int TAz,
+		int rotation = 0);
 
 	void DrawTargatOrder (OFFSCREEN * OffScreen, UnitOrdersStruct * Order, PlayerStruct * me);
 	void DrawOrderPath (OFFSCREEN * OffScreen, UnitOrdersStruct * Order, Position_Dword * UnitPos);

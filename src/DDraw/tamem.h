@@ -21,6 +21,8 @@ struct WeaponStruct;
 struct GameingState;
 struct UnitDefStruct;
 struct GafAnimStruct;
+struct Model3DONode;
+struct Model3DOFace;
 struct Object3doStruct;
 struct PrimitiveStruct;
 struct PrimitiveInfoStruct;
@@ -358,6 +360,41 @@ struct SkirmishInfo
 	char field_21c[16];
 };
 
+// 3DO model node — root and child pieces of a unit's 3D model. Verified
+// against Ghidra (Model3DONode, 0x40 bytes). pVertexArray points at a
+// flat int triple array (x, y, z, x, y, z, ...) in 16.16 fixed-point.
+struct Model3DOFace
+{
+	int             pColorTable;
+	int             VertexCount;
+	int             pTextureName;
+	unsigned short* pVertexIndices;
+	int             TexState_a;          // GAFSpriteState (12 bytes total)
+	int             TexState_b;
+	int             TexState_c;
+	int             flags;
+};
+
+struct Model3DONode
+{
+	int            field_0;
+	int            VertexCount;
+	int            FaceCount;
+	int            MarkedFaceIdx;
+	int            OffsetX;
+	int            OffsetY;
+	int            OffsetZ;
+	const char*    pNameStr;
+	void*          pTextureGAF;
+	int*           pVertexArray;
+	Model3DOFace*  pFaceArray;
+	Model3DONode*  pSibling;
+	Model3DONode*  pChild;
+	int            scriptNo;
+	int            unknown1_38;
+	int            unknown2_3c;
+};
+
 struct TAdynmemStruct{
 	char data1[12];				// 0x0000
 	_TAProgramStruct * TAProgramStruct_Ptr;	// 0x000c
@@ -407,7 +444,7 @@ struct TAdynmemStruct{
 	unsigned char PrepareOrder_Type;
 
 	short BuildUnitID;  //0x2CC4,  unitindex for selected BeginUnitsArray_p  to build
-	char BuildSpotState; //0x40=notoktobuild
+	char BuildSpotState; //0x40 set = OK_TO_BUILD (green); cleared = blocked (red)
 	char data12[0x2C];
 
 	WeaponStruct Weapons[256];  //0x2CF3  size=0x11500	weapon types definitions
@@ -468,7 +505,9 @@ struct TAdynmemStruct{
 	RadarUnit_ * RadarUnits;
 	int NumHotUnits; //0x14367
 	int NumHotRadarUnits;
-	char data25[0x20];
+	char data25_pre[0x8];                // 0x1436F-0x14376
+	Model3DONode** MODEL_PTRS;           // 0x14377: indexed by UnitINFOID
+	char data25_post[0x14];              // 0x1437B-0x1438E (ModelMapBuffer, TEMP_*PTS, ASSEM_PTS)
 	unsigned int UNITINFOCount;
 	unsigned int UNITINFOCount_SignificantBitsCount;
 	unsigned int LoadedUNITINFOs;
@@ -1731,7 +1770,7 @@ enum MOUSESPOTSTATE
 {
 	IS_MOUSE_IN_GAME_UI = 2,
 	 CIRCLESELECTING  = 8,
-	 OK_TO_BUILD = 0x40	// or is it NOT_OK_TO_BUILD?
+	 OK_TO_BUILD = 0x40	// set = OK to build at this spot
 };
 namespace gameingstate
 {

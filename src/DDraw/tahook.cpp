@@ -15,6 +15,8 @@
 #include "hook\hook.h"
 #include "tahook.h"
 #include "TAConfig.h"
+#include "unitrotate.h"
+#include "buildghost.h"
 
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
@@ -858,6 +860,11 @@ void CTAHook::TABlit()
 
 	VisualizeDraggingBuildRectangle();
 	VisualizeMexSnapPreview();
+
+	// Nanoframe preview of the building-to-be-placed, rotated to the
+	// current build facing. The rotated model itself conveys facing, so
+	// no separate direction indicator is needed.
+	if (CBuildGhost* g = CBuildGhost::GetInstance()) g->RenderNanoframeGhost();
 }
 /*
 
@@ -1140,6 +1147,13 @@ void CTAHook::VisualizeRow()
 			GetFootX()*16,
 			GetFootY()*16,
 			color);
+
+		// Drop a nanoframe ghost at this line-build position. TestBuildSpot
+		// has just populated CircleSelect_Pos1/Pos2 for THIS slot, which is
+		// what RenderGhostAtCurrentBuildSpot reads.
+		if (CBuildGhost* g = CBuildGhost::GetInstance())
+			g->RenderGhostAtCurrentBuildSpot();
+
 		i++;
 		TAdynmem->MouseMapPos.X= BakX;
 		TAdynmem->MouseMapPos.Y= BakY;
@@ -1634,12 +1648,18 @@ void CTAHook::VisualizeDraggingBuildRectangle()
 {
 	if (DraggingUnitOrders && DraggingUnitOrders->BuildUnitID && DraggingUnitOrdersBuildRectangleColor >= 0)
 	{
-		const int footX = DraggingUnitOrders->BuildUnitID ? TAdynmem->UnitDef[DraggingUnitOrders->BuildUnitID].FootX : 1;
-		const int footY = DraggingUnitOrders->BuildUnitID ? TAdynmem->UnitDef[DraggingUnitOrders->BuildUnitID].FootY : 1;
+		CUnitRotate* rot = CUnitRotate::GetInstance();
+		int rotation = rot ? rot->TakeOrderRotation(DraggingUnitOrders) : 0;
+		int footX = GetFootX();
+		int footY = GetFootY();
+		if ((rotation & 1) == 1)
+		{
+			int tmp = footX; footX = footY; footY = tmp;
+		}
 		DrawBuildRect((TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
 			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz / 2),
-			GetFootX() * 16,
-			GetFootY() * 16,
+			footX * 16,
+			footY * 16,
 			DraggingUnitOrdersBuildRectangleColor);
 	}
 }
@@ -1667,10 +1687,18 @@ void CTAHook::VisualizeMexSnapPreview()
 			color = 214;	// red
 		}
 
+		CUnitRotate* rot = CUnitRotate::GetInstance();
+		int rotation = rot ? rot->GetRotation() : 0;
+		int footX = ClickSnapPreviewFootXY[0];
+		int footY = ClickSnapPreviewFootXY[1];
+		if ((rotation & 1) == 1)
+		{
+			int tmp = footX; footX = footY; footY = tmp;
+		}
 		DrawBuildRect((TAdynmem->CircleSelect_Pos1TAx - TAdynmem->EyeBallMapXPos) + 128,
 			(TAdynmem->CircleSelect_Pos1TAy - TAdynmem->EyeBallMapYPos) + 32 - (TAdynmem->CircleSelect_Pos1TAz / 2),
-			ClickSnapPreviewFootXY[0] * 16,
-			ClickSnapPreviewFootXY[1] * 16,
+			footX * 16,
+			footY * 16,
 			color);
 
 		TAdynmem->MouseMapPos.X = BakX;

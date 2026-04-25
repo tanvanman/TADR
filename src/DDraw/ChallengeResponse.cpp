@@ -6,6 +6,7 @@
 #include "iddrawsurface.h"
 #include "random_code_seg_keys.h"
 #include "tafunctions.h"
+#include "unitrotate.h"
 
 #include <iomanip>
 #include <functional>
@@ -263,15 +264,24 @@ static void HandleChallengeResponsePacket(unsigned replyDpid, const void* buf)
 		InitChallengeResponseMessage(reply->results[0], ChallengeResponseCommand::ChallengeHashReplyModules);
 		InitChallengeResponseMessage(reply->results[1], ChallengeResponseCommand::ChallengeHashReplyGameData);
 
+		// Snapshot UnitDef on the main thread BEFORE detaching so the hash
+		// thread reads pristine values regardless of any rotation swap that
+		// happens to be in flight. Captured under shared_ptr so the lambda
+		// keeps the buffer alive until the hash completes.
+		auto unitDefSnapshot = std::make_shared<std::vector<UnitDefStruct>>();
+		if (CUnitRotate* rot = CUnitRotate::GetInstance())
+			rot->CaptureUnitDefSnapshot(*unitDefSnapshot);
+
 #ifdef MULTITHREADED
-		std::thread([msg, reply]() {
+		std::thread([msg, reply, unitDefSnapshot]() {
 #endif
 			ChallengeResponse::GetInstance()->ComputeChallengeResponse(
 				reply->nonse,
 				reply->results[0].data,
 				reply->results[1].data,
 				&reply->ready,
-				&reply->completionMessage
+				&reply->completionMessage,
+				unitDefSnapshot
 			);
 #ifdef MULTITHREADED
 		})
@@ -451,7 +461,8 @@ void ChallengeResponse::NewNonse(char* nonse, int len)
 #pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modulesHash, char* gameDataHash, bool *done, std::string* completionMessage)
+void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modulesHash, char* gameDataHash, bool *done, std::string* completionMessage,
+	std::shared_ptr<std::vector<UnitDefStruct>> unitDefSnapshot)
 {
 	std::ostringstream log;
 	log << "OK" << std::endl;	// don't get rid of this.  its a sentinel for successful completion
@@ -487,7 +498,7 @@ void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modul
 		log << "  weapons:" << hmacGameData << std::endl;
 		HashFeatures(hmacGameData);
 		log << "  features:" << hmacGameData << std::endl;
-		HashUnits(hmacGameData);
+		HashUnits(hmacGameData, unitDefSnapshot.get());
 		log << "  units:" << hmacGameData << std::endl;
 		HashGamingState(hmacGameData);
 		log << "  gamingstate:" << hmacGameData << std::endl;
@@ -533,10 +544,16 @@ void ChallengeResponse::InitPlayerResponse(unsigned dpid, char *nonse, int len)
 	std::memset(r.gameDataResponse, 0, sizeof(r.gameDataResponse));
 	std::memcpy(r.nonse, nonse, std::min(sizeof(r.nonse), unsigned(len)));
 
+	// Capture pristine UnitDef on the main thread before the hash thread
+	// can race with any rotation swap. See HandleChallengeResponsePacket.
+	auto unitDefSnapshot = std::make_shared<std::vector<UnitDefStruct>>();
+	if (CUnitRotate* rot = CUnitRotate::GetInstance())
+		rot->CaptureUnitDefSnapshot(*unitDefSnapshot);
+
 #ifdef MULTITHREADED
-	std::thread([this, &r]() {
+	std::thread([this, &r, unitDefSnapshot]() {
 #endif
-		ComputeChallengeResponse(r.nonse, r.ourModulesHash, r.ourGameDataHash, &r.ourHashesComputed, &r.completionMessage);
+		ComputeChallengeResponse(r.nonse, r.ourModulesHash, r.ourGameDataHash, &r.ourHashesComputed, &r.completionMessage, unitDefSnapshot);
 #ifdef MULTITHREADED
 	})
 		.detach();
@@ -698,11 +715,20 @@ void ChallengeResponse::HashFeatures(HmacSha256Calculator& hmac)
 #pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-void ChallengeResponse::HashUnits(HmacSha256Calculator& hmac)
+void ChallengeResponse::HashUnits(HmacSha256Calculator& hmac, const std::vector<UnitDefStruct>* unitDefSnapshot)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
-		UnitDefStruct* u = &taPtr->UnitDef[n];
+	// Read from the caller-supplied pristine snapshot when present; falling
+	// back to live memory only when no snapshot was passed (no rotation
+	// feature in play). The snapshot was captured on the main thread before
+	// this hash thread was spawned (see ChallengeResponse spawn sites), so
+	// the read is race-free regardless of any in-flight rotation swap.
+	const UnitDefStruct* unitArray = unitDefSnapshot
+		? unitDefSnapshot->data() : taPtr->UnitDef;
+	const unsigned unitCount = unitDefSnapshot
+		? static_cast<unsigned>(unitDefSnapshot->size()) : taPtr->UNITINFOCount;
+	for (unsigned n = 0u; n < unitCount; ++n) {
+		const UnitDefStruct* u = &unitArray[n];
 		if (u->buildLimit != 0) {
 			hmac.processChunk((unsigned char*)&u->FootX, 4);
 			if (u->YardMap) hmac.processChunk((unsigned char*)u->YardMap, u->FootX * u->FootY);

@@ -59,7 +59,8 @@ public:
 	void SnapshotModules();
 	void SnapshotFeatureMap();
 	void NewNonse(char *nonse, int len);
-	void ComputeChallengeResponse(const char *nonse, char *modulesHash, char *gameDataHash, bool *done=NULL, std::string *completionMessage=NULL);
+	void ComputeChallengeResponse(const char *nonse, char *modulesHash, char *gameDataHash, bool *done=NULL, std::string *completionMessage=NULL,
+		std::shared_ptr<std::vector<UnitDefStruct>> unitDefSnapshot = nullptr);
 	void InitPlayerResponse(unsigned dpid, char *nonse, int len);
 	void SetPlayerModulesResponse(unsigned dpid, const char *hash, int len);
 	void SetPlayerGameDataResponse(unsigned dpid, const char *hash, int len);
@@ -144,7 +145,7 @@ private:
 	void HashModules(HmacSha256Calculator &hmac, std::ostream &log);
 	void HashWeapons(HmacSha256Calculator& hmac);
 	void HashFeatures(HmacSha256Calculator& hmac);
-	void HashUnits(HmacSha256Calculator& hmac);
+	void HashUnits(HmacSha256Calculator& hmac, const std::vector<UnitDefStruct>* unitDefSnapshot);
 	void HashGamingState(HmacSha256Calculator& hmac);
 	void HashMapSnapshot(HmacSha256Calculator& hmac);
 

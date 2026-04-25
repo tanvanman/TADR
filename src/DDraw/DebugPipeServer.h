@@ -28,6 +28,15 @@
 //   reset_votes
 //   dump_votes                 (returns single-line JSON)
 //
+// Automation / inspection commands for autonomous test iteration:
+//   press_key <vk>             post WM_KEYDOWN+WM_KEYUP to TA's wndproc
+//   send_char <ascii>          post WM_CHAR for a single ASCII character
+//   get_progress               echo DataShare->TAProgress (1..4)
+//   find_unit_idx <objectname> scan UnitDef array for Objectname match
+//   get_unit_ext_string <idx> <keyName>  query UnitDefExtensions by key name
+//   get_rotate_state           dump CUnitRotate rotation + allowed mask
+//   inject_slash_key           invoke CUnitRotate::Message(VK_OEM_2)
+//
 // Responses: "OK [data]\n" or "ERR message\n".
 
 class DebugPipeServer
@@ -40,9 +49,13 @@ public:
     // command queue and execute pending commands.
     static void DrainQueue();
 
+    // Execute a single command line. Used by PostAndWait to run read-only
+    // commands directly on the pipe thread when the render-thread drain
+    // isn't reliably firing (e.g. in the title screen).
+    static std::string ExecuteCommand(const std::string& line);
+
 private:
     static DWORD WINAPI PipeThreadProc(LPVOID param);
-    static std::string ExecuteCommand(const std::string& line);
 };
 
 #endif // TADR_DEBUG_PIPE

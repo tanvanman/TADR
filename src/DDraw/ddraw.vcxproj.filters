@@ -148,6 +148,12 @@
     <ClCompile Include="UnitMinimap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="unitrotate.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="buildghost.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="whiteboard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -460,6 +466,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ConstructionKickout.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="unitrotate.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="buildghost.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="UnitDefExtensions.h">

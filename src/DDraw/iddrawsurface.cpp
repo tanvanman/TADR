@@ -13,6 +13,7 @@ using namespace std;
 
 #include "HudNotifications.h"
 #include "VoteReject.h"
+#include "DebugPipeServer.h"
 #include "LagSwitchGuard.h"
 #include "ConstructionKickout.h"
 #include "TenPlayerReplay.h"
@@ -27,6 +28,7 @@ using namespace std;
 #include "maprect.h"
 
 #include "unitrotate.h"
+#include "buildghost.h"
 #include "changequeue.h"
 #include "ExternQuickKey.h"
 #include "TAbugfix.h"
@@ -179,6 +181,8 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	ConstructionKickout::GetInstance();
 #endif
 
+	LocalShare->UnitRotate = new CUnitRotate;
+
 #if USEMEGAMAP
 
 	if (GUIExpander
@@ -277,6 +281,8 @@ ULONG __stdcall IDDrawSurface::Release()
 	ChangeQueue= NULL;
 	delete DDDTA;
 	DDDTA= NULL;
+	delete (CUnitRotate*)LocalShare->UnitRotate;
+	LocalShare->UnitRotate = NULL;
 #if USEMEGAMAP
 	if (GUIExpander
 		&&(GUIExpander->myMinimap))
@@ -649,6 +655,10 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 #if TA_HOOK_ENABLE
 			TAHook->Blit(lpBack);
 #endif
+#ifdef TADR_DEBUG_PIPE
+			// Drain debug pipe every frame regardless of game phase.
+			DebugPipeServer::DrainQueue();
+#endif
 			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
 				VoteReject::GetInstance()->Tick();
 				LagSwitchGuard::GetInstance()->Tick();
@@ -770,6 +780,10 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 #if TA_HOOK_ENABLE
 			TAHook->Blit(lpBack);
 #endif
+#ifdef TADR_DEBUG_PIPE
+			// Drain debug pipe every frame regardless of game phase.
+			DebugPipeServer::DrainQueue();
+#endif
 			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
 				VoteReject::GetInstance()->Tick();
 				LagSwitchGuard::GetInstance()->Tick();
@@ -827,33 +841,53 @@ void IDDrawSurface::OutptFmtTxt(const char* format, ...)
 		return;
 	}
 
-	char buffer[16384] = { 0 };
-
 #if defined(DEBUG_INFO) || defined(DEBUG_INFO_2) || defined(_DEBUG)
+
+	// Small stack buffer for the common case (short log lines). Falls back to
+	// heap allocation if the formatted text is larger. We intentionally keep
+	// the stack footprint tiny because OutptFmtTxt is called from hot paths
+	// (e.g. CUnitRotate::RenderNanoframeGhost) on a thread whose stack reserve
+	// is modest — the old `char buffer[16384]` crashed TA with
+	// FAST_FAIL_INVALID_EXCEPTION_CHAIN (0xC0000409 subcode 0x15).
+	char stackBuf[512];
 
 	va_list args;
 	va_start(args, format);
-
-	// Try formatting � this version NEVER fastfails.
-	int result = vsnprintf(buffer, sizeof(buffer), format, args);
-
+	// Duplicate args for the possible second pass — va_list may be consumed
+	// by the first vsnprintf call (true on x64/MSVC; harmless on x86).
+	va_list args2;
+	va_copy(args2, args);
+	int needed = vsnprintf(stackBuf, sizeof(stackBuf), format, args);
 	va_end(args);
 
-	// If formatting failed (negative return), fall back to raw text.
-	// Common reason: mismatched format tags, e.g., "%s" with no args.
-	if (result < 0) {
-		// Copy raw string safely into buffer
-		strncpy(buffer, format, sizeof(buffer) - 1);
-		buffer[sizeof(buffer) - 1] = '\0';
+	if (needed < 0) {
+		// Format error (e.g. mismatched %s). Emit the raw format string so
+		// the reader at least sees which callsite failed.
+		va_end(args2);
+		OutptTxt(format);
+		return;
 	}
 
-#else
-	// In non-debug builds, just output raw text as-is.
-	strncpy(buffer, format, sizeof(buffer) - 1);
-	buffer[sizeof(buffer) - 1] = '\0';
-#endif
+	if (static_cast<size_t>(needed) < sizeof(stackBuf)) {
+		va_end(args2);
+		OutptTxt(stackBuf);
+		return;
+	}
 
-	OutptTxt(buffer);
+	// Overflowed stack buffer — retry on the heap at the exact size reported.
+	std::vector<char> heapBuf(static_cast<size_t>(needed) + 1);
+	int heapResult = vsnprintf(heapBuf.data(), heapBuf.size(), format, args2);
+	va_end(args2);
+	if (heapResult < 0) {
+		OutptTxt(format);
+		return;
+	}
+	OutptTxt(heapBuf.data());
+
+#else
+	// Non-debug: no varargs formatting — just emit the raw text.
+	OutptTxt(format);
+#endif
 }
 
 void IDDrawSurface::OutptTxt(const char* buffer, bool newline)
@@ -1189,8 +1223,9 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 			&&(((CDDDTA*)LocalShare->DDDTA)->Message(WinProcWnd, Msg, wParam, lParam)))
 			return 0;
 
-		//   if(((CUnitRotate*)LocalShare->UnitRotate)->Message(WinProcWnd, Msg, wParam, lParam))
-		//     return 0;
+		if((NULL!=LocalShare->UnitRotate)
+			&&(((CUnitRotate*)LocalShare->UnitRotate)->Message(WinProcWnd, Msg, wParam, lParam)))
+			return 0;
 
 		if(DataShare->F1Disable)
 			if(Msg == WM_KEYDOWN && wParam == 112)
