@@ -420,6 +420,11 @@ NEW FEATURES IN DETAIL:
       Rotations=SENW;
       }
 
+  Limitation: a few mods script their Create() function to forcibly TURN
+  the unit body (e.g. so structures face the centre of the map).  Such
+  scripts run after the build cursor's rotation is applied and overwrite
+  it, so the Rotations= key has no visible effect on those units.
+
 - Nanoframe ghost preview
 
   A small green animated preview of the building you're about to place
@@ -431,4 +436,69 @@ NEW FEATURES IN DETAIL:
   Tick "Edges-only build preview" in the ctrl-f2 menu to suppress the
   filled-silhouette and show only the visible-edge wireframe — handy if
   the solid green ghost obscures terrain you're trying to read.
+
+  Mod authors with upgrade-style units (where the 3DO model contains
+  both the basic and upgraded geometry, and the COB script controls
+  visibility at runtime) can list the pieces that should appear in the
+  preview by adding a "PreviewPieces=" key to [UNITINFO]:
+
+      [UNITINFO]
+      {
+      ...
+      PreviewPieces=base, turret, sleeve, barrel, cover;
+      }
+
+  Names are matched case-insensitively against 3DO piece names; comma,
+  space, or semicolon may be used as separators.  When the key is set,
+  ONLY listed pieces are rendered.  When the key is omitted (the usual
+  case), every piece is rendered minus a small hardcoded set of
+  cosmetic / firing-effect names (flare, flash, muzzle, fire, flame,
+  wake).
+
+  Per-rotation overrides are also available — useful when the visible
+  pieces should differ by facing.  Use any of:
+
+      PreviewPiecesS=...      facing south  (rotation 0)
+      PreviewPiecesE=...      facing east   (rotation 1)
+      PreviewPiecesN=...      facing north  (rotation 2)
+      PreviewPiecesW=...      facing west   (rotation 3)
+
+  Lookup order for the active rotation:
+    1. PreviewPieces<S|E|N|W>=  if set (non-empty), uses ONLY that list.
+    2. PreviewPieces=           the default for every rotation.
+    3. neither set              every piece minus the ephemeral filter.
+
+  For units whose Create() script auto-rotates the structure toward
+  the nearest enemy Commander, the preview can be made to face the
+  same direction — preventing the jarring snap when the build commits
+  — by adding:
+
+      [UNITINFO]
+      {
+      ...
+      PreviewFaceOpponent=1;
+      }
+
+  At each preview frame we find the nearest enemy commander to the
+  build cursor (each enemy player's first unit slot, which is the
+  commander in all but pathological cases), and snap the line from
+  the cursor to that commander to the nearest cardinal (S / E / N /
+  W).  PreviewFaceOpponent overrides the Rotations= restriction —
+  setting this key is the author's explicit signal that the unit's
+  heading is script-driven, so the preview must face whichever
+  cardinal the script will pick regardless of what Rotations= permits
+  the player to cycle through.
+
+  To avoid leaking enemy positions through fog-of-war scanning, the
+  override only applies when the build cursor is within the actual
+  builddistance of one of the local player's selected, completed
+  construction units (each builder gets its own threshold from its
+  FBI builddistance=).  Outside that radius the preview falls back to
+  the player's rotate-build selection — same as if PreviewFaceOpponent
+  were unset.
+
+  Falls back to the player's rotate-build selection in single-player
+  or any case where no enemy commander can be found (e.g. all enemies
+  dead).
+
 

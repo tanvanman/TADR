@@ -881,19 +881,28 @@ void CTAHook::TABlit()
 		else
 #endif
 		{
-			EnableTABuildRect();
-			VisualizeRow();
 			DisableTABuildRect();
 		}
 	}
+}
 
+void CTAHook::DrawBuildOverlays()
+{
+	if (IsLineBuilding())
+	{
+#if USEMEGAMAP
+		const bool megamapBliting = GUIExpander
+			&& GUIExpander->myMinimap
+			&& GUIExpander->myMinimap->Controler
+			&& GUIExpander->myMinimap->Controler->IsBliting();
+		if (!megamapBliting)
+#endif
+		{
+			VisualizeRow();
+		}
+	}
 	VisualizeDraggingBuildRectangle();
 	VisualizeMexSnapPreview();
-
-	// Nanoframe preview of the building-to-be-placed, rotated to the
-	// current build facing. The rotated model itself conveys facing, so
-	// no separate direction indicator is needed.
-	if (CBuildGhost* g = CBuildGhost::GetInstance()) g->RenderNanoframeGhost();
 }
 /*
 

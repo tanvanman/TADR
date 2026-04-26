@@ -6,7 +6,9 @@
 #include "tafunctions.h"
 #include "tahook.h"
 #include "tamem.h"
+#include "UnitDefExtensions.h"
 #include "hook/etc.h"
+#include "hook/hook.h"
 
 #include <cctype>
 #include <climits>
@@ -60,6 +62,77 @@ CBuildGhost* CBuildGhost::GetInstance()
     return &instance;
 }
 
+// FBI key indices, registered at early ddraw init via RegisterUnitDefKeys.
+// Sentinel 0 = not registered (the registerXxxKey APIs never return 0 for
+// a real key — the high bits are tagged).
+//   PreviewPieces=        comma/space-separated piece-name whitelist. When
+//                         non-empty, ONLY listed pieces render in the ghost.
+//                         Used as the default for every rotation.
+//   PreviewPiecesS=       per-rotation whitelist override for cardinals
+//   PreviewPiecesE=       S=0, E=1, N=2, W=3. When set (non-empty) the
+//   PreviewPiecesN=       per-rotation key takes precedence over
+//   PreviewPiecesW=       PreviewPieces= for that rotation; when unset
+//                         the global PreviewPieces= applies.
+//   PreviewFaceOpponent=  0/1. When 1, override the user's chosen rotation
+//                         to face the nearest enemy commander, snapped to
+//                         nearest cardinal. For units whose Create() script
+//                         auto-rotates the body toward the nearest enemy
+//                         commander — keeps the preview consistent with
+//                         the script's final heading instead of always
+//                         showing the default southern facing.
+static unsigned g_previewPiecesKeyIdx        = 0;
+static unsigned g_previewPiecesByRotKeyIdx[4] = { 0, 0, 0, 0 };
+static unsigned g_previewFaceOpponentKeyIdx  = 0;
+
+void CBuildGhost::RegisterUnitDefKeys()
+{
+    if (g_previewPiecesKeyIdx == 0)
+    {
+        g_previewPiecesKeyIdx =
+            UnitDefExtensions::GetInstance()->registerStringKey("PreviewPieces", "");
+    }
+    static const char* const kRotKeyNames[4] = {
+        "PreviewPiecesS", "PreviewPiecesE", "PreviewPiecesN", "PreviewPiecesW"
+    };
+    for (int r = 0; r < 4; ++r)
+    {
+        if (g_previewPiecesByRotKeyIdx[r] == 0)
+        {
+            g_previewPiecesByRotKeyIdx[r] =
+                UnitDefExtensions::GetInstance()->registerStringKey(kRotKeyNames[r], "");
+        }
+    }
+    if (g_previewFaceOpponentKeyIdx == 0)
+    {
+        g_previewFaceOpponentKeyIdx =
+            UnitDefExtensions::GetInstance()->registerIntKey("PreviewFaceOpponent", 0);
+    }
+}
+
+#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+// Inside DrawGameScreen, at the join point reached both when TA drew its
+// build rect and when the JZ at 0x469e0d skipped it (e.g. while mex-snap
+// is active and Enable/DisableTABuildRect has zeroed the gate at
+// 0x469e0b). Rendering here puts the ghost at the same pipeline stage as
+// the native rect — GUI dialogs / menus drawn afterwards composite on
+// top instead of being painted under by a later DirectDraw Lock — and
+// keeps it firing regardless of the rect-on/off toggle. Adjacent
+// patches that must stay intact: 0x469e0b (rect on/off) and 0x469e7f
+// (rect colour AND-immediate flipped by ConstructionKickout) — both
+// upstream of this address.
+static const unsigned int kBuildRectHookAddr = 0x469f30;
+
+static int __stdcall BuildRectAfterHookProc(PInlineX86StackBuffer)
+{
+    // Overlay rects first — VisualizeMexSnapPreview moves CircleSelect_Pos1
+    // to the snap target via TestBuildSpot, which the cursor ghost reads.
+    if (LocalShare && LocalShare->TAHook)
+        reinterpret_cast<CTAHook*>(LocalShare->TAHook)->DrawBuildOverlays();
+    if (CBuildGhost* g = CBuildGhost::GetInstance()) g->RenderNanoframeGhost();
+    return 0;
+}
+#endif
+
 CBuildGhost::CBuildGhost()
 {
     ReadRotateKeyDiscovered();
@@ -67,6 +140,8 @@ CBuildGhost::CBuildGhost()
     IDDrawSurface::OutptTxt("[BuildGhost] mode=RECT (no model preview)");
 #elif TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
     IDDrawSurface::OutptTxt("[BuildGhost] mode=FULL3D");
+    m_hooks.push_back(std::make_shared<InlineSingleHook>(
+        kBuildRectHookAddr, 5, INLINE_5BYTESLAGGERJMP, BuildRectAfterHookProc));
 #endif
 }
 
@@ -214,6 +289,32 @@ namespace
                std::strstr(lower, "wake");
     }
 
+    // Parse a "PreviewPieces=" FBI value into a lowercase set of piece names
+    // that should be the *only* pieces visible in the nanoframe preview.
+    // Empty / unset → no whitelist (fall back to ephemeral-effect filter).
+    // Separator: any combination of whitespace, commas, semicolons. Names
+    // are case-folded so the FBI author can write either case.
+    std::unordered_set<std::string> ParsePreviewPiecesWhitelist(const std::string& s)
+    {
+        std::unordered_set<std::string> out;
+        std::string token;
+        auto flush = [&]() {
+            if (!token.empty()) {
+                for (char& c : token) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+                out.insert(std::move(token));
+                token.clear();
+            }
+        };
+        for (char c : s) {
+            if (c == ' ' || c == '\t' || c == ',' || c == ';' || c == '\r' || c == '\n')
+                flush();
+            else
+                token.push_back(c);
+        }
+        flush();
+        return out;
+    }
+
     struct ProjVert { int sx, sy; int depth; };
 
     inline void RasterEdge(unsigned char* dst,
@@ -347,6 +448,38 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
         return nullptr;
     }
 
+    // FBI-driven piece whitelist: when the mod author has set
+    // PreviewPieces= (or one of the per-rotation overrides
+    // PreviewPiecesS/E/N/W=), ONLY listed pieces are rendered (everything
+    // else is hidden). Empty / unset → no whitelist, fall back to the
+    // hardcoded ephemeral filter for cosmetic pieces (flare/flash/etc.).
+    //
+    // Lookup order for the active rotation:
+    //   1. PreviewPieces<rot>=<list>   (S=0, E=1, N=2, W=3)
+    //   2. PreviewPieces=<list>        (default for every rotation)
+    //   3. nothing                     (use ephemeral filter)
+    //
+    // Useful for upgrade-style units whose 3DO model contains pieces
+    // that the COB script hides at runtime (e.g. bundled basic and
+    // upgraded geometry), and for units whose pieces differ visually
+    // by facing.
+    UnitDefExtensions* ude = UnitDefExtensions::GetInstance();
+    const std::string* whitelistSrc = nullptr;
+    if (g_previewPiecesByRotKeyIdx[rotation] != 0)
+    {
+        const std::string& s = ude->getString(unitInfoIdx, g_previewPiecesByRotKeyIdx[rotation]);
+        if (!s.empty()) whitelistSrc = &s;
+    }
+    if (!whitelistSrc && g_previewPiecesKeyIdx != 0)
+    {
+        const std::string& s = ude->getString(unitInfoIdx, g_previewPiecesKeyIdx);
+        if (!s.empty()) whitelistSrc = &s;
+    }
+    const std::unordered_set<std::string> previewWhitelist =
+        whitelistSrc ? ParsePreviewPiecesWhitelist(*whitelistSrc)
+                     : std::unordered_set<std::string>{};
+    const bool hasWhitelist = !previewWhitelist.empty();
+
     // -------- Pass 1: traverse, project, classify, collect faces + edges.
     struct StashedFace { std::vector<ProjVert> verts; };
     struct StashedEdge { ProjVert a, b; };
@@ -393,10 +526,26 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
             int pieceOrigY = f.origY + ofsY;
             int pieceOrigZ = f.origZ + rOfsZ;
 
-            // Skip cosmetic / firing-effect pieces (flare, flash, muzzle, etc.).
-            // Children of this piece are still walked — a sibling/child piece
-            // is independently visible in TA's COB model.
-            const bool skipFaces = IsEphemeralEffectPieceName(node->pNameStr);
+            // Per-piece visibility for the preview:
+            //   - If the FBI sets PreviewPieces=, render ONLY pieces in that
+            //     whitelist (case-insensitive match against pNameStr).
+            //   - Otherwise, render every piece except the hard-coded
+            //     ephemeral-effect names (flare/flash/muzzle/fire/flame/wake).
+            // Children of a skipped piece are still walked — a sibling/child
+            // piece is independently visible in TA's COB model.
+            bool skipFaces;
+            if (hasWhitelist) {
+                if (!node->pNameStr) {
+                    skipFaces = true;
+                } else {
+                    char lowered[64] = {0};
+                    for (int i = 0; i < 63 && node->pNameStr[i]; ++i)
+                        lowered[i] = static_cast<char>(::tolower(static_cast<unsigned char>(node->pNameStr[i])));
+                    skipFaces = (previewWhitelist.find(lowered) == previewWhitelist.end());
+                }
+            } else {
+                skipFaces = IsEphemeralEffectPieceName(node->pNameStr);
+            }
 
             if (!skipFaces && vertCount > 0 && vertArray && faceCount > 0 && faceArray)
             {
@@ -650,6 +799,107 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     int elev = static_cast<int>(ta->CircleSelect_Pos1TAz);
     int centreX = (p1x + p2x) / 2;
     int centreY = (p1y + p2y) / 2;
+
+    // PreviewFaceOpponent=1 — override rotation to face the nearest enemy
+    // commander's current location, snapped to the nearest cardinal
+    // {S=0, E=1, N=2, W=3}. For units whose Create() script auto-rotates
+    // the body toward the nearest enemy commander, this keeps the
+    // preview consistent with the script's final heading instead of
+    // showing the unit at its default southern facing.
+    //
+    // We look up each enemy player's first slot in their Units array as
+    // a stand-in for the commander — in normal play the commander is
+    // always Units[0], and the rare edge case (commander died, slot
+    // recycled) just means the preview falls back to whichever unit got
+    // the first slot, which is still close enough for a cardinal snap.
+    //
+    // INFO LEAK MITIGATION: only apply the override when the build cursor
+    // is within the selected builder's own builddistance. Without this
+    // gate a player could wave the build cursor across fog of war and
+    // triangulate the nearest enemy commander's position from how the
+    // preview rotates. Tying the radius to each builder's builddistance
+    // means genuine builds always benefit from the orientation hint
+    // (since you only place there if the unit can reach), while remote
+    // scans get no signal.
+    //
+    // The Rotations= gate is bypassed: setting PreviewFaceOpponent is the
+    // FBI author's explicit signal that this unit's heading is script-
+    // driven, not player-controlled.
+    //
+    // Falls back to the user's rotation if no enemy commander is found
+    // (single-player, all enemies dead, etc.) or if the cursor is too
+    // far from any selected builder.
+    if (g_previewFaceOpponentKeyIdx != 0
+        && UnitDefExtensions::GetInstance()->getInt(buildIdx, g_previewFaceOpponentKeyIdx) != 0)
+    {
+        int myIdx = ta->LocalHumanPlayer_PlayerID;
+        if (myIdx >= 0 && myIdx < 10)
+        {
+            PlayerStruct* me = &ta->Players[myIdx];
+
+            // At least one selected, completed local unit must have the
+            // cursor inside its own builddistance for the override to
+            // apply. Each unit gets its own threshold from UnitType.
+            bool cursorNearBuilder = false;
+            if (me->Units && me->UnitsAry_End)
+            {
+                for (UnitStruct* u = me->Units; u < me->UnitsAry_End; ++u)
+                {
+                    if (!u->IsUnit || u->UnitID <= 0) continue;
+                    if (!(u->UnitSelected & 0x10)) continue;       // not selected
+                    if (u->Nanoframe != 0.0f) continue;            // still being built
+                    if (!u->UnitType) continue;
+                    long long radius   = static_cast<long long>(u->UnitType->builddistance);
+                    if (radius <= 0) continue;                     // not a builder
+                    long long radiusSq = radius * radius;
+                    long long dx = static_cast<long long>(u->XPos) - centreX;
+                    long long dy = static_cast<long long>(u->YPos) - centreY;
+                    if (dx * dx + dy * dy <= radiusSq)
+                    {
+                        cursorNearBuilder = true;
+                        break;
+                    }
+                }
+            }
+
+            if (cursorNearBuilder)
+            {
+                long long bestDsq    = LLONG_MAX;
+                int       bestDx     = 0;
+                int       bestDy     = 0;
+                bool      foundEnemy = false;
+                for (int i = 0; i < 10; ++i)
+                {
+                    if (i == myIdx) continue;
+                    PlayerStruct* other = &ta->Players[i];
+                    if (!other->PlayerActive) continue;
+                    if (other->PlayerInfo
+                        && (other->PlayerInfo->PropertyMask & PlayerPropertyMask::WATCH)) continue;
+                    if (me->AllyFlagAry[i]) continue;             // skip allies (from my POV)
+                    UnitStruct* cmdr = other->Units;
+                    if (!cmdr) continue;
+                    if (!cmdr->IsUnit || cmdr->UnitID <= 0) continue;
+                    long long dx = static_cast<long long>(cmdr->XPos) - centreX;
+                    long long dy = static_cast<long long>(cmdr->YPos) - centreY;
+                    long long dsq = dx * dx + dy * dy;
+                    if (dsq < bestDsq)
+                    {
+                        bestDsq    = dsq;
+                        bestDx     = static_cast<int>(dx);
+                        bestDy     = static_cast<int>(dy);
+                        foundEnemy = true;
+                    }
+                }
+                if (foundEnemy)
+                {
+                    if (std::abs(bestDx) > std::abs(bestDy))
+                        rotation = bestDx > 0 ? 1 : 3;   // east / west
+                    else
+                        rotation = bestDy > 0 ? 0 : 2;   // south / north
+                }
+            }
+        }
+    }
     int cx = (centreX - ta->EyeBallMapXPos) + 128;
     int cy = (centreY - ta->EyeBallMapYPos) + 32 - (elev / 2);
 

@@ -29,6 +29,7 @@ using namespace std;
 #include "MultiplayerSchemaUnits.h"
 #include "UnitDefExtensions.h"
 #include "unitrotate.h"
+#include "buildghost.h"
 #include "VeterancyHack.h"
 #include "NotToAir.h"
 #include "SurfaceFire.h"
@@ -200,6 +201,10 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
 		CUnitRotate::RegisterUnitDefKeys();
+		CBuildGhost::RegisterUnitDefKeys();
+		// Eager-construct so the DrawGameScreen inline hook is
+		// installed before TA renders the first frame.
+		CBuildGhost::GetInstance();
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
 		SurfaceFire::Install();

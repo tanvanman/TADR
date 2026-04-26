@@ -2,8 +2,11 @@
 #define buildghostH
 
 #include <Windows.h>
+#include <memory>
 #include <unordered_map>
 #include <vector>
+
+class SingleHook;
 
 // =============================================================================
 // Build-cursor "ghost" rendering mode — chosen at compile time. Override by
@@ -48,6 +51,16 @@ public:
     // teardown. Caller gets a pointer (never null) to match the old API so
     // existing null-check sites keep working unchanged.
     static CBuildGhost* GetInstance();
+
+    // Register FBI keys with UnitDefExtensions. Called from ddraw init
+    // alongside CUnitRotate::RegisterUnitDefKeys, BEFORE TA loads unit defs.
+    // Currently registers "PreviewPieces" — a comma/space-separated list of
+    // 3DO piece names that should be the only pieces shown in the nanoframe
+    // ghost. Empty / unset means "show every piece (minus the hardcoded
+    // ephemeral filter)". Useful when the 3DO model contains pieces that
+    // the COB script hides at runtime (e.g. upgrade-style units where the
+    // model bundles both basic and upgraded geometry).
+    static void RegisterUnitDefKeys();
 
     CBuildGhost(const CBuildGhost&) = delete;
     CBuildGhost& operator=(const CBuildGhost&) = delete;
@@ -122,6 +135,8 @@ private:
     void WriteRotateKeyDiscovered();
 
     bool m_rotateBuildKeyDiscovered = false;
+
+    std::vector<std::shared_ptr<SingleHook>> m_hooks;
 
 #if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
     const NanoframeSprite3D* GetNanoframeSprite3D(unsigned unitInfoIdx, int rotation);

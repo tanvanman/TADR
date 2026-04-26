@@ -152,6 +152,13 @@ class CTAHook
 	static int GetMaxWreckSnapRadius();
 
 	BOOL IsLineBuilding (void);
+
+	// Called from CBuildGhost's inline hook inside DrawGameScreen, at the
+	// join point past the native build-rect draw. Centralising the
+	// drag-build / mex-snap rect renders here puts them at the same
+	// pipeline stage as the native rect (and the cursor ghost), so GUI
+	// dialogs / menus drawn after composite on top correctly.
+	void DrawBuildOverlays();
 	void VisualizeRow_ForME_megamap (OFFSCREEN * argc);
 	bool IsWreckSnapping();
 	bool IsMexSnapping();
