@@ -19,7 +19,7 @@ class Widget;
 
 #define ROW_HEIGHT 18
 #define ROW(n) (n*ROW_HEIGHT + ROW_HEIGHT/2 - 1)
-#define DialogHeight (14*ROW_HEIGHT)
+#define DialogHeight (15*ROW_HEIGHT)
 #define DialogWidth 382
 
 class Dialog : public DialogBase
@@ -61,6 +61,11 @@ public:
 	// Default VK_OEM_2 ('/'). Read by CUnitRotate::Message.
 	int GetRotateBuildKey();
 
+	// True if the user wants the build-cursor ghost rendered as visible-edges
+	// only, with a transparent fill (so the ground/units behind show through).
+	// Read by CBuildGhost::RenderGhostAtCurrentBuildSpot.
+	bool GetEdgesOnlyBuildPreview();
+
   private:
 	// all widgets
 	// (m_widgets vector is inherited from DialogBase)
@@ -71,6 +76,7 @@ public:
 	std::shared_ptr <VirtualKeyField> m_whiteboardVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_megaMapVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_rotateBuildVirtualKeyField;
+	std::shared_ptr <Button>          m_edgesOnlyBuildPreviewButton;
 	std::shared_ptr <IntegerField> m_mexSnapRadiusIntegerField;
 	std::shared_ptr <IntegerField> m_wreckSnapRadiusIntegerField;
 	std::shared_ptr <TextField> m_chatMacroTextField;

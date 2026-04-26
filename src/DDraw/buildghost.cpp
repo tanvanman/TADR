@@ -8,6 +8,7 @@
 #include "tamem.h"
 #include "hook/etc.h"
 
+#include <cctype>
 #include <climits>
 #include <cstdint>
 #include <cstdio>
@@ -62,10 +63,8 @@ CBuildGhost* CBuildGhost::GetInstance()
 CBuildGhost::CBuildGhost()
 {
     ReadRotateKeyDiscovered();
-#if   TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_RECT
+#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_RECT
     IDDrawSurface::OutptTxt("[BuildGhost] mode=RECT (no model preview)");
-#elif TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIREFRAME
-    IDDrawSurface::OutptTxt("[BuildGhost] mode=WIREFRAME");
 #elif TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
     IDDrawSurface::OutptTxt("[BuildGhost] mode=FULL3D");
 #endif
@@ -120,10 +119,9 @@ void CBuildGhost::SetRotateKeyDiscovered()
 }
 
 // =============================================================================
-// Shared 3DO helpers (WIREFRAME and FULL3D)
+// 3DO helpers (FULL3D only)
 // =============================================================================
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIREFRAME || \
-    TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
 
 namespace
 {
@@ -185,268 +183,6 @@ namespace
 }
 #endif // shared
 
-// =============================================================================
-// WIREFRAME mode
-// =============================================================================
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIREFRAME
-namespace
-{
-    struct PieceFrame
-    {
-        Model3DONode* node;
-        int origX_fxp, origY_fxp, origZ_fxp;
-    };
-
-    inline uint64_t EdgeKey(short x1, short y1, short x2, short y2)
-    {
-        if (y1 > y2 || (y1 == y2 && x1 > x2))
-        {
-            short t;
-            t = x1; x1 = x2; x2 = t;
-            t = y1; y1 = y2; y2 = t;
-        }
-        return (static_cast<uint64_t>(static_cast<uint16_t>(x1)) << 48)
-             | (static_cast<uint64_t>(static_cast<uint16_t>(y1)) << 32)
-             | (static_cast<uint64_t>(static_cast<uint16_t>(x2)) << 16)
-             | (static_cast<uint64_t>(static_cast<uint16_t>(y2)));
-    }
-
-    void BuildEdgeList(Model3DONode* rootNode, int rotation,
-                       std::vector<CBuildGhost::Line2D>& out)
-    {
-        if (!rootNode) return;
-        std::vector<short> sx, sy;
-        std::vector<PieceFrame> stack;
-        stack.reserve(32);
-        stack.push_back({ rootNode, 0, 0, 0 });
-
-        std::unordered_set<uint64_t> seenEdges;
-        seenEdges.reserve(512);
-
-        while (!stack.empty())
-        {
-            PieceFrame f = stack.back();
-            stack.pop_back();
-            if (!f.node) continue;
-
-            for (Model3DONode* node = f.node; node; )
-            {
-                int vertCount             = node->VertexCount;
-                int faceCount             = node->FaceCount;
-                int ofsX                  = node->OffsetX;
-                int ofsY                  = node->OffsetY;
-                int ofsZ                  = node->OffsetZ;
-                int* vertArray            = node->pVertexArray;
-                Model3DOFace* faceArray   = node->pFaceArray;
-                Model3DONode* child       = node->pChild;
-                Model3DONode* sibling     = node->pSibling;
-
-                int rOfsX = ofsX, rOfsZ = ofsZ;
-                RotateXZ(rOfsX, rOfsZ, rotation);
-                int pieceOrigX = f.origX_fxp + rOfsX;
-                int pieceOrigY = f.origY_fxp + ofsY;
-                int pieceOrigZ = f.origZ_fxp + rOfsZ;
-
-                if (vertCount > 0 && vertArray)
-                {
-                    if (static_cast<int>(sx.size()) < vertCount)
-                    {
-                        sx.resize(vertCount);
-                        sy.resize(vertCount);
-                    }
-                    for (int v = 0; v < vertCount; ++v)
-                    {
-                        int vx = vertArray[v * 3 + 0];
-                        int vy = vertArray[v * 3 + 1];
-                        int vz = vertArray[v * 3 + 2];
-                        int rx = vx, rz = vz;
-                        RotateXZ(rx, rz, rotation);
-                        int wx = pieceOrigX + rx;
-                        int wy = pieceOrigY + vy;
-                        int wz = pieceOrigZ + rz;
-                        int psx, psy;
-                        ProjectToScreen(wx, wy, wz, psx, psy);
-                        sx[v] = static_cast<short>(psx);
-                        sy[v] = static_cast<short>(psy);
-                    }
-
-                    // Silhouette-only emit.
-                    if (faceCount > 0 && faceArray)
-                    {
-                        struct EdgeAdj { unsigned char frontCount, backCount; };
-                        std::unordered_map<unsigned, EdgeAdj> pieceEdges;
-                        pieceEdges.reserve(faceCount * 3);
-
-                        for (int fi = 0; fi < faceCount; ++fi)
-                        {
-                            Model3DOFace& face = faceArray[fi];
-                            int fVertCount = face.VertexCount;
-                            unsigned short* idx = face.pVertexIndices;
-                            if (fVertCount < 2 || !idx) continue;
-
-                            bool isFront;
-                            if (fVertCount < 3) isFront = true;
-                            else
-                            {
-                                long long area2 = 0;
-                                bool valid = true;
-                                for (int i = 0; i < fVertCount; ++i)
-                                {
-                                    int a = idx[i];
-                                    int b = idx[(i + 1) % fVertCount];
-                                    if (a >= vertCount || b >= vertCount) { valid = false; break; }
-                                    area2 += (long long)sx[a] * sy[b]
-                                           - (long long)sx[b] * sy[a];
-                                }
-                                if (!valid) continue;
-                                isFront = (area2 > 0);
-                            }
-
-                            for (int i = 0; i < fVertCount; ++i)
-                            {
-                                int a = idx[i];
-                                int b = idx[(i + 1) % fVertCount];
-                                if (a >= vertCount || b >= vertCount) continue;
-                                unsigned lo = static_cast<unsigned>(a < b ? a : b);
-                                unsigned hi = static_cast<unsigned>(a < b ? b : a);
-                                unsigned key = (hi << 16) | lo;
-                                EdgeAdj& adj = pieceEdges[key];
-                                if (isFront) { if (adj.frontCount < 255) ++adj.frontCount; }
-                                else         { if (adj.backCount  < 255) ++adj.backCount; }
-                            }
-                        }
-
-                        for (const auto& kv : pieceEdges)
-                        {
-                            unsigned key = kv.first;
-                            const EdgeAdj& adj = kv.second;
-                            unsigned lo = key & 0xFFFFu;
-                            unsigned hi = key >> 16;
-                            if (lo >= (unsigned)vertCount || hi >= (unsigned)vertCount) continue;
-                            bool silhouette = (adj.frontCount >= 1 && adj.backCount >= 1);
-                            if (!silhouette) continue;
-                            uint64_t ck = EdgeKey(sx[lo], sy[lo], sx[hi], sy[hi]);
-                            if (!seenEdges.insert(ck).second) continue;
-                            CBuildGhost::Line2D ln = { sx[lo], sy[lo], sx[hi], sy[hi] };
-                            out.push_back(ln);
-                        }
-                    }
-                }
-
-                if (child)
-                {
-                    PieceFrame childFrame;
-                    childFrame.node = child;
-                    childFrame.origX_fxp = pieceOrigX;
-                    childFrame.origY_fxp = pieceOrigY;
-                    childFrame.origZ_fxp = pieceOrigZ;
-                    stack.push_back(childFrame);
-                }
-                node = sibling;
-            }
-        }
-    }
-
-    // Bresenham line into 8bpp pixel buffer. No clipping (caller bounds).
-    void RasterizeLine(unsigned char* pixels, int stride,
-                       int x0, int y0, int x1, int y1,
-                       unsigned char color)
-    {
-        int dx =  std::abs(x1 - x0);
-        int dy = -std::abs(y1 - y0);
-        int sx = x0 < x1 ? 1 : -1;
-        int sy = y0 < y1 ? 1 : -1;
-        int err = dx + dy;
-        for (;;)
-        {
-            pixels[y0 * stride + x0] = color;
-            if (x0 == x1 && y0 == y1) break;
-            int e2 = 2 * err;
-            if (e2 >= dy) { err += dy; x0 += sx; }
-            if (e2 <= dx) { err += dx; y0 += sy; }
-        }
-    }
-}
-
-const CBuildGhost::NanoframeSprite* CBuildGhost::GetNanoframeSprite(
-    unsigned unitInfoIdx, int rotation)
-{
-    rotation &= 3;
-    unsigned key = (unitInfoIdx << 2) | rotation;
-
-    auto it = m_nanoframeCache.find(key);
-    if (it != m_nanoframeCache.end())
-        return it->second.frame.Width == 0 ? nullptr : &it->second;
-
-    TAdynmemStruct* ta = GetTA();
-    if (!ta || !ta->MODEL_PTRS) return nullptr;
-    Model3DONode* rootNode = ta->MODEL_PTRS[unitInfoIdx];
-    if (!rootNode)
-    {
-        m_nanoframeCache[key] = NanoframeSprite{};
-        return nullptr;
-    }
-
-    std::vector<Line2D> edges;
-    edges.reserve(256);
-    BuildEdgeList(rootNode, rotation, edges);
-    if (edges.empty())
-    {
-        m_nanoframeCache[key] = NanoframeSprite{};
-        return nullptr;
-    }
-
-    short minX = SHRT_MAX, maxX = SHRT_MIN;
-    short minY = SHRT_MAX, maxY = SHRT_MIN;
-    for (const Line2D& ln : edges)
-    {
-        if (ln.x1 < minX) minX = ln.x1; if (ln.x1 > maxX) maxX = ln.x1;
-        if (ln.x2 < minX) minX = ln.x2; if (ln.x2 > maxX) maxX = ln.x2;
-        if (ln.y1 < minY) minY = ln.y1; if (ln.y1 > maxY) maxY = ln.y1;
-        if (ln.y2 < minY) minY = ln.y2; if (ln.y2 > maxY) maxY = ln.y2;
-    }
-
-    int w = maxX - minX + 1;
-    int h = maxY - minY + 1;
-    if (w <= 0 || h <= 0 || w > 1024 || h > 1024)
-    {
-        m_nanoframeCache[key] = NanoframeSprite{};
-        return nullptr;
-    }
-
-    NanoframeSprite& out = m_nanoframeCache[key];
-    out.pixels.assign(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
-
-    const unsigned char kColorKey  = 0;
-    const unsigned char kLineColor = 234;
-
-    for (const Line2D& ln : edges)
-    {
-        int x0 = ln.x1 - minX;
-        int y0 = ln.y1 - minY;
-        int x1 = ln.x2 - minX;
-        int y1 = ln.y2 - minY;
-        RasterizeLine(out.pixels.data(), w, x0, y0, x1, y1, kLineColor);
-    }
-
-    out.frame.Width        = static_cast<unsigned short>(w);
-    out.frame.Height       = static_cast<unsigned short>(h);
-    out.frame.HotspotX     = static_cast<short>(-minX);
-    out.frame.HotspotY     = static_cast<short>(-minY);
-    out.frame.ColorKey     = kColorKey;
-    out.frame.Compressed   = 0;
-    out.frame.SubFrames    = 0;
-    out.frame.AlphaBlend   = 0;
-    out.frame.Unknown_0C   = 0;
-    out.frame.PtrFrameBits = out.pixels.data();
-    out.frame.Bits2_Ptr    = nullptr;
-
-    IDDrawSurface::OutptFmtTxt(
-        "[BuildGhost-WIRE] cached %dx%d (%u edges) typeIdx=%u rot=%d",
-        w, h, (unsigned)edges.size(), unitInfoIdx, rotation);
-    return &out;
-}
-#endif // WIREFRAME
 
 // =============================================================================
 // FULL3D mode
@@ -454,6 +190,30 @@ const CBuildGhost::NanoframeSprite* CBuildGhost::GetNanoframeSprite(
 #if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
 namespace
 {
+    // Skip-the-faces test for cosmetic / ephemeral pieces. Match TA's COB
+    // Create() convention: pieces whose names contain these substrings are
+    // typically hidden at unit creation and only briefly Show()n during a
+    // fire / death script. Includes muzzle flares ("flare", "flarea"…),
+    // muzzle flashes ("flash", "mlasflsh", "rbigflash"), firing-point
+    // markers ("lfirept", "rfire"…), engine flame trails ("flame1"…), and
+    // water wakes ("wake1", "wake2"). Sampled across ProTA48 scripts —
+    // no actual body part of any unit shares these substrings, so the
+    // false-positive risk is low. Children of a skipped piece are still
+    // traversed (a child piece is independently visible in TA's COB model).
+    inline bool IsEphemeralEffectPieceName(const char* name)
+    {
+        if (!name) return false;
+        char lower[64] = {0};
+        for (int i = 0; i < 63 && name[i]; ++i)
+            lower[i] = static_cast<char>(::tolower(static_cast<unsigned char>(name[i])));
+        return std::strstr(lower, "flare") ||
+               std::strstr(lower, "flash") ||
+               std::strstr(lower, "muzzle") ||
+               std::strstr(lower, "fire")  ||
+               std::strstr(lower, "flame") ||
+               std::strstr(lower, "wake");
+    }
+
     struct ProjVert { int sx, sy; int depth; };
 
     inline void RasterEdge(unsigned char* dst,
@@ -633,7 +393,12 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
             int pieceOrigY = f.origY + ofsY;
             int pieceOrigZ = f.origZ + rOfsZ;
 
-            if (vertCount > 0 && vertArray && faceCount > 0 && faceArray)
+            // Skip cosmetic / firing-effect pieces (flare, flash, muzzle, etc.).
+            // Children of this piece are still walked — a sibling/child piece
+            // is independently visible in TA's COB model.
+            const bool skipFaces = IsEphemeralEffectPieceName(node->pNameStr);
+
+            if (!skipFaces && vertCount > 0 && vertArray && faceCount > 0 && faceArray)
             {
                 projVx.resize(vertCount);
                 projVy.resize(vertCount);
@@ -815,51 +580,23 @@ void CBuildGhost::RenderNanoframeGhost()
 #if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_RECT
     return;
 
-#elif TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIREFRAME
+#elif TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+    // Suppress the cursor ghost when the mouse is outside the game area
+    // (e.g. hovering the build menu after a right-click cancel + reselect).
+    // CircleSelect_Pos1/Pos2 still hold the last in-game build spot at this
+    // point, but the engine's DrawTranspRectangle is correctly gated by
+    // IsPositionInRect(GameSreen_Rect, CurtMousePostion), and we mirror
+    // that gating here so we don't draw a ghost where no rect exists.
     TAdynmemStruct* ta = GetTA();
-    if (!ta) return;
-    if (ta->PrepareOrder_Type != ordertype::BUILD) return;
-
-    unsigned buildIdx = static_cast<unsigned>(ta->BuildUnitID);
-    if (buildIdx == 0) return;
-
-    UnitDefStruct* ui = GetUnitDef(buildIdx);
-    if (!ui) return;
-    if (ui->bmcode != 0) return;
-
-    const RECT& gs = ta->GameSreen_Rect;
-    int mapX = ta->MouseMapPos.X;
-    int mapY = ta->MouseMapPos.Y;
-    int mapZ = ta->MouseMapPos.Z;
-
-    int rotation = 0;
-    if (CUnitRotate* rot = CUnitRotate::GetInstance())
+    if (ta)
     {
-        rotation = rot->GetRotation() & 3;
-        if (!rot->IsRotationAllowed(buildIdx, rotation)) rotation = 0;
+        const RECT& gs = ta->GameSreen_Rect;
+        long mx = ta->CurtMousePostion.x;
+        long my = ta->CurtMousePostion.y;
+        if (mx < gs.left || mx >= gs.right || my < gs.top || my >= gs.bottom)
+            return;
     }
 
-    short footX = ui->FootX;
-    short footY = ui->FootY;
-    if ((rotation & 1) == 1) { short t = footX; footX = footY; footY = t; }
-
-    int snappedX = (footX & 1) ? ((mapX / 16) * 16 + 8) : (((mapX + 8) / 16) * 16);
-    int snappedY = (footY & 1) ? ((mapY / 16) * 16 + 8) : (((mapY + 8) / 16) * 16);
-    int cx = (snappedX - ta->EyeBallMapXPos) + 128;
-    int cy = (snappedY - ta->EyeBallMapYPos) + 32 - (mapZ / 2);
-    if (cx < gs.left || cx >= gs.right || cy < gs.top || cy >= gs.bottom) return;
-
-    const NanoframeSprite* sprite = GetNanoframeSprite(buildIdx, rotation);
-    if (!sprite) return;
-
-    OFFSCREEN off;
-    memset(&off, 0, sizeof(off));
-    if (!kFn_LockAttackSurface(&off)) return;
-    off.ScreenRect = gs;
-    kFn_CopyGafToContext(&off, &sprite->frame, cx, cy);
-    kFn_UnlockAttackedSurface(&off);
-
-#elif TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
     // When CTAHook is in line-build mode, VisualizeRow's per-position
     // loop drives RenderGhostAtCurrentBuildSpot directly; skip the
     // cursor render here to avoid double-blit at the trailing line slot
@@ -959,29 +696,48 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     if (!kFn_LockAttackSurface(&off)) return;
     off.ScreenRect = gs;
 
-    GhostGAFFrame fillFrame = sprite->frame;
-    fillFrame.PtrFrameBits = fillScratch.data();
-    kFn_CopyGafToContext(&off, &fillFrame, cx, cy);
+    // The Ctrl-F2 "Edges-only build preview" toggle suppresses the filled
+    // silhouette so the player sees only the visible-edge wireframe over the
+    // ground/units behind. Edges still get drawn as normal.
+    bool edgesOnly = false;
+    if (LocalShare && LocalShare->Dialog)
+        edgesOnly = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetEdgesOnlyBuildPreview();
+
+    if (!edgesOnly)
+    {
+        GhostGAFFrame fillFrame = sprite->frame;
+        fillFrame.PtrFrameBits = fillScratch.data();
+        kFn_CopyGafToContext(&off, &fillFrame, cx, cy);
+    }
 
     GhostGAFFrame edgeFrame = sprite->frame;
     edgeFrame.PtrFrameBits = edgeScratch.data();
     edgeFrame.Bits2_Ptr    = nullptr;
     kFn_CopyGafToContext(&off, &edgeFrame, cx, cy);
 
-    // First-use tutorial tip: "Press <key> to rotate" centred just above
-    // the build rectangle. Shown only at the cursor (not at each line-build
-    // slot — that would be spammy) until the player first cycles rotation.
+    // First-use tutorial tip centred just above the build rectangle.
+    // Shown only at the cursor (not at each line-build slot — that would be
+    // spammy) until the player first cycles rotation by EITHER input path
+    // (TryCycleRotation flips m_rotateBuildKeyDiscovered regardless of which
+    // path triggered it).
     if (showNag && !m_rotateBuildKeyDiscovered && allowedCount >= 2)
     {
         int rotateKey = VK_OEM_2;
+        int snapOverrideKey = VK_MENU;
         if (LocalShare && LocalShare->Dialog)
-            rotateKey = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetRotateBuildKey();
+        {
+            Dialog* dialog = reinterpret_cast<Dialog*>(LocalShare->Dialog);
+            rotateKey       = dialog->GetRotateBuildKey();
+            snapOverrideKey = dialog->GetClickSnapOverrideKey();
+        }
 
         char keyName[32] = {0};
-        vkToStr(rotateKey, keyName, sizeof(keyName));
+        char snapName[32] = {0};
+        vkToStr(rotateKey,       keyName,  sizeof(keyName));
+        vkToStr(snapOverrideKey, snapName, sizeof(snapName));
 
-        char tip[96];
-        sprintf_s(tip, "Press %s to rotate", keyName);
+        char tip[128];
+        sprintf_s(tip, "Press %s, or %s+wheel, to rotate", keyName, snapName);
 
         TAProgramStruct* programPtr = *reinterpret_cast<TAProgramStruct**>(0x0051fbd0);
         programPtr->fontHandle      = reinterpret_cast<unsigned char*>(ta->COMIXFontHandle);

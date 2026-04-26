@@ -66,36 +66,40 @@ Dialog::Dialog(BOOL Vidmem_a)
 	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(4), "Rotate Build Key"));
 	m_widgets.push_back(m_rotateBuildVirtualKeyField = std::make_shared<VirtualKeyField>(COL1, ROW(4), 50, ROW_HEIGHT, VK_OEM_2, "RotateBuildKey"));
 
-	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(5), "PATROLLING CONSTRUCTION UNITS"));
+	m_widgets.push_back(m_edgesOnlyBuildPreviewButton = std::make_shared<Button>(COL0, ROW(5), lpCheckBox,
+		0, 2, false, std::vector<std::string>(), "EdgesOnlyBuildPreview", std::function<void(int)>()));
+	m_widgets.push_back(std::make_shared<Label>(COL0 + m_edgesOnlyBuildPreviewButton->m_width + 4, ROW(5), "Edges-only build preview"));
+
+	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(6), "PATROLLING CONSTRUCTION UNITS"));
 #if PATROLING_CONS_RECLAIM_OR_ASSIST_ENABLE
-	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(6), "Hold Pos"));
-	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(7), "Maneuver"));
-	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(8), "Roam"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(7), "Hold Pos"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(8), "Maneuver"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(9), "Roam"));
 	static const std::vector<std::string> patrolButtonLabels({ "Reclaim Only", "Both", "Assist Only" });
-	m_widgets.push_back(m_conUnitPatrolHoldPosButton = std::make_shared<Button>(COL0c, ROW(6), lpStagedButton3,
+	m_widgets.push_back(m_conUnitPatrolHoldPosButton = std::make_shared<Button>(COL0c, ROW(7), lpStagedButton3,
 		RECLAIM_ONLY, 3, true, patrolButtonLabels, "ConUnitsPatrolHoldPosOption"));
-	m_widgets.push_back(m_conUnitPatrolManeuverButton = std::make_shared<Button>(COL0c, ROW(7), lpStagedButton3,
+	m_widgets.push_back(m_conUnitPatrolManeuverButton = std::make_shared<Button>(COL0c, ROW(8), lpStagedButton3,
 		RECLAIM_AND_ASSIST, 3, true, patrolButtonLabels, "ConUnitsPatrolManeuverOption"));
-	m_widgets.push_back(m_conUnitPatrolRoamButton = std::make_shared<Button>(COL0c, ROW(8), lpStagedButton3,
+	m_widgets.push_back(m_conUnitPatrolRoamButton = std::make_shared<Button>(COL0c, ROW(9), lpStagedButton3,
 		RECLAIM_AND_ASSIST, 3, true, patrolButtonLabels, "ConUnitsPatrolRoamOption"));
 #else
-	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(6), "Options not available"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(7), "Options not available"));
 #endif
 
-	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(9), "GUARDING CONSTRUCTION UNITS"));
+	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(10), "GUARDING CONSTRUCTION UNITS"));
 #if FIXED_POSN_GUARDING_CONS_ENABLE
-	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(10), "Hold Pos"));
-	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(11), "Maneuver"));
-	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(12), "Roam"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(11), "Hold Pos"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(12), "Maneuver"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(13), "Roam"));
 	static const std::vector<std::string> guardButtonLabels({ "Stay", "Cavedog", "Scatter" });
-	m_widgets.push_back(m_conUnitGuardHoldPosButton = std::make_shared<Button>(COL0c, ROW(10), lpStagedButton3,
+	m_widgets.push_back(m_conUnitGuardHoldPosButton = std::make_shared<Button>(COL0c, ROW(11), lpStagedButton3,
 		CAVEDOG, 3, true, guardButtonLabels, "ConUnitsGuardHoldPosOption"));
-	m_widgets.push_back(m_conUnitGuardManeuverButton = std::make_shared<Button>(COL0c, ROW(11), lpStagedButton3,
+	m_widgets.push_back(m_conUnitGuardManeuverButton = std::make_shared<Button>(COL0c, ROW(12), lpStagedButton3,
 		CAVEDOG, 3, true, guardButtonLabels, "ConUnitsGuardManeuverOption"));
-	m_widgets.push_back(m_conUnitGuardRoamButton = std::make_shared<Button>(COL0c, ROW(12), lpStagedButton3,
+	m_widgets.push_back(m_conUnitGuardRoamButton = std::make_shared<Button>(COL0c, ROW(13), lpStagedButton3,
 		CAVEDOG, 3, true, guardButtonLabels, "ConUnitsGuardRoamOption"));
 #else
-	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(10), "Options not available"));
+	m_widgets.push_back(std::make_shared<Label>(COL0b, ROW(11), "Options not available"));
 #endif
 
 	// column 2, 3, 4
@@ -135,11 +139,11 @@ Dialog::Dialog(BOOL Vidmem_a)
 	m_widgets.push_back(std::make_shared<Label>(COL2 + m_enableFullRingsButton->m_width + 4, ROW(11), "Enable FullRings"));
 #endif
 
-	m_widgets.push_back(m_vsyncButton = std::make_shared<Button>(COL2, ROW(12), lpCheckBox,
+	m_widgets.push_back(m_vsyncButton = std::make_shared<Button>(COL2, ROW(13), lpCheckBox,
 		0, 2, false, std::vector<std::string>(), "VSync"));
-	m_widgets.push_back(std::make_shared<Label>(COL2 + m_vsyncButton->m_width + 4, ROW(12), "VSync"));
+	m_widgets.push_back(std::make_shared<Label>(COL2 + m_vsyncButton->m_width + 4, ROW(13), "VSync"));
 
-	m_widgets.push_back(m_okButton = std::make_shared<Button>(COL3-16, ROW(12), lpOKButton,
+	m_widgets.push_back(m_okButton = std::make_shared<Button>(COL3-16, ROW(13), lpOKButton,
 		0, 1, true, std::vector<std::string>(), "",
 		[this](int)
 	{
@@ -291,6 +295,11 @@ int Dialog::GetClickSnapOverrideKey()
 int Dialog::GetRotateBuildKey()
 {
 	return m_rotateBuildVirtualKeyField ? m_rotateBuildVirtualKeyField->m_vk : VK_OEM_2;
+}
+
+bool Dialog::GetEdgesOnlyBuildPreview()
+{
+	return m_edgesOnlyBuildPreviewButton && m_edgesOnlyBuildPreviewButton->GetState() != 0;
 }
 
 void Dialog::SetAll()

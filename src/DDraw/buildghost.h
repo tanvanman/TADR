@@ -10,31 +10,27 @@
 // defining TDRAW_BUILDGHOST_MODE on the command line (or in config.h) BEFORE
 // this header is included.
 //
-//   TDRAW_BUILDGHOST_RECT      = 0  - No model preview, only TA's native
-//                                     build rectangle. Cheapest. Original
-//                                     behaviour before the ghost feature.
-//   TDRAW_BUILDGHOST_WIREFRAME = 1  - Cached 2D wireframe sprite (silhouette
-//                                     edges of the rotated 3DO model),
-//                                     drawn via TA's color-keyed GAF blit.
-//                                     Cheap per-frame, hundreds of queue
-//                                     items OK.
-//   TDRAW_BUILDGHOST_FULL3D    = 2  - Render the full 3D model into our own
-//                                     pixel + depth buffers, flat-shade in
-//                                     a cycling green ramp, overlay visible
-//                                     edges. Default — the authentic look.
+//   TDRAW_BUILDGHOST_RECT   = 0  - No model preview, only TA's native
+//                                  build rectangle. Cheapest. Original
+//                                  behaviour before the ghost feature.
+//   TDRAW_BUILDGHOST_FULL3D = 1  - Render the full 3D model into our own
+//                                  pixel + depth buffers, flat-shade in a
+//                                  cycling green ramp, overlay visible
+//                                  edges. Default. The Ctrl-F2 dialog has
+//                                  an "Edges-only build preview" toggle
+//                                  that selects edges-only at runtime
+//                                  (replaces the old WIREFRAME mode).
 // =============================================================================
 #define TDRAW_BUILDGHOST_RECT       0
-#define TDRAW_BUILDGHOST_WIREFRAME  1
-#define TDRAW_BUILDGHOST_FULL3D     2
+#define TDRAW_BUILDGHOST_FULL3D     1
 
 #ifndef TDRAW_BUILDGHOST_MODE
 #define TDRAW_BUILDGHOST_MODE TDRAW_BUILDGHOST_FULL3D
 #endif
 
 #if TDRAW_BUILDGHOST_MODE != TDRAW_BUILDGHOST_RECT && \
-    TDRAW_BUILDGHOST_MODE != TDRAW_BUILDGHOST_WIREFRAME && \
     TDRAW_BUILDGHOST_MODE != TDRAW_BUILDGHOST_FULL3D
-#error TDRAW_BUILDGHOST_MODE must be one of TDRAW_BUILDGHOST_{RECT,WIREFRAME,FULL3D}
+#error TDRAW_BUILDGHOST_MODE must be one of TDRAW_BUILDGHOST_{RECT,FULL3D}
 #endif
 
 // CBuildGhost — owns the per-(unitType, rotation) sprite cache and renders
@@ -44,7 +40,7 @@
 //
 // Singleton — one instance for the whole DLL. Constructed during ddraw
 // init (after CUnitRotate so it can query rotation state). RECT mode is a
-// no-op singleton; WIREFRAME / FULL3D modes own caches and helper data.
+// no-op singleton; FULL3D mode owns the cache and helper data.
 class CBuildGhost
 {
 public:
@@ -80,14 +76,11 @@ public:
     void SetRotateKeyDiscovered();
     bool IsRotateKeyDiscovered() const { return m_rotateBuildKeyDiscovered; }
 
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIREFRAME || \
-    TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
 
     // GAFFrame layout (0x18 bytes total; matches engine GAFFrame struct).
-    // Reused by both wireframe and full-3D modes; the only difference is
-    // whether Bits2_Ptr is null (wireframe) or points at a depth buffer
-    // (full-3D). Sprite_RemapColorsByDepthRange (0x458d30) reads exactly
-    // this layout: pixel ptr at +0x10 and depth ptr at +0x14.
+    // Sprite_RemapColorsByDepthRange (0x458d30) reads exactly this layout:
+    // pixel ptr at +0x10 and depth ptr at +0x14.
     struct GhostGAFFrame
     {
         unsigned short Width;
@@ -100,22 +93,9 @@ public:
         unsigned char  AlphaBlend;
         int            Unknown_0C;
         unsigned char* PtrFrameBits;
-        unsigned char* Bits2_Ptr;       // null in wireframe; depth buf in full-3D
+        unsigned char* Bits2_Ptr;       // depth buffer
     };
-#endif
 
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIREFRAME
-    // 2D screen-space edge, relative to the unit's projected centre.
-    struct Line2D { short x1, y1, x2, y2; };
-
-    struct NanoframeSprite
-    {
-        GhostGAFFrame frame;
-        std::vector<unsigned char> pixels;   // Width × Height, ColorKey = transparent
-    };
-#endif
-
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
     // Cached full-3D sprite: flat-shaded silhouette + per-pixel depth.
     // Shared layout with the engine's GAFFrame so we can blit through
     // CopyGafToContext (0x4b7f90) and apply Sprite_RemapColorsByDepthRange
@@ -142,11 +122,6 @@ private:
     void WriteRotateKeyDiscovered();
 
     bool m_rotateBuildKeyDiscovered = false;
-
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIREFRAME
-    const NanoframeSprite* GetNanoframeSprite(unsigned unitInfoIdx, int rotation);
-    std::unordered_map<unsigned, NanoframeSprite> m_nanoframeCache;
-#endif
 
 #if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
     const NanoframeSprite3D* GetNanoframeSprite3D(unsigned unitInfoIdx, int rotation);

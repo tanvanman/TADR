@@ -1,5 +1,6 @@
 #include "config.h"
 #include "oddraw.h"
+#include "dialog.h"
 #include "tamem.h"
 #include "tafunctions.h"
 #include "iddrawsurface.h"
@@ -310,7 +311,7 @@ int SnapToNear(int xyPos[2], int footX, int footY, int R, double mouseMapPosX, d
 	}
 
 	auto itMaxSums = std::max_element(sums.begin(), sums.end(),
-		[](const std::tuple<int, int, int, double>& a, const std::tuple<int, int, int, double>& b) { 
+		[](const std::tuple<int, int, int, double>& a, const std::tuple<int, int, int, double>& b) {
 		return std::get<2>(a) < std::get<2>(b);
 	});
 
@@ -320,7 +321,7 @@ int SnapToNear(int xyPos[2], int footX, int footY, int R, double mouseMapPosX, d
 	});
 
 	auto itClosestMax = std::min_element(maxima.begin(), maxima.end(),
-		[](const std::tuple<int, int, int, double>& a, const std::tuple<int, int, int, double>& b) { 
+		[](const std::tuple<int, int, int, double>& a, const std::tuple<int, int, int, double>& b) {
 		return std::get<3>(a) < std::get<3>(b);
 	});
 
@@ -642,16 +643,21 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 									ClickSnapPreviewPosXY[1] = TAdynmem->BuildPosY;
 									ClickSnapPreviewFootXY[0] = GetFootX();
 									ClickSnapPreviewFootXY[1] = GetFootY();
-									SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(ClickSnapPreviewPosXY, GetFootX(), GetFootY(), MexSnapRadius,
+									int finalCount = SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(
+										ClickSnapPreviewPosXY, GetFootX(), GetFootY(), MexSnapRadius,
 										TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
-									if (ClickSnapPreviewPosXY[0] != TAdynmem->BuildPosX || ClickSnapPreviewPosXY[1] != TAdynmem->BuildPosY) {
-										int testFurtherSnapPosXY[2] = { ClickSnapPreviewPosXY[0], ClickSnapPreviewPosXY[1] };
-										SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(testFurtherSnapPosXY, GetFootX(), GetFootY(), std::max(GetFootX(), GetFootY()),
-											TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
-										if (testFurtherSnapPosXY[0] == ClickSnapPreviewPosXY[0] && testFurtherSnapPosXY[1] == ClickSnapPreviewPosXY[1]) {
-											// proceed with snap only if the first snap was centred (didn't require further snapping)
-											ClickSnapPreviewBuild = true;
-										}
+									// Always fire the visual override when ANY metal is in
+									// range — even if our snap target happens to match TA's
+									// natural BuildPos. Without this, the override flickers
+									// off whenever the player's mouse momentarily aligns
+									// with the deposit, which causes a 1-frame race where
+									// TA's native build rect is briefly visible at TA's BP
+									// (one tile away when BP transitions across a tile
+									// boundary). With override always on, TA's rect stays
+									// suppressed throughout the mex-snap-active region and
+									// our rect is the only thing rendered.
+									if (finalCount > 0) {
+										ClickSnapPreviewBuild = true;
 									}
 								}
 
@@ -711,6 +717,29 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				FootPrint = 2;
 				OutputFootPrint();
 				return true;*/
+
+				// <SnapOverrideKey>+wheel rotates the build cursor (forward
+				// = CCW, back = CW). Reuses the existing Ctrl-F2 "Snap
+				// Override Key" binding (default Alt) so the user gets a
+				// single configurable modifier for build-cursor side-channel
+				// inputs. Plain wheel stays reserved for megamap zoom/toggle.
+				// TryCycleRotation no-ops if the unit type doesn't allow
+				// rotation, so the wheel falls through to megamap as before.
+				int snapOverrideKey = VK_MENU;
+				if (LocalShare && LocalShare->Dialog)
+					snapOverrideKey = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetClickSnapOverrideKey();
+				if ((GetAsyncKeyState(snapOverrideKey) & 0x8000) != 0)
+				{
+					if (CUnitRotate* rot = CUnitRotate::GetInstance())
+					{
+						int wheelDelta = (short)HIWORD(wParam);
+						if (wheelDelta != 0)
+						{
+							int dir = (wheelDelta > 0) ? +1 : -1;
+							if (rot->TryCycleRotation(dir)) return true;
+						}
+					}
+				}
 
 				if(HIWORD(wParam)>120)
 				{

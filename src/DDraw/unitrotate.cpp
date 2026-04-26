@@ -963,11 +963,12 @@ bool CUnitRotate::IsRotationAllowed(unsigned int unitTypeIdx, int rotation) cons
     return false;
 }
 
-int CUnitRotate::NextAllowedRotation(unsigned int unitTypeIdx, int current) const
+int CUnitRotate::NextAllowedRotation(unsigned int unitTypeIdx, int current, int direction) const
 {
+    int sign = (direction >= 0) ? +1 : -1;
     for (int step = 1; step <= 4; ++step)
     {
-        int candidate = (current + step) & 3;
+        int candidate = (current + sign * step) & 3;
         if (IsRotationAllowed(unitTypeIdx, candidate)) return candidate;
     }
     return current;
@@ -1128,11 +1129,17 @@ bool CUnitRotate::Message(HWND, UINT Msg, WPARAM wParam, LPARAM)
     // Only act while the build cursor is active (a building type is selected).
     TAdynmemStruct* ta = GetTA();
     if (!ta || ta->BuildUnitID == 0) return false;
+    // BuildUnitID lingers after a right-click cancel (it stays on the last
+    // build menu selection until the player picks a different builder),
+    // so also gate on PrepareOrder_Type to make sure the build cursor is
+    // genuinely active. Same check the ghost renderer uses.
+    if (ta->PrepareOrder_Type != ordertype::BUILD) return false;
 
-    // Don't intercept if the user is holding a modifier — those are reserved for
-    // other hotkeys (Ctrl+something, Shift+something).
+    // Don't intercept if Ctrl is held — that's reserved for other hotkeys.
+    // Shift is INTENTIONALLY allowed: line-building (shift-click rows) is
+    // exactly when the player most often wants to rotate, and forcing them to
+    // lift Shift just to press '/' is friction.
     if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) return false;
-    if ((GetAsyncKeyState(VK_SHIFT)   & 0x8000) != 0) return false;
 
     // The rotation key (default '/' = VK_OEM_2) cycles through the rotations
     // allowed by the current build unit's "Rotations" FBI field. The actual
@@ -1148,22 +1155,36 @@ bool CUnitRotate::Message(HWND, UINT Msg, WPARAM wParam, LPARAM)
         rotateKey = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetRotateBuildKey();
     if (static_cast<int>(wParam) == rotateKey)
     {
-        unsigned buildIdx = static_cast<unsigned>(ta->BuildUnitID);
-        // Count how many rotations this unit allows. If 0 or 1, no-op.
-        int allowedCount = 0;
-        for (int r = 0; r < 4; ++r)
-            if (IsRotationAllowed(buildIdx, r)) ++allowedCount;
-        if (allowedCount < 2) return false;
-
-        int next = NextAllowedRotation(buildIdx, m_rotation);
-        if (next != m_rotation)
-        {
-            SetRotation(next);
-            PlaySound_Effect((char*)"Options", 0);
-            if (CBuildGhost* g = CBuildGhost::GetInstance())
-                g->SetRotateKeyDiscovered();
-        }
-        return true;
+        // Cycle forward (CCW). If the unit only allows ONE facing, the cycle
+        // is a no-op and we DON'T consume the key — same key (e.g. '/') is
+        // free to act as a normal text/UI character outside our context.
+        return TryCycleRotation(+1);
     }
     return false;
+}
+
+bool CUnitRotate::TryCycleRotation(int direction)
+{
+    TAdynmemStruct* ta = GetTA();
+    if (!ta || ta->BuildUnitID == 0) return false;
+    if (ta->PrepareOrder_Type != ordertype::BUILD) return false;
+
+    unsigned buildIdx = static_cast<unsigned>(ta->BuildUnitID);
+
+    // No-op (and report "didn't cycle") when the unit type only allows one
+    // facing — preserves m_rotation across hovers over non-rotatable units.
+    int allowedCount = 0;
+    for (int r = 0; r < 4; ++r)
+        if (IsRotationAllowed(buildIdx, r)) ++allowedCount;
+    if (allowedCount < 2) return false;
+
+    int next = NextAllowedRotation(buildIdx, m_rotation, direction);
+    if (next == m_rotation) return false;
+
+    SetRotation(next);
+    // "MORE" → button12.wav in ALLSOUND.TDF — soft button click.
+    PlaySound_Effect((char*)"MORE", 0);
+    if (CBuildGhost* g = CBuildGhost::GetInstance())
+        g->SetRotateKeyDiscovered();
+    return true;
 }

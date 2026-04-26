@@ -401,9 +401,14 @@ NEW FEATURES IN DETAIL:
 - Building rotation
 
   While a building is selected for placement, press '/' to cycle through the
-  facings the unit allows.  Most buildings only allow their default facing,
-  in which case the key does nothing.  The key can be reassigned in the
-  ctrl-f2 menu.
+  facings the unit allows.  Shift may be held while pressing '/' so you can
+  rotate without lifting the line-build modifier.  Most buildings only allow
+  their default facing, in which case the key does nothing.  The rotate key
+  can be reassigned in the ctrl-f2 menu.
+
+  Alternatively, hold the snap-override key (default Alt — also configurable
+  in ctrl-f2) and scroll the mouse wheel: forward = counter-clockwise, back
+  = clockwise.  This leaves plain mouse-wheel free for the megamap.
 
   Mod developers opt-in per unit by adding a "Rotations=" key to the
   [UNITINFO] section of the FBI listing the cardinal letters they want
@@ -422,4 +427,8 @@ NEW FEATURES IN DETAIL:
   rotate-build key, and disappears on red (can't-build) squares.  When
   shift-line / shift-row building, the preview is shown at every
   rectangle in the row.
+
+  Tick "Edges-only build preview" in the ctrl-f2 menu to suppress the
+  filled-silhouette and show only the visible-edge wireframe — handy if
+  the solid green ghost obscures terrain you're trying to read.
 

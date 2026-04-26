@@ -33,6 +33,14 @@ public:
 
     bool Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 
+    // Attempt to cycle the build-cursor rotation by one step in the given
+    // direction (>0 = forward / CCW, <0 = backward / CW). Returns true if
+    // the rotation actually changed (the unit type allowed >= 2 facings AND
+    // a different facing was reachable). On success, plays the click sound
+    // and flags the rotate-key tutorial nag as discovered. Caller pre-checks
+    // game-in-progress + build cursor state.
+    bool TryCycleRotation(int direction);
+
     static CUnitRotate* GetInstance();
 
     // Register FBI keys with UnitDefExtensions. Must be called during early
@@ -77,7 +85,9 @@ public:
 
     // Rotation cycle that respects IsRotationAllowed — returns the next allowed
     // rotation after `current`, or `current` itself if only S is allowed.
-    int NextAllowedRotation(unsigned int unitTypeIdx, int current) const;
+    // direction > 0 walks forward (S→E→N→W = CCW from above); direction < 0
+    // walks backward (CW). Default is forward, matching the keyboard cycle.
+    int NextAllowedRotation(unsigned int unitTypeIdx, int current, int direction = +1) const;
 
     // Set by the pre-create hook, consumed by the post-create hook.
     int  m_pendingHeading;   // rotation 1..3 if pending, -1 otherwise
