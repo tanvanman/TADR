@@ -1,5 +1,6 @@
 #include "VoteReject.h"
 #include "VoteDialog.h"
+#include "ChatHijackIds.h"
 #include "PacketChatRouter.h"
 #include "HudNotifications.h"
 #include "iddrawsurface.h"
@@ -51,7 +52,7 @@ static bool IsVoteRejectMessage(const VoteRejectMessage& msg)
 {
 	return msg.chatByte == 0x05
 		&& msg.nullText == 0x00
-		&& msg.msgId    == 0x2c
+		&& msg.msgId    == ChatHijackId::VoteReject
 		&& msg.size     == sizeof(VoteRejectMessage);
 }
 
@@ -116,7 +117,7 @@ VoteReject::VoteReject()
 		0x00453B0A, 5, INLINE_5BYTESLAGGERJMP, ShowRejectWindowRouter));
 
 
-	PacketChatRouter::GetInstance()->RegisterHandler(0x2c, HandleVoteRejectPacket);
+	PacketChatRouter::GetInstance()->RegisterHandler(ChatHijackId::VoteReject, HandleVoteRejectPacket);
 }
 
 // -----------------------------------------------------------------------
@@ -464,7 +465,7 @@ void VoteReject::BroadcastMsg(VoteRejectCommand command, unsigned targetDpid, ch
 	std::memset(&msg, 0, sizeof(msg));
 	msg.chatByte   = 0x05;
 	msg.nullText   = 0x00;
-	msg.msgId      = 0x2c;
+	msg.msgId      = ChatHijackId::VoteReject;
 	msg.size       = sizeof(VoteRejectMessage);
 	msg.command    = command;
 	msg.targetDpid = targetDpid;

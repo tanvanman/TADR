@@ -342,6 +342,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="AutoTeam.h" />
     <ClInclude Include="BattleroomCommands.h" />
     <ClInclude Include="ChallengeResponse.h" />
+    <ClInclude Include="ChatHijackIds.h" />
     <ClInclude Include="DialogBase.h" />
     <ClInclude Include="PacketChatRouter.h" />
     <ClInclude Include="HudNotifications.h" />

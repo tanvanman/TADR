@@ -1,5 +1,6 @@
 #include "ChallengeResponse.h"
 #include "BattleroomCommands.h"
+#include "ChatHijackIds.h"
 #include "PacketChatRouter.h"
 #include "HudNotifications.h"
 #include "hook/hook.h"
@@ -37,14 +38,14 @@ static void InitChallengeResponseMessage(ChallengeResponseMessage &msg, Challeng
 	std::memset(&msg, 0, sizeof(msg));
 	msg.chatByte = 0x05;
 	msg.nullText = 0x00;
-	msg.msgId = 0x2b;
+	msg.msgId = ChatHijackId::ChallengeResponse;
 	msg.size = sizeof(ChallengeResponseMessage);
 	msg.command = cmd;
 }
 
 static bool IsChallengeResponseMessage(const ChallengeResponseMessage& msg)
 {
-	return msg.chatByte == 0x05 && msg.nullText == 0x00 && msg.msgId == 0x2b && msg.size == sizeof(ChallengeResponseMessage);
+	return msg.chatByte == 0x05 && msg.nullText == 0x00 && msg.msgId == ChatHijackId::ChallengeResponse && msg.size == sizeof(ChallengeResponseMessage);
 }
 
 static std::string toLowerCase(const std::string& str) {
@@ -366,7 +367,7 @@ ChallengeResponse::ChallengeResponse():
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(LogGamePathAddr1, 5, INLINE_5BYTESLAGGERJMP, LogGamePathProc1));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(LogGamePathAddr2, 5, INLINE_5BYTESLAGGERJMP, LogGamePathProc2));
 
-	PacketChatRouter::GetInstance()->RegisterHandler(0x2b, HandleChallengeResponsePacket);
+	PacketChatRouter::GetInstance()->RegisterHandler(ChatHijackId::ChallengeResponse, HandleChallengeResponsePacket);
 
 	SnapshotModules();
 

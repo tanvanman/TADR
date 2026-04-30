@@ -264,6 +264,9 @@
     <ClInclude Include="ChallengeResponse.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ChatHijackIds.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="HmacSha256.h">
       <Filter>Header Files</Filter>
     </ClInclude>

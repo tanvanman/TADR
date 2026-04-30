@@ -33,7 +33,7 @@ enum class ChallengeResponseCommand : char {
 struct ChallengeResponseMessage {
 	char chatByte;	// 0x05
 	char nullText;  // 0x00
-	char msgId;		// 0x2b
+	char msgId;		// ChatHijackId::ChallengeResponse (0x2b)
 	short size;		// sizeof(ChallengeReponseMessage)
 	ChallengeResponseCommand command;
 	char data[32];  // for requests, data is the nonce; for replys data is the hash

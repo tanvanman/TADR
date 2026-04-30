@@ -19,7 +19,7 @@ enum class VoteRejectCommand : char {
 struct VoteRejectMessage {
 	char chatByte;           // 0x05
 	char nullText;           // 0x00
-	char msgId;              // 0x2c
+	char msgId;              // ChatHijackId::VoteReject (0x2c)
 	short size;              // sizeof(VoteRejectMessage) = 65
 	VoteRejectCommand command;
 	unsigned targetDpid;     // dpid of player being voted to reject
