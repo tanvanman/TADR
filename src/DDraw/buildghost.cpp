@@ -315,7 +315,11 @@ namespace
         return out;
     }
 
-    struct ProjVert { int sx, sy; int depth; };
+    // depth = world-y (elevation) mapped to 1..255 — for hidden-surface
+    //         removal during scanline fill / edge raster.
+    // zCoord = world-z (north/south) mapped to 1..255 — for the
+    //         z-plane sweep effect at render time.
+    struct ProjVert { int sx, sy; int depth; int zCoord; };
 
     inline void RasterEdge(unsigned char* dst,
                            const unsigned char* depthBuf,
@@ -366,9 +370,12 @@ namespace
              | (static_cast<uint64_t>(static_cast<uint16_t>(y2)));
     }
 
-    // Convex polygon scanline fill with z-test.
+    // Convex polygon scanline fill with z-test. zCoordBuf is optional —
+    // when non-null, each accepted (closer-than-existing) pixel also gets
+    // the per-pixel ProjVert::zCoord interpolated and written there.
     void FillConvexPolyZ(unsigned char* colorBuf,
                          unsigned char* depthBuf,
+                         unsigned char* zCoordBuf,
                          int bufW, int bufH,
                          const ProjVert* verts, int n,
                          unsigned char polyColor)
@@ -387,7 +394,8 @@ namespace
         for (int y = minY; y <= maxY; ++y)
         {
             int leftX = INT_MAX, rightX = INT_MIN;
-            int leftZ = 0, rightZ = 0;
+            int leftDepth = 0, rightDepth = 0;
+            int leftZc    = 0, rightZc    = 0;
             for (int i = 0; i < n; ++i)
             {
                 int j = (i + 1) % n;
@@ -399,10 +407,11 @@ namespace
                 if (yLo == yHi) continue;
                 int dy = y1 - y0;
                 int t  = y - y0;
-                int x  = verts[i].sx + (verts[j].sx - verts[i].sx) * t / dy;
-                int z  = verts[i].depth + (verts[j].depth - verts[i].depth) * t / dy;
-                if (x < leftX)  { leftX  = x; leftZ  = z; }
-                if (x > rightX) { rightX = x; rightZ = z; }
+                int x  = verts[i].sx     + (verts[j].sx     - verts[i].sx)     * t / dy;
+                int d  = verts[i].depth  + (verts[j].depth  - verts[i].depth)  * t / dy;
+                int zc = verts[i].zCoord + (verts[j].zCoord - verts[i].zCoord) * t / dy;
+                if (x < leftX)  { leftX  = x; leftDepth = d; leftZc  = zc; }
+                if (x > rightX) { rightX = x; rightDepth = d; rightZc = zc; }
             }
             if (leftX > rightX) continue;
             int spanLeft  = leftX  < 0 ? 0 : leftX;
@@ -413,16 +422,18 @@ namespace
             int rowBase = y * bufW;
             for (int x = spanLeft; x <= spanRight; ++x)
             {
-                int z = (spanW > 0)
-                    ? leftZ + (rightZ - leftZ) * (x - leftX) / spanW
-                    : leftZ;
-                if (z < 0)   z = 0;
-                if (z > 255) z = 255;
+                int d  = (spanW > 0) ? leftDepth + (rightDepth - leftDepth) * (x - leftX) / spanW : leftDepth;
+                int zc = (spanW > 0) ? leftZc    + (rightZc    - leftZc)    * (x - leftX) / spanW : leftZc;
+                if (d < 0)   d = 0;
+                if (d > 255) d = 255;
+                if (zc < 1)   zc = 1;
+                if (zc > 255) zc = 255;
                 int idx = rowBase + x;
-                if ((unsigned char)z >= depthBuf[idx])
+                if ((unsigned char)d >= depthBuf[idx])
                 {
-                    depthBuf[idx] = (unsigned char)z;
+                    depthBuf[idx] = (unsigned char)d;
                     colorBuf[idx] = polyColor;
+                    if (zCoordBuf) zCoordBuf[idx] = (unsigned char)zc;
                 }
             }
         }
@@ -494,13 +505,21 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
     int minSX = INT_MAX, minSY = INT_MAX;
     int maxSX = INT_MIN, maxSY = INT_MIN;
     int minWY_int = INT_MAX, maxWY_int = INT_MIN;
+    // zCoord encoding tracks the model's LOCAL +Z extent (front-back of
+    // the unit, pre-rotation) so the z-plane sweep follows the unit's
+    // depth axis regardless of cardinal facing.
+    int minLZ_int = INT_MAX, maxLZ_int = INT_MIN;
 
-    struct PieceFrame { Model3DONode* node; int origX, origY, origZ; };
+    struct PieceFrame {
+        Model3DONode* node;
+        int origX, origY, origZ;     // rotated cumulative origin (for projection)
+        int unrotOrigZ;              // unrotated cumulative origin Z (for local-z encoding)
+    };
     std::vector<PieceFrame> stack;
     stack.reserve(32);
-    stack.push_back({ rootNode, 0, 0, 0 });
+    stack.push_back({ rootNode, 0, 0, 0, 0 });
 
-    std::vector<int> projVx, projVy, projVz_world_y;
+    std::vector<int> projVx, projVy, projVz_world_y, projVz_local_z;
 
     while (!stack.empty())
     {
@@ -525,6 +544,7 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
             int pieceOrigX = f.origX + rOfsX;
             int pieceOrigY = f.origY + ofsY;
             int pieceOrigZ = f.origZ + rOfsZ;
+            int unrotPieceOrigZ = f.unrotOrigZ + ofsZ;
 
             // Per-piece visibility for the preview:
             //   - If the FBI sets PreviewPieces=, render ONLY pieces in that
@@ -552,6 +572,7 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
                 projVx.resize(vertCount);
                 projVy.resize(vertCount);
                 projVz_world_y.resize(vertCount);
+                projVz_local_z.resize(vertCount);
                 for (int v = 0; v < vertCount; ++v)
                 {
                     int vx = vertArray[v * 3 + 0];
@@ -567,13 +588,20 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
                     projVx[v] = psx;
                     projVy[v] = psy;
                     int wy_int = wy >> 16;
+                    // Local +Z is the model's front-axis (3DO convention).
+                    // Stored unrotated so the sweep follows the unit body
+                    // when it's drawn at any cardinal.
+                    int lz_int = (unrotPieceOrigZ + vz) >> 16;
                     projVz_world_y[v] = wy_int;
+                    projVz_local_z[v] = lz_int;
                     if (psx < minSX) minSX = psx;
                     if (psx > maxSX) maxSX = psx;
                     if (psy < minSY) minSY = psy;
                     if (psy > maxSY) maxSY = psy;
                     if (wy_int < minWY_int) minWY_int = wy_int;
                     if (wy_int > maxWY_int) maxWY_int = wy_int;
+                    if (lz_int < minLZ_int) minLZ_int = lz_int;
+                    if (lz_int > maxLZ_int) maxLZ_int = lz_int;
                 }
 
                 for (int fi = 0; fi < faceCount; ++fi)
@@ -603,7 +631,8 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
                         ProjVert pv;
                         pv.sx = projVx[a];
                         pv.sy = projVy[a];
-                        pv.depth = projVz_world_y[a];
+                        pv.depth  = projVz_world_y[a];
+                        pv.zCoord = projVz_local_z[a];
                         sf.verts.push_back(pv);
                     }
                     faces.push_back(std::move(sf));
@@ -617,11 +646,13 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
                         short bx = (short)projVx[b], by = (short)projVy[b];
                         uint64_t ck = EdgeKey3D(ax, ay, bx, by);
                         if (!seenEdges.insert(ck).second) continue;
-                        StashedEdge se;
+                        StashedEdge se{};
                         se.a.sx = projVx[a]; se.a.sy = projVy[a];
                         se.a.depth = projVz_world_y[a];
                         se.b.sx = projVx[b]; se.b.sy = projVy[b];
                         se.b.depth = projVz_world_y[b];
+                        // edges don't participate in the z-sweep
+                        se.a.zCoord = se.b.zCoord = 0;
                         visibleEdges.push_back(se);
                     }
                 }
@@ -634,6 +665,7 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
                 childFrame.origX = pieceOrigX;
                 childFrame.origY = pieceOrigY;
                 childFrame.origZ = pieceOrigZ;
+                childFrame.unrotOrigZ = unrotPieceOrigZ;
                 stack.push_back(childFrame);
             }
             node = sibling;
@@ -657,10 +689,13 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
     NanoframeSprite3D& out = m_nanoframe3DCache[key];
     out.pixels.assign(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
     out.depth.assign(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
+    out.zCoord.assign(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
     out.edgePixels.assign(static_cast<size_t>(w) * static_cast<size_t>(h), 0u);
 
     int wyRange = maxWY_int - minWY_int;
     if (wyRange <= 0) wyRange = 1;
+    int lzRange = maxLZ_int - minLZ_int;
+    if (lzRange <= 0) lzRange = 1;
 
     const unsigned char kColorKey  = 0;
     const unsigned char kBaseColor = 234;
@@ -674,13 +709,17 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
             ProjVert r;
             r.sx = pv.sx - minSX;
             r.sy = pv.sy - minSY;
-            int d = ((pv.depth - minWY_int) * 254 + (wyRange / 2)) / wyRange + 1;
+            int d = ((pv.depth  - minWY_int) * 254 + (wyRange / 2)) / wyRange + 1;
+            int z = ((pv.zCoord - minLZ_int) * 254 + (lzRange / 2)) / lzRange + 1;
             if (d < 1)   d = 1;
             if (d > 255) d = 255;
-            r.depth = d;
+            if (z < 1)   z = 1;
+            if (z > 255) z = 255;
+            r.depth  = d;
+            r.zCoord = z;
             remapped.push_back(r);
         }
-        FillConvexPolyZ(out.pixels.data(), out.depth.data(),
+        FillConvexPolyZ(out.pixels.data(), out.depth.data(), out.zCoord.data(),
                         w, h,
                         remapped.data(), (int)remapped.size(),
                         kBaseColor);
@@ -915,29 +954,106 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
         spriteBottom <= gs.top || spriteTop  >= gs.bottom)
         return;
 
-    // Animated colours from TA's nanoframe ramp 0xa0..0xaf, tied to
-    // GameTime via DrawUnitNanoFrame's formula. All ghosts in a frame
-    // share these → pulse stays synchronised across line-build positions.
+    // Render mode toggle: when "Edges-only build preview" is ticked in
+    // the Ctrl-F2 menu we render just the visible-edge wireframe in a
+    // static palette index 250 (pure green), no fill, no animation. The
+    // default is the filled silhouette + edge highlight, both colour-
+    // cycled in TA's nanoframe ramp 0xa0..0xaf.
+    bool edgesOnly = false;
+    if (LocalShare && LocalShare->Dialog)
+        edgesOnly = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetEdgesOnlyBuildPreview();
+
     auto rampColor = [](unsigned step) -> unsigned char {
         unsigned s = step & 0x1F;
         return (s & 0x10)
             ? static_cast<unsigned char>(0xaf - (s & 0xf))
             : static_cast<unsigned char>(0xa0 + (s & 0xf));
     };
-    unsigned gameTime = static_cast<unsigned>(ta->GameTime);
-    unsigned baseStep = (gameTime * 0x21u / 0x1eu) & 0x1F;
-    unsigned char fillColor = rampColor(baseStep);
-    unsigned char edgeColor = rampColor(baseStep + 16);   // 180° offset
+
+    unsigned char fillColor = 0;
+    unsigned char edgeColor = 0;
+    if (edgesOnly)
+    {
+        edgeColor = 250;   // PALETTE.PAL: (0,255,0) pure green, no cycle
+    }
+    else
+    {
+        unsigned gameTime = static_cast<unsigned>(ta->GameTime);
+        unsigned baseStep = (gameTime * 0x21u / 0x1eu) & 0x1F;
+        fillColor = rampColor(baseStep);
+        edgeColor = rampColor(baseStep + 16);   // 180° offset
+    }
+
+    // Z-plane sweep: a thin bright line travels through the model along
+    // its LOCAL +Z axis (the unit's depth axis, +Z = front per the 3DO
+    // convention). zCoord byte 1 = back, 255 = front; sweep walks low→
+    // high so the line moves back→front. Because zCoord is captured
+    // BEFORE the cardinal rotation, the line orientation and direction
+    // both rotate with the structure: top→bottom for S-facing, left→
+    // right for E-facing, bottom→top for N, right→left for W.
+    const unsigned      kSweepFrames    = 30;   // full cycle period (frequency)
+    const unsigned      kSweepActive    = kSweepFrames / 2;  // sweep first half; rest second half
+    const int           kSweepHalfWidth = 2;    // ±2 byte units in zCoord
+    const unsigned char kSweepColor     = 250;  // pure green — same line colour in both modes
+    const unsigned char kSweepColorWire = 250;
+    bool        sweepActive = false;
+    unsigned    kByte = 0;
+    {
+        unsigned gt = static_cast<unsigned>(ta->GameTime);
+        unsigned phase = gt % kSweepFrames;
+        if (phase < kSweepActive)
+        {
+            kByte = 1u + phase * 254u / (kSweepActive - 1);
+            sweepActive = true;
+        }
+    }
 
     static thread_local std::vector<unsigned char> fillScratch;
     static thread_local std::vector<unsigned char> edgeScratch;
     size_t pxCount = sprite->pixels.size();
+    // In wireframe mode we still allocate the fill scratch so we can
+    // paint just the sweep-line slice across the silhouette interior;
+    // every other fill pixel stays as colorKey (transparent).
     if (fillScratch.size() < pxCount) fillScratch.resize(pxCount);
     if (edgeScratch.size() < pxCount) edgeScratch.resize(pxCount);
     const unsigned char colorKey = sprite->frame.ColorKey;
     for (size_t i = 0; i < pxCount; ++i)
     {
-        fillScratch[i] = (sprite->pixels[i]     == colorKey) ? colorKey : fillColor;
+        // Sweep-test once per pixel; reused by both the fill and (in
+        // wireframe mode) the edge path. zCoord is 0 outside the
+        // silhouette so the `z > 0` check stops the sweep painting
+        // pixels that aren't on the visible surface.
+        bool sweepHit = false;
+        if (sweepActive)
+        {
+            int z = sprite->zCoord[i];
+            if (z > 0)
+            {
+                int diff = z - (int)kByte;
+                if (diff < 0) diff = -diff;
+                sweepHit = (diff <= kSweepHalfWidth);
+            }
+        }
+
+        if (sprite->pixels[i] == colorKey)
+        {
+            fillScratch[i] = colorKey;
+        }
+        else if (edgesOnly)
+        {
+            // Wireframe mode: paint ONLY sweep-line pixels across the
+            // silhouette interior; everything else stays transparent
+            // so the underlying terrain shows through.
+            fillScratch[i] = sweepHit ? kSweepColorWire : colorKey;
+        }
+        else
+        {
+            fillScratch[i] = sweepHit ? kSweepColor : fillColor;
+        }
+
+        // Edges always cycle / stay static. The sweep line on the fill
+        // already carries the visual cue; we don't separately recolour
+        // the edges.
         edgeScratch[i] = (sprite->edgePixels[i] == colorKey) ? colorKey : edgeColor;
     }
 
@@ -946,19 +1062,13 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     if (!kFn_LockAttackSurface(&off)) return;
     off.ScreenRect = gs;
 
-    // The Ctrl-F2 "Edges-only build preview" toggle suppresses the filled
-    // silhouette so the player sees only the visible-edge wireframe over the
-    // ground/units behind. Edges still get drawn as normal.
-    bool edgesOnly = false;
-    if (LocalShare && LocalShare->Dialog)
-        edgesOnly = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetEdgesOnlyBuildPreview();
-
-    if (!edgesOnly)
-    {
-        GhostGAFFrame fillFrame = sprite->frame;
-        fillFrame.PtrFrameBits = fillScratch.data();
-        kFn_CopyGafToContext(&off, &fillFrame, cx, cy);
-    }
+    // Always blit the fill scratch. In fill mode this paints the full
+    // shimmering silhouette; in wireframe mode the scratch is mostly
+    // colorKey (transparent) and only the sweep-line pixels are
+    // non-transparent, so just the line shows through across facets.
+    GhostGAFFrame fillFrame = sprite->frame;
+    fillFrame.PtrFrameBits = fillScratch.data();
+    kFn_CopyGafToContext(&off, &fillFrame, cx, cy);
 
     GhostGAFFrame edgeFrame = sprite->frame;
     edgeFrame.PtrFrameBits = edgeScratch.data();

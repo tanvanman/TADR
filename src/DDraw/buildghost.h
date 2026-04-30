@@ -19,10 +19,7 @@ class SingleHook;
 //   TDRAW_BUILDGHOST_FULL3D = 1  - Render the full 3D model into our own
 //                                  pixel + depth buffers, flat-shade in a
 //                                  cycling green ramp, overlay visible
-//                                  edges. Default. The Ctrl-F2 dialog has
-//                                  an "Edges-only build preview" toggle
-//                                  that selects edges-only at runtime
-//                                  (replaces the old WIREFRAME mode).
+//                                  edges. Default.
 // =============================================================================
 #define TDRAW_BUILDGHOST_RECT       0
 #define TDRAW_BUILDGHOST_FULL3D     1
@@ -123,6 +120,7 @@ public:
         GhostGAFFrame frame;                    // for the filled silhouette
         std::vector<unsigned char> pixels;      // fill pixel buffer
         std::vector<unsigned char> depth;       // per-pixel depth (world-y → 1..255)
+        std::vector<unsigned char> zCoord;      // per-pixel local-z (front/back) → 1..255
         std::vector<unsigned char> edgePixels;  // visible-edge overlay
     };
 #endif

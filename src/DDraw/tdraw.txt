@@ -410,6 +410,30 @@ NEW FEATURES IN DETAIL:
   in ctrl-f2) and scroll the mouse wheel: forward = counter-clockwise, back
   = clockwise.  This leaves plain mouse-wheel free for the megamap.
 
+  A third option is built into the build menu itself.  Each rotatable
+  structure button has a small overlay marker on each cardinal it can
+  face (S = bottom edge, E = right, N = top, W = left).  Click the
+  button on the corresponding edge to enter placement mode with that
+  rotation already chosen — clicks in the centre of the button select
+  the unit normally and keep the previously chosen rotation.  Tick or
+  un-tick "Build menu rotation overlay" in the ctrl-f2 menu to enable
+  or disable the overlay (when off, the build menu is stock vanilla
+  and clicks behave as if it were never installed).
+
+  Mod authors can replace the built-in chevron art by dropping a 4-
+  frame GAF at  anims/buildrotate.gaf  beside their other animations.
+  Frames are interpreted in the order  S, E, N, W  (matching the
+  rotation index), and each frame's hotspot is anchored just inside
+  the cardinal margin band of the build button so the artwork sits
+  cleanly inside the button rather than straddling the edge.  An
+  optional second file  anims/buildrotateclick.gaf  (also 4 frames in
+  the same order) is blitted in place of the idle GAF for the brief
+  click-feedback flash; if absent, no flash is rendered (mods opting
+  into a custom GAF need to ship the companion click GAF themselves
+  if they want one).  When neither GAF loads the built-in chevrons
+  are used.  A reference generator and example .gaf files live under
+  tools/make_buildrotate_gaf.py in the source tree.
+
   Mod developers opt-in per unit by adding a "Rotations=" key to the
   [UNITINFO] section of the FBI listing the cardinal letters they want
   to allow, e.g.
@@ -432,10 +456,6 @@ NEW FEATURES IN DETAIL:
   rotate-build key, and disappears on red (can't-build) squares.  When
   shift-line / shift-row building, the preview is shown at every
   rectangle in the row.
-
-  Tick "Edges-only build preview" in the ctrl-f2 menu to suppress the
-  filled-silhouette and show only the visible-edge wireframe — handy if
-  the solid green ghost obscures terrain you're trying to read.
 
   Mod authors with upgrade-style units (where the 3DO model contains
   both the basic and upgraded geometry, and the COB script controls

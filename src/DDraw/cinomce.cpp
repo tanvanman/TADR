@@ -43,6 +43,10 @@ int X,Y;
 #define MyOriginalCameraColour 208u
 
 CIncome::CIncome(BOOL VidMem):
+	BlitState(0),
+	SurfaceMemory(NULL),
+	lPitch(0),
+	StartedInRect(false),
 	Minimised(false)
 {
 	std::memset(MinimiseWidgetBoxMin, 0, sizeof(MinimiseWidgetBoxMin));
@@ -461,7 +465,7 @@ void CIncome::_DrawText(char *String, int posx, int posy, char Color)
 		{
 			for(int k=0; k<8; k++)
 			{
-				bool b = 0!=(ThinFont[String[i]*8+j] & (1 << k));//windowsÀïµÄfalse==0
+				bool b = 0!=(ThinFont[String[i]*8+j] & (1 << k));//windowsï¿½ï¿½ï¿½false==0
 				if (b)
 				{
 					int idx = (posx + (i * 8) + (7 - k)) + (posy + j) * lPitch;
@@ -855,7 +859,12 @@ void CIncome::DrawPlayerRect(int posx, int posy, char Color)
 
 void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, int lPitch)
 {
-	if (GetCurrentThreadId() != LocalShare->GuiThreadId || SurfaceMemory == NULL || DataShare->TAProgress != TAInGame) {
+	// NOTE: was checking the CIncome::SurfaceMemory member here, but that
+	// tracks lpIncomeSurf's lock state (set inside BlitIncome) and is never
+	// touched in skirmish â€” so an uninitialized non-NULL value would let the
+	// weather render in MP and a NULL would block it forever in skirmish.
+	// The right thing to gate on is the back-buffer pointer we were handed.
+	if (GetCurrentThreadId() != LocalShare->GuiThreadId || lpSurfaceMem == NULL || DataShare->TAProgress != TAInGame) {
 		return;
 	}
 
@@ -873,10 +882,29 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 	int solar, wind, windMin, windMax, tidal;
 	GetWeatherReport(solar, wind, windMin, windMax, tidal);
 
-	int x1 = 110 + std::max(race->ENERGYPRODUCED.right, race->METALPRODUCED.right);
+	// Prefer the production-text rects for vertical alignment â€” they put the
+	// weather rows on the same baseline as the income readouts.  Use the
+	// bar rects as a fallback for sides that leave the text rects zeroed
+	// (which is what used to shove the weather behind the panel artwork).
+	int xRef = std::max(race->Energy_rect.right, race->METALBAR_rect.right);
+	if (xRef <= 0)
+		xRef = std::max(race->ENERGYPRODUCED.right, race->METALPRODUCED.right);
+	if (xRef <= 0)
+		xRef = 256;
+
+	int yEnergy = race->ENERGYPRODUCED.top;
+	int yMetal  = race->ENERGYCONSUMED.top;
+	if (yEnergy <= 0)
+		yEnergy = race->Energy_rect.top;
+	if (yMetal <= 0)
+		yMetal = race->METALBAR_rect.top;
+	if (yEnergy < 0) yEnergy = 0;
+	if (yMetal  <= yEnergy) yMetal = yEnergy + 16;
+
+	int x1 = 110 + xRef;
 	int x2 = x1 + 117;
-	int y1 = race->ENERGYPRODUCED.top;
-	int y2 = race->ENERGYCONSUMED.top;
+	int y1 = yEnergy;
+	int y2 = yMetal;
 	int y3 = (y1 + y2) / 2;
 	const unsigned char GREY = taPtr->desktopGUI.RadarObjecColor[7];
 	const unsigned char GREEN = taPtr->desktopGUI.RadarObjecColor[10];
@@ -885,6 +913,22 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 	programPtr->fontHandle = (unsigned char*)taPtr->RaceSideDataAry[raceSide].Font_File;
 	programPtr->fontFrontColour = GREY;
 	programPtr->fontBackColour = programPtr->fontAlpha;
+
+	// Screen-bounds clamp: if a side's bar rects sit too far right, or the
+	// resolution is small, shift the columns left so they stay visible.
+	const int fontHeight = (programPtr->fontHandle != NULL) ? programPtr->fontHandle[0] : 12;
+	const int clockWidth = GetTextExtent(programPtr->fontHandle, "Game Time : 00:00:00") + 4;
+	const int labelWidth = GetTextExtent(programPtr->fontHandle, "Wind : +99 (-99-+99)") + 4;
+	const int xMaxClock = (dwWidth > clockWidth) ? (dwWidth - clockWidth) : 0;
+	if (x2 > xMaxClock) x2 = xMaxClock;
+	const int xMaxLabel = (x2 > labelWidth) ? (x2 - labelWidth) : 0;
+	if (x1 > xMaxLabel) x1 = xMaxLabel;
+	if (x1 < 0) x1 = 0;
+	if (x2 < x1 + 1) x2 = x1 + 1;
+	const int yMax = (dwHeight > fontHeight) ? (dwHeight - fontHeight) : 0;
+	if (y1 < 0) y1 = 0; else if (y1 > yMax) y1 = yMax;
+	if (y2 < 0) y2 = 0; else if (y2 > yMax) y2 = yMax;
+	y3 = (y1 + y2) / 2;
 
 	OFFSCREEN offScreen;
 	memset(&offScreen, 0, sizeof(OFFSCREEN));

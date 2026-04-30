@@ -89,6 +89,29 @@ public:
     // walks backward (CW). Default is forward, matching the keyboard cycle.
     int NextAllowedRotation(unsigned int unitTypeIdx, int current, int direction = +1) const;
 
+    // ---- Build-menu rotation-overlay prototype ----
+    // Linear scan of TA's UnitDef array for the FBI name. -1 if not found.
+    int  FindUnitTypeIdxByName(const char* name) const;
+
+    // True when the unit is a structure (bmcode==0) AND its Rotations= FBI
+    // permits at least two facings — i.e. one of the buttons we want to
+    // overlay quadrant arrows on.
+    bool IsRotatableStructure(unsigned int unitTypeIdx) const;
+
+    // Per-frame render of cardinal arrows on each rotatable-structure
+    // button in the active GUI, plus a transient highlight on the
+    // most-recently-clicked cardinal. Called from a DrawGameScreen post-
+    // DrawGUI hook (ADDR_DrawGameScreen_PostDrawGUI) so the chevrons sit
+    // on top of any panel repaint TA does on this frame.
+    void DrawBuildMenuRotationOverlays();
+
+    // Pre-placement rotation hook on left-click in the build menu. If the
+    // click landed on a rotatable structure button at a permitted cardinal,
+    // SetRotation is called and a feedback highlight is scheduled. Returns
+    // true if rotation was set; the caller should NOT consume the click —
+    // TA's own click handler still runs to enter the build cursor.
+    bool OnBuildMenuClick(int screenX, int screenY);
+
     // Set by the pre-create hook, consumed by the post-create hook.
     int  m_pendingHeading;   // rotation 1..3 if pending, -1 otherwise
 
@@ -123,6 +146,12 @@ private:
 
     // Key index registered with UnitDefExtensions for the "Rotations" FBI field.
     unsigned m_rotationsKeyIdx;
+
+    // Build-menu click feedback: the cardinal that was last clicked on which
+    // control, plus a timestamp used to fade out the highlight.
+    int   m_menuClickFeedbackControlIdx;
+    int   m_menuClickFeedbackCardinal;
+    DWORD m_menuClickFeedbackTimestamp;
 };
 
 #endif

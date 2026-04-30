@@ -61,9 +61,15 @@ public:
 	// Default VK_OEM_2 ('/'). Read by CUnitRotate::Message.
 	int GetRotateBuildKey();
 
-	// True if the user wants the build-cursor ghost rendered as visible-edges
-	// only, with a transparent fill (so the ground/units behind show through).
-	// Read by CBuildGhost::RenderGhostAtCurrentBuildSpot.
+	// True when the player wants the build-menu rotation overlays
+	// (chevrons / buildrotate.gaf) drawn AND wants quadrant clicks on
+	// rotatable structure buttons intercepted to pre-set rotation.
+	// When false the build menu behaves stock. Default ON.
+	bool GetBuildMenuRotationOverlayEnabled();
+
+	// Always returns true: the placement-preview ghost is now unconditionally
+	// rendered as a static visible-edges-only wireframe (no fill, no
+	// animation).  Read by CBuildGhost::RenderGhostAtCurrentBuildSpot.
 	bool GetEdgesOnlyBuildPreview();
 
   private:
@@ -76,7 +82,7 @@ public:
 	std::shared_ptr <VirtualKeyField> m_whiteboardVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_megaMapVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_rotateBuildVirtualKeyField;
-	std::shared_ptr <Button>          m_edgesOnlyBuildPreviewButton;
+	std::shared_ptr <Button>          m_buildMenuRotationOverlayButton;
 	std::shared_ptr <IntegerField> m_mexSnapRadiusIntegerField;
 	std::shared_ptr <IntegerField> m_wreckSnapRadiusIntegerField;
 	std::shared_ptr <TextField> m_chatMacroTextField;

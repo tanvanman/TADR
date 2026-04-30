@@ -404,6 +404,17 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case WM_LBUTTONDOWN:
+				// Build-menu quadrant click: pre-set rotation when the
+				// click landed on a rotatable structure button. We don't
+				// consume the event — TA's normal click processing still
+				// runs and enters the build cursor mode with the chosen
+				// orientation already on CUnitRotate.
+				if (CUnitRotate* rot = CUnitRotate::GetInstance())
+				{
+					int mouseX = (short)LOWORD(lParam);
+					int mouseY = (short)HIWORD(lParam);
+					rot->OnBuildMenuClick(mouseX, mouseY);
+				}
 				if(RingWrite)
 				{
 					WriteDTLine();
@@ -646,18 +657,32 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 									int finalCount = SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(
 										ClickSnapPreviewPosXY, GetFootX(), GetFootY(), MexSnapRadius,
 										TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
-									// Always fire the visual override when ANY metal is in
-									// range — even if our snap target happens to match TA's
-									// natural BuildPos. Without this, the override flickers
-									// off whenever the player's mouse momentarily aligns
-									// with the deposit, which causes a 1-frame race where
-									// TA's native build rect is briefly visible at TA's BP
-									// (one tile away when BP transitions across a tile
-									// boundary). With override always on, TA's rect stays
-									// suppressed throughout the mex-snap-active region and
-									// our rect is the only thing rendered.
+									// All-or-nothing snap: fire only when the foot is well
+									// centred over the deposit. Centred means either the
+									// snap target matches TA's natural BuildPos (no
+									// movement needed) or a tighter follow-up snap doesn't
+									// move further. The first arm also fixes the 1-frame
+									// race where TA's native rect briefly appeared at the
+									// stale BuildPos as the cursor crossed a tile boundary
+									// onto the deposit — by firing the override on that
+									// frame, TA's rect stays suppressed throughout.
 									if (finalCount > 0) {
-										ClickSnapPreviewBuild = true;
+										bool isCentred =
+											(ClickSnapPreviewPosXY[0] == TAdynmem->BuildPosX
+											 && ClickSnapPreviewPosXY[1] == TAdynmem->BuildPosY);
+										if (!isCentred) {
+											int testFurtherSnapPosXY[2] = { ClickSnapPreviewPosXY[0], ClickSnapPreviewPosXY[1] };
+											SnapToNear<CountFeetExceedingSurfaceMetalAdapter>(
+												testFurtherSnapPosXY, GetFootX(), GetFootY(),
+												std::max(GetFootX(), GetFootY()),
+												TAdynmem->MouseMapPos.X, TAdynmem->MouseMapPos.Y);
+											isCentred =
+												(testFurtherSnapPosXY[0] == ClickSnapPreviewPosXY[0]
+												 && testFurtherSnapPosXY[1] == ClickSnapPreviewPosXY[1]);
+										}
+										if (isCentred) {
+											ClickSnapPreviewBuild = true;
+										}
 									}
 								}
 
@@ -723,8 +748,12 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				// Override Key" binding (default Alt) so the user gets a
 				// single configurable modifier for build-cursor side-channel
 				// inputs. Plain wheel stays reserved for megamap zoom/toggle.
-				// TryCycleRotation no-ops if the unit type doesn't allow
-				// rotation, so the wheel falls through to megamap as before.
+				//
+				// We consume the event whenever the modifier is held — even
+				// when no rotatable build is active, or CUnitRotate hasn't
+				// been constructed yet. The modifier binding owns the
+				// gesture; otherwise Alt+wheel falls through to the megamap
+				// and toggles it, which the player rarely wants.
 				int snapOverrideKey = VK_MENU;
 				if (LocalShare && LocalShare->Dialog)
 					snapOverrideKey = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetClickSnapOverrideKey();
@@ -736,9 +765,10 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						if (wheelDelta != 0)
 						{
 							int dir = (wheelDelta > 0) ? +1 : -1;
-							if (rot->TryCycleRotation(dir)) return true;
+							rot->TryCycleRotation(dir);
 						}
 					}
+					return true;
 				}
 
 				if(HIWORD(wParam)>120)
@@ -903,6 +933,11 @@ void CTAHook::DrawBuildOverlays()
 	}
 	VisualizeDraggingBuildRectangle();
 	VisualizeMexSnapPreview();
+
+	// NOTE: DrawBuildMenuRotationOverlays is NOT called here. CUnitRotate
+	// owns its own DrawGameScreen post-DrawGUI hook so the chevrons render
+	// after the panel repaint instead of underneath it. See
+	// ADDR_DrawGameScreen_PostDrawGUI in unitrotate.cpp.
 }
 /*
 

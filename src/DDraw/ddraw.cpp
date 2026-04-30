@@ -185,6 +185,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		NowCrackLimit= new LimitCrack;
 
 		FixTABug= new TABugFixing;
+		InstallCrashTrace();
 
 		StartPositions::GetInstance();
 		AutoTeam::Install();

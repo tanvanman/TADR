@@ -66,9 +66,12 @@ Dialog::Dialog(BOOL Vidmem_a)
 	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(4), "Rotate Build Key"));
 	m_widgets.push_back(m_rotateBuildVirtualKeyField = std::make_shared<VirtualKeyField>(COL1, ROW(4), 50, ROW_HEIGHT, VK_OEM_2, "RotateBuildKey"));
 
-	m_widgets.push_back(m_edgesOnlyBuildPreviewButton = std::make_shared<Button>(COL0, ROW(5), lpCheckBox,
-		0, 2, false, std::vector<std::string>(), "EdgesOnlyBuildPreview", std::function<void(int)>()));
-	m_widgets.push_back(std::make_shared<Label>(COL0 + m_edgesOnlyBuildPreviewButton->m_width + 4, ROW(5), "Edges-only build preview"));
+	// Build-menu rotation overlay (chevrons / buildrotate.gaf). When off,
+	// rotatable structure buttons render as stock TA buttons and clicks
+	// in the cardinal margins are passed through to TA unchanged.
+	m_widgets.push_back(m_buildMenuRotationOverlayButton = std::make_shared<Button>(COL0, ROW(5), lpCheckBox,
+		1, 2, false, std::vector<std::string>(), "BuildMenuRotationOverlay", std::function<void(int)>()));
+	m_widgets.push_back(std::make_shared<Label>(COL0 + m_buildMenuRotationOverlayButton->m_width + 4, ROW(5), "Build menu rotation overlay"));
 
 	m_widgets.push_back(std::make_shared<Label>(COL0, ROW(6), "PATROLLING CONSTRUCTION UNITS"));
 #if PATROLING_CONS_RECLAIM_OR_ASSIST_ENABLE
@@ -297,9 +300,17 @@ int Dialog::GetRotateBuildKey()
 	return m_rotateBuildVirtualKeyField ? m_rotateBuildVirtualKeyField->m_vk : VK_OEM_2;
 }
 
+bool Dialog::GetBuildMenuRotationOverlayEnabled()
+{
+	// Default to enabled when the widget hasn't been built yet (e.g. very
+	// early ctor calls before the dialog page is laid out).
+	return !m_buildMenuRotationOverlayButton
+		|| m_buildMenuRotationOverlayButton->GetState() != 0;
+}
+
 bool Dialog::GetEdgesOnlyBuildPreview()
 {
-	return m_edgesOnlyBuildPreviewButton && m_edgesOnlyBuildPreviewButton->GetState() != 0;
+	return true;
 }
 
 void Dialog::SetAll()

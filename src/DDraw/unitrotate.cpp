@@ -4,6 +4,7 @@
 #include "dialog.h"
 #include "iddrawsurface.h"
 #include "hook/hook.h"
+#include "taHPI.h"
 #include "tafunctions.h"
 #include "tamem.h"
 #include "UnitDefExtensions.h"
@@ -55,6 +56,17 @@ namespace
     // directly, so those fields must reflect the ORDER's rotation (not the
     // current cursor's) for the duration of the call.
     constexpr unsigned ADDR_DrawBuildSpotQueue          = 0x00438c00;
+
+    // DrawGameScreen, instruction immediately after `CALL DrawGUI` at 0x46a303
+    // (DrawGUI is at 0x004ab170). DrawGUI repaints the active GUI panel (the
+    // build menu sidebar) into the back buffer when the panel's dirty flag is
+    // set, so anything we paint on those buttons earlier in the frame gets
+    // overpainted whenever the panel is dirty (page change, hover redraw,
+    // sub-menu, etc.). Hooking *after* this call guarantees the chevrons sit
+    // on top of every panel repaint. Original instruction is a 6-byte
+    // `MOV EDX, [0x00511de8]`; the inline-hook trampoline rounds 5 → 6 to
+    // cover the full opcode.
+    constexpr unsigned ADDR_DrawGameScreen_PostDrawGUI  = 0x0046a308;
 
     // Send_NewUnits_P09 entry — broadcasts packet 0x09 (unit-creation announcement
     // including bank/heading/pitch). Called from inside UNITS_CreateUnit AFTER
@@ -759,6 +771,13 @@ static int __stdcall FreeGameData_Entry_Proc(PInlineX86StackBuffer)
     return 0;
 }
 
+static int __stdcall DrawGameScreen_PostDrawGUI_Proc(PInlineX86StackBuffer)
+{
+    if (CUnitRotate* self = CUnitRotate::GetInstance())
+        self->DrawBuildMenuRotationOverlays();
+    return 0;
+}
+
 // ============================================================================
 // CUnitRotate
 // ============================================================================
@@ -768,7 +787,10 @@ CUnitRotate::CUnitRotate()
       m_rotation(0),
       m_activeRotatedUnitInfoIdx(ROT_NONE),
       m_activeYardmapRotatedIdx(ROT_NONE),
-      m_rotationsKeyIdx(0)
+      m_rotationsKeyIdx(0),
+      m_menuClickFeedbackControlIdx(-1),
+      m_menuClickFeedbackCardinal(-1),
+      m_menuClickFeedbackTimestamp(0)
 {
     g_instance = this;
 
@@ -823,6 +845,15 @@ CUnitRotate::CUnitRotate()
     // Restore UNITINFO state before TA's exit teardown frees yardmaps.
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
         ADDR_FreeGameData, 5, INLINE_5BYTESLAGGERJMP, FreeGameData_Entry_Proc)));
+
+    // Render build-menu rotation chevrons AFTER DrawGUI repaints the panel,
+    // so a dirty-flag panel redraw doesn't overpaint our overlays. Has to
+    // sit here rather than alongside the build-cursor overlays at 0x469f30
+    // because that hook fires earlier in DrawGameScreen — before the panel
+    // repaint at 0x46a303.
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_DrawGameScreen_PostDrawGUI, 5, INLINE_5BYTESLAGGERJMP,
+        DrawGameScreen_PostDrawGUI_Proc)));
 
     IDDrawSurface::OutptTxt("CUnitRotate loaded. Press '/' to cycle build facing.");
 }
@@ -1187,4 +1218,625 @@ bool CUnitRotate::TryCycleRotation(int direction)
     if (CBuildGhost* g = CBuildGhost::GetInstance())
         g->SetRotateKeyDiscovered();
     return true;
+}
+
+// ============================================================================
+// Build-menu rotation overlay (prototype)
+// ============================================================================
+
+int CUnitRotate::FindUnitTypeIdxByName(const char* name) const
+{
+    // GUI button names ("ARMVP", "ARMSOLAR", …) are FBI UnitName values,
+    // which are stored in UnitDefStruct::UnitName — NOT the .Name field
+    // (which is the human-readable "Vehicle Plant" display name).
+    if (!name || !*name) return -1;
+    TAdynmemStruct* ta = GetTA();
+    if (!ta || !ta->UnitDef) return -1;
+    unsigned count = ta->UNITINFOCount;
+    for (unsigned i = 0; i < count; ++i)
+    {
+        if (_stricmp(ta->UnitDef[i].UnitName, name) == 0)
+            return static_cast<int>(i);
+    }
+    return -1;
+}
+
+bool CUnitRotate::IsRotatableStructure(unsigned int unitTypeIdx) const
+{
+    TAdynmemStruct* ta = GetTA();
+    if (!ta || !ta->UnitDef || unitTypeIdx >= ta->UNITINFOCount) return false;
+    if (ta->UnitDef[unitTypeIdx].bmcode != 0) return false;
+    int allowed = 0;
+    for (int r = 0; r < 4; ++r)
+        if (IsRotationAllowed(unitTypeIdx, r)) ++allowed;
+    return allowed >= 2;
+}
+
+namespace
+{
+    // Chevron geometry — shared between the renderer and the click
+    // hit-tester so the centre dead-zone matches what the chevrons
+    // actually occupy.
+    const int kChevronArm        = 3;   // half-width of chevron arm
+    const int kChevronDepth      = 4;   // distance from arm-tip to apex
+    const int kChevronGap        = 4;   // distance between two apices
+    const int kChevronInset      = 5;   // distance of front apex from edge
+    const int kCardinalMarginPx  = kChevronInset + kChevronGap + kChevronDepth;
+
+    // Identify which cardinal a click landed in, given the click is
+    // inside the button rect at relative (rx, ry) and button size (W, H).
+    // Returns {0=S, 1=E, 2=N, 3=W} corresponding to the closest edge,
+    // or -1 if the click is in the central dead zone.
+    int ClickToCardinal(int rx, int ry, int W, int H)
+    {
+        const int distN = ry;
+        const int distS = (H - 1) - ry;
+        const int distE = (W - 1) - rx;
+        const int distW = rx;
+        int minD = distN;
+        if (distS < minD) minD = distS;
+        if (distE < minD) minD = distE;
+        if (distW < minD) minD = distW;
+        if (minD >= kCardinalMarginPx) return -1;
+        if (minD == distN) return 2;
+        if (minD == distS) return 0;
+        if (minD == distE) return 1;
+        return 3;
+    }
+
+    // ---- Surface-direct pixel drawing for the build-menu overlay ----
+    //
+    // TA's TADrawRect (0x4BF8C0 = DrawTranspRectangle) draws stippled
+    // diagonal lines, not solid fills, so it can't render the chevron /
+    // triangle shapes we want here. Instead we lock the back-buffer
+    // through the same TA helpers CBuildGhost uses and plot pixels
+    // directly into the 8-bpp surface.
+
+    using Fn_LockAttackSurface     = int  (__stdcall*)(void*);
+    using Fn_UnlockAttackedSurface = void (__stdcall*)(void*);
+    const Fn_LockAttackSurface     kFn_LockAttackSurface     = (Fn_LockAttackSurface)    0x004c5e70;
+    const Fn_UnlockAttackedSurface kFn_UnlockAttackedSurface = (Fn_UnlockAttackedSurface)0x004c5fa0;
+
+    struct PixelBuf
+    {
+        unsigned char* data;
+        int            pitch;
+        int            width;
+        int            height;
+    };
+
+    inline void Plot(PixelBuf& b, int x, int y, int color)
+    {
+        if ((unsigned)x < (unsigned)b.width && (unsigned)y < (unsigned)b.height)
+            b.data[y * b.pitch + x] = (unsigned char)color;
+    }
+
+    // Bresenham line, optionally fattened: each plotted pixel is a
+    // (2*half+1) square so thickness 1 = single pixel, thickness 3 = 3x3.
+    void DrawLineFat(PixelBuf& b, int x0, int y0, int x1, int y1, int color, int thickness)
+    {
+        const int half = thickness / 2;
+        int dx = std::abs(x1 - x0);
+        int dy = -std::abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1;
+        int sy = y0 < y1 ? 1 : -1;
+        int err = dx + dy;
+        for (;;)
+        {
+            for (int oy = -half; oy <= half; ++oy)
+                for (int ox = -half; ox <= half; ++ox)
+                    Plot(b, x0 + ox, y0 + oy, color);
+            if (x0 == x1 && y0 == y1) break;
+            int e2 = 2 * err;
+            if (e2 >= dy) { err += dy; x0 += sx; }
+            if (e2 <= dx) { err += dx; y0 += sy; }
+        }
+    }
+
+    // Two stacked chevrons whose apices point toward the cardinal edge.
+    // Drawn outline-first (3-px line in outlineColor) then a 1-px line of
+    // fillColor on top. Highlight reuses the same geometry with different
+    // colours, so there's no residual pixels left behind when the
+    // highlight expires (TA's GUI panel only repaints on UI events, not
+    // every frame).
+    void DrawChevronPair(PixelBuf& b, int btnX, int btnY, int btnW, int btnH,
+                         int cardinal, int fillColor, int outlineColor)
+    {
+        const int arm   = kChevronArm;
+        const int depth = kChevronDepth;
+        const int gap   = kChevronGap;
+        const int inset = kChevronInset;
+
+        // Outward = direction the apex points (toward the edge).
+        // Perpendicular = sideways spread of the arms.
+        static const int outX[4] = {  0, +1,  0, -1 };  // S, E, N, W
+        static const int outY[4] = { +1,  0, -1,  0 };
+        const int ox = outX[cardinal & 3];
+        const int oy = outY[cardinal & 3];
+        const int px = oy;       // perpendicular = outward rotated 90°
+        const int py = -ox;
+
+        // Edge midpoint, then walk inward by inset for the front apex,
+        // and another `gap` for the back apex.
+        int edgeMidX, edgeMidY;
+        switch (cardinal & 3)
+        {
+        case 0:  edgeMidX = btnX + btnW / 2; edgeMidY = btnY + btnH;     break;
+        case 1:  edgeMidX = btnX + btnW;     edgeMidY = btnY + btnH / 2; break;
+        case 2:  edgeMidX = btnX + btnW / 2; edgeMidY = btnY;            break;
+        case 3:
+        default: edgeMidX = btnX;            edgeMidY = btnY + btnH / 2; break;
+        }
+        const int a1x = edgeMidX - inset * ox, a1y = edgeMidY - inset * oy;
+        const int a2x = a1x      - gap   * ox, a2y = a1y      - gap   * oy;
+
+        auto drawChevron = [&](int ax, int ay, int color, int thick)
+        {
+            // Arm tips: apex - depth*outward ± arm*perpendicular
+            const int leftX  = ax - depth * ox - arm * px;
+            const int leftY  = ay - depth * oy - arm * py;
+            const int rightX = ax - depth * ox + arm * px;
+            const int rightY = ay - depth * oy + arm * py;
+            DrawLineFat(b, ax, ay, leftX,  leftY,  color, thick);
+            DrawLineFat(b, ax, ay, rightX, rightY, color, thick);
+        };
+        // Outline pass first, then fill on top.
+        drawChevron(a1x, a1y, outlineColor, 3);
+        drawChevron(a2x, a2y, outlineColor, 3);
+        drawChevron(a1x, a1y, fillColor,    1);
+        drawChevron(a2x, a2y, fillColor,    1);
+    }
+
+    // ---- Optional 4-frame GAF override for the cardinal arrows ----
+    //
+    // Mod authors can drop a file named "buildrotate.gaf" in the game
+    // directory containing a single sequence with exactly 4 frames in
+    // the order S, E, N, W (matching our rotation index). Each frame's
+    // hotspot is anchored at the mid-edge of the corresponding cardinal
+    // of the build button.
+    //
+    // Format reference: src/DDraw/gaf.cpp (CopyGafToBits commented body
+    // shows the RLE decompression scheme).
+    struct GafFrameImg
+    {
+        int                   width;
+        int                   height;
+        int                   hotX;
+        int                   hotY;
+        unsigned char         background;   // pixel value treated as transparent
+        std::vector<unsigned char> pixels;  // width * height
+    };
+
+    // Idle frames (anims/buildrotate.gaf) and the optional click-flash
+    // overlay (anims/buildrotateclick.gaf). When the click GAF is
+    // present its frames are blitted in place of the tint-coloured idle
+    // frames during the feedback window. When absent we fall back to a
+    // white tint on the idle frames; when neither GAF loads we use the
+    // built-in chevrons.
+    static bool         s_gafLoadAttempted      = false;
+    static bool         s_gafLoaded             = false;
+    static GafFrameImg  s_gafFrames[4];
+
+    static bool         s_gafClickLoadAttempted = false;
+    static bool         s_gafClickLoaded        = false;
+    static GafFrameImg  s_gafClickFrames[4];
+
+    // RLE decompression — same per-line scheme TA uses (see gaf.cpp:185+).
+    void DecompressGafFrameRLE(const unsigned char* src, int width, int height,
+                               unsigned char background, unsigned char* dst,
+                               size_t srcRemaining)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            if (srcRemaining < 2) return;
+            int byteCount = *reinterpret_cast<const short*>(src);
+            src += 2; srcRemaining -= 2;
+            if ((size_t)byteCount > srcRemaining) return;
+            int x = 0;
+            int count = 0;
+            unsigned char* line = dst + y * width;
+            while (count < byteCount)
+            {
+                unsigned char mask = src[count++];
+                if (mask & 0x01)
+                {
+                    x += (mask >> 1);
+                }
+                else if (mask & 0x02)
+                {
+                    int repeat = (mask >> 2) + 1;
+                    if (count >= byteCount) break;
+                    unsigned char v = src[count++];
+                    while (repeat--)
+                        if (x < width) line[x++] = v;
+                }
+                else
+                {
+                    int repeat = (mask >> 2) + 1;
+                    while (repeat--)
+                    {
+                        if (count >= byteCount) break;
+                        unsigned char v = src[count++];
+                        if (x < width) line[x++] = v;
+                    }
+                }
+            }
+            src += byteCount; srcRemaining -= byteCount;
+        }
+    }
+
+    // Parse a 4-frame GAF file from disk into `out`. Returns false on any
+    // I/O error, malformed header, frame-count mismatch, or unreasonable
+    // sizes — caller falls back to whatever next stage applies.
+    bool LoadGaf4Frames(const char* path, GafFrameImg out[4])
+    {
+        // Use TA's HPI-aware reader so the file is found whether the
+        // mod ships it as a loose file under <gamedir>/anims/ OR packs
+        // it inside an HPI / GP3 archive alongside its other anims.
+        // TA's HPI lookup uses backslashes; mirror that convention.
+        char hpiPath[260];
+        size_t n = strlen(path);
+        if (n >= sizeof(hpiPath)) return false;
+        for (size_t i = 0; i <= n; ++i)
+            hpiPath[i] = (path[i] == '/') ? '\\' : path[i];
+
+        // Go through the raw readfile_HPI function pointer rather than
+        // the _TAHPI C++ wrapper. The wrapper instance (TAHPI*) is only
+        // constructed by AddtionInit, which isn't wired up in this DLL
+        // configuration; the underlying function pointer
+        // (initialised in HPIfunc.cpp from 0x004BBE50) works on its
+        // own once TA has loaded its HPI banks. fopen_HPI inside
+        // readfile_HPI tries _fopen first (loose file under cwd) before
+        // walking the HPI bank list, so loose `anims/foo.gaf` files
+        // resolve too.
+        unsigned int sz = 0;
+        char* raw = readfile_HPI(hpiPath, &sz);
+        if (!raw) return false;
+        if (sz < 12 || sz > 16u * 1024u * 1024u)
+        {
+            IDDrawSurface::OutptFmtTxt("[BuildRotateGAF] %s: implausible size %u, skipping",
+                hpiPath, sz);
+            freeTAMem(raw);
+            return false;
+        }
+
+        const unsigned char* p = reinterpret_cast<const unsigned char*>(raw);
+        bool ok = false;
+        do
+        {
+            if (*reinterpret_cast<const unsigned*>(p) != 0x00010100u) break;
+            unsigned numEntries = *reinterpret_cast<const unsigned*>(p + 4);
+            if (numEntries < 1 || numEntries > 1024) break;
+
+            unsigned entryOff = *reinterpret_cast<const unsigned*>(p + 12);
+            if (entryOff + 40 > sz) break;
+            unsigned short frameCount = *reinterpret_cast<const unsigned short*>(p + entryOff);
+            if (frameCount != 4)
+            {
+                IDDrawSurface::OutptFmtTxt("[BuildRotateGAF] %s: entry has %u frames, expected 4 — ignoring",
+                    path, (unsigned)frameCount);
+                break;
+            }
+
+            unsigned frameTableOff = entryOff + 40;
+            bool framesOk = true;
+            for (int i = 0; i < 4 && framesOk; ++i)
+            {
+                if (frameTableOff + (size_t)i * 8 + 8 > sz) { framesOk = false; break; }
+                unsigned framePtrOff =
+                    *reinterpret_cast<const unsigned*>(p + frameTableOff + (size_t)i * 8);
+                if (framePtrOff + 24 > sz) { framesOk = false; break; }
+
+                unsigned short  W   = *reinterpret_cast<const unsigned short*>(p + framePtrOff + 0);
+                unsigned short  H   = *reinterpret_cast<const unsigned short*>(p + framePtrOff + 2);
+                short           XP  = *reinterpret_cast<const short*>         (p + framePtrOff + 4);
+                short           YP  = *reinterpret_cast<const short*>         (p + framePtrOff + 6);
+                unsigned char   bg  = *(p + framePtrOff + 8);
+                unsigned char   cmp = *(p + framePtrOff + 9);
+                unsigned        pixOff =
+                    *reinterpret_cast<const unsigned*>(p + framePtrOff + 16);
+                if (W == 0 || H == 0 || W > 1024 || H > 1024) { framesOk = false; break; }
+                if (pixOff >= sz) { framesOk = false; break; }
+
+                GafFrameImg& fr = out[i];
+                fr.width      = W;
+                fr.height     = H;
+                fr.hotX       = XP;
+                fr.hotY       = YP;
+                fr.background = bg;
+                fr.pixels.assign(static_cast<size_t>(W) * H, bg);
+
+                if (cmp)
+                {
+                    DecompressGafFrameRLE(p + pixOff, W, H, bg, fr.pixels.data(),
+                        sz - pixOff);
+                }
+                else
+                {
+                    size_t need = static_cast<size_t>(W) * H;
+                    if (pixOff + need > sz) { framesOk = false; break; }
+                    memcpy(fr.pixels.data(), p + pixOff, need);
+                }
+            }
+            if (!framesOk) break;
+
+            IDDrawSurface::OutptFmtTxt("[BuildRotateGAF] loaded 4 frames from %s "
+                "(S=%dx%d, E=%dx%d, N=%dx%d, W=%dx%d)",
+                path,
+                out[0].width, out[0].height,
+                out[1].width, out[1].height,
+                out[2].width, out[2].height,
+                out[3].width, out[3].height);
+            ok = true;
+        } while (false);
+
+        freeTAMem(raw);
+        return ok;
+    }
+
+    // VA of the "anims" directory-name string TotalA.exe passes as the
+    // `directory` argument to LocalizedFilePath() inside LoadAnimGaf
+    // (xref'd from LoadAnimGaf @ 0x00429758, also LoadFeatureUnit and
+    // InitBasicGameData). Some mods hack this string in place to point
+    // at a renamed asset directory, so we read it at runtime instead
+    // of hardcoding "anims".
+    static const char* GetAnimsDirName()
+    {
+        const char* p = reinterpret_cast<const char*>(0x00502e30);
+        size_t n = 0;
+        while (n < 32 && p[n] != '\0') ++n;
+        if (n == 0 || n >= 32) return "anims";   // defensive fallback
+        return p;
+    }
+
+    bool TryLoadBuildRotateGaf()
+    {
+        s_gafLoadAttempted = true;
+        char path[260];
+        _snprintf_s(path, _TRUNCATE, "%s\\buildrotate.gaf", GetAnimsDirName());
+        s_gafLoaded = LoadGaf4Frames(path, s_gafFrames);
+        return s_gafLoaded;
+    }
+
+    bool TryLoadBuildRotateClickGaf()
+    {
+        s_gafClickLoadAttempted = true;
+        char path[260];
+        _snprintf_s(path, _TRUNCATE, "%s\\buildrotateclick.gaf", GetAnimsDirName());
+        s_gafClickLoaded = LoadGaf4Frames(path, s_gafClickFrames);
+        return s_gafClickLoaded;
+    }
+
+    // Blit a GAF frame onto the back buffer, transparent-aware (any pixel
+    // matching frm.background is skipped). When `tintColor >= 0`, every
+    // non-transparent pixel is recoloured to that index — used to flash
+    // the frame for the click-feedback highlight without changing pixel
+    // coverage (so the next regular blit fully overwrites the flash with
+    // no residual).
+    void BlitGafFrame(PixelBuf& b, int dstX, int dstY, const GafFrameImg& frm,
+                      int tintColor = -1)
+    {
+        for (int y = 0; y < frm.height; ++y)
+        {
+            int sy = dstY + y;
+            if (sy < 0 || sy >= b.height) continue;
+            const unsigned char* src = frm.pixels.data() + (size_t)y * frm.width;
+            unsigned char* dst = b.data + (size_t)sy * b.pitch;
+            for (int x = 0; x < frm.width; ++x)
+            {
+                int sx = dstX + x;
+                if ((unsigned)sx >= (unsigned)b.width) continue;
+                unsigned char v = src[x];
+                if (v == frm.background) continue;
+                dst[sx] = (tintColor >= 0) ? (unsigned char)tintColor : v;
+            }
+        }
+    }
+}
+
+void CUnitRotate::DrawBuildMenuRotationOverlays()
+{
+    if (LocalShare && LocalShare->Dialog
+        && !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetBuildMenuRotationOverlayEnabled())
+    {
+        return;
+    }
+
+    TAdynmemStruct* ta = GetTA();
+    if (!ta) return;
+    GUIMEMSTRUCT* gui = ta->desktopGUI.TheActive_GUIMEM;
+    if (!gui || !gui->ControlsAry) return;
+
+    _GUI0IDControl* controls = gui->ControlsAry;
+    int totalGadgets = controls[0].totalgadgets;
+    if (totalGadgets <= 0 || totalGadgets > 256) return;  // sanity
+
+    // Feedback flash (highlight only renders during this window).
+    const DWORD kFeedbackMs = 200;
+    const DWORD now         = GetTickCount();
+    const DWORD elapsed     = now - m_menuClickFeedbackTimestamp;
+    const bool  feedbackOn  = (m_menuClickFeedbackControlIdx > 0
+                               && m_menuClickFeedbackCardinal >= 0
+                               && elapsed < kFeedbackMs);
+
+    // Fallback chevron colours. Fill = palette index 251 (pure yellow
+    // (255,255,0), the same static-palette slot the in-game chat text
+    // uses); outline = palette index 0 (black). We deliberately avoid
+    // 240..247 here — that's TA's team-colour slot range, overwritten
+    // at game start with each player's logo colour, which would render
+    // the chevron e.g. black for a black-team player. Highlight = both
+    // passes in RadarObjecColor[15] (the bright white HUD slot HUD
+    // notifications use), so the chevron flashes solid white. Same
+    // pixel coverage as the regular chevron so reverting after the
+    // feedback window leaves no residual.
+    const int kColorChevronFill    = 251;
+    const int kColorChevronOutline = 0;
+    const int kColorHighlightFill  = ta->desktopGUI.RadarObjecColor[15];
+    const int kColorHighlightOutln = kColorHighlightFill;
+
+    // Cheap first pass — bail without locking the surface if the active
+    // GUI has no rotatable-structure buttons (most of the in-game time).
+    bool anyRotatable = false;
+    for (int i = 1; i <= totalGadgets; ++i)
+    {
+        if (!controls[i].active) continue;
+        char nm[17]; memcpy(nm, controls[i].name, 16); nm[16] = 0;
+        int idx = FindUnitTypeIdxByName(nm);
+        if (idx >= 0 && IsRotatableStructure(static_cast<unsigned>(idx)))
+        {
+            anyRotatable = true;
+            break;
+        }
+    }
+    if (!anyRotatable) return;
+
+    // Lazy-load the optional buildrotate.gaf override (and its click
+    // companion) on first use. Each attempt is tried at most once.
+    if (!s_gafLoadAttempted)      TryLoadBuildRotateGaf();
+    if (!s_gafClickLoadAttempted) TryLoadBuildRotateClickGaf();
+
+    OFFSCREEN off;
+    memset(&off, 0, sizeof(off));
+    if (!kFn_LockAttackSurface(&off)) return;
+    if (!off.lpSurface)
+    {
+        kFn_UnlockAttackedSurface(&off);
+        return;
+    }
+
+    PixelBuf b;
+    b.data   = static_cast<unsigned char*>(off.lpSurface);
+    b.pitch  = off.lPitch;
+    b.width  = off.Width;
+    b.height = off.Height;
+
+    // Buttons are positioned relative to the panel (controls[0]); add the
+    // panel offset to get absolute screen coordinates.
+    const int panelX = controls[0].xpos;
+    const int panelY = controls[0].ypos;
+
+    for (int i = 1; i <= totalGadgets; ++i)
+    {
+        _GUI0IDControl& c = controls[i];
+        if (!c.active) continue;
+        if (c.width <= 0 || c.height <= 0) continue;
+
+        char ctrlName[17];
+        memcpy(ctrlName, c.name, 16);
+        ctrlName[16] = 0;
+        int idx = FindUnitTypeIdxByName(ctrlName);
+        if (idx < 0) continue;
+        if (!IsRotatableStructure(static_cast<unsigned>(idx))) continue;
+
+        const int btnX = panelX + c.xpos;
+        const int btnY = panelY + c.ypos;
+        for (int r = 0; r < 4; ++r)
+        {
+            if (!IsRotationAllowed(static_cast<unsigned>(idx), r)) continue;
+            const bool highlightThis = feedbackOn
+                && m_menuClickFeedbackControlIdx == i
+                && m_menuClickFeedbackCardinal == r;
+
+            if (s_gafLoaded)
+            {
+                // Anchor the GAF frame's hotspot just inside the centre
+                // of the chevron-margin band on the cardinal edge —
+                // same band the chevron fallback occupies, with a
+                // 1-pixel nudge toward the button centre to leave a
+                // small gap between the frame and the panel border.
+                const int halfBand = kCardinalMarginPx / 2 + 1;
+                int anchorX, anchorY;
+                switch (r)
+                {
+                case 0:  anchorX = btnX + c.width / 2;            anchorY = btnY + c.height - halfBand; break;
+                case 1:  anchorX = btnX + c.width - halfBand;     anchorY = btnY + c.height / 2;        break;
+                case 2:  anchorX = btnX + c.width / 2;            anchorY = btnY + halfBand;            break;
+                case 3:
+                default: anchorX = btnX + halfBand;               anchorY = btnY + c.height / 2;        break;
+                }
+                // Use the dedicated click frame when the mod ships
+                // anims/buildrotateclick.gaf. If only the idle GAF is
+                // present we deliberately render it without tint —
+                // mods opting into a custom GAF get no fallback flash;
+                // they need to ship the companion click GAF if they
+                // want one.
+                if (highlightThis && s_gafClickLoaded)
+                {
+                    const GafFrameImg& fr = s_gafClickFrames[r];
+                    BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
+                }
+                else
+                {
+                    const GafFrameImg& fr = s_gafFrames[r];
+                    BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
+                }
+                continue;
+            }
+
+            if (highlightThis)
+                DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
+                    kColorHighlightFill, kColorHighlightOutln);
+            else
+                DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
+                    kColorChevronFill, kColorChevronOutline);
+        }
+    }
+
+    kFn_UnlockAttackedSurface(&off);
+}
+
+bool CUnitRotate::OnBuildMenuClick(int screenX, int screenY)
+{
+    if (LocalShare && LocalShare->Dialog
+        && !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetBuildMenuRotationOverlayEnabled())
+    {
+        return false;
+    }
+
+    TAdynmemStruct* ta = GetTA();
+    if (!ta) return false;
+    GUIMEMSTRUCT* gui = ta->desktopGUI.TheActive_GUIMEM;
+    if (!gui || !gui->ControlsAry) return false;
+
+    _GUI0IDControl* controls = gui->ControlsAry;
+    int totalGadgets = controls[0].totalgadgets;
+    if (totalGadgets <= 0 || totalGadgets > 256) return false;
+
+    const int panelX = controls[0].xpos;
+    const int panelY = controls[0].ypos;
+
+    for (int i = 1; i <= totalGadgets; ++i)
+    {
+        _GUI0IDControl& c = controls[i];
+        if (!c.active) continue;
+        const int btnX = panelX + c.xpos;
+        const int btnY = panelY + c.ypos;
+        if (screenX < btnX || screenX >= btnX + c.width)  continue;
+        if (screenY < btnY || screenY >= btnY + c.height) continue;
+
+        char ctrlName[17];
+        memcpy(ctrlName, c.name, 16);
+        ctrlName[16] = 0;
+        int idx = FindUnitTypeIdxByName(ctrlName);
+        if (idx < 0) continue;
+        if (!IsRotatableStructure(static_cast<unsigned>(idx))) continue;
+
+        // Click in the central dead-zone → preserve previously selected
+        // rotation. Only the chevron-occupied band on each edge sets a
+        // new cardinal.
+        const int rx = screenX - btnX;
+        const int ry = screenY - btnY;
+        int cardinal = ClickToCardinal(rx, ry, c.width, c.height);
+        if (cardinal < 0) return false;
+        if (!IsRotationAllowed(static_cast<unsigned>(idx), cardinal)) return false;
+
+        SetRotation(cardinal);
+        m_menuClickFeedbackControlIdx = i;
+        m_menuClickFeedbackCardinal   = cardinal;
+        m_menuClickFeedbackTimestamp  = GetTickCount();
+        if (CBuildGhost* g = CBuildGhost::GetInstance())
+            g->SetRotateKeyDiscovered();
+        return true;
+    }
+    return false;
 }

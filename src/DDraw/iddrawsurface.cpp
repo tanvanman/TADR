@@ -609,6 +609,16 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 					GUIExpander->myMinimap->LockBlit ( (char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 				}
 #endif
+
+				// Direct-pixel overlays must write while lpBack is still locked
+				// (i.e. before the lpBack->Unlock below).  Subsequent DDraw blits
+				// (DDDTA, Income, dialogs, TAHook) deliberately paint on top.
+#if WEATHER_REPORT
+				Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+#endif
+				VoteReject::GetInstance()->Tick();
+				LagSwitchGuard::GetInstance()->Tick();
+				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 			}
 
 			result = lpBack->Unlock ( arg1);
@@ -629,7 +639,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				CommanderWarp->Blit(lpBack);
 			}
 
-			
+
 #if USEMEGAMAP
 			if ((GUIExpander)
 				&&(GUIExpander->myMinimap))
@@ -646,10 +656,6 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				Income->BlitIncome(lpBack);
 			}
 
-#if WEATHER_REPORT
-			Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
-#endif
-
 			SettingsDialog->BlitDialog(lpBack);
 			if (VoteRejectDlg) VoteRejectDlg->BlitDialog(lpBack);
 #if TA_HOOK_ENABLE
@@ -659,11 +665,6 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			// Drain debug pipe every frame regardless of game phase.
 			DebugPipeServer::DrainQueue();
 #endif
-			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
-				VoteReject::GetInstance()->Tick();
-				LagSwitchGuard::GetInstance()->Tick();
-				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
-			}
 
 			//////////////////////////////////////////////////////////////////////////
 			//unicode
@@ -732,6 +733,15 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				}
 #endif
 
+				// Direct-pixel overlays must write while lpBack is still locked
+				// (i.e. before the lpBack->Unlock below).  Subsequent DDraw blits
+				// (DDDTA, Income, dialogs, TAHook) deliberately paint on top.
+#if WEATHER_REPORT
+				Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+#endif
+				VoteReject::GetInstance()->Tick();
+				LagSwitchGuard::GetInstance()->Tick();
+				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 			}
 
 			result = lpBack->Unlock ( arg1);
@@ -771,10 +781,6 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				Income->BlitIncome(lpBack);
 			}
 
-#if WEATHER_REPORT
-			Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
-#endif
-
 			SettingsDialog->BlitDialog(lpBack);
 			if (VoteRejectDlg) VoteRejectDlg->BlitDialog(lpBack);
 #if TA_HOOK_ENABLE
@@ -784,11 +790,6 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			// Drain debug pipe every frame regardless of game phase.
 			DebugPipeServer::DrainQueue();
 #endif
-			if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
-				VoteReject::GetInstance()->Tick();
-				LagSwitchGuard::GetInstance()->Tick();
-				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
-			}
 
 			//////////////////////////////////////////////////////////////////////////
 			//unicode
