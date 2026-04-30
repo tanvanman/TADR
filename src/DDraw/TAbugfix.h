@@ -72,6 +72,12 @@ extern TABugFixing * FixTABug;;
 
 int __stdcall BadModelHunter (PInlineX86StackBuffer X86StrackBuffer);
 
+// Crash-trace diagnostic instrumentation: hooks ExitProcess + TerminateProcess
+// in kernel32, registers CRT _invalid_parameter_handler + SIGABRT handler, and
+// extends the existing VEH to log first-chance access violations. All output
+// goes to tdrawlog.txt. Called once from ddraw.cpp's DLL_PROCESS_ATTACH.
+void InstallCrashTrace();
+
 int __stdcall CDMusic_VictoryProc (PInlineX86StackBuffer X86StrackBuffer);
 int __stdcall CDMusic_MenuProc (PInlineX86StackBuffer X86StrackBuffer);
 

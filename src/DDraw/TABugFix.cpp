@@ -17,8 +17,11 @@
 #include "ddraw.h"
 
 #include <chrono>
+#include <csignal>
 #include <random>
 #include <sstream>
+#include <stdlib.h>
+#include <tlhelp32.h>
 
 TABugFixing * FixTABug;
 ///////---------------------
@@ -852,6 +855,39 @@ LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
 {
+	const DWORD code = ExceptionInfo->ExceptionRecord->ExceptionCode;
+
+	// First-chance AV trace. Logs the first ~16 distinct first-chance access
+	// violations seen this run with EIP, faulting addr, and registers, then
+	// suppresses further logs to avoid spam if there's a tight crash loop
+	// being caught/swallowed somewhere upstream. Always returns control to
+	// the SEH chain so existing behaviour is unchanged.
+	if (code == EXCEPTION_ACCESS_VIOLATION)
+	{
+		static volatile LONG s_avSeen = 0;
+		LONG n = InterlockedIncrement(&s_avSeen);
+		if (n <= 16)
+		{
+			const CONTEXT* ctx = ExceptionInfo->ContextRecord;
+			uintptr_t faultAddr = ExceptionInfo->ExceptionRecord->NumberParameters >= 2
+				? ExceptionInfo->ExceptionRecord->ExceptionInformation[1] : 0;
+			int isWrite = ExceptionInfo->ExceptionRecord->NumberParameters >= 1
+				? (int)ExceptionInfo->ExceptionRecord->ExceptionInformation[0] : -1;
+			IDDrawSurface::OutptFmtTxt(
+				"[CrashTrace] first-chance AV #%ld at EIP=0x%08X (%s 0x%p) "
+				"EAX=%08X ECX=%08X EDX=%08X EBX=%08X ESI=%08X EDI=%08X EBP=%08X ESP=%08X",
+				n, (unsigned)ExceptionInfo->ExceptionRecord->ExceptionAddress,
+				isWrite == 1 ? "write" : isWrite == 0 ? "read" : "?",
+				(void*)faultAddr,
+				ctx->Eax, ctx->Ecx, ctx->Edx, ctx->Ebx,
+				ctx->Esi, ctx->Edi, ctx->Ebp, ctx->Esp);
+		}
+		else if (n == 17)
+		{
+			IDDrawSurface::OutptTxt("[CrashTrace] (suppressing further first-chance AV trace)");
+		}
+	}
+
 	if (ExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
 		(uintptr_t)ExceptionInfo->ExceptionRecord->ExceptionAddress == 0x4CBED5u)
 	{
@@ -1307,6 +1343,155 @@ BOOL TABugFixing::AntiCheat (void)
 }
 
 
+
+// ============================================================================
+// Crash-trace diagnostics.
+//
+// Targets the "instant return to desktop" failure mode where:
+//   - WER doesn't write a dump (no unhandled exception escaped the process)
+//   - TA's own crash logger never runs (no ErrorLog.txt entry is appended)
+//   - The process simply vanishes from the desktop.
+//
+// The only paths that can produce that signature on Win32 are:
+//   1. ExitProcess / RtlExitUserProcess called explicitly from any DLL.
+//   2. TerminateProcess(GetCurrentProcess(), …) from any thread.
+//   3. CRT _invalid_parameter_handler killing the process before TA's
+//      top-level filter sees the exception.
+//   4. abort()/SIGABRT taking the default action and calling ExitProcess.
+// We instrument all four to land breadcrumbs in tdrawlog.txt before the
+// process dies. Combined with the first-chance AV trace at the top of
+// VectoredHandler, that covers basically every termination path.
+// ============================================================================
+
+static std::unique_ptr<InlineSingleHook> s_exitProcessHook;
+static std::unique_ptr<InlineSingleHook> s_terminateProcessHook;
+
+static void DumpStackForCrashTrace(DWORD ebp, DWORD esp)
+{
+	int frames = 0;
+	DWORD curEbp = ebp;
+	for (int i = 0; i < 8 && curEbp; ++i)
+	{
+		if (IsBadReadPtr((void*)curEbp, 8)) break;
+		DWORD retAddr = *(DWORD*)(curEbp + 4);
+		IDDrawSurface::OutptFmtTxt("[CrashTrace]   frame[%d] ret=0x%08X ebp=0x%08X",
+			i, retAddr, curEbp);
+		DWORD nextEbp = *(DWORD*)curEbp;
+		if (nextEbp <= curEbp) break;  // sanity: x86 stack grows down
+		curEbp = nextEbp;
+		++frames;
+	}
+	if (frames == 0)
+	{
+		IDDrawSurface::OutptFmtTxt("[CrashTrace]   (no walkable frames; ESP=0x%08X EBP=0x%08X)",
+			esp, ebp);
+	}
+}
+
+// __stdcall ExitProcess(UINT exitCode). At entry: [ESP]=retaddr, [ESP+4]=exitCode.
+static int __stdcall ExitProcessHookProc(PInlineX86StackBuffer X)
+{
+	if (!X) return 0;
+	UINT  exitCode = *(UINT*)(X->Esp + 4);
+	DWORD retAddr  = *(DWORD*)X->Esp;
+	IDDrawSurface::OutptFmtTxt("[CrashTrace] ExitProcess(0x%X) called from 0x%08X",
+		exitCode, retAddr);
+	DumpStackForCrashTrace(X->Ebp, X->Esp);
+	return 0;
+}
+
+// __stdcall TerminateProcess(HANDLE hProcess, UINT exitCode).
+// Self-termination is the dangerous case; cross-process Terminate is benign
+// for our diagnostic purposes but we log it too to keep things simple.
+static int __stdcall TerminateProcessHookProc(PInlineX86StackBuffer X)
+{
+	if (!X) return 0;
+	HANDLE hProc    = *(HANDLE*)(X->Esp + 4);
+	UINT   exitCode = *(UINT*)(X->Esp + 8);
+	DWORD  retAddr  = *(DWORD*)X->Esp;
+	const bool isSelf = (hProc == GetCurrentProcess()
+		|| hProc == (HANDLE)(LONG_PTR)-1);
+	IDDrawSurface::OutptFmtTxt("[CrashTrace] TerminateProcess(hProc=%p%s, code=0x%X) from 0x%08X",
+		hProc, isSelf ? " [SELF]" : "", exitCode, retAddr);
+	if (isSelf) DumpStackForCrashTrace(X->Ebp, X->Esp);
+	return 0;
+}
+
+static void __cdecl OurInvalidParameterHandler(
+	const wchar_t* expression, const wchar_t* function,
+	const wchar_t* file, unsigned int line, uintptr_t)
+{
+	char expBuf[128] = "(null)";
+	char funBuf[128] = "(null)";
+	char fileBuf[260] = "(null)";
+	if (expression) wcstombs_s(NULL, expBuf, expression, _TRUNCATE);
+	if (function)   wcstombs_s(NULL, funBuf, function,   _TRUNCATE);
+	if (file)       wcstombs_s(NULL, fileBuf, file,      _TRUNCATE);
+	IDDrawSurface::OutptFmtTxt("[CrashTrace] _invalid_parameter_handler: '%s' in %s @ %s:%u",
+		expBuf, funBuf, fileBuf, line);
+	// Don't terminate. CRT default would call abort()/_exit which we
+	// hook below — let the trail accumulate naturally.
+}
+
+static void __cdecl OurAbortHandler(int sig)
+{
+	IDDrawSurface::OutptFmtTxt("[CrashTrace] SIGABRT received (sig=%d)", sig);
+	// Re-raise with the default handler so CRT's normal abort behaviour
+	// proceeds and our ExitProcess hook picks it up.
+	signal(SIGABRT, SIG_DFL);
+	raise(SIGABRT);
+}
+
+// Walk the process module list at install time and log each DLL's base +
+// size. Lets us match an ExitProcess "called from 0xADDR" line back to a
+// specific module after the fact — the address itself is otherwise just
+// a number from a process that's already gone by the time we look.
+static void LogLoadedModules()
+{
+	HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+	if (snap == INVALID_HANDLE_VALUE) return;
+	MODULEENTRY32 me;
+	me.dwSize = sizeof(me);
+	if (Module32First(snap, &me))
+	{
+		do {
+			IDDrawSurface::OutptFmtTxt("[CrashTrace] module 0x%08X-0x%08X %s",
+				(unsigned)(uintptr_t)me.modBaseAddr,
+				(unsigned)(uintptr_t)me.modBaseAddr + me.modBaseSize,
+				me.szModule);
+		} while (Module32Next(snap, &me));
+	}
+	CloseHandle(snap);
+}
+
+void InstallCrashTrace()
+{
+	LogLoadedModules();
+
+	HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
+	if (kernel32)
+	{
+		FARPROC exitProc = GetProcAddress(kernel32, "ExitProcess");
+		FARPROC termProc = GetProcAddress(kernel32, "TerminateProcess");
+		if (exitProc)
+		{
+			s_exitProcessHook.reset(new InlineSingleHook(
+				(unsigned)(uintptr_t)exitProc, 5, INLINE_5BYTESLAGGERJMP,
+				ExitProcessHookProc));
+		}
+		if (termProc)
+		{
+			s_terminateProcessHook.reset(new InlineSingleHook(
+				(unsigned)(uintptr_t)termProc, 5, INLINE_5BYTESLAGGERJMP,
+				TerminateProcessHookProc));
+		}
+	}
+
+	_set_invalid_parameter_handler(OurInvalidParameterHandler);
+	signal(SIGABRT, OurAbortHandler);
+
+	IDDrawSurface::OutptTxt("[CrashTrace] installed (ExitProcess + TerminateProcess + CRT + first-chance AV)");
+}
 
 void LogToErrorlog (LPSTR Str)
 {
