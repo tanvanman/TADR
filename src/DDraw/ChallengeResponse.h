@@ -4,6 +4,7 @@
 #include "nswfl_crc32.h"
 #include "tamem.h"
 
+#include <cstddef>
 #include <memory>
 #include <vector>
 #include <map>
@@ -41,6 +42,15 @@ struct ChallengeResponseMessage {
 };	// 65 bytes
 
 #pragma pack()
+
+static_assert(sizeof(ChallengeResponseMessage) == 65,
+              "ChallengeResponseMessage must be exactly 65 bytes (matches CHAT_05 size)");
+// Byte 64 (the last byte of the 65-byte chat envelope) must remain zero so
+// gpgnet4ta's TPacket sizer (tapacket/TPacket.cpp:286) does not trigger its
+// "older recorder emitted long chat" fallback and over-read into the next
+// subpacket. The pad spans through byte 64 and is zero-init via memset.
+static_assert(offsetof(ChallengeResponseMessage, pad) + sizeof(ChallengeResponseMessage::pad) == 65,
+              "pad must occupy through byte 64; byte 64 must remain zero-init");
 
 class ChallengeResponse
 {

@@ -18,9 +18,9 @@ PacketChatRouter::PacketChatRouter()
 	m_hook.reset(new InlineSingleHook(0x45522e, 5, INLINE_5BYTESLAGGERJMP, PacketChatProc));
 }
 
-void PacketChatRouter::RegisterHandler(unsigned char msgId, Handler handler)
+void PacketChatRouter::RegisterHandler(unsigned char msgId, Handler handler, bool fireInDemo)
 {
-	m_handlers[msgId] = std::move(handler);
+	m_handlers[msgId] = HandlerEntry{ std::move(handler), fireInDemo };
 }
 
 void PacketChatRouter::RegisterChatHandler(ChatHandler handler)
@@ -32,9 +32,14 @@ int __stdcall PacketChatRouter::PacketChatProc(PInlineX86StackBuffer pBuf)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	PlayerStruct* me = &taPtr->Players[taPtr->LocalHumanPlayer_PlayerID];
-	if (!me->PlayerActive || me->DirectPlayID == 0
-		|| (me->PlayerInfo->PropertyMask & WATCH)
-		|| DataShare->PlayingDemo)
+	const bool playingDemo = DataShare->PlayingDemo != 0;
+
+	// Live-play guard. Spectators and inactive players never dispatch.
+	// The PlayingDemo branch is handled below per-handler so passive
+	// dispatchers (e.g. WeaponFiredExt) can still run during replays.
+	if (!playingDemo
+	    && (!me->PlayerActive || me->DirectPlayID == 0
+	        || (me->PlayerInfo->PropertyMask & WATCH)))
 	{
 		return 0;
 	}
@@ -49,12 +54,14 @@ int __stdcall PacketChatRouter::PacketChatProc(PInlineX86StackBuffer pBuf)
 		unsigned char msgId = pkt[2];
 		auto& handlers = GetInstance()->m_handlers;
 		auto it = handlers.find(msgId);
-		if (it != handlers.end())
-			it->second(taPtr->hapinet.fromDpid, pkt);
+		if (it != handlers.end() && (!playingDemo || it->second.fireInDemo))
+			it->second.handler(taPtr->hapinet.fromDpid, pkt);
 	}
-	else
+	else if (!playingDemo)
 	{
-		// Regular chat message: text starts at pkt+1
+		// Regular chat message: text starts at pkt+1.
+		// Chat handlers don't currently distinguish demo vs live; suppress
+		// them in demo to preserve historical behaviour.
 		const char* text = (const char*)(pkt + 1);
 		unsigned fromDpid = taPtr->hapinet.fromDpid;
 		for (auto& h : GetInstance()->m_chatHandlers)

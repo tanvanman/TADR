@@ -232,6 +232,12 @@
     <ClCompile Include="WeaponTdfHook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="WeaponIdOverflow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WeaponFiredExt.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="NotToAir.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -265,6 +271,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ChatHijackIds.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WeaponIdOverflow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WeaponFiredExt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HmacSha256.h">

@@ -2,6 +2,7 @@
 
 #include "HudNotifications.h"
 
+#include <cstddef>
 #include <memory>
 #include <map>
 #include <string>
@@ -27,6 +28,15 @@ struct VoteRejectMessage {
 	char pad[54];
 };  // total = 1+1+1+2+1+4+1+54 = 65 bytes
 #pragma pack()
+
+static_assert(sizeof(VoteRejectMessage) == 65,
+              "VoteRejectMessage must be exactly 65 bytes (matches CHAT_05 size)");
+// Byte 64 (the last byte of the 65-byte chat envelope) must remain zero so
+// gpgnet4ta's TPacket sizer (tapacket/TPacket.cpp:286) does not trigger its
+// "older recorder emitted long chat" fallback and over-read into the next
+// subpacket. The pad spans through byte 64 and is zero-init via memset.
+static_assert(offsetof(VoteRejectMessage, pad) + sizeof(VoteRejectMessage::pad) == 65,
+              "pad must occupy through byte 64; byte 64 must remain zero-init");
 
 // Intercepts TA's reject actions and replaces them with a majority vote
 // once the game is in progress (TAProgress == TAInGame).

@@ -47,6 +47,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Support for weapon IDs above 255 in Weapons/*.tdf (see NEW FEATURES IN DETAIL)
 - Lag-switch mitigation: detects and freezes local simulation when network goes dark
 - Vote-to-reject system for in-progress multiplayer games (see NEW FEATURES IN DETAIL)
 - add "nottoair" flag for weapons (see NEW FEATURES IN DETAIL)
@@ -268,6 +269,21 @@ NEW FEATURES IN DETAIL:
   Optional CreationCountdown is in seconds and InitialMission works.
   Optional Ident makes it possible to refer to the unit in InitialMission of another unit.
   You'll have to look at eg totala4.hpi/maps/*.OTA for examples of InitialMission scripts to copy.
+
+- Weapon IDs above 255
+
+  Vanilla TA limits Weapons/*.tdf "ID=" values to 0..255.  Defining a
+  weapon with ID=256 or higher silently corrupts game memory at load.
+
+  This patch extends the usable range to 0..4095.  Use any "ID=" value
+  in that range; unit FBIs reference weapons by name as before
+  (e.g. Weapon1=BIG_LASER where the BIG_LASER TDF section has ID=300).
+  Existing mods that only use IDs 0..255 are unaffected.
+
+  Multiplayer and replays both work transparently for high-ID weapons.
+  All players in a game must be running a tdraw.dll that supports
+  high-ID weapons; cross-version joins with a vanilla client are
+  rejected automatically.
 
 - Vote-to-Reject
 
