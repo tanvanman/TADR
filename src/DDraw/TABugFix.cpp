@@ -13,6 +13,8 @@
 #include "tafunctions.h"
 #include "TAbugfix.h"
 #include "TAConfig.h"
+#include "LimitCrack.h"
+#include "IncreaseCompositeSize.h"
 
 #include "ddraw.h"
 
@@ -1124,36 +1126,51 @@ int __stdcall GAFGetCurrentFramePtrProc(PInlineX86StackBuffer X)
 // Registers at hook point:
 //   SI (low 16 of ESI) = new_width  (right_x - left_x, in screen pixels)
 //   DX (low 16 of EDX) = new_height (right_y - top_y,  in screen pixels)
-//   EBX = ModelLayer* ; [EBX+0x10] = composite GAFFrame* (fixed 600x600 allocation)
+//   EBX = ModelLayer* ; [EBX+0x10] = composite GAFFrame* (allocation is
+//     IncreaseCompositeBuf->CurtX * CurtY, originally 600x600 in vanilla TA)
 //   EAX = new_left (about to be negated)
 //
-// The fixed composite pixel+depth buffer is allocated as width*height*2+0x18 bytes
-// with width=height=600.  Writing new_width/new_height >600 into the header causes
+// The composite pixel+depth buffer is allocated as width*height*2+0x18 bytes
+// (allocation site is patched by IncreaseCompositeBuf at 0x458195).  Writing
+// new_width/new_height > buffer dimensions into the header causes
 // CopyScreenContext to compute row offsets past the end of the allocation → crash.
 //
-// DEFENSIVE FIX: clamp to 600x600 so the existing buffer is never overrun.
+// DEFENSIVE FIX: clamp to the live IncreaseCompositeBuf->CurtX/CurtY so the
+// allocation is never overrun.
 // REAL FIX (implement when the clamp ring confirms this unit/path):
 //   Option A — hook UNITS_BroadcastUnitBuildFinished (0x41B8D0): after it returns,
 //     if builtUnit->+0x86 (BeingTransportedByUnit) != 0, call
 //     AttachUnitToUnitByPieceIdx(builtUnit, 0, 0xFF, 1) to force-detach.
 //   Option B — 2-byte patch at 0x41B957: extend controller-type switch to handle
 //     type 3 (Player_RemoteHuman), routing to existing detach code at 0x41B990.
-static const int COMPOSITE_BUF_LIMIT = 600;
+// Original game allocation is 600x600; IncreaseCompositeBuf raises it via
+// the X_CompositeBuf / Y_CompositeBuf INI keys (default 1280x1280).  Read
+// the live values so the clamp matches the actual buffer rather than
+// over-clamping at the original 600.
+static const int COMPOSITE_BUF_FALLBACK = 600;
 unsigned int CompositeAABBClampAddr = 0x458B87;
 int __stdcall CompositeAABBClampProc(PInlineX86StackBuffer X)
 {
 	int origWidth  = (int)(X->Esi & 0xFFFF);
 	int origHeight = (int)(X->Edx & 0xFFFF);
 
-	bool clamped = false;
-	if (origWidth > COMPOSITE_BUF_LIMIT)
+	int widthLimit  = COMPOSITE_BUF_FALLBACK;
+	int heightLimit = COMPOSITE_BUF_FALLBACK;
+	if (NowCrackLimit && NowCrackLimit->NowIncreaseCompositeBuf)
 	{
-		X->Esi = (X->Esi & 0xFFFF0000u) | (unsigned)COMPOSITE_BUF_LIMIT;
+		widthLimit  = (int)NowCrackLimit->NowIncreaseCompositeBuf->CurtX;
+		heightLimit = (int)NowCrackLimit->NowIncreaseCompositeBuf->CurtY;
+	}
+
+	bool clamped = false;
+	if (origWidth > widthLimit)
+	{
+		X->Esi = (X->Esi & 0xFFFF0000u) | (unsigned)widthLimit;
 		clamped = true;
 	}
-	if (origHeight > COMPOSITE_BUF_LIMIT)
+	if (origHeight > heightLimit)
 	{
-		X->Edx = (X->Edx & 0xFFFF0000u) | (unsigned)COMPOSITE_BUF_LIMIT;
+		X->Edx = (X->Edx & 0xFFFF0000u) | (unsigned)heightLimit;
 		clamped = true;
 	}
 

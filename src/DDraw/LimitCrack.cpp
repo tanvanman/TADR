@@ -138,7 +138,31 @@ IncreaseUnitTypeLimit::~IncreaseUnitTypeLimit ()
 	{
 		delete Mov_FindSpot;
 	}
-	
+	if (NULL!=Mov_BinarySearchByName_OR)
+	{
+		delete Mov_BinarySearchByName_OR;
+	}
+	if (NULL!=Mov_AI_ParseProcWeight_Clear)
+	{
+		delete Mov_AI_ParseProcWeight_Clear;
+	}
+	if (NULL!=Mov_AI_ParseProcLimit_Clear)
+	{
+		delete Mov_AI_ParseProcLimit_Clear;
+	}
+	if (NULL!=Prologue_SelectSameType)
+	{
+		delete Prologue_SelectSameType;
+	}
+	if (NULL!=Mov_SelectSameType_Clear)
+	{
+		delete Mov_SelectSameType_Clear;
+	}
+	if (NULL!=Epilogue_SelectSameType)
+	{
+		delete Epilogue_SelectSameType;
+	}
+
 
 }
 
@@ -168,6 +192,12 @@ void IncreaseUnitTypeLimit::WriteNewLimit (DWORD Number)
 	Epilogue_limit= NULL;
 	Push_FindSpot= NULL;
 	Mov_FindSpot= NULL;
+	Mov_BinarySearchByName_OR= NULL;
+	Mov_AI_ParseProcWeight_Clear= NULL;
+	Mov_AI_ParseProcLimit_Clear= NULL;
+	Prologue_SelectSameType= NULL;
+	Mov_SelectSameType_Clear= NULL;
+	Epilogue_SelectSameType= NULL;
 
 	if (Number<=(Orginal* 8))
 	{
@@ -232,7 +262,44 @@ void IncreaseUnitTypeLimit::WriteNewLimit (DWORD Number)
 	*(DWORD *)(&Push_FindSpot_bits[1])= New- 0x40+ 0x40;
 	Push_FindSpot= new ModifyHook ( 0x488CC2, INLINE_MODIFYCODE, 0x7, Push_FindSpot_bits, sizeof( Push_FindSpot_bits), 0x2);
 
-	Mov_FindSpot= new SingleHook ( 0x488CD3, 0x4, INLINE_UNPROTECTEVINMENT, (LPBYTE)(&RepsdEcx)); 
+	Mov_FindSpot= new SingleHook ( 0x488CD3, 0x4, INLINE_UNPROTECTEVINMENT, (LPBYTE)(&RepsdEcx));
+
+	// --- Sibling 16-DWORD bitmask iter sites ---
+	// All UnitTypeID-indexed bitmasks must iterate New/4 (= RepsdEcx) DWORDs to scale to the
+	// expanded UnitInfo capacity; the original game hard-coded 0x10 (= 512 bits / 16 DWORDs).
+	// Without these, raising the unit-type count past 512 silently truncates selection,
+	// AI build-target parsing, and category membership lookups.
+
+	// 0x488E3D MOV EDX,0x10 in UnitInfo_BinarySearchByName — 4-byte OR loop count
+	// (when the name is a category, not a unit, OR the entire category bitmask into the caller's bitmask)
+	Mov_BinarySearchByName_OR= new SingleHook ( 0x488E3E, 0x4, INLINE_UNPROTECTEVINMENT, (LPBYTE)(&RepsdEcx));
+
+	// 0x406DBD MOV ECX,0x10 in AI_ParseProc_Weight — REP STOSD count for local bitmask
+	// (Prologue_Weight already expanded the stack frame; without this only first 64 bytes are zeroed
+	// and the rest of the bitmask is uninitialized stack garbage.)
+	Mov_AI_ParseProcWeight_Clear= new SingleHook ( 0x406DBE, 0x4, INLINE_UNPROTECTEVINMENT, (LPBYTE)(&RepsdEcx));
+
+	// 0x406E51 MOV ECX,0x10 in AI_ParseProc_Limit — same story as Weight
+	Mov_AI_ParseProcLimit_Clear= new SingleHook ( 0x406E52, 0x4, INLINE_UNPROTECTEVINMENT, (LPBYTE)(&RepsdEcx));
+
+	// --- Ctrl-Z (SelectUnitsSameType, 0x48BE00) — own stack-allocated bitmask ---
+	// Pre-patch layout: SUB ESP,0x40 ... PUSH EBX/EBP/ESI/EDI ... [bitmask at ESP+0x10..0x4F]
+	// Bitmask reads use [ESP + ESI*4 + 0x10] — the +0x10 is the 4 callee-saved-reg pushes,
+	// which stays correct after expanding the SUB ESP. Function takes no args, so no
+	// ESP-relative param accesses need shifting. Three patches: prologue, clear count, epilogue.
+
+	// 0x48BE08 SUB ESP,0x40 -> SUB ESP,New
+	BYTE Prologue_SelectSameType_bits[]= {0x81 ,0xEC ,0x00 ,0x00 ,0x00 ,0x00};
+	*(DWORD *)(&Prologue_SelectSameType_bits[2])= New;
+	Prologue_SelectSameType= new ModifyHook ( 0x0048BE08, INLINE_MODIFYCODE, 0x5, Prologue_SelectSameType_bits, sizeof( Prologue_SelectSameType_bits), 0x3);
+
+	// 0x48BE21 MOV ECX,0x10 -> MOV ECX,RepsdEcx (= New/4 DWORDs)
+	Mov_SelectSameType_Clear= new SingleHook ( 0x0048BE22, 0x4, INLINE_UNPROTECTEVINMENT, (LPBYTE)(&RepsdEcx));
+
+	// 0x48BF1E ADD ESP,0x40 -> ADD ESP,New (followed by RET; padding NOPs after give ModifyHook room)
+	BYTE Epilogue_SelectSameType_bits[]= {0x81 ,0xC4 ,0x00 ,0x00 ,0x00 ,0x00};
+	*(DWORD *)(&Epilogue_SelectSameType_bits[2])= New;
+	Epilogue_SelectSameType= new ModifyHook ( 0x0048BF1E, INLINE_MODIFYCODE, 0x5, Epilogue_SelectSameType_bits, sizeof( Epilogue_SelectSameType_bits), 0x3);
 }
 
 
