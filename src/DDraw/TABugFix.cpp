@@ -12,6 +12,7 @@
 #include "tamem.h"
 #include "tafunctions.h"
 #include "TAbugfix.h"
+#include "Gaf.h"
 #include "TAConfig.h"
 #include "LimitCrack.h"
 #include "IncreaseCompositeSize.h"
@@ -632,6 +633,43 @@ BYTE CanBuildArrayBufferOverrunFixBytes[] = {
 	0x89, 0x86, 0x56, 0x01, 0x00, 0x00, 0xb9, 0x12
 };
 
+// Wine 9.0's kernel32 IsBadReadPtr / IsBadWritePtr only catches
+// EXCEPTION_ACCESS_VIOLATION (0xC0000005); it does NOT catch
+// STATUS_GUARD_PAGE_VIOLATION (0x80000001). When TA's freed GAF pixel
+// pointer happens to land on a Wine thread-stack guard page, the
+// IsBadReadPtr probe escapes as an unhandled exception and kills the
+// process. Wrap the probe in our own __try/__except so EXCEPTION_EXECUTE_HANDLER
+// catches both AV and GUARD_PAGE.
+static bool SafeIsBadReadPtr(const void* p, size_t n)
+{
+	if (!p) return true;
+	__try
+	{
+		const volatile unsigned char* b = (const volatile unsigned char*)p;
+		for (size_t i = 0; i < n; ++i) (void)b[i];
+		return false;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		return true;
+	}
+}
+
+static bool SafeIsBadWritePtr(void* p, size_t n)
+{
+	if (!p) return true;
+	__try
+	{
+		volatile unsigned char* b = (volatile unsigned char*)p;
+		for (size_t i = 0; i < n; ++i) b[i] = b[i];
+		return false;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		return true;
+	}
+}
+
 // ---- Diagnostic ring buffer for 0x4CBED5 crash ----
 struct CrashRingEntry {
     uintptr_t  callerEip;
@@ -649,10 +687,16 @@ static volatile LONG  g_crashRingHead = 0;
 
 // ---- Diagnostic ring buffer for GAF_GetCurrentFramePtr ----
 struct GafRingEntry {
-    uintptr_t seqPtr;     // GAF sequence struct pointer (identifies animation/unit type)
-    int       frame;      // requested frame index
-    void*     pixelPtr;   // computed return value (may be a freed pointer)
-    bool      badReadPtr; // IsBadReadPtr(pixelPtr,1) was true
+    uintptr_t statePtr;   // GAFSpriteState* the caller passed in
+    uintptr_t seqPtr;     // GAFSequence* read from state->pSequence
+    int       frame;      // state->CurrentFrame at hook entry
+    int       frameCount; // seq->Frames (declared frame count); -1 if seq unreadable
+    char      seqName[32];// seq->Name (best-effort) — identifies animation
+    void*     framePtr;   // *(seq + 0x28 + frame*8) — engine return value (GAFFrame*)
+    void*     pixelBits;  // framePtr->PtrFrameBits if framePtr readable; else NULL
+    bool      oobFrame;   // frame >= frameCount (out-of-bounds slot read)
+    bool      badFramePtr;// SafeIsBadReadPtr(framePtr, sizeof(GAFFrame)) was true
+    bool      badPixelBits;// SafeIsBadReadPtr(pixelBits, 1) was true
 };
 static const int GAF_RING_SIZE = 64;
 static GafRingEntry g_gafRing[GAF_RING_SIZE];
@@ -716,7 +760,7 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 			hasProblem = true;
 
 		if (!srcCtx->lpSurface) hasProblem = true;
-		if (srcCtx->lpSurface && IsBadReadPtr(srcCtx->lpSurface, 1)) hasProblem = true;
+		if (srcCtx->lpSurface && SafeIsBadReadPtr(srcCtx->lpSurface, 1)) hasProblem = true;
 		if (srcCtx->lPitch <= 0) hasProblem = true;
 	}
 
@@ -742,8 +786,8 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 		e.Width      = srcCtx ? srcCtx->Width  : 0;
 		e.Height     = srcCtx ? srcCtx->Height : 0;
 		e.lPitch     = srcCtx ? srcCtx->lPitch : 0;
-		e.srcRect    = (srcRect && !IsBadReadPtr(srcRect, sizeof(RECT))) ? *srcRect : RECT{};
-		e.badReadPtr = srcCtx && srcCtx->lpSurface && IsBadReadPtr(srcCtx->lpSurface, 1);
+		e.srcRect    = (srcRect && !SafeIsBadReadPtr(srcRect, sizeof(RECT))) ? *srcRect : RECT{};
+		e.badReadPtr = srcCtx && srcCtx->lpSurface && SafeIsBadReadPtr(srcCtx->lpSurface, 1);
 	}
 
 	// If everything is normal, just execute normally, no log file write
@@ -817,7 +861,7 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 		if (srcCtx && !srcCtx->lpSurface)
 			fprintf(f, "ERROR: srcCtx->lpSurface is NULL\n");
 
-		if (srcCtx && srcCtx->lpSurface && IsBadReadPtr(srcCtx->lpSurface, 1))
+		if (srcCtx && srcCtx->lpSurface && SafeIsBadReadPtr(srcCtx->lpSurface, 1))
 			fprintf(f, "ERROR: srcCtx->lpSurface=%p is NOT readable (freed/unmapped heap)\n",
 				srcCtx->lpSurface);
 
@@ -913,10 +957,10 @@ LONG CALLBACK VectoredHandler(
 			// (EBP chain above is broken — CopyGafToContext clobbers EBP at 0x4B802C
 			//  to hold composite_frame->Top, so we cannot walk further up to UnitStruct.)
 			uintptr_t crashEbp = (uintptr_t)ctx->Ebp;
-			if (!IsBadReadPtr((void*)(crashEbp + 0x0C), 4))
+			if (!SafeIsBadReadPtr((void*)(crashEbp + 0x0C), 4))
 			{
 				OFFSCREEN* srcCtx = *(OFFSCREEN**)(crashEbp + 0x0C);
-				if (srcCtx && !IsBadReadPtr(srcCtx, 12))
+				if (srcCtx && !SafeIsBadReadPtr(srcCtx, 12))
 				{
 					fprintf(f, "srcCtx @ %p: W=%d H=%d lPitch=%d surf=%p%s\n",
 						(void*)srcCtx,
@@ -973,6 +1017,45 @@ LONG CALLBACK VectoredHandler(
 					flag);
 			}
 
+			// --- GAF ↔ Blit cross-reference ---
+			// The most recent CrashRingEntry corresponds to the CopyScreenContext
+			// call that just crashed. Take its lpSurface and search g_gafRing for
+			// any GAF whose framePtr->PtrFrameBits or framePtr address matches —
+			// that pinpoints the (seq, frame, name) that produced the freed buffer.
+			void* faultSurface = nullptr;
+			{
+				LONG headForCorr = g_crashRingHead;
+				if (headForCorr > 0)
+				{
+					int idx = (int)((headForCorr - 1) % CRASH_RING_SIZE);
+					faultSurface = g_crashRing[idx].lpSurface;
+				}
+			}
+			if (faultSurface)
+			{
+				fprintf(f, "\n--- GAF correlation for fault surface %p ---\n", faultSurface);
+				int matches = 0;
+				LONG ghead2 = g_gafRingHead;
+				for (int i = 0; i < GAF_RING_SIZE; ++i)
+				{
+					int idx = (int)((ghead2 + i) % GAF_RING_SIZE);
+					const GafRingEntry& e = g_gafRing[idx];
+					if (!e.seqPtr && !e.statePtr) continue;
+					if (e.pixelBits == faultSurface || e.framePtr == faultSurface)
+					{
+						fprintf(f, "  MATCH [%2d] seq=%08X name=\"%.32s\" frame=%d/%d "
+							"framePtr=%p pixelBits=%p\n",
+							i, (unsigned)e.seqPtr, e.seqName,
+							e.frame, e.frameCount, e.framePtr, e.pixelBits);
+						matches++;
+					}
+				}
+				if (!matches)
+					fprintf(f, "  (no GAF ring entry matches — fault surface did not "
+						"come from a recent GAF_GetCurrentFramePtr call; check composite "
+						"buffer or other surface-producing path)\n");
+			}
+
 			// --- GAF ring buffer ---
 			fprintf(f, "\n--- GAF frame ptr ring (last %d GAF_GetCurrentFramePtr calls) ---\n",
 				GAF_RING_SIZE);
@@ -981,10 +1064,18 @@ LONG CALLBACK VectoredHandler(
 			{
 				int idx = (int)((ghead + i) % GAF_RING_SIZE);
 				const GafRingEntry& e = g_gafRing[idx];
-				if (!e.seqPtr) continue;
-				fprintf(f, "[%2d] seq=%08X frame=%d pixel=%p%s\n",
-					i, (unsigned)e.seqPtr, e.frame, e.pixelPtr,
-					e.badReadPtr ? " <-- BAD-READ-PTR" : "");
+				if (!e.seqPtr && !e.statePtr) continue;
+				fprintf(f,
+					"[%2d] state=%08X seq=%08X name=\"%.32s\" frame=%d/%d framePtr=%p pixelBits=%p%s%s%s\n",
+					i,
+					(unsigned)e.statePtr,
+					(unsigned)e.seqPtr,
+					e.seqName,
+					e.frame, e.frameCount,
+					e.framePtr, e.pixelBits,
+					e.oobFrame      ? " <-- OOB-FRAME"     : "",
+					e.badFramePtr   ? " <-- BAD-FRAME-PTR" : "",
+					e.badPixelBits  ? " <-- BAD-PIXEL-BITS": "");
 			}
 
 			fprintf(f, "===== end crash diagnostics =====\n");
@@ -1017,16 +1108,16 @@ LONG CALLBACK VectoredHandler(
 
 			// Firing unit name (EBX = UnitStruct*)
 			UnitStruct* pUnit = (UnitStruct*)ctx->Ebx;
-			if (pUnit && !IsBadReadPtr(pUnit, 4) &&
-				pUnit->UnitType && !IsBadReadPtr(pUnit->UnitType, 4) &&
-				pUnit->UnitType->Name && !IsBadReadPtr(pUnit->UnitType->Name, 1))
+			if (pUnit && !SafeIsBadReadPtr(pUnit, 4) &&
+				pUnit->UnitType && !SafeIsBadReadPtr(pUnit->UnitType, 4) &&
+				pUnit->UnitType->Name && !SafeIsBadReadPtr(pUnit->UnitType->Name, 1))
 			{
 				fprintf(f, "Firing unit: %s\n", pUnit->UnitType->Name);
 			}
 
 			// UnitWeapon fields (ESI = UnitWeapon*)
 			uintptr_t pWeaponSlot = (uintptr_t)ctx->Esi;
-			if (pWeaponSlot && !IsBadReadPtr((void*)pWeaponSlot, 0x20))
+			if (pWeaponSlot && !SafeIsBadReadPtr((void*)pWeaponSlot, 0x20))
 			{
 				short elevAngle = *(short*)(pWeaponSlot + 0x18);  // nTrajectoryResult
 				fprintf(f, "UnitWeapon.nTrajectoryResult(+0x18) = %d (0x%04X)%s\n",
@@ -1037,7 +1128,7 @@ LONG CALLBACK VectoredHandler(
 
 				// Weapon definition (UnitWeapon+0x0C = p_Weapon)
 				void* weaponDef = *(void**)(pWeaponSlot + 0x0C);
-				if (weaponDef && !IsBadReadPtr(weaponDef, 0x70))
+				if (weaponDef && !SafeIsBadReadPtr(weaponDef, 0x70))
 				{
 					int muzzleVel = *(int*)((uintptr_t)weaponDef + 0x68);
 					fprintf(f, "WeaponDef @%p: muzzleVelocity(+0x68) = %d%s\n",
@@ -1047,7 +1138,7 @@ LONG CALLBACK VectoredHandler(
 							: "");
 
 					// Weapon flags: bit 23 = ballistic flag
-					if (!IsBadReadPtr((void*)((uintptr_t)weaponDef + 0x10C), 8))
+					if (!SafeIsBadReadPtr((void*)((uintptr_t)weaponDef + 0x10C), 8))
 					{
 						unsigned flags = *(unsigned*)((uintptr_t)weaponDef + 0x111);
 						fprintf(f, "WeaponDef flags(+0x111) = 0x%08X  ballistic(bit23)=%d\n",
@@ -1069,50 +1160,90 @@ LONG CALLBACK VectoredHandler(
 }
 
 // Hook at entry of GAF_GetCurrentFramePtr (0x4B7EE0).
-// At function entry (before prolog): [ESP+0]=retaddr, [ESP+4]=seq, [ESP+8]=frame.
-// The function returns *(void**)((uint8_t*)seq + 0x28 + frame*8).
-// We compute that value here and check IsBadReadPtr to catch freed pixel buffers
-// before they reach the color-key copy and crash at 0x4CBED5.
+// Engine signature (from Ghidra):
+//   GAFFrame* __stdcall GAF_GetCurrentFramePtr(GAFSpriteState* p)
+//   - GAFSpriteState: 0x00=CurrentFrame(u16), 0x08=pSequence(GAFSequence*)
+//   - returns *(GAFFrame**)((uint8_t*)p->pSequence + 0x28 + p->CurrentFrame*8)
+// At function entry (before prolog): [ESP+0]=retaddr, [ESP+4]=GAFSpriteState*.
+// (NOTE: an earlier version of this hook treated [ESP+8] as a separate `frame`
+// argument — that was wrong; only ONE arg exists. The diagnostic ring was
+// recording garbage taken from caller stack noise. Fixed 2026-05-04 after
+// crash20260504 where the bogus `frame` value (754) caused the slot deref to
+// land on a Wine guard page inside IsBadReadPtr.)
 unsigned int GAFGetCurrentFramePtrAddr = 0x4B7EE0;
 int __stdcall GAFGetCurrentFramePtrProc(PInlineX86StackBuffer X)
 {
-	void*  seq   = *(void**) (X->Esp + 4);
-	int    frame = *(int*)   (X->Esp + 8);
-
-	if (!seq || frame < 0 || frame > 65535)
+	uint8_t* state = *(uint8_t**)(X->Esp + 4);
+	if (!state || SafeIsBadReadPtr(state, 0xC))
 		return 0;
 
-	// Read the pixel-data pointer the function will return.
-	uintptr_t slotAddr = (uintptr_t)seq + 0x28 + (uintptr_t)(unsigned)frame * 8;
-	if (IsBadReadPtr((void*)slotAddr, 4))
+	int               frame = *(unsigned short*)(state + 0);
+	uint8_t*          seq   = *(uint8_t**)      (state + 8);
+
+	if (!seq)
 		return 0;
 
-	void* pixelPtr = *(void**)slotAddr;
-
-	// Only flag addresses that look like real heap pointers gone bad.
-	// Values <= 0xFFFF (including 0x0 and 0x1) are TA sentinel values used
-	// in the frame array for RLE-compressed frames not yet decompressed —
-	// IsBadReadPtr correctly rejects them but CopyGafToContext never blits
-	// from them (dispatches to UncompressFrameBits_Gaf instead). Logging
-	// them produces thousands of false-positive lines per game session.
-	bool bad = (uintptr_t)pixelPtr > 0xFFFF && IsBadReadPtr(pixelPtr, 1);
-
-	// Always record into the rotating ring buffer, but skip sentinel values
-	// (pixel <= 0xFFFF) to keep the ring meaningful for real pointer failures.
-	if ((uintptr_t)pixelPtr > 0xFFFF)
+	int frameCount = -1;
+	const char* seqName = nullptr;
+	if (!SafeIsBadReadPtr(seq, 0x30))
 	{
-		LONG slot = InterlockedIncrement(&g_gafRingHead) - 1;
-		GafRingEntry& e = g_gafRing[slot % GAF_RING_SIZE];
-		e.seqPtr     = (uintptr_t)seq;
-		e.frame      = frame;
-		e.pixelPtr   = pixelPtr;
-		e.badReadPtr = bad;
+		// GAFSequence: 0x00=Frames(u16), 0x08=Name[32], 0x28=PtrFrameAry[]
+		frameCount = *(unsigned short*)(seq + 0);
+		seqName    = (const char*)(seq + 8);
+	}
+
+	bool oobFrame = (frameCount >= 0 && frame >= frameCount);
+
+	uintptr_t slotAddr = (uintptr_t)seq + 0x28 + (uintptr_t)(unsigned)frame * 8;
+	if (SafeIsBadReadPtr((void*)slotAddr, 4))
+		return 0;
+
+	// Slot value is GAFFrame* (NOT a pixel buffer pointer — that's at GAFFrame->PtrFrameBits).
+	void* framePtr = *(void**)slotAddr;
+
+	// Sentinel values (<= 0xFFFF) — RLE-compressed frames not yet decompressed.
+	// CopyGafToContext dispatches to UncompressFrameBits_Gaf instead of blitting.
+	if ((uintptr_t)framePtr <= 0xFFFF)
+		return 0;
+
+	bool badFramePtr  = SafeIsBadReadPtr(framePtr, sizeof(GAFFrame));
+	void* pixelBits   = nullptr;
+	bool  badPixelBits = false;
+	if (!badFramePtr)
+	{
+		// GAFFrame->PtrFrameBits at offset 0x10 (per Gaf.h _GAFFrame layout).
+		pixelBits = *(void**)((uint8_t*)framePtr + 0x10);
+		if (pixelBits && (uintptr_t)pixelBits > 0xFFFF)
+			badPixelBits = SafeIsBadReadPtr(pixelBits, 1);
+	}
+
+	// Record every entry where framePtr is a real-looking heap value, even when
+	// nothing looks bad — gives us the last-good ring history when a crash hits.
+	LONG slot = InterlockedIncrement(&g_gafRingHead) - 1;
+	GafRingEntry& e = g_gafRing[slot % GAF_RING_SIZE];
+	e.statePtr     = (uintptr_t)state;
+	e.seqPtr       = (uintptr_t)seq;
+	e.frame        = frame;
+	e.frameCount   = frameCount;
+	e.framePtr     = framePtr;
+	e.pixelBits    = pixelBits;
+	e.oobFrame     = oobFrame;
+	e.badFramePtr  = badFramePtr;
+	e.badPixelBits = badPixelBits;
+	if (seqName)
+	{
+		strncpy(e.seqName, seqName, sizeof(e.seqName) - 1);
+		e.seqName[sizeof(e.seqName) - 1] = '\0';
+	}
+	else
+	{
+		e.seqName[0] = '\0';
 	}
 
 	// Bad pointers are captured in the ring buffer above and will be dumped
 	// by VectoredHandler if/when a crash actually occurs.  No per-frame log
-	// write here — same (seq, frame) pair is hit every render frame and would
-	// spam ErrorLog.txt thousands of times before any crash.
+	// write here — same (state, frame) tuple is hit every render frame and
+	// would spam ErrorLog.txt thousands of times before any crash.
 
 	return 0;
 }
@@ -1191,17 +1322,17 @@ int __stdcall CompositeAABBClampProc(PInlineX86StackBuffer X)
 		for (int spOff : { 0x8C, 0x98 })
 		{
 			void** obj3doSlot = (void**)(X->Esp + spOff);
-			if (IsBadReadPtr(obj3doSlot, 4)) continue;
+			if (SafeIsBadReadPtr(obj3doSlot, 4)) continue;
 			void* obj3do = *obj3doSlot;
-			if (!obj3do || IsBadReadPtr(obj3do, 0x10)) continue;
+			if (!obj3do || SafeIsBadReadPtr(obj3do, 0x10)) continue;
 
 			UnitStruct** unitSlot = (UnitStruct**)((uintptr_t)obj3do + 0x0C);
-			if (IsBadReadPtr(unitSlot, 4)) continue;
+			if (SafeIsBadReadPtr(unitSlot, 4)) continue;
 			UnitStruct* unit = *unitSlot;
-			if (!unit || IsBadReadPtr(unit, 4)) continue;
-			if (!unit->UnitType || IsBadReadPtr(unit->UnitType, 4)) continue;
+			if (!unit || SafeIsBadReadPtr(unit, 4)) continue;
+			if (!unit->UnitType || SafeIsBadReadPtr(unit->UnitType, 4)) continue;
 			const char* name = unit->UnitType->Name;
-			if (!name || IsBadReadPtr(name, 1)) continue;
+			if (!name || SafeIsBadReadPtr(name, 1)) continue;
 
 			strncpy(e.unitName, name, sizeof(e.unitName) - 1);
 			e.unitName[sizeof(e.unitName) - 1] = '\0';
@@ -1389,7 +1520,7 @@ static void DumpStackForCrashTrace(DWORD ebp, DWORD esp)
 	DWORD curEbp = ebp;
 	for (int i = 0; i < 8 && curEbp; ++i)
 	{
-		if (IsBadReadPtr((void*)curEbp, 8)) break;
+		if (SafeIsBadReadPtr((void*)curEbp, 8)) break;
 		DWORD retAddr = *(DWORD*)(curEbp + 4);
 		IDDrawSurface::OutptFmtTxt("[CrashTrace]   frame[%d] ret=0x%08X ebp=0x%08X",
 			i, retAddr, curEbp);
