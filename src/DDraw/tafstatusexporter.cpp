@@ -1,8 +1,14 @@
 #include "tafstatusexporter.h"
 #include <cstring>
 
+// Force a write at least this often even if nothing changed, so consumers can detect that
+// the exporter is alive. IDDrawSurface::Unlock fires roughly per render frame (~30 Hz), so
+// 30 ≈ 1 second. Must be comfortably below GameMonitor2's EXTERNAL_STATUS_STALENESS_MS.
+static const int HEARTBEAT_FRAMES = 30;
+
 CTAFStatusExporter::CTAFStatusExporter(TAdynmemStruct* dynmem)
-    : m_TAdynmem(dynmem), m_hMap(NULL), m_pView(nullptr), m_prev{}
+    : m_TAdynmem(dynmem), m_hMap(NULL), m_pView(nullptr), m_prev{},
+      m_framesSinceWrite(HEARTBEAT_FRAMES)
 {
     m_hMap  = CreateFileMapping((HANDLE)0xFFFFFFFF, NULL, PAGE_READWRITE,
                                  0, sizeof(TAFGameState),
@@ -28,42 +34,34 @@ void CTAFStatusExporter::FrameUpdate()
     next.magic = TAFGAMESTATE_MAGIC;
     for (int i = 0; i < 10; i++) {
         const PlayerStruct& p = m_TAdynmem->Players[i];
-        next.playerActive[i] = (p.PlayerActive != 0) ? 1u : 0u;
+
+        next.playerActive[i]      = (p.PlayerActive != 0) ? 1u : 0u;
+        next.playerUnitsNumber[i] = static_cast<int16_t>(p.UnitsNumber);
+
         if (p.PlayerActive != 0) {
             memcpy(next.playerAllyFlags[i], p.AllyFlagAry, 10);
-            next.playerAllyTeam[i]    = static_cast<uint8_t>(p.AllyTeam);
+            next.playerAllyTeam[i]     = static_cast<uint8_t>(p.AllyTeam);
             next.playerDirectPlayId[i] = static_cast<uint32_t>(p.DirectPlayID);
-            next.playerWinLoseTime[i]  = static_cast<int32_t>(p.WinLoseTime);
-            next.playerUnitsNumber[i]  = static_cast<int16_t>(p.UnitsNumber);
-            next.playerMyType[i]       = static_cast<uint8_t>(p.My_PlayerType);
             if (p.PlayerInfo) {
-                next.playerRaceSide[i]     = static_cast<uint8_t>(p.PlayerInfo->RaceSide);
                 next.playerPropertyMask[i] = static_cast<uint16_t>(p.PlayerInfo->PropertyMask);
-                next.playerInfoType[i]     = static_cast<uint8_t>(p.PlayerInfo->PlayerType);
             }
         }
-        // inactive slots stay zeroed
+        // inactive slots leave the rest zeroed (units number too — any stale value on a
+        // freshly-cleared slot would be misleading to the consumer's latch logic).
     }
 
-    bool unitsZeroCrossing = false;
-    for (int i = 0; i < 10; i++) {
-        if ((m_prev.playerUnitsNumber[i] > 0) != (next.playerUnitsNumber[i] > 0)) {
-            unitsZeroCrossing = true;
-            break;
-        }
-    }
-
-    if (m_prev.magic != TAFGAMESTATE_MAGIC ||
-        unitsZeroCrossing ||
+    ++m_framesSinceWrite;
+    const bool dataChanged =
+        m_prev.magic != TAFGAMESTATE_MAGIC ||
         memcmp(m_prev.playerAllyFlags,    next.playerAllyFlags,    sizeof(next.playerAllyFlags))    != 0 ||
         memcmp(m_prev.playerAllyTeam,     next.playerAllyTeam,     sizeof(next.playerAllyTeam))     != 0 ||
         memcmp(m_prev.playerActive,       next.playerActive,       sizeof(next.playerActive))       != 0 ||
-        memcmp(m_prev.playerDirectPlayId, next.playerDirectPlayId, sizeof(next.playerDirectPlayId)) != 0 ||
-        memcmp(m_prev.playerWinLoseTime,  next.playerWinLoseTime,  sizeof(next.playerWinLoseTime))  != 0 ||
-        memcmp(m_prev.playerRaceSide,     next.playerRaceSide,     sizeof(next.playerRaceSide))     != 0 ||
+        memcmp(m_prev.playerUnitsNumber,  next.playerUnitsNumber,  sizeof(next.playerUnitsNumber))  != 0 ||
         memcmp(m_prev.playerPropertyMask, next.playerPropertyMask, sizeof(next.playerPropertyMask)) != 0 ||
-        memcmp(m_prev.playerInfoType,     next.playerInfoType,     sizeof(next.playerInfoType))     != 0 ||
-        memcmp(m_prev.playerMyType,       next.playerMyType,       sizeof(next.playerMyType))       != 0)
+        memcmp(m_prev.playerDirectPlayId, next.playerDirectPlayId, sizeof(next.playerDirectPlayId)) != 0;
+    const bool heartbeatDue = m_framesSinceWrite >= HEARTBEAT_FRAMES;
+
+    if (dataChanged || heartbeatDue)
     {
         TAFGameState* shm = static_cast<TAFGameState*>(m_pView);
 
@@ -76,18 +74,15 @@ void CTAFStatusExporter::FrameUpdate()
         memcpy(shm->playerAllyFlags,    next.playerAllyFlags,    sizeof(next.playerAllyFlags));
         memcpy(shm->playerAllyTeam,     next.playerAllyTeam,     sizeof(next.playerAllyTeam));
         memcpy(shm->playerActive,       next.playerActive,       sizeof(next.playerActive));
-        memcpy(shm->playerDirectPlayId, next.playerDirectPlayId, sizeof(next.playerDirectPlayId));
-        memcpy(shm->playerWinLoseTime,  next.playerWinLoseTime,  sizeof(next.playerWinLoseTime));
         memcpy(shm->playerUnitsNumber,  next.playerUnitsNumber,  sizeof(next.playerUnitsNumber));
-        memcpy(shm->playerRaceSide,     next.playerRaceSide,     sizeof(next.playerRaceSide));
         memcpy(shm->playerPropertyMask, next.playerPropertyMask, sizeof(next.playerPropertyMask));
-        memcpy(shm->playerInfoType,     next.playerInfoType,     sizeof(next.playerInfoType));
-        memcpy(shm->playerMyType,       next.playerMyType,       sizeof(next.playerMyType));
+        memcpy(shm->playerDirectPlayId, next.playerDirectPlayId, sizeof(next.playerDirectPlayId));
 
         MemoryBarrier();
         shm->sequenceNumber = writingSeq + 1;  // even: write complete
 
         m_prev = next;
         m_prev.sequenceNumber = writingSeq + 1;
+        m_framesSinceWrite = 0;
     }
 }

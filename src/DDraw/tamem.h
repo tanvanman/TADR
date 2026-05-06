@@ -589,7 +589,12 @@ struct TAdynmemStruct{
 
 	char  Image_Output_Dir[256];  // 0x38a47+c= TA截图目录的字符串，即TA目录+当前用户名 
 	char  Movie_Shot_Output_Dir[256];
-	char data_33[0x56c];
+	// data_33 originally spanned 0x38C53..0x391BF (0x56C bytes). Split it to expose
+	// finishedgame_state at 0x39057 (a dword UI state machine driven by the result-screen
+	// lifecycle: 0=ongoing, non-zero=engine has formally ended the game).
+	char data_33_pre[0x404];          // 0x38C53..0x39057
+	unsigned int finishedgame_state;  // 0x39057..0x3905B
+	char data_33_post[0x164];         // 0x3905B..0x391BF
 	unsigned int  Showranges;
 	unsigned int  bps;
 	unsigned int  field_391C7;
@@ -612,9 +617,16 @@ struct TAdynmemStruct{
 	int MultiMapping   ;
 	int MultiLineOfSight;
 	int LOSTypeOptions ;
-	short NetStateMask0;//  maybe another game state mask
-	short GameStateMask;	// & 0x0020: victory
-							// & 0x0040: defeat
+	short victoryCountdown;	// 0x39239: 4-tick stability countdown for victory/defeat declaration.
+							// Initialised to 4 by Game_PlayerPerTickUpdate (0x464F80) when
+							// IsEnemyAnnihilated_Check (0x490080) first returns 1; decremented
+							// once per 30-tick UpdateTime cycle; verdict bits in GameStateMask
+							// are committed only when this drops below 0. Engine-side
+							// draw-detection stability window — analogous to GameMonitor2's
+							// m_drawGameTicks in gpgnet4ta. Was named "NetStateMask0" before.
+	short GameStateMask;	// 0x3923B: & 0x0020 victory, & 0x0040 defeat (set after victoryCountdown<0)
+							// Display logic at 0x46A174 reads these to draw VICTORY / DEFEAT sprites.
+							// Bits 0x04, 0x10 are intermediate flags during victory evaluation.
 
 };
 
