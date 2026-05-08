@@ -463,10 +463,6 @@ HRESULT __stdcall IDDrawSurface::Lock(LPRECT arg1, LPDDSURFACEDESC arg2, DWORD a
 #if TA_HOOK_ENABLE
     if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
         TAHook->TABlit();
-        // Re-pin tiebreaker GameStateMask bits before the renderer reads them.
-        // DrawGameScreen checks bits 0x20 and 0x40 independently — if both are
-        // set, both animations render overlaid. No-op until tiebreaker decides.
-        if (TAFStatusExporter) TAFStatusExporter->RepinGameStateMaskBits();
     }
 #endif
 

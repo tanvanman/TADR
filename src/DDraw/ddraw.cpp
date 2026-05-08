@@ -22,7 +22,6 @@ using namespace std;
 #include "LimitCrack.h"
 #include "taHPI.h"
 #include "TAbugfix.h"
-#include "tafstatusexporter.h"  // for InstallDgunDetectHooks
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
 #include "StartPositions.h"
@@ -187,7 +186,6 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 		FixTABug= new TABugFixing;
 		InstallCrashTrace();
-		InstallDgunDetectHooks();
 
 		StartPositions::GetInstance();
 		AutoTeam::Install();
