@@ -1,6 +1,7 @@
 #include "tafstatusexporter.h"
 #include "hook/etc.h"       // PInlineX86StackBuffer
 #include "hook/hook.h"      // InlineSingleHook, INLINE_5BYTESLAGGERJMP
+#include "Profiler.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
@@ -149,6 +150,7 @@ static_assert(sizeof(WeaponFired0DPacket) == 0x23, "0x0d wire layout up to firer
 
 static int __stdcall WeaponsProjectileDamageHookProc(PInlineX86StackBuffer X)
 {
+    PROFILE_SCOPE("Hook.WeaponsProjectileDamage");
     if (!X) return 0;
     // First argument [Esp+4]: ProjectileStruct*.
     ProjectileStruct* proj = *reinterpret_cast<ProjectileStruct**>(X->Esp + 4);
@@ -172,6 +174,7 @@ static int __stdcall WeaponsProjectileDamageHookProc(PInlineX86StackBuffer X)
 // thread-local instead of pkt.weaponID, else IDs >= 256 misclassify.
 static int __stdcall ReceiveWeaponFiredHookProc(PInlineX86StackBuffer X)
 {
+    PROFILE_SCOPE("Hook.ReceiveWeaponFired");
     if (!X) return 0;
     // Stack at hook entry: [Esp+4] = pPlayerInfo, [Esp+8] = pPacketData.
     WeaponFired0DPacket pkt;
@@ -256,6 +259,7 @@ static const uint32_t KILL_EVENT_EMIT_MIN_GAMETIME = 90;  // 3 s @ 30 tps
 
 static int __stdcall UnitsReceiveUnitDeathHookProc(PInlineX86StackBuffer X)
 {
+    PROFILE_SCOPE("Hook.UnitsReceiveUnitDeath");
     if (!X) return 0;
 
     UnitKilled0CPacket pkt;
@@ -293,6 +297,7 @@ static int __stdcall UnitsReceiveUnitDeathHookProc(PInlineX86StackBuffer X)
 
 static int __stdcall DrawGameScreenEntryHookProc(PInlineX86StackBuffer /*X*/)
 {
+    PROFILE_SCOPE("Hook.DrawGameScreen_Entry");
     if (g_exporterSingleton)
         g_exporterSingleton->RepinGameStateMaskBits();
     return 0;

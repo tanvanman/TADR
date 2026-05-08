@@ -322,6 +322,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="MultiplayerSchemaUnits.cpp" />
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
+    <ClCompile Include="Profiler.cpp" />
     <ClCompile Include="tafstatusexporter.cpp" />
     <ClCompile Include="UnitDefExtensions.cpp" />
     <ClCompile Include="PacketChatRouter.cpp" />
@@ -487,6 +488,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClInclude Include="Profiler.h" />
     <ClInclude Include="tafgamestate.h" />
     <ClInclude Include="tafstatusexporter.h" />
     <ClInclude Include="UnitDefExtensions.h" />

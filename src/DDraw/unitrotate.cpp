@@ -8,6 +8,7 @@
 #include "tafunctions.h"
 #include "tamem.h"
 #include "UnitDefExtensions.h"
+#include "Profiler.h"
 
 #include <cctype>
 #include <cstdio>
@@ -546,7 +547,13 @@ static int __stdcall CreateFromNetwork_Entry_Proc(PInlineX86StackBuffer X86Strac
 // DrawBuildSpotQueue entry — per-order hook. Swap UNITINFO->lFpBnd{X,Z} pairs
 // based on THIS order's stored rotation so the engine computes the rect with
 // the rotated footprint. The return thunk restores the swap.
+static int __stdcall DrawBuildSpotQueue_Entry_Proc_Inner(PInlineX86StackBuffer X86StrackBuffer);
 static int __stdcall DrawBuildSpotQueue_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    PROFILE_SCOPE("Hook.DrawBuildSpotQueue");
+    return DrawBuildSpotQueue_Entry_Proc_Inner(X86StrackBuffer);
+}
+static int __stdcall DrawBuildSpotQueue_Entry_Proc_Inner(PInlineX86StackBuffer X86StrackBuffer)
 {
     CUnitRotate* self = CUnitRotate::GetInstance();
     if (!self) return 0;
@@ -702,6 +709,7 @@ static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86Strack
 
 static int __stdcall YardmapReader_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
 {
+    PROFILE_SCOPE("Hook.YardmapReader");
     CUnitRotate* self = CUnitRotate::GetInstance();
     if (!self) return 0;
 
@@ -771,7 +779,13 @@ static int __stdcall FreeGameData_Entry_Proc(PInlineX86StackBuffer)
     return 0;
 }
 
-static int __stdcall DrawGameScreen_PostDrawGUI_Proc(PInlineX86StackBuffer)
+static int __stdcall DrawGameScreen_PostDrawGUI_Proc_Inner(PInlineX86StackBuffer);
+static int __stdcall DrawGameScreen_PostDrawGUI_Proc(PInlineX86StackBuffer X)
+{
+    PROFILE_SCOPE("Hook.DrawGameScreen_PostDrawGUI");
+    return DrawGameScreen_PostDrawGUI_Proc_Inner(X);
+}
+static int __stdcall DrawGameScreen_PostDrawGUI_Proc_Inner(PInlineX86StackBuffer)
 {
     if (CUnitRotate* self = CUnitRotate::GetInstance())
         self->DrawBuildMenuRotationOverlays();
@@ -1252,6 +1266,44 @@ bool CUnitRotate::IsRotatableStructure(unsigned int unitTypeIdx) const
     return allowed >= 2;
 }
 
+void CUnitRotate::EnsureRotatableNameCache() const
+{
+    TAdynmemStruct* ta = GetTA();
+    if (!ta || !ta->UnitDef) return;
+    const unsigned count = ta->UNITINFOCount;
+    if (count == m_rotatableCacheUnitInfoCount && !m_rotatableUnitIdxByLowerName.empty())
+        return;
+
+    m_rotatableUnitIdxByLowerName.clear();
+    m_rotatableUnitIdxByLowerName.reserve(64);
+    char buf[32];
+    for (unsigned i = 0; i < count; ++i)
+    {
+        if (!IsRotatableStructure(i)) continue;
+        const char* src = ta->UnitDef[i].UnitName;
+        size_t len = 0;
+        for (; len < sizeof(buf) - 1 && src[len]; ++len)
+            buf[len] = static_cast<char>(std::tolower(static_cast<unsigned char>(src[len])));
+        buf[len] = 0;
+        m_rotatableUnitIdxByLowerName.emplace(std::string(buf, len), static_cast<int>(i));
+    }
+    m_rotatableCacheUnitInfoCount = count;
+}
+
+int CUnitRotate::FindRotatableUnitIdxByName(const char* name) const
+{
+    if (!name || !*name) return -1;
+    EnsureRotatableNameCache();
+    if (m_rotatableUnitIdxByLowerName.empty()) return -1;
+    char buf[32];
+    size_t len = 0;
+    for (; len < sizeof(buf) - 1 && name[len]; ++len)
+        buf[len] = static_cast<char>(std::tolower(static_cast<unsigned char>(name[len])));
+    buf[len] = 0;
+    auto it = m_rotatableUnitIdxByLowerName.find(std::string(buf, len));
+    return it == m_rotatableUnitIdxByLowerName.end() ? -1 : it->second;
+}
+
 namespace
 {
     // Chevron geometry — shared between the renderer and the click
@@ -1674,15 +1726,13 @@ void CUnitRotate::DrawBuildMenuRotationOverlays()
     const int kColorHighlightFill  = ta->desktopGUI.RadarObjecColor[15];
     const int kColorHighlightOutln = kColorHighlightFill;
 
-    // Cheap first pass — bail without locking the surface if the active
-    // GUI has no rotatable-structure buttons (most of the in-game time).
+    // First pass: bail without locking if no rotatable buttons are visible.
     bool anyRotatable = false;
     for (int i = 1; i <= totalGadgets; ++i)
     {
         if (!controls[i].active) continue;
         char nm[17]; memcpy(nm, controls[i].name, 16); nm[16] = 0;
-        int idx = FindUnitTypeIdxByName(nm);
-        if (idx >= 0 && IsRotatableStructure(static_cast<unsigned>(idx)))
+        if (FindRotatableUnitIdxByName(nm) >= 0)
         {
             anyRotatable = true;
             break;
@@ -1724,9 +1774,8 @@ void CUnitRotate::DrawBuildMenuRotationOverlays()
         char ctrlName[17];
         memcpy(ctrlName, c.name, 16);
         ctrlName[16] = 0;
-        int idx = FindUnitTypeIdxByName(ctrlName);
+        int idx = FindRotatableUnitIdxByName(ctrlName);
         if (idx < 0) continue;
-        if (!IsRotatableStructure(static_cast<unsigned>(idx))) continue;
 
         const int btnX = panelX + c.xpos;
         const int btnY = panelY + c.ypos;
@@ -1817,9 +1866,8 @@ bool CUnitRotate::OnBuildMenuClick(int screenX, int screenY)
         char ctrlName[17];
         memcpy(ctrlName, c.name, 16);
         ctrlName[16] = 0;
-        int idx = FindUnitTypeIdxByName(ctrlName);
+        int idx = FindRotatableUnitIdxByName(ctrlName);
         if (idx < 0) continue;
-        if (!IsRotatableStructure(static_cast<unsigned>(idx))) continue;
 
         // Click in the central dead-zone → preserve previously selected
         // rotation. Only the chevron-occupied band on each edge sets a

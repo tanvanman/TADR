@@ -8,6 +8,7 @@
 #include "random_code_seg_keys.h"
 #include "tafunctions.h"
 #include "unitrotate.h"
+#include "Profiler.h"
 
 #include <iomanip>
 #include <functional>
@@ -140,6 +141,7 @@ unsigned int LogGamePathAddr1 = 0x4bb332;
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 int __stdcall LogGamePathProc1(PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.LogGamePath1");
 	if (X86StrackBuffer->Eax) {
 		std::string gameFile = toLowerCase((const char*)X86StrackBuffer->Edi);
 		if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0 || gameFile.find(ScriptsStr) == 0) {
@@ -155,6 +157,7 @@ unsigned int LogGamePathAddr2 = 0x4bb3a7;
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 int __stdcall LogGamePathProc2(PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.LogGamePath2");
 	std::string gameFile = toLowerCase(*(const char**)(X86StrackBuffer->Esp + 0x14));
 	std::string hpiFile = (const char*)(X86StrackBuffer->Eax + 0x14);
 	if (gameFile.find(UnitsStr) == 0 || gameFile.find(WeaponsStr) == 0 || gameFile.find(FeaturesStr) == 0 || gameFile.find(ScriptsStr) == 0) {
@@ -168,6 +171,7 @@ unsigned int ChallengeResponseUpdateAddr = 0x4954b7;
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.ChallengeResponseUpdate");
 	// send out challenge-response requests at the right time
 	// and then later make a big song and dance about anyone who failed or who hasn't replied
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
@@ -178,11 +182,13 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 
 	auto *cr = ChallengeResponse::GetInstance();
 	if (!cr->HasFeatureMapSnapshot()) {
+		PROFILE_SCOPE("CR.SnapshotFeatureMap");
 		cr->SnapshotFeatureMap();
 		HudNotifications::GetInstance()->ClearLines("challenge");
 	}
 
 	else if (taPtr->GameTime == 6 * 30) { // at 6 sec
+		PROFILE_SCOPE("CR.SendChallengeRequests");
 		// send out challenge requests
 		for (int n = 0; n < 10; ++n) {
 			PlayerStruct* p = &taPtr->Players[n];
@@ -202,6 +208,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 
 	else if (taPtr->GameTime < 15 * 30)		// until 15 sec
 	{
+		PROFILE_SCOPE("CR.SendReplies");
 		// attend to m_challengeResponseReplyQueue
 		for (auto reply : ChallengeResponse::GetInstance()->m_challengeResponseReplyQueue)
 		{
@@ -226,6 +233,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 		taPtr->GameTime < 120 * 30 &&		// until 2 mins
 		taPtr->GameTime % 30 == 0)			// every 1 sec
 	{
+		PROFILE_SCOPE("CR.VerifyResponses");
 		// verify responses
 		int failCount = ChallengeResponse::GetInstance()->VerifyResponses(taPtr->GameTime == 20 * 30);
 		if (failCount > 0 && taPtr->GameTime == 20 * 30)		// at 20 secs
@@ -248,6 +256,7 @@ int __stdcall ChallengeResponseUpdateProc(PInlineX86StackBuffer X86StrackBuffer)
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 static void HandleChallengeResponsePacket(unsigned replyDpid, const void* buf)
 {
+	PROFILE_SCOPE("CR.HandleIncomingPacket");
 	// Guards (player active, not spectator, not demo) are enforced by PacketChatRouter.
 	const ChallengeResponseMessage* msg = (const ChallengeResponseMessage*)buf;
 	if (!IsChallengeResponseMessage(*msg))
@@ -270,11 +279,14 @@ static void HandleChallengeResponsePacket(unsigned replyDpid, const void* buf)
 		// happens to be in flight. Captured under shared_ptr so the lambda
 		// keeps the buffer alive until the hash completes.
 		auto unitDefSnapshot = std::make_shared<std::vector<UnitDefStruct>>();
-		if (CUnitRotate* rot = CUnitRotate::GetInstance())
-			rot->CaptureUnitDefSnapshot(*unitDefSnapshot);
+		{
+			PROFILE_SCOPE("CR.CaptureUnitDefSnapshot");
+			if (CUnitRotate* rot = CUnitRotate::GetInstance())
+				rot->CaptureUnitDefSnapshot(*unitDefSnapshot);
+		}
 
 #ifdef MULTITHREADED
-		std::thread([msg, reply, unitDefSnapshot]() {
+		ChallengeResponse::GetInstance()->EnqueueJob([reply, unitDefSnapshot]() {
 #endif
 			ChallengeResponse::GetInstance()->ComputeChallengeResponse(
 				reply->nonse,
@@ -285,9 +297,7 @@ static void HandleChallengeResponsePacket(unsigned replyDpid, const void* buf)
 				unitDefSnapshot
 			);
 #ifdef MULTITHREADED
-		})
-			.detach();
-			//.join();
+		});
 #endif
 		break;
 	}
@@ -376,8 +386,58 @@ ChallengeResponse::ChallengeResponse():
 	BattleroomCommands::GetInstance()->RegisterCommand(".tpreport", &ChallengeResponse::OnBattleroomCommandTpReport);
 	BattleroomCommands::GetInstance()->RegisterCommand(".gp3report", &ChallengeResponse::OnBattleroomCommandGp3Report);
 	BattleroomCommands::GetInstance()->RegisterCommand(".crcreport", &ChallengeResponse::OnBattleroomCommandCrcReport);
+
+	StartWorker();
 }
 #pragma code_seg(pop)
+
+ChallengeResponse::~ChallengeResponse()
+{
+	StopWorker();
+}
+
+void ChallengeResponse::StartWorker()
+{
+	m_workerStop.store(false);
+	m_worker = std::thread([this] { WorkerLoop(); });
+}
+
+void ChallengeResponse::StopWorker()
+{
+	{
+		std::lock_guard<std::mutex> lk(m_jobMutex);
+		m_workerStop.store(true);
+	}
+	m_jobCv.notify_all();
+	if (m_worker.joinable()) m_worker.join();
+}
+
+void ChallengeResponse::WorkerLoop()
+{
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+
+	while (true) {
+		std::function<void()> job;
+		{
+			std::unique_lock<std::mutex> lk(m_jobMutex);
+			m_jobCv.wait(lk, [this] { return !m_jobQueue.empty() || m_workerStop.load(); });
+			if (m_workerStop.load() && m_jobQueue.empty()) return;
+			job = std::move(m_jobQueue.front());
+			m_jobQueue.pop();
+		}
+		// Match prior detached-thread behaviour: swallow exceptions, don't terminate.
+		try { job(); } catch (...) { }
+	}
+}
+
+void ChallengeResponse::EnqueueJob(std::function<void()> job)
+{
+	{
+		std::lock_guard<std::mutex> lk(m_jobMutex);
+		m_jobQueue.push(std::move(job));
+	}
+	m_jobCv.notify_one();
+}
 
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
@@ -538,6 +598,7 @@ void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modul
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::InitPlayerResponse(unsigned dpid, char *nonse, int len)
 {
+	PROFILE_SCOPE("CR.InitPlayerResponse");
 	auto& r = m_responses[dpid];
 	r.ourHashesComputed = r.modulesResponseReceived = r.gameDataResponseReceived = false;
 	std::memset(r.nonse, 0, sizeof(r.nonse));
@@ -548,17 +609,18 @@ void ChallengeResponse::InitPlayerResponse(unsigned dpid, char *nonse, int len)
 	// Capture pristine UnitDef on the main thread before the hash thread
 	// can race with any rotation swap. See HandleChallengeResponsePacket.
 	auto unitDefSnapshot = std::make_shared<std::vector<UnitDefStruct>>();
-	if (CUnitRotate* rot = CUnitRotate::GetInstance())
-		rot->CaptureUnitDefSnapshot(*unitDefSnapshot);
+	{
+		PROFILE_SCOPE("CR.CaptureUnitDefSnapshot");
+		if (CUnitRotate* rot = CUnitRotate::GetInstance())
+			rot->CaptureUnitDefSnapshot(*unitDefSnapshot);
+	}
 
 #ifdef MULTITHREADED
-	std::thread([this, &r, unitDefSnapshot]() {
+	EnqueueJob([this, &r, unitDefSnapshot]() {
 #endif
 		ComputeChallengeResponse(r.nonse, r.ourModulesHash, r.ourGameDataHash, &r.ourHashesComputed, &r.completionMessage, unitDefSnapshot);
 #ifdef MULTITHREADED
-	})
-		.detach();
-		//.join();
+	});
 #endif
 }
 #pragma code_seg(pop)
@@ -654,11 +716,19 @@ int ChallengeResponse::VerifyResponses(bool logEnable)
 			{
 				logstream << cr->completionMessage << std::endl;
 			}
-			{
-				std::ofstream fs("ErrorLog.txt", std::ios::app);
-				fs << logstream.str();
-			}
-			ChallengeResponse::GetInstance()->LogAll("ErrorLog.txt");
+
+			// Defer ErrorLog file I/O to the worker — synchronous LogAll
+			// costs 60-200ms on the main thread. ~10% of production games
+			// hit this branch via false-positive mismatch.
+			std::string logBody = logstream.str();
+			ChallengeResponse* self = ChallengeResponse::GetInstance();
+			self->EnqueueJob([self, logBody = std::move(logBody)]() {
+				{
+					std::ofstream fs("ErrorLog.txt", std::ios::app);
+					fs << logBody;
+				}
+				self->LogAll("ErrorLog.txt");
+			});
 		}
 	}
 

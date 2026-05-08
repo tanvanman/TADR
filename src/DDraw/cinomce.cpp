@@ -43,12 +43,19 @@ int X,Y;
 #define MyOriginalCameraColour 208u
 
 CIncome::CIncome(BOOL VidMem):
+	m_weatherCacheW(0),
+	m_weatherCacheH(0),
+	m_weatherCacheBlitX(0),
+	m_weatherCacheBlitY(0),
+	m_weatherCacheAlpha(0),
+	m_weatherCacheValid(false),
 	BlitState(0),
 	SurfaceMemory(NULL),
 	lPitch(0),
 	StartedInRect(false),
 	Minimised(false)
 {
+	std::memset(&m_weatherCacheKey, 0, sizeof(m_weatherCacheKey));
 	std::memset(MinimiseWidgetBoxMin, 0, sizeof(MinimiseWidgetBoxMin));
 	std::memset(MinimiseWidgetBoxMax, 0, sizeof(MinimiseWidgetBoxMax));
 
@@ -914,11 +921,26 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 	programPtr->fontFrontColour = GREY;
 	programPtr->fontBackColour = programPtr->fontAlpha;
 
+	// GetTextExtent of constant strings — recompute on font change only.
+	static void* s_cachedFontHandle = NULL;
+	static int   s_clockWidth      = 0;
+	static int   s_labelWidth      = 0;
+	static int   s_windPrefixWidth = 0;
+	static int   s_tidalPrefixWidth = 0;
+	if (s_cachedFontHandle != programPtr->fontHandle)
+	{
+		s_clockWidth        = GetTextExtent(programPtr->fontHandle, "Game Time : 00:00:00") + 4;
+		s_labelWidth        = GetTextExtent(programPtr->fontHandle, "Wind : +99 (-99-+99)") + 4;
+		s_windPrefixWidth   = GetTextExtent(programPtr->fontHandle, "Wind : ");
+		s_tidalPrefixWidth  = GetTextExtent(programPtr->fontHandle, "Tidal : ");
+		s_cachedFontHandle  = programPtr->fontHandle;
+	}
+
 	// Screen-bounds clamp: if a side's bar rects sit too far right, or the
 	// resolution is small, shift the columns left so they stay visible.
 	const int fontHeight = (programPtr->fontHandle != NULL) ? programPtr->fontHandle[0] : 12;
-	const int clockWidth = GetTextExtent(programPtr->fontHandle, "Game Time : 00:00:00") + 4;
-	const int labelWidth = GetTextExtent(programPtr->fontHandle, "Wind : +99 (-99-+99)") + 4;
+	const int clockWidth = s_clockWidth;
+	const int labelWidth = s_labelWidth;
 	const int xMaxClock = (dwWidth > clockWidth) ? (dwWidth - clockWidth) : 0;
 	if (x2 > xMaxClock) x2 = xMaxClock;
 	const int xMaxLabel = (x2 > labelWidth) ? (x2 - labelWidth) : 0;
@@ -930,44 +952,185 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 	if (y2 < 0) y2 = 0; else if (y2 > yMax) y2 = yMax;
 	y3 = (y1 + y2) / 2;
 
-	OFFSCREEN offScreen;
-	memset(&offScreen, 0, sizeof(OFFSCREEN));
-	offScreen.Height = dwWidth;
-	offScreen.Width = lPitch;
-	offScreen.lPitch = lPitch;
-	offScreen.lpSurface = lpSurfaceMem;
-	offScreen.ScreenRect.left = 0;
-	offScreen.ScreenRect.right = dwWidth;
-	offScreen.ScreenRect.top = 0;
-	offScreen.ScreenRect.bottom = dwHeight;
+	const int watchMode = (DataShare->PlayingDemo
+		|| (0 != (WATCH & (taPtr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))
+		? 1 : 0;
+	const int fontAlpha = programPtr->fontAlpha;
 
-	char windText[32];
-	if (DataShare->PlayingDemo || (0 != (WATCH & (taPtr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask)))) {
-		sprintf(windText, "Wind : (%d-%d)", windMin, windMax);
-		DrawTextInScreen(&offScreen, windText, x1 - GetTextExtent(programPtr->fontHandle, "Wind : "), y1, -1);
+	const bool cacheHit =
+		m_weatherCacheValid &&
+		m_weatherCacheKey.timeSeconds == timeSeconds &&
+		m_weatherCacheKey.wind        == wind &&
+		m_weatherCacheKey.windMin     == windMin &&
+		m_weatherCacheKey.windMax     == windMax &&
+		m_weatherCacheKey.tidal       == tidal &&
+		m_weatherCacheKey.raceSide    == raceSide &&
+		m_weatherCacheKey.fontHandle  == programPtr->fontHandle &&
+		m_weatherCacheKey.watchMode   == watchMode &&
+		m_weatherCacheKey.x1          == x1 &&
+		m_weatherCacheKey.x2          == x2 &&
+		m_weatherCacheKey.y1          == y1 &&
+		m_weatherCacheKey.y2          == y2 &&
+		m_weatherCacheKey.fontAlpha   == fontAlpha;
+
+	if (!cacheHit)
+	{
+		const int leftWind  = x1 - s_windPrefixWidth;
+		const int leftTidal = x1 - s_tidalPrefixWidth;
+		int boxLeft   = leftWind;   if (leftTidal < boxLeft) boxLeft = leftTidal;
+		if (x2 < boxLeft) boxLeft = x2;
+		if (boxLeft < 0) boxLeft = 0;
+		int boxRight  = x1 + s_labelWidth;
+		const int clockEnd = x2 + s_clockWidth;
+		if (clockEnd > boxRight) boxRight = clockEnd;
+		if (boxRight > dwWidth) boxRight = dwWidth;
+		int boxTop    = y1; if (y2 < boxTop) boxTop = y2;
+		if (boxTop < 0) boxTop = 0;
+		int boxBottom = y1 + fontHeight;
+		const int y2End = y2 + fontHeight;
+		const int y3End = y3 + fontHeight;
+		if (y2End > boxBottom) boxBottom = y2End;
+		if (y3End > boxBottom) boxBottom = y3End;
+		if (boxBottom > dwHeight) boxBottom = dwHeight;
+
+		const int W = (boxRight  > boxLeft) ? (boxRight  - boxLeft) : 0;
+		const int H = (boxBottom > boxTop)  ? (boxBottom - boxTop)  : 0;
+
+		if (W > 0 && H > 0)
+		{
+			m_weatherCache.assign(static_cast<size_t>(W) * H, static_cast<unsigned char>(fontAlpha));
+			m_weatherCacheW       = W;
+			m_weatherCacheH       = H;
+			m_weatherCacheBlitX   = boxLeft;
+			m_weatherCacheBlitY   = boxTop;
+			m_weatherCacheAlpha   = static_cast<unsigned char>(fontAlpha);
+
+			OFFSCREEN cacheOff;
+			memset(&cacheOff, 0, sizeof(OFFSCREEN));
+			cacheOff.Height       = W;
+			cacheOff.Width        = W;
+			cacheOff.lPitch       = W;
+			cacheOff.lpSurface    = m_weatherCache.data();
+			cacheOff.ScreenRect.left   = 0;
+			cacheOff.ScreenRect.right  = W;
+			cacheOff.ScreenRect.top    = 0;
+			cacheOff.ScreenRect.bottom = H;
+
+			const int rx1 = x1 - boxLeft;
+			const int rx2 = x2 - boxLeft;
+			const int ry1 = y1 - boxTop;
+			const int ry2 = y2 - boxTop;
+			const int ry3 = y3 - boxTop;
+
+			char buf[32];
+			programPtr->fontFrontColour = GREY;
+			if (watchMode)
+			{
+				sprintf(buf, "Wind : (%d-%d)", windMin, windMax);
+				DrawTextInScreen(&cacheOff, buf, rx1 - s_windPrefixWidth, ry1, -1);
+			}
+			else
+			{
+				sprintf(buf, "Wind : +%d (%d-%d)", wind, windMin, windMax);
+				DrawTextInScreen(&cacheOff, buf, rx1 - s_windPrefixWidth, ry1, -1);
+				programPtr->fontFrontColour = GREEN;
+				sprintf(buf, "+%d", wind);
+				DrawTextInScreen(&cacheOff, buf, rx1, ry1, -1);
+			}
+
+			programPtr->fontFrontColour = GREY;
+			DrawTextInScreen(&cacheOff, "Tidal :", rx1 - s_tidalPrefixWidth, ry2, -1);
+
+			programPtr->fontFrontColour = GREEN;
+			sprintf(buf, "+%d", tidal);
+			DrawTextInScreen(&cacheOff, buf, rx1, ry2, -1);
+
+			programPtr->fontFrontColour = GREY;
+			sprintf(buf, "Game Time : %02d:%02d:%02d",
+				(timeSeconds / 3600), (timeSeconds / 60) % 60, timeSeconds % 60);
+			DrawTextInScreen(&cacheOff, buf, rx2, ry3, -1);
+
+			m_weatherCacheKey.timeSeconds = timeSeconds;
+			m_weatherCacheKey.wind        = wind;
+			m_weatherCacheKey.windMin     = windMin;
+			m_weatherCacheKey.windMax     = windMax;
+			m_weatherCacheKey.tidal       = tidal;
+			m_weatherCacheKey.raceSide    = raceSide;
+			m_weatherCacheKey.fontHandle  = programPtr->fontHandle;
+			m_weatherCacheKey.watchMode   = watchMode;
+			m_weatherCacheKey.x1          = x1;
+			m_weatherCacheKey.x2          = x2;
+			m_weatherCacheKey.y1          = y1;
+			m_weatherCacheKey.y2          = y2;
+			m_weatherCacheKey.fontAlpha   = fontAlpha;
+			m_weatherCacheValid = true;
+
+			m_weatherRuns.clear();
+			m_weatherRuns.reserve(64);
+			const unsigned char alpha = m_weatherCacheAlpha;
+			const unsigned char* cacheData = m_weatherCache.data();
+			for (int y = 0; y < H; ++y)
+			{
+				const unsigned char* sRow = cacheData + y * W;
+				int x = 0;
+				while (x < W)
+				{
+					while (x < W && sRow[x] == alpha) ++x;
+					if (x >= W) break;
+					const int runStart = x;
+					while (x < W && sRow[x] != alpha) ++x;
+					WeatherRun run = {
+						static_cast<short>(y),
+						static_cast<short>(runStart),
+						static_cast<short>(x - runStart),
+						0
+					};
+					m_weatherRuns.push_back(run);
+				}
+			}
+		}
+		else
+		{
+			m_weatherCacheValid = false;
+			m_weatherRuns.clear();
+		}
 	}
-	else {
-		sprintf(windText, "Wind : +%d (%d-%d)", wind, windMin, windMax);
-		DrawTextInScreen(&offScreen, windText, x1 - GetTextExtent(programPtr->fontHandle, "Wind : "), y1, -1);
 
-		programPtr->fontFrontColour = GREEN;
-		sprintf(windText, "+%d", wind);
-		DrawTextInScreen(&offScreen, windText, x1, y1, -1);
+	// Per-frame: memcpy each opaque run. Bounds-checks are defensive in case
+	// the back buffer shrinks before the cache invalidates.
+	if (m_weatherCacheValid && !m_weatherRuns.empty())
+	{
+		const unsigned char* src = m_weatherCache.data();
+		unsigned char* dst       = static_cast<unsigned char*>(lpSurfaceMem);
+		const int W  = m_weatherCacheW;
+		const int dx = m_weatherCacheBlitX;
+		const int dy = m_weatherCacheBlitY;
+		const size_t runCount = m_weatherRuns.size();
+		const WeatherRun* runs = m_weatherRuns.data();
+		for (size_t i = 0; i < runCount; ++i)
+		{
+			const WeatherRun& run = runs[i];
+			const int dstY = dy + run.row;
+			if (dstY < 0 || dstY >= dwHeight) continue;
+			int dstX = dx + run.startX;
+			int len  = run.length;
+			const unsigned char* sPtr = src + run.row * W + run.startX;
+			if (dstX < 0)
+			{
+				const int skip = -dstX;
+				if (skip >= len) continue;
+				sPtr += skip;
+				len  -= skip;
+				dstX = 0;
+			}
+			if (dstX + len > dwWidth)
+			{
+				len = dwWidth - dstX;
+				if (len <= 0) continue;
+			}
+			std::memcpy(dst + dstY * lPitch + dstX, sPtr, static_cast<size_t>(len));
+		}
 	}
-
-	char tideText[32];
-	programPtr->fontFrontColour = GREY;
-	sprintf(tideText, "Tidal :");
-	DrawTextInScreen(&offScreen, tideText, x1 - GetTextExtent(programPtr->fontHandle, "Tidal : "), y2, -1);
-
-	programPtr->fontFrontColour = GREEN;
-	sprintf(tideText, "+%d", tidal);
-	DrawTextInScreen(&offScreen, tideText, x1, y2, -1);
-
-	char clockText[32];
-	programPtr->fontFrontColour = GREY;
-	sprintf(clockText, "Game Time : %02d:%02d:%02d", (timeSeconds / 3600), (timeSeconds / 60) % 60, timeSeconds % 60);
-	DrawTextInScreen(&offScreen, clockText, x2, y3, -1);
 
 	programPtr->fontHandle = (unsigned char*)fontHandleBak;
 }

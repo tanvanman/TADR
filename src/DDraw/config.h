@@ -8,6 +8,9 @@
      defined(TDRAW_CONFIG_MINIMAL)) != 1
 #pragma message ( __FILE__ " - Warning: Exactly one TDRAW_CONFIG_* configurations must be #define'd. defaulting to TDRAW_CONFIG_FULL" )
 #define TDRAW_CONFIG_FULL
+// Implicit-default builds (no explicit config selected) get the profiler
+// on; release builds with FULL/ESC/MINIMAL leave it off.
+#define TDRAW_PROFILING 1
 #endif
 
 #if defined(TDRAW_CONFIG_FULL)

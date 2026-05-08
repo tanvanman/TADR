@@ -2,6 +2,7 @@
 #include "tamem.h"
 #include "iddrawsurface.h"
 #include "hook/hook.h"
+#include "Profiler.h"
 
 #ifdef min
 #undef min
@@ -25,6 +26,7 @@ GameTickHook* GameTickHook::GetInstance()
 static unsigned int GameTickHookAddr = 0x4969cb;
 static unsigned int GameTickHookProc(PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.GameTick");
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	int gameTime = taPtr->GameTime;
 	for (auto& f : GameTickHook::GetInstance()->getCallbacks())

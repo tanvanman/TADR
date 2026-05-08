@@ -4,10 +4,16 @@
 #include "nswfl_crc32.h"
 #include "tamem.h"
 
-#include <memory>
-#include <vector>
+#include <atomic>
+#include <condition_variable>
+#include <functional>
 #include <map>
+#include <memory>
+#include <mutex>
+#include <queue>
 #include <random>
+#include <thread>
+#include <vector>
 
 #include "windows.h"
 
@@ -46,8 +52,13 @@ class ChallengeResponse
 {
 public:
 	ChallengeResponse();
+	~ChallengeResponse();
 
 	static ChallengeResponse* GetInstance();
+
+	// Queue a job onto the below-normal-priority worker thread. Public so
+	// other deferred-IO call sites in this module can share the worker.
+	void EnqueueJob(std::function<void()> job);
 
 	static void OnBattleroomCommandExeReport(const std::vector<std::string>&);
 	static void OnBattleroomCommandTdReport(const std::vector<std::string>&);
@@ -157,4 +168,19 @@ private:
 	void LogGameFileLookup(const std::string& filename);
 
 	static void handleBattleroomReportCommand(const std::string& str, ChallengeResponseCommand cmd);
+
+	// Single dedicated worker, pre-created at construction (avoids
+	// first-thread-create cost on incoming-packet hot path). Size=1 by
+	// design: ComputeChallengeResponse is memory-bandwidth bound and we
+	// have a 9-second budget, so serial below-normal runs faster overall
+	// than parallel workers contending the L3 with the main thread.
+	void StartWorker();
+	void StopWorker();
+	void WorkerLoop();
+
+	std::thread             m_worker;
+	std::mutex              m_jobMutex;
+	std::condition_variable m_jobCv;
+	std::queue<std::function<void()>> m_jobQueue;
+	std::atomic<bool>       m_workerStop{false};
 };

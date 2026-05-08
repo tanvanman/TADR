@@ -17,6 +17,7 @@
 #include "iddrawsurface.h"
 #include "ExternQuickKey.h "
 #include "tahook.h"
+#include "Profiler.h"
 
 #include <math.h>
 #include <vector>
@@ -28,6 +29,7 @@ using namespace ordertype;
 
 int  __stdcall FindMouseUnitRounte (PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.FindMouseUnit");
 	if (((MegaMapControl *)(X86StrackBuffer->myInlineHookClass_Pish->ParamOfHook))->IsInControl ())
 	{
 		X86StrackBuffer->Eax= (*TAmainStruct_PtrPtr)->MouseOverUnit;
@@ -40,6 +42,7 @@ int  __stdcall FindMouseUnitRounte (PInlineX86StackBuffer X86StrackBuffer)
 
 int  __stdcall  GetPosition_DwordRounte (PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.GetPosition_Dword");
 	if (((MegaMapControl *)(X86StrackBuffer->myInlineHookClass_Pish->ParamOfHook))->IsInControl ())
 	{
 		
@@ -52,6 +55,7 @@ int  __stdcall  GetPosition_DwordRounte (PInlineX86StackBuffer X86StrackBuffer)
 
 int  __stdcall  GetGridPosFeatureRounte (PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.GetGridPosFeature");
 	if (((MegaMapControl *)(X86StrackBuffer->myInlineHookClass_Pish->ParamOfHook))->IsInControl ())
 	{
 		X86StrackBuffer->Eax= 0xffff;

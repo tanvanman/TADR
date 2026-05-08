@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <array>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -93,6 +94,9 @@ public:
     // Linear scan of TA's UnitDef array for the FBI name. -1 if not found.
     int  FindUnitTypeIdxByName(const char* name) const;
 
+    // O(1) cached lookup, rotatable structures only. -1 for any other name.
+    int  FindRotatableUnitIdxByName(const char* name) const;
+
     // True when the unit is a structure (bmcode==0) AND its Rotations= FBI
     // permits at least two facings — i.e. one of the buttons we want to
     // overlay quadrant arrows on.
@@ -152,6 +156,12 @@ private:
     int   m_menuClickFeedbackControlIdx;
     int   m_menuClickFeedbackCardinal;
     DWORD m_menuClickFeedbackTimestamp;
+
+    // Lowercase UnitName -> UnitDef idx, rotatable structures only.
+    // Rebuilt when ta->UNITINFOCount changes.
+    void EnsureRotatableNameCache() const;
+    mutable std::unordered_map<std::string, int> m_rotatableUnitIdxByLowerName;
+    mutable unsigned m_rotatableCacheUnitInfoCount = 0;
 };
 
 #endif

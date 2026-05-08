@@ -18,6 +18,7 @@
 #include "IncreaseCompositeSize.h"
 
 #include "ddraw.h"
+#include "Profiler.h"
 
 #include <chrono>
 #include <csignal>
@@ -114,6 +115,7 @@ BYTE DrawPlayer11DTEnableBits[] = { 11 };
 unsigned int DrawPlayer11DTAddr = 0x469a7b;
 int __stdcall DrawPlayer11DTProc(PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.DrawPlayer11DT");
 	const UnitStruct* unit = (const UnitStruct*)X86StrackBuffer->Esi;
 	if ((X86StrackBuffer->Ecx & 0x0f) == 11)  // change to 10 if you want to draw map features without also requiring DrawPlayer11DTEnable patch
 	{
@@ -127,6 +129,7 @@ int __stdcall DrawPlayer11DTProc(PInlineX86StackBuffer X86StrackBuffer)
 unsigned int ResourceStripHeightFixAddr = 0x469078;
 int __stdcall ResourceStripHeightFixProc(PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.ResourceStripHeightFix");
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	short* gaf = (short*)X86StrackBuffer->Eax;
 	if (gaf[1] >= taPtr->GameSreen_Rect.top) {
@@ -198,6 +201,7 @@ int __stdcall VTOLPatrolDisableReclaimProc(PInlineX86StackBuffer X86StrackBuffer
 unsigned int JammingOwnRadarAddr = 0x467608;
 int __stdcall JammingOwnRadarProc(PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.JammingOwnRadar");
 	const TAdynmemStruct* ptr = *(TAdynmemStruct**)0x00511de8;
 	const UnitStruct* unit = (UnitStruct*)(X86StrackBuffer->Esi - 0x92);
 	if (IsPlayerAllyUnit(unit->UnitInGameIndex, ptr->LOS_Sight_PlayerID)) {
@@ -466,6 +470,7 @@ int __stdcall PutDeadHostInWatchModeProc(PInlineX86StackBuffer X86StrackBuffer)
 unsigned int WindSpeedSyncAddr = 0x490c5a;
 int __stdcall WindSpeedSyncProc(PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.WindSpeedSync");
 	TAProgramStruct* programPtr = *(TAProgramStruct**)0x0051fbd0;
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 
@@ -1173,6 +1178,7 @@ LONG CALLBACK VectoredHandler(
 unsigned int GAFGetCurrentFramePtrAddr = 0x4B7EE0;
 int __stdcall GAFGetCurrentFramePtrProc(PInlineX86StackBuffer X)
 {
+	PROFILE_SCOPE("Hook.GAFGetCurrentFramePtr");
 	uint8_t* state = *(uint8_t**)(X->Esp + 4);
 	if (!state || SafeIsBadReadPtr(state, 0xC))
 		return 0;
@@ -1282,6 +1288,7 @@ static const int COMPOSITE_BUF_FALLBACK = 600;
 unsigned int CompositeAABBClampAddr = 0x458B87;
 int __stdcall CompositeAABBClampProc(PInlineX86StackBuffer X)
 {
+	PROFILE_SCOPE("Hook.CompositeAABBClamp");
 	int origWidth  = (int)(X->Esi & 0xFFFF);
 	int origHeight = (int)(X->Edx & 0xFFFF);
 
