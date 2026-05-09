@@ -20,6 +20,7 @@ using namespace std;
 #include "whiteboard.h"
 #include "MinimapHandler.h"
 #include "dddta.h"
+#include "tafstatusexporter.h"
 #include "cincome.h"
 #include "dialog.h"
 #include "VoteDialog.h"
@@ -176,6 +177,7 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	SharedRect= new CMapRect ( VidMem) ;
 	ChangeQueue= new CChangeQueue ;
 	DDDTA= new CDDDTA ;
+	TAFStatusExporter = new CTAFStatusExporter((TAdynmemStruct*)(*((int*)0x00511de8)));
 
 #if CONSTRUCTION_KICKOUT_ENABLE
 	ConstructionKickout::GetInstance();
@@ -283,6 +285,8 @@ ULONG __stdcall IDDrawSurface::Release()
 	DDDTA= NULL;
 	delete (CUnitRotate*)LocalShare->UnitRotate;
 	LocalShare->UnitRotate = NULL;
+	delete TAFStatusExporter;
+	TAFStatusExporter= NULL;
 #if USEMEGAMAP
 	if (GUIExpander
 		&&(GUIExpander->myMinimap))
@@ -542,6 +546,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 	}
 
 	UpdateTAProcess ( );
+	TAFStatusExporter->FrameUpdate();
 	if (GetCurrentThreadId() == LocalShare->GuiThreadId && DataShare->PlayingDemo)
 	{
 		TenPlayerReplay::GetInstance();

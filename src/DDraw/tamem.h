@@ -589,7 +589,16 @@ struct TAdynmemStruct{
 
 	char  Image_Output_Dir[256];  // 0x38a47+c= TA截图目录的字符串，即TA目录+当前用户名 
 	char  Movie_Shot_Output_Dir[256];
-	char data_33[0x56c];
+	// data_33 originally spanned 0x38C53..0x391BF (0x56C bytes). Split it to expose
+	// finishedgame_state at 0x39057 (a dword UI state machine driven by the result-screen
+	// lifecycle: 0=ongoing, non-zero=engine has formally ended the game) and
+	// ScoreDisplay_WinFlag at 0x391AF (read by EndMission_ShowResultScreen for the
+	// post-game results panel: non-zero = VICTORY, zero = DEFEAT/draw).
+	char data_33_pre[0x404];          // 0x38C53..0x39057
+	unsigned int finishedgame_state;  // 0x39057..0x3905B
+	char data_33_post_a[0x154];       // 0x3905B..0x391AF
+	unsigned int ScoreDisplay_WinFlag;// 0x391AF..0x391B3
+	char data_33_post_b[0x0C];        // 0x391B3..0x391BF
 	unsigned int  Showranges;
 	unsigned int  bps;
 	unsigned int  field_391C7;
@@ -612,9 +621,16 @@ struct TAdynmemStruct{
 	int MultiMapping   ;
 	int MultiLineOfSight;
 	int LOSTypeOptions ;
-	short NetStateMask0;//  maybe another game state mask
-	short GameStateMask;	// & 0x0020: victory
-							// & 0x0040: defeat
+	short victoryCountdown;	// 0x39239: 4-tick stability countdown for victory/defeat declaration.
+							// Initialised to 4 by Game_PlayerPerTickUpdate (0x464F80) when
+							// IsEnemyAnnihilated_Check (0x490080) first returns 1; decremented
+							// once per 30-tick UpdateTime cycle; verdict bits in GameStateMask
+							// are committed only when this drops below 0. Engine-side
+							// draw-detection stability window — analogous to GameMonitor2's
+							// m_drawGameTicks in gpgnet4ta. Was named "NetStateMask0" before.
+	short GameStateMask;	// 0x3923B: & 0x0020 victory, & 0x0040 defeat (set after victoryCountdown<0)
+							// Display logic at 0x46A174 reads these to draw VICTORY / DEFEAT sprites.
+							// Bits 0x04, 0x10 are intermediate flags during victory evaluation.
 
 };
 
@@ -685,7 +701,7 @@ struct FeatureDefStruct {
 }; //0x100
 
 struct ProjectileStruct {
-	WeaponStruct *Weapon;
+	WeaponStruct *Weapon;       // 0x00
 	short int data0_1;
 	short int XPos;
 	short int data0_2;
@@ -699,12 +715,14 @@ struct ProjectileStruct {
 	int ZSpeed;
 	int YSpeed;
 	char data1[14];
-	short XTurn;
+	short XTurn;                // 0x36
 	short ZTurn;
 	short YTurn;
-	char data2[42];
-	char myLos_PlayerID;
-	short int field_67;;
+	char data2a[0x16];          // 0x3C
+	UnitStruct *AttackerUnitPtr;// 0x52  set by engine in WEAPONS_ProjectileDamage
+	char data2b[0x10];          // 0x56
+	char myLos_PlayerID;        // 0x66
+	short int field_67;
 
 	struct {
 		bool unk1 : 1;
@@ -940,7 +958,9 @@ struct UnitStruct {
   short Kills;
   char data17[50];
   PlayerStruct * Owner_PlayerPtr1; //?
-  char data16[6];
+  UnitStruct *Attacker_p;       // 0xF0: last attacker (set by UnitTakeDamage_packet)
+  unsigned char ThisPlayer_ID;  // 0xF4: cOwnerID mirror of Attacker_p->cOwnerID
+  unsigned char LastDamageType; // 0xF5: 1=normal, 2=paralyze, 3=SD/resign, 10=heal, 11=net-pkt
   char HealthPerA;  //health in percent
   char HealthPerB;  //health in percent, changes slower (?)
   char data19[2];
@@ -954,13 +974,15 @@ struct UnitStruct {
   short Health;				//0x108
   char TerrainLevel[4];		//0x10a
   unsigned short cIsCloaked;//0x10e
-  unsigned int UnitSelected;//0x110: and UnitSelectState.  
-							// & 0x000c0000: hold pos; maneuvre; roam.  
-							// & 0x10: unit selected
-							// & 0x20: sth to do with nanoframe / build completion 
-							// & 0x100: radar/los
-							// & 0x200: sonar/los
-							// & 0x1000000: UnitAlive
+  // 0x110: engine's UnitStateMask (legacy name "UnitSelected" kept because most
+  // tdraw callers only touch selection bits). Bits:
+  //   0x000c0000: hold pos / maneuvre / roam
+  //   0x10:       selected
+  //   0x20:       nanoframe / build completion
+  //   0x100:      radar/los
+  //   0x200:      sonar/los
+  //   0x10000000: alive (Ghidra; tdraw previously documented 0x1000000 — off-by-nibble)
+  unsigned int UnitSelected;
   char data11[4];
 }; //0x118
 
@@ -1702,7 +1724,9 @@ enum UNITINFOMASK_0
 enum UNITINFOMASK_1
 {
 	 showplayername= 0x20000,
-	 commander        = 0x40000
+	 // 0x40000 was labelled "commander" in IDA but the engine identifies commanders
+	 // by name comparison (see UnitIsCommander in tafstatusexporter.cpp). The bit
+	 // false-positives on unrelated units like ProTA's ARMTHOVR — do not use.
 };
 	
 
