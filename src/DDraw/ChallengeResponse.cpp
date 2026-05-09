@@ -1,4 +1,5 @@
 #include "ChallengeResponse.h"
+#include "config.h"
 #include "BattleroomCommands.h"
 #include "ChatHijackIds.h"
 #include "PacketChatRouter.h"
@@ -786,18 +787,24 @@ void ChallengeResponse::HashGamingState(HmacSha256Calculator& hmac)
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
 void ChallengeResponse::HashMapSnapshot(HmacSha256Calculator& hmac)
 {
+	// Skip last row/column: TA leaves min/maxHeight2x2 uninitialised there
+	// (Map_RecomputeTileHeightRange clamps), and on lava maps LoadMap_PLOT3
+	// propagates that into FeatureDefIndex, diverging between Wine and Windows.
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	const int N = taPtr->FeatureMapSizeX * taPtr->FeatureMapSizeY;
-	for (int n = 0; n < N; ++n) {
-		FeatureStruct* f = &m_featureMapSnapshot.get()[n];
-		hmac.processChunk((unsigned char*)&f->height, 1);
-		if (f->FeatureDefIndex == 0x0fffe)
-		{
-			hmac.processChunk((unsigned char*)&f->MetalValue, (char*)&f->field_0c - (char*)&f->MetalValue);
-		}
-		else
-		{
-			hmac.processChunk((unsigned char*)&f->MetalValue, (char*)&f->FeatureDefDy - (char*)&f->MetalValue);
+	const int W = taPtr->FeatureMapSizeX;
+	const int H = taPtr->FeatureMapSizeY;
+	for (int y = 0; y < H - 1; ++y) {
+		for (int x = 0; x < W - 1; ++x) {
+			FeatureStruct* f = &m_featureMapSnapshot.get()[y * W + x];
+			hmac.processChunk((unsigned char*)&f->height, 1);
+			if (f->FeatureDefIndex == 0x0fffe)
+			{
+				hmac.processChunk((unsigned char*)&f->MetalValue, (char*)&f->field_0c - (char*)&f->MetalValue);
+			}
+			else
+			{
+				hmac.processChunk((unsigned char*)&f->MetalValue, (char*)&f->FeatureDefDy - (char*)&f->MetalValue);
+			}
 		}
 	}
 }
@@ -1035,7 +1042,9 @@ void ChallengeResponse::LogAll(const std::string& filename)
 	LogUnits(filename);
 	LogGamingState(filename);
 	LogGameFileLookup(filename);
-	//LogMapSnapshot(filename);
+#if defined(TDRAW_DUMP_MAP_ON_ERROR) && TDRAW_DUMP_MAP_ON_ERROR
+	LogMapSnapshot(filename);
+#endif
 }
 #pragma code_seg(pop)
 
