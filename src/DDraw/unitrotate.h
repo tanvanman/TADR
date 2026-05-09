@@ -51,6 +51,11 @@ public:
     int  GetRotation() const { return m_rotation; }
     void SetRotation(int r);
 
+    // GameTime at the user's last rotation cycle — read by CBuildGhost to
+    // restart the preview sweep. Not updated by the transient save/restore
+    // in the per-order PreCreate path.
+    unsigned GetRotationCycleGameTime() const { return m_rotationCycleGameTime; }
+
     // Footprint-dim swap state (used by _TestBuildSpot preview + CreateUnit).
     void ApplyRotationTo(unsigned int unitInfoIdx);
     void ClearRotation();
@@ -152,6 +157,8 @@ private:
     int   m_menuClickFeedbackControlIdx;
     int   m_menuClickFeedbackCardinal;
     DWORD m_menuClickFeedbackTimestamp;
+
+    unsigned m_rotationCycleGameTime;
 };
 
 #endif

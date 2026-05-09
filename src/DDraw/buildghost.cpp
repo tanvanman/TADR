@@ -816,8 +816,9 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     if (!ui) return;
     if (ui->bmcode != 0) return;
 
-    int  rotation     = 0;
-    int  allowedCount = 1;
+    int      rotation            = 0;
+    int      allowedCount         = 1;
+    unsigned rotationCycleGameTime = 0;
     if (CUnitRotate* rot = CUnitRotate::GetInstance())
     {
         rotation = rot->GetRotation() & 3;
@@ -825,6 +826,7 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
         allowedCount = 0;
         for (int r = 0; r < 4; ++r)
             if (rot->IsRotationAllowed(buildIdx, r)) ++allowedCount;
+        rotationCycleGameTime = rot->GetRotationCycleGameTime();
     }
 
     // Build-rect centre = midpoint of (CircleSelect_Pos1, Pos2). Pos1 is
@@ -999,7 +1001,8 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     bool        sweepActive = false;
     unsigned    kByte = 0;
     {
-        unsigned gt = static_cast<unsigned>(ta->GameTime);
+        // Restart the sweep on each user rotation.
+        unsigned gt = static_cast<unsigned>(ta->GameTime) - rotationCycleGameTime;
         unsigned phase = gt % kSweepFrames;
         if (phase < kSweepActive)
         {

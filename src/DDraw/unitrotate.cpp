@@ -790,7 +790,8 @@ CUnitRotate::CUnitRotate()
       m_rotationsKeyIdx(0),
       m_menuClickFeedbackControlIdx(-1),
       m_menuClickFeedbackCardinal(-1),
-      m_menuClickFeedbackTimestamp(0)
+      m_menuClickFeedbackTimestamp(0),
+      m_rotationCycleGameTime(0)
 {
     g_instance = this;
 
@@ -1213,6 +1214,7 @@ bool CUnitRotate::TryCycleRotation(int direction)
     if (next == m_rotation) return false;
 
     SetRotation(next);
+    m_rotationCycleGameTime = static_cast<unsigned>(ta->GameTime);
     // "MORE" → button12.wav in ALLSOUND.TDF — soft button click.
     PlaySound_Effect((char*)"MORE", 0);
     if (CBuildGhost* g = CBuildGhost::GetInstance())
@@ -1831,6 +1833,8 @@ bool CUnitRotate::OnBuildMenuClick(int screenX, int screenY)
         if (!IsRotationAllowed(static_cast<unsigned>(idx), cardinal)) return false;
 
         SetRotation(cardinal);
+        if (TAdynmemStruct* ta = GetTA())
+            m_rotationCycleGameTime = static_cast<unsigned>(ta->GameTime);
         m_menuClickFeedbackControlIdx = i;
         m_menuClickFeedbackCardinal   = cardinal;
         m_menuClickFeedbackTimestamp  = GetTickCount();
