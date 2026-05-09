@@ -46,7 +46,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*????.??.??
+*2026.05.09
 - Lag-switch mitigation: detects and freezes local simulation when network goes dark
 - Vote-to-reject system for in-progress multiplayer games (see NEW FEATURES IN DETAIL)
 - add "nottoair" flag for weapons (see NEW FEATURES IN DETAIL)
@@ -56,6 +56,9 @@ NEW FEATURES IN BRIEF:
 - Building rotation: press '/' (configurable) to cycle the build cursor
   facing for buildings whose FBI permits it (see NEW FEATURES IN DETAIL)
 - Nanoframe ghost preview at the build cursor (see NEW FEATURES IN DETAIL)
+- Fix for ctrl-z (and ctrl-a / ctrl-b / ctrl-c) silently truncating selections for unit ids >= 512
+- Export engine-backed player elimination status to gpgnet4ta via shared memory,
+  so games where a commander dies but play continues are reported with the correct outcome
 
 *2026.02.17 - Fix false trigger on version check
 *2026.02.10 - Minor adjustment to diagnostic crash detection ("ERROR: dstRect out of bounds", allow CopyScreenContext all the way to the edge of destination context)
