@@ -46,7 +46,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*????.??.??
+*2026.05.15
 - Fix intermittent 6x8 staircase yardmap on south-facing rotatable factories
 - New "PreviewObject3D=" unit key to override the 3DO model used for the nanoframe ghost preview (see NEW FEATURES IN DETAIL)
 
