@@ -159,6 +159,9 @@ private:
     DWORD m_menuClickFeedbackTimestamp;
 
     unsigned m_rotationCycleGameTime;
+
+    // Detects on→off transition to dirty panels and overpaint chevrons.
+    bool m_lastOverlayEnabled = true;
 };
 
 #endif

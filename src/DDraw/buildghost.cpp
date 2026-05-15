@@ -83,6 +83,7 @@ CBuildGhost* CBuildGhost::GetInstance()
 static unsigned g_previewPiecesKeyIdx        = 0;
 static unsigned g_previewPiecesByRotKeyIdx[4] = { 0, 0, 0, 0 };
 static unsigned g_previewFaceOpponentKeyIdx  = 0;
+static unsigned g_previewObject3DKeyIdx      = 0;
 
 void CBuildGhost::RegisterUnitDefKeys()
 {
@@ -106,6 +107,11 @@ void CBuildGhost::RegisterUnitDefKeys()
     {
         g_previewFaceOpponentKeyIdx =
             UnitDefExtensions::GetInstance()->registerIntKey("PreviewFaceOpponent", 0);
+    }
+    if (g_previewObject3DKeyIdx == 0)
+    {
+        g_previewObject3DKeyIdx =
+            UnitDefExtensions::GetInstance()->registerStringKey("PreviewObject3D", "");
     }
 }
 
@@ -255,6 +261,22 @@ namespace
     using Fn_UnlockAttackedSurface = void (__stdcall*)(void* ctx);
     const Fn_UnlockAttackedSurface kFn_UnlockAttackedSurface =
         (Fn_UnlockAttackedSurface)0x004c5fa0;
+
+    // Replicate Load3DO_FromHPI (0x42a2c0) without its TerminateProcess on
+    // missing file. All __stdcall (verified from the wrapper disassembly).
+    using Fn_LocalizedFilePath = char* (__stdcall*)(char* outPath, const char* dir,
+                                                    const char* filename, const char* ext);
+    const Fn_LocalizedFilePath kFn_LocalizedFilePath =
+        (Fn_LocalizedFilePath)0x004290f0;
+
+    using Fn_Open3do = Model3DONode* (__stdcall*)(const char* path);
+    const Fn_Open3do kFn_Open3do = (Fn_Open3do)0x004cb560;
+
+    using Fn_Parse3dO = void (__stdcall*)(Model3DONode* root);
+    const Fn_Parse3dO kFn_Parse3dO = (Fn_Parse3dO)0x004cb590;
+
+    using Fn_TextureMatch3DO = void (__stdcall*)(Model3DONode* root, const char* filename);
+    const Fn_TextureMatch3DO kFn_TextureMatch3DO = (Fn_TextureMatch3DO)0x0042a140;
 }
 #endif // shared
 
@@ -450,9 +472,7 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
     if (it != m_nanoframe3DCache.end())
         return it->second.frame.Width == 0 ? nullptr : &it->second;
 
-    TAdynmemStruct* ta = GetTA();
-    if (!ta || !ta->MODEL_PTRS) return nullptr;
-    Model3DONode* rootNode = ta->MODEL_PTRS[unitInfoIdx];
+    Model3DONode* rootNode = GetPreviewModelRoot(unitInfoIdx);
     if (!rootNode)
     {
         m_nanoframe3DCache[key] = NanoframeSprite3D{};
@@ -757,6 +777,52 @@ const CBuildGhost::NanoframeSprite3D* CBuildGhost::GetNanoframeSprite3D(
         unitInfoIdx, rotation, minWY_int, maxWY_int);
     return &out;
 }
+
+Model3DONode* CBuildGhost::GetPreviewModelRoot(unsigned unitInfoIdx)
+{
+    TAdynmemStruct* ta = GetTA();
+    if (!ta || !ta->MODEL_PTRS) return nullptr;
+
+    Model3DONode* defaultRoot = ta->MODEL_PTRS[unitInfoIdx];
+    if (g_previewObject3DKeyIdx == 0) return defaultRoot;
+
+    const std::string& fbi =
+        UnitDefExtensions::GetInstance()->getString(unitInfoIdx, g_previewObject3DKeyIdx);
+    if (fbi.empty()) return defaultRoot;
+
+    std::string key;
+    key.reserve(fbi.size());
+    for (char c : fbi)
+        key.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+
+    auto it = m_overrideModelRoots.find(key);
+    if (it != m_overrideModelRoots.end())
+        return it->second ? it->second : defaultRoot;  // null = negative cache
+
+    char fullpath[256] = {0};
+    kFn_LocalizedFilePath(fullpath, "objects3d", fbi.c_str(), "3DO");
+    Model3DONode* root = kFn_Open3do(fullpath);
+    if (!root)
+    {
+        IDDrawSurface::OutptFmtTxt(
+            "[BuildGhost] PreviewObject3D=\"%s\": objects3d/%s.3DO not found",
+            fbi.c_str(), fbi.c_str());
+        m_overrideModelRoots.emplace(key, nullptr);
+        return defaultRoot;
+    }
+    kFn_Parse3dO(root);
+    kFn_TextureMatch3DO(root, fbi.c_str());
+
+    m_overrideModelRoots.emplace(key, root);
+    IDDrawSurface::OutptFmtTxt("[BuildGhost] PreviewObject3D loaded: %s.3DO", fbi.c_str());
+    return root;
+}
+
+void CBuildGhost::OnGameTeardown()
+{
+    m_overrideModelRoots.clear();
+    m_nanoframe3DCache.clear();
+}
 #endif // FULL3D
 
 // =============================================================================
@@ -956,14 +1022,19 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
         spriteBottom <= gs.top || spriteTop  >= gs.bottom)
         return;
 
-    // Render mode toggle: when "Edges-only build preview" is ticked in
-    // the Ctrl-F2 menu we render just the visible-edge wireframe in a
-    // static palette index 250 (pure green), no fill, no animation. The
-    // default is the filled silhouette + edge highlight, both colour-
-    // cycled in TA's nanoframe ramp 0xa0..0xaf.
-    bool edgesOnly = false;
+    // Ghost preview style (Ctrl-F2 menu): independent fill / edge-cycle
+    // flags derived from the 4-way enum.
+    //   STATIC_WIRE        no fill, static-green edges.
+    //   SHIMMER_WIRE       no fill, edges cycled (nanoframe ramp 0xa0..0xaf).
+    //   FULL               cycled fill, cycled edges (180° offset).
+    //   STATIC_WIRE_FILL   cycled fill, static-green edges.
+    int previewStyle = Dialog::BUILD_PREVIEW_STATIC_WIRE;
     if (LocalShare && LocalShare->Dialog)
-        edgesOnly = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetEdgesOnlyBuildPreview();
+        previewStyle = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetBuildPreviewStyle();
+    const bool noFill     = (previewStyle == Dialog::BUILD_PREVIEW_STATIC_WIRE
+                          || previewStyle == Dialog::BUILD_PREVIEW_SHIMMER_WIRE);
+    const bool cycleEdges = (previewStyle == Dialog::BUILD_PREVIEW_SHIMMER_WIRE
+                          || previewStyle == Dialog::BUILD_PREVIEW_FULL);
 
     auto rampColor = [](unsigned step) -> unsigned char {
         unsigned s = step & 0x1F;
@@ -971,20 +1042,6 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
             ? static_cast<unsigned char>(0xaf - (s & 0xf))
             : static_cast<unsigned char>(0xa0 + (s & 0xf));
     };
-
-    unsigned char fillColor = 0;
-    unsigned char edgeColor = 0;
-    if (edgesOnly)
-    {
-        edgeColor = 250;   // PALETTE.PAL: (0,255,0) pure green, no cycle
-    }
-    else
-    {
-        unsigned gameTime = static_cast<unsigned>(ta->GameTime);
-        unsigned baseStep = (gameTime * 0x21u / 0x1eu) & 0x1F;
-        fillColor = rampColor(baseStep);
-        edgeColor = rampColor(baseStep + 16);   // 180° offset
-    }
 
     // Z-plane sweep: a thin bright line travels through the model along
     // its LOCAL +Z axis (the unit's depth axis, +Z = front per the 3DO
@@ -998,11 +1055,22 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     const int           kSweepHalfWidth = 2;    // ±2 byte units in zCoord
     const unsigned char kSweepColor     = 250;  // pure green — same line colour in both modes
     const unsigned char kSweepColorWire = 250;
-    bool        sweepActive = false;
-    unsigned    kByte = 0;
+    // Reset on each user rotation so the sweep restarts from the back.
+    unsigned gt = static_cast<unsigned>(ta->GameTime) - rotationCycleGameTime;
+
+    // Fill shimmer phase-locked to the sweep: ramp dim end (0xaf in TA's
+    // nanoframe palette) aligned with the midpoint of the line-active
+    // half-cycle so the line reads against a dim fill. Period = sweep
+    // period; the +16 offset puts the high-index (dim) half of the ramp
+    // on the line-active half.
+    unsigned shimmerPhase = (gt + kSweepFrames - kSweepActive / 2) % kSweepFrames;
+    unsigned shimmerStep  = shimmerPhase * 32u / kSweepFrames + 16u;
+    unsigned char fillColor = noFill     ? 0 : rampColor(shimmerStep);
+    unsigned char edgeColor = cycleEdges ? rampColor(shimmerStep + 16) : 250;
+
+    bool     sweepActive = false;
+    unsigned kByte       = 0;
     {
-        // Restart the sweep on each user rotation.
-        unsigned gt = static_cast<unsigned>(ta->GameTime) - rotationCycleGameTime;
         unsigned phase = gt % kSweepFrames;
         if (phase < kSweepActive)
         {
@@ -1042,11 +1110,10 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
         {
             fillScratch[i] = colorKey;
         }
-        else if (edgesOnly)
+        else if (noFill)
         {
-            // Wireframe mode: paint ONLY sweep-line pixels across the
-            // silhouette interior; everything else stays transparent
-            // so the underlying terrain shows through.
+            // Wireframe modes: only sweep-line pixels paint across the
+            // silhouette interior; everything else is transparent.
             fillScratch[i] = sweepHit ? kSweepColorWire : colorKey;
         }
         else
@@ -1054,9 +1121,6 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
             fillScratch[i] = sweepHit ? kSweepColor : fillColor;
         }
 
-        // Edges always cycle / stay static. The sweep line on the fill
-        // already carries the visual cue; we don't separately recolour
-        // the edges.
         edgeScratch[i] = (sprite->edgePixels[i] == colorKey) ? colorKey : edgeColor;
     }
 
@@ -1124,4 +1188,5 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
 }
 #else
 void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool /*showNag*/) { /* no-op outside FULL3D */ }
+void CBuildGhost::OnGameTeardown() { /* no caches in RECT mode */ }
 #endif

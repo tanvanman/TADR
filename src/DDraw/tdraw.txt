@@ -46,6 +46,10 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*????.??.??
+- Fix intermittent 6x8 staircase yardmap on south-facing rotatable factories
+- New "PreviewObject3D=" unit key to override the 3DO model used for the nanoframe ghost preview (see NEW FEATURES IN DETAIL)
+
 *2026.05.09
 - Lag-switch mitigation: detects and freezes local simulation when network goes dark
 - Vote-to-reject system for in-progress multiplayer games (see NEW FEATURES IN DETAIL)
@@ -523,5 +527,27 @@ NEW FEATURES IN DETAIL:
   Falls back to the player's rotate-build selection in single-player
   or any case where no enemy commander can be found (e.g. all enemies
   dead).
+
+  Mod authors who want the preview to display a completely different
+  model than the unit's actual Object3D= (e.g. a simplified silhouette,
+  or the upgraded form of a unit whose 3DO bundles multiple variants)
+  can name an alternative 3DO with a "PreviewObject3D=" key:
+
+      [UNITINFO]
+      {
+      ...
+      PreviewObject3D=corarmvp_preview;
+      }
+
+  The value is a 3DO base name (no extension); the file is loaded from
+  the HPI archive at  objects3d/<name>.3DO  on first use and cached
+  for the rest of the game session.  All other preview FBI keys
+  (PreviewPieces, PreviewFaceOpponent, etc.) apply to this overridden
+  model — piece-name whitelists are matched against the OVERRIDE 3DO's
+  piece names, not the unit's real one.
+
+  If the named 3DO can't be found in the HPI, a warning is logged to
+  tdrawlog.txt and the preview falls back to the unit's real model;
+  no other behaviour is affected.
 
 
