@@ -308,9 +308,9 @@ bool Dialog::GetBuildMenuRotationOverlayEnabled()
 		|| m_buildMenuRotationOverlayButton->GetState() != 0;
 }
 
-bool Dialog::GetEdgesOnlyBuildPreview()
+int Dialog::GetBuildPreviewStyle()
 {
-	return true;
+	return BUILD_PREVIEW_FULL;
 }
 
 void Dialog::SetAll()

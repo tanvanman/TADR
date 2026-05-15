@@ -11,6 +11,8 @@
 // Implicit-default builds (no explicit config selected) get the profiler
 // on; release builds with FULL/ESC/MINIMAL leave it off.
 #define TDRAW_PROFILING 1
+// Developer-build fallback: opt in to dumps too large for production.
+#define TDRAW_DUMP_MAP_ON_ERROR 1
 #endif
 
 #if defined(TDRAW_CONFIG_FULL)

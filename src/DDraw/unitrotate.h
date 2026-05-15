@@ -52,6 +52,11 @@ public:
     int  GetRotation() const { return m_rotation; }
     void SetRotation(int r);
 
+    // GameTime at the user's last rotation cycle — read by CBuildGhost to
+    // restart the preview sweep. Not updated by the transient save/restore
+    // in the per-order PreCreate path.
+    unsigned GetRotationCycleGameTime() const { return m_rotationCycleGameTime; }
+
     // Footprint-dim swap state (used by _TestBuildSpot preview + CreateUnit).
     void ApplyRotationTo(unsigned int unitInfoIdx);
     void ClearRotation();
@@ -162,6 +167,11 @@ private:
     void EnsureRotatableNameCache() const;
     mutable std::unordered_map<std::string, int> m_rotatableUnitIdxByLowerName;
     mutable unsigned m_rotatableCacheUnitInfoCount = 0;
+
+    unsigned m_rotationCycleGameTime;
+
+    // Detects on→off transition to dirty panels and overpaint chevrons.
+    bool m_lastOverlayEnabled = true;
 };
 
 #endif

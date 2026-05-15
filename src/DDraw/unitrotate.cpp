@@ -615,6 +615,14 @@ static int __stdcall MobileBuild_PreCreate_Proc(PInlineX86StackBuffer X86StrackB
     if (!order) return 0;
 
     int rotation = self->TakeOrderRotation(order);
+
+    // Clear any stale swap held by TestBuildSpot's preview (or a missed
+    // PostCreate) before UNITS_CreateUnit reads UNITINFO. Apply* below
+    // re-establish for non-zero rotation; an active player preview
+    // re-applies on the next _TestBuildSpot frame.
+    self->ClearRotation();
+    self->ClearYardmapRotation();
+
     if (rotation == 0)
     {
         self->m_pendingHeading = -1;
@@ -692,10 +700,11 @@ static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86Strack
     //   (b) DrawBuildSpotQueue / MobileBuild_PreCreate gating their effect
     //       behind IsRotationAllowed(unitType, rotation).
 
-    // Restore UNITINFO.p_YardMap now that UNITS_CreateUnit has finished
-    // stamping the grid. Subsequent yardmap reads go through the runtime
-    // hooks (Unit_UpdateYardmap etc.) which do their own scoped swap.
+    // Both swaps must clear: leftover dims on UNITINFO would be inherited
+    // by the next unrotated build via RebuildFootPrint while p_YardMap is
+    // back to original shape — staircase yardmap.
     self->ClearYardmapRotation();
+    self->ClearRotation();
 
     return 0;
 }
@@ -776,6 +785,8 @@ static int __stdcall FreeGameData_Entry_Proc(PInlineX86StackBuffer)
         self->ClearRotation();
         self->ClearYardmapRotation();
     }
+    // Drop CBuildGhost caches that hold pointers into TA's per-game pools.
+    if (CBuildGhost* g = CBuildGhost::GetInstance()) g->OnGameTeardown();
     return 0;
 }
 
@@ -804,7 +815,8 @@ CUnitRotate::CUnitRotate()
       m_rotationsKeyIdx(0),
       m_menuClickFeedbackControlIdx(-1),
       m_menuClickFeedbackCardinal(-1),
-      m_menuClickFeedbackTimestamp(0)
+      m_menuClickFeedbackTimestamp(0),
+      m_rotationCycleGameTime(0)
 {
     g_instance = this;
 
@@ -1227,6 +1239,7 @@ bool CUnitRotate::TryCycleRotation(int direction)
     if (next == m_rotation) return false;
 
     SetRotation(next);
+    m_rotationCycleGameTime = static_cast<unsigned>(ta->GameTime);
     // "MORE" → button12.wav in ALLSOUND.TDF — soft button click.
     PlaySound_Effect((char*)"MORE", 0);
     if (CBuildGhost* g = CBuildGhost::GetInstance())
@@ -1688,20 +1701,26 @@ namespace
 
 void CUnitRotate::DrawBuildMenuRotationOverlays()
 {
-    if (LocalShare && LocalShare->Dialog
-        && !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetBuildMenuRotationOverlayEnabled())
-    {
-        return;
-    }
+    const bool enabled = !(LocalShare && LocalShare->Dialog
+        && !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetBuildMenuRotationOverlayEnabled());
 
     TAdynmemStruct* ta = GetTA();
-    if (!ta) return;
-    GUIMEMSTRUCT* gui = ta->desktopGUI.TheActive_GUIMEM;
-    if (!gui || !gui->ControlsAry) return;
 
-    _GUI0IDControl* controls = gui->ControlsAry;
-    int totalGadgets = controls[0].totalgadgets;
-    if (totalGadgets <= 0 || totalGadgets > 256) return;  // sanity
+    // On enable→disable transition, dirty all panels so GUI_Draw re-blits
+    // and overpaints leftover chevrons. Active_b (+0x14) is GUI_Draw's
+    // dirty flag: skipped when 0, cleared after blit.
+    if (!enabled && m_lastOverlayEnabled && ta)
+    {
+        int hops = 0;
+        for (GUIMEMSTRUCT* g = ta->desktopGUI.TheActive_GUIMEM;
+             g && hops < 32; g = g->per_active, ++hops)
+        {
+            g->Active_b = 1;
+        }
+    }
+    m_lastOverlayEnabled = enabled;
+
+    if (!enabled || !ta) return;
 
     // Feedback flash (highlight only renders during this window).
     const DWORD kFeedbackMs = 200;
@@ -1726,19 +1745,65 @@ void CUnitRotate::DrawBuildMenuRotationOverlays()
     const int kColorHighlightFill  = ta->desktopGUI.RadarObjecColor[15];
     const int kColorHighlightOutln = kColorHighlightFill;
 
-    // First pass: bail without locking if no rotatable buttons are visible.
+    // Walk per_active so chevrons render when chat or the Ctrl-F2 dialog
+    // is on top of the build menu.
+    constexpr int kMaxChainHops = 32;
+
+    // Track screen rects of panels above the current one in the chain.
+    // The in-game tab/options menu is layered ABOVE the build menu, so its
+    // rect must occlude chevrons even though the build menu is in the
+    // chain. controls[0] holds the panel's own xpos/ypos/width/height.
+    struct PanelRect { int left, top, right, bottom; };
+    PanelRect upperRects[kMaxChainHops];
+    int upperRectCount = 0;
+
+    auto buttonOccluded = [&](int bx, int by, int bw, int bh) -> bool {
+        for (int k = 0; k < upperRectCount; ++k) {
+            const PanelRect& u = upperRects[k];
+            if (bx < u.right && bx + bw > u.left &&
+                by < u.bottom && by + bh > u.top) return true;
+        }
+        return false;
+    };
+
+    // Cheap first pass — bail before locking if no rotatable button is
+    // visible (panels with no controls don't occlude; per_active walks
+    // top-down so each iteration sees only strictly-higher panels).
     bool anyRotatable = false;
-    for (int i = 1; i <= totalGadgets; ++i)
     {
-        if (!controls[i].active) continue;
-        char nm[17]; memcpy(nm, controls[i].name, 16); nm[16] = 0;
-        if (FindRotatableUnitIdxByName(nm) >= 0)
+        int hops = 0;
+        for (GUIMEMSTRUCT* gui = ta->desktopGUI.TheActive_GUIMEM;
+             gui && hops < kMaxChainHops && !anyRotatable;
+             gui = gui->per_active, ++hops)
         {
-            anyRotatable = true;
-            break;
+            if (!gui->ControlsAry) continue;
+            _GUI0IDControl* controls = gui->ControlsAry;
+            const int totalGadgets = controls[0].totalgadgets;
+            if (totalGadgets <= 0 || totalGadgets > 256) continue;
+            const int panelX = controls[0].xpos;
+            const int panelY = controls[0].ypos;
+            for (int i = 1; i <= totalGadgets; ++i)
+            {
+                if (!controls[i].active) continue;
+                char nm[17]; memcpy(nm, controls[i].name, 16); nm[16] = 0;
+                if (FindRotatableUnitIdxByName(nm) < 0) continue;
+                if (buttonOccluded(panelX + controls[i].xpos, panelY + controls[i].ypos,
+                                   controls[i].width, controls[i].height)) continue;
+                anyRotatable = true;
+                break;
+            }
+            if (upperRectCount < kMaxChainHops)
+            {
+                upperRects[upperRectCount++] = {
+                    controls[0].xpos, controls[0].ypos,
+                    controls[0].xpos + controls[0].width,
+                    controls[0].ypos + controls[0].height
+                };
+            }
         }
     }
     if (!anyRotatable) return;
+    upperRectCount = 0;  // reset for the draw pass below
 
     // Lazy-load the optional buildrotate.gaf override (and its click
     // companion) on first use. Each attempt is tried at most once.
@@ -1760,74 +1825,93 @@ void CUnitRotate::DrawBuildMenuRotationOverlays()
     b.width  = off.Width;
     b.height = off.Height;
 
-    // Buttons are positioned relative to the panel (controls[0]); add the
-    // panel offset to get absolute screen coordinates.
-    const int panelX = controls[0].xpos;
-    const int panelY = controls[0].ypos;
-
-    for (int i = 1; i <= totalGadgets; ++i)
+    int drawHops = 0;
+    for (GUIMEMSTRUCT* gui = ta->desktopGUI.TheActive_GUIMEM;
+         gui && drawHops < kMaxChainHops; gui = gui->per_active, ++drawHops)
     {
-        _GUI0IDControl& c = controls[i];
-        if (!c.active) continue;
-        if (c.width <= 0 || c.height <= 0) continue;
+        if (!gui->ControlsAry) continue;
+        _GUI0IDControl* controls = gui->ControlsAry;
+        const int totalGadgets = controls[0].totalgadgets;
+        if (totalGadgets <= 0 || totalGadgets > 256) continue;
 
-        char ctrlName[17];
-        memcpy(ctrlName, c.name, 16);
-        ctrlName[16] = 0;
-        int idx = FindRotatableUnitIdxByName(ctrlName);
-        if (idx < 0) continue;
+        // Buttons are panel-relative; controls[0] is the panel itself.
+        const int panelX = controls[0].xpos;
+        const int panelY = controls[0].ypos;
 
-        const int btnX = panelX + c.xpos;
-        const int btnY = panelY + c.ypos;
-        for (int r = 0; r < 4; ++r)
+        for (int i = 1; i <= totalGadgets; ++i)
         {
-            if (!IsRotationAllowed(static_cast<unsigned>(idx), r)) continue;
-            const bool highlightThis = feedbackOn
-                && m_menuClickFeedbackControlIdx == i
-                && m_menuClickFeedbackCardinal == r;
+            _GUI0IDControl& c = controls[i];
+            if (!c.active) continue;
+            if (c.width <= 0 || c.height <= 0) continue;
 
-            if (s_gafLoaded)
+            char ctrlName[17];
+            memcpy(ctrlName, c.name, 16);
+            ctrlName[16] = 0;
+            int idx = FindRotatableUnitIdxByName(ctrlName);
+            if (idx < 0) continue;
+
+            const int btnX = panelX + c.xpos;
+            const int btnY = panelY + c.ypos;
+            if (buttonOccluded(btnX, btnY, c.width, c.height)) continue;
+            for (int r = 0; r < 4; ++r)
             {
-                // Anchor the GAF frame's hotspot just inside the centre
-                // of the chevron-margin band on the cardinal edge —
-                // same band the chevron fallback occupies, with a
-                // 1-pixel nudge toward the button centre to leave a
-                // small gap between the frame and the panel border.
-                const int halfBand = kCardinalMarginPx / 2 + 1;
-                int anchorX, anchorY;
-                switch (r)
-                {
-                case 0:  anchorX = btnX + c.width / 2;            anchorY = btnY + c.height - halfBand; break;
-                case 1:  anchorX = btnX + c.width - halfBand;     anchorY = btnY + c.height / 2;        break;
-                case 2:  anchorX = btnX + c.width / 2;            anchorY = btnY + halfBand;            break;
-                case 3:
-                default: anchorX = btnX + halfBand;               anchorY = btnY + c.height / 2;        break;
-                }
-                // Use the dedicated click frame when the mod ships
-                // anims/buildrotateclick.gaf. If only the idle GAF is
-                // present we deliberately render it without tint —
-                // mods opting into a custom GAF get no fallback flash;
-                // they need to ship the companion click GAF if they
-                // want one.
-                if (highlightThis && s_gafClickLoaded)
-                {
-                    const GafFrameImg& fr = s_gafClickFrames[r];
-                    BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
-                }
-                else
-                {
-                    const GafFrameImg& fr = s_gafFrames[r];
-                    BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
-                }
-                continue;
-            }
+                if (!IsRotationAllowed(static_cast<unsigned>(idx), r)) continue;
+                const bool highlightThis = feedbackOn
+                    && m_menuClickFeedbackControlIdx == i
+                    && m_menuClickFeedbackCardinal == r;
 
-            if (highlightThis)
-                DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
-                    kColorHighlightFill, kColorHighlightOutln);
-            else
-                DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
-                    kColorChevronFill, kColorChevronOutline);
+                if (s_gafLoaded)
+                {
+                    // Anchor the GAF frame's hotspot just inside the centre
+                    // of the chevron-margin band on the cardinal edge —
+                    // same band the chevron fallback occupies, with a
+                    // 1-pixel nudge toward the button centre to leave a
+                    // small gap between the frame and the panel border.
+                    const int halfBand = kCardinalMarginPx / 2 + 1;
+                    int anchorX, anchorY;
+                    switch (r)
+                    {
+                    case 0:  anchorX = btnX + c.width / 2;            anchorY = btnY + c.height - halfBand; break;
+                    case 1:  anchorX = btnX + c.width - halfBand;     anchorY = btnY + c.height / 2;        break;
+                    case 2:  anchorX = btnX + c.width / 2;            anchorY = btnY + halfBand;            break;
+                    case 3:
+                    default: anchorX = btnX + halfBand;               anchorY = btnY + c.height / 2;        break;
+                    }
+                    // Use the dedicated click frame when the mod ships
+                    // anims/buildrotateclick.gaf. If only the idle GAF is
+                    // present we deliberately render it without tint —
+                    // mods opting into a custom GAF get no fallback flash;
+                    // they need to ship the companion click GAF if they
+                    // want one.
+                    if (highlightThis && s_gafClickLoaded)
+                    {
+                        const GafFrameImg& fr = s_gafClickFrames[r];
+                        BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
+                    }
+                    else
+                    {
+                        const GafFrameImg& fr = s_gafFrames[r];
+                        BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
+                    }
+                    continue;
+                }
+
+                if (highlightThis)
+                    DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
+                        kColorHighlightFill, kColorHighlightOutln);
+                else
+                    DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
+                        kColorChevronFill, kColorChevronOutline);
+            }
+        }
+
+        if (upperRectCount < kMaxChainHops)
+        {
+            upperRects[upperRectCount++] = {
+                controls[0].xpos, controls[0].ypos,
+                controls[0].xpos + controls[0].width,
+                controls[0].ypos + controls[0].height
+            };
         }
     }
 
@@ -1879,6 +1963,8 @@ bool CUnitRotate::OnBuildMenuClick(int screenX, int screenY)
         if (!IsRotationAllowed(static_cast<unsigned>(idx), cardinal)) return false;
 
         SetRotation(cardinal);
+        if (TAdynmemStruct* ta = GetTA())
+            m_rotationCycleGameTime = static_cast<unsigned>(ta->GameTime);
         m_menuClickFeedbackControlIdx = i;
         m_menuClickFeedbackCardinal   = cardinal;
         m_menuClickFeedbackTimestamp  = GetTickCount();
