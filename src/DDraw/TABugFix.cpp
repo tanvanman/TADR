@@ -1486,28 +1486,17 @@ BOOL TABugFixing::AntiCheat (void)
 	// Sync "+now Film Chris Include Reload Assert" back-door (which flips
 	// SoftwareDebugMode bit 2 unilaterally at TotalA.exe:0x00416e90) with
 	// the canonical IsCheating flag so the cross-player ChallengeResponse
-	// hash sees a single source of truth.
+	// hash sees a single source of truth across all game modes.
 	//
-	// Multiplayer only: in campaign we deliberately leave SoftwareDebugMode
-	// alone so the back door (and any other developer-mode toggles) keep
-	// working. Single-player skirmish is also left alone — we don't care
-	// either way there, and the "no remote human" check covers it for free.
+	// Single-player campaign: force IsCheating on so every developer cheat
+	// is available. Campaign has no ChallengeResponse partner so there's
+	// nothing to desync.
 
 	TAdynmemStruct* taPtr = *TAmainStruct_PtrPtr;
-	bool isMultiplayer = false;
-	for (int i = 0; i < 10; ++i)
+	GameingState* gameingState = taPtr->GameingState_Ptr;
+	if (gameingState && gameingState->State == gameingstate::CAMPAIGN)
 	{
-		if (taPtr->Players[i].PlayerActive &&
-			taPtr->Players[i].My_PlayerType == Player_RemoteHuman)
-		{
-			isMultiplayer = true;
-			break;
-		}
-	}
-
-	if (!isMultiplayer)
-	{
-		return TRUE;
+		*IsCheating = TRUE;
 	}
 
 	if (TRUE==*IsCheating)
