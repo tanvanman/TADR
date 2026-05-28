@@ -35,6 +35,25 @@ namespace
     constexpr unsigned ADDR_VtolBuild_PreCreate     = 0x0041409b;
     constexpr unsigned ADDR_VtolBuild_PostCreate    = 0x004140a4;
 
+    // Order_MobileBuild / Order_VTOL_MobileBuild function entries. Install
+    // footprint+yardmap rotation for the *entire* duration of the function so
+    // every UNITINFO read inside sees rotated dims/yardmap, not just the inner
+    // UNITS_CreateUnit window. The PreCreate hook above runs at the CALL
+    // UNITS_CreateUnit ~0x33b bytes into the function — too late to cover:
+    //   case 0  : `nFootPrintX/Z` read for the target_pos_x/z snap (case 0
+    //             permanently rewrites target_pos with the snapped value, so an
+    //             unrotated snap shifts the order half a cell).
+    //   case 1  : `CanAttachUnitToPiece(pUVar14, …)` reads UNITINFO->yardmap
+    //             and footprint to decide if the area is clear — using the
+    //             unrotated yardmap on an asymmetric structure (factory door
+    //             tiles) produces false "Waiting for target area to clear".
+    //   case 1  : `ApplyYardmap(pUVar14, piVar19)` stamps with whatever yardmap
+    //             is currently in UNITINFO — must be the rotated one.
+    // The return thunk clears the swap on function exit so subsequent code
+    // (TestBuildSpot preview, other builders' orders) sees clean state.
+    constexpr unsigned ADDR_Order_MobileBuild_Entry      = 0x00403a20;
+    constexpr unsigned ADDR_Order_VTOL_MobileBuild_Entry = 0x00413d80;
+
     // Yardmap-reading functions (all take UnitStruct* as first __stdcall arg).
     constexpr unsigned ADDR_Unit_UpdateYardmap          = 0x0047c790;
     constexpr unsigned ADDR_UNITS_RebuildFootPrint      = 0x0047cc30;
@@ -421,6 +440,40 @@ __declspec(naked) static void CreateFromNetworkReturnThunk()
     }
 }
 
+// ---- Order_MobileBuild / Order_VTOL_MobileBuild pre/post state ----
+// One save slot is enough — Order_MobileBuild does not recurse into itself
+// (and Order_VTOL_MobileBuild can't be on the stack while Order_MobileBuild
+// is, or vice versa, because the per-builder dispatch picks one or the other).
+static DWORD g_orderMobileBuildRealReturn = 0;
+static bool  g_orderMobileBuildSwapActive = false;
+
+static void OrderMobileBuildPostSwap()
+{
+    if (!g_orderMobileBuildSwapActive) return;
+    g_orderMobileBuildSwapActive = false;
+    if (CUnitRotate* self = CUnitRotate::GetInstance())
+    {
+        self->ClearRotation();
+        self->ClearYardmapRotation();
+    }
+}
+
+__declspec(naked) static void OrderMobileBuildReturnThunk()
+{
+    // Order_MobileBuild / Order_VTOL_MobileBuild are __stdcall returning int
+    // in EAX. pushad/popad preserves EAX (and everything else) across the
+    // cleanup call; then jump to the real caller with state intact.
+    __asm
+    {
+        pushad
+        pushfd
+        call OrderMobileBuildPostSwap
+        popfd
+        popad
+        jmp dword ptr [g_orderMobileBuildRealReturn]
+    }
+}
+
 // ============================================================================
 // Hook routers
 // ============================================================================
@@ -603,31 +656,77 @@ static int __stdcall NewSubOrder_PostAlloc_Proc(PInlineX86StackBuffer X86StrackB
     return 0;
 }
 
+// Order_MobileBuild / Order_VTOL_MobileBuild function entry. Install
+// footprint+yardmap rotation on UNITINFO for the entire duration of the
+// function. See ADDR_Order_MobileBuild_Entry comment block for the three
+// pre-UNITS_CreateUnit reads this covers.
+static int __stdcall OrderMobileBuild_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    CUnitRotate* self = CUnitRotate::GetInstance();
+    if (!self) return 0;
+
+    // __stdcall: [Esp]=ret, [Esp+4]=unit_ptr, [Esp+8]=order_ptr, [Esp+0xC]=flags
+    DWORD* stackTop = reinterpret_cast<DWORD*>(X86StrackBuffer->Esp);
+    BYTE* order = reinterpret_cast<BYTE*>(stackTop[2]);
+    if (!order) return 0;
+
+    // Clear any stale UNITINFO swap from _TestBuildSpot's cursor preview
+    // BEFORE the engine reads UNITINFO this tick. Without this, an unrotated
+    // builder order completing while the player has a rotated cursor preview
+    // active on the same unit type ends up reading the cursor's swapped
+    // dims / rotated yardmap from UNITINFO and bakes them into the new unit's
+    // SizeFootX/SizeFootZ — intermittent staircase yardmap on the resulting
+    // south-facing unit. _TestBuildSpot's next frame re-installs the cursor
+    // swap so the preview reappears immediately. (This restores the spirit of
+    // the ed71666 fix which lived in MobileBuild_PreCreate before the entry
+    // hook took over the swap envelope.)
+    self->ClearRotation();
+    self->ClearYardmapRotation();
+
+    // TakeOrderRotation is a peek — entry never erases. The map entry must
+    // outlive every per-tick Order_MobileBuild call until the order
+    // completes / is cancelled (DrawBuildSpotQueue still reads it).
+    int rotation = self->TakeOrderRotation(order);
+    if (rotation == 0) return 0;  // clean UNITINFO is what we want — done
+
+    unsigned unitTypeIdx = *reinterpret_cast<unsigned*>(order + OFF_ORDER_build_unitType);
+    if (unitTypeIdx == 0) return 0;
+
+    BYTE* ui = GetUnitInfoRaw(unitTypeIdx);
+    if (!ui) return 0;
+    if (*(ui + OFF_UNITINFO_bmcode) != 0) return 0;  // mobile build target — no footprint to swap
+
+    // Defensive: ignore stale entries from a freed-and-reused order address.
+    if (!self->IsRotationAllowed(unitTypeIdx, rotation)) return 0;
+
+    // Install footprint + yardmap swap. The (idx, rotation) overload drives
+    // needSwap from the explicit order rotation without touching m_rotation
+    // (and without printing "Build facing: …" — this hook fires per tick).
+    self->ApplyRotationTo(unitTypeIdx, rotation);
+    self->ApplyYardmapRotationTo(unitTypeIdx, rotation);
+
+    // Arm the return thunk to clear the swap on function exit.
+    g_orderMobileBuildSwapActive = true;
+    g_orderMobileBuildRealReturn = stackTop[0];
+    stackTop[0] = reinterpret_cast<DWORD>(&OrderMobileBuildReturnThunk);
+    return 0;
+}
+
 // Just before UNITS_CreateUnit runs in Order_MobileBuild / Order_VTOL_MobileBuild.
-// ESI = OrderStruct* at this site (confirmed by disassembly). Read the order's
-// stored rotation from the side-table (defaulting to 0 for untagged orders).
+// ESI = OrderStruct* at this site (confirmed by disassembly). The entry hook
+// above already installed the footprint+yardmap swap; this hook only needs to
+// stash m_pendingHeading so SendNewUnitsP09 (fired inside UNITS_CreateUnit) can
+// apply the rotation to the outgoing creation packet.
 static int __stdcall MobileBuild_PreCreate_Proc(PInlineX86StackBuffer X86StrackBuffer)
 {
     CUnitRotate* self = CUnitRotate::GetInstance();
     if (!self) return 0;
 
     BYTE* order = reinterpret_cast<BYTE*>(X86StrackBuffer->Esi);
-    if (!order) return 0;
+    if (!order) { self->m_pendingHeading = -1; return 0; }
 
     int rotation = self->TakeOrderRotation(order);
-
-    // Clear any stale swap held by TestBuildSpot's preview (or a missed
-    // PostCreate) before UNITS_CreateUnit reads UNITINFO. Apply* below
-    // re-establish for non-zero rotation; an active player preview
-    // re-applies on the next _TestBuildSpot frame.
-    self->ClearRotation();
-    self->ClearYardmapRotation();
-
-    if (rotation == 0)
-    {
-        self->m_pendingHeading = -1;
-        return 0;  // no rotation for this order
-    }
+    if (rotation == 0) { self->m_pendingHeading = -1; return 0; }
 
     unsigned unitTypeIdx = *reinterpret_cast<unsigned*>(order + OFF_ORDER_build_unitType);
     if (unitTypeIdx == 0) { self->m_pendingHeading = -1; return 0; }
@@ -636,42 +735,26 @@ static int __stdcall MobileBuild_PreCreate_Proc(PInlineX86StackBuffer X86StrackB
     if (!ui) { self->m_pendingHeading = -1; return 0; }
     if (*(ui + OFF_UNITINFO_bmcode) != 0) { self->m_pendingHeading = -1; return 0; }
 
-    // Defensive: ignore stale entries from a freed-and-reused order address.
-    // If the unit type's "Rotations" FBI key doesn't allow this rotation, the
-    // tag can't have been put there by us — drop it so AI builds at a recycled
-    // OrderStruct slot don't inherit a previous player rotation.
     if (!self->IsRotationAllowed(unitTypeIdx, rotation))
     {
         self->m_pendingHeading = -1;
         return 0;
     }
 
-    // Save rotation for the footprint swap + PostCreate heading write.
-    // We reuse the existing ApplyRotationTo/ClearRotation machinery but drive
-    // it from the ORDER's stored rotation rather than the current global.
-    int savedRotation = self->GetRotation();
-    self->SetRotation(rotation);   // briefly make ApplyRotationTo's needSwap use this order's rotation
-    self->ApplyRotationTo(unitTypeIdx);
-    self->SetRotation(savedRotation);
-
-    // Swap UNITINFO.p_YardMap so the initial stamp in UNITS_CreateUnit's
-    // internal UNITS_RebuildFootPrint → Unit_UpdateYardmap uses the rotated
-    // yardmap. Restored in PostCreate.
-    self->ApplyYardmapRotationTo(unitTypeIdx, rotation);
-
     self->m_pendingHeading = rotation;
     return 0;
 }
 
 // Just after UNITS_CreateUnit returned. The preceding instruction was `PUSH EAX`
-// (the new unit pointer), so [ESP] at router entry holds newUnit. Apply the
-// rotation stashed by PreCreate + remove the order's map entry.
+// (the new unit pointer), so [ESP] at router entry holds newUnit. Mark the
+// freshly-created unit as player-rotated so the runtime yardmap-reader hooks
+// know to swap p_YardMap for it. The UNITINFO swap itself stays installed
+// for the rest of Order_MobileBuild and is cleared by the entry return thunk.
 static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86StrackBuffer)
 {
     CUnitRotate* self = CUnitRotate::GetInstance();
     if (!self || self->m_pendingHeading < 0) return 0;
 
-    int rotation = self->m_pendingHeading;
     self->m_pendingHeading = -1;
 
     BYTE* newUnit = *reinterpret_cast<BYTE**>(X86StrackBuffer->Esp);
@@ -688,7 +771,6 @@ static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86Strack
         // random buildangle get mistaken for rotated ones.)
         self->MarkUnitRotated(newUnit);
     }
-    (void)rotation;  // no longer used here; kept above for consistency / log lines
 
     // Intentionally NOT clearing m_orderRotation here. The order is still in
     // the builder's queue throughout the actual construction, and engine
@@ -697,14 +779,13 @@ static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86Strack
     // outlive PostCreate. Stale entries (from completed/cancelled orders
     // whose addresses get reused) are handled by:
     //   (a) TagOrderRotation overwriting on any new player-issued build, and
-    //   (b) DrawBuildSpotQueue / MobileBuild_PreCreate gating their effect
-    //       behind IsRotationAllowed(unitType, rotation).
+    //   (b) DrawBuildSpotQueue / OrderMobileBuild_Entry / MobileBuild_PreCreate
+    //       gating their effect behind IsRotationAllowed(unitType, rotation).
 
-    // Both swaps must clear: leftover dims on UNITINFO would be inherited
-    // by the next unrotated build via RebuildFootPrint while p_YardMap is
-    // back to original shape — staircase yardmap.
-    self->ClearYardmapRotation();
-    self->ClearRotation();
+    // UNITINFO footprint/yardmap state is intentionally left installed — the
+    // entry hook's return thunk (OrderMobileBuildReturnThunk) clears it after
+    // the rest of Order_MobileBuild (Order_SetTargetUnit, ORDERS_NewSubOrder2Unit,
+    // StartBuild_ResurrectReclaimHelp) finishes running with consistent state.
 
     return 0;
 }
@@ -832,6 +913,13 @@ CUnitRotate::CUnitRotate()
         ADDR_IssueMobileBuild_Entry, 5, INLINE_5BYTESLAGGERJMP, IssueMobileBuild_Entry_Proc)));
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
         ADDR_NewSubOrder_PostAlloc, 5, INLINE_5BYTESLAGGERJMP, NewSubOrder_PostAlloc_Proc)));
+    // Function-wide rotation envelope: install UNITINFO swap at entry, clear
+    // at exit via return thunk. Covers case-0 footprint snap, case-1 area-clear
+    // check, and ApplyYardmap stamp — all of which fire BEFORE UNITS_CreateUnit.
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_Order_MobileBuild_Entry, 5, INLINE_5BYTESLAGGERJMP, OrderMobileBuild_Entry_Proc)));
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_Order_VTOL_MobileBuild_Entry, 5, INLINE_5BYTESLAGGERJMP, OrderMobileBuild_Entry_Proc)));
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
         ADDR_MobileBuild_PreCreate, 5, INLINE_5BYTESLAGGERJMP, MobileBuild_PreCreate_Proc)));
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
@@ -924,8 +1012,13 @@ void CUnitRotate::SetRotation(int r)
 
 void CUnitRotate::ApplyRotationTo(unsigned int idx)
 {
+    ApplyRotationTo(idx, m_rotation);
+}
+
+void CUnitRotate::ApplyRotationTo(unsigned int idx, int rotation)
+{
     // If we already have the right footprint-swap state for this idx, nothing to do.
-    bool needSwap = (m_rotation & 1) == 1;  // 90° or 270°
+    bool needSwap = (rotation & 1) == 1;  // 90° or 270°
     int desired   = needSwap ? static_cast<int>(idx) : ROT_ACTIVE_NO_SWAP;
     if (m_activeRotatedUnitInfoIdx == desired) return;
 

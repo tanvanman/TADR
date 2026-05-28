@@ -52,13 +52,26 @@ public:
     int  GetRotation() const { return m_rotation; }
     void SetRotation(int r);
 
+    // Same as SetRotation but doesn't print "Build facing: X" feedback. For
+    // code paths that need to temporarily piggyback on the global rotation
+    // (e.g. DragUnitOrders calling TestBuildSpot for a queued rotated order)
+    // and would otherwise spam the screen with facing messages per frame.
+    void SetRotationSilent(int r) { m_rotation = r & 3; }
+
     // GameTime at the user's last rotation cycle — read by CBuildGhost to
     // restart the preview sweep. Not updated by the transient save/restore
     // in the per-order PreCreate path.
     unsigned GetRotationCycleGameTime() const { return m_rotationCycleGameTime; }
 
     // Footprint-dim swap state (used by _TestBuildSpot preview + CreateUnit).
+    // Drives needSwap from the global m_rotation.
     void ApplyRotationTo(unsigned int unitInfoIdx);
+    // Same as above but drives needSwap from an explicit rotation value, leaving
+    // m_rotation untouched. Used by per-tick hooks (Order_MobileBuild entry,
+    // DragUnitOrders) that need to swap UNITINFO for a specific order's
+    // rotation without altering — or spamming the chat with — the global
+    // cursor-rotation state.
+    void ApplyRotationTo(unsigned int unitInfoIdx, int rotation);
     void ClearRotation();
 
     // Yardmap-pointer swap state (parallel to the footprint swap above).

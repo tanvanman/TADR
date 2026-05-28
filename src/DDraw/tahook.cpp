@@ -1841,15 +1841,38 @@ void CTAHook::DragUnitOrders(UnitOrdersStruct* order)
 	}
 
 	if (order->BuildUnitID) {
-		const int footX = TAdynmem->UnitDef[order->BuildUnitID].FootX;
-		const int footY = TAdynmem->UnitDef[order->BuildUnitID].FootY;
+		// For 90°/270° rotations the world footprint has X/Y swapped — affects
+		// both the half-cell MouseMapPos centering AND the engine's
+		// _TestBuildSpot internal "is area clear" test. Temporarily set the
+		// global rotation to this order's rotation so _TestBuildSpot's entry
+		// hook installs the right UNITINFO swap; SetRotationSilent skips the
+		// "Build facing: X" feedback so dragging doesn't spam the screen.
+		CUnitRotate* rot = CUnitRotate::GetInstance();
+		int orderRotation = rot ? rot->TakeOrderRotation(order) : 0;
+		int footX = TAdynmem->UnitDef[order->BuildUnitID].FootX;
+		int footY = TAdynmem->UnitDef[order->BuildUnitID].FootY;
+		if ((orderRotation & 1) == 1)
+		{
+			int tmp = footX; footX = footY; footY = tmp;
+		}
 		int idx = TAdynmem->BuildPosX + TAdynmem->BuildPosY * TAdynmem->FeatureMapSizeX;
 		TAdynmem->BuildUnitID = order->BuildUnitID;
 		TAdynmem->MouseMapPos.X = 16 * TAdynmem->BuildPosX + (footX % 2 ? 8 : 0);
 		TAdynmem->MouseMapPos.Y = 16 * TAdynmem->BuildPosY + (footY % 2 ? 8 : 0);
 		TAdynmem->MouseMapPos.Z = TAdynmem->FeatureMap[idx].height;
 		TAdynmem->BuildSpotState = 70;
+
+		int savedRotation = rot ? rot->GetRotation() : 0;
+		if (rot && orderRotation != savedRotation)
+		{
+			rot->SetRotationSilent(orderRotation);
+		}
 		TestBuildSpot();
+		if (rot && orderRotation != savedRotation)
+		{
+			rot->SetRotationSilent(savedRotation);
+		}
+
 		if (TAdynmem->BuildSpotState == 70) {
 			order->State = 0;
 			order->Pos.X = TAdynmem->MouseMapPos.X;
