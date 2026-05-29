@@ -34,6 +34,7 @@ class Dialog;
 class VoteDialog;
 class CChangeQueue;
 class CDDDTA;
+class CTAFStatusExporter;
 
 
 #define DDRAW_INIT_STRUCT(ddstruct) { memset(&ddstruct,0,sizeof(ddstruct)); ddstruct.dwSize=sizeof(ddstruct); }
@@ -150,6 +151,7 @@ private:
 	VoteDialog * VoteRejectDlg;
 	CChangeQueue * ChangeQueue;
 	CDDDTA * DDDTA;
+	CTAFStatusExporter * TAFStatusExporter;
 	static HANDLE TDrawLogFile;
 	
 	bool VidMem;

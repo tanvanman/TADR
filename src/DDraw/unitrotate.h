@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <array>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -51,8 +52,26 @@ public:
     int  GetRotation() const { return m_rotation; }
     void SetRotation(int r);
 
+    // Same as SetRotation but doesn't print "Build facing: X" feedback. For
+    // code paths that need to temporarily piggyback on the global rotation
+    // (e.g. DragUnitOrders calling TestBuildSpot for a queued rotated order)
+    // and would otherwise spam the screen with facing messages per frame.
+    void SetRotationSilent(int r) { m_rotation = r & 3; }
+
+    // GameTime at the user's last rotation cycle — read by CBuildGhost to
+    // restart the preview sweep. Not updated by the transient save/restore
+    // in the per-order PreCreate path.
+    unsigned GetRotationCycleGameTime() const { return m_rotationCycleGameTime; }
+
     // Footprint-dim swap state (used by _TestBuildSpot preview + CreateUnit).
+    // Drives needSwap from the global m_rotation.
     void ApplyRotationTo(unsigned int unitInfoIdx);
+    // Same as above but drives needSwap from an explicit rotation value, leaving
+    // m_rotation untouched. Used by per-tick hooks (Order_MobileBuild entry,
+    // DragUnitOrders) that need to swap UNITINFO for a specific order's
+    // rotation without altering — or spamming the chat with — the global
+    // cursor-rotation state.
+    void ApplyRotationTo(unsigned int unitInfoIdx, int rotation);
     void ClearRotation();
 
     // Yardmap-pointer swap state (parallel to the footprint swap above).
@@ -92,6 +111,9 @@ public:
     // ---- Build-menu rotation-overlay prototype ----
     // Linear scan of TA's UnitDef array for the FBI name. -1 if not found.
     int  FindUnitTypeIdxByName(const char* name) const;
+
+    // O(1) cached lookup, rotatable structures only. -1 for any other name.
+    int  FindRotatableUnitIdxByName(const char* name) const;
 
     // True when the unit is a structure (bmcode==0) AND its Rotations= FBI
     // permits at least two facings — i.e. one of the buttons we want to
@@ -152,6 +174,17 @@ private:
     int   m_menuClickFeedbackControlIdx;
     int   m_menuClickFeedbackCardinal;
     DWORD m_menuClickFeedbackTimestamp;
+
+    // Lowercase UnitName -> UnitDef idx, rotatable structures only.
+    // Rebuilt when ta->UNITINFOCount changes.
+    void EnsureRotatableNameCache() const;
+    mutable std::unordered_map<std::string, int> m_rotatableUnitIdxByLowerName;
+    mutable unsigned m_rotatableCacheUnitInfoCount = 0;
+
+    unsigned m_rotationCycleGameTime;
+
+    // Detects on→off transition to dirty panels and overpaint chevrons.
+    bool m_lastOverlayEnabled = true;
 };
 
 #endif

@@ -3,8 +3,11 @@
 
 #include <Windows.h>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
+
+struct Model3DONode;
 
 class SingleHook;
 
@@ -49,15 +52,13 @@ public:
     // existing null-check sites keep working unchanged.
     static CBuildGhost* GetInstance();
 
-    // Register FBI keys with UnitDefExtensions. Called from ddraw init
-    // alongside CUnitRotate::RegisterUnitDefKeys, BEFORE TA loads unit defs.
-    // Currently registers "PreviewPieces" — a comma/space-separated list of
-    // 3DO piece names that should be the only pieces shown in the nanoframe
-    // ghost. Empty / unset means "show every piece (minus the hardcoded
-    // ephemeral filter)". Useful when the 3DO model contains pieces that
-    // the COB script hides at runtime (e.g. upgrade-style units where the
-    // model bundles both basic and upgraded geometry).
+    // Register FBI keys (PreviewPieces, PreviewPiecesS/E/N/W,
+    // PreviewFaceOpponent, PreviewObject3D). See tdraw.txt for semantics.
+    // Must run before TA loads unit defs.
     static void RegisterUnitDefKeys();
+
+    // Drop caches that hold pointers into TA's per-game pools.
+    void OnGameTeardown();
 
     CBuildGhost(const CBuildGhost&) = delete;
     CBuildGhost& operator=(const CBuildGhost&) = delete;
@@ -139,6 +140,14 @@ private:
 #if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
     const NanoframeSprite3D* GetNanoframeSprite3D(unsigned unitInfoIdx, int rotation);
     std::unordered_map<unsigned, NanoframeSprite3D> m_nanoframe3DCache;
+
+    // Returns PreviewObject3D= override (loaded via HPI on first use)
+    // when set, otherwise ta->MODEL_PTRS[unitInfoIdx].
+    Model3DONode* GetPreviewModelRoot(unsigned unitInfoIdx);
+
+    // Lowercase 3DO base name → root node, dropped on game teardown
+    // (entries hold TA-owned pointers).
+    std::unordered_map<std::string, Model3DONode*> m_overrideModelRoots;
 #endif
 };
 

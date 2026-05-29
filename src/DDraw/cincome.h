@@ -3,9 +3,49 @@
 
 #include "tamem.h"
 
+#include <vector>
+
 class CIncome
 {
   private:
+    // Weather report bitmap cache: rebuild on input change (~1 Hz from the
+    // clock tick), per-frame just RLE-blit the cached pixels.
+    struct WeatherCacheKey
+    {
+        int   timeSeconds;
+        int   wind;
+        int   windMin;
+        int   windMax;
+        int   tidal;
+        int   raceSide;
+        void* fontHandle;
+        int   watchMode;
+        int   x1;
+        int   x2;
+        int   y1;
+        int   y2;
+        int   fontAlpha;
+    };
+    std::vector<unsigned char> m_weatherCache;
+    int                        m_weatherCacheW;
+    int                        m_weatherCacheH;
+    int                        m_weatherCacheBlitX;
+    int                        m_weatherCacheBlitY;
+    unsigned char              m_weatherCacheAlpha;
+    bool                       m_weatherCacheValid;
+    WeatherCacheKey            m_weatherCacheKey;
+
+    // RLE of opaque pixel runs in m_weatherCache; one memcpy per run
+    // avoids the alpha-test-per-pixel branch.
+    struct WeatherRun
+    {
+        short row;
+        short startX;
+        short length;
+        short pad;
+    };
+    std::vector<WeatherRun>    m_weatherRuns;
+
     LPDIRECTDRAWSURFACE lpIncomeSurf;
     unsigned int BlitState;
     int BackgroundType;

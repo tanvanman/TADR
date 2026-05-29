@@ -320,8 +320,11 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="MegamapControl.cpp" />
     <ClCompile Include="MegamapTAStuff.cpp" />
     <ClCompile Include="MultiplayerSchemaUnits.cpp" />
+    <ClCompile Include="ExplosionCapsTelemetry.cpp" />
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
+    <ClCompile Include="Profiler.cpp" />
+    <ClCompile Include="tafstatusexporter.cpp" />
     <ClCompile Include="UnitDefExtensions.cpp" />
     <ClCompile Include="PacketChatRouter.cpp" />
     <ClCompile Include="HudNotifications.cpp" />
@@ -365,6 +368,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="MegamapControl.h" />
     <ClInclude Include="megamaptastuff.h" />
     <ClInclude Include="MultiplayerSchemaUnits.h" />
+    <ClInclude Include="ExplosionCapsTelemetry.h" />
     <ClInclude Include="nswfl_crc32.h" />
     <ClInclude Include="ProjectilesMap.h">
       <FileType>CppCode</FileType>
@@ -490,6 +494,9 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClInclude Include="Profiler.h" />
+    <ClInclude Include="tafgamestate.h" />
+    <ClInclude Include="tafstatusexporter.h" />
     <ClInclude Include="UnitDefExtensions.h" />
     <ClInclude Include="VeterancyHack.h" />
     <ClInclude Include="Widgets\Button.h" />

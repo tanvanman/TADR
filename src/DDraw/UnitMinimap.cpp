@@ -18,6 +18,7 @@
 #include "gaf.h"
 #include "iddrawsurface.h"
 
+#include <cstring>
 #include <vector>
 using namespace std;
 #include "TAConfig.h"
@@ -1651,13 +1652,21 @@ void UnitsMinimap::NowDrawUnits ( LPBYTE PixelBitsBack, POINT * AspectSrc)
 			{
 				break;
 			}
-				for (int i= 0; i<AspectSrc->y; ++i)
 				{
-					int Line= Aspect.x* i;
-					int SrcLine= AspectSrc->x* i;
-					for (int j= 0; j<AspectSrc->x; ++j)
+					// memcpy delegates to vectorised CRT; the hand-rolled
+					// indexed loop was not auto-vectorising.
+					const int rows = AspectSrc->y;
+					const int cols = AspectSrc->x;
+					if (Aspect.x == cols)
 					{
-						PixelBits[Line+ j]= PixelBitsBack[SrcLine+ j];
+						std::memcpy(PixelBits, PixelBitsBack, static_cast<size_t>(cols) * rows);
+					}
+					else
+					{
+						for (int i = 0; i < rows; ++i)
+						{
+							std::memcpy(PixelBits + Aspect.x * i, PixelBitsBack + cols * i, cols);
+						}
 					}
 				}
 

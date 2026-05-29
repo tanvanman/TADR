@@ -8,6 +8,7 @@
 #include "tafunctions.h"
 #include "tamem.h"
 #include "UnitDefExtensions.h"
+#include "Profiler.h"
 
 #include <cctype>
 #include <cstdio>
@@ -33,6 +34,25 @@ namespace
     // Order_VTOL_MobileBuild: mirrors the above pair.
     constexpr unsigned ADDR_VtolBuild_PreCreate     = 0x0041409b;
     constexpr unsigned ADDR_VtolBuild_PostCreate    = 0x004140a4;
+
+    // Order_MobileBuild / Order_VTOL_MobileBuild function entries. Install
+    // footprint+yardmap rotation for the *entire* duration of the function so
+    // every UNITINFO read inside sees rotated dims/yardmap, not just the inner
+    // UNITS_CreateUnit window. The PreCreate hook above runs at the CALL
+    // UNITS_CreateUnit ~0x33b bytes into the function — too late to cover:
+    //   case 0  : `nFootPrintX/Z` read for the target_pos_x/z snap (case 0
+    //             permanently rewrites target_pos with the snapped value, so an
+    //             unrotated snap shifts the order half a cell).
+    //   case 1  : `CanAttachUnitToPiece(pUVar14, …)` reads UNITINFO->yardmap
+    //             and footprint to decide if the area is clear — using the
+    //             unrotated yardmap on an asymmetric structure (factory door
+    //             tiles) produces false "Waiting for target area to clear".
+    //   case 1  : `ApplyYardmap(pUVar14, piVar19)` stamps with whatever yardmap
+    //             is currently in UNITINFO — must be the rotated one.
+    // The return thunk clears the swap on function exit so subsequent code
+    // (TestBuildSpot preview, other builders' orders) sees clean state.
+    constexpr unsigned ADDR_Order_MobileBuild_Entry      = 0x00403a20;
+    constexpr unsigned ADDR_Order_VTOL_MobileBuild_Entry = 0x00413d80;
 
     // Yardmap-reading functions (all take UnitStruct* as first __stdcall arg).
     constexpr unsigned ADDR_Unit_UpdateYardmap          = 0x0047c790;
@@ -420,6 +440,40 @@ __declspec(naked) static void CreateFromNetworkReturnThunk()
     }
 }
 
+// ---- Order_MobileBuild / Order_VTOL_MobileBuild pre/post state ----
+// One save slot is enough — Order_MobileBuild does not recurse into itself
+// (and Order_VTOL_MobileBuild can't be on the stack while Order_MobileBuild
+// is, or vice versa, because the per-builder dispatch picks one or the other).
+static DWORD g_orderMobileBuildRealReturn = 0;
+static bool  g_orderMobileBuildSwapActive = false;
+
+static void OrderMobileBuildPostSwap()
+{
+    if (!g_orderMobileBuildSwapActive) return;
+    g_orderMobileBuildSwapActive = false;
+    if (CUnitRotate* self = CUnitRotate::GetInstance())
+    {
+        self->ClearRotation();
+        self->ClearYardmapRotation();
+    }
+}
+
+__declspec(naked) static void OrderMobileBuildReturnThunk()
+{
+    // Order_MobileBuild / Order_VTOL_MobileBuild are __stdcall returning int
+    // in EAX. pushad/popad preserves EAX (and everything else) across the
+    // cleanup call; then jump to the real caller with state intact.
+    __asm
+    {
+        pushad
+        pushfd
+        call OrderMobileBuildPostSwap
+        popfd
+        popad
+        jmp dword ptr [g_orderMobileBuildRealReturn]
+    }
+}
+
 // ============================================================================
 // Hook routers
 // ============================================================================
@@ -546,7 +600,13 @@ static int __stdcall CreateFromNetwork_Entry_Proc(PInlineX86StackBuffer X86Strac
 // DrawBuildSpotQueue entry — per-order hook. Swap UNITINFO->lFpBnd{X,Z} pairs
 // based on THIS order's stored rotation so the engine computes the rect with
 // the rotated footprint. The return thunk restores the swap.
+static int __stdcall DrawBuildSpotQueue_Entry_Proc_Inner(PInlineX86StackBuffer X86StrackBuffer);
 static int __stdcall DrawBuildSpotQueue_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    PROFILE_SCOPE("Hook.DrawBuildSpotQueue");
+    return DrawBuildSpotQueue_Entry_Proc_Inner(X86StrackBuffer);
+}
+static int __stdcall DrawBuildSpotQueue_Entry_Proc_Inner(PInlineX86StackBuffer X86StrackBuffer)
 {
     CUnitRotate* self = CUnitRotate::GetInstance();
     if (!self) return 0;
@@ -596,23 +656,77 @@ static int __stdcall NewSubOrder_PostAlloc_Proc(PInlineX86StackBuffer X86StrackB
     return 0;
 }
 
+// Order_MobileBuild / Order_VTOL_MobileBuild function entry. Install
+// footprint+yardmap rotation on UNITINFO for the entire duration of the
+// function. See ADDR_Order_MobileBuild_Entry comment block for the three
+// pre-UNITS_CreateUnit reads this covers.
+static int __stdcall OrderMobileBuild_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    CUnitRotate* self = CUnitRotate::GetInstance();
+    if (!self) return 0;
+
+    // __stdcall: [Esp]=ret, [Esp+4]=unit_ptr, [Esp+8]=order_ptr, [Esp+0xC]=flags
+    DWORD* stackTop = reinterpret_cast<DWORD*>(X86StrackBuffer->Esp);
+    BYTE* order = reinterpret_cast<BYTE*>(stackTop[2]);
+    if (!order) return 0;
+
+    // Clear any stale UNITINFO swap from _TestBuildSpot's cursor preview
+    // BEFORE the engine reads UNITINFO this tick. Without this, an unrotated
+    // builder order completing while the player has a rotated cursor preview
+    // active on the same unit type ends up reading the cursor's swapped
+    // dims / rotated yardmap from UNITINFO and bakes them into the new unit's
+    // SizeFootX/SizeFootZ — intermittent staircase yardmap on the resulting
+    // south-facing unit. _TestBuildSpot's next frame re-installs the cursor
+    // swap so the preview reappears immediately. (This restores the spirit of
+    // the ed71666 fix which lived in MobileBuild_PreCreate before the entry
+    // hook took over the swap envelope.)
+    self->ClearRotation();
+    self->ClearYardmapRotation();
+
+    // TakeOrderRotation is a peek — entry never erases. The map entry must
+    // outlive every per-tick Order_MobileBuild call until the order
+    // completes / is cancelled (DrawBuildSpotQueue still reads it).
+    int rotation = self->TakeOrderRotation(order);
+    if (rotation == 0) return 0;  // clean UNITINFO is what we want — done
+
+    unsigned unitTypeIdx = *reinterpret_cast<unsigned*>(order + OFF_ORDER_build_unitType);
+    if (unitTypeIdx == 0) return 0;
+
+    BYTE* ui = GetUnitInfoRaw(unitTypeIdx);
+    if (!ui) return 0;
+    if (*(ui + OFF_UNITINFO_bmcode) != 0) return 0;  // mobile build target — no footprint to swap
+
+    // Defensive: ignore stale entries from a freed-and-reused order address.
+    if (!self->IsRotationAllowed(unitTypeIdx, rotation)) return 0;
+
+    // Install footprint + yardmap swap. The (idx, rotation) overload drives
+    // needSwap from the explicit order rotation without touching m_rotation
+    // (and without printing "Build facing: …" — this hook fires per tick).
+    self->ApplyRotationTo(unitTypeIdx, rotation);
+    self->ApplyYardmapRotationTo(unitTypeIdx, rotation);
+
+    // Arm the return thunk to clear the swap on function exit.
+    g_orderMobileBuildSwapActive = true;
+    g_orderMobileBuildRealReturn = stackTop[0];
+    stackTop[0] = reinterpret_cast<DWORD>(&OrderMobileBuildReturnThunk);
+    return 0;
+}
+
 // Just before UNITS_CreateUnit runs in Order_MobileBuild / Order_VTOL_MobileBuild.
-// ESI = OrderStruct* at this site (confirmed by disassembly). Read the order's
-// stored rotation from the side-table (defaulting to 0 for untagged orders).
+// ESI = OrderStruct* at this site (confirmed by disassembly). The entry hook
+// above already installed the footprint+yardmap swap; this hook only needs to
+// stash m_pendingHeading so SendNewUnitsP09 (fired inside UNITS_CreateUnit) can
+// apply the rotation to the outgoing creation packet.
 static int __stdcall MobileBuild_PreCreate_Proc(PInlineX86StackBuffer X86StrackBuffer)
 {
     CUnitRotate* self = CUnitRotate::GetInstance();
     if (!self) return 0;
 
     BYTE* order = reinterpret_cast<BYTE*>(X86StrackBuffer->Esi);
-    if (!order) return 0;
+    if (!order) { self->m_pendingHeading = -1; return 0; }
 
     int rotation = self->TakeOrderRotation(order);
-    if (rotation == 0)
-    {
-        self->m_pendingHeading = -1;
-        return 0;  // no rotation for this order
-    }
+    if (rotation == 0) { self->m_pendingHeading = -1; return 0; }
 
     unsigned unitTypeIdx = *reinterpret_cast<unsigned*>(order + OFF_ORDER_build_unitType);
     if (unitTypeIdx == 0) { self->m_pendingHeading = -1; return 0; }
@@ -621,42 +735,26 @@ static int __stdcall MobileBuild_PreCreate_Proc(PInlineX86StackBuffer X86StrackB
     if (!ui) { self->m_pendingHeading = -1; return 0; }
     if (*(ui + OFF_UNITINFO_bmcode) != 0) { self->m_pendingHeading = -1; return 0; }
 
-    // Defensive: ignore stale entries from a freed-and-reused order address.
-    // If the unit type's "Rotations" FBI key doesn't allow this rotation, the
-    // tag can't have been put there by us — drop it so AI builds at a recycled
-    // OrderStruct slot don't inherit a previous player rotation.
     if (!self->IsRotationAllowed(unitTypeIdx, rotation))
     {
         self->m_pendingHeading = -1;
         return 0;
     }
 
-    // Save rotation for the footprint swap + PostCreate heading write.
-    // We reuse the existing ApplyRotationTo/ClearRotation machinery but drive
-    // it from the ORDER's stored rotation rather than the current global.
-    int savedRotation = self->GetRotation();
-    self->SetRotation(rotation);   // briefly make ApplyRotationTo's needSwap use this order's rotation
-    self->ApplyRotationTo(unitTypeIdx);
-    self->SetRotation(savedRotation);
-
-    // Swap UNITINFO.p_YardMap so the initial stamp in UNITS_CreateUnit's
-    // internal UNITS_RebuildFootPrint → Unit_UpdateYardmap uses the rotated
-    // yardmap. Restored in PostCreate.
-    self->ApplyYardmapRotationTo(unitTypeIdx, rotation);
-
     self->m_pendingHeading = rotation;
     return 0;
 }
 
 // Just after UNITS_CreateUnit returned. The preceding instruction was `PUSH EAX`
-// (the new unit pointer), so [ESP] at router entry holds newUnit. Apply the
-// rotation stashed by PreCreate + remove the order's map entry.
+// (the new unit pointer), so [ESP] at router entry holds newUnit. Mark the
+// freshly-created unit as player-rotated so the runtime yardmap-reader hooks
+// know to swap p_YardMap for it. The UNITINFO swap itself stays installed
+// for the rest of Order_MobileBuild and is cleared by the entry return thunk.
 static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86StrackBuffer)
 {
     CUnitRotate* self = CUnitRotate::GetInstance();
     if (!self || self->m_pendingHeading < 0) return 0;
 
-    int rotation = self->m_pendingHeading;
     self->m_pendingHeading = -1;
 
     BYTE* newUnit = *reinterpret_cast<BYTE**>(X86StrackBuffer->Esp);
@@ -673,7 +771,6 @@ static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86Strack
         // random buildangle get mistaken for rotated ones.)
         self->MarkUnitRotated(newUnit);
     }
-    (void)rotation;  // no longer used here; kept above for consistency / log lines
 
     // Intentionally NOT clearing m_orderRotation here. The order is still in
     // the builder's queue throughout the actual construction, and engine
@@ -682,13 +779,13 @@ static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86Strack
     // outlive PostCreate. Stale entries (from completed/cancelled orders
     // whose addresses get reused) are handled by:
     //   (a) TagOrderRotation overwriting on any new player-issued build, and
-    //   (b) DrawBuildSpotQueue / MobileBuild_PreCreate gating their effect
-    //       behind IsRotationAllowed(unitType, rotation).
+    //   (b) DrawBuildSpotQueue / OrderMobileBuild_Entry / MobileBuild_PreCreate
+    //       gating their effect behind IsRotationAllowed(unitType, rotation).
 
-    // Restore UNITINFO.p_YardMap now that UNITS_CreateUnit has finished
-    // stamping the grid. Subsequent yardmap reads go through the runtime
-    // hooks (Unit_UpdateYardmap etc.) which do their own scoped swap.
-    self->ClearYardmapRotation();
+    // UNITINFO footprint/yardmap state is intentionally left installed — the
+    // entry hook's return thunk (OrderMobileBuildReturnThunk) clears it after
+    // the rest of Order_MobileBuild (Order_SetTargetUnit, ORDERS_NewSubOrder2Unit,
+    // StartBuild_ResurrectReclaimHelp) finishes running with consistent state.
 
     return 0;
 }
@@ -702,6 +799,7 @@ static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86Strack
 
 static int __stdcall YardmapReader_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
 {
+    PROFILE_SCOPE("Hook.YardmapReader");
     CUnitRotate* self = CUnitRotate::GetInstance();
     if (!self) return 0;
 
@@ -768,10 +866,18 @@ static int __stdcall FreeGameData_Entry_Proc(PInlineX86StackBuffer)
         self->ClearRotation();
         self->ClearYardmapRotation();
     }
+    // Drop CBuildGhost caches that hold pointers into TA's per-game pools.
+    if (CBuildGhost* g = CBuildGhost::GetInstance()) g->OnGameTeardown();
     return 0;
 }
 
-static int __stdcall DrawGameScreen_PostDrawGUI_Proc(PInlineX86StackBuffer)
+static int __stdcall DrawGameScreen_PostDrawGUI_Proc_Inner(PInlineX86StackBuffer);
+static int __stdcall DrawGameScreen_PostDrawGUI_Proc(PInlineX86StackBuffer X)
+{
+    PROFILE_SCOPE("Hook.DrawGameScreen_PostDrawGUI");
+    return DrawGameScreen_PostDrawGUI_Proc_Inner(X);
+}
+static int __stdcall DrawGameScreen_PostDrawGUI_Proc_Inner(PInlineX86StackBuffer)
 {
     if (CUnitRotate* self = CUnitRotate::GetInstance())
         self->DrawBuildMenuRotationOverlays();
@@ -790,7 +896,8 @@ CUnitRotate::CUnitRotate()
       m_rotationsKeyIdx(0),
       m_menuClickFeedbackControlIdx(-1),
       m_menuClickFeedbackCardinal(-1),
-      m_menuClickFeedbackTimestamp(0)
+      m_menuClickFeedbackTimestamp(0),
+      m_rotationCycleGameTime(0)
 {
     g_instance = this;
 
@@ -806,6 +913,13 @@ CUnitRotate::CUnitRotate()
         ADDR_IssueMobileBuild_Entry, 5, INLINE_5BYTESLAGGERJMP, IssueMobileBuild_Entry_Proc)));
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
         ADDR_NewSubOrder_PostAlloc, 5, INLINE_5BYTESLAGGERJMP, NewSubOrder_PostAlloc_Proc)));
+    // Function-wide rotation envelope: install UNITINFO swap at entry, clear
+    // at exit via return thunk. Covers case-0 footprint snap, case-1 area-clear
+    // check, and ApplyYardmap stamp — all of which fire BEFORE UNITS_CreateUnit.
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_Order_MobileBuild_Entry, 5, INLINE_5BYTESLAGGERJMP, OrderMobileBuild_Entry_Proc)));
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_Order_VTOL_MobileBuild_Entry, 5, INLINE_5BYTESLAGGERJMP, OrderMobileBuild_Entry_Proc)));
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
         ADDR_MobileBuild_PreCreate, 5, INLINE_5BYTESLAGGERJMP, MobileBuild_PreCreate_Proc)));
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
@@ -898,8 +1012,13 @@ void CUnitRotate::SetRotation(int r)
 
 void CUnitRotate::ApplyRotationTo(unsigned int idx)
 {
+    ApplyRotationTo(idx, m_rotation);
+}
+
+void CUnitRotate::ApplyRotationTo(unsigned int idx, int rotation)
+{
     // If we already have the right footprint-swap state for this idx, nothing to do.
-    bool needSwap = (m_rotation & 1) == 1;  // 90° or 270°
+    bool needSwap = (rotation & 1) == 1;  // 90° or 270°
     int desired   = needSwap ? static_cast<int>(idx) : ROT_ACTIVE_NO_SWAP;
     if (m_activeRotatedUnitInfoIdx == desired) return;
 
@@ -1213,6 +1332,7 @@ bool CUnitRotate::TryCycleRotation(int direction)
     if (next == m_rotation) return false;
 
     SetRotation(next);
+    m_rotationCycleGameTime = static_cast<unsigned>(ta->GameTime);
     // "MORE" → button12.wav in ALLSOUND.TDF — soft button click.
     PlaySound_Effect((char*)"MORE", 0);
     if (CBuildGhost* g = CBuildGhost::GetInstance())
@@ -1250,6 +1370,44 @@ bool CUnitRotate::IsRotatableStructure(unsigned int unitTypeIdx) const
     for (int r = 0; r < 4; ++r)
         if (IsRotationAllowed(unitTypeIdx, r)) ++allowed;
     return allowed >= 2;
+}
+
+void CUnitRotate::EnsureRotatableNameCache() const
+{
+    TAdynmemStruct* ta = GetTA();
+    if (!ta || !ta->UnitDef) return;
+    const unsigned count = ta->UNITINFOCount;
+    if (count == m_rotatableCacheUnitInfoCount && !m_rotatableUnitIdxByLowerName.empty())
+        return;
+
+    m_rotatableUnitIdxByLowerName.clear();
+    m_rotatableUnitIdxByLowerName.reserve(64);
+    char buf[32];
+    for (unsigned i = 0; i < count; ++i)
+    {
+        if (!IsRotatableStructure(i)) continue;
+        const char* src = ta->UnitDef[i].UnitName;
+        size_t len = 0;
+        for (; len < sizeof(buf) - 1 && src[len]; ++len)
+            buf[len] = static_cast<char>(std::tolower(static_cast<unsigned char>(src[len])));
+        buf[len] = 0;
+        m_rotatableUnitIdxByLowerName.emplace(std::string(buf, len), static_cast<int>(i));
+    }
+    m_rotatableCacheUnitInfoCount = count;
+}
+
+int CUnitRotate::FindRotatableUnitIdxByName(const char* name) const
+{
+    if (!name || !*name) return -1;
+    EnsureRotatableNameCache();
+    if (m_rotatableUnitIdxByLowerName.empty()) return -1;
+    char buf[32];
+    size_t len = 0;
+    for (; len < sizeof(buf) - 1 && name[len]; ++len)
+        buf[len] = static_cast<char>(std::tolower(static_cast<unsigned char>(name[len])));
+    buf[len] = 0;
+    auto it = m_rotatableUnitIdxByLowerName.find(std::string(buf, len));
+    return it == m_rotatableUnitIdxByLowerName.end() ? -1 : it->second;
 }
 
 namespace
@@ -1636,20 +1794,26 @@ namespace
 
 void CUnitRotate::DrawBuildMenuRotationOverlays()
 {
-    if (LocalShare && LocalShare->Dialog
-        && !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetBuildMenuRotationOverlayEnabled())
-    {
-        return;
-    }
+    const bool enabled = !(LocalShare && LocalShare->Dialog
+        && !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetBuildMenuRotationOverlayEnabled());
 
     TAdynmemStruct* ta = GetTA();
-    if (!ta) return;
-    GUIMEMSTRUCT* gui = ta->desktopGUI.TheActive_GUIMEM;
-    if (!gui || !gui->ControlsAry) return;
 
-    _GUI0IDControl* controls = gui->ControlsAry;
-    int totalGadgets = controls[0].totalgadgets;
-    if (totalGadgets <= 0 || totalGadgets > 256) return;  // sanity
+    // On enable→disable transition, dirty all panels so GUI_Draw re-blits
+    // and overpaints leftover chevrons. Active_b (+0x14) is GUI_Draw's
+    // dirty flag: skipped when 0, cleared after blit.
+    if (!enabled && m_lastOverlayEnabled && ta)
+    {
+        int hops = 0;
+        for (GUIMEMSTRUCT* g = ta->desktopGUI.TheActive_GUIMEM;
+             g && hops < 32; g = g->per_active, ++hops)
+        {
+            g->Active_b = 1;
+        }
+    }
+    m_lastOverlayEnabled = enabled;
+
+    if (!enabled || !ta) return;
 
     // Feedback flash (highlight only renders during this window).
     const DWORD kFeedbackMs = 200;
@@ -1674,21 +1838,65 @@ void CUnitRotate::DrawBuildMenuRotationOverlays()
     const int kColorHighlightFill  = ta->desktopGUI.RadarObjecColor[15];
     const int kColorHighlightOutln = kColorHighlightFill;
 
-    // Cheap first pass — bail without locking the surface if the active
-    // GUI has no rotatable-structure buttons (most of the in-game time).
+    // Walk per_active so chevrons render when chat or the Ctrl-F2 dialog
+    // is on top of the build menu.
+    constexpr int kMaxChainHops = 32;
+
+    // Track screen rects of panels above the current one in the chain.
+    // The in-game tab/options menu is layered ABOVE the build menu, so its
+    // rect must occlude chevrons even though the build menu is in the
+    // chain. controls[0] holds the panel's own xpos/ypos/width/height.
+    struct PanelRect { int left, top, right, bottom; };
+    PanelRect upperRects[kMaxChainHops];
+    int upperRectCount = 0;
+
+    auto buttonOccluded = [&](int bx, int by, int bw, int bh) -> bool {
+        for (int k = 0; k < upperRectCount; ++k) {
+            const PanelRect& u = upperRects[k];
+            if (bx < u.right && bx + bw > u.left &&
+                by < u.bottom && by + bh > u.top) return true;
+        }
+        return false;
+    };
+
+    // Cheap first pass — bail before locking if no rotatable button is
+    // visible (panels with no controls don't occlude; per_active walks
+    // top-down so each iteration sees only strictly-higher panels).
     bool anyRotatable = false;
-    for (int i = 1; i <= totalGadgets; ++i)
     {
-        if (!controls[i].active) continue;
-        char nm[17]; memcpy(nm, controls[i].name, 16); nm[16] = 0;
-        int idx = FindUnitTypeIdxByName(nm);
-        if (idx >= 0 && IsRotatableStructure(static_cast<unsigned>(idx)))
+        int hops = 0;
+        for (GUIMEMSTRUCT* gui = ta->desktopGUI.TheActive_GUIMEM;
+             gui && hops < kMaxChainHops && !anyRotatable;
+             gui = gui->per_active, ++hops)
         {
-            anyRotatable = true;
-            break;
+            if (!gui->ControlsAry) continue;
+            _GUI0IDControl* controls = gui->ControlsAry;
+            const int totalGadgets = controls[0].totalgadgets;
+            if (totalGadgets <= 0 || totalGadgets > 256) continue;
+            const int panelX = controls[0].xpos;
+            const int panelY = controls[0].ypos;
+            for (int i = 1; i <= totalGadgets; ++i)
+            {
+                if (!controls[i].active) continue;
+                char nm[17]; memcpy(nm, controls[i].name, 16); nm[16] = 0;
+                if (FindRotatableUnitIdxByName(nm) < 0) continue;
+                if (buttonOccluded(panelX + controls[i].xpos, panelY + controls[i].ypos,
+                                   controls[i].width, controls[i].height)) continue;
+                anyRotatable = true;
+                break;
+            }
+            if (upperRectCount < kMaxChainHops)
+            {
+                upperRects[upperRectCount++] = {
+                    controls[0].xpos, controls[0].ypos,
+                    controls[0].xpos + controls[0].width,
+                    controls[0].ypos + controls[0].height
+                };
+            }
         }
     }
     if (!anyRotatable) return;
+    upperRectCount = 0;  // reset for the draw pass below
 
     // Lazy-load the optional buildrotate.gaf override (and its click
     // companion) on first use. Each attempt is tried at most once.
@@ -1710,75 +1918,93 @@ void CUnitRotate::DrawBuildMenuRotationOverlays()
     b.width  = off.Width;
     b.height = off.Height;
 
-    // Buttons are positioned relative to the panel (controls[0]); add the
-    // panel offset to get absolute screen coordinates.
-    const int panelX = controls[0].xpos;
-    const int panelY = controls[0].ypos;
-
-    for (int i = 1; i <= totalGadgets; ++i)
+    int drawHops = 0;
+    for (GUIMEMSTRUCT* gui = ta->desktopGUI.TheActive_GUIMEM;
+         gui && drawHops < kMaxChainHops; gui = gui->per_active, ++drawHops)
     {
-        _GUI0IDControl& c = controls[i];
-        if (!c.active) continue;
-        if (c.width <= 0 || c.height <= 0) continue;
+        if (!gui->ControlsAry) continue;
+        _GUI0IDControl* controls = gui->ControlsAry;
+        const int totalGadgets = controls[0].totalgadgets;
+        if (totalGadgets <= 0 || totalGadgets > 256) continue;
 
-        char ctrlName[17];
-        memcpy(ctrlName, c.name, 16);
-        ctrlName[16] = 0;
-        int idx = FindUnitTypeIdxByName(ctrlName);
-        if (idx < 0) continue;
-        if (!IsRotatableStructure(static_cast<unsigned>(idx))) continue;
+        // Buttons are panel-relative; controls[0] is the panel itself.
+        const int panelX = controls[0].xpos;
+        const int panelY = controls[0].ypos;
 
-        const int btnX = panelX + c.xpos;
-        const int btnY = panelY + c.ypos;
-        for (int r = 0; r < 4; ++r)
+        for (int i = 1; i <= totalGadgets; ++i)
         {
-            if (!IsRotationAllowed(static_cast<unsigned>(idx), r)) continue;
-            const bool highlightThis = feedbackOn
-                && m_menuClickFeedbackControlIdx == i
-                && m_menuClickFeedbackCardinal == r;
+            _GUI0IDControl& c = controls[i];
+            if (!c.active) continue;
+            if (c.width <= 0 || c.height <= 0) continue;
 
-            if (s_gafLoaded)
+            char ctrlName[17];
+            memcpy(ctrlName, c.name, 16);
+            ctrlName[16] = 0;
+            int idx = FindRotatableUnitIdxByName(ctrlName);
+            if (idx < 0) continue;
+
+            const int btnX = panelX + c.xpos;
+            const int btnY = panelY + c.ypos;
+            if (buttonOccluded(btnX, btnY, c.width, c.height)) continue;
+            for (int r = 0; r < 4; ++r)
             {
-                // Anchor the GAF frame's hotspot just inside the centre
-                // of the chevron-margin band on the cardinal edge —
-                // same band the chevron fallback occupies, with a
-                // 1-pixel nudge toward the button centre to leave a
-                // small gap between the frame and the panel border.
-                const int halfBand = kCardinalMarginPx / 2 + 1;
-                int anchorX, anchorY;
-                switch (r)
-                {
-                case 0:  anchorX = btnX + c.width / 2;            anchorY = btnY + c.height - halfBand; break;
-                case 1:  anchorX = btnX + c.width - halfBand;     anchorY = btnY + c.height / 2;        break;
-                case 2:  anchorX = btnX + c.width / 2;            anchorY = btnY + halfBand;            break;
-                case 3:
-                default: anchorX = btnX + halfBand;               anchorY = btnY + c.height / 2;        break;
-                }
-                // Use the dedicated click frame when the mod ships
-                // anims/buildrotateclick.gaf. If only the idle GAF is
-                // present we deliberately render it without tint —
-                // mods opting into a custom GAF get no fallback flash;
-                // they need to ship the companion click GAF if they
-                // want one.
-                if (highlightThis && s_gafClickLoaded)
-                {
-                    const GafFrameImg& fr = s_gafClickFrames[r];
-                    BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
-                }
-                else
-                {
-                    const GafFrameImg& fr = s_gafFrames[r];
-                    BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
-                }
-                continue;
-            }
+                if (!IsRotationAllowed(static_cast<unsigned>(idx), r)) continue;
+                const bool highlightThis = feedbackOn
+                    && m_menuClickFeedbackControlIdx == i
+                    && m_menuClickFeedbackCardinal == r;
 
-            if (highlightThis)
-                DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
-                    kColorHighlightFill, kColorHighlightOutln);
-            else
-                DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
-                    kColorChevronFill, kColorChevronOutline);
+                if (s_gafLoaded)
+                {
+                    // Anchor the GAF frame's hotspot just inside the centre
+                    // of the chevron-margin band on the cardinal edge —
+                    // same band the chevron fallback occupies, with a
+                    // 1-pixel nudge toward the button centre to leave a
+                    // small gap between the frame and the panel border.
+                    const int halfBand = kCardinalMarginPx / 2 + 1;
+                    int anchorX, anchorY;
+                    switch (r)
+                    {
+                    case 0:  anchorX = btnX + c.width / 2;            anchorY = btnY + c.height - halfBand; break;
+                    case 1:  anchorX = btnX + c.width - halfBand;     anchorY = btnY + c.height / 2;        break;
+                    case 2:  anchorX = btnX + c.width / 2;            anchorY = btnY + halfBand;            break;
+                    case 3:
+                    default: anchorX = btnX + halfBand;               anchorY = btnY + c.height / 2;        break;
+                    }
+                    // Use the dedicated click frame when the mod ships
+                    // anims/buildrotateclick.gaf. If only the idle GAF is
+                    // present we deliberately render it without tint —
+                    // mods opting into a custom GAF get no fallback flash;
+                    // they need to ship the companion click GAF if they
+                    // want one.
+                    if (highlightThis && s_gafClickLoaded)
+                    {
+                        const GafFrameImg& fr = s_gafClickFrames[r];
+                        BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
+                    }
+                    else
+                    {
+                        const GafFrameImg& fr = s_gafFrames[r];
+                        BlitGafFrame(b, anchorX - fr.hotX, anchorY - fr.hotY, fr);
+                    }
+                    continue;
+                }
+
+                if (highlightThis)
+                    DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
+                        kColorHighlightFill, kColorHighlightOutln);
+                else
+                    DrawChevronPair(b, btnX, btnY, c.width, c.height, r,
+                        kColorChevronFill, kColorChevronOutline);
+            }
+        }
+
+        if (upperRectCount < kMaxChainHops)
+        {
+            upperRects[upperRectCount++] = {
+                controls[0].xpos, controls[0].ypos,
+                controls[0].xpos + controls[0].width,
+                controls[0].ypos + controls[0].height
+            };
         }
     }
 
@@ -1817,9 +2043,8 @@ bool CUnitRotate::OnBuildMenuClick(int screenX, int screenY)
         char ctrlName[17];
         memcpy(ctrlName, c.name, 16);
         ctrlName[16] = 0;
-        int idx = FindUnitTypeIdxByName(ctrlName);
+        int idx = FindRotatableUnitIdxByName(ctrlName);
         if (idx < 0) continue;
-        if (!IsRotatableStructure(static_cast<unsigned>(idx))) continue;
 
         // Click in the central dead-zone → preserve previously selected
         // rotation. Only the chevron-occupied band on each edge sets a
@@ -1831,6 +2056,8 @@ bool CUnitRotate::OnBuildMenuClick(int screenX, int screenY)
         if (!IsRotationAllowed(static_cast<unsigned>(idx), cardinal)) return false;
 
         SetRotation(cardinal);
+        if (TAdynmemStruct* ta = GetTA())
+            m_rotationCycleGameTime = static_cast<unsigned>(ta->GameTime);
         m_menuClickFeedbackControlIdx = i;
         m_menuClickFeedbackCardinal   = cardinal;
         m_menuClickFeedbackTimestamp  = GetTickCount();

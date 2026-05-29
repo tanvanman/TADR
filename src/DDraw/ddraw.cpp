@@ -37,6 +37,7 @@ using namespace std;
 #include "VoteReject.h"
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
+#include "ExplosionCapsTelemetry.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -192,6 +193,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		StartPositions::GetInstance();
 		AutoTeam::Install();
 		MultiplayerSchemaUnits::GetInstance();
+		ExplosionCapsTelemetry::Install();
 
 #if USEMEGAMAP
 		GUIExpander= new GUIExpand;

@@ -6,8 +6,16 @@
 #include <tchar.h>
 #include <CString>
 #include "fullscreenminimap.h"
+#include "tafunctions.h"
 
 #if USEMEGAMAP
+
+// === MiniMap colour sampling mode ===
+// 0 = Original behaviour: pick a single pixel from the source tile (fast, can look blocky on large maps)
+// 1 = Averaged: calculate all source pixels covered by each minimap pixel,
+//     average their RGB colours from the live colormap
+//     then find the nearest palette colour. Much higher visual quality.
+#define USE_AVERAGED_MINIMAP_COLORS 1
 
 using namespace std;
 LPLOGPALETTE TNTtoMiniMap::TALogPalette_Ptr= NULL;
@@ -263,12 +271,137 @@ LPBYTE MiniMapPicture::StretchTATNTDataToMiniMap (PTNTHeaderStruct TATNT_PTNTH)
 		return NULL;
 	}
 
+#if USE_AVERAGED_MINIMAP_COLORS
+
+	// === New high-quality path: area sampling + RGB average + dither + nearest palette colour ===
+
+	// Live colormap from game (R,G,B,0 layout per entry) for accurate RGB averaging of tile pixels.
+	// Falls back to rqAry (BGRx) only if no game struct (should not happen for in-game TNT minimap).
+	BYTE* palBase = NULL;
+	if (TAProgramStruct_PtrPtr && *TAProgramStruct_PtrPtr)
+	{
+		palBase = (BYTE*)(*TAProgramStruct_PtrPtr) + 0x214;
+	}
+
+	int srcPixelW = MapDataWidth_I * 32;
+	int srcPixelH = MapDataHeight_I * 32;
+
+	for (int YPos= 0; YPos<Height; YPos++)
+	{	//Y
+		int MiniMapPixelYStart= YPos* Width;
+
+		// Source pixel range in the full tilegfx resolution covered by this output pixel
+		int yStart = static_cast<int>(YPos * YInterval_I);
+		int yEnd   = static_cast<int>((YPos + 1) * YInterval_I);
+		if (yEnd <= yStart) yEnd = yStart + 1;
+		if (yStart < 0) yStart = 0;
+		if (yEnd > srcPixelH) yEnd = srcPixelH;
+		if (yStart >= srcPixelH) yStart = srcPixelH - 1;
+
+		for (int XPos= 0; XPos<Width; XPos++)
+		{//X 
+			int xStart = static_cast<int>(XPos * XInterval_I);
+			int xEnd   = static_cast<int>((XPos + 1) * XInterval_I);
+			if (xEnd <= xStart) xEnd = xStart + 1;
+			if (xStart < 0) xStart = 0;
+			if (xEnd > srcPixelW) xEnd = srcPixelW;
+			if (xStart >= srcPixelW) xStart = srcPixelW - 1;
+
+			int sumR = 0, sumG = 0, sumB = 0;
+			int count = 0;
+
+			for (int sy = yStart; sy < yEnd; ++sy)
+			{
+				int tileY = sy / 32;
+				int ty    = sy % 32;
+				int yTileOff = tileY * MapDataPitch_I;
+
+				for (int sx = xStart; sx < xEnd; ++sx)
+				{
+					int tileX = sx / 32;
+					int tx    = sx % 32;
+
+					int TileIndex_I = TATNT_PTNTH->PTRmapdata[yTileOff + tileX];
+					if (TileIndex_I < 0) TileIndex_I = 0;
+
+					LPBYTE tileBits = &(TATNT_PTNTH->PTRtilegfx[TileIndex_I * 32 * 32]);
+					BYTE c = tileBits[ty * 32 + tx];
+
+					int r, g, b;
+					if (palBase)
+					{
+						r = palBase[c * 4 + 0];
+						g = palBase[c * 4 + 1];
+						b = palBase[c * 4 + 2];
+					}
+					else
+					{
+						r = rqAry[c].rgbRed;
+						g = rqAry[c].rgbGreen;
+						b = rqAry[c].rgbBlue;
+					}
+					sumR += r;
+					sumG += g;
+					sumB += b;
+					++count;
+				}
+			}
+
+			BYTE MiniMapByte;
+			if (count > 0)
+			{
+				int avgR = sumR / count;
+				int avgG = sumG / count;
+				int avgB = sumB / count;
+
+				// Find nearest color in the colormap (brute force Euclidean RGB, 256 is cheap)
+				int bestDist = 0x7fffffff;
+				int bestI = 0;
+				for (int i = 0; i < 256; ++i)
+				{
+					int pr, pg, pb;
+					if (palBase)
+					{
+						pr = palBase[i * 4 + 0];
+						pg = palBase[i * 4 + 1];
+						pb = palBase[i * 4 + 2];
+					}
+					else
+					{
+						pr = rqAry[i].rgbRed;
+						pg = rqAry[i].rgbGreen;
+						pb = rqAry[i].rgbBlue;
+					}
+					int dr = pr - avgR;
+					int dg = pg - avgG;
+					int db = pb - avgB;
+					int d = dr*dr + dg*dg + db*db;
+					if (d < bestDist)
+					{
+						bestDist = d;
+						bestI = i;
+					}
+				}
+				MiniMapByte = (BYTE)bestI;
+			}
+			else
+			{
+				MiniMapByte = 0;
+			}
+
+			MiniMapPixelBits[MiniMapPixelYStart + XPos] = MiniMapByte;
+		}
+	}
+
+#else
+
+	// === Original simple sampling path (single pixel per minimap output pixel) ===
+
 	for (int YPos= 0, YInTrue= 0; YPos<Height; YPos++, YInTrue= static_cast<int> (YPos* YInterval_I))
 	{	//Y
 		int MiniMapPixelYStart= YPos* Width;
 		int MiniMapTileIndexYoffset= (YInTrue/ 32)* (MapDataPitch_I);
 		int MiniMapTileYOffset= (YInTrue% 32)* 32;
-
 
 		for (int XPos= 0, XInTrue= 0; XPos<Width; XPos++, XInTrue=  static_cast<int> (XPos* XInterval_I))
 		{//X 
@@ -280,10 +413,12 @@ LPBYTE MiniMapPicture::StretchTATNTDataToMiniMap (PTNTHeaderStruct TATNT_PTNTH)
 			LPBYTE begin_TilesPixelBits= &(TATNT_PTNTH->PTRtilegfx[TileIndex_I* 32* 32]);
 
 			int MiniMapByte= begin_TilesPixelBits[MiniMapTileYOffset+ (XInTrue% 32)];
-			//RectPixelBitsBuf_PB[PixelPerYPosMean_I+ static_cast<int>(XPos* XInterval_I)];
 			MiniMapPixelBits[MiniMapPixelYStart+ XPos]= MiniMapByte;
 		}
 	}
+
+#endif
+
 	return MiniMapPixelBits;
 }
 

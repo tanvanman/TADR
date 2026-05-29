@@ -50,6 +50,13 @@ int __stdcall EnableBuildUnderOwnUnitsProc(PInlineX86StackBuffer X86StrackBuffer
 	return 0;
 }
 
+// This hook fires inside Order_MobileBuild's "target area is blocked" branch
+// (after a failed CanAttachUnitToPiece). `unitDef->FootX/FootY` are read raw
+// without a per-order rotation lookup — that's intentional: CUnitRotate's
+// OrderMobileBuild_Entry hook installs the rotated footprint+yardmap swap on
+// UNITINFO for the entire duration of Order_MobileBuild, so by the time this
+// hook runs `unitDef->FootX/FootY` already reflect the order's rotation. See
+// ADDR_Order_MobileBuild_Entry in unitrotate.cpp.
 unsigned int KickoutOnWaitingForTargetAreaToClearAddr = 0x403cd0;
 unsigned int KickoutOnWaitingForTargetAreaToClearAddr_VTOL = 0x41400d;
 int __stdcall KickoutOnWaitingForTargetAreaToClearProc(PInlineX86StackBuffer X86StrackBuffer)

@@ -193,6 +193,9 @@
     <ClCompile Include="MultiplayerSchemaUnits.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ExplosionCapsTelemetry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="HmacSha256.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -257,6 +260,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DebugPipeServer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tafstatusexporter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Profiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -462,6 +471,9 @@
     <ClInclude Include="MultiplayerSchemaUnits.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ExplosionCapsTelemetry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Widgets\Button.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -526,6 +538,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DebugPipeServer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tafstatusexporter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tafgamestate.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Profiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

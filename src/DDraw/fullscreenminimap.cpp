@@ -22,6 +22,7 @@
 #include "dialog.h"
 #include "gaf.h"
 #include "iddrawsurface.h"
+#include "Profiler.h"
 
 #include <vector>
 using namespace std;
@@ -379,6 +380,36 @@ void FullScreenMinimap::SetVid (BOOL VidMem_a)
 
 }
 
+// Per-draw SEH wrappers, one per function so MSVC will let us use
+// PROFILE_SCOPE at each call site (it forbids __try alongside C++
+// destructors). An AV in any one wrapper no longer aborts the rest of
+// the sequence (was: single outer __try) — still best-effort drawing.
+static bool MM_TryPictureInfo(TNTtoMiniMap* mm, LPBYTE* outBits, POINT* outAspect)
+{
+	__try { mm->PictureInfo(outBits, outAspect); return true; }
+	__except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static bool MM_TryMappedPictureInfo(MappedMap* mm, LPBYTE* outBits, POINT* outAspect)
+{
+	__try { mm->PictureInfo(outBits, outAspect); return true; }
+	__except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static bool MM_TryNowDrawMapped(MappedMap* mm, LPBYTE bits, POINT* aspect)
+{
+	__try { return mm->NowDrawMapped(bits, aspect); }
+	__except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static bool MM_TryNowDrawProjectile(ProjectileMap* pm, LPBYTE bits, POINT* aspect)
+{
+	__try { pm->NowDrawProjectile(bits, aspect); return true; }
+	__except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+static bool MM_TryNowDrawUnits(UnitsMinimap* um, LPBYTE bits, POINT* aspect)
+{
+	__try { um->NowDrawUnits(bits, aspect); return true; }
+	__except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
 void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 {
 	static DWORD LastTick= 0;
@@ -404,6 +435,7 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 			{//
 				if (!Flipping)
 				{
+					PROFILE_SCOPE("MM.UpdateGate");
 					Flipping= TRUE;
 
 					LastTick= CurrentTick;
@@ -413,60 +445,48 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 
 					if (MyMinimap_p)
 					{
-						do 
+						bool stateOk = true;
+						if (DrawBackground)
 						{
-							__try
-							{
-								if (DrawBackground)
-								{
-									MyMinimap_p->PictureInfo ( &PixelBits, &Aspect);
-								}
+							PROFILE_SCOPE("MM.PictureInfo_Bg");
+							MM_TryPictureInfo(MyMinimap_p, &PixelBits, &Aspect);
+						}
 
-								UpdateTAProcess ( );
-								if (TAInGame!=DataShare->TAProgress)
-								{
-									break;
-								}
+						UpdateTAProcess();
+						if (TAInGame != DataShare->TAProgress) stateOk = false;
 
-								if (DrawMapped)
-								{
-									if (! Mapped_p->NowDrawMapped ( PixelBits, &Aspect))
-									{
-										break;
-									}
-									
-								}
-								Mapped_p->PictureInfo (  &PixelBits, &Aspect);
+						if (stateOk && DrawMapped)
+						{
+							PROFILE_SCOPE("MM.NowDrawMapped");
+							if (!MM_TryNowDrawMapped(Mapped_p, PixelBits, &Aspect)) stateOk = false;
+						}
+						if (stateOk)
+						{
+							PROFILE_SCOPE("MM.PictureInfo_Mapped");
+							MM_TryMappedPictureInfo(Mapped_p, &PixelBits, &Aspect);
+						}
 
-								UpdateTAProcess ( );
-								if (TAInGame!=DataShare->TAProgress)
-								{
-									break;
-								}
-								if (DrawProjectile)
-								{
-									ProjectilesMap_p->NowDrawProjectile ( PixelBits, &Aspect);
-								}
+						UpdateTAProcess();
+						if (TAInGame != DataShare->TAProgress) stateOk = false;
 
-								UpdateTAProcess ( );
+						if (stateOk && DrawProjectile)
+						{
+							PROFILE_SCOPE("MM.NowDrawProjectile");
+							MM_TryNowDrawProjectile(ProjectilesMap_p, PixelBits, &Aspect);
+						}
 
-								if (TAInGame!=DataShare->TAProgress)
-								{
-									break;
-								}
-								if (DrawUnits)
-								{
-									UnitsMap->NowDrawUnits ( PixelBits, &Aspect);
-								}
-							}
-							__except (true)
-							{
-								;
-							}
-						} while (false);
-				
+						UpdateTAProcess();
+						if (TAInGame != DataShare->TAProgress) stateOk = false;
+
+						if (stateOk && DrawUnits)
+						{
+							PROFILE_SCOPE("MM.NowDrawUnits");
+							MM_TryNowDrawUnits(UnitsMap, PixelBits, &Aspect);
+						}
+
 						if (DrawMegamapRect)
 						{
+							PROFILE_SCOPE("MM.MixBlit");
 							if (DrawUnits)
 							{
 								GameDrawer->MixDSufInBlit ( &MegamapRect, UnitsMap->GetSurface ( ) , NULL);
@@ -477,26 +497,30 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 							}
 						}
 
-						//}
-
-						GameDrawer->Flip ( );
+						{
+							PROFILE_SCOPE("MM.GameDrawerFlip");
+							GameDrawer->Flip ( );
+						}
 					}
-			
+
 					Flipping= FALSE;
 				}
 			}
 
 			if (DrawMegamapBlit)
 			{
+				PROFILE_SCOPE("MM.BlitTAGameArea");
 				GameDrawer->BlitTAGameArea ( DestSurf);
 			}
 			if (DrawMegamapTAStuff||DrawSelectAndOrder)
 			{
+				PROFILE_SCOPE("MM.BlitTAGameStuff");
 				TAStuff->BlitTAGameStuff (DestSurf, DrawMegamapTAStuff, DrawSelectAndOrder);
 			}
 
 			if (DrawMegamapCursor)
 			{
+				PROFILE_SCOPE("MM.Cursor");
 				DDSURFACEDESC ddsd;
 				DDRAW_INIT_STRUCT(ddsd);
 
@@ -735,6 +759,7 @@ ext:00469DB4 224 85 DB                                                          
 
 int __stdcall BlockTADraw (PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.BlockTADraw");
 	FullScreenMinimap * this_me= (FullScreenMinimap *)(X86StrackBuffer->myInlineHookClass_Pish->ParamOfHook);
 
 
@@ -755,6 +780,7 @@ int __stdcall BlockTADraw (PInlineX86StackBuffer X86StrackBuffer)
 
 int __stdcall ForceTADrawBlit (PInlineX86StackBuffer X86StrackBuffer)
 {
+	PROFILE_SCOPE("Hook.ForceTADrawBlit");
 	FullScreenMinimap * this_me= (FullScreenMinimap *)(X86StrackBuffer->myInlineHookClass_Pish->ParamOfHook);
 
 

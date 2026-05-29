@@ -20,6 +20,7 @@ using namespace std;
 #include "whiteboard.h"
 #include "MinimapHandler.h"
 #include "dddta.h"
+#include "tafstatusexporter.h"
 #include "cincome.h"
 #include "dialog.h"
 #include "VoteDialog.h"
@@ -49,6 +50,7 @@ using namespace std;
 
 #include "LimitCrack.h"
 #include "TAConfig.h"
+#include "Profiler.h"
 
 //---------------------------------------------------------------------------
 //#pragma package(smart_init)
@@ -176,6 +178,7 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	SharedRect= new CMapRect ( VidMem) ;
 	ChangeQueue= new CChangeQueue ;
 	DDDTA= new CDDDTA ;
+	TAFStatusExporter = new CTAFStatusExporter((TAdynmemStruct*)(*((int*)0x00511de8)));
 
 #if CONSTRUCTION_KICKOUT_ENABLE
 	ConstructionKickout::GetInstance();
@@ -283,6 +286,8 @@ ULONG __stdcall IDDrawSurface::Release()
 	DDDTA= NULL;
 	delete (CUnitRotate*)LocalShare->UnitRotate;
 	LocalShare->UnitRotate = NULL;
+	delete TAFStatusExporter;
+	TAFStatusExporter= NULL;
 #if USEMEGAMAP
 	if (GUIExpander
 		&&(GUIExpander->myMinimap))
@@ -445,12 +450,17 @@ HRESULT __stdcall IDDrawSurface::Lock(LPRECT arg1, LPDDSURFACEDESC arg2, DWORD a
 	return result;
 #endif
 
-	
+
 #ifndef XPOYDEBG
 
+	PROFILE_SCOPE("Lock.total");
 	lpBackLockOn= true;
 
-	HRESULT result = lpBack->Lock ( arg1, arg2, arg3, arg4);
+	HRESULT result;
+	{
+		PROFILE_SCOPE("Lock.lpBackLock");
+		result = lpBack->Lock ( arg1, arg2, arg3, arg4);
+	}
 
 #ifdef SYNCHRONISE_THREADS
     std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
@@ -458,7 +468,7 @@ HRESULT __stdcall IDDrawSurface::Lock(LPRECT arg1, LPDDSURFACEDESC arg2, DWORD a
 
 #if TA_HOOK_ENABLE
     if (GetCurrentThreadId() == LocalShare->GuiThreadId) {
-        TAHook->TABlit();
+        { PROFILE_SCOPE("Lock.TAHook_TABlit"); TAHook->TABlit(); }
     }
 #endif
 
@@ -483,8 +493,12 @@ HRESULT __stdcall IDDrawSurface::ReleaseDC(HDC arg1)
 
 HRESULT __stdcall IDDrawSurface::Restore()
 {
+	PROFILE_SCOPE("Restore.total");
 #ifndef XPOYDEBG
-	((CDDDTA*)LocalShare->DDDTA)->FrameUpdate();
+	{
+		PROFILE_SCOPE("Restore.DDDTA_FrameUpdate");
+		((CDDDTA*)LocalShare->DDDTA)->FrameUpdate();
+	}
 #endif
 	return lpFront->Restore();
 }
@@ -535,13 +549,19 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 		// But if we can get away without it, so much the better.
 		//
 		// So therefore: just unlock back surface and return!
+		PROFILE_SCOPE("Unlock.nonGui_total");
 		lpDDClipper->SetClipList(ScreenRegion, 0);
 		result = lpBack->Unlock(arg1);
 		lpBackLockOn = false;
 		return result;
 	}
 
+	PROFILE_SCOPE("Unlock.gui_total");
 	UpdateTAProcess ( );
+	{
+		PROFILE_SCOPE("Unlock.TAFExporter_FrameUpdate");
+		TAFStatusExporter->FrameUpdate();
+	}
 	if (GetCurrentThreadId() == LocalShare->GuiThreadId && DataShare->PlayingDemo)
 	{
 		TenPlayerReplay::GetInstance();
@@ -551,6 +571,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 	if(VerticalSync)
 	{
+		PROFILE_SCOPE("Unlock.vsyncArm");
 		if(PlayingMovie) //deinterlace and flip directly
 		{
 			if(!DisableDeInterlace)
@@ -564,6 +585,8 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 					OutptTxt("lpBack to lpFront Blit failed");
 				}
 				lpBackLockOn= false;
+				PROFILE_FRAME();
+				PROFILE_DUMP_IF_DUE();
 				return result;
 			}
 			else
@@ -572,40 +595,50 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 		if(DataShare->ehaOff == 1 && !DataShare->PlayingDemo) //disable everything
 		{//just unlock flip and return
-			lpDDClipper->SetClipList ( ScreenRegion,0);
-			result = lpBack->Unlock ( arg1);
+			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList ( ScreenRegion,0); }
+			{ PROFILE_SCOPE("Unlock.lpBackUnlock"); result = lpBack->Unlock ( arg1); }
 			if(result!=DD_OK)
 			{
 				lpBackLockOn= false;
+				PROFILE_FRAME();
+				PROFILE_DUMP_IF_DUE();
 				return result;
 			}
 
-			if (lpFront->Flip(NULL, DDFLIP_DONOTWAIT) != DD_OK)
 			{
-				lpFront->Flip(NULL, DDFLIP_WAIT);
+				PROFILE_SCOPE("Unlock.lpFrontFlip");
+				if (lpFront->Flip(NULL, DDFLIP_DONOTWAIT) != DD_OK)
+				{
+					lpFront->Flip(NULL, DDFLIP_WAIT);
+				}
 			}
 
-			if (lpBack->Blt(NULL, lpFront, NULL, DDBLT_ASYNC, NULL) != DD_OK)
 			{
-				lpBack->Blt(NULL, lpFront, NULL, DDBLT_WAIT, NULL);
-				OutptTxt("lpFront to lpBack Blit failed");
+				PROFILE_SCOPE("Unlock.lpBack_Blt_lpFront");
+				if (lpBack->Blt(NULL, lpFront, NULL, DDBLT_ASYNC, NULL) != DD_OK)
+				{
+					lpBack->Blt(NULL, lpFront, NULL, DDBLT_WAIT, NULL);
+					OutptTxt("lpFront to lpBack Blit failed");
+				}
 			}
 		}
 		else
 		{
 			if(SurfaceMemory!=NULL)
 			{
-				WhiteBoard->LockBlit ( (char*)SurfaceMemory, lPitch);
+				{ PROFILE_SCOPE("Unlock.WhiteBoardLockBlit"); WhiteBoard->LockBlit ( (char*)SurfaceMemory, lPitch); }
 
 				if (GameingState_P
 					&&(gameingstate::MULTI==GameingState_P->State))
 				{
+					PROFILE_SCOPE("Unlock.SharedRectLockBlit");
 					SharedRect->LockBlit ( (char*)SurfaceMemory, lPitch);
 				}
 #if USEMEGAMAP
 				if ((GUIExpander)
 					&&(GUIExpander->myMinimap))
 				{
+					PROFILE_SCOPE("Unlock.MinimapLockBlit");
 					GUIExpander->myMinimap->LockBlit ( (char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 				}
 #endif
@@ -614,28 +647,31 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				// (i.e. before the lpBack->Unlock below).  Subsequent DDraw blits
 				// (DDDTA, Income, dialogs, TAHook) deliberately paint on top.
 #if WEATHER_REPORT
-				Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+				{ PROFILE_SCOPE("Unlock.WeatherReport"); Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 #endif
-				VoteReject::GetInstance()->Tick();
-				LagSwitchGuard::GetInstance()->Tick();
-				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+				{ PROFILE_SCOPE("Unlock.VoteReject_Tick"); VoteReject::GetInstance()->Tick(); }
+				{ PROFILE_SCOPE("Unlock.LagSwitchGuard_Tick"); LagSwitchGuard::GetInstance()->Tick(); }
+				{ PROFILE_SCOPE("Unlock.HudNotifications_Blit"); HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 			}
 
-			result = lpBack->Unlock ( arg1);
+			{ PROFILE_SCOPE("Unlock.lpBackUnlock"); result = lpBack->Unlock ( arg1); }
 			if(result!=DD_OK)
 			{
 				lpBackLockOn= false;
+				PROFILE_FRAME();
+				PROFILE_DUMP_IF_DUE();
 				return result;
 			}
-			DDDTA->Blit(lpBack);
+			{ PROFILE_SCOPE("Unlock.DDDTA_Blit"); DDDTA->Blit(lpBack); }
 
-			lpDDClipper->SetClipList ( BattleFieldRegion,0);
-			WhiteBoard->Blit(lpBack);
+			{ PROFILE_SCOPE("Unlock.SetClipBattle"); lpDDClipper->SetClipList ( BattleFieldRegion,0); }
+			{ PROFILE_SCOPE("Unlock.WhiteBoard_Blit"); WhiteBoard->Blit(lpBack); }
 
 
 			if (GameingState_P
 				&&(gameingstate::MULTI==GameingState_P->State))
 			{
+				PROFILE_SCOPE("Unlock.CommanderWarp_Blit");
 				CommanderWarp->Blit(lpBack);
 			}
 
@@ -644,46 +680,55 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			if ((GUIExpander)
 				&&(GUIExpander->myMinimap))
 			{
+				PROFILE_SCOPE("Unlock.Minimap_Blit");
 				GUIExpander->myMinimap->Blit ( lpBack);
 			}
 
 #endif
 
-			lpDDClipper->SetClipList(ScreenRegion,0);
+			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }
 			if (GameingState_P
 				&&(gameingstate::MULTI==GameingState_P->State))
 			{
+				PROFILE_SCOPE("Unlock.Income_Blit");
 				Income->BlitIncome(lpBack);
 			}
 
-			SettingsDialog->BlitDialog(lpBack);
-			if (VoteRejectDlg) VoteRejectDlg->BlitDialog(lpBack);
+			{ PROFILE_SCOPE("Unlock.SettingsDialog_Blit"); SettingsDialog->BlitDialog(lpBack); }
+			if (VoteRejectDlg) { PROFILE_SCOPE("Unlock.VoteRejectDlg_Blit"); VoteRejectDlg->BlitDialog(lpBack); }
 #if TA_HOOK_ENABLE
-			TAHook->Blit(lpBack);
+			{ PROFILE_SCOPE("Unlock.TAHook_Blit"); TAHook->Blit(lpBack); }
 #endif
 #ifdef TADR_DEBUG_PIPE
 			// Drain debug pipe every frame regardless of game phase.
-			DebugPipeServer::DrainQueue();
+			{ PROFILE_SCOPE("Unlock.DebugPipe_Drain"); DebugPipeServer::DrainQueue(); }
 #endif
 
 			//////////////////////////////////////////////////////////////////////////
 			//unicode
 			if (NULL!=NowSupportUnicode)
 			{
+				PROFILE_SCOPE("Unlock.Unicode_Blt");
 				NowSupportUnicode->Blt ( lpBack);
 			}
 
-			if(lpFront->Blt(NULL, lpBack, NULL, DDBLT_ASYNC, NULL)!=DD_OK)
 			{
-				lpFront->Blt(NULL, lpBack, NULL, DDBLT_WAIT, NULL);
-				OutptTxt("lpBack to lpFront Blit failed");
+				PROFILE_SCOPE("Unlock.lpFront_Blt_lpBack");
+				if(lpFront->Blt(NULL, lpBack, NULL, DDBLT_ASYNC, NULL)!=DD_OK)
+				{
+					lpFront->Blt(NULL, lpBack, NULL, DDBLT_WAIT, NULL);
+					OutptTxt("lpBack to lpFront Blit failed");
+				}
 			}
 		}
 		lpBackLockOn= false;
+		PROFILE_FRAME();
+		PROFILE_DUMP_IF_DUE();
 		return result;
 	}
 	else
 	{
+		PROFILE_SCOPE("Unlock.novsyncArm");
 		if(PlayingMovie) //deinterlace and flip directly
 		{
 			if(!DisableDeInterlace)
@@ -696,20 +741,24 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 						lpFront->Flip(NULL, DDFLIP_WAIT);
 				}
 				lpBackLockOn= false;
+				PROFILE_FRAME();
+				PROFILE_DUMP_IF_DUE();
 				return result;
 			}
 			else
 				PlayingMovie = false;
 		}
 
-		
+
 		if(DataShare->ehaOff == 1 && !DataShare->PlayingDemo) //disable everything
 		{//just unlock flip and return
-			lpDDClipper->SetClipList ( ScreenRegion,0);
-			result = lpBack->Unlock ( arg1);
+			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList ( ScreenRegion,0); }
+			{ PROFILE_SCOPE("Unlock.lpBackUnlock"); result = lpBack->Unlock ( arg1); }
 			if(result!=DD_OK)
 			{
 				lpBackLockOn= false;
+				PROFILE_FRAME();
+				PROFILE_DUMP_IF_DUE();
 				return result;
 			}
 		}
@@ -717,11 +766,12 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 		{
 			if(SurfaceMemory!=NULL)
 			{
-				WhiteBoard->LockBlit ( (char*)SurfaceMemory, lPitch);
+				{ PROFILE_SCOPE("Unlock.WhiteBoardLockBlit"); WhiteBoard->LockBlit ( (char*)SurfaceMemory, lPitch); }
 
 				if (GameingState_P
 					&&(gameingstate::MULTI==GameingState_P->State))
 				{
+					PROFILE_SCOPE("Unlock.SharedRectLockBlit");
 					SharedRect->LockBlit ( (char*)SurfaceMemory, lPitch);
 				}
 
@@ -729,6 +779,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				if ((GUIExpander)
 					&&(GUIExpander->myMinimap))
 				{
+					PROFILE_SCOPE("Unlock.MinimapLockBlit");
 					GUIExpander->myMinimap->LockBlit ( (char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
 				}
 #endif
@@ -737,30 +788,33 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				// (i.e. before the lpBack->Unlock below).  Subsequent DDraw blits
 				// (DDDTA, Income, dialogs, TAHook) deliberately paint on top.
 #if WEATHER_REPORT
-				Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+				{ PROFILE_SCOPE("Unlock.WeatherReport"); Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 #endif
-				VoteReject::GetInstance()->Tick();
-				LagSwitchGuard::GetInstance()->Tick();
-				HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch);
+				{ PROFILE_SCOPE("Unlock.VoteReject_Tick"); VoteReject::GetInstance()->Tick(); }
+				{ PROFILE_SCOPE("Unlock.LagSwitchGuard_Tick"); LagSwitchGuard::GetInstance()->Tick(); }
+				{ PROFILE_SCOPE("Unlock.HudNotifications_Blit"); HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 			}
 
-			result = lpBack->Unlock ( arg1);
+			{ PROFILE_SCOPE("Unlock.lpBackUnlock"); result = lpBack->Unlock ( arg1); }
 			if(result!=DD_OK)
 			{
 				lpBackLockOn= false;
+				PROFILE_FRAME();
+				PROFILE_DUMP_IF_DUE();
 				return result;
 			}
 
-			DDDTA->Blit(lpBack);
+			{ PROFILE_SCOPE("Unlock.DDDTA_Blit"); DDDTA->Blit(lpBack); }
 
-			lpDDClipper->SetClipList ( BattleFieldRegion,0);
-			WhiteBoard->Blit(lpBack);
+			{ PROFILE_SCOPE("Unlock.SetClipBattle"); lpDDClipper->SetClipList ( BattleFieldRegion,0); }
+			{ PROFILE_SCOPE("Unlock.WhiteBoard_Blit"); WhiteBoard->Blit(lpBack); }
 
 
 
 			if (GameingState_P
 				&&(gameingstate::MULTI==GameingState_P->State))
 			{
+				PROFILE_SCOPE("Unlock.CommanderWarp_Blit");
 				CommanderWarp->Blit(lpBack);
 			}
 
@@ -769,50 +823,61 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 			if ((GUIExpander)
 				&&(GUIExpander->myMinimap))
 			{
+				PROFILE_SCOPE("Unlock.Minimap_Blit");
 				GUIExpander->myMinimap->Blit ( lpBack);
 			}
 #endif
 
-			lpDDClipper->SetClipList(ScreenRegion,0);
+			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }
 
 			if (GameingState_P
 				&&(gameingstate::MULTI==GameingState_P->State))
 			{
+				PROFILE_SCOPE("Unlock.Income_Blit");
 				Income->BlitIncome(lpBack);
 			}
 
-			SettingsDialog->BlitDialog(lpBack);
-			if (VoteRejectDlg) VoteRejectDlg->BlitDialog(lpBack);
+			{ PROFILE_SCOPE("Unlock.SettingsDialog_Blit"); SettingsDialog->BlitDialog(lpBack); }
+			if (VoteRejectDlg) { PROFILE_SCOPE("Unlock.VoteRejectDlg_Blit"); VoteRejectDlg->BlitDialog(lpBack); }
 #if TA_HOOK_ENABLE
-			TAHook->Blit(lpBack);
+			{ PROFILE_SCOPE("Unlock.TAHook_Blit"); TAHook->Blit(lpBack); }
 #endif
 #ifdef TADR_DEBUG_PIPE
 			// Drain debug pipe every frame regardless of game phase.
-			DebugPipeServer::DrainQueue();
+			{ PROFILE_SCOPE("Unlock.DebugPipe_Drain"); DebugPipeServer::DrainQueue(); }
 #endif
 
 			//////////////////////////////////////////////////////////////////////////
 			//unicode
 			if (NULL!=NowSupportUnicode)
 			{
+				PROFILE_SCOPE("Unlock.Unicode_Blt");
 				NowSupportUnicode->Blt ( lpBack);
 			}
 		}
 
-		if(lpFront->Flip(NULL, DDFLIP_DONOTWAIT) != DD_OK)
 		{
-			lpFront->Flip(NULL, DDFLIP_WAIT);
+			PROFILE_SCOPE("Unlock.lpFrontFlip");
+			if(lpFront->Flip(NULL, DDFLIP_DONOTWAIT) != DD_OK)
+			{
+				lpFront->Flip(NULL, DDFLIP_WAIT);
+			}
 		}
 
 
-		if(lpBack->Blt(NULL, lpFront, NULL, DDBLT_ASYNC, NULL)!=DD_OK)
 		{
-			lpBack->Blt(NULL, lpFront, NULL, DDBLT_WAIT, NULL);
-			OutptTxt("lpFront to lpBack Blit failed");
+			PROFILE_SCOPE("Unlock.lpBack_Blt_lpFront");
+			if(lpBack->Blt(NULL, lpFront, NULL, DDBLT_ASYNC, NULL)!=DD_OK)
+			{
+				lpBack->Blt(NULL, lpFront, NULL, DDBLT_WAIT, NULL);
+				OutptTxt("lpFront to lpBack Blit failed");
+			}
 		}
 	}
 
 	lpBackLockOn= false;
+	PROFILE_FRAME();
+	PROFILE_DUMP_IF_DUE();
 	return result;
 }
 
