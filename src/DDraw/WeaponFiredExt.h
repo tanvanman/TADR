@@ -18,14 +18,13 @@
 // Wire compatibility: clients without tadr-ddraw treat this as an empty
 // chat packet (no visible side effect). Cross-version games where a host
 // uses overflow weapons against an older client cannot work: the older
-// client will silently drop the fire event. The integrity-handshake in
-// ChallengeResponse already rejects mismatched-mod joins, so this is OK.
+// client will silently drop the fire event.
 
 #pragma pack(1)
 struct WeaponFiredExtMessage {
     char     chatByte;            // 0x05    — CHAT_05 envelope
     char     nullText;            // 0x00    — empty chat sentinel
-    char     msgId;               // ChatHijackId::WeaponFiredExt (0x2d)
+    char     msgId;               // ChatHijackId::WeaponFiredExt (0x2e)
     int16_t  size;                // sizeof(WeaponFiredExtMessage) = 65
     uint16_t fullWeaponId;        // 16-bit weapon id (the value byte +0x19 truncated)
     uint8_t  packet0D[36];        // verbatim WEAPON_FIRED_0D payload
