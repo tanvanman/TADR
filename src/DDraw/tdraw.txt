@@ -46,7 +46,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*????.??.??
+*2026.6.17
 - Support for weapon IDs above 255 in Weapons/*.tdf (see NEW FEATURES IN DETAIL)
 
 *2026.6.13
