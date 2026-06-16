@@ -10,6 +10,13 @@ class SingleHook;
 #undef min
 #undef max
 
+struct PlayerStruct;
+
+// Backup override for the funnel player's income/expense arrows, called from the
+// economy-sim tail (RemoveSharedResourcesFromTotalProc @0x401bae). No-op unless this
+// is the funnel slot in a 10-player replay with a sampled rate. See TenPlayerReplay.cpp.
+void TenPlayerReplay_OverrideFunnelIncome(PlayerStruct* player);
+
 class TenPlayerReplay
 {
 public:

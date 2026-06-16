@@ -12,6 +12,7 @@
 #include "tamem.h"
 #include "tafunctions.h"
 #include "TAbugfix.h"
+#include "TenPlayerReplay.h"
 #include "Gaf.h"
 #include "TAConfig.h"
 #include "LimitCrack.h"
@@ -22,6 +23,7 @@
 
 #include <chrono>
 #include <csignal>
+#include <cstring>
 #include <random>
 #include <sstream>
 #include <stdlib.h>
@@ -565,6 +567,8 @@ int __stdcall RemoveSharedResourcesFromTotalProc(PInlineX86StackBuffer X86Strack
 	PlayerStruct *player = (PlayerStruct*)X86StrackBuffer->Edi;
 	player->PlayerRes.fTotalMetalProduced -= player->resourcesShared->fMetalReceived;
 	player->PlayerRes.fTotalEnergyProduced -= player->resourcesShared->fEnergyReceived;
+	// 10-player-replay funnel income/expense arrows (backup path; no-op otherwise).
+	TenPlayerReplay_OverrideFunnelIncome(player);
     return 0;
 }
 
@@ -637,6 +641,32 @@ BYTE CanBuildArrayBufferOverrunFixBytes[] = {
 	0x6a, 0x48, 0x50, 0xe8, 0xe1, 0xa8, 0x0a, 0x00,
 	0x89, 0x86, 0x56, 0x01, 0x00, 0x00, 0xb9, 0x12
 };
+
+// LoadUnitsDownload (0x42dcf0) allocates a build-menu table (one 0xBD-byte block per
+// download/*.tdf) via cmalloc_comt (0x4d83b0 -> cmalloc_MM 0x4d83c0), which does NOT zero in
+// release. Each block's section-count slot is only written if the file parses >=1 section, so
+// an empty/0-section download tdf leaves it holding heap garbage. The loop at 0x42df86 then
+// reads that count and walks (count * 0x25) bytes off the block -> OOB fault. Benign on
+// native Windows (slot happens to read 0), fatal under Wine (large garbage); e.g. TAF-Twilight
+// ships ~307 empty download/*.tdf.
+//
+// Fix: redirect the single cmalloc_comt CALL at 0x42dd74 to a wrapper that allocates then
+// zeroes the block, so every never-written count slot reads 0 (= "no entries", correct).
+// This is a plain 5-byte CALL replacement (the site is already a CALL) -- no instruction
+// relocation / heap trampoline, which is important because TotalA.exe runs under the Windows
+// AppCompat shim stack where the inline-jmp trampoline form proved unstable.
+typedef void* (__cdecl* CmallocComtFn)(const char* name, unsigned int size);
+static BYTE ZeroDownloadMenuCallPatch[5];	// E8 + rel32, filled in the ctor before install
+
+static void* __cdecl ZeroingDownloadMenuAlloc(const char* name, unsigned int size)
+{
+	void* p = ((CmallocComtFn)0x004d83b0)(name, size);	// real cmalloc_comt
+	if (p && size)
+	{
+		memset(p, 0, size);
+	}
+	return p;
+}
 
 // Wine 9.0's kernel32 IsBadReadPtr / IsBadWritePtr only catches
 // EXCEPTION_ACCESS_VIOLATION (0xC0000005); it does NOT catch
@@ -902,6 +932,313 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 	return 0;
 }
 
+// ============================================================================
+// Generic crash report — fires for ANY fatal exception that the address-specific
+// handlers above don't claim. Captures registers, bytes@EIP, the faulting-memory
+// window, an EBP stack walk + raw stack attributed to modules, a TA game-state
+// snapshot, and the breadcrumb event ring — the context TA's own 1998 Watcom
+// fault handler can't produce. Dedups by faulting EIP (so probe-style first-
+// chance AVs don't spam) and skips faults inside our own DLL (SafeIsBadReadPtr
+// probes / hook code, which carry their own __except).
+// ============================================================================
+
+// ---- General-purpose breadcrumb event ring (public via TAbugfix.h) ----
+// Payloads are stored at FULL size in a separate circular arena (not a fixed
+// per-entry prefix): each event keeps a (offset,len) into the arena. Recent
+// packets retain all their bytes; old payloads recycle when the arena wraps.
+struct TraceEvent {
+	DWORD seq, cat, a, b, c, d;
+	DWORD tid;        // GetCurrentThreadId() of the recording thread
+	DWORD payOff;     // monotonic byte offset into g_traceArena (payload start)
+	DWORD payLen;     // payload bytes captured (full packet, up to TRACE_PKT_CAP)
+};
+static const int TRACE_RING_SIZE = 128;                 // power of two
+static TraceEvent    g_traceRing[TRACE_RING_SIZE];
+static volatile LONG g_traceRingHead = 0;
+
+static const unsigned TRACE_ARENA_BYTES = 0x20000u;     // 128 KB (power of two)
+static const unsigned TRACE_PKT_CAP     = 2048u;        // max bytes captured per packet
+static BYTE          g_traceArena[TRACE_ARENA_BYTES];
+static volatile LONG g_traceArenaHead = 0;              // monotonic byte cursor
+
+static void traceRecord(unsigned cat, unsigned a, unsigned b, unsigned c, unsigned d,
+                        const BYTE* payload, unsigned payloadLen)
+{
+	LONG slot = InterlockedIncrement(&g_traceRingHead) - 1;
+	TraceEvent& e = g_traceRing[slot & (TRACE_RING_SIZE - 1)];
+	e.seq = (DWORD)slot; e.cat = cat; e.a = a; e.b = b; e.c = c; e.d = d;
+	e.tid = GetCurrentThreadId();
+	unsigned n = payload ? payloadLen : 0;
+	if (n > TRACE_PKT_CAP) n = TRACE_PKT_CAP;
+	if (n)
+	{
+		DWORD off = (DWORD)InterlockedExchangeAdd(&g_traceArenaHead, (LONG)n);
+		for (unsigned i = 0; i < n; ++i)
+			g_traceArena[(off + i) & (TRACE_ARENA_BYTES - 1)] = payload[i];
+		e.payOff = off; e.payLen = n;
+	}
+	else { e.payOff = 0; e.payLen = 0; }
+}
+
+void CrashTrace_RecordEvent(unsigned cat, unsigned a, unsigned b, unsigned c, unsigned d)
+{
+	traceRecord(cat, a, b, c, d, NULL, 0);
+}
+
+// RECV-style: a=fromDpid, b=full size; buf[] holds the first min(buflen,47) bytes.
+void CrashTrace_RecordPacket(unsigned cat, unsigned fromDpid, unsigned size,
+                             const void* buf, unsigned buflen)
+{
+	traceRecord(cat, fromDpid, size, 0, 0, (const BYTE*)buf, buflen);
+}
+
+// Our own module range, captured at install. Faults here are almost always
+// SafeIsBadReadPtr probes; the first-chance one-liner still records them.
+static uintptr_t g_selfModBase = 0;
+static uintptr_t g_selfModEnd  = 0;
+
+static void CaptureSelfModuleRange()
+{
+	HMODULE self = NULL;
+	if (GetModuleHandleExA(
+			GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			(LPCSTR)&CaptureSelfModuleRange, &self) && self)
+	{
+		HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+		if (snap != INVALID_HANDLE_VALUE)
+		{
+			MODULEENTRY32 me; me.dwSize = sizeof(me);
+			if (Module32First(snap, &me))
+			{
+				do {
+					if (me.hModule == self)
+					{
+						g_selfModBase = (uintptr_t)me.modBaseAddr;
+						g_selfModEnd  = g_selfModBase + me.modBaseSize;
+						break;
+					}
+				} while (Module32Next(snap, &me));
+			}
+			CloseHandle(snap);
+		}
+	}
+}
+
+static const char* ExceptionCodeName(DWORD code)
+{
+	switch (code) {
+		case 0xC0000005: return "ACCESS_VIOLATION";
+		case 0xC0000094: return "INT_DIVIDE_BY_ZERO";
+		case 0xC0000095: return "INT_OVERFLOW";
+		case 0xC000001D: return "ILLEGAL_INSTRUCTION";
+		case 0xC0000096: return "PRIV_INSTRUCTION";
+		case 0xC00000FD: return "STACK_OVERFLOW";
+		case 0xC000008E: return "FLT_DIVIDE_BY_ZERO";
+		case 0xC0000409: return "STACK_BUFFER_OVERRUN";
+		case 0x0EEDFADE: return "DELPHI_EXCEPTION";
+		default:         return "EXCEPTION";
+	}
+}
+
+static bool IsFatalExceptionCode(DWORD code)
+{
+	switch (code) {
+		// NOTE: STACK_OVERFLOW (0xC00000FD) is deliberately excluded — the report
+		// allocates a multi-KB module table + deep fprintf, which would re-fault on
+		// an already-exhausted stack. The cheap first-chance one-liner still logs it.
+		// NOTE: DELPHI_EXCEPTION (0x0EEDFADE) is deliberately excluded — it's the demo
+		// recorder's own language exceptions, raised and caught routinely; logging them
+		// first-chance would spam Errorlog.txt with benign Delphi control flow.
+		case 0xC0000005: case 0xC0000094: case 0xC0000095:
+		case 0xC000001D: case 0xC0000096:
+		case 0xC000008E: case 0xC0000409:
+			return true;
+		default: return false;
+	}
+}
+
+// Dedup by faulting EIP. Benign cross-thread race (worst case a duplicate
+// report); fatal crashes are rare so no lock.
+static uintptr_t    g_dumpedEips[32];
+static volatile LONG g_dumpedEipCount = 0;
+static bool ClaimGenericDump(uintptr_t eip)
+{
+	LONG n = g_dumpedEipCount;
+	if (n >= (LONG)(sizeof(g_dumpedEips) / sizeof(g_dumpedEips[0]))) return false;
+	for (LONG i = 0; i < n; ++i) if (g_dumpedEips[i] == eip) return false;
+	g_dumpedEips[n] = eip;
+	InterlockedIncrement(&g_dumpedEipCount);
+	return true;
+}
+
+// Minimal module table snapshot for attributing code addresses in the report.
+struct ModInfo { uintptr_t base, end; char name[40]; };
+static int BuildModuleTable(ModInfo* arr, int maxN)
+{
+	int count = 0;
+	HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
+	if (snap == INVALID_HANDLE_VALUE) return 0;
+	MODULEENTRY32 me; me.dwSize = sizeof(me);
+	if (Module32First(snap, &me))
+	{
+		do {
+			if (count >= maxN) break;
+			arr[count].base = (uintptr_t)me.modBaseAddr;
+			arr[count].end  = arr[count].base + me.modBaseSize;
+			lstrcpynA(arr[count].name, me.szModule, sizeof(arr[count].name));
+			++count;
+		} while (Module32Next(snap, &me));
+	}
+	CloseHandle(snap);
+	return count;
+}
+static const char* ModForAddr(const ModInfo* arr, int count, uintptr_t addr)
+{
+	for (int i = 0; i < count; ++i)
+		if (addr >= arr[i].base && addr < arr[i].end) return arr[i].name;
+	return "?";
+}
+
+static void WriteHexWindow(FILE* f, const char* label, uintptr_t addr, int bytes)
+{
+	if (!addr || SafeIsBadReadPtr((void*)addr, 1))
+	{
+		fprintf(f, "%s @%08X: <unreadable>\n", label, (unsigned)addr);
+		return;
+	}
+	fprintf(f, "%s @%08X:", label, (unsigned)addr);
+	for (int i = 0; i < bytes; ++i)
+	{
+		if (SafeIsBadReadPtr((void*)(addr + i), 1)) { fprintf(f, " ??"); continue; }
+		fprintf(f, " %02X", *(unsigned char*)(addr + i));
+	}
+	fprintf(f, "\n");
+}
+
+static void WriteStackWalk(FILE* f, DWORD ebp, const ModInfo* mods, int nmods)
+{
+	fprintf(f, "Stack walk (EBP chain):\n");
+	DWORD cur = ebp; int frames = 0;
+	for (int i = 0; i < 16 && cur; ++i)
+	{
+		if (SafeIsBadReadPtr((void*)cur, 8)) break;
+		DWORD ret = *(DWORD*)(cur + 4);
+		fprintf(f, "  [%2d] ret=%08X (%s) ebp=%08X\n",
+			i, ret, ModForAddr(mods, nmods, ret), (unsigned)cur);
+		DWORD next = *(DWORD*)cur;
+		if (next <= cur) break;   // x86 stack grows down
+		cur = next; ++frames;
+	}
+	if (!frames) fprintf(f, "  (no walkable frames)\n");
+}
+
+static void WriteRawStack(FILE* f, DWORD esp, const ModInfo* mods, int nmods, int dwords)
+{
+	fprintf(f, "Raw stack (ESP=%08X), code-like values flagged:\n", (unsigned)esp);
+	for (int i = 0; i < dwords; ++i)
+	{
+		uintptr_t a = esp + i * 4;
+		if (SafeIsBadReadPtr((void*)a, 4)) break;
+		DWORD v = *(DWORD*)a;
+		const char* m = ModForAddr(mods, nmods, v);
+		fprintf(f, "  %08X: %08X%s%s\n", (unsigned)a, v,
+			(m[0] != '?') ? "  <- " : "", (m[0] != '?') ? m : "");
+	}
+}
+
+static void WriteGameStateSnapshot(FILE* f)
+{
+	fprintf(f, "--- TA game state ---\n");
+	if (SafeIsBadReadPtr((void*)0x00511de8, 4)) { fprintf(f, "(TAdynmem ptr unreadable)\n"); return; }
+	TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+	if (!ta || SafeIsBadReadPtr(ta, sizeof(int))) { fprintf(f, "(TAdynmem NULL)\n"); return; }
+	if (!SafeIsBadReadPtr(&ta->GameTime, 4))
+		fprintf(f, "GameTime=%d  localPlayerId=%d\n", ta->GameTime, (int)ta->LocalHumanPlayer_PlayerID);
+	if (!SafeIsBadReadPtr(&ta->GameingState_Ptr, 4) && ta->GameingState_Ptr &&
+		!SafeIsBadReadPtr(ta->GameingState_Ptr, 4))
+		fprintf(f, "GameingState.State=%d\n", ta->GameingState_Ptr->State);
+	for (int i = 0; i < 10; ++i)
+	{
+		PlayerStruct* p = &ta->Players[i];
+		if (SafeIsBadReadPtr(p, sizeof(PlayerStruct))) continue;
+		if (!p->PlayerActive) continue;
+		fprintf(f, "  P%d num=%d type=%d dpid=%08X units=%d name=%.30s\n",
+			i, (int)p->PlayerNum, (int)p->My_PlayerType, p->DirectPlayID,
+			(int)p->UnitsNumber, p->Name);
+	}
+}
+
+static void WriteTraceRing(FILE* f)
+{
+	fprintf(f, "--- Breadcrumb ring (last %d events, oldest first) ---\n", TRACE_RING_SIZE);
+	LONG head = g_traceRingHead;
+	bool any = false;
+	for (int i = 0; i < TRACE_RING_SIZE; ++i)
+	{
+		int idx = (int)((head + i) & (TRACE_RING_SIZE - 1));
+		const TraceEvent& e = g_traceRing[idx];
+		if (!e.cat) continue;
+		any = true;
+		if (e.cat == TRACE_CAT_RECV)
+		{
+			fprintf(f, "  #%lu tid=%lu RECV fromDpid=%08X size=%-5u [",
+				(unsigned long)e.seq, (unsigned long)e.tid, e.a, e.b);
+			DWORD arenaNow = (DWORD)g_traceArenaHead;
+			if (e.payLen && (DWORD)(arenaNow - e.payOff) <= TRACE_ARENA_BYTES)
+				for (DWORD j = 0; j < e.payLen; ++j)
+					fprintf(f, "%02X ", g_traceArena[(e.payOff + j) & (TRACE_ARENA_BYTES - 1)]);
+			else if (e.payLen)
+				fprintf(f, "<aged out> ");
+			if (e.payLen < e.b) fprintf(f, "... (+%u more)", e.b - e.payLen);
+			fprintf(f, "]\n");
+		}
+		else
+		{
+			char tag[5] = { (char)(e.cat >> 24), (char)(e.cat >> 16), (char)(e.cat >> 8), (char)e.cat, 0 };
+			fprintf(f, "  #%lu tid=%lu %s a=%08X b=%08X c=%08X d=%08X\n",
+				(unsigned long)e.seq, (unsigned long)e.tid, tag, e.a, e.b, e.c, e.d);
+		}
+	}
+	if (!any) fprintf(f, "(empty)\n");
+}
+
+static void WriteGenericCrashReport(FILE* f, PEXCEPTION_POINTERS ei)
+{
+	const EXCEPTION_RECORD* er = ei->ExceptionRecord;
+	const CONTEXT* ctx = ei->ContextRecord;
+	DWORD code = er->ExceptionCode;
+	uintptr_t eip = (uintptr_t)er->ExceptionAddress;
+	uintptr_t faultAddr = er->NumberParameters >= 2 ? (uintptr_t)er->ExceptionInformation[1] : 0;
+	int isWrite = er->NumberParameters >= 1 ? (int)er->ExceptionInformation[0] : -1;
+
+	ModInfo mods[96];
+	int nmods = BuildModuleTable(mods, 96);
+
+	fprintf(f, "\n===== CRASHTRACE: %s (0x%08X) at %08X (%s) =====\n",
+		ExceptionCodeName(code), code, (unsigned)eip, ModForAddr(mods, nmods, eip));
+	// VEH runs on the faulting thread, so this is the thread that crashed
+	// (cross-reference against the per-event tid in the breadcrumb ring below).
+	fprintf(f, "Faulting thread id = %lu\n", (unsigned long)GetCurrentThreadId());
+	if (code == 0xC0000005)
+		fprintf(f, "Faulting %s of 0x%08X\n",
+			isWrite == 1 ? "write" : isWrite == 0 ? "read" : "access", (unsigned)faultAddr);
+	fprintf(f, "EAX=%08X EBX=%08X ECX=%08X EDX=%08X\n", ctx->Eax, ctx->Ebx, ctx->Ecx, ctx->Edx);
+	fprintf(f, "ESI=%08X EDI=%08X EBP=%08X ESP=%08X EIP=%08X EFL=%08X\n",
+		ctx->Esi, ctx->Edi, ctx->Ebp, ctx->Esp, ctx->Eip, ctx->EFlags);
+
+	WriteHexWindow(f, "bytes@EIP", eip, 16);
+	if (faultAddr) WriteHexWindow(f, "bytes@fault", faultAddr, 16);
+	WriteStackWalk(f, ctx->Ebp, mods, nmods);
+	WriteRawStack(f, ctx->Esp, mods, nmods, 32);
+	WriteGameStateSnapshot(f);
+	WriteTraceRing(f);
+
+	fprintf(f, "--- modules ---\n");
+	for (int i = 0; i < nmods; ++i)
+		fprintf(f, "  %08X-%08X %s\n", (unsigned)mods[i].base, (unsigned)mods[i].end, mods[i].name);
+	fprintf(f, "===== end CRASHTRACE =====\n");
+}
+
 LONG CALLBACK VectoredHandler(
 	_In_  PEXCEPTION_POINTERS ExceptionInfo
 	)
@@ -1160,6 +1497,20 @@ LONG CALLBACK VectoredHandler(
 			fclose(f);
 		}
 	}
+	// ---- Generic fallback: any other fatal exception ----
+	// Fires once per distinct faulting EIP, skips faults inside our own DLL,
+	// and never claims an exception (returns CONTINUE_SEARCH below) so TA's
+	// native ErrorLog handler still runs exactly as before.
+	else if (IsFatalExceptionCode(code))
+	{
+		uintptr_t eip = (uintptr_t)ExceptionInfo->ExceptionRecord->ExceptionAddress;
+		bool inSelf = (g_selfModBase && eip >= g_selfModBase && eip < g_selfModEnd);
+		if (!inSelf && ClaimGenericDump(eip))
+		{
+			FILE* f = fopen("Errorlog.txt", "a");
+			if (f) { WriteGenericCrashReport(f, ExceptionInfo); fclose(f); }
+		}
+	}
 
 	return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -1286,6 +1637,13 @@ int __stdcall GAFGetCurrentFramePtrProc(PInlineX86StackBuffer X)
 // over-clamping at the original 600.
 static const int COMPOSITE_BUF_FALLBACK = 600;
 unsigned int CompositeAABBClampAddr = 0x458B87;
+
+// Minimal guard at the SetSessionDesc call site inside HAPINET_updategameinfo.
+// Hooks 0x004c98fd (the PUSH before the vtable call). EAX already holds
+// &hapi->sessionDesc here, so we simply zero offset +0x34 (lpszPassword).
+// The only dplay-related hook left after full revert of the larger experiments.
+unsigned int NullLpszPasswordInUpdateGameInfoAddr = 0x004c98fd;
+
 int __stdcall CompositeAABBClampProc(PInlineX86StackBuffer X)
 {
 	PROFILE_SCOPE("Hook.CompositeAABBClamp");
@@ -1347,6 +1705,15 @@ int __stdcall CompositeAABBClampProc(PInlineX86StackBuffer X)
 		}
 	}
 
+	return 0;
+}
+
+// Force lpszPassword = NULL in the desc passed to SetSessionDesc.
+// (EAX = &hapi->sessionDesc at the hook point.)
+int __stdcall NullLpszPasswordInUpdateGameInfoProc(PInlineX86StackBuffer X)
+{
+	if (X->Eax)
+		*(uintptr_t*)(X->Eax + 0x34) = 0;   // lpszPassword
 	return 0;
 }
 
@@ -1454,6 +1821,10 @@ TABugFixing::TABugFixing ()
 	HostDoesntLeave.reset(new InlineSingleHook(PutDeadHostInWatchModeAddr, 5, INLINE_5BYTESLAGGERJMP, PutDeadHostInWatchModeProc));
 	JunkYardmapFix.reset(new InlineSingleHook(JunkYardmapFixAddr, 5, INLINE_5BYTESLAGGERJMP, JunkYardmapFixProc));
 	CanBuildArrayBufferOverrunFix.reset(new SingleHook(CanBuildArrayBufferOverrunFixAddr, sizeof(CanBuildArrayBufferOverrunFixBytes), INLINE_UNPROTECTEVINMENT, CanBuildArrayBufferOverrunFixBytes));
+	// Redirect the cmalloc_comt CALL at 0x42dd74 to ZeroingDownloadMenuAlloc (see comment at its definition).
+	ZeroDownloadMenuCallPatch[0] = 0xE8;
+	*(DWORD*)(ZeroDownloadMenuCallPatch + 1) = (DWORD)((BYTE*)&ZeroingDownloadMenuAlloc - (0x42dd74 + 5));
+	m_hooks.push_back(std::make_unique<SingleHook>(0x42dd74u, sizeof(ZeroDownloadMenuCallPatch), INLINE_UNPROTECTEVINMENT, ZeroDownloadMenuCallPatch));
 
 #if WIND_SPEED_SYNC
 	WindSpeedSync.reset(new InlineSingleHook(WindSpeedSyncAddr, 5, INLINE_5BYTESLAGGERJMP, WindSpeedSyncProc));
@@ -1472,6 +1843,10 @@ TABugFixing::TABugFixing ()
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(CrashFix004cbed5Addr, 5, INLINE_5BYTESLAGGERJMP, CrashFix004cbed5Proc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(GAFGetCurrentFramePtrAddr, 5, INLINE_5BYTESLAGGERJMP, GAFGetCurrentFramePtrProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(CompositeAABBClampAddr, 5, INLINE_5BYTESLAGGERJMP, CompositeAABBClampProc));
+
+	// Minimal SetSessionDesc guard (see comment on NullLpszPasswordInUpdateGameInfoAddr).
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(NullLpszPasswordInUpdateGameInfoAddr, 5, INLINE_5BYTESLAGGERJMP, NullLpszPasswordInUpdateGameInfoProc));
+
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
@@ -1636,6 +2011,7 @@ static void LogLoadedModules()
 void InstallCrashTrace()
 {
 	LogLoadedModules();
+	CaptureSelfModuleRange();
 
 	HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
 	if (kernel32)

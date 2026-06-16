@@ -28,6 +28,36 @@ static const DWORD kWeaponMaskOff     = 0x111u;   // WeaponTypedef::WeaponTypeMa
 static const DWORD kUnitStateMaskOff  = 0x110u;   // UnitStruct::UnitStateMask
 
 // -----------------------------------------------------------------------
+// UnitAutoAim_CheckUnitWeapon waterweapon range-check gate @ 0x49AC47 (== kRangeCheckAddr)
+//   Bytes: MOV ECX,[EAX+0x72]  MOV EAX,[EAX+0x6a]  (8B 48 72 8B 40 6A) -- 6 bytes,
+//          position-independent. EAX = target UnitStruct*, EDI = WeaponTypedef*.
+//   This is the single convergence point every "allow" path of the waterweapon
+//   branch funnels into before the range^2 check -- including the paths CheckRouter
+//   redirects here to bypass REJECT 1 / REJECT 2. A submerged submarine reaches it
+//   too, having sailed past both reject branches via its sub flag.
+//
+//   For a nottounderwater weapon, reject a fully-submerged target here, i.e.
+//   topY = target.Pos.y_hi + UNITINFO.lFpBndTop_Y_hi <= SeaLevel. This is the exact
+//   submerged test the non-waterweapon branch applies natively at 0x49ACF7 (so plain
+//   non-waterweapons honour nottounderwater without a hook); the gate is only needed
+//   for waterweapons, which otherwise reach here unconditionally.
+//
+//   The rejection redirects to the REJECT 2 teardown at 0x49AC3B, NOT the identical
+//   REJECT 1 teardown at 0x49AC0F. CheckRouter hooks 0x49AC0F and bounces a
+//   surfacefire weapon back here to 0x49AC47; rejecting to 0x49AC0F would therefore
+//   ping-pong 0x49AC47 -> 0x49AC0F -> 0x49AC47 forever (hard game freeze) for a weapon
+//   that is both surfacefire=1 and nottounderwater=1. 0x49AC3B is not on that path.
+// -----------------------------------------------------------------------
+static const DWORD kRangeCheckHookLen   = 6u;
+static const DWORD kSubmergedRejectAddr = 0x49AC3Bu;  // REJECT 2 teardown (see note above)
+
+static const DWORD kPosYHiOff      = 0x70u;    // UnitStruct: high word of Pos.y
+static const DWORD kUnitInfoPtrOff = 0x92u;    // UnitStruct::UNITINFO_p
+static const DWORD kBndTopYHiOff   = 0x170u;   // UNITINFO: high word of lFpBndTop_Y
+static const DWORD kSeaLevelOff    = 0x1427Fu; // TAdynmemStruct: SeaLevel (byte)
+static const DWORD kTADynMemPtr    = 0x00511DE8u;
+
+// -----------------------------------------------------------------------
 // WeaponCanAim hook @ 0x49AB18
 //   Bytes: MOV EAX,[EBX+0x111] (8B 83 11 01 00 00) -- 6 bytes, position-independent
 //   EBX = WeaponTypedef*
@@ -70,11 +100,13 @@ static const DWORD kGuidanceNormalAddr  = 0x49BA16u;
 
 // -----------------------------------------------------------------------
 
-static const char kSurfaceFireKey[] = "surfacefire";
+static const char kSurfaceFireKey[]     = "surfacefire";
+static const char kNotToUnderwaterKey[] = "nottounderwater";
 
-// Weapon defs (WeaponTypedef*) that have surfacefire=1 in their TDF.
+// Weapon defs (WeaponTypedef*) that have surfacefire=1 / nottounderwater=1 in their TDF.
 // Populated at load time by the WeaponTdfHook handler; read at runtime by the routers.
 static std::unordered_set<DWORD> s_surfaceFireWeapons;
+static std::unordered_set<DWORD> s_notToUnderwaterWeapons;
 
 // -----------------------------------------------------------------------
 
@@ -113,9 +145,16 @@ SurfaceFire::SurfaceFire()
         INLINE_5BYTESLAGGERJMP,
         (InlineX86HookRouter)GuidanceRouter));
 
+    m_rangeCheckHook.reset(new InlineSingleHook(
+        kRangeCheckAddr, kRangeCheckHookLen,
+        INLINE_5BYTESLAGGERJMP,
+        (InlineX86HookRouter)RangeCheckRouter));
+
     WeaponTdfHook::Register([](const WeaponTdfHook::Context& ctx) {
         if (ctx.getInt(kSurfaceFireKey) & 1)
             s_surfaceFireWeapons.insert((DWORD)ctx.pWeaponDef);
+        if (ctx.getInt(kNotToUnderwaterKey) & 1)
+            s_notToUnderwaterWeapons.insert((DWORD)ctx.pWeaponDef);
     });
 }
 
@@ -126,6 +165,7 @@ SurfaceFire::~SurfaceFire()
     m_canAimHook.reset();
     m_scriptActionHook.reset();
     m_guidanceHook.reset();
+    m_rangeCheckHook.reset();
 }
 
 // UnitAutoAim_CheckUnitWeapon: bypass water-path surface rejection → range check.
@@ -181,6 +221,30 @@ int __stdcall SurfaceFire::GuidanceRouter(PInlineX86StackBuffer pBuf)
     {
         pBuf->rtnAddr_Pvoid = (LPVOID)kGuidanceNormalAddr;
         return X86STRACKBUFFERCHANGE;
+    }
+    return 0;
+}
+
+// UnitAutoAim_CheckUnitWeapon: waterweapon range-check convergence @ 0x49AC47.
+// For a nottounderwater weapon, reject a fully-submerged target (topY <= SeaLevel).
+// EAX = target UnitStruct*, EDI = WeaponTypedef*. See the kRangeCheckAddr block above
+// for why the reject redirects to 0x49AC3B and not 0x49AC0F.
+int __stdcall SurfaceFire::RangeCheckRouter(PInlineX86StackBuffer pBuf)
+{
+    if (s_notToUnderwaterWeapons.count(pBuf->Edi))
+    {
+        BYTE* pTarget  = (BYTE*)pBuf->Eax;
+        DWORD unitInfo = *(DWORD*)(pTarget + kUnitInfoPtrOff);
+        int   topY     = (int)*(short*)(pTarget + kPosYHiOff)
+                       + (int)*(short*)((BYTE*)unitInfo + kBndTopYHiOff);
+        int   seaLevel = *(BYTE*)(*(DWORD*)kTADynMemPtr + kSeaLevelOff);
+
+        if (topY <= seaLevel)
+        {
+            // nottounderwater weapon + fully-submerged target: reject (return 0).
+            pBuf->rtnAddr_Pvoid = (LPVOID)kSubmergedRejectAddr;
+            return X86STRACKBUFFERCHANGE;
+        }
     }
     return 0;
 }

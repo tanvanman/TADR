@@ -49,14 +49,25 @@ NEW FEATURES IN BRIEF:
 *????.??.??
 - Support for weapon IDs above 255 in Weapons/*.tdf (see NEW FEATURES IN DETAIL)
 
-*2026.05.28
+*2026.6.13
+- more detail in crash logs
+
+*2026.6.8
+- bugfix for VoteReject - prevent local user from rejecting himself
+
+*2026.6.3
+- add "nottounderwater" flag for weapons (see NEW FEATURES IN DETAIL)
+- fix bug potentially being the root cause of since-year-1997 intermittent black screen on join games
+- better quality megamap render
+
+*2026.5.28
 - Fix construction units intermittently trying to sit within the footprint of rotated structures before building them
 
-*2026.05.15
+*2026.5.15
 - Fix intermittent 6x8 staircase yardmap on south-facing rotatable factories
 - New "PreviewObject3D=" unit key to override the 3DO model used for the nanoframe ghost preview (see NEW FEATURES IN DETAIL)
 
-*2026.05.09
+*2026.5.9
 - Lag-switch mitigation: detects and freezes local simulation when network goes dark
 - Vote-to-reject system for in-progress multiplayer games (see NEW FEATURES IN DETAIL)
 - add "nottoair" flag for weapons (see NEW FEATURES IN DETAIL)
@@ -70,20 +81,20 @@ NEW FEATURES IN BRIEF:
 - Export engine-backed player elimination status to gpgnet4ta via shared memory,
   so games where a commander dies but play continues are reported with the correct outcome
 
-*2026.02.17 - Fix false trigger on version check
-*2026.02.10 - Minor adjustment to diagnostic crash detection ("ERROR: dstRect out of bounds", allow CopyScreenContext all the way to the edge of destination context)
-*2026.02.07 - Disable AUTOTEAM, RANDOMTEAM and CRCREPORT buttons for non-host players
-*2026.02.05 - Add support for AUTOTEAM, RANDOMTEAM and CRCREPORT buttons in battleroom (guis/lounge2.gui)
-*2026.02.02 - Custom ctrl-f2 menu skin for escalation
-*2026.01.29 - Create seperate builds for full-featured (tdraw-full.zip), escalation (tdraw-escalation.zip), and minimal (tdraw-minimal.zip) feature sets.
+*2026.2.17 - Fix false trigger on version check
+*2026.2.10 - Minor adjustment to diagnostic crash detection ("ERROR: dstRect out of bounds", allow CopyScreenContext all the way to the edge of destination context)
+*2026.2.7 - Disable AUTOTEAM, RANDOMTEAM and CRCREPORT buttons for non-host players
+*2026.2.5 - Add support for AUTOTEAM, RANDOMTEAM and CRCREPORT buttons in battleroom (guis/lounge2.gui)
+*2026.2.2 - Custom ctrl-f2 menu skin for escalation
+*2026.1.29 - Create seperate builds for full-featured (tdraw-full.zip), escalation (tdraw-escalation.zip), and minimal (tdraw-minimal.zip) feature sets.
 *2025.12.13 - Add diagnostics for crash at 004cbed5
 *2025.12.6  - Fix crash when game installed in a long path (eg C:\Program Files (x86)\Steam\steamapps\common\Total Annihilation\PROTA)
 *2025.11.26 - New keys for unit definitions (units/*.fbi) to customise per-unit veterancy
-*2025.08.29 - Bugfix for multithreaded version/cheat check
-*2025.08.19 - Auto kickout of units under build order is now strictly only for own units (previously allowed kickout anyone's units if cheats enabled)
-*2025.08.01 - Set build square preview to yellow if user can build there but it contains a unit that will be kicked out
+*2025.8.29 - Bugfix for multithreaded version/cheat check
+*2025.8.19 - Auto kickout of units under build order is now strictly only for own units (previously allowed kickout anyone's units if cheats enabled)
+*2025.8.1 - Set build square preview to yellow if user can build there but it contains a unit that will be kicked out
 
-*2025.07.12
+*2025.7.12
 - Allow user to queue build orders underneath their own mobile units; and auto kickout of units that are under a build order
 - Mod developers can opt-in to "Improved behaviour of con units".
   Modifies what construction units that are guarding factories do after completing each unit: either stay put; cavedog; or scatter.
@@ -96,18 +107,18 @@ NEW FEATURES IN BRIEF:
 - Fixed bugs with player placement in 2v2+ games on maps with neutral units
 - Push anticheat hashing functions into background threads so as to reduce in-game slowdown experienced by some users
 
-*v2025.05.18
+*v2025.5.18
 - Improved behaviour of con units when guarding a factory - they stay put after finishing a build
 
-*v2025.04.24
+*v2025.4.24
 - Fix crash on parsing spawned unit initial commands - its now possible to copy-paste mission scripts from campaign
 - Log cheat warnings to tdrawlog.txt for offline analysis
 - Fix for non functional perm-los sonar patch (which otherwise requires watcher's com to be in top-left of map to work)
 
-*v2024.12.05
+*v2024.12.5
 - Fix crash on print-screen (and presumably many other related crashes)
 
-*v2024.12.03
+*v2024.12.3
 - Fix crash on +logo
 - Fix rare intermitent crash on adding / moving / deleting whiteboard markers
 
@@ -393,7 +404,7 @@ NEW FEATURES IN DETAIL:
   - Reload time: up to 16 levels or the number of VeterancyThresholds, whichever is lower
   - Accuracy buff: no limit
 
-- Weapon TDF flags: nottoair and surfacefire
+- Weapon TDF flags: nottoair, nottounderwater and surfacefire
 
   Two new optional keys for weapon definition files (weapons/*.tdf) give mod developers
   finer control over which unit types a weapon can target.
@@ -409,6 +420,22 @@ NEW FEATURES IN DETAIL:
       {
       ...
       nottoair=1;
+      }
+
+  nottounderwater=1
+    The weapon cannot target or fire at fully-submerged units (a target whose top is at or below
+    sea level, such as a dived submarine).  Ordinary weapons already cannot reach underwater
+    targets; this flag is meant for waterweapon=1 weapons, letting them hit surface ships while
+    leaving submerged units to torpedoes and depth charges.  It is the underwater mirror of
+    nottoair.
+
+    Example:
+
+      [NAVAL_GUN]
+      {
+      ...
+      waterweapon=1;
+      nottounderwater=1;
       }
 
   surfacefire=1

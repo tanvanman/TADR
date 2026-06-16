@@ -8,7 +8,6 @@ using namespace std;
 #include "tafunctions.h"
 #include "TAHPI.h"
 #include <tchar.h>
-#include <atlchecked.h>
 #include "hook\etc.h"
 
 
@@ -284,7 +283,7 @@ void TADRConfig::LoadIniRegSetting (/*__in __out */LPBYTE IniFileData)
 			memcpy ( LineBuf, tmp_cstrp+ 1, tm1_cstrp- tmp_cstrp- 1);
 			LineBuf[3]= 0;
 			//*tm1_cstrp= 0;
-			ATL::Checked::strupr_s ( LineBuf, 0x200);
+			_strupr_s ( LineBuf, 0x200);
 			if (0==strncmp ( LineBuf, "REG", 3))
 			{
 				break;
@@ -384,7 +383,7 @@ void TADRConfig::LoadIniRegSetting (/*__in __out */LPBYTE IniFileData)
 			memcpy ( RegType, RegData, 0x20);
 			RegType[0x1f]= 0;// truncate the end of RegType str;
 
-			ATL::Checked::strlwr_s ( RegType, 0x20); 
+			_strlwr_s ( RegType, 0x20);
 
 			tmp_cstrp= strstr ( RegType, "dword:");
 			if (NULL!=tmp_cstrp)

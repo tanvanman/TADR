@@ -315,6 +315,32 @@ void VoteReject::OnReceive(unsigned fromDpid, const VoteRejectMessage& msg)
 		if (cdIt != m_cooldownExpiry.end() && now < cdIt->second)
 			return;  // cooldown active — ignore remote proposal too
 
+		// Never open a *timeout* reject vote that targets the LOCAL player.
+		// The auto-cancel in Tick() watches Players[targetSlot].LastMsgTimeStamp,
+		// which TA only advances for packets received FROM that slot over the
+		// network (Packet_Dispatcher @ 0x00453d40). A node never receives its own
+		// packets, so its own slot's timestamp never advances — a self-targeted
+		// timeout vote can therefore NEVER be cancelled and always self-executes
+		// on expiry, ejecting this player from the game even after their network
+		// recovered. If that player is the host, their departure collapses the
+		// whole DirectPlay session. You know you are alive, so ignore the proposal
+		// (peers still run their own copy and will drop you only if you stay gone).
+		// Manual (non-timeout) votes are threshold-based and legitimately may
+		// target you, so this guard is limited to rejectMask == 6.
+		// Incident: game 175237 — Magpie (lagger) and Chao_Storm (host) both
+		// self-ejected, collapsing a 3v3.
+		{
+			TAdynmemStruct* taSelf = *(TAdynmemStruct**)0x00511de8;
+			unsigned myDpidSelf = taSelf->Players[taSelf->LocalHumanPlayer_PlayerID].DirectPlayID;
+			if (msg.rejectMask == 6 && msg.targetDpid == myDpidSelf)
+			{
+				IDDrawSurface::OutptFmtTxt(
+					"[VoteReject] others are voting to reject you (you timed out to them); "
+					"ignoring self-targeted timeout vote dpid=%u", msg.targetDpid);
+				return;
+			}
+		}
+
 		VoteState state;
 		state.rejectMask   = msg.rejectMask;
 		state.proposerName = GetPlayerName(fromDpid);
@@ -692,6 +718,19 @@ void VoteReject::Tick()
 		// For timeout votes, check whether the player's network traffic has resumed.
 		// Packet_Dispatcher writes LastMsgTimeStamp on every received packet.
 		if (it->second.rejectMask == 6 && it->second.targetSlot >= 0) {
+			// Defense in depth (see OnReceive): a timeout vote whose target is the
+			// local player can never be cancelled by the LastMsgTimeStamp heuristic
+			// (own slot never advances) and would always self-execute. We are alive
+			// by definition — cancel it unconditionally rather than reject ourselves.
+			if (it->second.targetSlot == taPtr->LocalHumanPlayer_PlayerID) {
+				IDDrawSurface::OutptFmtTxt(
+					"[VoteReject] ignoring self-targeted timeout vote for dpid=%u (cannot reject self)",
+					it->first);
+				HudNotifications::GetInstance()->RemoveLine(it->second.hudLineId);
+				it = m_votes.erase(it);
+				if (g_VoteDialog) g_VoteDialog->Refresh();
+				continue;
+			}
 			int currentTs = taPtr->Players[it->second.targetSlot].LastMsgTimeStamp;
 			if (currentTs != it->second.lastMsgTimeStampAtProposal) {
 				IDDrawSurface::OutptFmtTxt("[VoteReject] network resumed for dpid=%u, cancelling timeout vote",

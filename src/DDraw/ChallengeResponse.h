@@ -87,6 +87,11 @@ public:
 	void SetPlayerGameDataResponse(unsigned dpid, const char *hash, int len);
 	int VerifyResponses(bool logEnable);
 	void LogAll(const std::string& filename);
+	// Dev-only recovery dump (units-cost corpus). Writes a fresh CSV of the live
+	// UnitDef table: UnitInfoID -> name, buildcostmetal, buildcostenergy, ... .
+	// Safe to call standalone — reads live taPtr->UnitDef, no snapshot needed
+	// (unlike LogFeatures). Used by the TDRAW_DUMP_UNITS_ON_LOAD hook in Unlock().
+	void DumpUnitDefsForRecovery(const std::string& filename);
 
 	static std::string GetReportString(const std::pair<unsigned, std::string> &crcAndFilename, const std::string* optionalVersion);
 	std::string GetAllReportString();

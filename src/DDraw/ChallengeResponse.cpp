@@ -983,7 +983,7 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	std::ofstream fs(filename, std::ios::app);
 	fs << "========== Units:\n";
-	fs << "n,ID,name,buildlimit,footx,footy,_xwidth,xwidth,"
+	fs << "n,ID,name,unitname,objectname,buildlimit,footx,footy,_xwidth,xwidth,"
 		"data7,ywidith,_ywidth,data8,_zwidth,zwidth,data9,data10,"
 		"data11,data12,data13,buildcostenergy,buildcostmetal,maxvelocity,data15,data16,"
 		"acceleration,bankscale,pitchscale,damagemodifier,moverate1,moverate2,movementclass,turnrate,"
@@ -1002,7 +1002,7 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
 		UnitDefStruct* u = &taPtr->UnitDef[n];
 		int buildLimit = u->buildLimit == -1 ? taPtr->PlayerUnitsNumber_Skim : u->buildLimit;
-		fs << n << ',' << u->UnitTypeID << ',' << u->Name << ',' << buildLimit << ',' << u->FootX << ',' << u->FootY << ',' << u->__X_Width << ',' << u->X_Width << ','
+		fs << n << ',' << u->UnitTypeID << ',' << u->Name << ',' << u->UnitName << ',' << u->ObjectName << ',' << buildLimit << ',' << u->FootX << ',' << u->FootY << ',' << u->__X_Width << ',' << u->X_Width << ','
 			<< u->data_7 << ',' << u->Y_Width << ',' << u->__Y_Width << ',' << u->data8 << ',' << u->__Z_Width << ',' << u->Z_Width << ',' << u->data_9 << ',' << u->data_10 << ','
 			<< u->data_11 << ',' << u->data_12 << ',' << u->data_13 << ',' << u->buildcostenergy << ',' << u->buildcostmetal << ',' << u->lRawSpeed_maxvelocity << ',' << u->data_15 << ',' << u->data_16 << ','
 			<< u->cceleration << ',' << u->bankscale << ',' << u->pitchscale << ',' << u->damagemodifier << ',' << u->moverate1 << ',' << u->moverate2 << ',' << u->movementclass << ',' << u->turnrate << ','
@@ -1115,6 +1115,16 @@ void ChallengeResponse::LogAll(const std::string& filename)
 #if defined(TDRAW_DUMP_MAP_ON_ERROR) && TDRAW_DUMP_MAP_ON_ERROR
 	LogMapSnapshot(filename);
 #endif
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+void ChallengeResponse::DumpUnitDefsForRecovery(const std::string& filename)
+{
+	// LogUnits opens the file in append mode; truncate first so each process
+	// produces a clean, self-contained dump.
+	{ std::ofstream truncate(filename, std::ios::trunc); }
+	LogUnits(filename);
 }
 #pragma code_seg(pop)
 

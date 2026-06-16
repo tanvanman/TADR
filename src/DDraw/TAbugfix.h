@@ -78,6 +78,16 @@ int __stdcall BadModelHunter (PInlineX86StackBuffer X86StrackBuffer);
 // goes to tdrawlog.txt. Called once from ddraw.cpp's DLL_PROCESS_ATTACH.
 void InstallCrashTrace();
 
+// General-purpose crash breadcrumb ring. Any hook can drop a cheap, always-on
+// event here; the VEH's generic crash report dumps the last TRACE_RING_SIZE of
+// them. Categories are FOURCC tags; payload meaning is per-category.
+#define TRACE_CAT_RECV 0x52454356u  // 'RECV' : a=fromDpid b=size c=buf[0] d=buf[1]
+#define TRACE_CAT_UNIT 0x554E4954u  // 'UNIT' : reserved (a=slot b=typeId c=owner d=event)
+void CrashTrace_RecordEvent(unsigned cat, unsigned a, unsigned b, unsigned c, unsigned d);
+// RECV-style breadcrumb that also captures the first bytes of a packet buffer.
+void CrashTrace_RecordPacket(unsigned cat, unsigned fromDpid, unsigned size,
+                             const void* buf, unsigned buflen);
+
 int __stdcall CDMusic_VictoryProc (PInlineX86StackBuffer X86StrackBuffer);
 int __stdcall CDMusic_MenuProc (PInlineX86StackBuffer X86StrackBuffer);
 

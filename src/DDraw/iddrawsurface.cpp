@@ -9,6 +9,7 @@
 using namespace std;
 
 #include "tamem.h"
+#include "ChallengeResponse.h"
 #include "tafunctions.h"
 
 #include "HudNotifications.h"
@@ -568,6 +569,61 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 	}
 
 	GameingState * GameingState_P= (*TAmainStruct_PtrPtr)->GameingState_Ptr;
+
+#if defined(TDRAW_DUMP_UNITS_ON_LOAD) && TDRAW_DUMP_UNITS_ON_LOAD
+	// DEV-ONLY (implicit-default builds; any explicit TDRAW_CONFIG_* disables this
+	// in CI — see config.h). Once units are loaded in a running game OR replay,
+	// dump the live UnitDef table (UnitInfoID -> name, buildcostmetal,
+	// buildcostenergy, ...) to a CSV so build-costs can be recovered offline for
+	// per-player attrition metrics. Fires exactly once per TA process; works while
+	// watching a replay (the challenge-response/LogAll path is skipped during demo
+	// playback, so this is the only thing that dumps then).
+	{
+		static bool s_unitDumpDone = false;
+		TAdynmemStruct* taDump = *TAmainStruct_PtrPtr;
+		// Only dump once the UNITINFO array is FULLY loaded (post-launch
+		// LoadUNITINFOs), not during the battleroom/replayer sync — at sync time
+		// only name+costs are populated (footprint/energymake/hp = 0) and the
+		// array is not yet sorted into its final UnitInfoID order, so it would
+		// not match the demo's ids. Require GameTime running AND at least one
+		// unit with a real footprint (FBI data actually parsed).
+		bool unitsFullyLoaded = false;
+		// Guard taDump->UnitDef explicitly: during game-end teardown TA frees the
+		// UNITINFO array (nulls UnitDef) while GameTime is still >0 and UNITINFOCount
+		// still holds its old value, so a render frame in that window would deref
+		// NULL+offsetof(FootX) and AV (crashed all players closing game 999190). Also
+		// gate on !s_unitDumpDone so this whole scan stops running once we've dumped.
+		if (!s_unitDumpDone && taDump != nullptr && taDump->UnitDef != nullptr &&
+		    taDump->UNITINFOCount > 0 && taDump->GameTime > 0)
+		{
+			for (unsigned n = 0; n < taDump->UNITINFOCount; ++n)
+				if (taDump->UnitDef[n].FootX != 0) { unitsFullyLoaded = true; break; }
+		}
+		if (!s_unitDumpDone && unitsFullyLoaded)
+		{
+			std::string mapBase;
+			if (GameingState_P != nullptr)
+			{
+				const char* base = GameingState_P->TNTFile;
+				for (const char* p = GameingState_P->TNTFile; *p; ++p)
+					if (*p == '\\' || *p == '/') base = p + 1;
+				for (const char* p = base; *p && *p != '.'; ++p)
+				{
+					char c = *p;
+					bool ok = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') ||
+					          (c >= 'a' && c <= 'z');
+					mapBase += ok ? c : '_';
+				}
+			}
+			if (mapBase.empty()) mapBase = "map";
+			std::string fname = "tdraw_unitdump_" +
+				std::to_string(taDump->UNITINFOCount) + "u_" + mapBase + ".csv";
+			ChallengeResponse::GetInstance()->DumpUnitDefsForRecovery(fname);
+			OutptTxt((std::string("[units-dump] wrote ") + fname).c_str());
+			s_unitDumpDone = true;
+		}
+	}
+#endif
 
 	if(VerticalSync)
 	{

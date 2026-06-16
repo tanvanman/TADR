@@ -16,7 +16,8 @@ namespace ChatHijackId {
     // ---- 0x20..0x3F : integrity / extension --------------------------------
     constexpr unsigned char ChallengeResponse = 0x2b;  // ChallengeResponse.cpp
     constexpr unsigned char VoteReject        = 0x2c;  // VoteReject.cpp
-    constexpr unsigned char WeaponFiredExt    = 0x2d;  // WeaponFiredExt.cpp (planned)
+    constexpr unsigned char TenPlayerReplayToggle = 0x2d;  // replayer funnel on/off (deployed)
+    constexpr unsigned char WeaponFiredExt        = 0x2e;  // WeaponFiredExt.cpp (planned) — moved off 0x2d
 
     // ---- 0x40..0x5F : reserved for gameplay extensions ---------------------
     // ---- 0x60..0x7F : reserved for UI / HUD notifications ------------------

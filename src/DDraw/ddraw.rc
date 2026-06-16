@@ -2,7 +2,7 @@
 //
 #include "resource.h"
 
-#define BASE_VERSION "2026.5.15.0"
+#define BASE_VERSION "2026.6.13.0"
 
 #if defined(TDRAW_CONFIG_FULL)
 #define VERSION_TAG ""
@@ -21,7 +21,7 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "afxres.h"
+#include "winres.h"
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
@@ -46,7 +46,7 @@ END
 
 2 TEXTINCLUDE 
 BEGIN
-    "#include ""afxres.h""\r\n"
+    "#include ""winres.h""\r\n"
     "\0"
 END
 
@@ -65,8 +65,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2026,5,15,0
- PRODUCTVERSION 2026,5,15,0
+ FILEVERSION 2026,6, 13,0
+ PRODUCTVERSION 2026,6, 13,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
