@@ -214,8 +214,10 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		NotToAir::Install();
 		SurfaceFire::Install();
 		VoteReject::Install();
+#if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponIdOverflow::Install();
 		WeaponFiredExt::Install();
+#endif
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Start();
 #endif
@@ -226,8 +228,10 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Stop();
 #endif
+#if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponFiredExt::Shutdown();
 		WeaponIdOverflow::Shutdown();
+#endif
 		/* KillTimer(NULL, Timer);
 		KillTimer(NULL, DetectTimer); */
 		AddtionReleaseAfterDDraw ( );

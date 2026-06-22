@@ -26,3 +26,22 @@
 #elif defined(TDRAW_CONFIG_MINIMAL)
 #include "config_minimal.h"
 #endif
+
+//
+// Extended weapon IDs (>= 256) — experimental, OFF by default for now.
+//
+// When enabled this installs two cooperating patches:
+//   * WeaponIdOverflow  — heap-backed overflow weapon slots above TA's
+//                         hard-coded Weapons[256] array (lets TDF authors
+//                         define ID >= 256 without corrupting adjacent memory).
+//   * WeaponFiredExt    — a CHAT_05-hijack network packet that transmits
+//                         fire events for those overflow weapon IDs (TA's
+//                         native WEAPON_FIRED_0D packet only carries a byte ID).
+//
+// Both modules ship compiled in but are not installed unless this flag is 1.
+// Enable by defining TDRAW_EXTENDED_WEAPON_IDS=1 in a config_*.h or on the
+// compiler command line.
+//
+#ifndef TDRAW_EXTENDED_WEAPON_IDS
+#define TDRAW_EXTENDED_WEAPON_IDS 0
+#endif
