@@ -814,7 +814,8 @@ void ChallengeResponse::HashUnits(HmacSha256Calculator& hmac, const std::vector<
 			if (u->ExplodeAs) hmac.processChunk((unsigned char*)&u->ExplodeAs->ID, 1);
 			if (u->SelfeDestructAs) hmac.processChunk((unsigned char*)&u->SelfeDestructAs->ID, 1);
 			hmac.processChunk((unsigned char*)&u->nMaxHP, (char*)&u->ExplodeAs - (char*)&u->nMaxHP);
-			hmac.processChunk((unsigned char*)&u->maxslope, (char*)&u->wpri_badTargetCategory_MaskAryPtr - (char*)&u->maxslope);
+			hmac.processChunk((unsigned char*)&u->maxslope, (char*)&u->GUINum - (char*)&u->maxslope);
+			hmac.processChunk((unsigned char*)&u->bmcode, 1);
 			hmac.processChunk((unsigned char*)&u->UnitTypeMask_0, 2 * sizeof(long));
 			if (u->cobDataPtr) {
 				CobHeader* c = u->cobDataPtr;
