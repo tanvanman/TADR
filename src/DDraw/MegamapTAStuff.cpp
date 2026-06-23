@@ -1102,7 +1102,7 @@ POINT * MegamapTAStuff::TAPos2ScreenPos (POINT * ScreenPos, unsigned int TAX, un
 	int TAx = TAX;
 	int TAy = TAY - TAZ / 2;
 
-	// ProTA: TAMap (=TAMAPTAPos) is the FULL extent incl. dead-zone margin,
+	// TAMap (=TAMAPTAPos) is the FULL extent incl. dead-zone margin,
 	// so orders/waypoints/clicks drift vs the playable-area feature sprites.
 	// Recompute the scales once against the playable extent (fw-2)*16 /
 	// (fh-8)*16, lazily here where the feature map is guaranteed loaded
