@@ -7,7 +7,7 @@ tdraw.dll has a long provenance dating back to the work of SY_Yeha, who introduc
 Later work by Xpoy extended hotkey support, added new shortcut commands, uni-code font support, megamap, weapon-id crack (not present in current release) and porting music patch from GOG version,
 and later support was provided by Rime.
 
-The present release includes contributions from Axle and FunkyFresh, and owes a debt to TAG_Venom for extensive testing and critical feeback, and to Gamma and Wotan for further testing and feature suggestions.
+The present release includes contributions from Axle, FunkyFresh and tagROCK, and owes a debt to TAG_Venom for extensive testing and critical feeback, and to Gamma and Wotan for further testing and feature suggestions.
 
 
 CONFIGURATIONS
@@ -45,6 +45,11 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 
 NEW FEATURES IN BRIEF:
+
+*2026.6.23
+- Fix false trigger on version check
+- Disable support for weapon ID above 255 until further testing (use v2026.6.17 if you need extended weapon ID support for now)
+- Render fixed features on megamap (thanks tagROCK)
 
 *2026.6.17
 - Support for weapon IDs above 255 in Weapons/*.tdf (see NEW FEATURES IN DETAIL)
