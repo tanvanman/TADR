@@ -1354,7 +1354,6 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 	}
 	int PlayerID= unitPtr->Owner_PlayerPtr0->PlayerAryIndex;
 
-
 	int TAx= unitPtr->XPos- unitPtr->UnitType->FootX/ 2; 
 	int TAy= unitPtr->YPos- (unitPtr->ZPos)/ 2- unitPtr->UnitType->FootY/ 2;
 	
@@ -1382,10 +1381,15 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 	//
 
 	UnitPicture( unitPtr, PlayerID, &GafPixelBits, &GafAspect);
-	DescRect.left= static_cast<int>(static_cast<float>(TAx)* (static_cast<float>(Width_m)/ static_cast<float>(parent->TAMAPTAPos.right)))- GafAspect.x/ 2;
+	int mmFW = (*TAmainStruct_PtrPtr)->FeatureMapSizeX;
+	int mmRight = (mmFW - 2) * 16; if (mmRight <= 0) mmRight = parent->TAMAPTAPos.right;
+	DescRect.left = static_cast<int>(static_cast<float>(TAx) * (static_cast<float>(Width_m) / static_cast<float>(mmRight))) - GafAspect.x / 2;
 	DescRect.right= DescRect.left+ GafAspect.x;
-	DescRect.top= static_cast<int>(static_cast<float>(TAy)* (static_cast<float>(Height_m)/ static_cast<float>(parent->TAMAPTAPos.bottom)))- GafAspect.y/ 2;
-	DescRect.bottom= DescRect.top+ GafAspect.y;
+	
+	int mmFH = (*TAmainStruct_PtrPtr)->FeatureMapSizeY;
+	int mmBottom = (mmFH - 8) * 16; if (mmBottom <= 0) mmBottom = parent->TAMAPTAPos.bottom;
+	DescRect.top = static_cast<int>(static_cast<float>(TAy) * (static_cast<float>(Height_m) / static_cast<float>(mmBottom))) - GafAspect.y / 2;
+	DescRect.bottom = DescRect.top + GafAspect.y;
 
 	Aspect->x= (Aspect->x)/ 4* 4;// avoid draw out of the surface, this x== pitch
 	if ((DescRect.right<0)
@@ -1629,73 +1633,365 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 	}
 }
 
-void UnitsMinimap::NowDrawUnits ( LPBYTE PixelBitsBack, POINT * AspectSrc)
-{
-	if (TAInGame!=DataShare->TAProgress)
-	{
-		return ;
-	}
-	//IDDrawSurface::OutptTxt ( "Draw units");
-	POINT Aspect= {0, 0};
-	LPBYTE PixelBits= NULL;
+// ===================== ProTA mex-sprite cache =====================
 
-	LockOn ( &PixelBits, &Aspect);
-	try 
-	{
-		do 
+struct MexSprite { LPBYTE bits; int w, h; BYTE trans; int builtPx; };
+static MexSprite gMexCache[1024];
+static void* gMexCacheMap = NULL;
+static bool      gMexCacheInit = false;
+static const char* Def_Desc(FeatureDefStruct* d) { return (const char*)((char*)d + 0x80); }
+
+static void MexCacheFlush()
+{
+	for (int i = 0; i < 1024; ++i) {
+		if (gMexCache[i].bits) { delete[] gMexCache[i].bits; gMexCache[i].bits = NULL; }
+		gMexCache[i].builtPx = 0;
+	}
+}
+
+static int NameEqI(const char* a, const char* b)
+{
+	if (!a || !b) return 0;
+	while (*a && *b) {
+		char ca = *a++, cb = *b++;
+		if (ca >= 'a' && ca <= 'z') ca -= 32;
+		if (cb >= 'a' && cb <= 'z') cb -= 32;
+		if (ca != cb) return 0;
+	}
+	return *a == 0 && *b == 0;
+}
+
+// struct accessors by confirmed raw offset (the header struct mislabels these)
+static const char* Def_Filename(FeatureDefStruct* d) { return (const char*)((char*)d + 0x98); }
+static void* Def_Anims(FeatureDefStruct* d) { return *(void**)((char*)d + 0xA8); }
+static PGAFSequence Def_RSeq(FeatureDefStruct* d) { return *(PGAFSequence*)((char*)d + 0xAC); }
+
+static bool SeqValid(PGAFSequence s)
+{
+	return s && s->Signature == 0x00000001 && s->Frames > 0 && s->Frames <= 256
+		&& s->PtrFrameAry[0].PtrFrame;
+}
+
+// The real GAF filename for a def. If its own filename is "REUSE", borrow the
+// filename from a def that shares its description (its family) and names a real
+// file -- REUSE features in a TDF share the family's GAF.
+static const char* RealFilename(FeatureDefStruct* def, FeatureDefStruct* defs, int ndef)
+{
+	if (!def) return NULL;
+	const char* fn = Def_Filename(def);
+	if (fn && fn[0] && !NameEqI(fn, "REUSE")) return fn;   // has its own file
+	const char* myDesc = Def_Desc(def);
+	if (!myDesc || !myDesc[0]) return NULL;                // nothing to group on
+	for (int i = 0; i < ndef; ++i) {
+		const char* f = Def_Filename(&defs[i]);
+		if (!f || !f[0] || NameEqI(f, "REUSE")) continue;  // need a real filename
+		if (NameEqI(Def_Desc(&defs[i]), myDesc)) return f; // same family
+	}
+	return NULL;
+}
+
+// find a parsed GAF already in memory for this def's (REUSE-resolved) filename
+static void* FindLoadedGafByFilename(FeatureDefStruct* def, FeatureDefStruct* defs, int ndef)
+{
+	if (!def || !defs) return NULL;
+	const char* want = RealFilename(def, defs, ndef);
+	if (!want) return NULL;
+	for (int i = 0; i < ndef; ++i) {
+		void* a = Def_Anims(&defs[i]);
+		if (!a) continue;
+		if (((unsigned int*)a)[0] != 0x00010100) continue;
+		const char* f = RealFilename(&defs[i], defs, ndef);   // resolve candidate's REUSE too
+		if (f && NameEqI(f, want)) return a;
+	}
+	return NULL;
+}
+
+static PGAFSequence FeatureDefToSequence(FeatureDefStruct* def, FeatureDefStruct* defs, int ndef)
+{
+	if (!def) return NULL;
+
+	// 1) engine already resolved the exact sequence -> use it
+	PGAFSequence r = Def_RSeq(def);
+	if (SeqValid(r)) return r;
+
+	// 2) borrow from a loaded GAF of the same filename
+	void* gaf = FindLoadedGafByFilename(def, defs, ndef);
+	if (!gaf) return NULL;
+	unsigned int* h = (unsigned int*)gaf;
+	if (h[0] != 0x00010100) return NULL;
+	unsigned n = h[1]; if (n < 1 || n > 4096) return NULL;
+	PGAFSequence* arr = (PGAFSequence*)((char*)gaf + 12);
+	PGAFSequence firstValid = NULL;
+	for (unsigned i = 0; i < n; ++i) {
+		PGAFSequence s = arr[i];
+		if (!SeqValid(s)) continue;
+		if (!firstValid) firstValid = s;
+		if (NameEqI(s->Name, def->Name)) return s;   // best-effort exact match
+	}
+	return firstValid;   // same-family fallback
+}
+
+static MexSprite* GetMexSprite(int defIndex, FeatureDefStruct* def, int targetPx,
+	FeatureDefStruct* defs, int ndef)
+{
+	if (defIndex < 0 || defIndex >= 1024) return NULL;
+	MexSprite* s = &gMexCache[defIndex];
+	if (s->bits && s->builtPx == targetPx) return s;
+	if (s->bits) { delete[] s->bits; s->bits = NULL; }
+
+	PGAFSequence seq = FeatureDefToSequence(def, defs, ndef);
+	if (!seq) return NULL; 
+
+	PGAFFrame fr = seq->PtrFrameAry[0].PtrFrame;
+	LPBYTE src = NULL; POINT srcA = { 0,0 };
+	InstanceGAFFrame(fr, &src, &srcA);
+	if (!src || srcA.x <= 0 || srcA.y <= 0) { if (src) free(src); return NULL; }
+
+	int maj = (srcA.x > srcA.y) ? srcA.x : srcA.y;
+	int dw = (int)((float)srcA.x * targetPx / maj + 0.5f);
+	int dh = (int)((float)srcA.y * targetPx / maj + 0.5f);
+	if (dw < 1) dw = 1; if (dh < 1) dh = 1;
+
+	BYTE trans = fr->Background;
+	LPBYTE dst = new BYTE[dw * dh];
+	for (int y = 0; y < dh; ++y) {
+		int sy = y * srcA.y / dh;
+		for (int x = 0; x < dw; ++x) {
+			int sx = x * srcA.x / dw;
+			dst[y * dw + x] = src[sy * srcA.x + sx];
+		}
+	}
+	free(src);
+
+	s->bits = dst; s->w = dw; s->h = dh; s->trans = trans; s->builtPx = targetPx;
+	return s;
+}
+
+// ===================================================================
+// ProTA: draw placed indestructible features (mexes, geos, spires,
+// walls) into the megamap TERRAIN image (MappedBits) as their real GAF
+// sprites, so they inherit the existing terrain fog/grey pass and layer
+// correctly under the unit blips.
+//
+// Called from MappedMap::NowDrawMapped, AFTER the terrain is copied in
+// and BEFORE the LOS/fog passes run. Runs once per sim-tick (tick-cached
+// there), not per render frame.
+//
+//   bits          - the MappedBits terrain buffer (Width*Height, 8-bit)
+//   Width, Height - dimensions of that buffer (== megamap image size)
+//
+// Positioning matches the +makeposter (true map) view across all map
+// sizes:
+//   - scale: playable extent (fw-2)*16 / (fh-8)*16 (strips the map's
+//     32px-right / 128px-bottom dead-zone), == the true map size.
+//   - centring: each feature centres on its OWN footprint (footX/footZ),
+//     per the Mappy editor's projection. A fixed offset only suits ~1x1
+//     features, which is why a single offset left spires scattered.
+//   - sizing: one ruler for all types (art major dim * Width/mapRight);
+//     no per-type clamps.
+//   - anchor: GAF yPosition handle for vertical placement.
+//
+// Indestructible-and-not-reclaimable features are kept; reclaimable junk
+// (rocks/wrecks/trees) is skipped. Coloured-dot fallback only when a
+// feature's GAF art can't be resolved.
+// ===================================================================
+
+void DrawFeaturesIntoMappedBits(LPBYTE bits, int Width, int Height)
+{
+	if (!bits || Width <= 0 || Height <= 0)
+		return;
+
+	int fw = (*TAmainStruct_PtrPtr)->FeatureMapSizeX;
+	int fh = (*TAmainStruct_PtrPtr)->FeatureMapSizeY;
+	FeatureStruct* fmap = (*TAmainStruct_PtrPtr)->FeatureMap;
+	FeatureDefStruct* fdef = (*TAmainStruct_PtrPtr)->FeatureDef;
+	int               ndef = (*TAmainStruct_PtrPtr)->NumFeatureDefs;
+	if (fmap == NULL || fdef == NULL || fw <= 0 || fh <= 0)
+		return;
+	if (!gMexCacheInit) { MexCacheFlush(); gMexCacheInit = true; }
+	if (gMexCacheMap != (void*)fmap) { MexCacheFlush(); gMexCacheMap = (void*)fmap; }
+	// Playable map extent (strips the 32px-right / 128px-bottom dead-zone):
+	// (fw-2)*16 / (fh-8)*16 == the true map size, matching +makeposter.
+	int mapRight = (fw - 2) * 16;   // true world width  (320 tiles * 16 on a 5120 map)
+	int mapBottom = (fh - 8) * 16;   // true world height
+	if (mapRight <= 0)  mapRight = fw * 16;   // guard tiny maps
+	if (mapBottom <= 0) mapBottom = fh * 16;
+
+	const int   SPOT_COLOR = 254;  // mex dot (fallback only)
+	const int   SPIRE_COLOR = 211;  // spire dot (fallback only)
+	const int   OTHER_COLOR = 165;  // other indestructible (fallback only)
+	const float HEIGHT_Z = 0.5f; // iso-lift (same as the overlay used)
+
+	for (int gy = 0; gy < fh; ++gy)
+		for (int gx = 0; gx < fw; ++gx)
 		{
-			if ((TAInGame!=DataShare->TAProgress))
+			FeatureStruct* cell = &fmap[gy * fw + gx];
+			unsigned short di = cell->FeatureDefIndex;
+			if (di == 0xffff || di == 0xfffe) continue;
+			if (di >= (unsigned short)ndef)   continue;
+
+			// keep: indestructible AND not reclaimable
+			bool indestruct = (fdef[di].FeatureMask & (unsigned short)FeatureMasks::indestructible) != 0;
+			bool reclaim = (fdef[di].FeatureMask & (unsigned short)FeatureMasks::reclaimable) != 0;
+			if (!(indestruct && !reclaim)) continue;
+
+			bool isSpire = indestruct && NameEqI(Def_Desc(&fdef[di]), "Spire");
+
+			int dotColor = (fdef[di].Metal > 0.0f) ? SPOT_COLOR
+				: isSpire ? SPIRE_COLOR
+				: OTHER_COLOR;
+
+			// AF centering: each feature centres on its OWN footprint (footX/footZ),
+			// not a fixed offset. footprint at +0x94 (two shorts: X, Z).
+			short* fpXZ = (short*)((char*)&fdef[di] + 0x94);
+			int footX = fpXZ[0];
+			int footZ = fpXZ[1];
+			if (footX < 1) footX = 1;     // guard bad/zero footprints
+			if (footZ < 1) footZ = 1;
+			int worldX = gx * 16 + footX * 8;
+			int worldY = gy * 16 + footZ * 8 - (int)((float)cell->height * HEIGHT_Z);
+
+			int px = (int)((float)worldX * (float)Width / (float)mapRight);
+			int py = (int)((float)worldY * (float)Height / (float)mapBottom);
+
+			// ----- unified sizing: one scale for ALL features (like the poster) -----
+			int artMaj = 0, frameH = 0, frameW = 0;
 			{
-				break;
+				PGAFSequence sq = FeatureDefToSequence(&fdef[di], fdef, ndef);
+				if (sq && SeqValid(sq)) {
+					PGAFFrame f0 = sq->PtrFrameAry[0].PtrFrame;
+					if (f0) { frameW = f0->Width; frameH = f0->Height; }
+				}
 			}
-			if (NULL==PixelBits)
-			{
-				break;
-			}
+			artMaj = (frameW > frameH) ? frameW : frameH;
+			if (artMaj < 1) artMaj = 32;   // fallback if art unreadable
+
+			// One ruler: art pixels -> world -> megamap px, same scale as position.
+			float pxPerWorld = (float)Width / (float)mapRight;
+			const float ARTWORLD = 1.0f;    // art-pixel : world-unit ratio (sizes vs +makeposter)
+			int target = (int)((float)artMaj * ARTWORLD * pxPerWorld + 0.5f);
+			if (target < 2) target = 2;     // sanity floor only (avoid zero-size)
+
+			MexSprite* spr = GetMexSprite(di, &fdef[di], target, fdef, ndef);
+
+			if (spr && spr->bits) {
+				
+				// Anchor: X = geometric centre; Y = GAF yPosition handle (scaled
+				// to the downscaled sprite) so tall art sits on its base.
+				int anchorX = spr->w / 2; // X: geometric centre
+				int anchorY = spr->h;     // Y: base (overridden by GAF handle below)
 				{
-					// memcpy delegates to vectorised CRT; the hand-rolled
-					// indexed loop was not auto-vectorising.
-					const int rows = AspectSrc->y;
-					const int cols = AspectSrc->x;
-					if (Aspect.x == cols)
-					{
-						std::memcpy(PixelBits, PixelBitsBack, static_cast<size_t>(cols) * rows);
-					}
-					else
-					{
-						for (int i = 0; i < rows; ++i)
-						{
-							std::memcpy(PixelBits + Aspect.x * i, PixelBitsBack + cols * i, cols);
+					PGAFSequence sq = FeatureDefToSequence(&fdef[di], fdef, ndef);
+					if (sq && SeqValid(sq)) {
+						PGAFFrame f0 = sq->PtrFrameAry[0].PtrFrame;
+						if (f0 && f0->Height > 0) {
+							anchorY = (int)((float)f0->yPosition * (float)spr->h / (float)f0->Height + 0.5f);
 						}
 					}
 				}
-
-				UnitStruct * Begin= (*TAmainStruct_PtrPtr)->BeginUnitsArray_p ;
-				UnitStruct * unitPtr;
-
-				if (NULL==Begin)
-				{
-					break;
-				}
-				int NumHotRadarUnits= (*TAmainStruct_PtrPtr)->NumHotRadarUnits;
-				RadarUnit_ * RadarUnits_v= (*TAmainStruct_PtrPtr)->RadarUnits;
-				for (int i= 0; i<NumHotRadarUnits; ++i)
-				{
-					unitPtr= &Begin[RadarUnits_v[i].ID];
-					if (0!=unitPtr->UnitID)
-					{
-						DrawUnit (  PixelBits, &Aspect, unitPtr);
+				int left = px - anchorX;
+				int top = py - anchorY;
+								
+				for (int yy = 0; yy < spr->h; ++yy) {
+					int Y = top + yy;
+					if (Y < 0 || Y >= Height) continue;
+					int rowS = yy * spr->w;
+					int rowD = Y * Width;
+					for (int xx = 0; xx < spr->w; ++xx) {
+						int X = left + xx;
+						if (X < 0 || X >= Width) continue;
+						BYTE c = spr->bits[rowS + xx];
+						if (c != spr->trans) bits[rowD + X] = c;   // fog pass greys this later
 					}
 				}
+			}
+			else {
+				// fallback dot (rarely hit art unresolvable)
+				for (int dyy = -1; dyy <= 1; ++dyy)
+					for (int dxx = -1; dxx <= 1; ++dxx) {
+						int X = px + dxx, Y = py + dyy;
+						if (X >= 0 && Y >= 0 && X < Width && Y < Height)
+							bits[Y * Width + X] = (BYTE)dotColor;
+					}
+			}
+		}
+}
+// ================== end ProTA mex-sprite cache ====================
+
+
+void UnitsMinimap::NowDrawUnits(LPBYTE PixelBitsBack, POINT* AspectSrc)
+{
+	if (TAInGame != DataShare->TAProgress)
+	{
+		return;
+	}
+	//IDDrawSurface::OutptTxt ( "Draw units");
+	POINT Aspect = { 0, 0 };
+	LPBYTE PixelBits = NULL;
+
+	LockOn(&PixelBits, &Aspect);
+	try
+	{
+		do
+		{
+			if ((TAInGame != DataShare->TAProgress))
+			{
+				break;
+			}
+			if (NULL == PixelBits)
+			{
+				break;
+			}
+			{
+				// memcpy delegates to vectorised CRT; the hand-rolled
+				// indexed loop was not auto-vectorising.
+				const int rows = AspectSrc->y;
+				const int cols = AspectSrc->x;
+				if (Aspect.x == cols)
+				{
+					std::memcpy(PixelBits, PixelBitsBack, static_cast<size_t>(cols) * rows);
+				}
+				else
+				{
+					for (int i = 0; i < rows; ++i)
+					{
+						std::memcpy(PixelBits + Aspect.x * i, PixelBitsBack + cols * i, cols);
+					}
+				}
+			}
+
+			UnitStruct* Begin = (*TAmainStruct_PtrPtr)->BeginUnitsArray_p;
+			UnitStruct* unitPtr;
+
+			if (NULL == Begin)
+			{
+				break;
+			}
+
+			// Feature sprites are now baked into the terrain image in
+			// MappedMap::NowDrawMapped (DrawFeaturesIntoMappedBits), so they
+			// fog/layer for free. Here we only draw the unit blips, which
+			// composite on top of the (already feature-bearing) terrain.
+			int NumHotRadarUnits = (*TAmainStruct_PtrPtr)->NumHotRadarUnits;
+			RadarUnit_* RadarUnits_v = (*TAmainStruct_PtrPtr)->RadarUnits;
+			for (int i = 0; i < NumHotRadarUnits; ++i)
+			{
+				unitPtr = &Begin[RadarUnits_v[i].ID];
+				if (0 != unitPtr->UnitID)
+				{
+					DrawUnit(PixelBits, &Aspect, unitPtr);
+				}
+			}
+
 		} while (false);
-		
+
 	}
 	catch (...)
 	{
 		;
 	}
-	
-	Unlock ( PixelBits);
+
+	Unlock(PixelBits);
 }
 
 

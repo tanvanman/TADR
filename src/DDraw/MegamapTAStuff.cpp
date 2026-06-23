@@ -53,7 +53,7 @@ void MegamapTAStuff::Init (FullScreenMinimap * parent_p, RECT * MegaMapScreen_p,
 	int MaxIconWidth, int MaxIconHeight, BOOL UseSurfaceCursor_a)
 {
 
-	
+
 	parent= parent_p;
 	TAmainStruct_Ptr= *TAmainStruct_PtrPtr;
 	UseSurfaceCursor= UseSurfaceCursor_a;
@@ -65,14 +65,14 @@ void MegamapTAStuff::Init (FullScreenMinimap * parent_p, RECT * MegaMapScreen_p,
 	MegaMapWidth= MegaMapScreen.right- MegaMapScreen.left;
 	MegaMapHeight= MegaMapScreen.bottom- MegaMapScreen.top;
 
-
-
 	memcpy ( &TAMap, TAMap_p, sizeof(RECT));
 	TAMapWidth= TAMap.right- TAMap.left;
 	TAMapHeight= TAMap.bottom- TAMap.top;
 
 	Screen2MapWidthScale= static_cast<float>(MegaMapWidth)/ static_cast<float>(TAMapWidth);
 	Screen2MapHeightScale= static_cast<float>(MegaMapHeight)/ static_cast<float>(TAMapHeight);
+
+	PlayScaleFixed = false;
 
 	memcpy ( &TAGameScreen, GameScreen_p, sizeof(RECT));
 
@@ -1099,12 +1099,30 @@ POINT * MegamapTAStuff::TAPos2ScreenPos (POINT * ScreenPos, unsigned int TAX, un
 	{
 		return NULL;
 	}
-	int TAx= TAX; 
-	int TAy= TAY- TAZ/ 2;
+	int TAx = TAX;
+	int TAy = TAY - TAZ / 2;
 
+	// ProTA: TAMap (=TAMAPTAPos) is the FULL extent incl. dead-zone margin,
+	// so orders/waypoints/clicks drift vs the playable-area feature sprites.
+	// Recompute the scales once against the playable extent (fw-2)*16 /
+	// (fh-8)*16, lazily here where the feature map is guaranteed loaded
+	// (it is NOT loaded yet in Init).
+	if (!PlayScaleFixed)
+	{
+		int mmFW = (*TAmainStruct_PtrPtr)->FeatureMapSizeX;
+		int mmFH = (*TAmainStruct_PtrPtr)->FeatureMapSizeY;
+		int playW = (mmFW - 2) * 16;
+		int playH = (mmFH - 8) * 16;
+		if (playW > 0 && playH > 0)
+		{
+			Screen2MapWidthScale = static_cast<float>(MegaMapWidth) / static_cast<float>(playW);
+			Screen2MapHeightScale = static_cast<float>(MegaMapHeight) / static_cast<float>(playH);
+			PlayScaleFixed = true;
+		}
+	}
 
-	ScreenPos->x= static_cast<int>(static_cast<float>(TAx)* Screen2MapWidthScale);
-	ScreenPos->y= static_cast<int>(static_cast<float>(TAy)* Screen2MapHeightScale);
+	ScreenPos->x = static_cast<int>(static_cast<float>(TAx) * Screen2MapWidthScale);
+	ScreenPos->y = static_cast<int>(static_cast<float>(TAy) * Screen2MapHeightScale);
 
 	return ScreenPos;
 }

@@ -15,6 +15,9 @@
 #include <climits>
 #include <cstring>
 
+// ProTA: defined in UnitMinimap.cpp — bakes indestructible-feature markers
+// into the megamap terrain image before the fog pass.
+void DrawFeaturesIntoMappedBits(LPBYTE bits, int Width, int Height);
 
 #if USEMEGAMAP
 
@@ -105,7 +108,12 @@ BadEnd:
 		}
 	}
 
+	// ProTA: bake feature markers into the terrain image here, BEFORE the
+	// fog passes below, so the existing LOS/gray pass fogs them for free
+	// and they layer under the unit blips.
 
+	DrawFeaturesIntoMappedBits(MappedBits, Width_m, Height_m);
+	
 	if (NOMAPPING==(NOMAPPING&((*TAmainStruct_PtrPtr)->LosType)))
 	{//
 
