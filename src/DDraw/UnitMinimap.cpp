@@ -1633,7 +1633,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 	}
 }
 
-// ===================== ProTA mex-sprite cache =====================
+// ===================== mex-sprite cache =====================
 
 struct MexSprite { LPBYTE bits; int w, h; BYTE trans; int builtPx; };
 static MexSprite gMexCache[1024];
@@ -1768,7 +1768,7 @@ static MexSprite* GetMexSprite(int defIndex, FeatureDefStruct* def, int targetPx
 }
 
 // ===================================================================
-// ProTA: draw placed indestructible features (mexes, geos, spires,
+// draw placed indestructible features (mexes, geos, spires,
 // walls) into the megamap TERRAIN image (MappedBits) as their real GAF
 // sprites, so they inherit the existing terrain fog/grey pass and layer
 // correctly under the unit blips.
@@ -1916,7 +1916,7 @@ void DrawFeaturesIntoMappedBits(LPBYTE bits, int Width, int Height)
 			}
 		}
 }
-// ================== end ProTA mex-sprite cache ====================
+// ================== end mex-sprite cache ====================
 
 
 void UnitsMinimap::NowDrawUnits(LPBYTE PixelBitsBack, POINT* AspectSrc)
