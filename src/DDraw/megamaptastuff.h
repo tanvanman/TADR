@@ -65,6 +65,7 @@ private:
 
 	float Screen2MapWidthScale;
 	float Screen2MapHeightScale;
+	bool PlayScaleFixed;
 
 	
 	BOOL GUIBackup;
