@@ -308,11 +308,6 @@ bool Dialog::GetBuildMenuRotationOverlayEnabled()
 		|| m_buildMenuRotationOverlayButton->GetState() != 0;
 }
 
-int Dialog::GetBuildPreviewStyle()
-{
-	return BUILD_PREVIEW_FULL;
-}
-
 void Dialog::SetAll()
 {
 	CIncome *Income = (CIncome*)LocalShare->Income;

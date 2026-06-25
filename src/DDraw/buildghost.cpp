@@ -115,7 +115,7 @@ void CBuildGhost::RegisterUnitDefKeys()
     }
 }
 
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#if TDRAW_BUILDGHOST_HAS_3D
 // Inside DrawGameScreen, at the join point reached both when TA drew its
 // build rect and when the JZ at 0x469e0d skipped it (e.g. while mex-snap
 // is active and Enable/DisableTABuildRect has zeroed the gate at
@@ -144,8 +144,12 @@ CBuildGhost::CBuildGhost()
     ReadRotateKeyDiscovered();
 #if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_RECT
     IDDrawSurface::OutptTxt("[BuildGhost] mode=RECT (no model preview)");
-#elif TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#elif TDRAW_BUILDGHOST_HAS_3D
+#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIRE
+    IDDrawSurface::OutptTxt("[BuildGhost] mode=WIRE (shimmer frame + scanline, no fill)");
+#else
     IDDrawSurface::OutptTxt("[BuildGhost] mode=FULL3D");
+#endif
     m_hooks.push_back(std::make_shared<InlineSingleHook>(
         kBuildRectHookAddr, 5, INLINE_5BYTESLAGGERJMP, BuildRectAfterHookProc));
 #endif
@@ -200,9 +204,9 @@ void CBuildGhost::SetRotateKeyDiscovered()
 }
 
 // =============================================================================
-// 3DO helpers (FULL3D only)
+// 3DO helpers (FULL3D + WIRE)
 // =============================================================================
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#if TDRAW_BUILDGHOST_HAS_3D
 
 namespace
 {
@@ -282,9 +286,9 @@ namespace
 
 
 // =============================================================================
-// FULL3D mode
+// FULL3D + WIRE mode
 // =============================================================================
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#if TDRAW_BUILDGHOST_HAS_3D
 namespace
 {
     // Skip-the-faces test for cosmetic / ephemeral pieces. Match TA's COB
@@ -823,7 +827,7 @@ void CBuildGhost::OnGameTeardown()
     m_overrideModelRoots.clear();
     m_nanoframe3DCache.clear();
 }
-#endif // FULL3D
+#endif // HAS_3D
 
 // =============================================================================
 // Public render entry points
@@ -834,7 +838,7 @@ void CBuildGhost::RenderNanoframeGhost()
 #if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_RECT
     return;
 
-#elif TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#elif TDRAW_BUILDGHOST_HAS_3D
     // Suppress the cursor ghost when the mouse is outside the game area
     // (e.g. hovering the build menu after a right-click cancel + reselect).
     // CircleSelect_Pos1/Pos2 still hold the last in-game build spot at this
@@ -864,7 +868,7 @@ void CBuildGhost::RenderNanoframeGhost()
 #endif
 }
 
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#if TDRAW_BUILDGHOST_HAS_3D
 void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
 {
     TAdynmemStruct* ta = GetTA();
@@ -1022,19 +1026,17 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
         spriteBottom <= gs.top || spriteTop  >= gs.bottom)
         return;
 
-    // Ghost preview style (Ctrl-F2 menu): independent fill / edge-cycle
-    // flags derived from the 4-way enum.
-    //   STATIC_WIRE        no fill, static-green edges.
-    //   SHIMMER_WIRE       no fill, edges cycled (nanoframe ramp 0xa0..0xaf).
-    //   FULL               cycled fill, cycled edges (180° offset).
-    //   STATIC_WIRE_FILL   cycled fill, static-green edges.
-    int previewStyle = Dialog::BUILD_PREVIEW_STATIC_WIRE;
-    if (LocalShare && LocalShare->Dialog)
-        previewStyle = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetBuildPreviewStyle();
-    const bool noFill     = (previewStyle == Dialog::BUILD_PREVIEW_STATIC_WIRE
-                          || previewStyle == Dialog::BUILD_PREVIEW_SHIMMER_WIRE);
-    const bool cycleEdges = (previewStyle == Dialog::BUILD_PREVIEW_SHIMMER_WIRE
-                          || previewStyle == Dialog::BUILD_PREVIEW_FULL);
+    // Ghost render style is fixed at compile time by TDRAW_BUILDGHOST_MODE
+    // (no runtime menu). Both flags drive the nanoframe ramp shimmer:
+    //   FULL3D  cycled (shimmering) fill + cycled edges.
+    //   WIRE    no fill; cycled (shimmering) edge frame + z-plane scanline.
+#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIRE
+    const bool noFill     = true;
+    const bool cycleEdges = true;
+#else  // TDRAW_BUILDGHOST_FULL3D
+    const bool noFill     = false;
+    const bool cycleEdges = true;
+#endif
 
     auto rampColor = [](unsigned step) -> unsigned char {
         unsigned s = step & 0x1F;
@@ -1187,6 +1189,6 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     kFn_UnlockAttackedSurface(&off);
 }
 #else
-void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool /*showNag*/) { /* no-op outside FULL3D */ }
+void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool /*showNag*/) { /* no-op in RECT mode */ }
 void CBuildGhost::OnGameTeardown() { /* no caches in RECT mode */ }
 #endif

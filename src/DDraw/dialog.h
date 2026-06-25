@@ -67,13 +67,6 @@ public:
 	// When false the build menu behaves stock. Default ON.
 	bool GetBuildMenuRotationOverlayEnabled();
 
-	// Build-preview rendering style. Read by CBuildGhost.
-	static const int BUILD_PREVIEW_STATIC_WIRE      = 0;
-	static const int BUILD_PREVIEW_SHIMMER_WIRE     = 1;
-	static const int BUILD_PREVIEW_FULL             = 2;
-	static const int BUILD_PREVIEW_STATIC_WIRE_FILL = 3;
-	int GetBuildPreviewStyle();
-
   private:
 	// all widgets
 	// (m_widgets vector is inherited from DialogBase)
