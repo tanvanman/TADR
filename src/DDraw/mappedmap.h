@@ -16,6 +16,14 @@ private:
 	int Width_m;
 	int Height_m;
 
+	// Static base image = terrain background + baked feature sprites. Neither
+	// changes during a game, so this is built ONCE (per map) and reused; each
+	// tick MappedBits is just refreshed from it before the fog pass. Avoids
+	// re-running the expensive per-pixel feature composite every frame/tick.
+	LPBYTE m_baseBits;
+	LPBYTE m_basePixelSrc;     // terrain source the base was built from
+	void*  m_baseFeatureMap;   // feature map the base was built from
+
 	BYTE TAGrayTABLE[256];
 
 	HANDLE Event_h;

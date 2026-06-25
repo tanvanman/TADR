@@ -1635,7 +1635,10 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 
 // ===================== mex-sprite cache =====================
 
-struct MexSprite { LPBYTE bits; int w, h; BYTE trans; int builtPx; };
+// Downscaled feature sprite, stored as straight-alpha RGBA so the antialiased
+// edges keep their partial coverage (alpha) and can be composited correctly
+// onto the 8-bit megamap terrain. 4 bytes/pixel: R,G,B,A.
+struct MexSprite { LPBYTE rgba; int w, h; int builtPx; };
 static MexSprite gMexCache[1024];
 static void* gMexCacheMap = NULL;
 static bool      gMexCacheInit = false;
@@ -1644,10 +1647,14 @@ static const char* Def_Desc(FeatureDefStruct* d) { return (const char*)((char*)d
 static void MexCacheFlush()
 {
 	for (int i = 0; i < 1024; ++i) {
-		if (gMexCache[i].bits) { delete[] gMexCache[i].bits; gMexCache[i].bits = NULL; }
+		if (gMexCache[i].rgba) { delete[] gMexCache[i].rgba; gMexCache[i].rgba = NULL; }
 		gMexCache[i].builtPx = 0;
 	}
 }
+
+// Colour conversion + nearest-palette snapping are shared with the terrain
+// downscaler (MegamapColormap / MegamapIndexRGB / MegamapNearestIndex in
+// mapParse.cpp) so feature sprites and the terrain use one colour path.
 
 static int NameEqI(const char* a, const char* b)
 {
@@ -1736,34 +1743,71 @@ static MexSprite* GetMexSprite(int defIndex, FeatureDefStruct* def, int targetPx
 {
 	if (defIndex < 0 || defIndex >= 1024) return NULL;
 	MexSprite* s = &gMexCache[defIndex];
-	if (s->bits && s->builtPx == targetPx) return s;
-	if (s->bits) { delete[] s->bits; s->bits = NULL; }
+	if (s->rgba && s->builtPx == targetPx) return s;
+	if (s->rgba) { delete[] s->rgba; s->rgba = NULL; }
 
 	PGAFSequence seq = FeatureDefToSequence(def, defs, ndef);
-	if (!seq) return NULL; 
+	if (!seq) return NULL;
 
 	PGAFFrame fr = seq->PtrFrameAry[0].PtrFrame;
 	LPBYTE src = NULL; POINT srcA = { 0,0 };
 	InstanceGAFFrame(fr, &src, &srcA);
 	if (!src || srcA.x <= 0 || srcA.y <= 0) { if (src) free(src); return NULL; }
 
-	int maj = (srcA.x > srcA.y) ? srcA.x : srcA.y;
-	int dw = (int)((float)srcA.x * targetPx / maj + 0.5f);
-	int dh = (int)((float)srcA.y * targetPx / maj + 0.5f);
+	int sw = srcA.x, sh = srcA.y;
+	int maj = (sw > sh) ? sw : sh;
+	int dw = (int)((float)sw * targetPx / maj + 0.5f);
+	int dh = (int)((float)sh * targetPx / maj + 0.5f);
 	if (dw < 1) dw = 1; if (dh < 1) dh = 1;
 
-	BYTE trans = fr->Background;
-	LPBYTE dst = new BYTE[dw * dh];
+	BYTE bg = fr->Background;                 // transparent palette index
+	const BYTE* pal = MegamapColormap();      // same colormap the terrain uses
+
+	// Area-average (box-filter) downscale into straight-alpha RGBA. This is the
+	// terrain downscaler's "average covered source pixels" approach, extended
+	// with an alpha channel so antialiased edges keep partial coverage. Colour
+	// is averaged over COVERED (non-background) source pixels only, so the
+	// transparent backdrop never bleeds into the edge colour; alpha is the
+	// covered fraction of the box.
+	LPBYTE dst = new BYTE[dw * dh * 4];
 	for (int y = 0; y < dh; ++y) {
-		int sy = y * srcA.y / dh;
+		int sy0 = y * sh / dh;
+		int sy1 = (y + 1) * sh / dh;
+		if (sy1 <= sy0) sy1 = sy0 + 1; if (sy1 > sh) sy1 = sh;
 		for (int x = 0; x < dw; ++x) {
-			int sx = x * srcA.x / dw;
-			dst[y * dw + x] = src[sy * srcA.x + sx];
+			int sx0 = x * sw / dw;
+			int sx1 = (x + 1) * sw / dw;
+			if (sx1 <= sx0) sx1 = sx0 + 1; if (sx1 > sw) sx1 = sw;
+
+			int total = 0, cov = 0;
+			int sumR = 0, sumG = 0, sumB = 0;
+			for (int sy = sy0; sy < sy1; ++sy) {
+				const BYTE* row = src + sy * sw;
+				for (int sx = sx0; sx < sx1; ++sx) {
+					++total;
+					BYTE idx = row[sx];
+					if (idx == bg) continue;     // transparent -> 0 coverage
+					int r, g, b;
+					MegamapIndexRGB(pal, idx, &r, &g, &b);
+					sumR += r; sumG += g; sumB += b;
+					++cov;
+				}
+			}
+			BYTE* o = dst + (y * dw + x) * 4;
+			if (cov > 0) {
+				int aR = sumR / cov, aG = sumG / cov, aB = sumB / cov;
+				o[0] = (BYTE)aR;
+				o[1] = (BYTE)aG;
+				o[2] = (BYTE)aB;
+				o[3] = (BYTE)((cov * 255 + total / 2) / total);   // coverage -> alpha
+			} else {
+				o[0] = o[1] = o[2] = o[3] = 0;                    // fully transparent
+			}
 		}
 	}
 	free(src);
 
-	s->bits = dst; s->w = dw; s->h = dh; s->trans = trans; s->builtPx = targetPx;
+	s->rgba = dst; s->w = dw; s->h = dh; s->builtPx = targetPx;
 	return s;
 }
 
@@ -1822,6 +1866,10 @@ void DrawFeaturesIntoMappedBits(LPBYTE bits, int Width, int Height)
 	const int   OTHER_COLOR = 165;  // other indestructible (fallback only)
 	const float HEIGHT_Z = 0.5f; // iso-lift (same as the overlay used)
 
+	// Live colormap (same one the terrain image uses) for blending the
+	// antialiased sprite edges over the terrain and snapping back to 8-bit.
+	const BYTE* pal = MegamapColormap();
+
 	for (int gy = 0; gy < fh; ++gy)
 		for (int gx = 0; gx < fw; ++gx)
 		{
@@ -1874,8 +1922,8 @@ void DrawFeaturesIntoMappedBits(LPBYTE bits, int Width, int Height)
 
 			MexSprite* spr = GetMexSprite(di, &fdef[di], target, fdef, ndef);
 
-			if (spr && spr->bits) {
-				
+			if (spr && spr->rgba) {
+
 				// Anchor: X = geometric centre; Y = GAF yPosition handle (scaled
 				// to the downscaled sprite) so tall art sits on its base.
 				int anchorX = spr->w / 2; // X: geometric centre
@@ -1891,17 +1939,29 @@ void DrawFeaturesIntoMappedBits(LPBYTE bits, int Width, int Height)
 				}
 				int left = px - anchorX;
 				int top = py - anchorY;
-								
+
 				for (int yy = 0; yy < spr->h; ++yy) {
 					int Y = top + yy;
 					if (Y < 0 || Y >= Height) continue;
-					int rowS = yy * spr->w;
+					const BYTE* srow = spr->rgba + (yy * spr->w) * 4;
 					int rowD = Y * Width;
 					for (int xx = 0; xx < spr->w; ++xx) {
 						int X = left + xx;
 						if (X < 0 || X >= Width) continue;
-						BYTE c = spr->bits[rowS + xx];
-						if (c != spr->trans) bits[rowD + X] = c;   // fog pass greys this later
+						const BYTE* sp = srow + xx * 4;
+						int a = sp[3];
+						if (a == 0) continue;                 // fully transparent
+						int R = sp[0], G = sp[1], B = sp[2];
+						if (a < 255) {
+							// alpha-blend the antialiased edge over the terrain
+							int dr, dg, db;
+							MegamapIndexRGB(pal, bits[rowD + X], &dr, &dg, &db);
+							R = (R * a + dr * (255 - a)) / 255;
+							G = (G * a + dg * (255 - a)) / 255;
+							B = (B * a + db * (255 - a)) / 255;
+						}
+						// snap back to an 8-bit index; fog pass greys this later
+						bits[rowD + X] = MegamapNearestIndex(pal, R, G, B);
 					}
 				}
 			}

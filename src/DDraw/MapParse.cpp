@@ -22,6 +22,36 @@ LPLOGPALETTE TNTtoMiniMap::TALogPalette_Ptr= NULL;
 int TNTtoMiniMap::PaletteRefCount= 0;
 
 extern RGBQUAD rqAry[256];
+
+// ===== shared megamap colour helpers (see mapParse.h) =====
+const BYTE* MegamapColormap()
+{
+	if (TAProgramStruct_PtrPtr && *TAProgramStruct_PtrPtr)
+		return (const BYTE*)(*TAProgramStruct_PtrPtr) + 0x214;   // live colormap, R,G,B,0
+	return NULL;
+}
+
+void MegamapIndexRGB(const BYTE* pal, BYTE idx, int* r, int* g, int* b)
+{
+	if (pal) { *r = pal[idx * 4 + 0]; *g = pal[idx * 4 + 1]; *b = pal[idx * 4 + 2]; }
+	else     { *r = rqAry[idx].rgbRed; *g = rqAry[idx].rgbGreen; *b = rqAry[idx].rgbBlue; }
+}
+
+BYTE MegamapNearestIndex(const BYTE* pal, int R, int G, int B)
+{
+	int bestDist = 0x7fffffff, bestI = 0;
+	for (int i = 0; i < 256; ++i)
+	{
+		int pr, pg, pb;
+		if (pal) { pr = pal[i * 4 + 0]; pg = pal[i * 4 + 1]; pb = pal[i * 4 + 2]; }
+		else     { pr = rqAry[i].rgbRed; pg = rqAry[i].rgbGreen; pb = rqAry[i].rgbBlue; }
+		int dr = pr - R, dg = pg - G, db = pb - B;
+		int d = dr * dr + dg * dg + db * db;
+		if (d < bestDist) { bestDist = d; bestI = i; }
+	}
+	return (BYTE)bestI;
+}
+
 TNTtoMiniMap::TNTtoMiniMap ()
 {
 	myMiniMap= new MiniMapPicture ( 3200, 1800);
@@ -277,11 +307,7 @@ LPBYTE MiniMapPicture::StretchTATNTDataToMiniMap (PTNTHeaderStruct TATNT_PTNTH)
 
 	// Live colormap from game (R,G,B,0 layout per entry) for accurate RGB averaging of tile pixels.
 	// Falls back to rqAry (BGRx) only if no game struct (should not happen for in-game TNT minimap).
-	BYTE* palBase = NULL;
-	if (TAProgramStruct_PtrPtr && *TAProgramStruct_PtrPtr)
-	{
-		palBase = (BYTE*)(*TAProgramStruct_PtrPtr) + 0x214;
-	}
+	const BYTE* palBase = MegamapColormap();
 
 	int srcPixelW = MapDataWidth_I * 32;
 	int srcPixelH = MapDataHeight_I * 32;
@@ -328,18 +354,7 @@ LPBYTE MiniMapPicture::StretchTATNTDataToMiniMap (PTNTHeaderStruct TATNT_PTNTH)
 					BYTE c = tileBits[ty * 32 + tx];
 
 					int r, g, b;
-					if (palBase)
-					{
-						r = palBase[c * 4 + 0];
-						g = palBase[c * 4 + 1];
-						b = palBase[c * 4 + 2];
-					}
-					else
-					{
-						r = rqAry[c].rgbRed;
-						g = rqAry[c].rgbGreen;
-						b = rqAry[c].rgbBlue;
-					}
+					MegamapIndexRGB(palBase, c, &r, &g, &b);
 					sumR += r;
 					sumG += g;
 					sumB += b;
@@ -354,35 +369,8 @@ LPBYTE MiniMapPicture::StretchTATNTDataToMiniMap (PTNTHeaderStruct TATNT_PTNTH)
 				int avgG = sumG / count;
 				int avgB = sumB / count;
 
-				// Find nearest color in the colormap (brute force Euclidean RGB, 256 is cheap)
-				int bestDist = 0x7fffffff;
-				int bestI = 0;
-				for (int i = 0; i < 256; ++i)
-				{
-					int pr, pg, pb;
-					if (palBase)
-					{
-						pr = palBase[i * 4 + 0];
-						pg = palBase[i * 4 + 1];
-						pb = palBase[i * 4 + 2];
-					}
-					else
-					{
-						pr = rqAry[i].rgbRed;
-						pg = rqAry[i].rgbGreen;
-						pb = rqAry[i].rgbBlue;
-					}
-					int dr = pr - avgR;
-					int dg = pg - avgG;
-					int db = pb - avgB;
-					int d = dr*dr + dg*dg + db*db;
-					if (d < bestDist)
-					{
-						bestDist = d;
-						bestI = i;
-					}
-				}
-				MiniMapByte = (BYTE)bestI;
+				// Snap the averaged colour to the nearest colormap entry.
+				MiniMapByte = MegamapNearestIndex(palBase, avgR, avgG, avgB);
 			}
 			else
 			{

@@ -26,6 +26,9 @@ MappedMap::MappedMap (int Width, int Height)
 	Width_m= Width;
 	Height_m= Height;
 	MappedBits= static_cast<LPBYTE>(malloc ( Width_m* Height_m+ 1));
+	m_baseBits= static_cast<LPBYTE>(malloc ( Width_m* Height_m+ 1));
+	m_basePixelSrc= NULL;
+	m_baseFeatureMap= NULL;
 	m_lastDrawGameTime = -1;
 
 	// Sentinel keys so the first NowDrawMapped call always rebuilds the LUT.
@@ -47,6 +50,13 @@ MappedMap::~MappedMap()
 		LPBYTE MappedBits_v= MappedBits;
 		MappedBits= NULL;
 		free ( MappedBits_v);
+	}
+
+	if (m_baseBits)
+	{
+		LPBYTE base_v= m_baseBits;
+		m_baseBits= NULL;
+		free ( base_v);
 	}
 
 	ReleaseMutex ( Event_h);
@@ -90,30 +100,50 @@ BadEnd:
 		return TRUE;
 	}
 
-	if (PixelBits)
+	// Build the static base image (terrain + baked feature sprites) ONCE per
+	// map. The terrain source and the indestructible-feature layout don't
+	// change during a game, so the expensive per-pixel feature composite must
+	// not run every tick — only the fog pass below is tick-dependent.
+	void* featureMap = (*TAmainStruct_PtrPtr) ? (void*)(*TAmainStruct_PtrPtr)->FeatureMap : NULL;
+	if (PixelBits &&
+		(m_basePixelSrc != PixelBits || m_baseFeatureMap != featureMap))
 	{
-		PROFILE_SCOPE("MM.MD_FullCopy");
+		PROFILE_SCOPE("MM.MD_BuildBase");
 		const int rows = AspectSrc->y;
 		const int cols = AspectSrc->x;
 		if (Width_m == cols)
 		{
-			std::memcpy(MappedBits, PixelBits, static_cast<size_t>(cols) * rows);
+			std::memcpy(m_baseBits, PixelBits, static_cast<size_t>(cols) * rows);
 		}
 		else
 		{
 			for (int i = 0; i < rows; ++i)
 			{
-				std::memcpy(MappedBits + Width_m * i, PixelBits + cols * i, cols);
+				std::memcpy(m_baseBits + Width_m * i, PixelBits + cols * i, cols);
 			}
 		}
+
+		// Bake feature markers into the terrain BEFORE the fog pass, so the
+		// LOS/gray pass fogs them for free and they layer under unit blips.
+		DrawFeaturesIntoMappedBits(m_baseBits, Width_m, Height_m);
+
+		m_basePixelSrc = PixelBits;
+		m_baseFeatureMap = featureMap;
 	}
 
-	// bake feature markers into the terrain image here, BEFORE the
-	// fog passes below, so the existing LOS/gray pass fogs them for free
-	// and they layer under the unit blips.
+	if (m_basePixelSrc == NULL)
+	{
+		// No terrain source yet (PixelBits never supplied) — nothing valid to
+		// draw. Bail and retry next frame rather than fog an empty buffer.
+		goto BadEnd;
+	}
 
-	DrawFeaturesIntoMappedBits(MappedBits, Width_m, Height_m);
-	
+	// Per-tick: refresh the working image from the static base, then apply fog.
+	{
+		PROFILE_SCOPE("MM.MD_FullCopy");
+		std::memcpy(MappedBits, m_baseBits, static_cast<size_t>(Width_m) * Height_m);
+	}
+
 	if (NOMAPPING==(NOMAPPING&((*TAmainStruct_PtrPtr)->LosType)))
 	{//
 
