@@ -67,6 +67,11 @@ public:
 	// When false the build menu behaves stock. Default ON.
 	bool GetBuildMenuRotationOverlayEnabled();
 
+	// True when the player wants a solid black backdrop drawn behind in-game
+	// chat text (top-left) for legibility. Default OFF. Read each frame by
+	// ChatBackdrop::Draw.
+	bool GetChatBackdropEnabled();
+
   private:
 	// all widgets
 	// (m_widgets vector is inherited from DialogBase)
@@ -78,6 +83,7 @@ public:
 	std::shared_ptr <VirtualKeyField> m_megaMapVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_rotateBuildVirtualKeyField;
 	std::shared_ptr <Button>          m_buildMenuRotationOverlayButton;
+	std::shared_ptr <Button>          m_chatBackdropButton;
 	std::shared_ptr <IntegerField> m_mexSnapRadiusIntegerField;
 	std::shared_ptr <IntegerField> m_wreckSnapRadiusIntegerField;
 	std::shared_ptr <TextField> m_chatMacroTextField;

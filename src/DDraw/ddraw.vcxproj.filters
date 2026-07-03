@@ -232,6 +232,12 @@
     <ClCompile Include="HudNotifications.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ChatBackdrop.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ChatFont.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="WeaponTdfHook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -523,6 +529,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HudNotifications.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ChatBackdrop.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ChatFont.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="LagSwitchGuard.h">

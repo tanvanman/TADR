@@ -26,6 +26,7 @@ using namespace std;
 #include "GUIExpand.h"
 #include "StartPositions.h"
 #include "AutoTeam.h"
+#include "ChatBackdrop.h"
 #include "MultiplayerSchemaUnits.h"
 #include "UnitDefExtensions.h"
 #include "unitrotate.h"
@@ -192,6 +193,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 		StartPositions::GetInstance();
 		AutoTeam::Install();
+		ChatBackdrop::Install();
 		MultiplayerSchemaUnits::GetInstance();
 		ExplosionCapsTelemetry::Install();
 
