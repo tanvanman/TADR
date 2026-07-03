@@ -486,7 +486,19 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					}*/
 					return true;
 				}
-				if ((GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
+				{
+				bool megamapBlitingSnap = false;
+#if USEMEGAMAP
+				megamapBlitingSnap = GUIExpander
+					&& GUIExpander->myMinimap
+					&& GUIExpander->myMinimap->Controler
+					&& GUIExpander->myMinimap->Controler->IsBliting();
+#endif
+				// Suppress mex/wreck click-snap while the megamap overview is up:
+				// snapping there fires a build on button-DOWN that doubles up
+				// with the megamap's own placement, and snapping to metal spots
+				// from the zoomed-out overview is not what the player wants.
+				if (!megamapBlitingSnap && (GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
 				{
 					RECT& gameScreenRect = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
 					int mouseScreenX = LOWORD(lParam);
@@ -548,6 +560,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 							return DraggingUnitOrders != NULL;
 						}
 					}
+				}
 				}
 				break;
 
@@ -640,7 +653,16 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					DraggingUnitOrdersBuildRectangleColor = -1;
 					ClickSnapPreviewBuild = false;
 
-					if ((GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
+					bool megamapBlitingSnap = false;
+#if USEMEGAMAP
+					megamapBlitingSnap = GUIExpander
+						&& GUIExpander->myMinimap
+						&& GUIExpander->myMinimap->Controler
+						&& GUIExpander->myMinimap->Controler->IsBliting();
+#endif
+					// No mex/wreck snap preview over the megamap overview (see
+					// the matching guard in the WM_LBUTTONDOWN handler).
+					if (!megamapBlitingSnap && (GetAsyncKeyState(ClickSnapOverrideKey) & 0x8000) == 0) // hold down assigned VK to temporarily disable
 					{
 						RECT& gameScreenRect = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
 						int mouseScreenX = LOWORD(lParam);

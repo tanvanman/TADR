@@ -67,12 +67,10 @@ public:
 	// When false the build menu behaves stock. Default ON.
 	bool GetBuildMenuRotationOverlayEnabled();
 
-	// Build-preview rendering style. Read by CBuildGhost.
-	static const int BUILD_PREVIEW_STATIC_WIRE      = 0;
-	static const int BUILD_PREVIEW_SHIMMER_WIRE     = 1;
-	static const int BUILD_PREVIEW_FULL             = 2;
-	static const int BUILD_PREVIEW_STATIC_WIRE_FILL = 3;
-	int GetBuildPreviewStyle();
+	// True when the player wants a solid black backdrop drawn behind in-game
+	// chat text (top-left) for legibility. Default OFF. Read each frame by
+	// ChatBackdrop::Draw.
+	bool GetChatBackdropEnabled();
 
   private:
 	// all widgets
@@ -85,6 +83,7 @@ public:
 	std::shared_ptr <VirtualKeyField> m_megaMapVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_rotateBuildVirtualKeyField;
 	std::shared_ptr <Button>          m_buildMenuRotationOverlayButton;
+	std::shared_ptr <Button>          m_chatBackdropButton;
 	std::shared_ptr <IntegerField> m_mexSnapRadiusIntegerField;
 	std::shared_ptr <IntegerField> m_wreckSnapRadiusIntegerField;
 	std::shared_ptr <TextField> m_chatMacroTextField;

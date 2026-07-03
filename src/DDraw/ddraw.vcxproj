@@ -328,6 +328,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="UnitDefExtensions.cpp" />
     <ClCompile Include="PacketChatRouter.cpp" />
     <ClCompile Include="HudNotifications.cpp" />
+    <ClCompile Include="ChatBackdrop.cpp" />
+    <ClCompile Include="ChatFont.cpp" />
     <ClCompile Include="WeaponTdfHook.cpp" />
     <ClCompile Include="WeaponIdOverflow.cpp" />
     <ClCompile Include="WeaponFiredExt.cpp" />
@@ -353,6 +355,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="DialogBase.h" />
     <ClInclude Include="PacketChatRouter.h" />
     <ClInclude Include="HudNotifications.h" />
+    <ClInclude Include="ChatBackdrop.h" />
+    <ClInclude Include="ChatFont.h" />
     <ClInclude Include="DebugPipeServer.h" />
     <ClInclude Include="VoteDialog.h" />
     <ClInclude Include="LagSwitchGuard.h" />

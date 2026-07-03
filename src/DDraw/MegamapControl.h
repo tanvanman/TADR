@@ -64,7 +64,7 @@ private:
 
 	void MoveScreen ( int TAX,  int TAY,  int TAZ);
 	void MegamapMoveSceen (int xPos, int yPos);
-	BOOL SelectDown (int x, int y, bool out);
+	BOOL SelectDown (int x, int y, bool out, bool shift);
 	BOOL SelectUp (int x, int y, bool out, bool shift);
 	BOOL SelectMove (int x, int y, bool Out_b, bool LBMD);
 
@@ -83,6 +83,7 @@ private:
 	InlineSingleHook * GetGridPosFeatureHook;
 
 	int SelectedCount;
+	BOOL OrderIssuedOnDown;
 	BOOL InControl;
 	BOOL InMap;
 	selectbuttom::SELECTBUTTOM SelectState;

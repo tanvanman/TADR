@@ -118,6 +118,7 @@ void MegaMapControl::Init (FullScreenMinimap * parent_p, RECT * MegaMapScreen_p,
 	TAmainStruct_Ptr= *TAmainStruct_PtrPtr;
 
 	SelectedCount= 0;
+	OrderIssuedOnDown= FALSE;
 
 	WheelMoveMegaMap= WheelMoveMegaMap_v;
 	DoubleClickMoveMegamap= DoubleClickMoveMegamap_v;
@@ -414,12 +415,12 @@ bool MegaMapControl::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 				switch (Msg)
 				{
 				case WM_LBUTTONDOWN:
-					if (! SelectDown ( xPos, yPos, false))
+					if (! SelectDown ( xPos, yPos, false, shift))
 					{
 						LeftDown ( xPos, yPos, shift);
 					}
-						
-						
+
+
 					break;
 				case WM_LBUTTONDBLCLK:
 					DoubleClick ( xPos, yPos, shift);
@@ -459,7 +460,7 @@ bool MegaMapControl::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 				switch (Msg)
 				{
 					case WM_LBUTTONDOWN:
-						 SelectDown ( xPos, yPos, true);
+						 SelectDown ( xPos, yPos, true, shift);
 						break;
 					case WM_LBUTTONUP:
 						 SelectedCount= CountSelectedUnits ( );
@@ -954,7 +955,7 @@ BOOL MegaMapControl::MouseMove (int x, int y)
 	return TRUE;
 }
 
-BOOL MegaMapControl::SelectDown (int x, int y, bool out)
+BOOL MegaMapControl::SelectDown (int x, int y, bool out, bool shift)
 {
 	if (false==out)
 	{
@@ -964,6 +965,27 @@ BOOL MegaMapControl::SelectDown (int x, int y, bool out)
 		SelectScreenRect.top= y;
 
 		SelectTick= GetTickCount ( );
+
+		// Issue a prepared order (build placement, move, attack, ...) on
+		// button-DOWN rather than waiting for button-UP, so a megamap click
+		// fires the order exactly once, on the press. A selection-box drag
+		// only happens when no order is prepared (PrepareOrder_Type==STOP, see
+		// SelectMove), so acting on the press here never steals a drag.
+		// MouseMapPos was already set to the cursor by the preceding mouse
+		// move, matching what SelectUp previously relied on.
+		SelectedCount= CountSelectedUnits ( );
+		if ((0<SelectedCount)
+			&&(STOP!=TAmainStruct_Ptr->PrepareOrder_Type))
+		{
+			MOUSEEVENT MEvent;
+			memset ( &MEvent, 0, sizeof(MOUSEEVENT));
+			MEvent.fwKeys= shift? 4: 0;
+
+			TAMapClick ( &MEvent);
+
+			OrderIssuedOnDown= TRUE;
+			return TRUE;
+		}
 	}
 	return FALSE;
 }
@@ -1016,23 +1038,29 @@ BOOL MegaMapControl::SelectUp (int x, int y, bool out, bool shift)
 			Rtn_b= TRUE;
 		}
 	}
-	else if ((! out)
-		&&(0<SelectedCount))
+	// Prepared orders are now issued on button-DOWN (see SelectDown); the
+	// button-UP path no longer re-fires them, which previously caused a
+	// megamap build to be placed twice (once on press, once on release).
+	//
+	// We still SWALLOW the matching button-UP whenever an order was issued on
+	// this press (OrderIssuedOnDown) OR an order is currently prepared with
+	// units selected -- exactly the gate the old SelectUp used to consume the
+	// up. The second clause matters for TAHook line-building: its DOWN clicks
+	// are consumed upstream by CTAHook (so OrderIssuedOnDown is never set here),
+	// and if we let the up fall through to LeftUp, ApplySelectUnitMenu_Wapper
+	// re-applies the unit menu and drops the build cursor, aborting the line
+	// build before its orders are queued. OrderIssuedOnDown additionally covers
+	// a single (non-queued) build where TA has already cleared the prepared
+	// order back to STOP by the time the up arrives.
+	else if (OrderIssuedOnDown
+		|| ((! out)
+			&&(0<SelectedCount)
+			&&(STOP!=TAmainStruct_Ptr->PrepareOrder_Type)))
 	{
-		if (STOP!=TAmainStruct_Ptr->PrepareOrder_Type)
-		{
-			//
-			MOUSEEVENT MEvent;
-			memset ( &MEvent, 0, sizeof(MOUSEEVENT));
-			MEvent.fwKeys= shift? 4: 0;
-
-		//	ScreenPos2TAPos ( &TAmainStruct_Ptr->MouseMapPos, x, y, TRUE);
-
-			TAMapClick ( &MEvent);
-
-			Rtn_b= TRUE;
-		}
+		Rtn_b= TRUE;
 	}
+
+	OrderIssuedOnDown= FALSE;
 
 
 	SelectState= selectbuttom::none;

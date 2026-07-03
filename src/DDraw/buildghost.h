@@ -22,18 +22,37 @@ class SingleHook;
 //   TDRAW_BUILDGHOST_FULL3D = 1  - Render the full 3D model into our own
 //                                  pixel + depth buffers, flat-shade in a
 //                                  cycling green ramp, overlay visible
-//                                  edges. Default.
+//                                  edges.
+//   TDRAW_BUILDGHOST_WIRE   = 2  - Same 3D machinery as FULL3D, but render
+//                                  ONLY the shimmering edge frame plus the
+//                                  z-plane scanline — never the flat-shaded
+//                                  3D fill. Default.
+//
+// FULL3D and WIRE share the whole rasteriser/cache; the WIRE/FULL3D split is
+// purely a render-stage choice. Use TDRAW_BUILDGHOST_HAS_3D below to guard
+// any code that both modes need (cache, hooks, 3DO helpers).
 // =============================================================================
 #define TDRAW_BUILDGHOST_RECT       0
 #define TDRAW_BUILDGHOST_FULL3D     1
+#define TDRAW_BUILDGHOST_WIRE       2
 
 #ifndef TDRAW_BUILDGHOST_MODE
-#define TDRAW_BUILDGHOST_MODE TDRAW_BUILDGHOST_FULL3D
+#define TDRAW_BUILDGHOST_MODE TDRAW_BUILDGHOST_WIRE
 #endif
 
 #if TDRAW_BUILDGHOST_MODE != TDRAW_BUILDGHOST_RECT && \
-    TDRAW_BUILDGHOST_MODE != TDRAW_BUILDGHOST_FULL3D
-#error TDRAW_BUILDGHOST_MODE must be one of TDRAW_BUILDGHOST_{RECT,FULL3D}
+    TDRAW_BUILDGHOST_MODE != TDRAW_BUILDGHOST_FULL3D && \
+    TDRAW_BUILDGHOST_MODE != TDRAW_BUILDGHOST_WIRE
+#error TDRAW_BUILDGHOST_MODE must be one of TDRAW_BUILDGHOST_{RECT,FULL3D,WIRE}
+#endif
+
+// True for any mode that builds the 3D model into our own buffers (FULL3D and
+// WIRE). RECT mode reduces to empty stubs and needs none of it.
+#if (TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D) || \
+    (TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIRE)
+#define TDRAW_BUILDGHOST_HAS_3D 1
+#else
+#define TDRAW_BUILDGHOST_HAS_3D 0
 #endif
 
 // CBuildGhost — owns the per-(unitType, rotation) sprite cache and renders
@@ -87,7 +106,7 @@ public:
     void SetRotateKeyDiscovered();
     bool IsRotateKeyDiscovered() const { return m_rotateBuildKeyDiscovered; }
 
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#if TDRAW_BUILDGHOST_HAS_3D
 
     // GAFFrame layout (0x18 bytes total; matches engine GAFFrame struct).
     // Sprite_RemapColorsByDepthRange (0x458d30) reads exactly this layout:
@@ -137,7 +156,7 @@ private:
 
     std::vector<std::shared_ptr<SingleHook>> m_hooks;
 
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#if TDRAW_BUILDGHOST_HAS_3D
     const NanoframeSprite3D* GetNanoframeSprite3D(unsigned unitInfoIdx, int rotation);
     std::unordered_map<unsigned, NanoframeSprite3D> m_nanoframe3DCache;
 

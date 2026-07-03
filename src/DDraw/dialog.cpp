@@ -142,6 +142,11 @@ Dialog::Dialog(BOOL Vidmem_a)
 	m_widgets.push_back(std::make_shared<Label>(COL2 + m_enableFullRingsButton->m_width + 4, ROW(11), "Enable FullRings"));
 #endif
 
+	// Solid black backdrop behind in-game chat text (legibility aid). Default off.
+	m_widgets.push_back(m_chatBackdropButton = std::make_shared<Button>(COL2, ROW(12), lpCheckBox,
+		0, 2, false, std::vector<std::string>(), "ChatBackdrop", std::function<void(int)>()));
+	m_widgets.push_back(std::make_shared<Label>(COL2 + m_chatBackdropButton->m_width + 4, ROW(12), "Accessible Chat"));
+
 	m_widgets.push_back(m_vsyncButton = std::make_shared<Button>(COL2, ROW(13), lpCheckBox,
 		0, 2, false, std::vector<std::string>(), "VSync"));
 	m_widgets.push_back(std::make_shared<Label>(COL2 + m_vsyncButton->m_width + 4, ROW(13), "VSync"));
@@ -308,9 +313,11 @@ bool Dialog::GetBuildMenuRotationOverlayEnabled()
 		|| m_buildMenuRotationOverlayButton->GetState() != 0;
 }
 
-int Dialog::GetBuildPreviewStyle()
+bool Dialog::GetChatBackdropEnabled()
 {
-	return BUILD_PREVIEW_FULL;
+	// Default OFF: absent widget (very early ctor calls) => disabled.
+	return m_chatBackdropButton
+		&& m_chatBackdropButton->GetState() != 0;
 }
 
 void Dialog::SetAll()

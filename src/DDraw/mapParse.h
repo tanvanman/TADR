@@ -44,6 +44,23 @@ private:
 	DWORD WholeBytesInPixelsBits;
 };
 
+// ===== shared megamap colour helpers =====
+// The megamap terrain image is 8-bit, indexing the live in-game colormap.
+// These helpers expose that colormap and the area-average + nearest-palette
+// snapping used when downscaling so the terrain downscaler and the feature
+// overlay both convert/snap colours identically (no divergent palette path).
+
+// Live colormap base (256 entries, R,G,B,0 layout) from the game struct;
+// NULL before the game struct exists (callers then fall back to rqAry).
+const BYTE* MegamapColormap();
+
+// RGB of a palette index via the live colormap (falls back to rqAry).
+void MegamapIndexRGB(const BYTE* pal, BYTE idx, int* r, int* g, int* b);
+
+// Nearest colormap index for an arbitrary RGB (brute-force Euclidean over the
+// 256 entries; cheap). Uses the live colormap, falls back to rqAry.
+BYTE MegamapNearestIndex(const BYTE* pal, int r, int g, int b);
+
 class TNTtoMiniMap
 {
 public:
