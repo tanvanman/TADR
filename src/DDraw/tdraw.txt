@@ -418,10 +418,10 @@ NEW FEATURES IN DETAIL:
   - Reload time: up to 16 levels or the number of VeterancyThresholds, whichever is lower
   - Accuracy buff: no limit
 
-- Weapon TDF flags: nottoair, nottounderwater and surfacefire
+- Weapon TDF flags: nottoair, nottounderwater, surfacefire and nomapweaponalert
 
-  Two new optional keys for weapon definition files (weapons/*.tdf) give mod developers
-  finer control over which unit types a weapon can target.
+  Optional keys for weapon definition files (weapons/*.tdf) give mod developers
+  finer control over targeting and alert behaviour.
 
   nottoair=1
     The weapon cannot target or fire at flying units (units with an airborne movement state).
@@ -465,6 +465,23 @@ NEW FEATURES IN DETAIL:
       ...
       waterweapon=1;
       surfacefire=1;
+      }
+
+  nomapweaponalert=1
+    For zero-damage map weapons. When a projectile has no attacker unit and comes
+    from a nomapweaponalert weapon that has damage=0, TADR suppresses the
+    under-attack message, alarm sound, and minimap/megamap projectile alert dots.
+    The projectile itself still appears in the world. Weapons fired by units, or
+    weapons with damage above 0, are not affected. This is useful for weather
+    effects such as harmless hail, storms, or other atmospheric map weapons.
+
+    Example:
+
+      [WEATHER_HAIL]
+      {
+      ...
+      damage=0;
+      nomapweaponalert=1;
       }
 
 - Building rotation

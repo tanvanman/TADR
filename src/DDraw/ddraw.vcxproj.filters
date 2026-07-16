@@ -253,6 +253,9 @@
     <ClCompile Include="SurfaceFire.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ZeroDamageMapWeapons.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="LagSwitchGuard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -550,6 +553,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DebugPipeServer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ZeroDamageMapWeapons.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="tafstatusexporter.h">

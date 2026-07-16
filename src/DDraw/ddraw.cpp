@@ -39,6 +39,7 @@ using namespace std;
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
 #include "ExplosionCapsTelemetry.h"
+#include "ZeroDamageMapWeapons.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -215,6 +216,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
 		SurfaceFire::Install();
+		ZeroDamageMapWeapons::Install();
 		VoteReject::Install();
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponIdOverflow::Install();
@@ -230,6 +232,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Stop();
 #endif
+		ZeroDamageMapWeapons::Shutdown();
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponFiredExt::Shutdown();
 		WeaponIdOverflow::Shutdown();

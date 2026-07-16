@@ -11,6 +11,7 @@
 
 #include "ProjectilesMap.h"
 #include "fullscreenminimap.h"
+#include "ZeroDamageMapWeapons.h"
 
 
 #if USEMEGAMAP
@@ -105,6 +106,11 @@ BOOL  ProjectileMap::IsPosInPlayerLos (unsigned int XPos_Tile, unsigned int YPos
 
 void  ProjectileMap::DrawProjectile (LPBYTE PixelBits, POINT * Aspect, ProjectileStruct * Projectile_p)
 {
+	if (ZeroDamageMapWeapons::ShouldHideProjectileMarker(Projectile_p))
+	{
+		return;
+	}
+
 	int X= Projectile_p->XPos;
 	int Y= Projectile_p->YPos- Projectile_p->ZPos/ 2;
 
