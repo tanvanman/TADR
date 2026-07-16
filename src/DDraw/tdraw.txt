@@ -46,6 +46,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*2026.7.17
+- Fix bug: dropped players not being rejected when watching replays
+
 *2026.7.3
 - Accessible chat: optional black backdrop and crisp high-legibility font behind in-game chat text (ctrl-F2 "Accessible Chat")
 - Antialiasing and alpha blending for megamap features
