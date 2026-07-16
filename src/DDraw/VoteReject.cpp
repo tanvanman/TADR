@@ -240,14 +240,21 @@ int __stdcall VoteReject::ShowRejectWindowRouter(PInlineX86StackBuffer pBuf)
 		return 0;
 	}
 
-	if (!DataShare->PlayingDemo)
-	{
-		unsigned targetDpid = (unsigned)pBuf->Edi;
-		if (targetDpid != 0 && targetDpid != 0xFFFFFFFF)
-			VoteReject::GetInstance()->ProposeReject(targetDpid, 6);
-	}
+	// Replay: let TA open its native TIMEOUT.GUI unmodified (return 0). Its ticker,
+	// TimeoutDialog_Ticker @ 0x00453640, auto-calls Send_PacketPlayerState_1B(dpid,6)
+	// once the countdown elapses — with NO user click — and that is the ONLY thing
+	// that removes a dropped player during playback (a replay has no live voters).
+	// Redirecting to the epilogue here suppressed ShowRejectWindow, so the ticker was
+	// never installed, the dropped player was never rejected, his units froze and the
+	// replay eventually lagged out (game 182125). Matches pre-VoteReject dll behaviour.
+	if (DataShare->PlayingDemo)
+		return 0;
 
-	// Always skip to ShowRejectWindow epilogue — we never want the modal dialog.
+	unsigned targetDpid = (unsigned)pBuf->Edi;
+	if (targetDpid != 0 && targetDpid != 0xFFFFFFFF)
+		VoteReject::GetInstance()->ProposeReject(targetDpid, 6);
+
+	// In-game: skip to ShowRejectWindow epilogue — we never want the modal dialog.
 	pBuf->rtnAddr_Pvoid = (LPVOID)0x00453C0C;
 	return X86STRACKBUFFERCHANGE;
 }
@@ -272,7 +279,16 @@ int __stdcall VoteReject::MultiDropoutRouter(PInlineX86StackBuffer pBuf)
 	if (*(int*)(pBuf->Esp + 0x10) == 0)
 		return 0;
 
-	if (DataShare->TAProgress == TAInGame && !DataShare->PlayingDemo)
+	// Replay: don't intercept — run TA's native second loop (return 0). For simultaneous
+	// dropouts TA natively auto-rejects nobody (the second loop only calls ShowRejectWindow
+	// for a single dropout; multi-dropout falls through to ShowRejectWindow(0xFFFFFFFF), a
+	// no-op), so this matches pre-VoteReject dll behaviour. Redirecting to the epilogue was
+	// equivalent for the multi case, but returning 0 keeps the replay contract uniform with
+	// ShowRejectWindowRouter: in a replay the hooks defer entirely to TA.
+	if (DataShare->PlayingDemo)
+		return 0;
+
+	if (DataShare->TAProgress == TAInGame)
 	{
 		int gameNow     = (int)pBuf->Eax;          // GameRunSec() from 0x00453C52
 		int gameTimeSec = *(int*)0x00512c7c;        // GameTimeSec (min reference)
