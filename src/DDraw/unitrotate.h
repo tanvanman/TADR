@@ -23,6 +23,18 @@ class InlineSingleHook;
 // Covers both footprint AND yardmap rotation, so asymmetric-yardmap factories
 // (vehicle lab, advanced vehicle lab, etc.) pathfind correctly at 90°/180°/270°.
 //
+// Rotation survives every engine path that RE-creates an existing structure:
+// unit sharing (UNITS_GiveUnit), resurrection (Order_Resurrect restores the
+// heading stored in the wreck's FeatureAnimData), and save/load
+// (LOADGAME_LoadUnit restores the saved heading). Each of those paths arms a
+// pending-creation rotation that the UNITS_CreateUnit entry hook consumes to
+// install the footprint/yardmap swap for the duration of the create — so
+// SizeFootX/Z, XZGridPos and the initial footprint stamp all bake rotated,
+// exactly like a player-issued rotated build. The runtime yardmap-reader
+// hooks identify rotated units purely from live state (building whose
+// quarter-rounded heading differs from the default AND whose FBI Rotations=
+// key permits that facing), so recreated units need no side-table entry.
+//
 // Pure rotation/state plumbing — the placement-preview ghost rendering lives
 // separately in CBuildGhost (buildghost.h), which queries CUnitRotate for the
 // current rotation index and IsRotationAllowed.
@@ -84,15 +96,6 @@ public:
     int  TakeOrderRotation(void* orderPtr);
     void ClearOrderRotation(void* orderPtr);
 
-    // Per-unit rotation side-set: which concrete UnitStruct instances had their
-    // heading_angle written by our PostCreate. The runtime reader hook only
-    // swaps yardmap for units in this set, so AI-placed structures with large
-    // buildangle (e.g. CORSOLAR with buildangle=0x8000) don't get treated as
-    // if we'd rotated them.
-    void MarkUnitRotated(void* unitPtr);
-    bool IsUnitRotated(void* unitPtr) const;
-    void UnmarkUnitRotated(void* unitPtr);
-
     // Retrieve (or lazily build) a rotated yardmap copy for (unitTypeIdx, rotation).
     // Returns nullptr if no yardmap or rotation is 0. Caches indefinitely.
     BYTE* GetRotatedYardmap(unsigned int unitTypeIdx, int rotation);
@@ -153,7 +156,6 @@ private:
     int m_activeYardmapRotatedIdx;      // yardmap-swap active for which UNITINFO
 
     std::unordered_map<void*, int> m_orderRotation;
-    std::unordered_map<void*, int> m_rotatedUnits;  // UnitStruct* → rotation (1..3)
 
     struct YardmapCache
     {

@@ -11,6 +11,7 @@
 #include "Profiler.h"
 
 #include <cctype>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -95,6 +96,53 @@ namespace
     // outgoing packet carries the right value. __stdcall, 1 arg (pUnit) at [Esp+4].
     constexpr unsigned ADDR_SendNewUnitsP09             = 0x00456050;
 
+    // UNITS_CreateUnit entry — the single allocation/bake point every unit
+    // creation funnels through. UNITS_AllocateUnit (called inside) bakes
+    // SizeFootX/Z from UNITINFO->nFootPrintX/Z, derives XZGridPos FROM those
+    // dims, and UNITS_RebuildFootPrint then stamps the initial map occupancy
+    // from them + UNITINFO->p_YardMap. So any path that recreates a rotated
+    // building MUST have the UNITINFO footprint/yardmap swap installed for
+    // the duration of this call. Path-specific pre-hooks (give / resurrect /
+    // load, below) arm g_pendingCreateRotation; the entry hook consumes it,
+    // installs the swap and clears it via return thunk.
+    // Prologue: PUSH ECX (1) + MOV EAX,[ESP+8] (4) = 5 displaceable bytes.
+    constexpr unsigned ADDR_UNITS_CreateUnit_Entry      = 0x00485f50;
+
+    // UNITS_GiveUnit entry — transfers a unit to another player by creating a
+    // brand-new UnitStruct via UNITS_CreateUnit and copying Volume (bank/
+    // heading/pitch) across AFTERWARDS — too late for the footprint bake.
+    // Entry hook derives the rotation from the source unit (local give) or
+    // from the 0x14 give-packet heading (receive side) and arms the pending
+    // creation rotation. __stdcall, RET 0xC:
+    //   [Esp+4]=UnitStruct* source, [Esp+8]=PlayerStruct* target, [Esp+C]=pkt.
+    // Prologue: SUB ESP,0x18 (3) + PUSH EBX (1) + PUSH EBP (1) = 5 bytes.
+    constexpr unsigned ADDR_UNITS_GiveUnit_Entry        = 0x00488570;
+
+    // Order_Resurrect (0x404db0) tick handler. state_step 5 calls
+    // UNITS_CreateUnit at the wreck position, then restores bank/heading/
+    // pitch from the corpse feature's FeatureAnimData.rotation (the wreck
+    // remembers the dead unit's full orientation — UNITS_CreateCorpse passes
+    // &pUnit->Volume to FEATURES_PlaceFeatureOnMap). Entry hook replicates
+    // the wreck lookup to learn the heading BEFORE the create and arms the
+    // pending rotation. __stdcall int:
+    //   [Esp+4]=UnitStruct* builder, [Esp+8]=OrderStruct*, [Esp+C]=flags.
+    // Prologue: MOV EAX,[0x511de8] = exactly 5 bytes.
+    constexpr unsigned ADDR_Order_Resurrect_Entry       = 0x00404db0;
+
+    // LOADGAME_LoadUnit: the CALL UNITS_CreateUnit instruction (E8, 5 bytes).
+    // The unit record read from the save file sits in the caller's frame; at
+    // this instruction all 8 args are pushed (ESP = frame_base - 0x20) and
+    // the record starts at frame_base+0x18, so the saved heading word
+    // (record+0x39) is at [Esp+0x71]. Verified against the post-call restore
+    // `MOV EAX,[ESP+0x4F]` at 0x48719d (frame_base-relative 0x4F = record's
+    // bank/heading dword at +0x37 after the 0x20 bytes of args are popped).
+    // LOADGAME_LoadUnit restores heading, SizeFootX/Z and XZGridPos from the
+    // save AFTER the create, then re-stamps occupancy via
+    // Unit_SetPlacedFlag_UpdateObstacles → Unit_UpdateYardmap (hooked). The
+    // envelope makes the CREATION-time stamp match, so no stale tiles from
+    // the pre-restore bake are left behind.
+    constexpr unsigned ADDR_LoadUnit_PreCreate          = 0x0048718e;
+
     // UNITS_CreateFromNetwork entry — receive-side handler for packet 0x09. The
     // engine's stock implementation ignores the heading bytes in the packet
     // (sets heading=nBuildAngle for mobile, no-op for buildings), so remote
@@ -135,7 +183,15 @@ namespace
     constexpr unsigned OFF_TA_MODEL_PTRS            = 0x14377;
 
     // --- OrderStruct offsets ---
+    constexpr unsigned OFF_ORDER_state_step         = 0x05;
+    constexpr unsigned OFF_ORDER_target_pos_x       = 0x22;
+    constexpr unsigned OFF_ORDER_target_pos_z       = 0x2A;
     constexpr unsigned OFF_ORDER_build_unitType     = 0x36;
+
+    // --- GiveUnitPacket (0x14 give-unit message, 0x18 bytes) ---
+    // [0]=type, [1]=UnitInGameIndex, [3]=targetDpID, [7]=buildProgress,
+    // [0xB]=Health, [0xF]=bank, [0x11]=heading, [0x13]=pitch, [0x15..17]=stocks.
+    constexpr unsigned OFF_GIVEPKT_heading          = 0x11;
 
     TAdynmemStruct* GetTA()
     {
@@ -204,6 +260,29 @@ namespace
     // Sentinel meaning "rotation is active but no footprint swap is needed" (0 or 180°).
     constexpr int ROT_ACTIVE_NO_SWAP = -2;
     constexpr int ROT_NONE            = -1;
+
+    // Derive the user-frame rotation index (0..3 = S/E/N/W) from a live
+    // heading word. TA's default facing is 0x8000 (NOT 0x0000) and our
+    // rotation adds rotation*0x4000 on top of any buildangle jitter, so
+    // round the delta-from-default to the nearest quarter turn. Callers must
+    // still gate on bmcode==0 and IsRotationAllowed(unitType, rotation) —
+    // that combination is what distinguishes a player-rotated structure from
+    // a structure whose FBI buildangle just happens to jitter the heading
+    // (e.g. CORSOLAR with buildangle=0x8000: its Rotations= key doesn't
+    // allow E/N/W, so a large jitter never triggers a yardmap swap).
+    inline int RotationFromHeading(WORD heading)
+    {
+        WORD deltaFromDefault = static_cast<WORD>(heading - 0x8000);
+        return (((deltaFromDefault + 0x2000) & 0xFFFF) / 0x4000) & 3;
+    }
+
+    // Compile-time guards on the packed tamem.h layouts the resurrect hook
+    // reads (wreck orientation + map tile entries).
+    static_assert(sizeof(FeatureStruct) == 0xD, "FeatureStruct must be 13 bytes (packed)");
+    static_assert(offsetof(WreckageInfoStruct, XTurn) == 0x22,
+                  "WreckageInfoStruct.XTurn (heading) must sit at +0x22");
+    static_assert(sizeof(WreckageInfoStruct) == 0x30,
+                  "WreckageInfoStruct must match FeatureAnimData stride 0x30");
 
     // Rotate a W×H yardmap by rotation*90° CW. Returns a newly-allocated array.
     // Output dimensions:
@@ -471,6 +550,86 @@ __declspec(naked) static void OrderMobileBuildReturnThunk()
         popfd
         popad
         jmp dword ptr [g_orderMobileBuildRealReturn]
+    }
+}
+
+// ---- Pending-creation rotation (give / resurrect / load-game) ----
+// Engine paths that RE-create an already-rotated structure call
+// UNITS_CreateUnit without any of our build-order plumbing, so the new
+// UnitStruct bakes unrotated SizeFootX/Z, a mis-derived XZGridPos (the grid
+// origin is computed FROM the footprint dims) and an unrotated initial
+// occupancy stamp — even though the engine restores the rotated heading
+// itself right after the create (give: copies Volume from source unit or
+// packet; resurrect: copies FeatureAnimData.rotation from the wreck; load:
+// restores the saved heading).
+//
+// Each path's pre-hook derives the rotation and arms this variable; the
+// UNITS_CreateUnit entry hook consumes it (always — even when its gates
+// reject), installs the UNITINFO footprint+yardmap swap and clears the swap
+// via return thunk when the create finishes. -1 = nothing pending.
+//
+// No pending value can leak onto an unrelated creation: the arming hooks sit
+// either directly at the CALL UNITS_CreateUnit instruction (load) or at the
+// entry of a function whose only unit creation is the one we target and
+// which cannot create units before it (give / resurrect) — those two also
+// arm a return thunk that clears a pending value left by a bail-out branch.
+static volatile int g_pendingCreateRotation = -1;
+
+static DWORD g_createUnitRealReturn = 0;
+
+extern "C" void __cdecl CreateUnitEnvelopeCleanup()
+{
+    if (CUnitRotate* self = CUnitRotate::GetInstance())
+    {
+        self->m_pendingHeading = -1;
+        self->ClearRotation();
+        self->ClearYardmapRotation();
+    }
+}
+
+__declspec(naked) static void CreateUnitReturnThunk()
+{
+    // UNITS_CreateUnit is __stdcall RET 0x20 returning UnitStruct* in EAX —
+    // stack is already at the caller's pre-call state here; preserve EAX
+    // across the cleanup call.
+    __asm
+    {
+        pushad
+        pushfd
+        call CreateUnitEnvelopeCleanup
+        popfd
+        popad
+        jmp dword ptr [g_createUnitRealReturn]
+    }
+}
+
+// ---- UNITS_GiveUnit return thunk ----
+// Clears a pending rotation the entry hook armed when the function takes a
+// branch that never reaches UNITS_CreateUnit (watcher broadcast path, early
+// validation bail-outs). GiveUnit is __stdcall void RET 0xC.
+static DWORD g_giveUnitRealReturn = 0;
+
+__declspec(naked) static void GiveUnitReturnThunk()
+{
+    __asm
+    {
+        mov dword ptr [g_pendingCreateRotation], -1
+        jmp dword ptr [g_giveUnitRealReturn]
+    }
+}
+
+// ---- Order_Resurrect return thunk ----
+// Same job as the GiveUnit thunk for resurrect bail-outs (feature vanished,
+// FeatureDef not resurrectable, create failed). __stdcall int in EAX — MOV
+// touches neither EAX nor flags.
+static DWORD g_resurrectRealReturn = 0;
+
+__declspec(naked) static void ResurrectReturnThunk()
+{
+    __asm
+    {
+        mov dword ptr [g_pendingCreateRotation], -1
+        jmp dword ptr [g_resurrectRealReturn]
     }
 }
 
@@ -757,20 +916,14 @@ static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86Strack
 
     self->m_pendingHeading = -1;
 
-    BYTE* newUnit = *reinterpret_cast<BYTE**>(X86StrackBuffer->Esp);
-    if (newUnit)
-    {
-        // Heading was already applied by SendNewUnitsP09_Entry_Proc — which
-        // fires INSIDE UNITS_CreateUnit, just before the engine broadcasts
-        // packet 0x09 with bank/heading/pitch. Doing the rotate there means
-        // the outgoing packet carries the rotated heading, and remote peers
-        // (with our CreateFromNetwork hook) end up with matching state.
-        //
-        // Mark this unit as player-rotated so the runtime reader hook knows to
-        // swap yardmap for it. (Without this, AI-placed structures with large
-        // random buildangle get mistaken for rotated ones.)
-        self->MarkUnitRotated(newUnit);
-    }
+    // Heading was already applied by SendNewUnitsP09_Entry_Proc — which
+    // fires INSIDE UNITS_CreateUnit, just before the engine broadcasts
+    // packet 0x09 with bank/heading/pitch. Doing the rotate there means
+    // the outgoing packet carries the rotated heading, and remote peers
+    // (with our CreateFromNetwork hook) end up with matching state. The
+    // runtime yardmap readers identify the unit as rotated from that
+    // heading alone (plus the bmcode / Rotations= gates), so nothing else
+    // needs recording here.
 
     // Intentionally NOT clearing m_orderRotation here. The order is still in
     // the builder's queue throughout the actual construction, and engine
@@ -787,6 +940,154 @@ static int __stdcall MobileBuild_PostCreate_Proc(PInlineX86StackBuffer X86Strack
     // the rest of Order_MobileBuild (Order_SetTargetUnit, ORDERS_NewSubOrder2Unit,
     // StartBuild_ResurrectReclaimHelp) finishes running with consistent state.
 
+    return 0;
+}
+
+// UNITS_CreateUnit entry — consume a pending creation rotation armed by the
+// give / resurrect / load pre-hooks. Installs the UNITINFO footprint+yardmap
+// swap so UNITS_AllocateUnit bakes rotated SizeFootX/Z + XZGridPos and
+// UNITS_RebuildFootPrint stamps the rotated occupancy, then arms the return
+// thunk to clear the swap. Also sets m_pendingHeading so the P09 broadcast
+// fired inside the create (SendNewUnitsP09_Entry_Proc) carries the rotated
+// heading to remote peers; the engine's own post-create heading restore then
+// overwrites the local unit with the exact original orientation.
+static int __stdcall CreateUnit_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    int rotation = g_pendingCreateRotation;
+    if (rotation < 0) return 0;   // normal path (player build / commander / …)
+    g_pendingCreateRotation = -1; // consume unconditionally — no leaks
+
+    CUnitRotate* self = CUnitRotate::GetInstance();
+    if (!self) return 0;
+
+    rotation &= 3;
+    if (rotation == 0) return 0;
+
+    // __stdcall 8 args: [Esp]=ret, [Esp+4]=ownerPacked, [Esp+8]=unitTypeIdx.
+    DWORD* stackTop = reinterpret_cast<DWORD*>(X86StrackBuffer->Esp);
+    unsigned unitTypeIdx = stackTop[2] & 0xFFFF;
+    if (unitTypeIdx == 0) return 0;
+
+    BYTE* ui = GetUnitInfoRaw(unitTypeIdx);
+    if (!ui) return 0;
+    if (*(ui + OFF_UNITINFO_bmcode) != 0) return 0;   // only buildings
+    if (!self->IsRotationAllowed(unitTypeIdx, rotation)) return 0;
+
+    self->ApplyRotationTo(unitTypeIdx, rotation);
+    self->ApplyYardmapRotationTo(unitTypeIdx, rotation);
+    self->m_pendingHeading = rotation;
+
+    g_createUnitRealReturn = stackTop[0];
+    stackTop[0] = reinterpret_cast<DWORD>(&CreateUnitReturnThunk);
+    return 0;
+}
+
+// UNITS_GiveUnit entry — arm the pending creation rotation from the unit
+// being given away, so the recipient's copy is created inside a rotation
+// envelope. Heading source: the 0x14 give-packet when present (receive side
+// of a network give — the packet carries the giver's live Volume), else the
+// local source unit.
+static int __stdcall GiveUnit_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    CUnitRotate* self = CUnitRotate::GetInstance();
+    if (!self) return 0;
+
+    DWORD* stackTop = reinterpret_cast<DWORD*>(X86StrackBuffer->Esp);
+    BYTE* srcUnit = reinterpret_cast<BYTE*>(stackTop[1]);
+    BYTE* pkt     = reinterpret_cast<BYTE*>(stackTop[3]);
+    if (!srcUnit) return 0;
+
+    WORD unitTypeIdx = *reinterpret_cast<WORD*>(srcUnit + OFF_UNIT_UnitINFOID);
+    if (unitTypeIdx == 0) return 0;
+    BYTE* ui = GetUnitInfoRaw(unitTypeIdx);
+    if (!ui) return 0;
+    if (*(ui + OFF_UNITINFO_bmcode) != 0) return 0;   // mobile give — nothing to do
+
+    WORD heading = pkt
+        ? *reinterpret_cast<WORD*>(pkt + OFF_GIVEPKT_heading)
+        : *reinterpret_cast<WORD*>(srcUnit + OFF_UNIT_Volume_heading);
+    int rotation = RotationFromHeading(heading);
+    if (rotation == 0) return 0;
+    if (!self->IsRotationAllowed(unitTypeIdx, rotation)) return 0;
+
+    g_pendingCreateRotation = rotation;
+    g_giveUnitRealReturn = stackTop[0];
+    stackTop[0] = reinterpret_cast<DWORD>(&GiveUnitReturnThunk);
+    return 0;
+}
+
+// Order_Resurrect entry — when the order is at state_step 5 (the tick that
+// creates the resurrected unit), look up the wreck's stored orientation the
+// same way the engine will right after the create (root map tile at the
+// order target → FeatureAnimData index at tile+0xA → rotation), and arm the
+// pending creation rotation from it.
+static int __stdcall OrderResurrect_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    CUnitRotate* self = CUnitRotate::GetInstance();
+    if (!self) return 0;
+
+    // __stdcall: [Esp]=ret, [Esp+4]=builder, [Esp+8]=order, [Esp+C]=flags.
+    DWORD* stackTop = reinterpret_cast<DWORD*>(X86StrackBuffer->Esp);
+    BYTE* order = reinterpret_cast<BYTE*>(stackTop[2]);
+    if (!order) return 0;
+    if (*(order + OFF_ORDER_state_step) != 5) return 0;
+
+    unsigned unitTypeIdx =
+        *reinterpret_cast<unsigned*>(order + OFF_ORDER_build_unitType) & 0xFFFF;
+    if (unitTypeIdx == 0) return 0;
+    BYTE* ui = GetUnitInfoRaw(unitTypeIdx);
+    if (!ui) return 0;
+    if (*(ui + OFF_UNITINFO_bmcode) != 0) return 0;   // resurrecting a mobile
+
+    TAdynmemStruct* ta = GetTA();
+    if (!ta || !ta->FeatureMap || !ta->WreckageInfo) return 0;
+
+    // Replicate Position2GridPlotWreck: world pos → tile, following a single
+    // 0xFFFE redirect entry back to the multi-tile feature's root tile.
+    int tileX = *reinterpret_cast<int*>(order + OFF_ORDER_target_pos_x) >> 20;
+    int tileZ = *reinterpret_cast<int*>(order + OFF_ORDER_target_pos_z) >> 20;
+    const int W = ta->FeatureMapSizeX;
+    const int H = ta->FeatureMapSizeY;
+    if (tileX < 0 || tileZ < 0 || tileX >= W || tileZ >= H) return 0;
+    FeatureStruct* tile = &ta->FeatureMap[tileZ * W + tileX];
+    if (tile->FeatureDefIndex == 0xFFFE)
+    {
+        tileX -= tile->FeatureDefDx;
+        tileZ -= tile->FeatureDefDy;
+        if (tileX < 0 || tileZ < 0 || tileX >= W || tileZ >= H) return 0;
+        tile = &ta->FeatureMap[tileZ * W + tileX];
+    }
+    if (tile->FeatureDefIndex > 0xFFFA) return 0;     // no real feature here
+
+    // Root tile bytes 0xA..0xB double as the FeatureAnimData index.
+    unsigned animIdx =
+        *reinterpret_cast<unsigned short*>(&tile->FeatureDefDy);
+    // WreckageInfoStruct mirrors the engine's FeatureAnimData (stride 0x30);
+    // XTurn (+0x22) is the heading word the resurrect handler will copy onto
+    // the new unit's Volume.
+    WORD heading = static_cast<WORD>(ta->WreckageInfo[animIdx].XTurn);
+    int rotation = RotationFromHeading(heading);
+    if (rotation == 0) return 0;
+    if (!self->IsRotationAllowed(unitTypeIdx, rotation)) return 0;
+
+    g_pendingCreateRotation = rotation;
+    g_resurrectRealReturn = stackTop[0];
+    stackTop[0] = reinterpret_cast<DWORD>(&ResurrectReturnThunk);
+    return 0;
+}
+
+// LOADGAME_LoadUnit, at the CALL UNITS_CreateUnit instruction. All 8 args
+// are pushed, so ESP = frame_base-0x20; the unit record read from the save
+// starts at frame_base+0x18 and its heading word (record+0x39) is therefore
+// at [Esp+0x71]. No return thunk needed — the CreateUnit entry hook fires
+// (and consumes the pending value) immediately when the displaced CALL runs.
+static int __stdcall LoadUnit_PreCreate_Proc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    WORD heading = *reinterpret_cast<WORD*>(X86StrackBuffer->Esp + 0x71);
+    int rotation = RotationFromHeading(heading);
+    if (rotation == 0) return 0;
+    // Type / bmcode / Rotations= gates run in CreateUnit_Entry_Proc.
+    g_pendingCreateRotation = rotation;
     return 0;
 }
 
@@ -809,28 +1110,28 @@ static int __stdcall YardmapReader_Entry_Proc(PInlineX86StackBuffer X86StrackBuf
     BYTE* unit = *reinterpret_cast<BYTE**>(stackTop + 1);
     if (!unit) return 0;
 
-    // Only swap yardmap for units WE marked as player-rotated. Units with
-    // naturally-large random headings (e.g. CORSOLAR with buildangle=0x8000)
-    // must NOT be treated as if we'd rotated them.
-    if (!self->IsUnitRotated(unit)) return 0;
-
-    // Read heading (unsigned word at offset 0x66). TA's default facing is
-    // 0x8000 (NOT 0x0000), and PostCreate adds rotation*0x4000 to that default.
-    // So the user-frame rotation is (heading - 0x8000) / 0x4000, with rounding
-    // for jitter. This correctly identifies hd=0x0000 as rotation=2 (180°).
+    // Rotation is derived purely from live unit state — no side-table. This
+    // is what lets resurrected, shared (given) and save/loaded structures
+    // keep their rotated yardmap: any path that recreates the UnitStruct
+    // ends up with the original heading restored by the engine, and that is
+    // all we need. Gates: the unit must be a building AND its FBI Rotations=
+    // key must allow the derived facing — a structure whose buildangle
+    // merely jitters the heading (e.g. CORSOLAR with buildangle=0x8000, S
+    // only) never passes IsRotationAllowed for a non-S facing.
     WORD heading = *reinterpret_cast<WORD*>(unit + OFF_UNIT_Volume_heading);
-    WORD deltaFromDefault = (WORD)(heading - 0x8000);
-    int rotation = (((deltaFromDefault + 0x2000) & 0xFFFF) / 0x4000) & 3;
+    int rotation = RotationFromHeading(heading);
     if (rotation == 0) return 0;  // normal facing, no swap needed
 
     BYTE* unitInfo = *reinterpret_cast<BYTE**>(unit + OFF_UNIT_UNITINFO_p);
     if (!unitInfo) return 0;
+    if (*(unitInfo + OFF_UNITINFO_bmcode) != 0) return 0;  // only buildings
 
     BYTE* currentYardmap = *reinterpret_cast<BYTE**>(unitInfo + OFF_UNITINFO_p_YardMap);
     if (!currentYardmap) return 0;  // unit has no yardmap
 
     // Look up unit type index to find cache entry. Unit has UnitINFOID at 0xA6.
     WORD unitTypeIdx = *reinterpret_cast<WORD*>(unit + 0xA6);
+    if (!self->IsRotationAllowed(unitTypeIdx, rotation)) return 0;
     BYTE* rotatedYardmap = self->GetRotatedYardmap(unitTypeIdx, rotation);
     if (!rotatedYardmap) return 0;
 
@@ -860,6 +1161,7 @@ static int __stdcall YardmapReader_Entry_Proc(PInlineX86StackBuffer X86StrackBuf
 // chain rooted at ReleaseUNITINFO (see crash dump 2026-04-25).
 static int __stdcall FreeGameData_Entry_Proc(PInlineX86StackBuffer)
 {
+    g_pendingCreateRotation = -1;
     CUnitRotate* self = CUnitRotate::GetInstance();
     if (self)
     {
@@ -933,6 +1235,21 @@ CUnitRotate::CUnitRotate()
     // so the persistent on-map rectangle matches the queued order's facing.
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
         ADDR_DrawBuildSpotQueue, 5, INLINE_5BYTESLAGGERJMP, DrawBuildSpotQueue_Entry_Proc)));
+
+    // Rotation-preserving creation envelope for engine paths that recreate an
+    // existing rotated structure. The path hooks (give / resurrect / load)
+    // derive the rotation and arm g_pendingCreateRotation; the CreateUnit
+    // entry hook consumes it and wraps the create in a footprint+yardmap
+    // swap so SizeFootX/Z, XZGridPos and the initial occupancy stamp all
+    // bake rotated.
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_UNITS_CreateUnit_Entry, 5, INLINE_5BYTESLAGGERJMP, CreateUnit_Entry_Proc)));
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_UNITS_GiveUnit_Entry, 5, INLINE_5BYTESLAGGERJMP, GiveUnit_Entry_Proc)));
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_Order_Resurrect_Entry, 5, INLINE_5BYTESLAGGERJMP, OrderResurrect_Entry_Proc)));
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_LoadUnit_PreCreate, 5, INLINE_5BYTESLAGGERJMP, LoadUnit_PreCreate_Proc)));
 
     // Multiplayer rotation sync. Local: write heading into the unit just before
     // packet 0x09 is broadcast so the wire carries the rotated value. Remote:
@@ -1075,21 +1392,6 @@ int CUnitRotate::TakeOrderRotation(void* orderPtr)
 void CUnitRotate::ClearOrderRotation(void* orderPtr)
 {
     m_orderRotation.erase(orderPtr);
-}
-
-void CUnitRotate::MarkUnitRotated(void* unitPtr)
-{
-    if (unitPtr) m_rotatedUnits[unitPtr] = 1;
-}
-
-bool CUnitRotate::IsUnitRotated(void* unitPtr) const
-{
-    return m_rotatedUnits.find(unitPtr) != m_rotatedUnits.end();
-}
-
-void CUnitRotate::UnmarkUnitRotated(void* unitPtr)
-{
-    m_rotatedUnits.erase(unitPtr);
 }
 
 bool CUnitRotate::IsRotationAllowed(unsigned int unitTypeIdx, int rotation) const
