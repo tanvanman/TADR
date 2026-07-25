@@ -123,9 +123,11 @@ BadEnd:
 			}
 		}
 
+#if MEGAMAP_FEATURES
 		// Bake feature markers into the terrain BEFORE the fog pass, so the
 		// LOS/gray pass fogs them for free and they layer under unit blips.
 		DrawFeaturesIntoMappedBits(m_baseBits, Width_m, Height_m);
+#endif
 
 		m_basePixelSrc = PixelBits;
 		m_baseFeatureMap = featureMap;

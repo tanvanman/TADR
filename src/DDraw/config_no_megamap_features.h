@@ -1,12 +1,12 @@
 #pragma once
 
-#define TDRAW_CONFIG_NAME "escalation"
+#define TDRAW_CONFIG_NAME "no_megamap_features"
 
 //
 // Snap radii
 //
-#define DEFAULT_MEX_SNAP_RADIUS 0
-#define MAX_MEX_SNAP_RADIUS 0
+#define DEFAULT_MEX_SNAP_RADIUS 3
+#define MAX_MEX_SNAP_RADIUS 3
 #define DEFAULT_WRECK_SNAP_RADIUS 1
 #define MAX_WRECK_SNAP_RADIUS 1
 
@@ -29,5 +29,5 @@
 //
 #define TA_HOOK_ENABLE 1
 #define USEMEGAMAP 1
-#define MEGAMAP_FEATURES 1
+#define MEGAMAP_FEATURES 0
 #define USEWHITEBOARD 1

@@ -29,4 +29,5 @@
 //
 #define TA_HOOK_ENABLE 1
 #define USEMEGAMAP 1
+#define MEGAMAP_FEATURES 1
 #define USEWHITEBOARD 1

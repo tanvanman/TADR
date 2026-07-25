@@ -528,6 +528,9 @@
     <ClInclude Include="config_minimal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="config_no_megamap_features.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="PacketChatRouter.h">
       <Filter>Header Files</Filter>
     </ClInclude>

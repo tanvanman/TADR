@@ -25,6 +25,9 @@ The release .zip files are annotated with a build configuration tag: "tdraw-<con
     - weather report at top of screen
     - sync wind speed between players
     - map DT's always visible.
+    - rendering of map features (mexes, geos, spires, walls) on the megamap
+  * tdraw-no-megamap-features.zip: same as tdraw-full.zip except it disables the following features
+    - rendering of map features (mexes, geos, spires, walls) on the megamap
 
 
 INSTALLATION

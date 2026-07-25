@@ -5,7 +5,8 @@
 //
 #if (defined(TDRAW_CONFIG_FULL) + \
      defined(TDRAW_CONFIG_ESCALATION) + \
-     defined(TDRAW_CONFIG_MINIMAL)) != 1
+     defined(TDRAW_CONFIG_MINIMAL) + \
+     defined(TDRAW_CONFIG_NO_MEGAMAP_FEATURES)) != 1
 #pragma message ( __FILE__ " - Warning: Exactly one TDRAW_CONFIG_* configurations must be #define'd. defaulting to TDRAW_CONFIG_FULL" )
 #define TDRAW_CONFIG_FULL
 // Implicit-default builds (no explicit config selected) get the profiler
@@ -25,6 +26,8 @@
 #include "config_escalation.h"
 #elif defined(TDRAW_CONFIG_MINIMAL)
 #include "config_minimal.h"
+#elif defined(TDRAW_CONFIG_NO_MEGAMAP_FEATURES)
+#include "config_no_megamap_features.h"
 #endif
 
 //
