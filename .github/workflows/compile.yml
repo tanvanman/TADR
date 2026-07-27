@@ -24,6 +24,8 @@ jobs:
             define: TDRAW_CONFIG_ESCALATION
           - name: minimal
             define: TDRAW_CONFIG_MINIMAL
+          - name: tazero
+            define: TDRAW_CONFIG_TAZERO
           - name: no-megamap-features
             define: TDRAW_CONFIG_NO_MEGAMAP_FEATURES
 

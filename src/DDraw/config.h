@@ -6,6 +6,7 @@
 #if (defined(TDRAW_CONFIG_FULL) + \
      defined(TDRAW_CONFIG_ESCALATION) + \
      defined(TDRAW_CONFIG_MINIMAL) + \
+     defined(TDRAW_CONFIG_TAZERO) + \
      defined(TDRAW_CONFIG_NO_MEGAMAP_FEATURES)) != 1
 #pragma message ( __FILE__ " - Warning: Exactly one TDRAW_CONFIG_* configurations must be #define'd. defaulting to TDRAW_CONFIG_FULL" )
 #define TDRAW_CONFIG_FULL
@@ -26,8 +27,24 @@
 #include "config_escalation.h"
 #elif defined(TDRAW_CONFIG_MINIMAL)
 #include "config_minimal.h"
+#elif defined(TDRAW_CONFIG_TAZERO)
+#include "config_tazero.h"
 #elif defined(TDRAW_CONFIG_NO_MEGAMAP_FEATURES)
 #include "config_no_megamap_features.h"
+#endif
+
+//
+// Weather report rows.  WEATHER_REPORT is the master switch for the whole
+// top-of-screen overlay (wind / tidal / game time); these two select which of
+// the environment rows are drawn within it.  Mods whose economy has no wind or
+// tidal generators (e.g. TA:Zero) turn them off and keep just the game clock.
+// Defaulted here so a config_*.h that predates them keeps the old behaviour.
+//
+#ifndef WEATHER_REPORT_WIND
+#define WEATHER_REPORT_WIND WEATHER_REPORT
+#endif
+#ifndef WEATHER_REPORT_TIDAL
+#define WEATHER_REPORT_TIDAL WEATHER_REPORT
 #endif
 
 //

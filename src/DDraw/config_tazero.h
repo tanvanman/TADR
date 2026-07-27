@@ -1,6 +1,6 @@
 #pragma once
 
-#define TDRAW_CONFIG_NAME "full"
+#define TDRAW_CONFIG_NAME "tazero"
 
 //
 // Snap radii
@@ -20,9 +20,14 @@
 //
 // Environment / sim sync
 //
+// TA:Zero's economy has no wind or tidal generators, so those two rows of the
+// weather report are meaningless clutter — the overlay stays on for the game
+// clock only.  WIND_SPEED_SYNC is left enabled: it is a desync fix rather than
+// a display feature, and costs nothing on a mod that ignores wind.
+//
 #define WEATHER_REPORT 1
-#define WEATHER_REPORT_WIND 1
-#define WEATHER_REPORT_TIDAL 1
+#define WEATHER_REPORT_WIND 0
+#define WEATHER_REPORT_TIDAL 0
 #define WIND_SPEED_SYNC 1
 #define VISIBLE_MAP_DTS 1
 

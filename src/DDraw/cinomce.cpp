@@ -914,7 +914,9 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 	int y2 = yMetal;
 	int y3 = (y1 + y2) / 2;
 	const unsigned char GREY = taPtr->desktopGUI.RadarObjecColor[7];
+#if WEATHER_REPORT_WIND || WEATHER_REPORT_TIDAL
 	const unsigned char GREEN = taPtr->desktopGUI.RadarObjecColor[10];
+#endif
 
 	void* fontHandleBak = programPtr->fontHandle;
 	programPtr->fontHandle = (unsigned char*)taPtr->RaceSideDataAry[raceSide].Font_File;
@@ -975,22 +977,43 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 
 	if (!cacheHit)
 	{
-		const int leftWind  = x1 - s_windPrefixWidth;
-		const int leftTidal = x1 - s_tidalPrefixWidth;
-		int boxLeft   = leftWind;   if (leftTidal < boxLeft) boxLeft = leftTidal;
-		if (x2 < boxLeft) boxLeft = x2;
+		// Bounding box of what actually gets drawn.  Configs that suppress the
+		// wind/tidal rows (mods with no wind or tidal generators — see
+		// WEATHER_REPORT_WIND / WEATHER_REPORT_TIDAL in config.h) shrink the
+		// box to the game-time row alone.  The x1/x2 column geometry above is
+		// deliberately left untouched so the clock lands in the same place it
+		// does on a full build.
+		int boxLeft = x2;
+#if WEATHER_REPORT_WIND
+		{ const int leftWind  = x1 - s_windPrefixWidth;  if (leftWind  < boxLeft) boxLeft = leftWind; }
+#endif
+#if WEATHER_REPORT_TIDAL
+		{ const int leftTidal = x1 - s_tidalPrefixWidth; if (leftTidal < boxLeft) boxLeft = leftTidal; }
+#endif
 		if (boxLeft < 0) boxLeft = 0;
-		int boxRight  = x1 + s_labelWidth;
-		const int clockEnd = x2 + s_clockWidth;
-		if (clockEnd > boxRight) boxRight = clockEnd;
+
+		int boxRight = x2 + s_clockWidth;
+#if WEATHER_REPORT_WIND || WEATHER_REPORT_TIDAL
+		{ const int labelEnd = x1 + s_labelWidth; if (labelEnd > boxRight) boxRight = labelEnd; }
+#endif
 		if (boxRight > dwWidth) boxRight = dwWidth;
-		int boxTop    = y1; if (y2 < boxTop) boxTop = y2;
+
+		int boxTop = y3;
+#if WEATHER_REPORT_WIND
+		if (y1 < boxTop) boxTop = y1;
+#endif
+#if WEATHER_REPORT_TIDAL
+		if (y2 < boxTop) boxTop = y2;
+#endif
 		if (boxTop < 0) boxTop = 0;
-		int boxBottom = y1 + fontHeight;
-		const int y2End = y2 + fontHeight;
-		const int y3End = y3 + fontHeight;
-		if (y2End > boxBottom) boxBottom = y2End;
-		if (y3End > boxBottom) boxBottom = y3End;
+
+		int boxBottom = y3 + fontHeight;
+#if WEATHER_REPORT_WIND
+		{ const int y1End = y1 + fontHeight; if (y1End > boxBottom) boxBottom = y1End; }
+#endif
+#if WEATHER_REPORT_TIDAL
+		{ const int y2End = y2 + fontHeight; if (y2End > boxBottom) boxBottom = y2End; }
+#endif
 		if (boxBottom > dwHeight) boxBottom = dwHeight;
 
 		const int W = (boxRight  > boxLeft) ? (boxRight  - boxLeft) : 0;
@@ -1023,6 +1046,7 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 			const int ry3 = y3 - boxTop;
 
 			char buf[32];
+#if WEATHER_REPORT_WIND
 			programPtr->fontFrontColour = GREY;
 			if (watchMode)
 			{
@@ -1037,13 +1061,20 @@ void CIncome::BlitWeatherReport(LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 				sprintf(buf, "+%d", wind);
 				DrawTextInScreen(&cacheOff, buf, rx1, ry1, -1);
 			}
+#else
+			(void)rx1; (void)ry1;
+#endif
 
+#if WEATHER_REPORT_TIDAL
 			programPtr->fontFrontColour = GREY;
 			DrawTextInScreen(&cacheOff, "Tidal :", rx1 - s_tidalPrefixWidth, ry2, -1);
 
 			programPtr->fontFrontColour = GREEN;
 			sprintf(buf, "+%d", tidal);
 			DrawTextInScreen(&cacheOff, buf, rx1, ry2, -1);
+#else
+			(void)ry2;
+#endif
 
 			programPtr->fontFrontColour = GREY;
 			sprintf(buf, "Game Time : %02d:%02d:%02d",

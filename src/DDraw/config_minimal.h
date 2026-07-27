@@ -21,6 +21,8 @@
 // Environment / sim sync
 //
 #define WEATHER_REPORT 0
+#define WEATHER_REPORT_WIND 0
+#define WEATHER_REPORT_TIDAL 0
 #define WIND_SPEED_SYNC 0
 #define VISIBLE_MAP_DTS 0
 
