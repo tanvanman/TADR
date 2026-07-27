@@ -26,8 +26,8 @@ jobs:
             define: TDRAW_CONFIG_MINIMAL
           - name: tazero
             define: TDRAW_CONFIG_TAZERO
-          - name: no-megamap-features
-            define: TDRAW_CONFIG_NO_MEGAMAP_FEATURES
+          - name: bta
+            define: TDRAW_CONFIG_BTA
 
     steps:
     - name: Checkout code

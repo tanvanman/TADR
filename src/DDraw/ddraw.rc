@@ -12,8 +12,8 @@
 #define VERSION_TAG "-min"
 #elif defined(TDRAW_CONFIG_TAZERO)
 #define VERSION_TAG "-zero"
-#elif defined(TDRAW_CONFIG_NO_MEGAMAP_FEATURES)
-#define VERSION_TAG "-nomf"
+#elif defined(TDRAW_CONFIG_BTA)
+#define VERSION_TAG "-bta"
 #else
 #define VERSION_TAG ""
 #endif

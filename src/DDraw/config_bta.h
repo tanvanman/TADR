@@ -1,12 +1,12 @@
 #pragma once
 
-#define TDRAW_CONFIG_NAME "no_megamap_features"
+#define TDRAW_CONFIG_NAME "bta"
 
 //
 // Snap radii
 //
-#define DEFAULT_MEX_SNAP_RADIUS 3
-#define MAX_MEX_SNAP_RADIUS 3
+#define DEFAULT_MEX_SNAP_RADIUS 1
+#define MAX_MEX_SNAP_RADIUS 1
 #define DEFAULT_WRECK_SNAP_RADIUS 1
 #define MAX_WRECK_SNAP_RADIUS 1
 

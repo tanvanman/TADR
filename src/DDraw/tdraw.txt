@@ -29,8 +29,9 @@ The release .zip files are annotated with a build configuration tag: "tdraw-<con
     - sync wind speed between players
     - map DT's always visible.
     - rendering of map features (mexes, geos, spires, walls) on the megamap
-  * tdraw-no-megamap-features.zip: same as tdraw-full.zip except it disables the following features
-    - rendering of map features (mexes, geos, spires, walls) on the megamap
+  * tdraw-bta.zip: same as tdraw-full.zip except
+    - rendering of map features (mexes, geos, spires, walls) on the megamap is disabled
+    - mex and wreck snap radius limited to 1
 
 
 INSTALLATION
@@ -51,6 +52,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 
 NEW FEATURES IN BRIEF:
+
+*????.??.??
+- Build configuration "no-megamap-features" renamed to "bta" (tdraw-bta.zip), and its mex and wreck snap radius limited to 1
 
 *2026.7.27
 - New build configuration for TA:Zero (tdraw-tazero.zip): omits the wind and tidal readouts from the weather report, since TA:Zero has neither wind nor tidal generators
