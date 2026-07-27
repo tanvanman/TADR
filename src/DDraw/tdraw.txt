@@ -17,6 +17,9 @@ The release .zip files are annotated with a build configuration tag: "tdraw-<con
   * tdraw-escalation.zip: built for TA:Escalation.  disables the following features
     - mex snap
     - that is all
+  * tdraw-tazero.zip: built for TA:Zero.  same as tdraw-full.zip except it disables the following features
+    - wind and tidal readouts in the weather report at top of screen (the game time clock is retained)
+    - that is all
   * tdraw-minimal.zip: disables the following features
     - mex/wreck snap
     - options for construction units to stay put when guarding
@@ -48,6 +51,11 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 
 NEW FEATURES IN BRIEF:
+
+*2026.7.27
+- New build configuration for TA:Zero (tdraw-tazero.zip): omits the wind and tidal readouts from the weather report, since TA:Zero has neither wind nor tidal generators
+- Add dithering to megamap
+- Cover off some missing rotated-units creation paths (resurrect, capture, share, save/load)
 
 *2026.7.17
 - Fix bug: dropped players not being rejected when watching replays
