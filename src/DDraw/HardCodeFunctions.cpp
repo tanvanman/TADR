@@ -791,6 +791,7 @@ unsigned int KeepActiveAddr1= 0x4AB13F;
 unsigned int DrawGameScreenEnd_Addr= 0x046A3CC;
 
 unsigned int LoadMap_Addr=  0x00483638;
+unsigned int BuiltInMinimapReady_Addr= 0x004669B5;
 
 unsigned int DrawTAScreenBlitAddr= 0x0046A3CE;
 

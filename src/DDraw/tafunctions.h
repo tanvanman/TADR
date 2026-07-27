@@ -359,5 +359,6 @@ extern unsigned int KeepActiveAddr1;
 extern unsigned int DrawGameScreenEnd_Addr;
 
 extern unsigned int LoadMap_Addr;
+extern unsigned int BuiltInMinimapReady_Addr;
 extern unsigned int DrawTAScreenBlitAddr;
 #endif
