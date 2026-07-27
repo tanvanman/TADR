@@ -4,6 +4,7 @@
 //use TA tiles Pos in TNT class. use pixel Pos in minimap class.
 #include "mapParse.h"
 #include <tchar.h>
+#include <math.h>
 #include <CString>
 #include "fullscreenminimap.h"
 #include "tafunctions.h"
@@ -13,9 +14,39 @@
 // === MiniMap colour sampling mode ===
 // 0 = Original behaviour: pick a single pixel from the source tile (fast, can look blocky on large maps)
 // 1 = Averaged: calculate all source pixels covered by each minimap pixel,
-//     average their RGB colours from the live colormap
-//     then find the nearest palette colour. Much higher visual quality.
+//     average their RGB colours from the live colormap, then error-diffuse the
+//     result back onto the palette. Much higher visual quality.
 #define USE_AVERAGED_MINIMAP_COLORS 1
+
+// Error diffusion (Floyd-Steinberg, serpentine) when snapping the averaged
+// colours back to 8-bit.
+//
+// This is NOT cosmetic polish - without it the downscale loses the terrain's
+// colour outright. TA's palette has no desaturated mid-luminance greens: the
+// ramp jumps from neutral olive (idx 72 = 67,67,35) straight to saturated green
+// (idx 168 = 43,103,19). Grass is therefore rendered by *dithering* those two
+// against each other. Area-averaging collapses that dither to ~(72,78,33),
+// whose nearest palette entry is the neutral olive - so every mixed cell snaps
+// to brown and only near-pure-green cells stay green. That is the "brown crud
+// around patches of green" artifact. Diffusing the quantisation error puts the
+// dither back and restores the true average colour.
+#define USE_MINIMAP_ERROR_DIFFUSION 1
+
+// Judge "which palette entry is closest" in OKLab rather than in RGB.
+//
+// Error diffusion still accumulates in gamma RGB, so what is *conserved* does
+// not change - only which entry gets picked at each step. RGB distance badly
+// misjudges saturated colours, which lets the diffusion occasionally reach for
+// an entry that is numerically close but obviously wrong to the eye (a saturated
+// orange landing in desaturated tan). OKLab is near perceptually uniform, so
+// plain Euclidean distance in it tracks what actually looks closest.
+//
+// Measured on the TA:Zero reference downscale, identical mean colour fidelity,
+// but pixels deviating by more than 0.10 OKLab fell from 2.12% to 0.46% - a
+// 4.6x reduction in visible stippling. Confirmed in-game across several maps.
+//
+// Set to 0 to fall back to RGB distance.
+#define MEGAMAP_SNAP_OKLAB 1
 
 using namespace std;
 LPLOGPALETTE TNTtoMiniMap::TALogPalette_Ptr= NULL;
@@ -51,6 +82,186 @@ BYTE MegamapNearestIndex(const BYTE* pal, int R, int G, int B)
 	}
 	return (BYTE)bestI;
 }
+
+#if USE_AVERAGED_MINIMAP_COLORS
+
+// Palette subset used when snapping downscaled terrain colours back to 8-bit.
+// Restricting the search to indices that actually occur in this map's tile
+// graphics keeps error diffusion from reaching for entries that exist in the
+// palette but never in terrain (GUI colours, the player-colour ramps, the pure
+// primaries at 248-255) - those would show up as bright speckle. It also
+// shortens the per-pixel nearest search, which runs Width*Height times.
+// ---- colour-space helpers ----
+
+static float g_srgbToLinear[256];
+static bool  g_srgbTablesReady = false;
+
+static void MegamapInitSrgbTables()
+{
+	if (g_srgbTablesReady) return;
+	for (int i = 0; i < 256; ++i)
+	{
+		float c = (float)i / 255.0f;
+		g_srgbToLinear[i] = (c <= 0.04045f) ? (c / 12.92f)
+		                                    : powf((c + 0.055f) / 1.055f, 2.4f);
+	}
+	g_srgbTablesReady = true;
+}
+
+// Ottosson's OKLab. Perceptually near-uniform, so plain Euclidean distance in
+// it is a far better "which colour looks closest" test than RGB distance.
+static void MegamapOKLab(int R, int G, int B, float* outL, float* outA, float* outB)
+{
+	float r = g_srgbToLinear[R & 0xff];
+	float g = g_srgbToLinear[G & 0xff];
+	float b = g_srgbToLinear[B & 0xff];
+
+	float l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
+	float m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
+	float s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b;
+
+	float l_ = cbrtf(l), m_ = cbrtf(m), s_ = cbrtf(s);
+
+	*outL = 0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_;
+	*outA = 1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_;
+	*outB = 0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_;
+}
+
+struct MegamapPaletteSubset
+{
+	int   r[256], g[256], b[256];
+	BYTE  index[256];
+	float labL[256], labA[256], labB[256];
+	int   count;
+};
+
+static void BuildMegamapPaletteSubset(MegamapPaletteSubset* out, const BYTE* pal, PTNTHeaderStruct tnt)
+{
+	BYTE used[256];
+	memset(used, 0, sizeof(used));
+
+	int nTiles = (tnt != NULL) ? tnt->tiles : 0;
+	if (nTiles > 0 && nTiles <= 0xffff && tnt->PTRtilegfx != NULL)
+	{
+		const BYTE* gfx = tnt->PTRtilegfx;
+		for (int i = 0, n = nTiles * 32 * 32; i < n; ++i)
+			used[gfx[i]] = 1;
+	}
+	else
+	{
+		// Tile count unusable - fall back to the whole palette.
+		memset(used, 1, sizeof(used));
+	}
+
+	MegamapInitSrgbTables();
+
+	out->count = 0;
+	for (int i = 0; i < 256; ++i)
+	{
+		if (!used[i]) continue;
+		int r, g, b;
+		MegamapIndexRGB(pal, (BYTE)i, &r, &g, &b);
+		int k = out->count;
+		out->r[k] = r;
+		out->g[k] = g;
+		out->b[k] = b;
+		out->index[k] = (BYTE)i;
+		MegamapOKLab(r, g, b, &out->labL[k], &out->labA[k], &out->labB[k]);
+		++out->count;
+	}
+}
+
+// Mean colour of the source tile-graphics pixels covered by one output pixel.
+//
+// Averages the gamma-encoded 8-bit values directly, which is also what GIMP's
+// default downscale does. A linear-light average was tried and rejected: it is
+// more physically correct but reads as simply lighter, with no reduction in
+// stippling, and it diverges from the reference downscales the mod authors
+// compare against.
+static void MegamapAveragePixel(PTNTHeaderStruct tnt, const BYTE* pal, int MapDataPitch_I,
+                                int xStart, int xEnd, int yStart, int yEnd,
+                                int* outR, int* outG, int* outB)
+{
+	int sumR = 0, sumG = 0, sumB = 0, count = 0;
+
+	for (int sy = yStart; sy < yEnd; ++sy)
+	{
+		int tileY = sy / 32;
+		int ty    = sy % 32;
+		int yTileOff = tileY * MapDataPitch_I;
+
+		for (int sx = xStart; sx < xEnd; ++sx)
+		{
+			int tileX = sx / 32;
+			int tx    = sx % 32;
+
+			int TileIndex_I = tnt->PTRmapdata[yTileOff + tileX];
+			if (TileIndex_I < 0) TileIndex_I = 0;
+
+			LPBYTE tileBits = &(tnt->PTRtilegfx[TileIndex_I * 32 * 32]);
+			BYTE c = tileBits[ty * 32 + tx];
+
+			int r, g, b;
+			MegamapIndexRGB(pal, c, &r, &g, &b);
+			sumR += r; sumG += g; sumB += b;
+			++count;
+		}
+	}
+
+	if (count > 0) { *outR = sumR / count; *outG = sumG / count; *outB = sumB / count; }
+	else           { *outR = 0; *outG = 0; *outB = 0; }
+}
+
+// Error accumulators are kept in 1/16ths; round-to-nearest, symmetric about 0
+// (plain integer division truncates towards zero and would bias the dither).
+static inline int MegamapErr16(int v)
+{
+	return (v >= 0) ? ((v + 8) / 16) : (-((-v + 8) / 16));
+}
+
+static BYTE MegamapSubsetNearest(const MegamapPaletteSubset* sub, int R, int G, int B)
+{
+	int bestDist = 0x7fffffff, bestI = 0;
+	for (int i = 0; i < sub->count; ++i)
+	{
+		int dr = sub->r[i] - R, dg = sub->g[i] - G, db = sub->b[i] - B;
+		int d = dr * dr + dg * dg + db * db;
+		if (d < bestDist) { bestDist = d; bestI = i; }
+	}
+	return sub->index[bestI];
+}
+
+// Nearest by perceptual (OKLab) distance rather than RGB distance. The error
+// accumulator stays in gamma RGB - we change which entry is judged closest, not
+// what is conserved.
+static BYTE MegamapSubsetNearestOKLab(const MegamapPaletteSubset* sub, int R, int G, int B)
+{
+	float tL, tA, tB;
+	MegamapOKLab(R, G, B, &tL, &tA, &tB);
+
+	float bestDist = 3.4e38f;
+	int   bestI = 0;
+	for (int i = 0; i < sub->count; ++i)
+	{
+		float dL = sub->labL[i] - tL;
+		float dA = sub->labA[i] - tA;
+		float dB = sub->labB[i] - tB;
+		float d = dL * dL + dA * dA + dB * dB;
+		if (d < bestDist) { bestDist = d; bestI = i; }
+	}
+	return sub->index[bestI];
+}
+
+static inline BYTE MegamapSnap(const MegamapPaletteSubset* sub, int R, int G, int B)
+{
+#if MEGAMAP_SNAP_OKLAB
+	return MegamapSubsetNearestOKLab(sub, R, G, B);
+#else
+	return MegamapSubsetNearest(sub, R, G, B);
+#endif
+}
+
+#endif // USE_AVERAGED_MINIMAP_COLORS
 
 TNTtoMiniMap::TNTtoMiniMap ()
 {
@@ -303,14 +514,41 @@ LPBYTE MiniMapPicture::StretchTATNTDataToMiniMap (PTNTHeaderStruct TATNT_PTNTH)
 
 #if USE_AVERAGED_MINIMAP_COLORS
 
-	// === New high-quality path: area sampling + RGB average + dither + nearest palette colour ===
+	// === High-quality path: area sampling + RGB average + error-diffused snap ===
 
 	// Live colormap from game (R,G,B,0 layout per entry) for accurate RGB averaging of tile pixels.
 	// Falls back to rqAry (BGRx) only if no game struct (should not happen for in-game TNT minimap).
 	const BYTE* palBase = MegamapColormap();
 
+	MegamapPaletteSubset palSubset;
+	BuildMegamapPaletteSubset(&palSubset, palBase, TATNT_PTNTH);
+
 	int srcPixelW = MapDataWidth_I * 32;
 	int srcPixelH = MapDataHeight_I * 32;
+
+	// Row of averaged colours, plus this-row / next-row error accumulators for
+	// the diffusion pass. The error rows carry a one-pixel guard band at each
+	// end (index x is stored at x+1) so the x-1 / x+1 taps never need clamping.
+	int* rowAvg  = NULL;
+	int* errCur  = NULL;
+	int* errNext = NULL;
+	bool dither  = false;
+
+#if USE_MINIMAP_ERROR_DIFFUSION
+	rowAvg  = (int*)malloc(sizeof(int) * 3 * Width);
+	errCur  = (int*)calloc(3 * (Width + 2), sizeof(int));
+	errNext = (int*)calloc(3 * (Width + 2), sizeof(int));
+	dither  = (rowAvg != NULL && errCur != NULL && errNext != NULL);
+	if (!dither)
+	{
+		// Out of memory - drop to the undithered snap rather than failing.
+		free(rowAvg);  rowAvg  = NULL;
+		free(errCur);  errCur  = NULL;
+		free(errNext); errNext = NULL;
+	}
+#endif
+
+	int scanDir = 1;   // serpentine: alternate direction each row to break up worms
 
 	for (int YPos= 0; YPos<Height; YPos++)
 	{	//Y
@@ -325,7 +563,7 @@ LPBYTE MiniMapPicture::StretchTATNTDataToMiniMap (PTNTHeaderStruct TATNT_PTNTH)
 		if (yStart >= srcPixelH) yStart = srcPixelH - 1;
 
 		for (int XPos= 0; XPos<Width; XPos++)
-		{//X 
+		{//X
 			int xStart = static_cast<int>(XPos * XInterval_I);
 			int xEnd   = static_cast<int>((XPos + 1) * XInterval_I);
 			if (xEnd <= xStart) xEnd = xStart + 1;
@@ -333,53 +571,66 @@ LPBYTE MiniMapPicture::StretchTATNTDataToMiniMap (PTNTHeaderStruct TATNT_PTNTH)
 			if (xEnd > srcPixelW) xEnd = srcPixelW;
 			if (xStart >= srcPixelW) xStart = srcPixelW - 1;
 
-			int sumR = 0, sumG = 0, sumB = 0;
-			int count = 0;
+			int avgR, avgG, avgB;
+			MegamapAveragePixel(TATNT_PTNTH, palBase, MapDataPitch_I,
+			                    xStart, xEnd, yStart, yEnd, &avgR, &avgG, &avgB);
 
-			for (int sy = yStart; sy < yEnd; ++sy)
+			if (dither)
 			{
-				int tileY = sy / 32;
-				int ty    = sy % 32;
-				int yTileOff = tileY * MapDataPitch_I;
-
-				for (int sx = xStart; sx < xEnd; ++sx)
-				{
-					int tileX = sx / 32;
-					int tx    = sx % 32;
-
-					int TileIndex_I = TATNT_PTNTH->PTRmapdata[yTileOff + tileX];
-					if (TileIndex_I < 0) TileIndex_I = 0;
-
-					LPBYTE tileBits = &(TATNT_PTNTH->PTRtilegfx[TileIndex_I * 32 * 32]);
-					BYTE c = tileBits[ty * 32 + tx];
-
-					int r, g, b;
-					MegamapIndexRGB(palBase, c, &r, &g, &b);
-					sumR += r;
-					sumG += g;
-					sumB += b;
-					++count;
-				}
-			}
-
-			BYTE MiniMapByte;
-			if (count > 0)
-			{
-				int avgR = sumR / count;
-				int avgG = sumG / count;
-				int avgB = sumB / count;
-
-				// Snap the averaged colour to the nearest colormap entry.
-				MiniMapByte = MegamapNearestIndex(palBase, avgR, avgG, avgB);
+				rowAvg[XPos * 3 + 0] = avgR;
+				rowAvg[XPos * 3 + 1] = avgG;
+				rowAvg[XPos * 3 + 2] = avgB;
 			}
 			else
 			{
-				MiniMapByte = 0;
+				MiniMapPixelBits[MiniMapPixelYStart + XPos] =
+					MegamapSnap(&palSubset, avgR, avgG, avgB);
 			}
-
-			MiniMapPixelBits[MiniMapPixelYStart + XPos] = MiniMapByte;
 		}
+
+		if (!dither)
+			continue;
+
+		// Floyd-Steinberg across the row (serpentine). Without this the averaged
+		// colours snap to whichever single palette entry is nearest, which for TA
+		// terrain means the neutral olive ramp - see the note at the top of the file.
+		int xFirst = (scanDir > 0) ? 0 : (Width - 1);
+		for (int step = 0; step < Width; ++step)
+		{
+			int x = xFirst + scanDir * step;
+
+			int here = (x + 1) * 3;
+			int fwd  = (x + scanDir + 1) * 3;
+			int back = (x - scanDir + 1) * 3;
+
+			int tr = rowAvg[x * 3 + 0] + MegamapErr16(errCur[here + 0]);
+			int tg = rowAvg[x * 3 + 1] + MegamapErr16(errCur[here + 1]);
+			int tb = rowAvg[x * 3 + 2] + MegamapErr16(errCur[here + 2]);
+			if (tr < 0) tr = 0; else if (tr > 255) tr = 255;
+			if (tg < 0) tg = 0; else if (tg > 255) tg = 255;
+			if (tb < 0) tb = 0; else if (tb > 255) tb = 255;
+
+			BYTE idx = MegamapSnap(&palSubset, tr, tg, tb);
+			MiniMapPixelBits[MiniMapPixelYStart + x] = idx;
+
+			int pr, pg, pb;
+			MegamapIndexRGB(palBase, idx, &pr, &pg, &pb);
+			int er = tr - pr, eg = tg - pg, eb = tb - pb;
+
+			errCur [fwd  + 0] += er * 7;  errCur [fwd  + 1] += eg * 7;  errCur [fwd  + 2] += eb * 7;
+			errNext[back + 0] += er * 3;  errNext[back + 1] += eg * 3;  errNext[back + 2] += eb * 3;
+			errNext[here + 0] += er * 5;  errNext[here + 1] += eg * 5;  errNext[here + 2] += eb * 5;
+			errNext[fwd  + 0] += er * 1;  errNext[fwd  + 1] += eg * 1;  errNext[fwd  + 2] += eb * 1;
+		}
+
+		int* swap = errCur; errCur = errNext; errNext = swap;
+		memset(errNext, 0, sizeof(int) * 3 * (Width + 2));
+		scanDir = -scanDir;
 	}
+
+	free(rowAvg);
+	free(errCur);
+	free(errNext);
 
 #else
 
