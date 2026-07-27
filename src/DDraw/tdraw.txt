@@ -56,6 +56,7 @@ NEW FEATURES IN BRIEF:
 - New build configuration for TA:Zero (tdraw-tazero.zip): omits the wind and tidal readouts from the weather report, since TA:Zero has neither wind nor tidal generators
 - Add dithering to megamap
 - Cover off some missing rotated-units creation paths (resurrect, capture, share, save/load)
+- Add nomapweaponalert weapon tag (thanks TAG_Venom)
 
 *2026.7.17
 - Fix bug: dropped players not being rejected when watching replays
