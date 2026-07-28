@@ -171,20 +171,39 @@ static void BuildMegamapPaletteSubset(MegamapPaletteSubset* out, const BYTE* pal
 	}
 }
 
-static void BuildMegamapFullPalette(MegamapPaletteSubset* out, const BYTE* pal)
+static void BuildMegamapPaletteSubsetFromImage(
+	MegamapPaletteSubset* out,
+	const BYTE* pal,
+	const BYTE* bits,
+	int width,
+	int height,
+	int pitch)
 {
+	BYTE used[256];
+	memset(used, 0, sizeof(used));
+
+	for (int y = 0; y < height; ++y)
+	{
+		const BYTE* row = bits + y * pitch;
+		for (int x = 0; x < width; ++x)
+			used[row[x]] = 1;
+	}
+
 	MegamapInitSrgbTables();
 
-	out->count = 256;
+	out->count = 0;
 	for (int i = 0; i < 256; ++i)
 	{
+		if (!used[i]) continue;
 		int r, g, b;
 		MegamapIndexRGB(pal, (BYTE)i, &r, &g, &b);
-		out->r[i] = r;
-		out->g[i] = g;
-		out->b[i] = b;
-		out->index[i] = (BYTE)i;
-		MegamapOKLab(r, g, b, &out->labL[i], &out->labA[i], &out->labB[i]);
+		int k = out->count;
+		out->r[k] = r;
+		out->g[k] = g;
+		out->b[k] = b;
+		out->index[k] = (BYTE)i;
+		MegamapOKLab(r, g, b, &out->labL[k], &out->labA[k], &out->labB[k]);
+		++out->count;
 	}
 }
 
@@ -275,55 +294,6 @@ static inline BYTE MegamapSnap(const MegamapPaletteSubset* sub, int R, int G, in
 	return MegamapSubsetNearestOKLab(sub, R, G, B);
 #else
 	return MegamapSubsetNearest(sub, R, G, B);
-#endif
-}
-
-// Choose only among the palette indices physically present beneath this output
-// pixel. This is essential for a second downscale of an already-quantized
-// minimap: allowing unrelated entries from elsewhere in the image would let a
-// green/olive dither collapse into a convenient brown entry again.
-static BYTE MegamapSnapLocal(
-	const MegamapPaletteSubset* fullPalette,
-	const BYTE* candidateIndices,
-	int candidateCount,
-	int R,
-	int G,
-	int B)
-{
-	if (candidateCount <= 0)
-		return 0;
-	if (candidateCount == 1)
-		return candidateIndices[0];
-
-#if MEGAMAP_SNAP_OKLAB
-	float tL, tA, tB;
-	MegamapOKLab(R, G, B, &tL, &tA, &tB);
-
-	float bestDist = 3.4e38f;
-	BYTE best = candidateIndices[0];
-	for (int i = 0; i < candidateCount; ++i)
-	{
-		BYTE idx = candidateIndices[i];
-		float dL = fullPalette->labL[idx] - tL;
-		float dA = fullPalette->labA[idx] - tA;
-		float dB = fullPalette->labB[idx] - tB;
-		float d = dL * dL + dA * dA + dB * dB;
-		if (d < bestDist) { bestDist = d; best = idx; }
-	}
-	return best;
-#else
-	int bestDist = 0x7fffffff;
-	BYTE best = candidateIndices[0];
-	for (int i = 0; i < candidateCount; ++i)
-	{
-		BYTE idx = candidateIndices[i];
-		int dr = fullPalette->r[idx] - R;
-		int dg = fullPalette->g[idx] - G;
-		int db = fullPalette->b[idx] - B;
-		int d = dr * dr + dg * dg + db * db;
-		if (d < bestDist) { bestDist = d; best = idx; }
-	}
-	return best;
 #endif
 }
 
@@ -539,24 +509,22 @@ BOOL TNTtoMiniMap::RenderStoredMinimapAtSize(
 	if (SourceHeight > StoredHeight) SourceHeight = StoredHeight;
 
 	const BYTE* palBase = MegamapColormap();
-	MegamapPaletteSubset fullPalette;
-	BuildMegamapFullPalette(&fullPalette, palBase);
+	MegamapPaletteSubset palSubset;
+	BuildMegamapPaletteSubsetFromImage(
+		&palSubset,
+		palBase,
+		StoredBits,
+		SourceWidth,
+		SourceHeight,
+		StoredPitch);
+	if (palSubset.count <= 0)
+	{
+		return FALSE;
+	}
 
 	int* rowAvg = (int*)malloc(sizeof(int) * 3 * DestWidth);
 	int* errCur = (int*)calloc(3 * (DestWidth + 2), sizeof(int));
 	int* errNext = (int*)calloc(3 * (DestWidth + 2), sizeof(int));
-	BYTE* rowCandidateCount = (BYTE*)malloc(DestWidth);
-	BYTE* rowCandidates = (BYTE*)malloc(DestWidth * 4);
-	if (rowCandidateCount == NULL || rowCandidates == NULL)
-	{
-		free(rowAvg);
-		free(errCur);
-		free(errNext);
-		free(rowCandidateCount);
-		free(rowCandidates);
-		return FALSE;
-	}
-
 	const bool dither = (rowAvg != NULL && errCur != NULL && errNext != NULL);
 
 	if (!dither)
@@ -582,8 +550,6 @@ BOOL TNTtoMiniMap::RenderStoredMinimapAtSize(
 			if (xEnd > SourceWidth) xEnd = SourceWidth;
 
 			int sumR = 0, sumG = 0, sumB = 0, count = 0;
-			BYTE localIndices[4];
-			int localCount = 0;
 			for (int sy = yStart; sy < yEnd; ++sy)
 			{
 				const BYTE* srcRow = StoredBits + sy * StoredPitch;
@@ -594,21 +560,12 @@ BOOL TNTtoMiniMap::RenderStoredMinimapAtSize(
 					MegamapIndexRGB(palBase, srcIndex, &r, &g, &b);
 					sumR += r; sumG += g; sumB += b;
 					++count;
-
-					bool alreadyPresent = false;
-					for (int i = 0; i < localCount; ++i)
-						if (localIndices[i] == srcIndex) alreadyPresent = true;
-					if (!alreadyPresent && localCount < 4)
-						localIndices[localCount++] = srcIndex;
 				}
 			}
 
 			int avgR = count ? sumR / count : 0;
 			int avgG = count ? sumG / count : 0;
 			int avgB = count ? sumB / count : 0;
-			rowCandidateCount[x] = (BYTE)localCount;
-			for (int i = 0; i < localCount; ++i)
-				rowCandidates[x * 4 + i] = localIndices[i];
 
 			if (dither)
 			{
@@ -619,13 +576,7 @@ BOOL TNTtoMiniMap::RenderStoredMinimapAtSize(
 			else
 			{
 				DestPixelBits[y * DestWidth + x] =
-					MegamapSnapLocal(
-						&fullPalette,
-						&rowCandidates[x * 4],
-						rowCandidateCount[x],
-						avgR,
-						avgG,
-						avgB);
+					MegamapSnap(&palSubset, avgR, avgG, avgB);
 			}
 		}
 
@@ -646,13 +597,7 @@ BOOL TNTtoMiniMap::RenderStoredMinimapAtSize(
 			if (tg < 0) tg = 0; else if (tg > 255) tg = 255;
 			if (tb < 0) tb = 0; else if (tb > 255) tb = 255;
 
-			BYTE idx = MegamapSnapLocal(
-				&fullPalette,
-				&rowCandidates[x * 4],
-				rowCandidateCount[x],
-				tr,
-				tg,
-				tb);
+			BYTE idx = MegamapSnap(&palSubset, tr, tg, tb);
 			DestPixelBits[y * DestWidth + x] = idx;
 
 			int pr, pg, pb;
@@ -673,8 +618,6 @@ BOOL TNTtoMiniMap::RenderStoredMinimapAtSize(
 	free(rowAvg);
 	free(errCur);
 	free(errNext);
-	free(rowCandidateCount);
-	free(rowCandidates);
 	return TRUE;
 }
 ///////////-------------
