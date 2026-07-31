@@ -11,6 +11,13 @@
 #define MAX_WRECK_SNAP_RADIUS 1
 
 //
+// Anti-share-abuse
+//
+// Structure shares are rate limited, and '.take' is refused when the target's
+// commander has already been destroyed.  See ESCALATION_SHARE_GUARD_DESIGN.md.
+#define SHARE_ABUSE_GUARD 0
+
+//
 // Construction / AI behavior
 //
 #define FIXED_POSN_GUARDING_CONS_ENABLE 1

@@ -8,7 +8,9 @@
 #include "tafunctions.h"
 #include "tamem.h"
 #include "UnitDefExtensions.h"
+#include "ShareGuard.h"
 #include "Profiler.h"
+#include "config.h"
 
 #include <cctype>
 #include <cstddef>
@@ -996,6 +998,17 @@ static int __stdcall GiveUnit_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
     BYTE* srcUnit = reinterpret_cast<BYTE*>(stackTop[1]);
     BYTE* pkt     = reinterpret_cast<BYTE*>(stackTop[3]);
     if (!srcUnit) return 0;
+
+#if SHARE_ABUSE_GUARD
+    // Rate limiter: must run before the structures-only gate below so it sees
+    // every give, and before any rotation is armed so a suppressed give leaves
+    // no pending state behind.
+    if (ShareGuard::ShouldSuppressGive(srcUnit, reinterpret_cast<void*>(stackTop[2]), pkt))
+    {
+        X86StrackBuffer->rtnAddr_Pvoid = ShareGuard::GetGiveSuppressStub();
+        return X86STRACKBUFFERCHANGE;
+    }
+#endif
 
     WORD unitTypeIdx = *reinterpret_cast<WORD*>(srcUnit + OFF_UNIT_UnitINFOID);
     if (unitTypeIdx == 0) return 0;

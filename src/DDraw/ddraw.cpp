@@ -36,6 +36,7 @@ using namespace std;
 #include "SurfaceFire.h"
 #include "PacketChatRouter.h"
 #include "VoteReject.h"
+#include "ShareGuard.h"
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
 #include "ExplosionCapsTelemetry.h"
@@ -218,6 +219,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		SurfaceFire::Install();
 		ZeroDamageMapWeapons::Install();
 		VoteReject::Install();
+#if SHARE_ABUSE_GUARD
+		ShareGuard::Install();
+#endif
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponIdOverflow::Install();
 		WeaponFiredExt::Install();
@@ -233,6 +237,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		DebugPipeServer::Stop();
 #endif
 		ZeroDamageMapWeapons::Shutdown();
+#if SHARE_ABUSE_GUARD
+		ShareGuard::Shutdown();
+#endif
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponFiredExt::Shutdown();
 		WeaponIdOverflow::Shutdown();
