@@ -190,7 +190,7 @@ bool ExternQuickKey::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 						{
 							SelectOnlyInScreenSameTypeUnit ( FALSE);
 							UpdateSelectUnitEffect ( ) ;
-							ApplySelectUnitMenu_Wapper ( );
+							ApplySelectUnitMenu_Wapper ( false);
 							return true;
 						}
 					}
@@ -212,7 +212,7 @@ bool ExternQuickKey::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 
 					SelectOnlyInScreenWeaponUnit ( MOVEUNITSELECTABLE);
 					UpdateSelectUnitEffect ( ) ;
-					ApplySelectUnitMenu_Wapper ( );
+					ApplySelectUnitMenu_Wapper ( false);
 					return true;
 				}
 			}
@@ -221,7 +221,12 @@ bool ExternQuickKey::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 				DeselectUnits ();
 				FindIdleConst();
 				UpdateSelectUnitEffect ( ) ;
-				ApplySelectUnitMenu_Wapper ( );
+				// KeepPreparedOrder= false: a pending build placement must not
+				// survive the selection change, otherwise the building stays on
+				// the cursor and the newly selected constructor will happily
+				// build something that isn't on its own build menu.  TA's own
+				// squad hotkeys (1..9) cancel it the same way.
+				ApplySelectUnitMenu_Wapper ( false);
 				return true;
 			}
 			if(wParam == 70  && (GetAsyncKeyState(17)&0x8000)>0 && (GetAsyncKeyState(16)&0x8000)==0) 
@@ -229,7 +234,7 @@ bool ExternQuickKey::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 				DeselectUnits ();
 				FindIdelFactory ();
 				UpdateSelectUnitEffect ( ) ;
-				ApplySelectUnitMenu_Wapper ( );
+				ApplySelectUnitMenu_Wapper ( false);
 				return true;
 			}
 			

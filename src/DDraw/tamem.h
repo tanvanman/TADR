@@ -561,7 +561,11 @@ struct TAdynmemStruct{
 	unsigned short MaxUnitNumberPerPlayer ;	//0x37eec
 	unsigned int  Difficulty;				//0x37eee
 	unsigned int  side;						//0x37ef2
-	unsigned int  field_37EF6;
+	// 0x37ef6: live "Commander Dies" game option. 0 = "Game continues after
+	// Commander is destroyed", non-zero = "Game ends when commander is
+	// destroyed". Read by UNITS_Send_UnitDeath_P0C (0x004864b0) to decide
+	// whether a commander death triggers UNITS_KillAllForPlayer.
+	unsigned int  ActiveCommanderDeath;		//0x37ef6
 
 	int InterfaceType;						//0x37efa
 
@@ -951,8 +955,11 @@ struct UnitStruct {
   LPVOID UnkPTR2;
   Object3doStruct *Object3do;
   int Order_Unknow ;
-  short int UnitID;
-  short int UnitInGameIndex;
+  short int UnitID;             // 0xA6: index into the UnitDef array, i.e. the unit TYPE
+                                //       (Ghidra calls this UnitINFOID). NOT a per-unit id --
+                                //       that is UnitInGameIndex below.
+  short int UnitInGameIndex;    // 0xA8: this unit's slot; BeginUnitsArray_p[UnitInGameIndex].
+                                //       Recycled when a unit dies, so never cache it bare.
   char data9[14];
 
   short Kills;
@@ -968,7 +975,12 @@ struct UnitStruct {
   unsigned char Height;		//0xfb
   short int  OwnerIndex ;	//0xfc
   char data28;				//0xfe
-  char myLos_PlayerID;		//0xff
+  // 0xff: the slot of the player who OWNS this unit (Ghidra: cOwnerID). This is
+  // what UNITS_KillAllForPlayer is passed on a commander death. Formerly named
+  // myLos_PlayerID here, which misread it as a LOS field -- ownership is merely
+  // what LOS is derived from. Do not confuse with ThisPlayer_ID (0xF4), which is
+  // the KILLER's slot, not the owner's.
+  unsigned char cOwnerID;	//0xff
   char data10[4];			//0x100
   float Nanoframe;			//0x104
   short Health;				//0x108

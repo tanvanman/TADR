@@ -269,7 +269,13 @@ void DeselectUnits(void);
 void freeTAMem (LPVOID MemAddress);
 LPDWORD GetUnitIDMaskAryByCategory (LPSTR CategoryName_cstrp);
 void UpdateSelectUnitEffect (void);
-void ApplySelectUnitMenu_Wapper (void);
+// KeepPreparedOrder==true (default) preserves PrepareOrder_Type across TA's
+// _ApplySelectUnitMenu, which otherwise cancels whatever order is being
+// prepared.  The megamap needs that preservation (you keep a pending build
+// while clicking around the minimap); selection hotkeys must NOT preserve it,
+// or a pending build placement survives a selection change -- see
+// ExternQuickKey::Message.
+void ApplySelectUnitMenu_Wapper (bool KeepPreparedOrder= true);
 int ChatText (LPCSTR str);
 bool SetIDMaskInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[]);
 bool CleanIDMaskInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[]);

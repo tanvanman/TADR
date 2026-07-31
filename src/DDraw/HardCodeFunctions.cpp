@@ -332,7 +332,7 @@ void UpdateSelectUnitEffect (void)
 	*((unsigned short int *)(*PTR+ 0x37E9C))= 0;
 }
 
-void ApplySelectUnitMenu_Wapper (void)
+void ApplySelectUnitMenu_Wapper (bool KeepPreparedOrder)
 {
 	int old= (*TAmainStruct_PtrPtr)->PrepareOrder_Type;
 
@@ -340,7 +340,15 @@ void ApplySelectUnitMenu_Wapper (void)
 	_ApplySelectUnitMenu ApplySelectUnitMenu= (_ApplySelectUnitMenu)0x00495860;
 	ApplySelectUnitMenu ();
 
-	(*TAmainStruct_PtrPtr)->PrepareOrder_Type= old;
+	// _ApplySelectUnitMenu sets PrepareOrder_Type= STOP, clears BuildSpotState
+	// bit 0x20 and deactivates the build button group -- i.e. it cancels a
+	// pending build placement.  Restoring the old order type puts the pending
+	// placement back, which is what the megamap wants but is an exploit when a
+	// selection hotkey changed which units are selected.
+	if (KeepPreparedOrder)
+	{
+		(*TAmainStruct_PtrPtr)->PrepareOrder_Type= old;
+	}
 // 	typedef int( __stdcall *_sub_4A6A40)( GUIInfo *, TAdynmemStruct *);
 // 	_sub_4A6A40 sub_4A6A40= (_sub_4A6A40)0x4A6A40;
 // 
@@ -460,7 +468,7 @@ BOOL IsPlayerAllyUnit (int UnitID,int PlayerLosID)
 	{// watcher
 		return TRUE;
 	}
-	int UnitLosID= (*TAmainStruct_PtrPtr)->BeginUnitsArray_p [UnitID].myLos_PlayerID;
+	int UnitLosID= (*TAmainStruct_PtrPtr)->BeginUnitsArray_p [UnitID].cOwnerID;
 	if(PlayerLosID==UnitLosID)
 	{
 		return TRUE;
