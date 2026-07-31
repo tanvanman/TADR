@@ -171,6 +171,42 @@ static void BuildMegamapPaletteSubset(MegamapPaletteSubset* out, const BYTE* pal
 	}
 }
 
+static void BuildMegamapPaletteSubsetFromImage(
+	MegamapPaletteSubset* out,
+	const BYTE* pal,
+	const BYTE* bits,
+	int width,
+	int height,
+	int pitch)
+{
+	BYTE used[256];
+	memset(used, 0, sizeof(used));
+
+	for (int y = 0; y < height; ++y)
+	{
+		const BYTE* row = bits + y * pitch;
+		for (int x = 0; x < width; ++x)
+			used[row[x]] = 1;
+	}
+
+	MegamapInitSrgbTables();
+
+	out->count = 0;
+	for (int i = 0; i < 256; ++i)
+	{
+		if (!used[i]) continue;
+		int r, g, b;
+		MegamapIndexRGB(pal, (BYTE)i, &r, &g, &b);
+		int k = out->count;
+		out->r[k] = r;
+		out->g[k] = g;
+		out->b[k] = b;
+		out->index[k] = (BYTE)i;
+		MegamapOKLab(r, g, b, &out->labL[k], &out->labA[k], &out->labB[k]);
+		++out->count;
+	}
+}
+
 // Mean colour of the source tile-graphics pixels covered by one output pixel.
 //
 // Averages the gamma-encoded 8-bit values directly, which is also what GIMP's
@@ -439,6 +475,150 @@ LPBYTE TNTtoMiniMap::DrawRectMapToBuf (LPBYTE * RectPixelBitsBuf_PtrToPB, PTNTHe
 LPBYTE TNTtoMiniMap::PictureInfo ( LPBYTE * PixelBits_pp,  POINT * Aspect)
 {
 	return myMiniMap->PictureInfo ( PixelBits_pp, Aspect);
+}
+
+BOOL TNTtoMiniMap::RenderStoredMinimapAtSize(
+	LPBYTE DestPixelBits,
+	int DestWidth,
+	int DestHeight,
+	const BYTE* StoredBits,
+	int StoredWidth,
+	int StoredHeight,
+	int StoredPitch)
+{
+	if (DestPixelBits == NULL || DestWidth <= 0 || DestHeight <= 0 ||
+		StoredBits == NULL)
+	{
+		return FALSE;
+	}
+
+	if (StoredWidth <= 0 || StoredHeight <= 0 ||
+		StoredWidth > 4096 || StoredHeight > 4096 ||
+		StoredPitch < StoredWidth || StoredPitch > 4096)
+	{
+		return FALSE;
+	}
+
+	// TA stores a 252x252 minimap but its built-in radar is at most 126x126.
+	// Rectangular maps occupy only the top-left portion of that stored image;
+	// the rest is padding. RadarPicture already has the correct aspect, so its
+	// dimensions tell us exactly how much source image is meaningful.
+	int SourceWidth = DestWidth * 2;
+	int SourceHeight = DestHeight * 2;
+	if (SourceWidth > StoredWidth) SourceWidth = StoredWidth;
+	if (SourceHeight > StoredHeight) SourceHeight = StoredHeight;
+
+	const BYTE* palBase = MegamapColormap();
+	MegamapPaletteSubset palSubset;
+	BuildMegamapPaletteSubsetFromImage(
+		&palSubset,
+		palBase,
+		StoredBits,
+		SourceWidth,
+		SourceHeight,
+		StoredPitch);
+	if (palSubset.count <= 0)
+	{
+		return FALSE;
+	}
+
+	int* rowAvg = (int*)malloc(sizeof(int) * 3 * DestWidth);
+	int* errCur = (int*)calloc(3 * (DestWidth + 2), sizeof(int));
+	int* errNext = (int*)calloc(3 * (DestWidth + 2), sizeof(int));
+	const bool dither = (rowAvg != NULL && errCur != NULL && errNext != NULL);
+
+	if (!dither)
+	{
+		free(rowAvg); rowAvg = NULL;
+		free(errCur); errCur = NULL;
+		free(errNext); errNext = NULL;
+	}
+
+	int scanDir = 1;
+	for (int y = 0; y < DestHeight; ++y)
+	{
+		int yStart = y * SourceHeight / DestHeight;
+		int yEnd = (y + 1) * SourceHeight / DestHeight;
+		if (yEnd <= yStart) yEnd = yStart + 1;
+		if (yEnd > SourceHeight) yEnd = SourceHeight;
+
+		for (int x = 0; x < DestWidth; ++x)
+		{
+			int xStart = x * SourceWidth / DestWidth;
+			int xEnd = (x + 1) * SourceWidth / DestWidth;
+			if (xEnd <= xStart) xEnd = xStart + 1;
+			if (xEnd > SourceWidth) xEnd = SourceWidth;
+
+			int sumR = 0, sumG = 0, sumB = 0, count = 0;
+			for (int sy = yStart; sy < yEnd; ++sy)
+			{
+				const BYTE* srcRow = StoredBits + sy * StoredPitch;
+				for (int sx = xStart; sx < xEnd; ++sx)
+				{
+					BYTE srcIndex = srcRow[sx];
+					int r, g, b;
+					MegamapIndexRGB(palBase, srcIndex, &r, &g, &b);
+					sumR += r; sumG += g; sumB += b;
+					++count;
+				}
+			}
+
+			int avgR = count ? sumR / count : 0;
+			int avgG = count ? sumG / count : 0;
+			int avgB = count ? sumB / count : 0;
+
+			if (dither)
+			{
+				rowAvg[x * 3 + 0] = avgR;
+				rowAvg[x * 3 + 1] = avgG;
+				rowAvg[x * 3 + 2] = avgB;
+			}
+			else
+			{
+				DestPixelBits[y * DestWidth + x] =
+					MegamapSnap(&palSubset, avgR, avgG, avgB);
+			}
+		}
+
+		if (!dither) continue;
+
+		int xFirst = (scanDir > 0) ? 0 : DestWidth - 1;
+		for (int step = 0; step < DestWidth; ++step)
+		{
+			int x = xFirst + scanDir * step;
+			int here = (x + 1) * 3;
+			int fwd = (x + scanDir + 1) * 3;
+			int back = (x - scanDir + 1) * 3;
+
+			int tr = rowAvg[x * 3 + 0] + MegamapErr16(errCur[here + 0]);
+			int tg = rowAvg[x * 3 + 1] + MegamapErr16(errCur[here + 1]);
+			int tb = rowAvg[x * 3 + 2] + MegamapErr16(errCur[here + 2]);
+			if (tr < 0) tr = 0; else if (tr > 255) tr = 255;
+			if (tg < 0) tg = 0; else if (tg > 255) tg = 255;
+			if (tb < 0) tb = 0; else if (tb > 255) tb = 255;
+
+			BYTE idx = MegamapSnap(&palSubset, tr, tg, tb);
+			DestPixelBits[y * DestWidth + x] = idx;
+
+			int pr, pg, pb;
+			MegamapIndexRGB(palBase, idx, &pr, &pg, &pb);
+			int er = tr - pr, eg = tg - pg, eb = tb - pb;
+
+			errCur[fwd + 0] += er * 7; errCur[fwd + 1] += eg * 7; errCur[fwd + 2] += eb * 7;
+			errNext[back + 0] += er * 3; errNext[back + 1] += eg * 3; errNext[back + 2] += eb * 3;
+			errNext[here + 0] += er * 5; errNext[here + 1] += eg * 5; errNext[here + 2] += eb * 5;
+			errNext[fwd + 0] += er; errNext[fwd + 1] += eg; errNext[fwd + 2] += eb;
+		}
+
+		int* swap = errCur; errCur = errNext; errNext = swap;
+		memset(errNext, 0, sizeof(int) * 3 * (DestWidth + 2));
+		scanDir = -scanDir;
+	}
+
+	free(rowAvg);
+	free(errCur);
+	free(errNext);
+	return TRUE;
 }
 ///////////-------------
 

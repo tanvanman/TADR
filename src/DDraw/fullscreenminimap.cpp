@@ -40,10 +40,28 @@ int __stdcall LoadMap_Routine (PInlineX86StackBuffer X86StrackBuffer)
 	return 0;
 }
 
+int __stdcall BuiltInMinimapReady_Routine(PInlineX86StackBuffer X86StrackBuffer)
+{
+	FullScreenMinimap* thethis =
+		(FullScreenMinimap*)(X86StrackBuffer->myInlineHookClass_Pish->ParamOfHook);
+
+	__try
+	{
+		thethis->RefreshBuiltInMinimap();
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		// Keep TA's original minimap if the replacement cannot be generated.
+	}
+
+	return 0;
+}
+
 FullScreenMinimap::FullScreenMinimap(BOOL Doit, int FPSlimit)
 {
 	IDDrawSurface::OutptTxt ( "FullScreenMinimap init");
 	LoadMap_hook= NULL;
+	BuiltInMinimapReady_hook= NULL;
 	MyMinimap_p= NULL;
 	GameDrawer= NULL;
 	UnitsMap= NULL;
@@ -107,7 +125,19 @@ FullScreenMinimap::FullScreenMinimap(BOOL Doit, int FPSlimit)
 		
 		LoadMap_hook->SetParamOfHook ( (LPVOID)this);
 		GameDrawer= new TAGameAreaReDrawer;
-		
+
+		if (MyConfig->GetIniBool("EnhancedBuiltInMinimap", TRUE))
+		{
+			// TA has just created RadarPicture at this point. Replace only its
+			// terrain image; TA continues to draw mapping, LOS and unit blips.
+			BuiltInMinimapReady_hook = new InlineSingleHook(
+				BuiltInMinimapReady_Addr,
+				5,
+				INLINE_5BYTESLAGGERJMP,
+				BuiltInMinimapReady_Routine);
+			BuiltInMinimapReady_hook->SetParamOfHook((LPVOID)this);
+		}
+
 	}
 
 
@@ -142,6 +172,10 @@ FullScreenMinimap::~FullScreenMinimap (void)
 	if (NULL!=LoadMap_hook)
 	{
 		delete LoadMap_hook;
+	}
+	if (NULL!=BuiltInMinimapReady_hook)
+	{
+		delete BuiltInMinimapReady_hook;
 	}
 	if (NULL!=MyMinimap_p)
 	{
@@ -360,6 +394,54 @@ void FullScreenMinimap::InitMinimap (TNTHeaderStruct * TNTPtr, RECT * GameScreen
 		//
 		InitSurface ( (IDirectDraw*)LocalShare->TADirectDraw);
 	}
+}
+
+void FullScreenMinimap::RefreshBuiltInMinimap()
+{
+	if (MyMinimap_p == NULL || TAmainStruct_PtrPtr == NULL ||
+		*TAmainStruct_PtrPtr == NULL)
+	{
+		return;
+	}
+
+	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	RadarPicStruct* radar = ta->RadarPicture;
+	if (radar == NULL || radar->PixelPTR == NULL ||
+		radar->XSize <= 0 || radar->YSize <= 0 ||
+		radar->XSize > 126 || radar->YSize > 126)
+	{
+		return;
+	}
+
+	// TA has already imported the raw TNT by the time this hook runs. Use its
+	// live minimap image descriptor rather than the megamap loader's pointers
+	// into the temporary decompressed TNT buffer. The descriptor layout is the
+	// one consumed by TA's 0x004B95A0 downscaler: WORD width/height at +0/+2
+	// and the indexed pixel buffer at +0x10. The descriptor pointer itself is
+	// at TAdynmem +0x1426B; the old reverse-engineered MinimapMEMORY_p member
+	// is offset incorrectly, so use the verified executable offset directly.
+	const BYTE* storedDescriptor = *reinterpret_cast<BYTE* const*>(
+		reinterpret_cast<const BYTE*>(ta) + 0x1426B);
+	if (storedDescriptor == NULL)
+	{
+		return;
+	}
+
+	const int storedWidth =
+		*reinterpret_cast<const WORD*>(storedDescriptor);
+	const int storedHeight =
+		*reinterpret_cast<const WORD*>(storedDescriptor + 2);
+	const BYTE* storedBits =
+		*reinterpret_cast<BYTE* const*>(storedDescriptor + 0x10);
+
+	MyMinimap_p->RenderStoredMinimapAtSize(
+		reinterpret_cast<LPBYTE>(radar->PixelPTR),
+		radar->XSize,
+		radar->YSize,
+		storedBits,
+		storedWidth,
+		storedHeight,
+		storedWidth);
 }
 
 void FullScreenMinimap::Set (int VirtualKey)

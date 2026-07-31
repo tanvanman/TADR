@@ -76,6 +76,14 @@ public:
 	PTNTHeaderStruct ParseMyTNTHeader (PTNTHeaderStruct In_PTNTH);
 	void MapFromTNTInMem (LPVOID Argc_PTNTH);
 	void MapFromValidTNTHeader (PTNTHeaderStruct Argc_PTNTH);
+	BOOL RenderStoredMinimapAtSize (
+		LPBYTE DestPixelBits,
+		int DestWidth,
+		int DestHeight,
+		const BYTE * StoredBits,
+		int StoredWidth,
+		int StoredHeight,
+		int StoredPitch);
 	int DrawMiniMap (LPBYTE DescPixelBitsBegin, int Width_I, int Height_I);
 
 	LPBYTE PictureInfo ( LPBYTE * PixelBits_pp,  POINT * Aspect);

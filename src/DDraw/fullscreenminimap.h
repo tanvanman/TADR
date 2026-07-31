@@ -41,6 +41,7 @@ public:
 	~FullScreenMinimap (void);
 
 	void InitMinimap (tagTNTHeaderStruct * TNTPtr, RECT *  GameScreen= NULL);
+	void RefreshBuiltInMinimap ();
 
 	void Blit(LPDIRECTDRAWSURFACE DestSurf);
 
@@ -68,6 +69,7 @@ public:
 	void BlockGUIState ( );
 private:
 	InlineSingleHook * LoadMap_hook;
+	InlineSingleHook * BuiltInMinimapReady_hook;
 	BOOL Blit_b;
 	BOOL Flipping;
 	
@@ -113,3 +115,4 @@ int __stdcall DischargeTADraw (PInlineX86StackBuffer X86StrackBuffer);
 
 
 int __stdcall ForceTADrawBlit (PInlineX86StackBuffer X86StrackBuffer);
+int __stdcall BuiltInMinimapReady_Routine (PInlineX86StackBuffer X86StrackBuffer);
