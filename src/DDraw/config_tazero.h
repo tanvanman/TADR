@@ -25,6 +25,12 @@
 #define CONSTRUCTION_KICKOUT_ENABLE 1
 
 //
+// Balance
+//
+// See CLAUDE.md / config_escalation.h -- Escalation-only balance nerf, not enabled here.
+#define REPAIR_RATE_FIX_ENABLE 0
+
+//
 // Environment / sim sync
 //
 // TA:Zero's economy has no wind or tidal generators, so those two rows of the
