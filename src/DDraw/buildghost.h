@@ -29,8 +29,11 @@ class SingleHook;
 //                                  3D fill. Default.
 //
 // FULL3D and WIRE share the whole rasteriser/cache; the WIRE/FULL3D split is
-// purely a render-stage choice. Use TDRAW_BUILDGHOST_HAS_3D below to guard
-// any code that both modes need (cache, hooks, 3DO helpers).
+// purely a render-stage choice, and since both are compiled in it is settled
+// at run time by the totala.ini [Preferences] "NanoframePreviewFill" option —
+// see BuildGhostFillEnabled(). TDRAW_BUILDGHOST_MODE only picks the DEFAULT
+// used when the ini has no such key. Use TDRAW_BUILDGHOST_HAS_3D below to
+// guard any code that both modes need (cache, hooks, 3DO helpers).
 // =============================================================================
 #define TDRAW_BUILDGHOST_RECT       0
 #define TDRAW_BUILDGHOST_FULL3D     1
@@ -54,6 +57,23 @@ class SingleHook;
 #else
 #define TDRAW_BUILDGHOST_HAS_3D 0
 #endif
+
+// Compile-time default for the "NanoframePreviewFill" ini option: TRUE only
+// when this build was configured for FULL3D. Shipping default is WIRE, i.e.
+// wireframe-only previews unless the player opts in.
+#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_FULL3D
+#define TDRAW_BUILDGHOST_FILL_DEFAULT 1
+#else
+#define TDRAW_BUILDGHOST_FILL_DEFAULT 0
+#endif
+
+// State of the totala.ini [Preferences] "NanoframePreviewFill" option
+// (default FALSE): FALSE => the nanoframe placement preview is drawn as a
+// shimmering wireframe plus the z-plane scanline only; TRUE => the flat-shaded
+// shimmering 3D fill is drawn as well. Always false in RECT builds, which have
+// no model preview at all. Read once and cached — this sits in the per-frame
+// render path — so a change takes effect at the next TA start.
+bool BuildGhostFillEnabled();
 
 // CBuildGhost — owns the per-(unitType, rotation) sprite cache and renders
 // the placement-preview ghost from the 3DO model. Pure presentation: depends
