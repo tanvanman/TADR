@@ -64,7 +64,20 @@ int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl)
 
 	LoadTARegConfig ( );
 	UpdateLosState ( 0);
-	
+
+	// UpdateLosState rebuilds the per-player LOS buffers and then calls
+	// DrawRadarFinal -- but NOT DrawOtherPlayer_MAPPEDMEM, so the minimap /
+	// megamap blips it produces are still filtered on the PREVIOUS view
+	// player's UnitStateMask 0x100/0x200 bits.  TA would only refresh those
+	// when the newly selected slot's 30-tick Controller.UpdateTime gate next
+	// fires, leaving up to a second of "everyone's dots" after a POV switch.
+	// Scan + repaint now so the switch is visually atomic.
+	if (TAInGame==DataShare->TAProgress)
+	{
+		RadarScanForViewPlayer ( );
+		TA_DrawRadarFinal ( );
+	}
+
 	//PTR1->LOS_Sight_PlayerID= Curt_LOS_Sight_PlayerID;
 	//UpdateLosState ( 0);
 	return Curt_LOS_Sight_PlayerID;
@@ -461,13 +474,12 @@ int ChatText (LPCSTR str)
 	return strlen ( str);
 }
 
-BOOL IsPlayerAllyUnit (int UnitID,int PlayerLosID)
+// Ownership / alliance test WITHOUT the "watchers see everything" short-circuit.
+// Use this from anything that has to reproduce what one particular player could
+// see -- a replay watcher following a single player's POV is still a watcher, so
+// IsPlayerAllyUnit() below would hand back TRUE for every unit in the game.
+BOOL IsPlayerAllyUnitStrict (int UnitID,int PlayerLosID)
 {
-	if((0!=(WATCH& ((*TAmainStruct_PtrPtr)->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask)))
-		||DataShare->PlayingDemo)
-	{// watcher
-		return TRUE;
-	}
 	int UnitLosID= (*TAmainStruct_PtrPtr)->BeginUnitsArray_p [UnitID].cOwnerID;
 	if(PlayerLosID==UnitLosID)
 	{
@@ -479,6 +491,36 @@ BOOL IsPlayerAllyUnit (int UnitID,int PlayerLosID)
 		return TRUE;
 	}
 	return FALSE;
+}
+
+BOOL IsPlayerAllyUnit (int UnitID,int PlayerLosID)
+{
+	if((0!=(WATCH& ((*TAmainStruct_PtrPtr)->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask)))
+		||DataShare->PlayingDemo)
+	{// watcher
+		return TRUE;
+	}
+	return IsPlayerAllyUnitStrict ( UnitID, PlayerLosID);
+}
+
+// TRUE while the local watcher is looking through ANOTHER player's eyes, i.e.
+// ViewPlayerLos_Replay() has pointed LOS_Sight_PlayerID at a slot other than our
+// own and re-armed fog (Permanent|NOMAPPING).  In that state the display is
+// supposed to reproduce what that player could actually see, so the
+// "watchers see everything" hacks must stand down.
+//
+// Free-roam watch mode (the default, and what ViewPlayerLos_Replay(0) restores)
+// clears both LosType bits and points LOS_Sight_PlayerID back at
+// OrgLocalPlayerID, so this returns FALSE and legacy behaviour is unchanged.
+BOOL IsWatchingOtherPlayerPov (void)
+{
+	TAdynmemStruct * PTR1 = *(TAdynmemStruct * *)0x511de8;
+
+	if (0==(PTR1->LosType& (NOMAPPING| Permanent)))
+	{// no fog of war at all -- nothing is being hidden from anyone
+		return FALSE;
+	}
+	return PTR1->LOS_Sight_PlayerID!=LocalShare->OrgLocalPlayerID;
 }
 
 void GetWeatherReport(int& _solar, int& windPower, int & windPowerMin, int & windPowerMax, int& tidalPower)
@@ -644,6 +686,16 @@ _malloc_SafeWay malloc_SafeWay= (_malloc_SafeWay) 0x004B4F10;
 _UpdateLOSState UpdateLosState= (_UpdateLOSState) 0x004816A0;
 _LoadTARegConfig LoadTARegConfig= (_LoadTARegConfig) 0x00430F00;
 _ViewCommandProc ViewCommandProc= (_ViewCommandProc) 0x00416B50;
+
+// DrawOtherPlayer_MAPPEDMEM: recomputes UnitStateMask bits 0x100 (radar/LOS) and
+// 0x200 (sonar) for every unit from LOS_Sight_PlayerID's own sensors.  TA only
+// calls it once per 30 game ticks, from the view player's slot in
+// Game_PlayerPerTickUpdate.
+_RadarScanForViewPlayer RadarScanForViewPlayer= (_RadarScanForViewPlayer) 0x00467440;
+// DrawRadarFinal: repaints the native minimap blips and rebuilds the engine's
+// hot-radar list (RadarUnits / NumHotRadarUnits) from those bits.  Runs every
+// tick, and is also what tdraw's megamap iterates.
+_DrawRadarFinal TA_DrawRadarFinal= (_DrawRadarFinal) 0x00466DC0;
 
 _SubGUIIndex SubGUIIndex= (_SubGUIIndex)0x0049FDF0 ;
 
