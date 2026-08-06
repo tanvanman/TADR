@@ -25,6 +25,12 @@
 #define CONSTRUCTION_KICKOUT_ENABLE 0
 
 //
+// Balance
+//
+// See CLAUDE.md / config_escalation.h -- Escalation-only balance nerf, not enabled here.
+#define REPAIR_RATE_FIX_ENABLE 0
+
+//
 // Environment / sim sync
 //
 #define WEATHER_REPORT 0

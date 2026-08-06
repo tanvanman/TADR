@@ -41,6 +41,7 @@ using namespace std;
 #include "WeaponFiredExt.h"
 #include "ExplosionCapsTelemetry.h"
 #include "ZeroDamageMapWeapons.h"
+#include "RepairRateFix.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -226,6 +227,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		WeaponIdOverflow::Install();
 		WeaponFiredExt::Install();
 #endif
+#if REPAIR_RATE_FIX_ENABLE
+		RepairRateFix::Install();
+#endif
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Start();
 #endif
@@ -243,6 +247,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponFiredExt::Shutdown();
 		WeaponIdOverflow::Shutdown();
+#endif
+#if REPAIR_RATE_FIX_ENABLE
+		RepairRateFix::Shutdown();
 #endif
 		/* KillTimer(NULL, Timer);
 		KillTimer(NULL, DetectTimer); */

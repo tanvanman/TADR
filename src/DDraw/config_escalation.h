@@ -25,6 +25,14 @@
 #define CONSTRUCTION_KICKOUT_ENABLE 1
 
 //
+// Balance
+//
+// See CLAUDE.md for the derivation. This is a global repair-rate nerf (removes a
+// rounding-bug bonus that favored massed cheap repairers over fewer expensive
+// ones), not a pure engine-bug fix, so it is scoped to this config only.
+#define REPAIR_RATE_FIX_ENABLE 1
+
+//
 // Environment / sim sync
 //
 #define WEATHER_REPORT 1
