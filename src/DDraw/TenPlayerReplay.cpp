@@ -162,6 +162,36 @@ LOCAL_PLAYER_CHECK_HACK(0x455237, 18, Ebx, 0x455241) // Packet_Dispatcher CHAT_0
 LOCAL_PLAYER_CHECK_HACK(0x45339d, 19, Edx-0x73, 0x4534c2) // BroadcastText
 
 
+// ===========================================================================
+// Free-roam watcher "see everything" sensor buff
+// ---------------------------------------------------------------------------
+// Hook site 0x46754A sits in pass 2 of DrawOtherPlayer_MAPPEDMEM (0x467440),
+// the loop that walks the VIEW player's own radar/sonar emitters and calls
+// CallbackForUnitsInDistance -> RadarSonarDetect_MarkUnitDetected to flag which
+// units they detect.  The scan context being assembled on the stack is
+//     [ESP+0x20] vtbl, [ESP+0x24] radarRangeSq, [ESP+0x28] sonarRangeSq,
+//     [ESP+0x2C..0x34] scan centre XYZ.
+// We give the view player's first unit a whole-map radius so a watcher with no
+// units of their own can still see submarines (which need a *sonar* contact --
+// plain LOS never reveals them, see CheckUnitInPlayerLOS).
+//
+// The centre is forced to (0,0,0) because a huge range measured from the unit's
+// own position overflows the fixed-point distance test unless the unit happens
+// to sit near the map origin.
+//
+// IMPORTANT -- this must not run while the watcher is following a single
+// player's POV.  It writes BOTH range slots (the resume address 0x46758D
+// executes "MOV [ESP+0x28],EDX" for us, so EDX lands in sonarRangeSq while we
+// store radarRangeSq ourselves), so it is a map-wide RADAR as well as a
+// map-wide sonar: every unit in the game ends up with UnitStateMask 0x100/0x200
+// and therefore a blip on the native minimap AND, via RadarUnits/
+// NumHotRadarUnits, on the megamap.  ViewPlayerLos_Replay() sets BOTH
+// LOS_Sight_PlayerID and LocalHumanPlayer_PlayerID to the selected slot, so the
+// old LOS_Sight_PlayerID == LocalHumanPlayer_PlayerID test did not distinguish
+// the two modes and POV mode showed every player's dots.  IsWatchingOtherPlayerPov()
+// is the gate; in free-roam mode LosType is 0 and everything is visible anyway,
+// so the buff only ever has to serve the free-roam case.
+// ===========================================================================
 //unsigned int PermSonarLosAddr = 0x42c3e6;  // patch commander unit definition
 unsigned int PermSonarLosAddr = 0x46754a;	 // patch sonar calculation
 int __stdcall PermSonarLosProc(PInlineX86StackBuffer X86StrackBuffer)
@@ -179,7 +209,8 @@ int __stdcall PermSonarLosProc(PInlineX86StackBuffer X86StrackBuffer)
 	// patch sonar calculation
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	if (DataShare->PlayingDemo && TAInGame == DataShare->TAProgress &&
-		taPtr->LOS_Sight_PlayerID == taPtr->LocalHumanPlayer_PlayerID)
+		taPtr->LOS_Sight_PlayerID == taPtr->LocalHumanPlayer_PlayerID &&
+		!IsWatchingOtherPlayerPov())
 	{
 		UnitStruct* unit = (UnitStruct*)X86StrackBuffer->Esi;
 		PlayerStruct* viewingPlayer = &taPtr->Players[taPtr->LOS_Sight_PlayerID];

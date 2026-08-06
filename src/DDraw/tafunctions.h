@@ -96,6 +96,21 @@ extern _LoadTARegConfig LoadTARegConfig;
 typedef int (__stdcall * _ViewCommandProc) (char * );//this is spec struct, but I'm lazy to define it.
 extern _ViewCommandProc ViewCommandProc;
 
+// TotalA.exe DrawOtherPlayer_MAPPEDMEM (0x467440).  Per-view-player radar/sonar
+// scan: recomputes UnitStruct::UnitSelected (the engine's UnitStateMask) bits
+// 0x100 (radar/LOS contact) and 0x200 (sonar contact) for every unit in the
+// game, keyed on LOS_Sight_PlayerID.  This is the only code that CLEARS those
+// bits.
+typedef void (__cdecl * _RadarScanForViewPlayer) (void);
+extern _RadarScanForViewPlayer RadarScanForViewPlayer;
+
+// TotalA.exe DrawRadarFinal (0x466DC0).  Paints the native minimap blips and
+// rebuilds the engine hot-radar list (TAdynmemStruct::RadarUnits /
+// NumHotRadarUnits) from the bits above -- the same list UnitsMinimap::
+// NowDrawUnits walks for the megamap.
+typedef void (__cdecl * _DrawRadarFinal) (void);
+extern _DrawRadarFinal TA_DrawRadarFinal;
+
 typedef int (__stdcall * _SubGUIIndex)(GUI0IDControl * GUIControl_p, char *SubControlName, int _0xe);
 extern _SubGUIIndex SubGUIIndex;
 
@@ -291,7 +306,17 @@ int PauseCDMusic();
 int DrawRadarCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int Radius, int color);
 int DrawDotteCircle (LPBYTE Bits, POINT * Aspect, int CenterX, int CenterY, int Radius, int color, int Spacing, int Dotte_b);
 
+// Returns TRUE for EVERY unit when the local slot is a watcher or we are playing
+// a demo.  Fine for "can I be shown this at all" questions; wrong for anything
+// reproducing one specific player's sensor picture -- use IsPlayerAllyUnitStrict
+// (optionally guarded by IsWatchingOtherPlayerPov) for those.
 BOOL IsPlayerAllyUnit (int  UnitID,int PlayerLosID);
+BOOL IsPlayerAllyUnitStrict (int  UnitID,int PlayerLosID);
+
+// TRUE while a replay watcher is following another player's POV (fog re-armed
+// and LOS_Sight_PlayerID pointed away from our own slot).  FALSE in free-roam
+// watch mode and in live play.
+BOOL IsWatchingOtherPlayerPov (void);
 
 void GetWeatherReport(int& _solar, int& windPower, int& windPowerMin, int& windPowerMax, int& tidalPower);
 

@@ -56,6 +56,11 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*????.??.??
+- megamap/minimap dithering can now be turned off with "MegamapDither = FALSE" in totala.ini [Preferences]
+- the nanoframe build preview is wireframe-only by default; the shaded nanoframe fill can be turned back
+  on with "NanoframePreviewFill = TRUE" in totala.ini [Preferences]
+
 *2026.8.1
 - Build configuration "no-megamap-features" renamed to "bta" (tdraw-bta.zip), and its mex and wreck snap radius limited to 1
 - (escalation only) Share-abuse guard, to stop a losing player handing his base to an ally to deny the enemy a kill:

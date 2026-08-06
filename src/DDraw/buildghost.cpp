@@ -3,6 +3,7 @@
 
 #include "dialog.h"
 #include "iddrawsurface.h"
+#include "TAConfig.h"
 #include "tafunctions.h"
 #include "tahook.h"
 #include "tamem.h"
@@ -50,6 +51,34 @@ namespace
         if (!ta || !ta->UnitDef) return nullptr;
         return &ta->UnitDef[idx];
     }
+}
+
+// =============================================================================
+// Preview style option — totala.ini [Preferences] NanoframePreviewFill.
+// =============================================================================
+bool BuildGhostFillEnabled()
+{
+#if TDRAW_BUILDGHOST_HAS_3D
+    // Cached after the first successful read: this is called once per ghost
+    // per frame and GetPrivateProfileString goes to the ini file. MyConfig
+    // does not exist during very early startup, so fall back to the built-in
+    // default without latching it — the first build cursor is drawn long
+    // after the config is up, by which time the ini value wins.
+    static int cached = -1;
+    if (cached < 0)
+    {
+        if (MyConfig == NULL)
+            return TDRAW_BUILDGHOST_FILL_DEFAULT != 0;
+        cached = (MyConfig->GetIniBool("NanoframePreviewFill",
+                      TDRAW_BUILDGHOST_FILL_DEFAULT ? TRUE : FALSE) != FALSE) ? 1 : 0;
+        IDDrawSurface::OutptTxt(cached
+            ? "[BuildGhost] NanoframePreviewFill=TRUE (shimmer fill + frame)"
+            : "[BuildGhost] NanoframePreviewFill=FALSE (shimmer frame + scanline, no fill)");
+    }
+    return cached != 0;
+#else
+    return false;   // RECT builds have no model preview at all
+#endif
 }
 
 // =============================================================================
@@ -145,11 +174,9 @@ CBuildGhost::CBuildGhost()
 #if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_RECT
     IDDrawSurface::OutptTxt("[BuildGhost] mode=RECT (no model preview)");
 #elif TDRAW_BUILDGHOST_HAS_3D
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIRE
-    IDDrawSurface::OutptTxt("[BuildGhost] mode=WIRE (shimmer frame + scanline, no fill)");
-#else
-    IDDrawSurface::OutptTxt("[BuildGhost] mode=FULL3D");
-#endif
+    // Wire vs fill is an ini option resolved on first render — see
+    // BuildGhostFillEnabled(), which logs the value it settles on.
+    IDDrawSurface::OutptTxt("[BuildGhost] mode=3D");
     m_hooks.push_back(std::make_shared<InlineSingleHook>(
         kBuildRectHookAddr, 5, INLINE_5BYTESLAGGERJMP, BuildRectAfterHookProc));
 #endif
@@ -1026,17 +1053,13 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
         spriteBottom <= gs.top || spriteTop  >= gs.bottom)
         return;
 
-    // Ghost render style is fixed at compile time by TDRAW_BUILDGHOST_MODE
-    // (no runtime menu). Both flags drive the nanoframe ramp shimmer:
-    //   FULL3D  cycled (shimmering) fill + cycled edges.
-    //   WIRE    no fill; cycled (shimmering) edge frame + z-plane scanline.
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_WIRE
-    const bool noFill     = true;
+    // Ghost render style comes from the totala.ini [Preferences]
+    // "NanoframePreviewFill" option (default FALSE => wireframe only). Both
+    // paths drive the nanoframe ramp shimmer:
+    //   fill on   cycled (shimmering) fill + cycled edges.
+    //   fill off  no fill; cycled (shimmering) edge frame + z-plane scanline.
+    const bool noFill     = !BuildGhostFillEnabled();
     const bool cycleEdges = true;
-#else  // TDRAW_BUILDGHOST_FULL3D
-    const bool noFill     = false;
-    const bool cycleEdges = true;
-#endif
 
     auto rampColor = [](unsigned step) -> unsigned char {
         unsigned s = step & 0x1F;

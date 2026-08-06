@@ -27,7 +27,7 @@ typedef struct tagTNTHeaderStruct
 #define MMPERROR_MODIFYRECT (0x11)
 #define MMPERROR_MODIFYDESCRECT (0x12)
 
-class MiniMapPicture 
+class MiniMapPicture
 {
 public:
 	MiniMapPicture(int Width, int Height);
@@ -60,6 +60,13 @@ void MegamapIndexRGB(const BYTE* pal, BYTE idx, int* r, int* g, int* b);
 // Nearest colormap index for an arbitrary RGB (brute-force Euclidean over the
 // 256 entries; cheap). Uses the live colormap, falls back to rqAry.
 BYTE MegamapNearestIndex(const BYTE* pal, int r, int g, int b);
+
+// State of the totala.ini [Preferences] "MegamapDither" option (default TRUE):
+// TRUE => error-diffuse the downscaled terrain colours back onto the palette,
+// FALSE => snap each pixel to its nearest palette entry in OKLab with no
+// diffusion. Read once per render; both the megamap and the built-in minimap
+// are rendered at map load, so a change takes effect from the next map.
+bool MegamapDitherEnabled();
 
 class TNTtoMiniMap
 {

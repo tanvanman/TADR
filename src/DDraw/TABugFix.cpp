@@ -200,13 +200,26 @@ int __stdcall VTOLPatrolDisableReclaimProc(PInlineX86StackBuffer X86StrackBuffer
 	return 0;
 }
 
+// Pass 3 of DrawOtherPlayer_MAPPEDMEM: radar/sonar jammers suppress the contact
+// bits set by pass 2.  Stock TA only exempts jammers owned by the view player
+// outright; we widen that to any ALLY unit (jumping past both jam callbacks).
+//
+// IsPlayerAllyUnit() answers TRUE for every unit while a demo is playing or the
+// local slot is a watcher, which is what we want for a free-roaming watcher, but
+// NOT when the watcher is following one player's POV -- there the display is
+// meant to reproduce that player's sensor picture, and blanket-exempting every
+// jammer means enemy jamming is simply not simulated.  Use the strict ally test
+// in that case.
 unsigned int JammingOwnRadarAddr = 0x467608;
 int __stdcall JammingOwnRadarProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	PROFILE_SCOPE("Hook.JammingOwnRadar");
 	const TAdynmemStruct* ptr = *(TAdynmemStruct**)0x00511de8;
 	const UnitStruct* unit = (UnitStruct*)(X86StrackBuffer->Esi - 0x92);
-	if (IsPlayerAllyUnit(unit->UnitInGameIndex, ptr->LOS_Sight_PlayerID)) {
+	const BOOL isFriendly = IsWatchingOtherPlayerPov()
+		? IsPlayerAllyUnitStrict(unit->UnitInGameIndex, ptr->LOS_Sight_PlayerID)
+		: IsPlayerAllyUnit(unit->UnitInGameIndex, ptr->LOS_Sight_PlayerID);
+	if (isFriendly) {
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x46765a;
 		return X86STRACKBUFFERCHANGE;
 	}

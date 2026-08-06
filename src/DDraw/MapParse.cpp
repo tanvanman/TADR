@@ -8,6 +8,7 @@
 #include <CString>
 #include "fullscreenminimap.h"
 #include "tafunctions.h"
+#include "TAConfig.h"
 
 #if USEMEGAMAP
 
@@ -30,6 +31,10 @@
 // to brown and only near-pure-green cells stay green. That is the "brown crud
 // around patches of green" artifact. Diffusing the quantisation error puts the
 // dither back and restores the true average colour.
+//
+// Compile-time master switch. There is also a totala.ini [Preferences] option
+// ("MegamapDither", default TRUE) - see MegamapDitherEnabled() - for players who
+// prefer the flatter, stipple-free look of a plain nearest-colour snap.
 #define USE_MINIMAP_ERROR_DIFFUSION 1
 
 // Judge "which palette entry is closest" in OKLab rather than in RGB.
@@ -81,6 +86,18 @@ BYTE MegamapNearestIndex(const BYTE* pal, int R, int G, int B)
 		if (d < bestDist) { bestDist = d; bestI = i; }
 	}
 	return (BYTE)bestI;
+}
+
+bool MegamapDitherEnabled()
+{
+#if USE_MINIMAP_ERROR_DIFFUSION
+	// Default TRUE, so an ini without the key renders exactly as it did before
+	// the option existed. MyConfig is not yet built during very early startup;
+	// the megamap is only rendered at map load, long after, but default anyway.
+	return MyConfig == NULL || MyConfig->GetIniBool("MegamapDither", TRUE) != FALSE;
+#else
+	return false;
+#endif
 }
 
 #if USE_AVERAGED_MINIMAP_COLORS
@@ -522,9 +539,14 @@ BOOL TNTtoMiniMap::RenderStoredMinimapAtSize(
 		return FALSE;
 	}
 
-	int* rowAvg = (int*)malloc(sizeof(int) * 3 * DestWidth);
-	int* errCur = (int*)calloc(3 * (DestWidth + 2), sizeof(int));
-	int* errNext = (int*)calloc(3 * (DestWidth + 2), sizeof(int));
+	// Gated on the totala.ini "MegamapDither" option; when it is off we snap each
+	// downscaled pixel straight to its nearest palette entry and skip the
+	// diffusion buffers entirely.
+	const bool wantDither = MegamapDitherEnabled();
+
+	int* rowAvg = wantDither ? (int*)malloc(sizeof(int) * 3 * DestWidth) : NULL;
+	int* errCur = wantDither ? (int*)calloc(3 * (DestWidth + 2), sizeof(int)) : NULL;
+	int* errNext = wantDither ? (int*)calloc(3 * (DestWidth + 2), sizeof(int)) : NULL;
 	const bool dither = (rowAvg != NULL && errCur != NULL && errNext != NULL);
 
 	if (!dither)
@@ -625,10 +647,10 @@ BOOL TNTtoMiniMap::RenderStoredMinimapAtSize(
 MiniMapPicture::MiniMapPicture (int Width_I, int Height_I)
 {
 	MiniMapPixelBits= NULL;
-	
+
 	WholeBytesInPixelsBits= Width_I* Height_I;
 	MiniMapPixelBits= (LPBYTE)malloc ( WholeBytesInPixelsBits);
-	
+
 	this->Width= Width_I;
 	this->Height= Height_I;
 }
@@ -709,22 +731,26 @@ LPBYTE MiniMapPicture::StretchTATNTDataToMiniMap (PTNTHeaderStruct TATNT_PTNTH)
 	// Row of averaged colours, plus this-row / next-row error accumulators for
 	// the diffusion pass. The error rows carry a one-pixel guard band at each
 	// end (index x is stored at x+1) so the x-1 / x+1 taps never need clamping.
+	// Only allocated when dithering is actually wanted - see MegamapDitherEnabled.
 	int* rowAvg  = NULL;
 	int* errCur  = NULL;
 	int* errNext = NULL;
 	bool dither  = false;
 
 #if USE_MINIMAP_ERROR_DIFFUSION
-	rowAvg  = (int*)malloc(sizeof(int) * 3 * Width);
-	errCur  = (int*)calloc(3 * (Width + 2), sizeof(int));
-	errNext = (int*)calloc(3 * (Width + 2), sizeof(int));
-	dither  = (rowAvg != NULL && errCur != NULL && errNext != NULL);
-	if (!dither)
+	if (MegamapDitherEnabled())
 	{
-		// Out of memory - drop to the undithered snap rather than failing.
-		free(rowAvg);  rowAvg  = NULL;
-		free(errCur);  errCur  = NULL;
-		free(errNext); errNext = NULL;
+		rowAvg  = (int*)malloc(sizeof(int) * 3 * Width);
+		errCur  = (int*)calloc(3 * (Width + 2), sizeof(int));
+		errNext = (int*)calloc(3 * (Width + 2), sizeof(int));
+		dither  = (rowAvg != NULL && errCur != NULL && errNext != NULL);
+		if (!dither)
+		{
+			// Out of memory - drop to the undithered snap rather than failing.
+			free(rowAvg);  rowAvg  = NULL;
+			free(errCur);  errCur  = NULL;
+			free(errNext); errNext = NULL;
+		}
 	}
 #endif
 
