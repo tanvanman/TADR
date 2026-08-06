@@ -31,7 +31,7 @@ type
   MKChatMem = record
     chat             : array [1..100] of char;
     NewData          : longint;
-    deathtimes       : array [1..10] of longint;
+    deathtimes       : array [1..10] of longword;
     tastatus         : longint;
     playernames      : array [1..10,1..20] of char;
     incomeM          : array [1..10] of single;

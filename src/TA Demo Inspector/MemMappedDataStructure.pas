@@ -17,7 +17,7 @@ type
   MKChatMem = record
     chat           :array [1..100] of char;
     dataexists     :integer;
-    DeathTimes     :array [1..10] of integer;
+    DeathTimes     :array [1..10] of LongWord;
     tastatus       :integer;
     PlayerNames    :array [1..10,1..20] of char;
     IncomeMetal    :array [1..10] of single;
