@@ -39,6 +39,7 @@ using namespace std;
 #include "ShareGuard.h"
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
+#include "ReloadBars.h"
 #include "ExplosionCapsTelemetry.h"
 #include "ZeroDamageMapWeapons.h"
 #include "RepairRateFix.h"
@@ -218,6 +219,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
 		SurfaceFire::Install();
+		ReloadBars::Install();
 		ZeroDamageMapWeapons::Install();
 		VoteReject::Install();
 #if SHARE_ABUSE_GUARD
@@ -240,6 +242,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Stop();
 #endif
+		ReloadBars::Shutdown();
 		ZeroDamageMapWeapons::Shutdown();
 #if SHARE_ABUSE_GUARD
 		ShareGuard::Shutdown();

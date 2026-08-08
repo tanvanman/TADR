@@ -449,10 +449,25 @@ NEW FEATURES IN DETAIL:
   - Reload time: up to 16 levels or the number of VeterancyThresholds, whichever is lower
   - Accuracy buff: no limit
 
-- Weapon TDF flags: nottoair, nottounderwater, surfacefire and nomapweaponalert
+- Weapon TDF flags: nottoair, nottounderwater, surfacefire, nomapweaponalert and reloadbar
 
   Optional keys for weapon definition files (weapons/*.tdf) give mod developers
   finer control over targeting and alert behaviour.
+
+  reloadbar=1
+    Displays a reload-progress bar below the health bar for a locally owned unit.
+    The bar starts full, empties when the tagged weapon fires, then refills over
+    that weapon's reload time.  On a unit with several tagged weapons, only the
+    slowest-reloading tagged weapon is shown.  It is intended for long-reload
+    weapons such as artillery, where the state is useful at a glance.
+
+    Example:
+
+      [BIG_GUN]
+      {
+      ...
+      reloadbar=1;
+      }
 
   nottoair=1
     The weapon cannot target or fire at flying units (units with an airborne movement state).
