@@ -35,6 +35,7 @@ using namespace std;
 #include "NotToAir.h"
 #include "SurfaceFire.h"
 #include "PacketChatRouter.h"
+#include "AlliedBuildQueueSync.h"
 #include "VoteReject.h"
 #include "ShareGuard.h"
 #include "WeaponIdOverflow.h"
@@ -208,6 +209,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 			INLINE_5BYTESLAGGERJMP, AddtionInitAfterDDraw);
 
 		PacketChatRouter::GetInstance();
+		AlliedBuildQueueSync::Install();
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
 		CUnitRotate::RegisterUnitDefKeys();
@@ -240,6 +242,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Stop();
 #endif
+		AlliedBuildQueueSync::Shutdown();
 		ZeroDamageMapWeapons::Shutdown();
 #if SHARE_ABUSE_GUARD
 		ShareGuard::Shutdown();

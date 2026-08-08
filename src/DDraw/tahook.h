@@ -83,12 +83,14 @@ class CTAHook
 	short GetFootY();
 	const UnitDefStruct& GetBuildUnit() const;
 	void DrawBuildRect(int posx, int posy, int sizex, int sizey, int color);
+	void DrawBuildRectTwoTone(int posx, int posy, int sizex, int sizey, int outerColor, int innerColor);
 	void EnableTABuildRect();
 	void DisableTABuildRect();
 	void PaintMinimapRect();
 
 	UnitOrdersStruct* FindUnitOrdersUnderMouse();
 	bool IsAnOrder(UnitOrdersStruct *unitOrders, UnitOrdersStruct *order);
+	void VisualizeAlliedQueuedBuilds();
 	void VisualizeDraggingBuildRectangle();
 	void VisualizeMexSnapPreview();
 	void VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf);

@@ -20,6 +20,7 @@ namespace ChatHijackId {
     constexpr unsigned char WeaponFiredExt        = 0x2e;  // WeaponFiredExt.cpp
 
     // ---- 0x40..0x5F : reserved for gameplay extensions ---------------------
-    // ---- 0x60..0x7F : reserved for UI / HUD notifications ------------------
+    // ---- 0x60..0x7F : UI / HUD notifications -------------------------------
+    constexpr unsigned char AlliedBuildQueue = 0x60;  // AlliedBuildQueueSync.cpp
     // ---- 0x80..0xFF : reserved for future use ------------------------------
 }
