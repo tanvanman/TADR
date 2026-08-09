@@ -235,6 +235,9 @@
     <ClCompile Include="ReloadBars.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="AlliedBuildQueueSync.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ChatBackdrop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -544,6 +547,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ReloadBars.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AlliedBuildQueueSync.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ChatBackdrop.h">

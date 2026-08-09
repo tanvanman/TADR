@@ -11,6 +11,7 @@
 #include "megamaptastuff.h"
 #include "fullscreenminimap.h"
 #include "unitrotate.h"
+#include "AlliedBuildQueueSync.h"
 
 
 #include "MegamapControl.h"
@@ -19,14 +20,40 @@
 #include "hook/etc.h"
 #include "hook/hook.h"
 #include "tahook.h"
+#include "dialog.h"
 #include "gaf.h"
 #include <math.h>
+#include <set>
+#include <tuple>
 #include <vector>
 
 #include "iddrawsurface.h"
 using namespace std;
 
 #if USEMEGAMAP
+namespace
+{
+	const unsigned char kAlliedBuildOuterColor = 221;
+
+	bool IsMegamapBuildOrder(const UnitOrdersStruct* order)
+	{
+		if (!order || order->BuildUnitID == 0
+			|| !COBSciptHandler_Begin || !*COBSciptHandler_Begin)
+		{
+			return false;
+		}
+
+		return ((*COBSciptHandler_Begin)[order->COBHandler_index].COBScripMask & 1) != 0;
+	}
+
+	bool IsMegamapLiveUnit(const UnitStruct* unit)
+	{
+		return unit
+			&& (unit->UnitSelected & 0x10000000) != 0
+			&& (unit->UnitSelected & 0x4000) == 0;
+	}
+}
+
 MegamapTAStuff::MegamapTAStuff (FullScreenMinimap * parent_p, RECT * MegaMapScreen_p, RECT * TAMap_p, RECT * GameScreen_p,
 	int MaxIconWidth, int MaxIconHeight, BOOL UseSurfaceCursor_a)
 {
@@ -608,6 +635,162 @@ void MegamapTAStuff::DrawBuildRect (OFFSCREEN * offscren_p, unsigned char  Color
 	::TADrawRect ( offscren_p, &Rect, Color);
 }
 
+void MegamapTAStuff::DrawAlliedBuildRect(
+	OFFSCREEN* offscreen,
+	unsigned char color,
+	UnitDefStruct* buildTarget,
+	int taX,
+	int taY,
+	int taZ,
+	int rotation)
+{
+	if (!offscreen || !buildTarget)
+		return;
+
+	int footX = buildTarget->FootX;
+	int footY = buildTarget->FootY;
+	if ((rotation & 1) == 1)
+	{
+		const int tmp = footX;
+		footX = footY;
+		footY = tmp;
+	}
+	if (footX <= 0) footX = 1;
+	if (footY <= 0) footY = 1;
+
+	POINT center;
+	POINT size;
+	TAPos2ScreenPos(&center, taX, taY, taZ);
+	TAPos2ScreenPos(&size, footX * 16, footY * 16, 0);
+	if (size.x <= 0) size.x = 1;
+	if (size.y <= 0) size.y = 1;
+
+	RECT rect;
+	rect.left = center.x - size.x / 2 + MegaMapScreen.left;
+	rect.top = center.y - size.y / 2 + MegaMapScreen.top;
+	rect.right = rect.left + size.x;
+	rect.bottom = rect.top + size.y;
+
+	if (rect.right < MegaMapScreen.left || rect.left > MegaMapScreen.right
+		|| rect.bottom < MegaMapScreen.top || rect.top > MegaMapScreen.bottom)
+	{
+		return;
+	}
+
+	if (rect.left < MegaMapScreen.left) rect.left = MegaMapScreen.left;
+	if (rect.top < MegaMapScreen.top) rect.top = MegaMapScreen.top;
+	if (rect.right > MegaMapScreen.right) rect.right = MegaMapScreen.right;
+	if (rect.bottom > MegaMapScreen.bottom) rect.bottom = MegaMapScreen.bottom;
+	::TADrawRect(offscreen, &rect, color);
+}
+
+void MegamapTAStuff::DrawAlliedBuildQueues(OFFSCREEN* offscreen)
+{
+	if (LocalShare && LocalShare->Dialog
+		&& !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetShowAlliedBuildQueuesEnabled())
+	{
+		return;
+	}
+
+	if (!offscreen || !TAmainStruct_Ptr || !TAmainStruct_Ptr->UnitDef
+		|| !TAmainStruct_Ptr->BeginUnitsArray_p || !TAmainStruct_Ptr->EndOfUnitsArray_p)
+	{
+		return;
+	}
+
+	const int localPlayerId = TAmainStruct_Ptr->LocalHumanPlayer_PlayerID;
+	if (localPlayerId < 0 || localPlayerId >= 10)
+		return;
+
+	set<pair<int, int> > ownQueuedBuilds;
+	set<tuple<int, int, int, unsigned, int> > drawn;
+	for (UnitStruct* unit = TAmainStruct_Ptr->BeginUnitsArray_p;
+		unit < TAmainStruct_Ptr->EndOfUnitsArray_p; ++unit)
+	{
+		if (!IsMegamapLiveUnit(unit))
+			continue;
+
+		PlayerStruct* owner = unit->Owner_PlayerPtr0 ? unit->Owner_PlayerPtr0 : unit->Owner_PlayerPtr1;
+		if (!owner || owner->PlayerAryIndex != localPlayerId)
+			continue;
+
+		for (UnitOrdersStruct* order = unit->UnitOrders; order; order = order->NextOrder)
+		{
+			if (IsMegamapBuildOrder(order))
+				ownQueuedBuilds.insert(make_pair(order->Pos.X, order->Pos.Y));
+		}
+	}
+
+	bool preferAlliedOverlap = false;
+	const unsigned mouseUnitId = TAmainStruct_Ptr->MouseOverUnit;
+	const size_t unitCount = static_cast<size_t>(
+		TAmainStruct_Ptr->EndOfUnitsArray_p - TAmainStruct_Ptr->BeginUnitsArray_p);
+	if (mouseUnitId != 0 && mouseUnitId < unitCount)
+	{
+		UnitStruct* hovered = &TAmainStruct_Ptr->BeginUnitsArray_p[mouseUnitId];
+		PlayerStruct* owner = hovered->Owner_PlayerPtr0 ? hovered->Owner_PlayerPtr0 : hovered->Owner_PlayerPtr1;
+		const int ownerId = owner ? owner->PlayerAryIndex : -1;
+		preferAlliedOverlap = owner && hovered->UnitType && hovered->UnitType->CANBUILD_ptr
+			&& ownerId >= 0 && ownerId < 10 && ownerId != localPlayerId
+			&& TAmainStruct_Ptr->Players[localPlayerId].AllyFlagAry[ownerId] != 0;
+	}
+
+	auto drawOne = [this, offscreen, &drawn, &ownQueuedBuilds, preferAlliedOverlap](
+		unsigned buildUnitId, int x, int y, int z, int rotation)
+	{
+		if (buildUnitId == 0 || buildUnitId >= TAmainStruct_Ptr->UNITINFOCount
+			|| (!preferAlliedOverlap && ownQueuedBuilds.count(make_pair(x, y)) != 0))
+		{
+			return;
+		}
+
+		UnitDefStruct* buildUnit = &TAmainStruct_Ptr->UnitDef[buildUnitId];
+		if (buildUnit->bmcode != 0 || !drawn.insert(make_tuple(x, y, z, buildUnitId, rotation)).second)
+			return;
+
+		DrawAlliedBuildRect(offscreen, kAlliedBuildOuterColor, buildUnit, x, y, z, rotation);
+	};
+
+	for (UnitStruct* unit = TAmainStruct_Ptr->BeginUnitsArray_p;
+		unit < TAmainStruct_Ptr->EndOfUnitsArray_p; ++unit)
+	{
+		if (!IsMegamapLiveUnit(unit))
+			continue;
+
+		PlayerStruct* owner = unit->Owner_PlayerPtr0 ? unit->Owner_PlayerPtr0 : unit->Owner_PlayerPtr1;
+		if (!owner)
+			continue;
+		const int ownerId = owner->PlayerAryIndex;
+		if (ownerId < 0 || ownerId >= 10 || ownerId == localPlayerId
+			|| TAmainStruct_Ptr->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+		{
+			continue;
+		}
+
+		for (UnitOrdersStruct* order = unit->UnitOrders; order; order = order->NextOrder)
+		{
+			if (!IsMegamapBuildOrder(order))
+				continue;
+			CUnitRotate* rotate = CUnitRotate::GetInstance();
+			drawOne(order->BuildUnitID, order->Pos.X, order->Pos.Y, order->Pos.Z,
+				rotate ? rotate->TakeOrderRotation(order) : 0);
+		}
+	}
+
+	for (int ownerId = 0; ownerId < 10; ++ownerId)
+	{
+		if (ownerId == localPlayerId || TAmainStruct_Ptr->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+			continue;
+
+		const vector<AlliedBuildQueueRecord>& queue = AlliedBuildQueueSync::GetPlayerQueue(ownerId);
+		for (size_t i = 0; i < queue.size(); ++i)
+		{
+			const AlliedBuildQueueRecord& order = queue[i];
+			drawOne(order.buildUnitId, order.x, order.y, order.z, order.rotation & 3);
+		}
+	}
+}
+
 void MegamapTAStuff::DrawTargatOrder (OFFSCREEN * OffScreen, UnitOrdersStruct * Order, PlayerStruct * me)
 {
 	POINT Pos;
@@ -830,6 +1013,11 @@ void MegamapTAStuff::BlitOrder (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 				OtherBuilder= TRUE;
 			}
 		}
+	}
+
+	if (OtherBuilder)
+	{
+		DrawAlliedBuildQueues(&OffScreen);
 	}
 
 	vector<Position_Dword> DrawedTargat;

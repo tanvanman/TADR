@@ -125,8 +125,12 @@ Dialog::Dialog(BOOL Vidmem_a)
 	}
 
 	m_widgets.push_back(std::make_shared<Label>(COL2, ROW(2), "Chat Macro F11"));
-	m_widgets.push_back(m_chatMacroTextField = std::make_shared<TextField>(COL2, ROW(3), 170, 5 * ROW_HEIGHT,
+	m_widgets.push_back(m_chatMacroTextField = std::make_shared<TextField>(COL2, ROW(3), 170, 4 * ROW_HEIGHT,
 		"+setshareenergy 1000\x0d+setsharemetal 1000\x0d+shareall\x0d+shootall", "ShareText"));
+
+	m_widgets.push_back(m_showAlliedBuildQueuesButton = std::make_shared<Button>(COL2, ROW(7), lpCheckBox,
+		1, 2, false, std::vector<std::string>(), "ShowAlliedBuildQueues", std::function<void(int)>()));
+	m_widgets.push_back(std::make_shared<Label>(COL2 + m_showAlliedBuildQueuesButton->m_width + 4, ROW(7), "Show ally queues"));
 
 	m_widgets.push_back(std::make_shared<Label>(COL2, ROW(8), "Resource Bar Background"));
 	m_widgets.push_back(m_resourceBarBackgroundButton = std::make_shared<Button>(COL2, ROW(9), lpStagedButton3,
@@ -311,6 +315,12 @@ bool Dialog::GetBuildMenuRotationOverlayEnabled()
 	// early ctor calls before the dialog page is laid out).
 	return !m_buildMenuRotationOverlayButton
 		|| m_buildMenuRotationOverlayButton->GetState() != 0;
+}
+
+bool Dialog::GetShowAlliedBuildQueuesEnabled()
+{
+	return !m_showAlliedBuildQueuesButton
+		|| m_showAlliedBuildQueuesButton->GetState() != 0;
 }
 
 bool Dialog::GetChatBackdropEnabled()

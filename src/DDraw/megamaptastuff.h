@@ -39,6 +39,10 @@ public:
 private:
 
 	void VisualizeRow_ForME_megamap (OFFSCREEN * argc);
+	void DrawAlliedBuildRect(OFFSCREEN* offscreen, unsigned char color,
+		UnitDefStruct* buildTarget,
+		int taX, int taY, int taZ, int rotation);
+	void DrawAlliedBuildQueues(OFFSCREEN* offscreen);
 
 	Position_Dword * ScreenPos2TAPos (Position_Dword * TAPos, int x, int y, BOOL UseTAHeight= FALSE);
 	POINT * TAPos2ScreenPos (POINT * ScreenPos, unsigned int TAX, unsigned int TAY, unsigned int TAZ);
