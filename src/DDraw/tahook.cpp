@@ -18,6 +18,7 @@
 #include "TAConfig.h"
 #include "unitrotate.h"
 #include "buildghost.h"
+#include "AlliedBuildQueueSync.h"
 
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
@@ -27,6 +28,7 @@
 
 #include <algorithm>
 #include <list>
+#include <set>
 #include <tuple>
 
 #ifdef min
@@ -41,6 +43,53 @@
 #endif
 #define WM_MOUSEWHEEL 522
 #define MAX_SPACING 10
+
+namespace
+{
+	const int kAlliedQueuedBuildRectOuterColor = 221;
+	const int kAlliedQueuedBuildRectInnerColor = 218;
+
+	bool IsAlliedQueuedBuildOrder(const UnitOrdersStruct* order)
+	{
+		if (order == NULL || order->BuildUnitID == 0
+			|| COBSciptHandler_Begin == NULL || *COBSciptHandler_Begin == NULL)
+		{
+			return false;
+		}
+		return ((*COBSciptHandler_Begin)[order->COBHandler_index].COBScripMask & 1) != 0;
+	}
+
+	bool IsLiveUnit(const UnitStruct* unit)
+	{
+		return unit != NULL
+			&& (unit->UnitSelected & 0x10000000) != 0
+			&& (unit->UnitSelected & 0x4000) == 0;
+	}
+
+	bool IsBuilderContextUnit(const UnitStruct* unit)
+	{
+		return unit != NULL && unit->UnitType != NULL && unit->UnitType->CANBUILD_ptr != NULL;
+	}
+
+	UnitStruct* GetUnitByIndex(TAdynmemStruct* ta, unsigned int unitIndex)
+	{
+		if (ta == NULL || ta->BeginUnitsArray_p == NULL || ta->EndOfUnitsArray_p == NULL
+			|| unitIndex == 0)
+		{
+			return NULL;
+		}
+
+		const size_t unitCount = static_cast<size_t>(ta->EndOfUnitsArray_p - ta->BeginUnitsArray_p);
+		return unitIndex < unitCount ? &ta->BeginUnitsArray_p[unitIndex] : NULL;
+	}
+
+	bool IsNativeBuildQueueContext(TAdynmemStruct* ta)
+	{
+		return ta != NULL && (IsBuilderContextUnit(ta->CameraToUnit)
+			|| IsBuilderContextUnit(GetUnitByIndex(ta, ta->ShowRangeUnitIndex))
+			|| IsBuilderContextUnit(GetUnitByIndex(ta, ta->MouseOverUnit)));
+	}
+}
 
 CTAHook* TAHook;
 
@@ -953,6 +1002,7 @@ void CTAHook::DrawBuildOverlays()
 			VisualizeRow();
 		}
 	}
+	VisualizeAlliedQueuedBuilds();
 	VisualizeDraggingBuildRectangle();
 	VisualizeMexSnapPreview();
 
@@ -1674,6 +1724,36 @@ void CTAHook::DrawBuildRect(int posx, int posy, int sizex, int sizey, int color)
 	TADrawRect(NULL, &rect, color);
 }
 
+void CTAHook::DrawBuildRectTwoTone(int posx, int posy, int sizex, int sizey, int outerColor, int innerColor)
+{
+	tagRECT rect = { posx, posy, posx + sizex, posy + sizey };
+	const int screenLeft = 128;
+	const int screenTop = 32;
+	const int screenRight = LocalShare->ScreenWidth;
+	const int screenBottom = LocalShare->ScreenHeight - 33;
+
+	if (rect.right < screenLeft || rect.left > screenRight
+		|| rect.bottom < screenTop || rect.top > screenBottom)
+	{
+		return;
+	}
+
+	if (rect.top < screenTop) rect.top = screenTop;
+	if (rect.left < screenLeft) rect.left = screenLeft;
+	if (rect.bottom > screenBottom) rect.bottom = screenBottom;
+	if (rect.right > screenRight) rect.right = screenRight;
+	TADrawRect(NULL, &rect, outerColor);
+
+	++rect.top;
+	++rect.left;
+	--rect.bottom;
+	--rect.right;
+	if (rect.left > rect.right || rect.top > rect.bottom)
+		return;
+
+	TADrawRect(NULL, &rect, innerColor);
+}
+
 void CTAHook::EnableTABuildRect()
 {
     // Patch DrawGameScreen
@@ -1737,6 +1817,120 @@ bool CTAHook::IsAnOrder(UnitOrdersStruct* unitOrders, UnitOrdersStruct* order)
 		unitOrders = unitOrders->NextOrder;
 	}
 	return false;
+}
+
+void CTAHook::VisualizeAlliedQueuedBuilds()
+{
+	if (!TAdynmem || (LocalShare && LocalShare->Dialog
+		&& !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetShowAlliedBuildQueuesEnabled())
+		|| (GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0
+		|| !IsNativeBuildQueueContext(TAdynmem))
+	{
+		return;
+	}
+
+	const int localPlayerId = TAdynmem->LocalHumanPlayer_PlayerID;
+	if (localPlayerId < 0 || localPlayerId >= 10 || !TAdynmem->BeginUnitsArray_p
+		|| !TAdynmem->EndOfUnitsArray_p || !TAdynmem->UnitDef)
+	{
+		return;
+	}
+
+	std::set<std::pair<int, int> > ownQueuedBuilds;
+	std::set<std::tuple<int, int, int, unsigned, int> > drawn;
+	for (UnitStruct* unit = TAdynmem->BeginUnitsArray_p; unit < TAdynmem->EndOfUnitsArray_p; ++unit)
+	{
+		if (!IsLiveUnit(unit) || unit->UnitID == 0)
+			continue;
+
+		PlayerStruct* owner = unit->Owner_PlayerPtr0 ? unit->Owner_PlayerPtr0 : unit->Owner_PlayerPtr1;
+		if (!owner || owner->PlayerAryIndex != localPlayerId)
+			continue;
+
+		for (UnitOrdersStruct* order = unit->UnitOrders; order != NULL; order = order->NextOrder)
+		{
+			if (IsAlliedQueuedBuildOrder(order))
+				ownQueuedBuilds.insert(std::make_pair(order->Pos.X, order->Pos.Y));
+		}
+	}
+
+	bool preferAlliedOverlap = false;
+	UnitStruct* hoveredUnit = GetUnitByIndex(TAdynmem, TAdynmem->MouseOverUnit);
+	if (IsBuilderContextUnit(hoveredUnit))
+	{
+		PlayerStruct* owner = hoveredUnit->Owner_PlayerPtr0 ? hoveredUnit->Owner_PlayerPtr0 : hoveredUnit->Owner_PlayerPtr1;
+		const int ownerId = owner ? owner->PlayerAryIndex : -1;
+		preferAlliedOverlap = owner && ownerId >= 0 && ownerId < 10 && ownerId != localPlayerId
+			&& TAdynmem->Players[localPlayerId].AllyFlagAry[ownerId] != 0;
+	}
+
+	auto drawOne = [this, &drawn, &ownQueuedBuilds, preferAlliedOverlap](
+		unsigned buildUnitId, int x, int y, int z, int rotation)
+	{
+		if (buildUnitId == 0 || buildUnitId >= TAdynmem->UNITINFOCount
+			|| (!preferAlliedOverlap && ownQueuedBuilds.count(std::make_pair(x, y)) != 0))
+		{
+			return;
+		}
+
+		const UnitDefStruct& buildUnit = TAdynmem->UnitDef[buildUnitId];
+		if (buildUnit.bmcode != 0 || !drawn.insert(std::make_tuple(x, y, z, buildUnitId, rotation)).second)
+			return;
+
+		int footX = buildUnit.FootX;
+		int footY = buildUnit.FootY;
+		if ((rotation & 1) != 0)
+		{
+			const int tmp = footX;
+			footX = footY;
+			footY = tmp;
+		}
+		if (footX <= 0) footX = 1;
+		if (footY <= 0) footY = 1;
+
+		const int posx = (x - TAdynmem->EyeBallMapXPos) + 128 - footX * 8;
+		const int posy = (y - TAdynmem->EyeBallMapYPos) + 32 - (z / 2) - footY * 8;
+		DrawBuildRectTwoTone(posx, posy, footX * 16, footY * 16,
+			kAlliedQueuedBuildRectOuterColor, kAlliedQueuedBuildRectInnerColor);
+	};
+
+	for (UnitStruct* unit = TAdynmem->BeginUnitsArray_p; unit < TAdynmem->EndOfUnitsArray_p; ++unit)
+	{
+		if (!IsLiveUnit(unit) || unit->UnitID == 0)
+			continue;
+
+		PlayerStruct* owner = unit->Owner_PlayerPtr0 ? unit->Owner_PlayerPtr0 : unit->Owner_PlayerPtr1;
+		if (!owner)
+			continue;
+		const int ownerId = owner->PlayerAryIndex;
+		if (ownerId < 0 || ownerId >= 10 || ownerId == localPlayerId
+			|| TAdynmem->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+		{
+			continue;
+		}
+
+		for (UnitOrdersStruct* order = unit->UnitOrders; order != NULL; order = order->NextOrder)
+		{
+			if (!IsAlliedQueuedBuildOrder(order) || order->Pos.X == 0 || order->Pos.Y == 0)
+				continue;
+			CUnitRotate* rotate = CUnitRotate::GetInstance();
+			drawOne(order->BuildUnitID, order->Pos.X, order->Pos.Y, order->Pos.Z,
+				rotate ? rotate->TakeOrderRotation(order) : 0);
+		}
+	}
+
+	for (int ownerId = 0; ownerId < 10; ++ownerId)
+	{
+		if (ownerId == localPlayerId || TAdynmem->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+			continue;
+
+		const std::vector<AlliedBuildQueueRecord>& queue = AlliedBuildQueueSync::GetPlayerQueue(ownerId);
+		for (size_t i = 0; i < queue.size(); ++i)
+		{
+			const AlliedBuildQueueRecord& order = queue[i];
+			drawOne(order.buildUnitId, order.x, order.y, order.z, order.rotation & 3);
+		}
+	}
 }
 
 void CTAHook::VisualizeDraggingBuildRectangle()
