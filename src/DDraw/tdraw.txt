@@ -56,6 +56,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*2026.8.13
+- Fix black model faces caused by zero shade level (thanks TAG_Venom)
+
 *2026.8.6
 - megamap/minimap dithering can now be turned off in totala.ini [Preferences] "MegamapDither""
 - the nanoframe build preview can be switched betwen full and wireframe-only from totala.ini [Preferences] "NanoframePreviewFill"
@@ -543,6 +546,23 @@ NEW FEATURES IN DETAIL:
   "Show ally queues" checkbox in the ctrl-f2 menu.  The option only hides the
   overlay; it does not affect game orders or the queue information sent to
   allies.  Up to 1200 queued structures are shared per player.
+
+- Unit model zero-shade fallback
+
+  At some model and build rotations, TA can calculate shade level zero for a
+  valid model face.  Stock PALETTE.SHD resolves ordinary colours at that level
+  to black, which can make the entire face appear completely black.
+
+  TADR replaces only calculated shade level zero.  Other shade levels are left
+  unchanged.  Configure the replacement under [Preferences] in totala.ini:
+
+    ShadingZeroFallbackLevel=5
+
+  The stock-palette default is 5.  Values 1 to 31 select progressively brighter
+  shade rows.  Set the value to 0 to disable the correction and preserve stock
+  behaviour.  Mods with a custom PALETTE.SHD may need to choose a different
+  value.  This setting changes local model rendering only and does not affect
+  simulation or multiplayer synchronization.
 
 - Building rotation
 
