@@ -56,6 +56,9 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
+*2026.8.13
+- Add team-coloured nanolathe effects (thanks TAG_Venom)
+
 *2026.8.6
 - megamap/minimap dithering can now be turned off in totala.ini [Preferences] "MegamapDither""
 - the nanoframe build preview can be switched betwen full and wireframe-only from totala.ini [Preferences] "NanoframePreviewFill"
@@ -594,6 +597,27 @@ NEW FEATURES IN DETAIL:
   the unit body (e.g. so structures face the centre of the map).  Such
   scripts run after the build cursor's rotation is applied and overwrite
   it, so the Rotations= key has no visible effect on those units.
+
+- Team-coloured nanolathe effects
+
+  Set TeamColorNanolathe=TRUE under [Preferences] in totala.ini to recolour
+  construction and reclaim particle streams, structures under construction,
+  and the nanoframe build preview for each of TA's ten player colour slots.
+  FALSE preserves TA's stock green effects.  The feature changes local
+  rendering only and does not affect simulation or multiplayer synchronization.
+
+  The built-in colours are designed for stock PALETTE.PAL.  Mods using a
+  custom palette can override either list independently for each player:
+
+    Player1StreamColors=224,225,226,227,228,229;
+    Player1FrameColors=224,224,225,225,226,226,227,227,228,228,229,229,230,230,231,231;
+
+  StreamColors accepts 1 to 15 decimal palette indices from 0 to 255.  Each
+  particle receives one listed colour and keeps it as it travels.  FrameColors
+  requires exactly 16 ordered indices and controls the animated construction
+  surface, outline, and build preview.  Missing or invalid lists fall back to
+  the built-in stock-palette defaults for that player.  Changes take effect at
+  the next TA start.
 
 - Nanoframe ghost preview
 
