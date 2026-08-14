@@ -28,6 +28,9 @@
     <ClCompile Include="AutoTeam.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="UnitStatusCounters.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="BattleroomCommands.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -547,6 +550,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ReloadBars.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="UnitStatusCounters.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AlliedBuildQueueSync.h">

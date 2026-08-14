@@ -41,6 +41,7 @@ using namespace std;
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
 #include "ReloadBars.h"
+#include "UnitStatusCounters.h"
 #include "ExplosionCapsTelemetry.h"
 #include "ZeroDamageMapWeapons.h"
 #include "RepairRateFix.h"
@@ -221,6 +222,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
 		SurfaceFire::Install();
+		UnitStatusCounters::Install();
 		ReloadBars::Install();
 		ZeroDamageMapWeapons::Install();
 		VoteReject::Install();
@@ -245,6 +247,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		DebugPipeServer::Stop();
 #endif
 		ReloadBars::Shutdown();
+		UnitStatusCounters::Shutdown();
 		AlliedBuildQueueSync::Shutdown();
 		ZeroDamageMapWeapons::Shutdown();
 #if SHARE_ABUSE_GUARD
