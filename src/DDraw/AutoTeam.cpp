@@ -272,7 +272,10 @@ static InternalCommandTableEntryStruct AUTO_TEAMS_COMMAND_TABLE[] = {
 	{NULL, NULL, InternalCommandRunLevel::CMD_LEVEL_NULL}
 };
 
-static std::default_random_engine RNG(std::chrono::system_clock::now().time_since_epoch().count());
+// steady_clock, not system_clock: system_clock::now() is a static import of the
+// Windows 8+ GetSystemTimePreciseAsFileTime on newer MSVC toolsets, which stops
+// tdraw.dll loading at all on Windows 7.  steady_clock wraps QueryPerformanceCounter.
+static std::default_random_engine RNG(std::chrono::steady_clock::now().time_since_epoch().count());
 
 static void SetBattleroomTeamsAndAlliances(const StartPositionsData& spd, int teamCount)
 {

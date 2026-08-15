@@ -616,8 +616,15 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				}
 			}
 			if (mapBase.empty()) mapBase = "map";
-			std::string fname = "tdraw_unitdump_" +
-				std::to_string(taDump->UNITINFOCount) + "u_" + mapBase + ".csv";
+			// Prefer the demo compiler's unitsHash: it is the key the dump has to
+			// be filed under to join onto faf.game_stats.replay_meta, and unlike
+			// the unit count it actually identifies a mod version. Falls back to
+			// count+map when unit sync has not run (single player, or CRC_all not
+			// yet computed) — see ComputeUnitDataHash.
+			std::string unitsHash = ChallengeResponse::GetInstance()->ComputeUnitDataHash();
+			std::string fname = unitsHash.empty()
+				? "tdraw_unitdump_" + std::to_string(taDump->UNITINFOCount) + "u_" + mapBase + ".csv"
+				: "tdraw_unitdump_" + unitsHash + ".csv";
 			ChallengeResponse::GetInstance()->DumpUnitDefsForRecovery(fname);
 			OutptTxt((std::string("[units-dump] wrote ") + fname).c_str());
 			s_unitDumpDone = true;
@@ -1020,7 +1027,15 @@ void IDDrawSurface::OutptTxt(const char* buffer, bool newline)
 
 #ifdef DEBUG_INFO
 	if (TDrawLogFile == 0) {
-		TDrawLogFile = CreateFileA("tdrawlog.txt", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+		// FILE_SHARE_READ, not 0. Opening the log exclusively locked it for the
+		// whole life of TotalA.exe, so it could not be read while a game was
+		// running - which is exactly when you want to read it. That was never
+		// intentional (it is a diagnostic log, not a protected artifact), and
+		// it is not a security control either: a share-mode lock is defeated by
+		// a shadow-copy read on Windows and does nothing at all under Wine,
+		// where a native Linux reader bypasses wineserver's share modes.
+		// Still no FILE_SHARE_WRITE - nobody else should be writing it.
+		TDrawLogFile = CreateFileA("tdrawlog.txt", GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, 0, NULL);
 	}
 	if (TDrawLogFile != INVALID_HANDLE_VALUE) {
 
