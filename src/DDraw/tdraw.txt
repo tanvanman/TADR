@@ -62,6 +62,7 @@ NEW FEATURES IN BRIEF:
 - Add optional TransportedExplodeAs and TransportedSelfDestructAs unit FBI tags for using different explosion weapons while a unit is being transported (thanks TAG_Venom)
 - Add reload bars for tagged weapons (thanks TAG_Venom)
 - Add allied queued-build overlays (thanks TAG_Venom)
+- the nanoframe build preview can now also be turned off entirely: totala.ini [Preferences] "NanoframePreview" takes FULL, WIREFRAME or DISABLED (replaces the old TRUE/FALSE "NanoframePreviewFill", which is still honoured)
 
 *2026.8.6
 - Build configuration "full" renamed to "prota" (tdraw-prota.zip) and "minimal" renamed to "ota" (tdraw-ota.zip).  No feature changes - the names now say which mod each build is intended for
