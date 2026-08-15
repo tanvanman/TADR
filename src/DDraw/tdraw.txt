@@ -7,7 +7,7 @@ tdraw.dll has a long provenance dating back to the work of SY_Yeha, who introduc
 Later work by Xpoy extended hotkey support, added new shortcut commands, uni-code font support, megamap, weapon-id crack (not present in current release) and porting music patch from GOG version,
 and later support was provided by Rime.
 
-The present release includes contributions from Axle, FunkyFresh and tagROCK, and owes a debt to TAG_Venom for extensive testing and critical feeback, and to Gamma and Wotan for further testing and feature suggestions.
+The present release includes contributions from Axle, FunkyFresh, tagROCK and TAG_Venom, and owes a debt to TAG_Venom for extensive testing and critical feeback, and to Gamma and Wotan for further testing and feature suggestions.
 
 
 CONFIGURATIONS
@@ -56,7 +56,10 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 NEW FEATURES IN BRIEF:
 
-*2026.8.13
+*????.??.??
+- Add optional TransportedExplodeAs and TransportedSelfDestructAs unit FBI tags for using different explosion weapons while a unit is being transported (thanks TAG_Venom)
+- Add reload bars for tagged weapons (thanks TAG_Venom)
+- Add allied queued-build overlays (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)
 
 *2026.8.6
@@ -532,6 +535,34 @@ NEW FEATURES IN DETAIL:
       ...
       damage=0;
       nomapweaponalert=1;
+      }
+
+- Unit FBI transported explosion overrides
+
+  Optional TransportedExplodeAs and TransportedSelfDestructAs keys let a unit
+  use different explosion weapons when it dies while loaded in a transport.
+  This works with both air and sea transports and can be used for any unit.
+
+  The two keys are independent:
+  - TransportedExplodeAs replaces ExplodeAs when the transported unit is killed.
+    If it is omitted, the unit uses its normal ExplodeAs weapon.
+  - TransportedSelfDestructAs replaces SelfDestructAs when the transported unit
+    self-destructs. If it is omitted, the unit uses its normal SelfDestructAs
+    weapon.
+
+  Units that die outside a transport are unaffected. This can, for example,
+  give a transported Commander a smaller explosion and prevent transport-based
+  Commander bombing without changing its normal on-ground explosion.
+
+    Example:
+
+      [UNITINFO]
+      {
+      ...
+      ExplodeAs=COMMANDER_BLAST;
+      SelfDestructAs=COMMANDER_BLAST;
+      TransportedExplodeAs=DECOY_COMMANDER_BLAST;
+      TransportedSelfDestructAs=DECOY_COMMANDER_BLAST;
       }
 
 - Allied queued-build overlays

@@ -45,6 +45,7 @@ using namespace std;
 #include "ZeroDamageMapWeapons.h"
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
+#include "TransportedExplosions.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -214,6 +215,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		AlliedBuildQueueSync::Install();
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
+		TransportedExplosions::Install();
 		CUnitRotate::RegisterUnitDefKeys();
 		CBuildGhost::RegisterUnitDefKeys();
 		// Eager-construct so the DrawGameScreen inline hook is
