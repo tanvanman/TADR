@@ -43,6 +43,7 @@ using namespace std;
 #include "ReloadBars.h"
 #include "ExplosionCapsTelemetry.h"
 #include "ZeroDamageMapWeapons.h"
+#include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
@@ -223,6 +224,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		SurfaceFire::Install();
 		ReloadBars::Install();
 		ZeroDamageMapWeapons::Install();
+		TeamColorNanolathe::Install();
 		VoteReject::Install();
 #if SHARE_ABUSE_GUARD
 		ShareGuard::Install();
@@ -247,6 +249,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		ReloadBars::Shutdown();
 		AlliedBuildQueueSync::Shutdown();
 		ZeroDamageMapWeapons::Shutdown();
+		TeamColorNanolathe::Shutdown();
 #if SHARE_ABUSE_GUARD
 		ShareGuard::Shutdown();
 #endif

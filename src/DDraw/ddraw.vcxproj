@@ -339,6 +339,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="NotToAir.cpp" />
     <ClCompile Include="SurfaceFire.cpp" />
     <ClCompile Include="ZeroDamageMapWeapons.cpp" />
+    <ClCompile Include="TeamColorNanolathe.cpp" />
     <ClCompile Include="RepairRateFix.cpp" />
     <ClCompile Include="DebugPipeServer.cpp" />
     <ClCompile Include="VoteDialog.cpp" />
@@ -371,6 +372,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="VoteReject.h" />
     <ClInclude Include="ShareGuard.h" />
     <ClInclude Include="ZeroDamageMapWeapons.h" />
+    <ClInclude Include="TeamColorNanolathe.h" />
     <ClInclude Include="RepairRateFix.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="config_prota.h" />
