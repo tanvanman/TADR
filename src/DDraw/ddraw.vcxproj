@@ -327,6 +327,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="ShadingFix.cpp" />
     <ClCompile Include="Profiler.cpp" />
     <ClCompile Include="ReloadBars.cpp" />
+    <ClCompile Include="UnitStatusCounters.cpp" />
     <ClCompile Include="AlliedBuildQueueSync.cpp" />
     <ClCompile Include="tafstatusexporter.cpp" />
     <ClCompile Include="UnitDefExtensions.cpp" />
@@ -364,6 +365,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="ShadingFix.h" />
     <ClInclude Include="PacketChatRouter.h" />
     <ClInclude Include="ReloadBars.h" />
+    <ClInclude Include="UnitStatusCounters.h" />
     <ClInclude Include="AlliedBuildQueueSync.h" />
     <ClInclude Include="HudNotifications.h" />
     <ClInclude Include="ChatBackdrop.h" />

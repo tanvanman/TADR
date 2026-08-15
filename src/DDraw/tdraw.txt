@@ -57,6 +57,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Add stockpile and transport counters above unit health bars, with configurable counter and group number colours (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix black model faces caused by zero shade level (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)
 - Add optional TransportedExplodeAs and TransportedSelfDestructAs unit FBI tags for using different explosion weapons while a unit is being transported (thanks TAG_Venom)
@@ -237,6 +238,29 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Unit status counters
+
+  When TA's health bars are enabled, status counters are shown above the local
+  player's applicable units.  Stockpile weapons show "stocked +queued", for
+  example "1 +99".  Loaded transports show "loaded/capacity", for example
+  "2/3".
+
+  The transport count reflects the units actually carried, so it can exceed
+  the FBI transportcapacity value when a unit script permits over-capacity
+  loading.  Counters are hidden for single-unit flying transports whose cargo
+  is already visible beneath the aircraft.  Flying transports with a declared
+  capacity above one retain the counter.
+
+  Counter text and TA's existing control-group number use a one-pixel black
+  outline for readability.  The following [Preferences] settings take effect
+  at the next TA start.  Colours are TA palette indexes from 0 to 255:
+
+      ShowStockpileCounter = TRUE;
+      ShowTransportCounter = TRUE;
+      StockpileCounterColor = 255;
+      TransportCounterColor = 255;
+      GroupNumberColor = 255;
 
 - Start positions
 

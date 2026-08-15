@@ -1,4 +1,5 @@
 #include "ReloadBars.h"
+#include "UnitStatusCounters.h"
 
 #include "iddrawsurface.h"
 #include "hook/hook.h"
@@ -224,6 +225,7 @@ namespace
             const int centerY = static_cast<int>(pBuf->Edx);
             OFFSCREEN* offscreen = reinterpret_cast<OFFSCREEN*>(pBuf->Esp + kOffscreenStackOffset);
 
+            UnitStatusCounters::DrawForUnit(offscreen, unit, centerX, centerY);
             DrawReloadBarForUnit(offscreen, unit, centerX, centerY);
         }
         __except(EXCEPTION_EXECUTE_HANDLER)
