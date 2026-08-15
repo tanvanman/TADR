@@ -93,6 +93,11 @@ public:
 	// (unlike LogFeatures). Used by the TDRAW_DUMP_UNITS_ON_LOAD hook in Unlock().
 	void DumpUnitDefsForRecovery(const std::string& filename);
 
+	// Reproduces the demo compiler's "unitsHash" — the value stored under that key
+	// in faf.game_stats.replay_meta, so a dump named with it joins straight onto a
+	// game row. Returns "" when it cannot be computed (see the .cpp for when).
+	std::string ComputeUnitDataHash();
+
 	static std::string GetReportString(const std::pair<unsigned, std::string> &crcAndFilename, const std::string* optionalVersion);
 	std::string GetAllReportString();
 
@@ -177,7 +182,12 @@ private:
 
 	void LogWeapons(const std::string& filename);
 	void LogFeatures(const std::string& filename);
-	void LogUnits(const std::string& filename);
+	// stableAcrossGames=false (the ErrorLog path) mirrors what HashUnits fed the
+	// anticheat HMAC, so a side-by-side diff of two players' logs explains a hash
+	// mismatch. true (the recovery-dump path) instead drops every field that
+	// varies with the map or the lobby settings, so two dumps of one mod version
+	// compare equal. The two are mutually exclusive — see the .cpp.
+	void LogUnits(const std::string& filename, bool stableAcrossGames = false);
 	void LogGamingState(const std::string& filename);
 	void LogMapSnapshot(const std::string& filename);
 	void LogGameFileLookup(const std::string& filename);

@@ -498,7 +498,8 @@ int __stdcall WindSpeedSyncProc(PInlineX86StackBuffer X86StrackBuffer)
 			RNG = std::make_unique<std::default_random_engine>(host->DirectPlayID);
 		}
 		else {
-			unsigned t = std::chrono::system_clock::now().time_since_epoch().count();
+			// steady_clock, not system_clock: see the note in AutoTeam.cpp
+			unsigned t = std::chrono::steady_clock::now().time_since_epoch().count();
 			IDDrawSurface::OutptFmtTxt("[WindSpeedSyncProc] initialsing RNG using current time. t=%d", t);
 			RNG = std::make_unique<std::default_random_engine>(t);
 		}

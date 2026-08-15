@@ -1,6 +1,6 @@
 #pragma once
 
-#define TDRAW_CONFIG_NAME "full"
+#define TDRAW_CONFIG_NAME "prota"
 
 //
 // Snap radii

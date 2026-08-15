@@ -1,6 +1,6 @@
 #pragma once
 
-#define TDRAW_CONFIG_NAME "minimal"
+#define TDRAW_CONFIG_NAME "ota"
 
 //
 // Snap radii

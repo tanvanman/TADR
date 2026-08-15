@@ -1,4 +1,5 @@
 #include "buildghost.h"
+#include "TeamColorNanolathe.h"
 #include "unitrotate.h"
 
 #include "dialog.h"
@@ -30,14 +31,13 @@
 // CopyGafToContext (0x4b7f90) so we get TA's color-keyed clipped blit
 // "for free" — no engine state touched.
 //
-// Mode is fixed at compile time via TDRAW_BUILDGHOST_MODE; the bulk of
-// this file is wrapped in `#if MODE == ...` blocks. RECT mode reduces to
-// empty stubs so the DLL still builds without the cache or rasterisers.
+// Render style (disabled / wireframe / fill) is a run-time choice, latched
+// from totala.ini in the constructor — see GetBuildGhostPreviewStyle().
 // =============================================================================
 
 namespace
 {
-    // --- File-local helpers shared by both rendering modes -------------------
+    // --- File-local helpers shared by every rendering style ------------------
     constexpr unsigned TA_MAIN_PTR_ADDR        = 0x00511de8;
 
     TAdynmemStruct* GetTA()
@@ -54,11 +54,50 @@ namespace
 }
 
 // =============================================================================
-// Preview style option — totala.ini [Preferences] NanoframePreviewFill.
+// Preview style option — totala.ini [Preferences] NanoframePreview.
 // =============================================================================
-bool BuildGhostFillEnabled()
+namespace
 {
-#if TDRAW_BUILDGHOST_HAS_3D
+    // Map an ini value to a style. Matching is substring-based and
+    // case-insensitive, like TADRConfig::GetIniBool, so the trailing ';' and
+    // stray whitespace TAdr inis are written with are tolerated. Returns
+    // `fallback` for anything unrecognised (including an empty string).
+    BuildGhostPreviewStyle ParsePreviewStyle(const char* value,
+                                             BuildGhostPreviewStyle fallback)
+    {
+        if (!value) return fallback;
+        char buf[0x100];
+        strncpy_s(buf, value, _TRUNCATE);
+        _strlwr_s(buf, sizeof(buf));
+
+        // "disabled"/"none"/"off"/"false" all mean "draw nothing"; note that
+        // FALSE used to mean wireframe under the old boolean key, which is why
+        // the legacy key is parsed separately below.
+        if (strstr(buf, "disable") || strstr(buf, "none") || strstr(buf, "off"))
+            return BuildGhostPreviewStyle::Disabled;
+        if (strstr(buf, "full") || strstr(buf, "fill") || strstr(buf, "true"))
+            return BuildGhostPreviewStyle::Fill;
+        if (strstr(buf, "wire") || strstr(buf, "frame") || strstr(buf, "false"))
+            return BuildGhostPreviewStyle::Wireframe;
+        return fallback;
+    }
+
+    const char* PreviewStyleDescription(BuildGhostPreviewStyle style)
+    {
+        switch (style)
+        {
+        case BuildGhostPreviewStyle::Fill:
+            return "FULL (shimmer fill + frame)";
+        case BuildGhostPreviewStyle::Wireframe:
+            return "WIREFRAME (shimmer frame + scanline, no fill)";
+        default:
+            return "DISABLED (build rectangle only)";
+        }
+    }
+}
+
+BuildGhostPreviewStyle GetBuildGhostPreviewStyle()
+{
     // Cached after the first successful read: this is called once per ghost
     // per frame and GetPrivateProfileString goes to the ini file. MyConfig
     // does not exist during very early startup, so fall back to the built-in
@@ -68,17 +107,36 @@ bool BuildGhostFillEnabled()
     if (cached < 0)
     {
         if (MyConfig == NULL)
-            return TDRAW_BUILDGHOST_FILL_DEFAULT != 0;
-        cached = (MyConfig->GetIniBool("NanoframePreviewFill",
-                      TDRAW_BUILDGHOST_FILL_DEFAULT ? TRUE : FALSE) != FALSE) ? 1 : 0;
-        IDDrawSurface::OutptTxt(cached
-            ? "[BuildGhost] NanoframePreviewFill=TRUE (shimmer fill + frame)"
-            : "[BuildGhost] NanoframePreviewFill=FALSE (shimmer frame + scanline, no fill)");
+            return TDRAW_BUILDGHOST_STYLE_DEFAULT;
+
+        BuildGhostPreviewStyle style = TDRAW_BUILDGHOST_STYLE_DEFAULT;
+
+        // Superseded boolean key "NanoframePreviewFill" (TRUE => fill,
+        // FALSE => wireframe) — read as a string so an ABSENT key is
+        // distinguishable from an explicit FALSE, and only overrides the
+        // built-in default when the user actually wrote it.
+        char legacy[0x100] = {0};
+        MyConfig->GetIniStr("NanoframePreviewFill", legacy, sizeof(legacy), nullptr);
+        if (legacy[0] != '\0')
+        {
+            style = ParsePreviewStyle(legacy, style);
+            // Guard against a legacy key holding something the tri-state
+            // parser reads as DISABLED: the boolean only ever meant fill or
+            // wireframe.
+            if (style == BuildGhostPreviewStyle::Disabled)
+                style = BuildGhostPreviewStyle::Wireframe;
+        }
+
+        // The tri-state key wins wherever it is present.
+        char buf[0x100] = {0};
+        MyConfig->GetIniStr("NanoframePreview", buf, sizeof(buf), nullptr);
+        style = ParsePreviewStyle(buf, style);
+
+        cached = static_cast<int>(style);
+        IDDrawSurface::OutptFmtTxt("[BuildGhost] NanoframePreview=%s",
+            PreviewStyleDescription(style));
     }
-    return cached != 0;
-#else
-    return false;   // RECT builds have no model preview at all
-#endif
+    return static_cast<BuildGhostPreviewStyle>(cached);
 }
 
 // =============================================================================
@@ -116,6 +174,12 @@ static unsigned g_previewObject3DKeyIdx      = 0;
 
 void CBuildGhost::RegisterUnitDefKeys()
 {
+    // NanoframePreview=DISABLED: skip the FBI keys too, so a disabled preview
+    // adds nothing at all to unit-def parsing. Safe to vary between players —
+    // UnitDefExtensions keeps its own side tables and ChallengeResponse's
+    // HashUnits only ever hashes the engine's UnitDefStruct array.
+    if (GetBuildGhostPreviewStyle() == BuildGhostPreviewStyle::Disabled) return;
+
     if (g_previewPiecesKeyIdx == 0)
     {
         g_previewPiecesKeyIdx =
@@ -144,7 +208,6 @@ void CBuildGhost::RegisterUnitDefKeys()
     }
 }
 
-#if TDRAW_BUILDGHOST_HAS_3D
 // Inside DrawGameScreen, at the join point reached both when TA drew its
 // build rect and when the JZ at 0x469e0d skipped it (e.g. while mex-snap
 // is active and Enable/DisableTABuildRect has zeroed the gate at
@@ -157,29 +220,47 @@ void CBuildGhost::RegisterUnitDefKeys()
 // upstream of this address.
 static const unsigned int kBuildRectHookAddr = 0x469f30;
 
+// Latched by the constructor from NanoframePreview. When true nothing in this
+// file touches the per-frame path: the hook proc below never calls into the
+// renderer, so the ghost costs exactly one already-resolved bool per frame.
+//
+// NOTE: the hook itself is still installed, because BuildRectAfterHookProc
+// also drives CTAHook::DrawBuildOverlays() — line-build rows, allied queued
+// builds, the drag build rectangle and the mex-snap preview, none of which
+// belong to the ghost. 0x469f30 is the only site those overlays get called
+// from, so dropping the hook would silently disable them too.
+static bool g_previewDisabled = false;
+
 static int __stdcall BuildRectAfterHookProc(PInlineX86StackBuffer)
 {
     // Overlay rects first — VisualizeMexSnapPreview moves CircleSelect_Pos1
     // to the snap target via TestBuildSpot, which the cursor ghost reads.
     if (LocalShare && LocalShare->TAHook)
         reinterpret_cast<CTAHook*>(LocalShare->TAHook)->DrawBuildOverlays();
+    if (g_previewDisabled) return 0;
     if (CBuildGhost* g = CBuildGhost::GetInstance()) g->RenderNanoframeGhost();
     return 0;
 }
-#endif
 
 CBuildGhost::CBuildGhost()
 {
     ReadRotateKeyDiscovered();
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_RECT
-    IDDrawSurface::OutptTxt("[BuildGhost] mode=RECT (no model preview)");
-#elif TDRAW_BUILDGHOST_HAS_3D
-    // Wire vs fill is an ini option resolved on first render — see
-    // BuildGhostFillEnabled(), which logs the value it settles on.
-    IDDrawSurface::OutptTxt("[BuildGhost] mode=3D");
+
+    // Disabled vs wire vs fill comes from the ini. MyConfig is constructed in
+    // DllMain long before this singleton (see ddraw.cpp), so the value is
+    // available here and GetBuildGhostPreviewStyle() logs what it settles on.
+    g_previewDisabled =
+        (GetBuildGhostPreviewStyle() == BuildGhostPreviewStyle::Disabled);
+    if (g_previewDisabled)
+    {
+        // Nothing else to set up: RegisterUnitDefKeys has already bailed, no
+        // sprite cache is ever built and the renderer is never entered. The
+        // hook still goes in for the build overlays it shares — see the note
+        // on g_previewDisabled.
+        IDDrawSurface::OutptTxt("[BuildGhost] preview disabled - renderer not installed");
+    }
     m_hooks.push_back(std::make_shared<InlineSingleHook>(
         kBuildRectHookAddr, 5, INLINE_5BYTESLAGGERJMP, BuildRectAfterHookProc));
-#endif
 }
 
 void CBuildGhost::ReadRotateKeyDiscovered()
@@ -231,10 +312,8 @@ void CBuildGhost::SetRotateKeyDiscovered()
 }
 
 // =============================================================================
-// 3DO helpers (FULL3D + WIRE)
+// 3DO helpers
 // =============================================================================
-#if TDRAW_BUILDGHOST_HAS_3D
-
 namespace
 {
     // Model3DONode and Model3DOFace are defined in tamem.h alongside
@@ -309,13 +388,11 @@ namespace
     using Fn_TextureMatch3DO = void (__stdcall*)(Model3DONode* root, const char* filename);
     const Fn_TextureMatch3DO kFn_TextureMatch3DO = (Fn_TextureMatch3DO)0x0042a140;
 }
-#endif // shared
 
 
 // =============================================================================
-// FULL3D + WIRE mode
+// Sprite cache + rasteriser
 // =============================================================================
-#if TDRAW_BUILDGHOST_HAS_3D
 namespace
 {
     // Skip-the-faces test for cosmetic / ephemeral pieces. Match TA's COB
@@ -854,7 +931,6 @@ void CBuildGhost::OnGameTeardown()
     m_overrideModelRoots.clear();
     m_nanoframe3DCache.clear();
 }
-#endif // HAS_3D
 
 // =============================================================================
 // Public render entry points
@@ -862,10 +938,8 @@ void CBuildGhost::OnGameTeardown()
 
 void CBuildGhost::RenderNanoframeGhost()
 {
-#if TDRAW_BUILDGHOST_MODE == TDRAW_BUILDGHOST_RECT
-    return;
+    if (g_previewDisabled) return;
 
-#elif TDRAW_BUILDGHOST_HAS_3D
     // Suppress the cursor ghost when the mouse is outside the game area
     // (e.g. hovering the build menu after a right-click cancel + reselect).
     // CircleSelect_Pos1/Pos2 still hold the last in-game build spot at this
@@ -892,12 +966,17 @@ void CBuildGhost::RenderNanoframeGhost()
         return;
     }
     RenderGhostAtCurrentBuildSpot(/*showNag=*/true);
-#endif
 }
 
-#if TDRAW_BUILDGHOST_HAS_3D
 void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
 {
+    // NanoframePreview=DISABLED suppresses the whole preview — including the
+    // rotate-key tip, which has nowhere to anchor without a ghost. Checked
+    // here as well as in RenderNanoframeGhost because CTAHook::VisualizeRow
+    // calls this directly for each line-build slot.
+    const BuildGhostPreviewStyle style = GetBuildGhostPreviewStyle();
+    if (style == BuildGhostPreviewStyle::Disabled) return;
+
     TAdynmemStruct* ta = GetTA();
     if (!ta) return;
     if (ta->PrepareOrder_Type != ordertype::BUILD) return;
@@ -1054,11 +1133,12 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
         return;
 
     // Ghost render style comes from the totala.ini [Preferences]
-    // "NanoframePreviewFill" option (default FALSE => wireframe only). Both
-    // paths drive the nanoframe ramp shimmer:
+    // "NanoframePreview" option (default WIREFRAME; DISABLED already returned
+    // at the top of this function). Both paths drive the nanoframe ramp
+    // shimmer:
     //   fill on   cycled (shimmering) fill + cycled edges.
     //   fill off  no fill; cycled (shimmering) edge frame + z-plane scanline.
-    const bool noFill     = !BuildGhostFillEnabled();
+    const bool noFill     = (style != BuildGhostPreviewStyle::Fill);
     const bool cycleEdges = true;
 
     auto rampColor = [](unsigned step) -> unsigned char {
@@ -1066,6 +1146,18 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
         return (s & 0x10)
             ? static_cast<unsigned char>(0xaf - (s & 0xf))
             : static_cast<unsigned char>(0xa0 + (s & 0xf));
+    };
+
+    unsigned char previewPlayerColor = 0xFF;
+    const int localPlayer = ta->LocalHumanPlayer_PlayerID;
+    if (localPlayer >= 0 && localPlayer < 10 && ta->Players[localPlayer].PlayerInfo)
+    {
+        const unsigned char color = ta->Players[localPlayer].PlayerInfo->PlayerLogoColor;
+        if (color < 10) previewPlayerColor = color;
+    }
+
+    auto teamRampColor = [previewPlayerColor, &rampColor](unsigned step) -> unsigned char {
+        return TeamColorNanolathe::MapNanoframeColor(previewPlayerColor, rampColor(step));
     };
 
     // Z-plane sweep: a thin bright line travels through the model along
@@ -1078,8 +1170,10 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     const unsigned      kSweepFrames    = 30;   // full cycle period (frequency)
     const unsigned      kSweepActive    = kSweepFrames / 2;  // sweep first half; rest second half
     const int           kSweepHalfWidth = 2;    // ±2 byte units in zCoord
-    const unsigned char kSweepColor     = 250;  // pure green — same line colour in both modes
-    const unsigned char kSweepColorWire = 250;
+    const unsigned char kSweepColor = TeamColorNanolathe::IsEnabled()
+        ? TeamColorNanolathe::MapNanoframeColor(previewPlayerColor, 0xA0)
+        : 250;
+    const unsigned char kSweepColorWire = kSweepColor;
     // Reset on each user rotation so the sweep restarts from the back.
     unsigned gt = static_cast<unsigned>(ta->GameTime) - rotationCycleGameTime;
 
@@ -1090,8 +1184,8 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     // on the line-active half.
     unsigned shimmerPhase = (gt + kSweepFrames - kSweepActive / 2) % kSweepFrames;
     unsigned shimmerStep  = shimmerPhase * 32u / kSweepFrames + 16u;
-    unsigned char fillColor = noFill     ? 0 : rampColor(shimmerStep);
-    unsigned char edgeColor = cycleEdges ? rampColor(shimmerStep + 16) : 250;
+    unsigned char fillColor = noFill     ? 0 : teamRampColor(shimmerStep);
+    unsigned char edgeColor = cycleEdges ? teamRampColor(shimmerStep + 16) : kSweepColorWire;
 
     bool     sweepActive = false;
     unsigned kByte       = 0;
@@ -1211,7 +1305,3 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
 
     kFn_UnlockAttackedSurface(&off);
 }
-#else
-void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool /*showNag*/) { /* no-op in RECT mode */ }
-void CBuildGhost::OnGameTeardown() { /* no caches in RECT mode */ }
-#endif
