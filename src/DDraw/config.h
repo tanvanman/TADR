@@ -3,15 +3,15 @@
 //
 // Exactly one config must be selected
 //
-#if (defined(TDRAW_CONFIG_FULL) + \
+#if (defined(TDRAW_CONFIG_PROTA) + \
      defined(TDRAW_CONFIG_ESCALATION) + \
-     defined(TDRAW_CONFIG_MINIMAL) + \
+     defined(TDRAW_CONFIG_OTA) + \
      defined(TDRAW_CONFIG_TAZERO) + \
      defined(TDRAW_CONFIG_BTA)) != 1
-#pragma message ( __FILE__ " - Warning: Exactly one TDRAW_CONFIG_* configurations must be #define'd. defaulting to TDRAW_CONFIG_FULL" )
-#define TDRAW_CONFIG_FULL
+#pragma message ( __FILE__ " - Warning: Exactly one TDRAW_CONFIG_* configurations must be #define'd. defaulting to TDRAW_CONFIG_PROTA" )
+#define TDRAW_CONFIG_PROTA
 // Implicit-default builds (no explicit config selected) get the profiler
-// on; release builds with FULL/ESC/MINIMAL leave it off.
+// on; release builds with PROTA/ESC/OTA leave it off.
 #define TDRAW_PROFILING 1
 // Developer-build fallback: opt in to dumps too large for production.
 #define TDRAW_DUMP_MAP_ON_ERROR 1
@@ -21,12 +21,12 @@
 #define TDRAW_DUMP_UNITS_ON_LOAD 1
 #endif
 
-#if defined(TDRAW_CONFIG_FULL)
-#include "config_full.h"
+#if defined(TDRAW_CONFIG_PROTA)
+#include "config_prota.h"
 #elif defined(TDRAW_CONFIG_ESCALATION)
 #include "config_escalation.h"
-#elif defined(TDRAW_CONFIG_MINIMAL)
-#include "config_minimal.h"
+#elif defined(TDRAW_CONFIG_OTA)
+#include "config_ota.h"
 #elif defined(TDRAW_CONFIG_TAZERO)
 #include "config_tazero.h"
 #elif defined(TDRAW_CONFIG_BTA)

@@ -161,7 +161,7 @@ grep -q "transfer will complete in" /d/games/<mod>/tdraw.dll && echo HAS || echo
 ```
 
 FileVersion should also end in `-esc`. A whole session was lost on 2026-07-31 to a `Public\`
-build that was silently `TDRAW_CONFIG_FULL`.
+build that was silently `TDRAW_CONFIG_PROTA` (then named `TDRAW_CONFIG_FULL`).
 
 ### A. Share rate limit — skirmish with an allied AI is enough
 

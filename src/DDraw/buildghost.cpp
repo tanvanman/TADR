@@ -1,4 +1,5 @@
 #include "buildghost.h"
+#include "TeamColorNanolathe.h"
 #include "unitrotate.h"
 
 #include "dialog.h"
@@ -1068,6 +1069,18 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
             : static_cast<unsigned char>(0xa0 + (s & 0xf));
     };
 
+    unsigned char previewPlayerColor = 0xFF;
+    const int localPlayer = ta->LocalHumanPlayer_PlayerID;
+    if (localPlayer >= 0 && localPlayer < 10 && ta->Players[localPlayer].PlayerInfo)
+    {
+        const unsigned char color = ta->Players[localPlayer].PlayerInfo->PlayerLogoColor;
+        if (color < 10) previewPlayerColor = color;
+    }
+
+    auto teamRampColor = [previewPlayerColor, &rampColor](unsigned step) -> unsigned char {
+        return TeamColorNanolathe::MapNanoframeColor(previewPlayerColor, rampColor(step));
+    };
+
     // Z-plane sweep: a thin bright line travels through the model along
     // its LOCAL +Z axis (the unit's depth axis, +Z = front per the 3DO
     // convention). zCoord byte 1 = back, 255 = front; sweep walks low→
@@ -1078,8 +1091,10 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     const unsigned      kSweepFrames    = 30;   // full cycle period (frequency)
     const unsigned      kSweepActive    = kSweepFrames / 2;  // sweep first half; rest second half
     const int           kSweepHalfWidth = 2;    // ±2 byte units in zCoord
-    const unsigned char kSweepColor     = 250;  // pure green — same line colour in both modes
-    const unsigned char kSweepColorWire = 250;
+    const unsigned char kSweepColor = TeamColorNanolathe::IsEnabled()
+        ? TeamColorNanolathe::MapNanoframeColor(previewPlayerColor, 0xA0)
+        : 250;
+    const unsigned char kSweepColorWire = kSweepColor;
     // Reset on each user rotation so the sweep restarts from the back.
     unsigned gt = static_cast<unsigned>(ta->GameTime) - rotationCycleGameTime;
 
@@ -1090,8 +1105,8 @@ void CBuildGhost::RenderGhostAtCurrentBuildSpot(bool showNag)
     // on the line-active half.
     unsigned shimmerPhase = (gt + kSweepFrames - kSweepActive / 2) % kSweepFrames;
     unsigned shimmerStep  = shimmerPhase * 32u / kSweepFrames + 16u;
-    unsigned char fillColor = noFill     ? 0 : rampColor(shimmerStep);
-    unsigned char edgeColor = cycleEdges ? rampColor(shimmerStep + 16) : 250;
+    unsigned char fillColor = noFill     ? 0 : teamRampColor(shimmerStep);
+    unsigned char edgeColor = cycleEdges ? teamRampColor(shimmerStep + 16) : kSweepColorWire;
 
     bool     sweepActive = false;
     unsigned kByte       = 0;

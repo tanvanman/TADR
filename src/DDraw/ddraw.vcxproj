@@ -24,19 +24,19 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v145</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v145</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v145</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -92,7 +92,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;DDRAW_EXPORTS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;%(PreprocessorDefinitions);$(TDRAW_CONFIG)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;DDRAW_EXPORTS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WIN32_WINNT=0x0601;WINVER=0x0601;_STL_WIN32_WINNT=0x0601;%(PreprocessorDefinitions);$(TDRAW_CONFIG)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -175,7 +175,7 @@ echo ====== POST-BUILD EVENT FINISHED ======</Command>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;DDRAW_EXPORTS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;%(PreprocessorDefinitions);$(TDRAW_CONFIG)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;DDRAW_EXPORTS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WIN32_WINNT=0x0601;WINVER=0x0601;_STL_WIN32_WINNT=0x0601;%(PreprocessorDefinitions);$(TDRAW_CONFIG)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <SmallerTypeCheck>false</SmallerTypeCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -261,7 +261,7 @@ echo ====== POST-BUILD EVENT FINISHED ======</Command>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;DDRAW_EXPORTS;%(PreprocessorDefinitions);$(TDRAW_CONFIG)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;DDRAW_EXPORTS;_WIN32_WINNT=0x0601;WINVER=0x0601;_STL_WIN32_WINNT=0x0601;%(PreprocessorDefinitions);$(TDRAW_CONFIG)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <SmallerTypeCheck>false</SmallerTypeCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -317,6 +317,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="HexDump.cpp" />
     <ClCompile Include="HmacSha256.cpp" />
     <ClCompile Include="MappedMAP.cpp" />
+    <ClCompile Include="Md5.cpp" />
     <ClCompile Include="MegamapControl.cpp" />
     <ClCompile Include="MegamapTAStuff.cpp" />
     <ClCompile Include="MultiplayerSchemaUnits.cpp" />
@@ -339,6 +340,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="NotToAir.cpp" />
     <ClCompile Include="SurfaceFire.cpp" />
     <ClCompile Include="ZeroDamageMapWeapons.cpp" />
+    <ClCompile Include="TeamColorNanolathe.cpp" />
     <ClCompile Include="RepairRateFix.cpp" />
     <ClCompile Include="DebugPipeServer.cpp" />
     <ClCompile Include="VoteDialog.cpp" />
@@ -372,16 +374,19 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="VoteReject.h" />
     <ClInclude Include="ShareGuard.h" />
     <ClInclude Include="ZeroDamageMapWeapons.h" />
+    <ClInclude Include="TeamColorNanolathe.h" />
     <ClInclude Include="RepairRateFix.h" />
+    <ClInclude Include="TransportedExplosions.h" />
     <ClInclude Include="config.h" />
-    <ClInclude Include="config_full.h" />
-    <ClInclude Include="config_minimal.h" />
+    <ClInclude Include="config_prota.h" />
+    <ClInclude Include="config_ota.h" />
     <ClInclude Include="config_escalation.h" />
     <ClInclude Include="config_bta.h" />
     <ClInclude Include="ConstructionKickout.h" />
     <ClInclude Include="GameTickHook.h" />
     <ClInclude Include="HexDump.h" />
     <ClInclude Include="HmacSha256.h" />
+    <ClInclude Include="Md5.h" />
     <ClInclude Include="MegamapControl.h" />
     <ClInclude Include="megamaptastuff.h" />
     <ClInclude Include="MultiplayerSchemaUnits.h" />
@@ -391,6 +396,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <FileType>CppCode</FileType>
     </ClInclude>
     <ClCompile Include="StartPositions.cpp" />
+    <ClCompile Include="TransportedExplosions.cpp" />
     <ClCompile Include="TenPlayerReplay.cpp" />
     <ClCompile Include="TPacket.cpp" />
     <ClCompile Include="UnitIcon.cpp" />
