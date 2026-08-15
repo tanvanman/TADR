@@ -57,6 +57,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Synchronize remote construction and repair health progress (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)
 - Add optional TransportedExplodeAs and TransportedSelfDestructAs unit FBI tags for using different explosion weapons while a unit is being transported (thanks TAG_Venom)
 - Add reload bars for tagged weapons (thanks TAG_Venom)
@@ -578,6 +579,20 @@ NEW FEATURES IN DETAIL:
   "Show ally queues" checkbox in the ctrl-f2 menu.  The option only hides the
   overlay; it does not affect game orders or the queue information sent to
   allies.  Up to 1200 queued structures are shared per player.
+
+- Construction and repair health synchronization
+
+  Stock TA can leave remote clients showing stale health and construction
+  progress for many seconds while a unit is being built or repaired.  TADR
+  sends batched progress updates at 5 Hz for locally owned units whose health
+  or construction state is currently increasing, plus a one-second trailing
+  window after progress stops.
+
+  Updates are sent only to remote human players who have line of sight to the
+  unit.  Received records are checked against the sending player, unit slot,
+  unit type, maximum health, and local line of sight before an upward progress
+  correction is applied.  This is an always-on synchronization fix with no
+  totala.ini setting; normal damage, orders, and simulation are unchanged.
 
 - Building rotation
 

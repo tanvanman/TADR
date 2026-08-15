@@ -41,6 +41,7 @@ using namespace std;
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
 #include "ReloadBars.h"
+#include "RepairHealthSync.h"
 #include "ExplosionCapsTelemetry.h"
 #include "ZeroDamageMapWeapons.h"
 #include "TeamColorNanolathe.h"
@@ -225,6 +226,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		NotToAir::Install();
 		SurfaceFire::Install();
 		ReloadBars::Install();
+		RepairHealthSync::Install();
 		ZeroDamageMapWeapons::Install();
 		TeamColorNanolathe::Install();
 		VoteReject::Install();
@@ -249,6 +251,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		DebugPipeServer::Stop();
 #endif
 		ReloadBars::Shutdown();
+		RepairHealthSync::Shutdown();
 		AlliedBuildQueueSync::Shutdown();
 		ZeroDamageMapWeapons::Shutdown();
 		TeamColorNanolathe::Shutdown();

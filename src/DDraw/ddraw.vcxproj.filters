@@ -238,6 +238,9 @@
     <ClCompile Include="ReloadBars.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="RepairHealthSync.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="AlliedBuildQueueSync.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -559,6 +562,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ReloadBars.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RepairHealthSync.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AlliedBuildQueueSync.h">
