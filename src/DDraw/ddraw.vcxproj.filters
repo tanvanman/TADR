@@ -247,6 +247,9 @@
     <ClCompile Include="ChatFont.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ShadingFix.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="WeaponTdfHook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -553,6 +556,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="PacketChatRouter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ShadingFix.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="HudNotifications.h">

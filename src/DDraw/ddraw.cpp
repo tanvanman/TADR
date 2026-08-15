@@ -38,6 +38,7 @@ using namespace std;
 #include "AlliedBuildQueueSync.h"
 #include "VoteReject.h"
 #include "ShareGuard.h"
+#include "ShadingFix.h"
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
 #include "ReloadBars.h"
@@ -225,6 +226,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		NotToAir::Install();
 		SurfaceFire::Install();
 		ReloadBars::Install();
+		ShadingFix::Install();
 		ZeroDamageMapWeapons::Install();
 		TeamColorNanolathe::Install();
 		VoteReject::Install();
@@ -250,6 +252,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 		ReloadBars::Shutdown();
 		AlliedBuildQueueSync::Shutdown();
+		ShadingFix::Shutdown();
 		ZeroDamageMapWeapons::Shutdown();
 		TeamColorNanolathe::Shutdown();
 #if SHARE_ABUSE_GUARD

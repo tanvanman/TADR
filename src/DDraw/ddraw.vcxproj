@@ -324,6 +324,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="ExplosionCapsTelemetry.cpp" />
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
+    <ClCompile Include="ShadingFix.cpp" />
     <ClCompile Include="Profiler.cpp" />
     <ClCompile Include="ReloadBars.cpp" />
     <ClCompile Include="AlliedBuildQueueSync.cpp" />
@@ -360,6 +361,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="WeaponIdOverflow.h" />
     <ClInclude Include="WeaponFiredExt.h" />
     <ClInclude Include="DialogBase.h" />
+    <ClInclude Include="ShadingFix.h" />
     <ClInclude Include="PacketChatRouter.h" />
     <ClInclude Include="ReloadBars.h" />
     <ClInclude Include="AlliedBuildQueueSync.h" />
