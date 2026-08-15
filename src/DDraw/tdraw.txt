@@ -57,10 +57,10 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Add team-coloured nanolathe effects (thanks TAG_Venom)
 - Add optional TransportedExplodeAs and TransportedSelfDestructAs unit FBI tags for using different explosion weapons while a unit is being transported (thanks TAG_Venom)
 - Add reload bars for tagged weapons (thanks TAG_Venom)
 - Add allied queued-build overlays (thanks TAG_Venom)
-- Add team-coloured nanolathe effects (thanks TAG_Venom)
 
 *2026.8.6
 - Build configuration "full" renamed to "prota" (tdraw-prota.zip) and "minimal" renamed to "ota" (tdraw-ota.zip).  No feature changes - the names now say which mod each build is intended for

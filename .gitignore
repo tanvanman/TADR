@@ -399,3 +399,7 @@ FodyWeavers.xsd
 
 # Delphi
 *.dcu
+
+# The Click-Once "publish/" rule above matches any directory named publish at
+# any depth, which silently swallowed the private-mirror publisher. Re-include it.
+!tools/publish/
