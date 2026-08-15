@@ -3,6 +3,7 @@
 
 #include <dsound.h>
 #include <ddraw.h>
+#include <cstddef>	// offsetof, for the struct-layout static_asserts
 
 
 struct _GAFFrame; 
@@ -813,7 +814,15 @@ struct UnitDefStruct {
 	/* 0x040 */ char UnitDescription[0x40];
 	/* 0x080 */ char ObjectName[0x20];
 	/* 0x0A0 */ char Side[8];
-	/* 0x0A8 */ char data5[0xA2];
+	/* 0x0A8 */ char data5[0x96];		// tile_uid 0xA8, side_ext 0xAA, szAIConfig 0xBE, szAILimit 0xFE
+	// The two CRCs TA exchanges in the 0x1a UNIT_DATA sync packets. CRC_FBI is
+	// the unit's identity on the wire (and the unitSyncMap key); CRC_all is the
+	// script/COB/download CRC, XOR-folded with CRC_weapons and computed lazily by
+	// UnitInfo_CalcScriptCRC (0x0042a610) before the first sub-2 packet is sent,
+	// so it reads 0 until unit sync has run.
+	/* 0x13E */ unsigned long CRC_FBI;
+	/* 0x142 */ unsigned long CRC_all;
+	/* 0x146 */ unsigned long CRC_weapons;
 	/* 0x14A */ short FootX;
 	/* 0x14C */ short FootY;
 	/* 0x14E */ char* YardMap;
@@ -856,7 +865,10 @@ struct UnitDefStruct {
 	/* 0x1CE */ float extractsmetal;
 	/* 0x1D2 */ float windgenerator;
 	/* 0x1D6 */ float tidalgenerator;
-	/* 0x1DA */ unsigned long cloakcost;
+	// NB float, not an integer: it sits in the run of floats at 0x1C2-0x1E6 and
+	// holds e.g. 0x42C80000 (=100.0f) for ARMCOM. Was declared unsigned long,
+	// which made every tdraw_unitdump CSV emit the raw float bits (1120403456).
+	/* 0x1DA */ float cloakcost;
 	/* 0x1DE */ float cloakcostmoving;
 	/* 0x1E2 */ float energystorage;
 	/* 0x1E6 */ float metalstorage;
@@ -902,6 +914,14 @@ struct UnitDefStruct {
 	/* 0x245 */ unsigned long UnitTypeMask_1;
 	// 0x249
 };
+
+// Carving CRC_FBI/CRC_all/CRC_weapons out of the old data5[0xA2] blob must not
+// shift anything after it. Pin the boundaries.
+static_assert(offsetof(UnitDefStruct, CRC_FBI)     == 0x13E, "UnitDefStruct::CRC_FBI moved");
+static_assert(offsetof(UnitDefStruct, CRC_all)     == 0x142, "UnitDefStruct::CRC_all moved");
+static_assert(offsetof(UnitDefStruct, CRC_weapons) == 0x146, "UnitDefStruct::CRC_weapons moved");
+static_assert(offsetof(UnitDefStruct, FootX)       == 0x14A, "UnitDefStruct::FootX moved");
+static_assert(sizeof(UnitDefStruct)                == 0x249, "UnitDefStruct size changed");
 
 enum UnitSelectState
 {

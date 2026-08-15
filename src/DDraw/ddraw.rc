@@ -4,12 +4,12 @@
 
 #define BASE_VERSION "2026.8.6.0"
 
-#if defined(TDRAW_CONFIG_FULL)
+#if defined(TDRAW_CONFIG_PROTA)
 #define VERSION_TAG ""
 #elif defined(TDRAW_CONFIG_ESCALATION)
 #define VERSION_TAG "-esc"
-#elif defined(TDRAW_CONFIG_MINIMAL)
-#define VERSION_TAG "-min"
+#elif defined(TDRAW_CONFIG_OTA)
+#define VERSION_TAG "-ota"
 #elif defined(TDRAW_CONFIG_TAZERO)
 #define VERSION_TAG "-zero"
 #elif defined(TDRAW_CONFIG_BTA)

@@ -13,17 +13,17 @@ The present release includes contributions from Axle, FunkyFresh and tagROCK, an
 CONFIGURATIONS
 
 The release .zip files are annotated with a build configuration tag: "tdraw-<config>.zip".  The various configurations are:
-  * tdraw-full.zip: all features enabled
+  * tdraw-prota.zip: all features enabled (this is the mainline build, used by ProTA)
   * tdraw-escalation.zip: built for TA:Escalation.  disables the following features
     - mex snap
     - that is all
     and enables the following features, which no other configuration has:
     - share-abuse guard (structure share rate limit, and .take refused against a destroyed commander - see below)
     - fix repair rate exploit
-  * tdraw-tazero.zip: built for TA:Zero.  same as tdraw-full.zip except it disables the following features
+  * tdraw-tazero.zip: built for TA:Zero.  same as tdraw-prota.zip except it disables the following features
     - wind and tidal readouts in the weather report at top of screen (the game time clock is retained)
     - that is all
-  * tdraw-minimal.zip: disables the following features
+  * tdraw-ota.zip: built for original TA (OTA).  disables the following features
     - mex/wreck snap
     - options for construction units to stay put when guarding
     - options for construction units to only reclaim or onlt assist while patrolling
@@ -32,7 +32,7 @@ The release .zip files are annotated with a build configuration tag: "tdraw-<con
     - sync wind speed between players
     - map DT's always visible.
     - rendering of map features (mexes, geos, spires, walls) on the megamap
-  * tdraw-bta.zip: same as tdraw-full.zip except
+  * tdraw-bta.zip: same as tdraw-prota.zip except
     - rendering of map features (mexes, geos, spires, walls) on the megamap is disabled
     - mex and wreck snap radius limited to 1
 
@@ -57,6 +57,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *2026.8.6
+- Build configuration "full" renamed to "prota" (tdraw-prota.zip) and "minimal" renamed to "ota" (tdraw-ota.zip).  No feature changes - the names now say which mod each build is intended for
 - megamap/minimap dithering can now be turned off in totala.ini [Preferences] "MegamapDither""
 - the nanoframe build preview can be switched betwen full and wireframe-only from totala.ini [Preferences] "NanoframePreviewFill"
 - when watching replays from user's POV, disable minimap / megamap dots for units not in the player's LOS/radar range

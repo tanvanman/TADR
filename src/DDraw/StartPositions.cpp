@@ -16,7 +16,9 @@
 #include <chrono>
 
 std::unique_ptr<StartPositions> StartPositions::m_instance;
-std::default_random_engine StartPositions::m_rng(std::chrono::system_clock::now().time_since_epoch().count());
+// steady_clock, not system_clock: see the note in AutoTeam.cpp - system_clock::now()
+// drags in the Windows 8+ GetSystemTimePreciseAsFileTime on newer MSVC toolsets.
+std::default_random_engine StartPositions::m_rng(std::chrono::steady_clock::now().time_since_epoch().count());
 
 // initialised by InitStartPositionsHookProc, accessed by FixedStartPositionsHookProc or RandomStartPositionsHookProc
 static int IS_ACTIVE_PLAYER[10];

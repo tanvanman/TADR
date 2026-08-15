@@ -6,6 +6,7 @@
 #include "HudNotifications.h"
 #include "hook/hook.h"
 #include "iddrawsurface.h"
+#include "Md5.h"
 #include "random_code_seg_keys.h"
 #include "tafunctions.h"
 #include "unitrotate.h"
@@ -14,6 +15,7 @@
 #include <iomanip>
 #include <functional>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <thread>
 
@@ -979,10 +981,33 @@ void ChallengeResponse::LogFeatures(const std::string& filename)
 #pragma code_seg(pop)
 
 #pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
-void ChallengeResponse::LogUnits(const std::string &filename)
+// Two callers, two incompatible definitions of "correct" — hence the flag:
+//
+//   stableAcrossGames == false  (LogAll -> ErrorLog.txt)
+//     Diagnostic companion to the anticheat. HashUnits normalises buildLimit
+//     -1 to PlayerUnitsNumber_Skim before hashing (df16e45, "Anticheat
+//     tolerates buildUnitLimit -1 versus 1500") and hashes the raw corpse
+//     index, so this log must do exactly the same or diffing two players'
+//     logs shows differences the HMAC deliberately tolerates.
+//
+//   stableAcrossGames == true   (DumpUnitDefsForRecovery)
+//     Per-mod corpus keyed by unitsHash. Anything that varies with the map or
+//     the lobby settings is noise here: PlayerUnitsNumber_Skim is the game's
+//     unit-limit setting, and corpse indexes the per-map FeatureDef table, so
+//     both make two dumps of one mod version compare unequal.
+void ChallengeResponse::LogUnits(const std::string &filename, bool stableAcrossGames)
 {
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	std::ofstream fs(filename, std::ios::app);
+
+	auto corpseName = [taPtr](unsigned short idx) -> std::string {
+		if (taPtr->FeatureDef == nullptr || int(idx) >= taPtr->NumFeatureDefs) {
+			return std::string();
+		}
+		const char* name = taPtr->FeatureDef[idx].Name;
+		return std::string(name, ::strnlen(name, sizeof(taPtr->FeatureDef[idx].Name)));
+	};
+
 	fs << "========== Units:\n";
 	fs << "n,ID,name,unitname,objectname,buildlimit,footx,footy,_xwidth,xwidth,"
 		"data7,ywidith,_ywidth,data8,_zwidth,zwidth,data9,data10,"
@@ -998,16 +1023,21 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 		"radardistancejam,sonardistancejam,nbuilddistance,builddistance,nmaneuverleashlength,attackrunlength,kamikazedistance,sortbias,"
 		"cruisealt,maxslope,badslope,transportsize,transportcapacity,waterline,makesmetal,"
 		"bmcode,mask0,mask1,"
-		"cobcrc32\n";
+		"cobcrc32,"
+		// The two CRCs TA puts in its 0x1a sub-2 sync packets. Emitted so the
+		// compiler's unitsHash can be recomputed offline from this file
+		// (see ComputeUnitDataHash) without another game or another build.
+		"crcfbi,crcall,crcweapons\n";
 
 	for (unsigned n = 0u; n < taPtr->UNITINFOCount; ++n) {
 		UnitDefStruct* u = &taPtr->UnitDef[n];
-		int buildLimit = u->buildLimit == -1 ? taPtr->PlayerUnitsNumber_Skim : u->buildLimit;
+		int buildLimit = (!stableAcrossGames && u->buildLimit == -1)
+			? taPtr->PlayerUnitsNumber_Skim : u->buildLimit;
 		fs << n << ',' << u->UnitTypeID << ',' << u->Name << ',' << u->UnitName << ',' << u->ObjectName << ',' << buildLimit << ',' << u->FootX << ',' << u->FootY << ',' << u->__X_Width << ',' << u->X_Width << ','
 			<< u->data_7 << ',' << u->Y_Width << ',' << u->__Y_Width << ',' << u->data8 << ',' << u->__Z_Width << ',' << u->Z_Width << ',' << u->data_9 << ',' << u->data_10 << ','
 			<< u->data_11 << ',' << u->data_12 << ',' << u->data_13 << ',' << u->buildcostenergy << ',' << u->buildcostmetal << ',' << u->lRawSpeed_maxvelocity << ',' << u->data_15 << ',' << u->data_16 << ','
 			<< u->cceleration << ',' << u->bankscale << ',' << u->pitchscale << ',' << u->damagemodifier << ',' << u->moverate1 << ',' << u->moverate2 << ',' << u->movementclass << ',' << u->turnrate << ','
-			<< u->corpse << ',' << u->maxwaterdepth << ',' << u->minwaterdepth << ',' << u->energymake << ',' << u->energyuse << ',' << u->metalmake << ',' << u->extractsmetal << ',' << u->windgenerator << ','
+			<< (stableAcrossGames ? corpseName(u->corpse) : std::to_string(u->corpse)) << ',' << u->maxwaterdepth << ',' << u->minwaterdepth << ',' << u->energymake << ',' << u->energyuse << ',' << u->metalmake << ',' << u->extractsmetal << ',' << u->windgenerator << ','
 			<< u->tidalgenerator << ',' << u->cloakcost << ',' << u->cloakcostmoving << ',' << u->energystorage << ',' << u->metalstorage << ',' << u->buildtime << ',';
 
 		if (u->YardMap) {
@@ -1060,6 +1090,7 @@ void ChallengeResponse::LogUnits(const std::string &filename)
 			crc ^= -1;
 			fs << crc;
 		}
+		fs << ',' << u->CRC_FBI << ',' << u->CRC_all << ',' << u->CRC_weapons;
 		fs << '\n';
 	}
 }
@@ -1125,7 +1156,87 @@ void ChallengeResponse::DumpUnitDefsForRecovery(const std::string& filename)
 	// LogUnits opens the file in append mode; truncate first so each process
 	// produces a clean, self-contained dump.
 	{ std::ofstream truncate(filename, std::ios::trunc); }
-	LogUnits(filename);
+	LogUnits(filename, /*stableAcrossGames*/ true);
+}
+#pragma code_seg(pop)
+
+#pragma code_seg(push, CONCAT(".text$", STRINGIFY(RANDOM_CODE_SEG_NEXT)))
+// Reproduce gpgnet4ta's UnitDataRepo::hash() + MD5 (tapacket/UnitDataRepo.cpp,
+// tareplay/TaDemoCompiler.cpp:63 getUnitDataHash) without seeing a single packet.
+//
+// The compiler builds its digest from the 0x1a UNIT_DATA sync packets: sub-2
+// carries (CRC_FBI, CRC_all) per unit, sub-3 carries the enabled flag, and both
+// land in a std::map keyed by (sub, id) — so the sub-3 pass walks units in
+// ascending CRC_FBI order and feeds the little-endian uint32 (CRC_FBI + CRC_all)
+// of the matching sub-2 entry into MD5.
+//
+// TA builds those packets straight out of UNITINFOArray (UnitRestrict, 0x0046d860
+// and the sub-2 batch loop), so we can read the same two fields from UnitDef and
+// get a byte-identical digest.
+//
+// Returns "" — caller falls back to the old filename — when:
+//   - the unit table is not loaded, or
+//   - no unit has a non-zero CRC_all. That CRC is computed lazily by
+//     UnitInfo_CalcScriptCRC (0x0042a610) as the sub-2 packets go out, so it is
+//     all zeroes until unit sync has run. A digest over zeroes would be a
+//     plausible-looking hash that matches nothing, which is worse than no name.
+//
+// KNOWN GAP: the compiler counts only units flagged enabled (sub-3 status
+// 0x0101); we include every unit in the table because the restriction state
+// lives in RESTRICTUnitList, which tdraw does not map. The two agree whenever no
+// unit restrictions are in force, which is the case for TAF ranked play. If a
+// restricted game ever needs to be keyed, recompute offline from the crcfbi /
+// crcall columns in the CSV rather than rebuilding this.
+std::string ChallengeResponse::ComputeUnitDataHash()
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	if (taPtr == nullptr || taPtr->UnitDef == nullptr || taPtr->UNITINFOCount == 0u)
+	{
+		return std::string();
+	}
+
+	const std::uint32_t SY_UNIT_ID = 0x92549357;
+
+	// std::map keyed by id gives the compiler ascending-CRC_FBI order and
+	// collapses duplicates; mirror both.
+	std::map<std::uint32_t, std::uint32_t> crcFbiToCrcAll;
+	bool anyCrcAll = false;
+
+	// Slot 0 is the "None" placeholder; TA's own sync loop starts at 1.
+	for (unsigned n = 1u; n < taPtr->UNITINFOCount; ++n)
+	{
+		const UnitDefStruct* u = &taPtr->UnitDef[n];
+		if (u->CRC_FBI == 0u || u->CRC_FBI == SY_UNIT_ID)
+		{
+			continue;
+		}
+		crcFbiToCrcAll[u->CRC_FBI] = u->CRC_all;
+		if (u->CRC_all != 0u)
+		{
+			anyCrcAll = true;
+		}
+	}
+
+	if (!anyCrcAll || crcFbiToCrcAll.empty())
+	{
+		return std::string();
+	}
+
+	Md5 md5;
+	for (auto it = crcFbiToCrcAll.begin(); it != crcFbiToCrcAll.end(); ++it)
+	{
+		// Deliberately the wrapping 32-bit sum the compiler computes, not a
+		// concatenation of the two fields.
+		std::uint32_t datum = it->first + it->second;
+		std::uint8_t le[4] = {
+			std::uint8_t(datum & 0xff),
+			std::uint8_t((datum >> 8) & 0xff),
+			std::uint8_t((datum >> 16) & 0xff),
+			std::uint8_t((datum >> 24) & 0xff)
+		};
+		md5.Update(le, sizeof(le));
+	}
+	return md5.HexDigest();
 }
 #pragma code_seg(pop)
 

@@ -79,13 +79,17 @@ class AlliesWhiteboard
 		MMHS(unsigned short _XPos, unsigned short _YPos) :
 			XPos(_XPos), YPos(_YPos)
 		{
-			auto now = std::chrono::system_clock::now();
+			// steady_clock, not system_clock: timestamp is only ever used to measure
+			// elapsed time in getFrameNumberMillisecs(), so a monotonic clock is the
+			// correct choice, and it avoids the Windows 8+ GetSystemTimePreciseAsFileTime
+			// that newer MSVC toolsets statically import for system_clock::now().
+			auto now = std::chrono::steady_clock::now();
 			timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 		}
 
 		unsigned getFrameNumberMillisecs()
 		{
-			auto now = std::chrono::system_clock::now();
+			auto now = std::chrono::steady_clock::now();
 			auto t = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 			return t - timestamp;
 		}

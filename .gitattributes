@@ -1,0 +1,21 @@
+# The Delphi sources in this repo are stored with CRLF line endings (they have been
+# since the SVN import). core.autocrlf=input would rewrite them to LF on the next
+# `git add`, turning any one-line edit into a whole-file diff and destroying blame.
+# Marking them -text tells git to store the bytes exactly as they are on disk.
+*.pas  -text
+*.inc  -text
+*.dpr  -text
+*.dof  -text
+*.dpk  -text
+*.res  -text
+*.rc   -text
+*.INC  -text
+
+# Windows batch files MUST be CRLF or cmd.exe can mis-parse them.
+*.cmd  -text
+*.bat  -text
+
+# Committed build artifacts.
+*.dll  binary
+*.exe  binary
+*.map  -text
