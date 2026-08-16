@@ -8,6 +8,7 @@
 
 #include "tafunctions.h"
 #include "dialog.h"
+#include "PlayerMute.h"
 
 #include "pcxread.h"
 #include "maprect.h"
@@ -164,6 +165,23 @@ char AlliesWhiteboard::LookupPlayerCurrentColor(char colorAtLaunch)
 	else {
 		return GetLocalPlayerColor();
 	}
+}
+
+bool AlliesWhiteboard::IsSenderMuted(char colorAtLaunch, int category)
+{
+	if (unsigned(colorAtLaunch) >= 10)
+		return false;					// unknown colour: never suppress
+
+	const int slot = PlayerNumbersByInitialColor[colorAtLaunch];
+	if (unsigned(slot) >= 10)
+		return false;					// colour not resolvable to a player
+
+	// Never suppress our own markers/lines. Compared in colour space, which
+	// is the only identity this packet actually carries.
+	if (colorAtLaunch == LocalPlayerColorAtLaunch)
+		return false;
+
+	return PlayerMute::IsMuted(slot, PlayerMute::Category(category));
 }
 
 void AlliesWhiteboard::DebugPlayerNumberFromInitialColor()
@@ -798,18 +816,28 @@ void AlliesWhiteboard::ReceiveMarkers()
 			PtC *ptc = (PtC*)Data;
 			Data += sizeof(PtC);
 
-			ElementHandler.AddElement(new GraphicText(ptc->x, ptc->y, Data, ptc->Color));
-			EchoMarker(Data, ptc->Color);
-			LastMarkerX = ptc->x;
-			LastMarkerY = ptc->y;
+			// Muting pings drops the marker, its minimap flash AND its chat
+			// echo together — the "*Name added a new marker" line belongs to
+			// the ping, not to the sender's chat. Data has already been
+			// advanced above, so the walk stays in step either way.
+			if (!IsSenderMuted(ptc->Color, PlayerMute::CatPings))
+			{
+				ElementHandler.AddElement(new GraphicText(ptc->x, ptc->y, Data, ptc->Color));
+				EchoMarker(Data, ptc->Color);
+				LastMarkerX = ptc->x;
+				LastMarkerY = ptc->y;
 
-			MMHS mmhs(ptc->x, ptc->y);
-			MinimapMarkerHandler.push_front(mmhs);
+				MMHS mmhs(ptc->x, ptc->y);
+				MinimapMarkerHandler.push_front(mmhs);
+			}
 		}
 		else if(*Type == PacketGraphicLine)
 		{
 			PtL *ptl = (PtL*)Data;
-			ElementHandler.AddElement(new GraphicLine(ptl->x, ptl->y, ptl->x2, ptl->y2, ptl->Color));
+			if (!IsSenderMuted(ptl->Color, PlayerMute::CatDraw))
+			{
+				ElementHandler.AddElement(new GraphicLine(ptl->x, ptl->y, ptl->x2, ptl->y2, ptl->Color));
+			}
 			Data += sizeof(PtL);
 		}
 		else if(*Type == PacketDeleteOn)

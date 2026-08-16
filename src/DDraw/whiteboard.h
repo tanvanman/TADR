@@ -169,6 +169,16 @@ class AlliesWhiteboard
 	PlayerStruct* GetPlayer(int n);
 	char GetLocalPlayerColor();	// 0..10
 	char LookupPlayerCurrentColor(char colorAtLaunch /* 0..10 */);	// 0..10
+
+	// True when the local player has muted the whiteboard category `category`
+	// (a PlayerMute::Category) for whoever sent a packet stamped with
+	// `colorAtLaunch`. Purely local display state; the packet is still parsed
+	// and Data still advanced, only the visible effect is dropped.
+	//
+	// Sender identity here is the same colour heuristic the rest of this class
+	// uses (see PlayerNumbersByInitialColor above): a peer who changes colour
+	// mid-game can leak past a mute. Inherited limitation, not a new one.
+	bool IsSenderMuted(char colorAtLaunch, int category);
 	void DebugPlayerNumberFromInitialColor();
 	void InitialisePlayerNumberFromInitialColor();
 

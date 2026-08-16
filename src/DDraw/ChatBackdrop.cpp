@@ -8,6 +8,7 @@
 #include "gaf.h"
 #include "hook/hook.h"
 #include "ChatFont.h"
+#include "ChatPosition.h"
 
 #include <windows.h>
 #include <cstring>
@@ -54,8 +55,13 @@ namespace
 	const unsigned OFF_TEXTLINES     = 0x37F27;  // dword: max visible lines
 	const unsigned OFF_COMIX_FONT    = 0x391F9;  // FontDataStruct*
 
-	const int CHAT_TEXT_X = 0x8A;   // 138: line left (no logo); logo shifts it right
-	const int CHAT_TOP_Y  = 0x34;   // 52: top of first line
+	// Line left (no logo; a logo shifts the text right) and the top of the
+	// first line. These are no longer constants: ChatPosition may relocate
+	// the whole list, and the backdrop has to follow it or it detaches from
+	// the text. Both return the vanilla 138 / 52 when the feature is
+	// unconfigured, so behaviour is unchanged by default.
+	inline int ChatTextX() { return ChatPosition::X(); }
+	inline int ChatTopY()  { return ChatPosition::Y(); }
 	const int BLACK_INDEX = 0;      // TA palette: pure black
 	const int PAD_X_LEFT  = 4;
 	const int PAD_X_RIGHT = 4;
@@ -189,7 +195,7 @@ void ChatBackdrop::Draw(_OFFSCREEN* offscreen)
 
 	// Iterate forward to the write head, drawing a backdrop behind each
 	// visible line. The y cursor only advances for lines that are drawn.
-	int y = CHAT_TOP_Y;
+	int y = ChatTopY();
 	while (idx != freeIndex)
 	{
 		const unsigned char* entry = ta + OFF_CHAT_TEXT + idx * CHAT_ENTRY_STRIDE;
@@ -197,12 +203,12 @@ void ChatBackdrop::Draw(_OFFSCREEN* offscreen)
 		if (ChatLineVisible(mode, screenchat, channel))
 		{
 			const bool hasLogo = entry[OFF_STR_LOGO] != 10;
-			const int  textX   = CHAT_TEXT_X + (hasLogo ? lineHeight : 0);
+			const int  textX   = ChatTextX() + (hasLogo ? lineHeight : 0);
 			const int  textW   = MeasureChatLineWidth(entry, font);
 			if (textW > 0)
 			{
 				FillBlack(offscreen,
-					CHAT_TEXT_X - PAD_X_LEFT, y - PAD_Y,
+					ChatTextX() - PAD_X_LEFT, y - PAD_Y,
 					textX + textW + PAD_X_RIGHT, y + lineHeight + PAD_Y);
 			}
 			y += lineHeight;
@@ -256,6 +262,13 @@ namespace
 	// before drawing, so an unexpected stack layout skips rather than crashes.
 	unsigned int ChatDrawHookProc(PInlineX86StackBuffer buf)
 	{
+		// Resolve the configured chat anchor against the current screen size
+		// and patch the engine's four position constants if they moved. Done
+		// here rather than at Install() because the screen size is not known
+		// during DLL init, and because this also picks up resolution changes.
+		// Early-outs to a couple of integer compares once settled.
+		ChatPosition::EnsureApplied();
+
 		OFFSCREEN* off = nullptr;
 		__try
 		{

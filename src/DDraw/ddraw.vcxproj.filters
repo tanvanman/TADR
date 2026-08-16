@@ -244,6 +244,12 @@
     <ClCompile Include="ChatBackdrop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ChatPosition.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PlayerMute.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ChatFont.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -598,6 +604,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ChatBackdrop.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ChatPosition.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PlayerMute.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ChatFont.h">
