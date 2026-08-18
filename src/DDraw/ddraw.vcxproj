@@ -343,6 +343,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="ZeroDamageMapWeapons.cpp" />
     <ClCompile Include="TeamColorNanolathe.cpp" />
     <ClCompile Include="RepairRateFix.cpp" />
+    <ClCompile Include="WideHealth.cpp" />
     <ClCompile Include="DebugPipeServer.cpp" />
     <ClCompile Include="VoteDialog.cpp" />
     <ClCompile Include="LagSwitchGuard.cpp" />
@@ -378,6 +379,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="ZeroDamageMapWeapons.h" />
     <ClInclude Include="TeamColorNanolathe.h" />
     <ClInclude Include="RepairRateFix.h" />
+    <ClInclude Include="WideHealth.h" />
     <ClInclude Include="TransportedExplosions.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="config_prota.h" />

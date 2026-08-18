@@ -30,6 +30,9 @@
 // See CLAUDE.md / config_escalation.h -- Escalation-only balance nerf, not enabled here.
 #define REPAIR_RATE_FIX_ENABLE 0
 
+// See WideHealth.h -- Escalation-only data rework, not enabled here.
+#define WIDE_HEALTH_ENABLE 0
+
 //
 // Environment / sim sync
 //

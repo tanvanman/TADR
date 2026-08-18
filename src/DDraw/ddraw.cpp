@@ -47,6 +47,7 @@ using namespace std;
 #include "ZeroDamageMapWeapons.h"
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
+#include "WideHealth.h"
 #include "TransportedExplosions.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
@@ -242,6 +243,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if REPAIR_RATE_FIX_ENABLE
 		RepairRateFix::Install();
 #endif
+#if WIDE_HEALTH_ENABLE
+		WideHealth::Install();
+#endif
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Start();
 #endif
@@ -267,6 +271,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if REPAIR_RATE_FIX_ENABLE
 		RepairRateFix::Shutdown();
+#endif
+#if WIDE_HEALTH_ENABLE
+		WideHealth::Shutdown();
 #endif
 		/* KillTimer(NULL, Timer);
 		KillTimer(NULL, DetectTimer); */
