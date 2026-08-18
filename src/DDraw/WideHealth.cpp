@@ -26,6 +26,21 @@ namespace {
 // 405 of 547 unit types in the current archives (verify_proxy_math.py).
 constexpr int32_t kProxyCap = 24480;
 
+// Upper bound on a raw FBI MaxDamage this module will accept as realMax. Not a
+// gameplay limit -- a crash-safety one. `S = ceil(realMax / kProxyCap)` signed-
+// overflows once realMax exceeds INT32_MAX - kProxyCap (~2.1477e9), and the
+// division that follows (`proxyMax = realMax / S`) turns that overflow into a
+// division-by-zero crash. Since def-load runs identically and deterministically
+// on every client from the same mod archive, an unbounded realMax here means a
+// single malformed FBI (a typo, or a deliberately crafted one) crashes every
+// player in the lobby simultaneously, not just whoever loaded it first. Today's
+// shipping archives top out at 24,480 (405 of 547 types need no scaling at
+// all), so 100,000,000 -- ~24x the highest real value anywhere in the mod, and
+// ~2,700x the largest documented Phase-3 migration target (4,080,000, `corms`)
+// -- is generous headroom for any hand-edited or generated FBI while staying
+// nowhere near the overflow boundary.
+constexpr int32_t kRealMaxSaneCeiling = 100'000'000;
+
 struct TypeInfo
 {
     int32_t realMax;
@@ -189,10 +204,18 @@ int __stdcall WideHealth_DefLoadWrite(PInlineX86StackBuffer buf)
     const int32_t realMax = static_cast<int32_t>(buf->Eax);
     if (realMax <= 0)
         return 0;   // nothing to scale (nanoframe defs, etc.) -- leave vanilla's value alone
+    if (realMax > kRealMaxSaneCeiling)
+        return 0;   // refuse a value that risks overflowing S below -- leave vanilla's
+                     // (truncated, but not crash-inducing) raw value alone instead
 
     TypeInfo info;
     info.realMax = realMax;
     info.S = (realMax + kProxyCap - 1) / kProxyCap;         // ceil(realMax / kProxyCap)
+    if (info.S <= 0)
+        return 0;   // defensive: should be unreachable given the ceiling check above,
+                     // but this is the one division in the module that can crash the
+                     // whole match if it's ever wrong, so it gets its own belt-and-
+                     // suspenders guard rather than trusting the bound alone
     info.proxyMax = realMax / info.S;
     g_typeInfo[typeIdx] = info;
 
@@ -353,7 +376,22 @@ int __stdcall WideHealth_DamageSubtractWrite(PInlineX86StackBuffer buf)
     g_realHP[idx] = static_cast<int32_t>(realHP);
 
     const int32_t newProxy = DeriveProxy(g_realHP[idx], info);
-    const int32_t delta = oldProxy - newProxy;   // always >= 0, see comment above
+    int32_t delta = oldProxy - newProxy;   // see comment above: usually >= 0, but NOT
+                                            // provably so -- the H7 reconciliation just
+                                            // above can set g_realHP[idx] from oldProxy
+                                            // in a way that doesn't round-trip exactly
+                                            // back through DeriveProxy (floor-division
+                                            // rounding), so a small/zero-damage hit
+                                            // landing right after a reconciliation can
+                                            // make newProxy > oldProxy. An unclamped
+                                            // negative delta here would mask into a huge
+                                            // unsigned 16-bit value, and vanilla's
+                                            // replayed `sub` would underflow the live
+                                            // proxy -- reintroducing H1 (negative proxy
+                                            // HP full-heals on the next heal tick)
+                                            // through the one write path that wasn't
+                                            // already guarded against it.
+    if (delta < 0) delta = 0;
 
     buf->Eax = (buf->Eax & 0xFFFF0000u) | (static_cast<DWORD>(delta) & 0xFFFFu);
     return 0;
