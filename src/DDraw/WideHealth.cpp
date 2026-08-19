@@ -75,13 +75,94 @@ UnitDefStruct*  g_cachedTypeArrayBase = nullptr;
 // actually firing in a given session.
 int32_t g_driftCanary = 0;
 
+// ---- TEMPORARY DIAGNOSTICS (added 2026-08-18) ------------------------------
+// Verification step 5B failed: whScanTypes() reported 0 of 550 types recorded,
+// i.e. WideHealth_DefLoadWrite never wrote to g_typeInfo for ANY type, while
+// EnsureTables() demonstrably DID succeed later (both tables allocated, correct
+// bases cached). Static analysis confirmed the hook site itself is right
+// (0x42C39E stores the parsed "maxdamage" value, ebp is a def struct -- ebp+0x20
+// is UnitName), so the failure is a RUNTIME condition inside the router, not a
+// wrong address. These counters distinguish every early-return path so one test
+// run answers which, instead of guessing.
+//
+// COST: plain int increments on a path that runs ~550 times TOTAL, once at match
+// load. Not a per-tick path, not in the simulation loop -- zero measurable
+// runtime impact. Remove once the cause is known.
+int32_t g_dbgDefLoadCalls    = 0;   // router entered at all
+int32_t g_dbgDefLoadNoTables = 0;   // bailed: EnsureTables() false
+int32_t g_dbgDefLoadBadIndex = 0;   // bailed: GetTypeIndex() < 0
+int32_t g_dbgDefLoadBadValue = 0;   // bailed: realMax <= 0 or > ceiling
+int32_t g_dbgDefLoadOk       = 0;   // actually recorded a TypeInfo
+DWORD   g_dbgLastTaPtr       = 0;   // [0x511DE8] as seen during def-load
+DWORD   g_dbgLastEbp         = 0;   // the def pointer the router was handed
+DWORD   g_dbgLastTypeBase    = 0;   // ta->UnitDef as seen during def-load
+int32_t g_dbgLastTypeCount   = 0;   // ta->UNITINFOCount as seen during def-load
+int32_t g_dbgLastEax         = 0;   // raw maxdamage value seen
+DWORD   g_dbgLastUnitBegin   = 0;   // ta->BeginUnitsArray_p during def-load
+DWORD   g_dbgLastUnitEnd     = 0;   // ta->EndOfUnitsArray_p   during def-load
+
+
 std::vector<std::unique_ptr<InlineSingleHook>> g_hooks;
 
 // (Re)size both tables to match the engine's current arrays. Both engine arrays are
 // allocated after this DLL's DLL_PROCESS_ATTACH runs, so this must stay lazy and
 // re-checked on every call -- exactly RepairRateFix::EnsureTable()'s reasoning,
 // including the "a between-match reallocation must resize the table" half of it.
-bool EnsureTables()
+// THE TABLES ARE INDEPENDENT AND MUST BE ENSURED INDEPENDENTLY.
+//
+// This was one function until 2026-08-18, and coupling them was a real bug with
+// a measured symptom: the def-load hook fired 549 times and bailed 549 times,
+// leaving g_typeInfo completely empty, because the combined check also demanded
+// the UNITS array -- which does not exist yet while FBIs are being parsed. No
+// units have been created at that point in the load; there is nothing to size a
+// unit table against, and there does not need to be. Def-load only ever touches
+// the TYPE table.
+//
+// Measured evidence for the diagnosis (instrumented build, live skirmish):
+//   entered=549  bail:no-tables=549  bail:bad-index=0  bail:bad-value=0  ok=0
+//   during def-load: ta=0x2D03BF3, ta->UnitDef=0xA98DB38, UNITINFOCount=550
+// ta and the type array were both valid and sane, which leaves the unit-array
+// gate as the only one that could have failed.
+//
+// Also settled by that run, and worth recording because it was an open question
+// (project CLAUDE.md, Open Question 4): ta->UnitDef during def-load and
+// g_cachedTypeArrayBase after gameplay started were the SAME value
+// (0xA98DB38 both times). The UnitDef array does NOT get relocated between FBI
+// parse and play, so a populated type table survives -- EnsureTypeTable()'s
+// realloc-on-base-change path will not silently wipe it.
+
+// TYPE table only. Safe to call during FBI parsing, before any unit exists.
+bool EnsureTypeTable()
+{
+    TAdynmemStruct* ta = *reinterpret_cast<TAdynmemStruct**>(0x00511de8);
+    if (!ta)
+        return false;
+
+    UnitDefStruct* typeBase = ta->UnitDef;
+    unsigned int typeCount = ta->UNITINFOCount;
+    if (!typeBase || typeCount == 0 || typeCount > 5000)   // same sanity bound as the Lua helper
+        return false;
+
+    if (!g_typeInfo || typeBase != g_cachedTypeArrayBase)
+    {
+        std::free(g_typeInfo);
+        g_typeInfo = static_cast<TypeInfo*>(std::calloc(static_cast<size_t>(typeCount), sizeof(TypeInfo)));
+        if (!g_typeInfo)
+        {
+            g_typeInfoCapacity = 0;
+            g_cachedTypeArrayBase = nullptr;
+            return false;
+        }
+        g_typeInfoCapacity = static_cast<int>(typeCount);
+        g_cachedTypeArrayBase = typeBase;
+    }
+
+    return true;
+}
+
+// UNIT table only. Cannot succeed until the engine has allocated the unit array,
+// which is fine: every caller of this runs during gameplay, not during load.
+bool EnsureUnitTable()
 {
     TAdynmemStruct* ta = *reinterpret_cast<TAdynmemStruct**>(0x00511de8);
     if (!ta)
@@ -89,12 +170,7 @@ bool EnsureTables()
 
     UnitStruct* unitBegin = ta->BeginUnitsArray_p;
     UnitStruct* unitEnd = ta->EndOfUnitsArray_p;
-    UnitDefStruct* typeBase = ta->UnitDef;
-    unsigned int typeCount = ta->UNITINFOCount;
-
     if (!unitBegin || !unitEnd || unitEnd <= unitBegin)
-        return false;
-    if (!typeBase || typeCount == 0 || typeCount > 5000)   // same sanity bound as the Lua helper
         return false;
 
     if (!g_realHP || unitBegin != g_cachedUnitArrayBase)
@@ -116,21 +192,17 @@ bool EnsureTables()
         g_cachedUnitArrayBase = unitBegin;
     }
 
-    if (!g_typeInfo || typeBase != g_cachedTypeArrayBase)
-    {
-        std::free(g_typeInfo);
-        g_typeInfo = static_cast<TypeInfo*>(std::calloc(static_cast<size_t>(typeCount), sizeof(TypeInfo)));
-        if (!g_typeInfo)
-        {
-            g_typeInfoCapacity = 0;
-            g_cachedTypeArrayBase = nullptr;
-            return false;
-        }
-        g_typeInfoCapacity = static_cast<int>(typeCount);
-        g_cachedTypeArrayBase = typeBase;
-    }
-
     return true;
+}
+
+// Both, for the routers that genuinely index both tables. Same total work as the
+// old combined function -- two pointer loads and a compare each on an already-warm
+// path -- so this split costs nothing at runtime.
+bool EnsureTables()
+{
+    const bool unitsOk = EnsureUnitTable();
+    const bool typesOk = EnsureTypeTable();
+    return unitsOk && typesOk;
 }
 
 // -1 means "not resolvable right now" -- callers must fall back to vanilla, never
@@ -193,17 +265,45 @@ inline int GetUnitIndex(UnitStruct* unit)
 // site in this module.
 int __stdcall WideHealth_DefLoadWrite(PInlineX86StackBuffer buf)
 {
-    if (!EnsureTables())
-        return 0;   // table not ready yet -- let the raw value through unscaled
+    // --- TEMPORARY DIAGNOSTICS: capture state BEFORE any early return ---
+    ++g_dbgDefLoadCalls;
+    g_dbgLastEbp = buf->Ebp;
+    g_dbgLastEax = static_cast<int32_t>(buf->Eax);
+    {
+        TAdynmemStruct* dbgTa = *reinterpret_cast<TAdynmemStruct**>(0x00511de8);
+        g_dbgLastTaPtr = reinterpret_cast<DWORD>(dbgTa);
+        if (dbgTa)
+        {
+            g_dbgLastTypeBase  = reinterpret_cast<DWORD>(dbgTa->UnitDef);
+            g_dbgLastTypeCount = static_cast<int32_t>(dbgTa->UNITINFOCount);
+            // Proves WHICH EnsureTables() gate failed: if these are null/inverted
+            // during def-load, the unit-array gate is confirmed as the culprit.
+            g_dbgLastUnitBegin = reinterpret_cast<DWORD>(dbgTa->BeginUnitsArray_p);
+            g_dbgLastUnitEnd   = reinterpret_cast<DWORD>(dbgTa->EndOfUnitsArray_p);
+        }
+    }
+    // --- end diagnostics ---
+
+    if (!EnsureTypeTable())
+    {
+        ++g_dbgDefLoadNoTables;
+        return 0;   // type table not ready -- let the raw value through unscaled
+    }
 
     UnitDefStruct* def = reinterpret_cast<UnitDefStruct*>(buf->Ebp);
     const int typeIdx = GetTypeIndex(def);
     if (typeIdx < 0)
+    {
+        ++g_dbgDefLoadBadIndex;
         return 0;
+    }
 
     const int32_t realMax = static_cast<int32_t>(buf->Eax);
     if (realMax <= 0)
+    {
+        ++g_dbgDefLoadBadValue;
         return 0;   // nothing to scale (nanoframe defs, etc.) -- leave vanilla's value alone
+    }
     if (realMax > kRealMaxSaneCeiling)
         return 0;   // refuse a value that risks overflowing S below -- leave vanilla's
                      // (truncated, but not crash-inducing) raw value alone instead
@@ -218,6 +318,7 @@ int __stdcall WideHealth_DefLoadWrite(PInlineX86StackBuffer buf)
                      // suspenders guard rather than trusting the bound alone
     info.proxyMax = realMax / info.S;
     g_typeInfo[typeIdx] = info;
+    ++g_dbgDefLoadOk;
 
     buf->Eax = static_cast<DWORD>(info.proxyMax);
     return 0;
@@ -256,7 +357,7 @@ int __stdcall WideHealth_SpawnFullHealth(PInlineX86StackBuffer buf)
 // `[bin]` VERIFIED. Same reasoning as the full-health branch, realHP = 0 instead.
 int __stdcall WideHealth_SpawnNanoframe(PInlineX86StackBuffer buf)
 {
-    if (!EnsureTables())
+    if (!EnsureUnitTable())   // only touches g_realHP
         return 0;
 
     UnitStruct* unit = reinterpret_cast<UnitStruct*>(buf->Esi);
@@ -405,7 +506,7 @@ int __stdcall WideHealth_DamageSubtractWrite(PInlineX86StackBuffer buf)
 // value into the real-space table.
 int __stdcall WideHealth_ResurrectWrite(PInlineX86StackBuffer buf)
 {
-    if (!EnsureTables())
+    if (!EnsureUnitTable())   // only touches g_realHP
         return 0;
 
     UnitStruct* unit = reinterpret_cast<UnitStruct*>(buf->Edx);
@@ -442,7 +543,7 @@ int __stdcall WideHealth_ResurrectWrite(PInlineX86StackBuffer buf)
 // overrides it -- the last write wins, and 0 is always the right final answer here).
 int __stdcall WideHealth_KillPacketPostCall(PInlineX86StackBuffer buf)
 {
-    if (!EnsureTables())
+    if (!EnsureUnitTable())   // only touches g_realHP
         return 0;
 
     UnitStruct* unit = reinterpret_cast<UnitStruct*>(buf->Esi);
