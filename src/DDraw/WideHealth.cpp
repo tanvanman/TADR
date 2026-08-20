@@ -468,9 +468,42 @@ int __stdcall WideHealth_DamageSubtractWrite(PInlineX86StackBuffer buf)
         g_realHP[idx] = static_cast<int64_t>(oldProxy) * info.S;
     }
 
+    // H10 fix, 2026-08-19. Self-destruct, kill-all-on-team (both type 3),
+    // ownership transfer (type 4), and reverse-build's below-zero-progress kill
+    // (type 9) all push exactly 0x7530 (30000) as an engine idiom for "kill this
+    // unit, unconditionally" (CLAUDE.md Hard Rule 6). At MaxDamage <= 24480 that
+    // always worked by construction -- 30000 necessarily exceeded the unit's own
+    // real max. Under real 32-bit HP it doesn't, and nothing in this file checked
+    // the damage TYPE before this fix, so widened units survived all four events
+    // ([live] VERIFIED 2026-08-19, step 6D -- self-destruct at 180,000 real HP
+    // left the unit alive at 150,000).
+    //
+    // [bin] VERIFIED 2026-08-19: every one of the four call sites (self-destruct
+    // 0x402147, reverse-build's kill 0x41BC49, kill-all-on-team 0x486F94,
+    // transfer 0x4886A4/0x4887D0) funnels through Unit_ApplyDamageAndBroadcast
+    // (0x489BB0), which at 0x489C89 calls THIS function (Unit_ApplyNetDamage-
+    // Packet, 0x489CE0) with a locally-built packet whose byte+8 is the caller's
+    // own type argument, untouched by the armour/veterancy scaling in between
+    // (stored from `bl` at 0x489C85, and `bl` still holds the original `ebx` type
+    // parameter at that point). EDI holds that packet pointer for the ENTIRE
+    // function body, confirmed by reading every instruction from entry (0x489CE9)
+    // to this hook site (0x489EB5) -- it is never reassigned, so it is safe to
+    // read here exactly as vanilla itself already does at 0x489EB1/0x489EFA.
+    //
+    // Deliberately NOT keyed on the packet's damage amount (`buf->Eax`): Hard
+    // Rule 6 exists precisely because that value is post-armour AND
+    // post-veterancy by the time it reaches here -- a vet-5 target sees 24,000
+    // for the same 30,000 token (verified arithmetic: floor(30000*80/100)). The
+    // type byte is the only value in this packet immune to that shrinkage.
+    const uint8_t dmgType = *reinterpret_cast<const uint8_t*>(reinterpret_cast<const char*>(buf->Edi) + 8);
+    const bool isKillToken = (dmgType == 3 || dmgType == 4 || dmgType == 9);
+
     // eax's upper 16 bits are NOT guaranteed clear here (only `mov ax,...` ran
     // before this hook fires) -- mask explicitly.
-    const int32_t amount = static_cast<int32_t>(buf->Eax & 0xFFFF);
+    const int32_t amount = isKillToken
+        ? g_realHP[idx]   // drain to exactly 0 -- the TYPE is the kill signal,
+                           // not whatever (possibly vet-shrunk) number rode along
+        : static_cast<int32_t>(buf->Eax & 0xFFFF);
 
     int64_t realHP = static_cast<int64_t>(g_realHP[idx]) - amount;
     if (realHP < 0) realHP = 0;
