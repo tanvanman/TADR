@@ -27,10 +27,11 @@
 //
 // Every *ratio*-consuming vanilla reader (health bar, `CobGet_HEALTH`, the ~25
 // "is this unit damaged?" mission-tick tests) keeps working completely unmodified,
-// because the proxy is calibrated to preserve that ratio. Only the small set of
-// readers that show a raw *number* (the selection panel, savegame, net sync) need
-// their own hook to show `realHP` instead -- and per the design, those readers are
-// cosmetic/persistence paths, never gameplay-critical ones.
+// because the proxy is calibrated to preserve that ratio. Correction 2026-08-19:
+// an earlier draft of this design assumed a raw-*number* HP reader existed (the
+// unit selection panel) and would need its own hook. It doesn't -- see
+// "Hud_DrawSelectionInfo" below, which turned out to be a false alarm. The only
+// remaining raw-number concerns are persistence paths (savegame, net sync).
 //
 // SCOPE OF THIS BUILD -- read before assuming anything not listed here is covered:
 //
@@ -48,6 +49,20 @@
 //       instakill on type alone misses it. Hooked by call site instead
 //       (post-call at 0x486810): realHP forced to 0 unconditionally, regardless
 //       of what type value reached the type-dispatch table.
+//     - H10, fixed 2026-08-19: self-destruct/kill-all (type 3), transfer (type 4)
+//       and reverse-build (type 9) all push exactly 30,000 as an unconditional
+//       kill idiom. At MaxDamage <= 24480 that always worked; under real 32-bit
+//       HP it didn't, because nothing checked the type. Fixed inside the existing
+//       damage-subtract hook (0x489EB5) -- the type rides unscaled in the packet
+//       at +8, so no new hook site was needed.
+//     - kBigDamageInstakill, decided 2026-08-19: anything using the engine's own
+//       armour-bypass idiom (raw damage >= 30,000 -- a D-Gun, in practice) must
+//       still one-shot a widened unit, matching the guarantee it already has
+//       against every stock unit. Unlike H10, this genuinely needed a new hook
+//       (0x489BCD, inside Unit_ApplyDamageAndBroadcast, before the armour/
+//       veterancy scaling) because ordinary weapon damage carries no dedicated
+//       type -- keying on the post-scaling *amount* would be the exact Hard
+//       Rule 6 mistake (a vet-5 target sees 24,000 for the same 30,000 token).
 //
 //   Deliberately NOT YET hooked -- each of these needs its own dedicated
 //   verification pass (the kind RepairRateFix.cpp got, not a first pass), and
@@ -68,8 +83,18 @@
 //     - Savegame (0x487846 / 0x4871B5), ownership transfer (0x488730 / 0x48877E),
 //       scenario/map-placed units (0x4884A5), and net unit-state sync
 //       (0x48B235 / 0x48B4B2) don't persist or migrate `realHP` yet.
-//     - `Hud_DrawSelectionInfo` (0x46B052) still shows the proxy number, not the
-//       real one. Purely cosmetic -- doesn't affect gameplay or determinism.
+//
+//   NOT a gap -- verified and corrected 2026-08-19: the selection panel around
+//   0x46B052 (`[bin]` VERIFIED, deep inside an un-prologued HUD draw routine) was
+//   assumed to show a raw HP number and need its own hook. It doesn't need one
+//   because it doesn't exist: that code computes a fill fraction from
+//   `UnitDef+0x1FA` and `Unit+0x108` and draws two coloured bar segments through
+//   generic primitives (0x4C14F0, 0x4BF6F0) -- no text-formatting call anywhere in
+//   that span. (The nearby resource readouts -- "+%.1f" etc. -- ARE numeric text,
+//   but they're Metal/Energy rates, not HP; confirmed no "%d/%d"-shaped or
+//   HP-labelled string exists anywhere in .rdata/.data.) A ratio-based bar is
+//   already correct by construction under this design -- the whole point of the
+//   proxy is that every ratio consumer needs no hook at all.
 //
 //   Graceful degradation for everything above: the two hooked HP-write sites
 //   (heal-add, damage-subtract) compare the engine's *live* proxy value against

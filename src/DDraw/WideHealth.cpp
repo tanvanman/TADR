@@ -41,6 +41,13 @@ constexpr int32_t kProxyCap = 24480;
 // nowhere near the overflow boundary.
 constexpr int32_t kRealMaxSaneCeiling = 100'000'000;
 
+// Open Question 3, decided 2026-08-19: a D-Gun (or anything else using the engine's
+// own "ignore armour" idiom) must one-shot a widened unit, the same guarantee it
+// already has against every <=24480-HP unit today. 30000 is not a D-Gun-specific
+// number -- it is the exact threshold vanilla's own armour bypass already uses
+// (0x489BD1 `cmp edi,0x7530`), so keying on it is the SAME idiom, not a new one.
+constexpr int32_t kBigDamageInstakill = 30000;
+
 struct TypeInfo
 {
     int32_t realMax;
@@ -445,6 +452,64 @@ int __stdcall WideHealth_HealWrite(PInlineX86StackBuffer buf)
 // vanilla's own branch to the zero-write already agrees with real-space death in
 // every case, and the zero-write itself is already the right value to write when it
 // runs. Adding a third hook there would be redundant, not more correct.
+// Unit_ApplyDamageAndBroadcast, 0x489BB0, at 0x489BCD (`test al, 2`, right after
+// `mov edi, dword ptr [esp+0x24]` at 0x489BC9 loads the RAW damage argument --
+// pre-armour, pre-veterancy). `[bin]` VERIFIED 2026-08-19: at this exact point
+// ebx = damage type (loaded 0x489BB4, untouched since), esi = target unit
+// (loaded 0x489BB9, untouched since), edi = the raw argument. Nothing between
+// here and the eventual subtract at 0x489EB5 reads Unit+0x108, so writing it
+// directly here cannot corrupt any of this function's own subsequent logic --
+// checked instruction by instruction.
+//
+// Fires for every damage type EXCEPT heal (0x0A skips this whole block via the
+// `je 0x489c36` at 0x489BC1 -- control flow never reaches this hook for a heal
+// packet) and paralyze (guarded below): §25.3's own table says type 2 "never
+// touches HP", so an instakill here would be a NEW bug this module invented,
+// not a fix. Types 3/4/9 (the existing kill tokens) also carry raw damage
+// 30000 and so ALSO fire this hook -- harmless, not coordinated with H10's
+// separate type-based mechanism: both converge on "drain to exactly 0", and
+// once this hook has already zeroed both realHP and the live proxy, H10's own
+// drift check at 0x489EB5 sees 0==0 and correctly does nothing.
+//
+// Side effect worth knowing, not hidden: nothing else in the shipping mod
+// reaches 30000 raw damage except DGUN_CORE, DGUN_ARM, and MUAT_UNLOAD
+// (`[hpi]` VERIFIED scan of every weaponE\*.tdf, 2026-08-19) -- MUAT_UNLOAD
+// becomes an instakill too under this rule, not just the D-Guns.
+int __stdcall WideHealth_BigDamagePreScale(PInlineX86StackBuffer buf)
+{
+    constexpr uint8_t kParalyzeType = 2;
+    if (static_cast<uint8_t>(buf->Ebx) == kParalyzeType)
+        return 0;
+
+    const int32_t rawDamage = static_cast<int32_t>(buf->Edi);
+    if (rawDamage < kBigDamageInstakill)
+        return 0;
+
+    if (!EnsureTables())
+        return 0;
+
+    UnitStruct* unit = reinterpret_cast<UnitStruct*>(buf->Esi);
+    const int idx = GetUnitIndex(unit);
+    UnitDefStruct* def = unit->UnitType;
+    const int typeIdx = GetTypeIndex(def);
+    if (idx < 0 || typeIdx < 0)
+        return 0;
+
+    const TypeInfo& info = g_typeInfo[typeIdx];
+    if (info.realMax <= 0)
+        return 0;
+
+    // Deliberately NOT touching edi/eax here. Whatever comes out of the
+    // armour/veterancy scaling still lands in a 16-bit packet field (+5,
+    // word) downstream, so inflating edi could still fail to kill a unit
+    // whose realMax exceeds ~65535*S. Zeroing both values this module
+    // actually owns is exact regardless of realMax.
+    g_realHP[idx] = 0;
+    *reinterpret_cast<int16_t*>(reinterpret_cast<char*>(unit) + 0x108) = 0;
+
+    return 0;
+}
+
 int __stdcall WideHealth_DamageSubtractWrite(PInlineX86StackBuffer buf)
 {
     UnitStruct* unit = reinterpret_cast<UnitStruct*>(buf->Esi);
@@ -610,6 +675,8 @@ void Install()
         0x00485B37u, 5, INLINE_5BYTESLAGGERJMP, WideHealth_SpawnNanoframe));
     g_hooks.push_back(std::make_unique<InlineSingleHook>(
         0x00489D80u, 5, INLINE_5BYTESLAGGERJMP, WideHealth_HealWrite));
+    g_hooks.push_back(std::make_unique<InlineSingleHook>(
+        0x00489BCDu, 5, INLINE_5BYTESLAGGERJMP, WideHealth_BigDamagePreScale));
     g_hooks.push_back(std::make_unique<InlineSingleHook>(
         0x00489EB5u, 5, INLINE_5BYTESLAGGERJMP, WideHealth_DamageSubtractWrite));
     g_hooks.push_back(std::make_unique<InlineSingleHook>(
