@@ -322,6 +322,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="MegamapTAStuff.cpp" />
     <ClCompile Include="MultiplayerSchemaUnits.cpp" />
     <ClCompile Include="ExplosionCapsTelemetry.cpp" />
+    <ClCompile Include="EngineLimits.cpp" />
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
     <ClCompile Include="ShadingFix.cpp" />
@@ -393,6 +394,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="megamaptastuff.h" />
     <ClInclude Include="MultiplayerSchemaUnits.h" />
     <ClInclude Include="ExplosionCapsTelemetry.h" />
+    <ClInclude Include="EngineLimits.h" />
     <ClInclude Include="nswfl_crc32.h" />
     <ClInclude Include="ProjectilesMap.h">
       <FileType>CppCode</FileType>
