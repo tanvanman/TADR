@@ -57,6 +57,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Fix resurrected units intermittently being left incomplete or as unusable wireframes (thanks TAG_Venom)
 - Add stockpile and transport counters above unit health bars, with configurable counter and group number colours (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix black model faces caused by zero shade level (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)
@@ -238,6 +239,19 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Resurrection finalization fix
+
+  TA can create a replacement unit from a wreck and then fail its second lookup
+  of that wreck after unit creation has already cleared it.  The resurrection
+  order then exits before initialization is complete, leaving a mobile unit
+  partly built or a structure as a permanent unusable wireframe.
+
+  TADR preserves the validated wreck information immediately before creation.
+  If the requested replacement unit was successfully created but only the
+  post-create wreck lookup failed, TADR supplies that preserved information and
+  lets TA continue its normal finalization path.  Successful resurrections,
+  invalid wrecks, and retryable unit-creation failures are unchanged.
 
 - Unit status counters
 
