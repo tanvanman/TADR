@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -321,7 +321,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="MegamapControl.cpp" />
     <ClCompile Include="MegamapTAStuff.cpp" />
     <ClCompile Include="MultiplayerSchemaUnits.cpp" />
-    <ClCompile Include="ExplosionCapsTelemetry.cpp" />
+    <ClCompile Include="EngineLimits.cpp" />
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
     <ClCompile Include="ShadingFix.cpp" />
@@ -392,7 +392,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="MegamapControl.h" />
     <ClInclude Include="megamaptastuff.h" />
     <ClInclude Include="MultiplayerSchemaUnits.h" />
-    <ClInclude Include="ExplosionCapsTelemetry.h" />
+    <ClInclude Include="EngineLimits.h" />
     <ClInclude Include="nswfl_crc32.h" />
     <ClInclude Include="ProjectilesMap.h">
       <FileType>CppCode</FileType>
@@ -434,12 +434,6 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="MenuResolution.cpp" />
     <ClCompile Include="rings.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <ClCompile Include="dddta.cpp">
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AssemblyAndSourceCode</AssemblerOutput>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -533,7 +527,6 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BMP.h" />
-    <ClInclude Include="dddta.h" />
     <ClInclude Include="bookmarks.h" />
     <ClInclude Include="cgraphic.h" />
     <ClInclude Include="changequeue.h" />
