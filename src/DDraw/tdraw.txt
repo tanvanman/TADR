@@ -57,6 +57,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Increase TotalA.exe projectile and explosion-related limits to ten times their stock values (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Add stockpile and transport counters above unit health bars, with configurable counter and group number colours (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix black model faces caused by zero shade level (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)
@@ -238,6 +239,28 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Expanded projectile and explosion-related limits
+
+  TotalA.exe uses several fixed-size pools for projectiles, explosions, flying
+  model pieces, and related effects.  When a stock pool is full, TA silently
+  refuses new entries.  In particular, reaching the projectile limit can make
+  units stop firing until older projectiles disappear.
+
+  TADR increases all four capacities to ten times their stock values:
+  - Active projectiles: 300 to 3000
+  - Active explosion effects: 300 to 3000
+  - Flying model-piece effect slots: 100 to 1000
+  - Auxiliary debris/effect records: 300 to 3000
+
+  These are fixed safety limits and require no totala.ini settings.  Entries
+  beyond the new limits are still discarded, preventing an extreme effect burst
+  from growing without bound.  The expansion is disabled when the legacy TA3D
+  renderer is active because its shared renderer buffers remain fixed at 300.
+
+  The projectile limit affects game simulation.  In multiplayer, every player
+  must therefore use the same TADR version; mixing this version with an older
+  projectile limit can desynchronize the game after the stock limit is exceeded.
 
 - Unit status counters
 

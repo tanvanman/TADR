@@ -44,6 +44,7 @@ using namespace std;
 #include "ReloadBars.h"
 #include "UnitStatusCounters.h"
 #include "ExplosionCapsTelemetry.h"
+#include "EngineLimits.h"
 #include "ZeroDamageMapWeapons.h"
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
@@ -199,6 +200,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 		FixTABug= new TABugFixing;
 		InstallCrashTrace();
+		EngineLimits::Install();
 
 		StartPositions::GetInstance();
 		AutoTeam::Install();

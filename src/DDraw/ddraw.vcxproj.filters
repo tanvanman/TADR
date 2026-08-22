@@ -199,6 +199,9 @@
     <ClCompile Include="ExplosionCapsTelemetry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="EngineLimits.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="HmacSha256.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -508,6 +511,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ExplosionCapsTelemetry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="EngineLimits.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Widgets\Button.h">
