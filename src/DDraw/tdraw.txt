@@ -58,6 +58,7 @@ NEW FEATURES IN BRIEF:
 
 *????.??.??
 - Fix resurrected units intermittently being left incomplete or as unusable wireframes (thanks TAG_Venom)
+- Keep the +bps network and game-time display visible over the megamap (thanks TAG_Venom)
 - Add stockpile and transport counters above unit health bars, with configurable counter and group number colours (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix black model faces caused by zero shade level (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)

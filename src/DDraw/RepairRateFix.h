@@ -11,6 +11,18 @@
 // per (repairer, target) pair instead of re-rounding it away every tick.
 //
 // Energy cost is deliberately left as vanilla ceil (unchanged) -- see CLAUDE.md.
+//
+// HP delivered is additionally scaled by REPAIR_RATE_FIX_REPAIR_MULTIPLIER (active
+// repair, four order call sites) or REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER (passive
+// HealTime regen, one call site) -- both share this one hooked function, but
+// which multiplier applies is decided per call via a return-address check, not
+// by anything visible in this header. Two knobs, not one, because a flat
+// multiplier lands very differently on the two mechanics: RepairRateFix's own
+// rounding fix already cut passive regen 1-2 orders of magnitude for
+// slow-BuildTime units, so repair and self-heal need independent tuning. Both
+// are balance buffs layered on top of the rounding fix, both are
+// Escalation-only, and both require REPAIR_RATE_FIX_ENABLE 1 (config.h fails
+// the build otherwise) -- see config_escalation.h.
 
 namespace RepairRateFix {
 
