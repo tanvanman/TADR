@@ -563,6 +563,7 @@ void FullScreenMinimap::Blit(LPDIRECTDRAWSURFACE DestSurf)
 						if (stateOk && DrawUnits)
 						{
 							PROFILE_SCOPE("MM.NowDrawUnits");
+							Controler->RefreshMouseHover ( );
 							MM_TryNowDrawUnits(UnitsMap, PixelBits, &Aspect);
 						}
 

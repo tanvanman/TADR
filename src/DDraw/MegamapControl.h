@@ -30,6 +30,7 @@ public:
 	//void DrawCursor (LPDIRECTDRAWSURFACE DestSurf,  unsigned int X, unsigned int Y);
 	
 	bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+	void RefreshMouseHover (void);
 
 
 	BOOL IsBliting(void);
@@ -71,6 +72,8 @@ private:
 
 	Position_Dword * ScreenPos2TAPos (Position_Dword * TAPos, int x, int y, BOOL UseTAHeight= FALSE);
 	POINT * TAPos2ScreenPos (POINT * ScreenPos, unsigned int TAX, unsigned int TAY, unsigned int TAZ);
+	void EnsurePlayableScale (void);
+	void ExpandThinSelectRect (RECT * rect_p);
 
 	BOOL CheckInControl  (int xPos, int yPos);
 
@@ -88,7 +91,6 @@ private:
 	BOOL InMap;
 	selectbuttom::SELECTBUTTOM SelectState;
 	RECT SelectScreenRect;
-	DWORD SelectTick;
 
 
 	int OrderType;
@@ -96,8 +98,8 @@ private:
 	int LastDblXPos;
 	int LastDblYpos;
 
-	int HalfMaxIconWidth_TAPos;
-	int HalfMaxIconHeight_TAPos;
+	int MaxIconWidth_Screen;
+	int MaxIconHeight_Screen;
 
 	FullScreenMinimap * parent;
 	int MegaMapVirtulKey;
@@ -115,6 +117,7 @@ private:
 
 	float Screen2MapWidthScale;
 	float Screen2MapHeightScale;
+	BOOL PlayScaleFixed;
 
 	_GAFFrame * LastCursor_GAFp;
 	LPDIRECTDRAWSURFACE Cursor_Surfc;
@@ -126,6 +129,3 @@ private:
 };
 
 #define ORDERPATHSPACING (20)
-
-#define MINSELECTWIDTH (8)
-#define MINSELECTHEIGHT (8)
