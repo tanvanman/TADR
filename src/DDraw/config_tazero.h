@@ -29,6 +29,10 @@
 //
 // See CLAUDE.md / config_escalation.h -- Escalation-only balance nerf, not enabled here.
 #define REPAIR_RATE_FIX_ENABLE 0
+// Multipliers require REPAIR_RATE_FIX_ENABLE 1 (config.h enforces this at
+// compile time) -- must be 1/1 here since the fix itself is off.
+#define REPAIR_RATE_FIX_REPAIR_MULTIPLIER 1
+#define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 1
 
 //
 // Environment / sim sync
