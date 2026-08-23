@@ -34,6 +34,40 @@ using namespace std;
 namespace
 {
 	const unsigned char kAlliedBuildOuterColor = 221;
+	const unsigned int kDrawBpsAddress = 0x00468380;
+	typedef void (__stdcall* DrawBpsFn)(OFFSCREEN*);
+
+	void DrawBpsOverlay(OFFSCREEN* offscreen)
+	{
+		TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+		TAProgramStruct* program = *TAProgramStruct_PtrPtr;
+		DrawBpsFn drawBps = reinterpret_cast<DrawBpsFn>(kDrawBpsAddress);
+
+		const int localPlayerId = ta->LocalHumanPlayer_PlayerID;
+		PlayerInfoStruct* playerInfo = localPlayerId >= 0 && localPlayerId < 10
+			? ta->Players[localPlayerId].PlayerInfo
+			: NULL;
+		const int raceSide = playerInfo ? playerInfo->RaceSide : -1;
+
+		if (program && raceSide >= 0 && raceSide < 5)
+		{
+			unsigned char* previousFont = program->fontHandle;
+			const int previousFrontColour = program->fontFrontColour;
+			const int previousBackColour = program->fontBackColour;
+
+			program->fontHandle = reinterpret_cast<unsigned char*>(ta->RaceSideDataAry[raceSide].Font_File);
+			program->fontFrontColour = ta->desktopGUI.RadarObjecColor[15];
+			program->fontBackColour = program->fontAlpha;
+			drawBps(offscreen);
+
+			program->fontHandle = previousFont;
+			program->fontFrontColour = previousFrontColour;
+			program->fontBackColour = previousBackColour;
+			return;
+		}
+
+		drawBps(offscreen);
+	}
 
 	bool IsMegamapBuildOrder(const UnitOrdersStruct* order)
 	{
@@ -183,6 +217,11 @@ void MegamapTAStuff::LockBlit_TA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight
 	DrawPopupF4Dialog ( &OffScreen);
 	memcpy ( &OffScreen.ScreenRect, &(*TAmainStruct_PtrPtr)->GameSreen_Rect, sizeof(RECT));
 	
+	if ((*TAmainStruct_PtrPtr)->bps)
+	{
+		DrawBpsOverlay(&OffScreen);
+	}
+
 	DrawChatText ( &OffScreen);
 
 	if (1& (*TAmainStruct_PtrPtr)->IsGamePaused)
