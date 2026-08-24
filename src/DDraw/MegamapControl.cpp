@@ -1023,10 +1023,10 @@ BOOL MegaMapControl::MouseMove (int x, int y)
 			int TAy= static_cast<int>(unitPtr->YPos- unitPtr->UnitType->FootY/ 2- unitPtr->ZPos/ 2);
 			int UnitScreenX= static_cast<int>(static_cast<float>(TAx)* Screen2MapWidthScale);
 			int UnitScreenY= static_cast<int>(static_cast<float>(TAy)* Screen2MapHeightScale);
-			if (((UnitScreenX- MaxIconWidth_Screen/ 2)<=x)
-				&&(x<=(UnitScreenX+ MaxIconWidth_Screen/ 2))
-				&&((UnitScreenY- MaxIconHeight_Screen/ 2)<=y)
-				&&(y<=(UnitScreenY+ MaxIconHeight_Screen/ 2)))
+			if (((UnitScreenX- MaxIconWidth_Screen/ 2- 1)<=x)
+				&&(x<=(UnitScreenX+ MaxIconWidth_Screen/ 2+ 1))
+				&&((UnitScreenY- MaxIconHeight_Screen/ 2- 1)<=y)
+				&&(y<=(UnitScreenY+ MaxIconHeight_Screen/ 2+ 1)))
 			{
 				LPBYTE GafPixelBits= NULL;
 				POINT GafAspect;
@@ -1058,10 +1058,10 @@ BOOL MegaMapControl::MouseMove (int x, int y)
 						}
 					}
 				}
-				if ((MinX<=LocalX)
-					&&(LocalX<=MaxX)
-					&&(MinY<=LocalY)
-					&&(LocalY<=MaxY))
+				if (((MinX- 1)<=LocalX)
+					&&(LocalX<=(MaxX+ 1))
+					&&((MinY- 1)<=LocalY)
+					&&(LocalY<=(MaxY+ 1)))
 				{
 					TAmainStruct_Ptr->MouseOverUnit= RadarUnits_v[i].ID;
 					UnitUnderMouse= TRUE;
@@ -1098,11 +1098,30 @@ void MegaMapControl::RefreshMouseHover (void)
 	if (IsBliting ( )
 		&&InControl
 		&&InMap
-		&&(selectbuttom::select!=SelectState)
 		&&(-1!=PubCursorX)
 		&&(-1!=PubCursorY))
 	{
-		MouseMove ( PubCursorX- MegaMapScreen.left, PubCursorY- MegaMapScreen.top);
+		if (selectbuttom::none==SelectState)
+		{
+			MouseMove ( PubCursorX- MegaMapScreen.left, PubCursorY- MegaMapScreen.top);
+		}
+		else if ((selectbuttom::down==SelectState)
+			&&(0!=TAmainStruct_Ptr->MouseOverUnit))
+		{
+			BOOL StillVisible= FALSE;
+			for (int i= 0; i<TAmainStruct_Ptr->NumHotRadarUnits; ++i)
+			{
+				if (TAmainStruct_Ptr->RadarUnits[i].ID==TAmainStruct_Ptr->MouseOverUnit)
+				{
+					StillVisible= TRUE;
+					break;
+				}
+			}
+			if (! StillVisible)
+			{
+				TAmainStruct_Ptr->MouseOverUnit= 0;
+			}
+		}
 	}
 }
 
@@ -1224,6 +1243,12 @@ BOOL MegaMapControl::SelectMove (int x, int y, bool Out_b, bool LBMD)
 			||selectbuttom::select==SelectState)
 			)
 		{
+			if ((selectbuttom::down==SelectState)
+				&&(abs ( x- SelectScreenRect.left)<GetSystemMetrics ( SM_CXDRAG))
+				&&(abs ( y- SelectScreenRect.top)<GetSystemMetrics ( SM_CYDRAG)))
+			{
+				return TRUE;
+			}
 			SelectState= selectbuttom::select;
 
 			if (Out_b)
