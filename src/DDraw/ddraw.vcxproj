@@ -339,6 +339,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="WeaponIdOverflow.cpp" />
     <ClCompile Include="WeaponFiredExt.cpp" />
     <ClCompile Include="NotToAir.cpp" />
+    <ClCompile Include="OffMapAircraft.cpp" />
     <ClCompile Include="SurfaceFire.cpp" />
     <ClCompile Include="ZeroDamageMapWeapons.cpp" />
     <ClCompile Include="TeamColorNanolathe.cpp" />
@@ -576,6 +577,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="UnitDrawer.h" />
     <ClInclude Include="UnitLimit.h" />
     <ClInclude Include="UnitTypeLimit.h" />
+    <ClInclude Include="OffMapAircraft.h" />
     <ClInclude Include="unitrotate.h" />
     <ClInclude Include="buildghost.h" />
     <ClInclude Include="whiteboard.h" />

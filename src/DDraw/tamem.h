@@ -31,6 +31,7 @@ struct ProjectileStruct;
 struct FeatureDefStruct;
 struct FXGafStruct;
 struct FeatureStruct;
+struct SortGridBucket;
 struct WreckageInfoStruct;
 struct DebrisStruct;
 struct Unk1Struct;
@@ -481,7 +482,24 @@ struct TAdynmemStruct{
 	unsigned short LosType;           // 0x14281 = 0x141fb + 0x86
 	unsigned int TILE_SET;
 	FeatureStruct *FeatureMap;        // 0x14287 = 0x141fb + 0x8c
-	char data20[0x40];                // TNTMemStruct ends in here near beginning 
+	char data20a[0x04];               // 0x1428B  TNTMemStruct ends in here near beginning
+	unsigned char* LOS_GridBuf_p;     // 0x1428F
+	int LOS_GridCols;                 // 0x14293
+	int LOS_GridRows;                 // 0x14297
+	int LOS_GridBucketCount;          // 0x1429B
+	// Unit spatial hash, one bucket per 128x128 world units (pos >> 23). Walked by
+	// CallbackForUnitsInDistance @0x47e890 for radar/sensor and proximity queries.
+	SortGridBucket* SortGridBuckets_p;// 0x1429F
+	int SortGridCols;                 // 0x142A3
+	int SortGridRows;                 // 0x142A7
+	int SortGridBucketCount;          // 0x142AB
+	int SortGridMapW_fx;              // 0x142AF
+	int SortGridMapH_fx;              // 0x142B3
+	// 0x142B7: where UNITS_RebuildFootPrint @0x47cc30 parks any unit whose footprint does not
+	// fit inside the map. Not in SortGridBuckets_p, so no area query visits it, and such units
+	// stamp no map tile -- see OFFMAP_AIRCRAFT.md.
+	SortGridBucket* OffMapBucket_p;   // 0x142B7
+	char data20b[0x10];               // 0x142BB
 	tagRECT MinimapRect;//0x142CB
 	RadarPicStruct *RadarFinal; //0x142DB
 	RadarPicStruct *RadarMapped;  //0x142DF
@@ -654,9 +672,22 @@ struct WreckageInfoStruct{
 	char data2[0xA];
 };
 
+// Engine spatial-hash bucket (Ghidra: SortGridBucket): one per 128x128 world units of
+// SortGridBuckets_p, plus OffMapBucket_p. Only the list head at +0x06 is confirmed; the
+// first six bytes are unidentified (the IDA names for them matched no observed use).
+struct SortGridBucket {
+	unsigned char unk_00;			// 0x00
+	unsigned char unk_01;			// 0x01
+	unsigned int  unk_02_dw;		// 0x02
+	UnitStruct*   pUnitListHead;	// 0x06: chained through UnitStruct::pNextUnitInSortBucket
+};									// 0x0A
+
 struct FeatureStruct{
 	unsigned short occupyingUnitNumber;
-	unsigned short deadspace;
+	// 0x02: the ONE airborne unit on this tile (Ghidra: buildGridOccupant), written by
+	// UNITS_RebuildFootPrint's movestate==Flying branch. One index, no list -- the basis of
+	// bomber stacking. Off-map units are not written here at all. See BOMBER_STACKING.md.
+	unsigned short airborneUnitNumber;
 	unsigned char height;
 	unsigned char maxHeight2x2;  // maximum height of 2x2 patch starting at this coordinate. TA bug gives unpredictable values on right-hand edge of map?
 	unsigned char minHeight2x2;  // minimum height of 2x2 patch starting at this coordinate  TA bug gives unpredictable values on right-hand edge of map?
@@ -967,11 +998,15 @@ struct UnitStruct {
   short YGridPos;
   short XLargeGridPos;
   short YLargeGridPos;
-  char data8[4];
-  LPVOID UnkPTR1;
+  short SizeFootX;              // 0x7E: footprint width in map tiles (baked from UNITINFO.FootX)
+  short SizeFootZ;              // 0x80: footprint depth in map tiles
+  // 0x82: sort-grid bucket this unit is linked into (Ghidra: View_dw0, a placeholder name).
+  // "pSortBucket == OffMapBucket_p" is the engine's own "unit is outside the map" test.
+  SortGridBucket *pSortBucket;
   char data15[4];
   int Unknow_Order;//
-  UnitStruct *FirstUnit; //?
+  // 0x8E: next unit in the same bucket (Ghidra: PriorUnit_p is a misnomer -- forward link).
+  UnitStruct *pNextUnitInSortBucket;
   UnitDefStruct *UnitType; //0x92
   PlayerStruct  * Owner_PlayerPtr0; //?
   LPVOID UnkPTR2;
@@ -1858,6 +1893,43 @@ enum class FeatureMasks
 };
 
 #define PLAYERNUM (10)
+
+// Layout guards for the fields OffMapAircraft.cpp depends on: a shift here is a build error
+// rather than a silently wrong hook.
+static_assert(sizeof(SortGridBucket)                          == 0x0A,   "SortGridBucket stride");
+static_assert(offsetof(SortGridBucket, pUnitListHead)         == 0x06,   "SortGridBucket list head");
+static_assert(sizeof(FeatureStruct)                           == 0x0D,   "map tile stride");
+static_assert(offsetof(FeatureStruct, airborneUnitNumber)     == 0x02,   "tile airborne slot");
+static_assert(sizeof(UnitStruct)                              == 0x118,  "UnitStruct stride");
+static_assert(offsetof(UnitStruct, XPos__)                    == 0x6A,   "UnitStruct.Pos.x");
+static_assert(offsetof(UnitStruct, ZPos__)                    == 0x6E,   "UnitStruct.Pos.y (altitude)");
+static_assert(offsetof(UnitStruct, YPos__)                    == 0x72,   "UnitStruct.Pos.z (map depth)");
+static_assert(offsetof(UnitStruct, XGridPos)                  == 0x76,   "UnitStruct.XZGridPos");
+static_assert(offsetof(UnitStruct, SizeFootX)                 == 0x7E,   "UnitStruct.SizeFootX");
+static_assert(offsetof(UnitStruct, SizeFootZ)                 == 0x80,   "UnitStruct.SizeFootZ");
+static_assert(offsetof(UnitStruct, pSortBucket)               == 0x82,   "UnitStruct.pSortBucket");
+static_assert(offsetof(UnitStruct, pNextUnitInSortBucket)     == 0x8E,   "UnitStruct sort-bucket link");
+static_assert(offsetof(UnitStruct, UnitType)                  == 0x92,   "UnitStruct.UNITINFO_p");
+static_assert(offsetof(UnitStruct, Owner_PlayerPtr0)          == 0x96,   "UnitStruct.Owner_PlayerPtr0");
+static_assert(offsetof(UnitStruct, cIsCloaked)                == 0x10E,  "UnitStruct.nShortUnitStateMask");
+static_assert(offsetof(UnitStruct, UnitSelected)              == 0x110,  "UnitStruct.UnitStateMask");
+static_assert(offsetof(PlayerStruct, LOS_MEMORY_p)            == 0x7C,   "PlayerStruct LOS buffer");
+static_assert(offsetof(PlayerStruct, LOS_Tilewidth)           == 0x80,   "PlayerStruct LOS width");
+static_assert(offsetof(PlayerStruct, LOS_Tileheight)          == 0x84,   "PlayerStruct LOS height");
+static_assert(offsetof(UnitDefStruct, buildLimit)             == 0x15A,  "UNITINFO bbox anchor");
+static_assert(offsetof(WeaponStruct, AOE)                     == 0xD6,   "WeaponTypedef.areaofeffect");
+static_assert(offsetof(WeaponStruct, EdgeEffectivnes)         == 0xD8,   "WeaponTypedef.edgeeffectiveness");
+static_assert(offsetof(TAdynmemStruct, NumProjectiles)        == 0x141F3, "PROJECTILES_ARRAY_Count");
+static_assert(offsetof(TAdynmemStruct, FeatureMapSizeX)       == 0x14233, "TNTMemStruct.TilesWidth");
+static_assert(offsetof(TAdynmemStruct, FeatureMapSizeY)       == 0x14237, "TNTMemStruct.TilesHeight");
+static_assert(offsetof(TAdynmemStruct, MAPPED_MEMORY_p)       == 0x14273, "TNTMemStruct.MAPPED_MEMORY");
+static_assert(offsetof(TAdynmemStruct, LosType)               == 0x14281, "TNTMemStruct.SightType");
+static_assert(offsetof(TAdynmemStruct, FeatureMap)            == 0x14287, "TNTMemStruct.MAP_STATE_ARRAY_2D");
+static_assert(offsetof(TAdynmemStruct, SortGridBuckets_p)     == 0x1429F, "sort grid buckets");
+static_assert(offsetof(TAdynmemStruct, SortGridCols)          == 0x142A3, "sort grid cols");
+static_assert(offsetof(TAdynmemStruct, OffMapBucket_p)        == 0x142B7, "off-map bucket");
+static_assert(offsetof(TAdynmemStruct, MinimapRect)           == 0x142CB, "MinimapRect (data20 split)");
+static_assert(offsetof(TAdynmemStruct, LOS_Sight_PlayerID)    == 0x2A43, "cViewPlayerID");
 
 #pragma pack()
 

@@ -63,6 +63,8 @@ jobs:
             define: TDRAW_CONFIG_TAZERO
           - name: bta
             define: TDRAW_CONFIG_BTA
+          - name: mayhem
+            define: TDRAW_CONFIG_MAYHEM
 
     steps:
     - name: Checkout code

@@ -14,6 +14,8 @@
 #define VERSION_TAG "-zero"
 #elif defined(TDRAW_CONFIG_BTA)
 #define VERSION_TAG "-bta"
+#elif defined(TDRAW_CONFIG_MAYHEM)
+#define VERSION_TAG "-mayhem"
 #else
 #define VERSION_TAG ""
 #endif

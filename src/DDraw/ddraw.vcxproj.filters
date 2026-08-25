@@ -262,6 +262,9 @@
     <ClCompile Include="NotToAir.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="OffMapAircraft.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SurfaceFire.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -523,6 +526,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ConstructionKickout.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OffMapAircraft.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="unitrotate.h">

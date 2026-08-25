@@ -33,6 +33,7 @@ using namespace std;
 #include "buildghost.h"
 #include "VeterancyHack.h"
 #include "NotToAir.h"
+#include "OffMapAircraft.h"
 #include "SurfaceFire.h"
 #include "PacketChatRouter.h"
 #include "AlliedBuildQueueSync.h"
@@ -227,6 +228,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		CBuildGhost::GetInstance();
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
+#if OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES > 0
+		OffMapAircraft::Install(OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES);
+#endif
 		SurfaceFire::Install();
 		UnitStatusCounters::Install();
 		ReloadBars::Install();
