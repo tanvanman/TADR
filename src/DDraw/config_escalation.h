@@ -57,6 +57,27 @@
 #define REPAIR_RATE_FIX_REPAIR_MULTIPLIER 3
 #define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 3
 
+// Wrecks of aircraft killed over land fall to the ground instead of hanging at
+// the altitude they died. Vanilla only seeds a fall velocity on the water path,
+// so land wrecks are never simulated. Changes where reclaimable wreckage ends
+// up, so it is scoped to this config.
+#define AIR_CORPSE_FALL_ENABLE 1
+
+//
+// Extended weapon IDs (>= 256)
+//
+// Installs WeaponIdOverflow (heap-backed weapon slots above TA's hard-coded
+// Weapons[256]) plus WeaponFiredExt (the CHAT_05-hijack packet that carries
+// fire events for those overflow IDs, which the native WEAPON_FIRED_0D byte ID
+// cannot address).  See config.h for the full description.
+//
+// Escalation only, as the designated rollout target for the feature: no other
+// config needs weapon IDs past 255 yet, and WeaponFiredExt changes what goes
+// on the wire, so every player in a game must agree on the setting.  Hence
+// compile-time only -- a runtime switch would be a mixed-fleet vector.  Other
+// configs keep the config.h default of 0.
+#define TDRAW_EXTENDED_WEAPON_IDS 1
+
 //
 // Off-map aircraft
 //

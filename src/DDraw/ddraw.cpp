@@ -35,6 +35,8 @@ using namespace std;
 #include "NotToAir.h"
 #include "OffMapAircraft.h"
 #include "SurfaceFire.h"
+#include "TerrainFireGate.h"
+#include "AirCorpseFall.h"
 #include "PacketChatRouter.h"
 #include "AlliedBuildQueueSync.h"
 #include "VoteReject.h"
@@ -232,6 +234,10 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		OffMapAircraft::Install(OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES);
 #endif
 		SurfaceFire::Install();
+		TerrainFireGate::Install();
+#if AIR_CORPSE_FALL_ENABLE
+		AirCorpseFall::Install();
+#endif
 		UnitStatusCounters::Install();
 		ReloadBars::Install();
 		ShadingFix::Install();

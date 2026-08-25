@@ -70,6 +70,15 @@
 #endif
 
 //
+// AirCorpseFall: make the wreck of an aircraft killed over land fall to the
+// ground instead of hanging at the altitude it died. Changes vanilla behaviour
+// for every unit that dies airborne, so it is opt-in per config.
+//
+#ifndef AIR_CORPSE_FALL_ENABLE
+#define AIR_CORPSE_FALL_ENABLE 0
+#endif
+
+//
 // Repair-rate fix heal multipliers -- see config_escalation.h for the tunable
 // values and RepairRateFix.cpp for how they're applied. Every config_*.h must
 // define both explicitly (same convention as REPAIR_RATE_FIX_ENABLE itself,

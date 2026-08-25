@@ -683,10 +683,18 @@ struct SortGridBucket {
 };									// 0x0A
 
 struct FeatureStruct{
+	// 0x00 (Ghidra: TileStateEntry.occupyingUnitIdx) — the ONE grounded mobile unit or
+	// building occupying this tile. Index into TAdynmemStruct::BeginUnitsArray_p.
 	unsigned short occupyingUnitNumber;
-	// 0x02: the ONE airborne unit on this tile (Ghidra: buildGridOccupant), written by
-	// UNITS_RebuildFootPrint's movestate==Flying branch. One index, no list -- the basis of
-	// bomber stacking. Off-map units are not written here at all. See BOMBER_STACKING.md.
+	// 0x02 (Ghidra: TileStateEntry.buildGridOccupant) — the ONE **airborne** unit on this
+	// tile. Formerly named "deadspace" here, which is wrong: Unit_UpdateYardmap @0047c790
+	// (older notes call it UNITS_RebuildFootPrint) branch (c), the movestate==Flying branch,
+	// stamps flying units into this slot, first-come-first-served over the unit's
+	// SizeFootX x SizeFootZ footprint, and a later aircraft does NOT evict the holder.
+	// One index, no list. Off-map units are not written here at all.
+	// AreaOfEffectDamage @0049a120 reads only these two slots per tile, so at most one
+	// aircraft per tile is reachable by any explosion — the basis of "bomber stacking";
+	// see BOMBER_STACKING.md. Released by Unit_ClearMapTileOccupancy @0047d0e0.
 	unsigned short airborneUnitNumber;
 	unsigned char height;
 	unsigned char maxHeight2x2;  // maximum height of 2x2 patch starting at this coordinate. TA bug gives unpredictable values on right-hand edge of map?
@@ -988,17 +996,36 @@ struct UnitStruct {
 //   unsigned short ZTurn;
 //   unsigned short XTurn;
 //   unsigned short YTurn;
+  // Position, 0x6A..0x75. THREE 16.16 fixed-point dwords; the *__ member is the
+  // fractional low word and the bare member is the whole-world-unit high word, so
+  // `unit->XPos` is world units and `*(int*)&unit->XPos__` is the raw fixed-point
+  // dword the engine compares against.
+  //
+  // NAMING: these use TA's SCREEN convention (X right, Y map-depth, Z up). Ghidra's
+  // UnitStruct.Pos @0x6A is a Position_Dword using the 3-D convention (x, y up, z
+  // depth). Same bytes, transposed names — verified 2026-08-18, do not "fix" either:
+  //     dword 0x6A  = tamem XPos__/XPos  = Ghidra Pos.x  -> horizontal, tile X axis
+  //     dword 0x6E  = tamem ZPos__/ZPos  = Ghidra Pos.y  -> ALTITUDE / height
+  //     dword 0x72  = tamem YPos__/YPos  = Ghidra Pos.z  -> horizontal, tile Z axis
+  // Cross-checks: the tile grid is indexed by the 0x6A and 0x72 dwords
+  // (AreaOfEffectDamage @0049a2aa vs Position_Dword +0/+8), and tdraw's own
+  // isometric projection is `YPos - ZPos/2` = depth minus half height
+  // (MegamapControl.cpp:907, ExternQuickKey.cpp:589).
   unsigned short XPos__ ;                    ; //0x6A
   unsigned short XPos;
-  unsigned short ZPos__  ;
+  unsigned short ZPos__  ;                   //0x6E — altitude (Ghidra Pos.y)
   unsigned short ZPos  ;
-  unsigned short YPos__ ;
+  unsigned short YPos__ ;                    //0x72 — map depth (Ghidra Pos.z)
   unsigned short YPos ;
   short XGridPos;
   short YGridPos;
   short XLargeGridPos;
   short YLargeGridPos;
-  short SizeFootX;              // 0x7E: footprint width in map tiles (baked from UNITINFO.FootX)
+  // 0x7E/0x80 (Ghidra: SizeFootX / SizeFootZ). Footprint in TILES, baked from
+  // UNITINFO.FootX/FootZ, used by Unit_UpdateYardmap @0047c790 and
+  // Unit_ClearMapTileOccupancy @0047d0e0 as the extent of the tile block this unit
+  // claims/releases starting at XGridPos,YGridPos.
+  short SizeFootX;              // 0x7E: footprint width in map tiles
   short SizeFootZ;              // 0x80: footprint depth in map tiles
   // 0x82: sort-grid bucket this unit is linked into (Ghidra: View_dw0, a placeholder name).
   // "pSortBucket == OffMapBucket_p" is the engine's own "unit is outside the map" test.

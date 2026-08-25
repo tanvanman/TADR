@@ -336,11 +336,14 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="ChatBackdrop.cpp" />
     <ClCompile Include="ChatFont.cpp" />
     <ClCompile Include="WeaponTdfHook.cpp" />
+    <ClCompile Include="WeaponTags.cpp" />
     <ClCompile Include="WeaponIdOverflow.cpp" />
     <ClCompile Include="WeaponFiredExt.cpp" />
     <ClCompile Include="NotToAir.cpp" />
     <ClCompile Include="OffMapAircraft.cpp" />
     <ClCompile Include="SurfaceFire.cpp" />
+    <ClCompile Include="TerrainFireGate.cpp" />
+    <ClCompile Include="AirCorpseFall.cpp" />
     <ClCompile Include="ZeroDamageMapWeapons.cpp" />
     <ClCompile Include="TeamColorNanolathe.cpp" />
     <ClCompile Include="RepairRateFix.cpp" />
@@ -385,6 +388,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="config_ota.h" />
     <ClInclude Include="config_escalation.h" />
     <ClInclude Include="config_bta.h" />
+    <ClInclude Include="config_mayhem.h" />
+    <ClInclude Include="config_tazero.h" />
     <ClInclude Include="ConstructionKickout.h" />
     <ClInclude Include="GameTickHook.h" />
     <ClInclude Include="HexDump.h" />

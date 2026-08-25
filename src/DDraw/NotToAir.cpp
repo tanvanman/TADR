@@ -29,16 +29,22 @@ void NotToAir::Install()
 
 NotToAir::NotToAir()
 {
-    m_weaponCheckHook.reset(new InlineSingleHook(
-        kCheckHookAddr, 5,
-        INLINE_5BYTESLAGGERJMP,
-        (InlineX86HookRouter)CheckRouter));
-
+    // The hook sits in UnitAutoAim_CheckUnitWeapon, a combat hot path, so install
+    // it only once a loaded weapon TDF actually uses the key. Safe to patch from
+    // here: TDF load runs long before any combat tick.
     WeaponTdfHook::Register([](const WeaponTdfHook::Context& ctx) {
         if (ctx.getInt(kNotToAirKey) & 1)
         {
             DWORD* pMask = (DWORD*)((BYTE*)ctx.pWeaponDef + kWeaponMaskOff);
             *pMask |= WTM_NotToAir;
+
+            if (m_instance && !m_instance->m_weaponCheckHook)
+            {
+                m_instance->m_weaponCheckHook.reset(new InlineSingleHook(
+                    kCheckHookAddr, 5,
+                    INLINE_5BYTESLAGGERJMP,
+                    (InlineX86HookRouter)CheckRouter));
+            }
         }
     });
 }
