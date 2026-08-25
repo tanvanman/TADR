@@ -59,6 +59,7 @@ NEW FEATURES IN BRIEF:
 *????.??.??
 - Keep the +bps network and game-time display visible over the megamap (thanks TAG_Venom)
 - Fix resurrected units intermittently being left incomplete or as unusable wireframes (thanks TAG_Venom)
+- Increase TotalA.exe projectile and explosion-related limits to ten times their stock values (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Add stockpile and transport counters above unit health bars, with configurable counter and group number colours (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix black model faces caused by zero shade level (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)
@@ -253,6 +254,31 @@ NEW FEATURES IN DETAIL:
   post-create wreck lookup failed, TADR supplies that preserved information and
   lets TA continue its normal finalization path.  Successful resurrections,
   invalid wrecks, and retryable unit-creation failures are unchanged.
+
+- Expanded projectile and explosion-related limits
+
+  TotalA.exe uses several fixed-size pools for projectiles, explosions, flying
+  model pieces, and related effects.  When a stock pool is full, TA silently
+  refuses new entries.  In particular, reaching the projectile limit can make
+  units stop firing until older projectiles disappear.
+
+  TADR increases all four capacities to ten times their stock values:
+  - Active projectiles: 300 to 3000
+  - Active explosion effects: 300 to 3000
+  - Flying model-piece effect slots: 100 to 1000
+  - Auxiliary debris/effect records and workspaces: 300 to 3000
+
+  These are fixed safety limits and require no totala.ini settings.  Entries
+  beyond the new limits are still discarded, preventing an extreme effect burst
+  from growing without bound.  The model-piece allocator grows from 100,000 to
+  1,000,000 bytes alongside its slot table.  The relocated fixed pools reserve
+  approximately 1.3 MB of additional DLL memory.
+
+  The projectile limit affects game simulation.  In multiplayer, every player
+  must therefore use the same TADR version; mixing this version with an older
+  projectile limit can desynchronize the game after the stock limit is exceeded.
+  If the required TotalA.exe instructions cannot be validated or patched, TADR
+  displays an error and closes TA rather than continuing with mismatched limits.
 
 - Unit status counters
 

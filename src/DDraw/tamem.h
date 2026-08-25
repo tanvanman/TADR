@@ -528,6 +528,8 @@ struct TAdynmemStruct{
 	_GAFSequence* _32xLogos;			//0x148db
 	char data27b[0x3c];					//0x148df
 
+	// Stock explosion storage. EngineLimits relocates the live count and array;
+	// these fields are not maintained while the expansion is installed.
 	int NumExplosions; //0x1491B
 	//char data9[0x6270];
 	ExplosionStruct Explosions[300]; //0x1491F

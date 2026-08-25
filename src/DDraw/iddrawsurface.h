@@ -33,7 +33,6 @@ class CIdleUnits;
 class Dialog;
 class VoteDialog;
 class CChangeQueue;
-class CDDDTA;
 class CTAFStatusExporter;
 
 
@@ -150,7 +149,6 @@ private:
 	Dialog * SettingsDialog;
 	VoteDialog * VoteRejectDlg;
 	CChangeQueue * ChangeQueue;
-	CDDDTA * DDDTA;
 	CTAFStatusExporter * TAFStatusExporter;
 	static HANDLE TDrawLogFile;
 	
