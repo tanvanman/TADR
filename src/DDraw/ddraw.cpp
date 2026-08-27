@@ -33,7 +33,10 @@ using namespace std;
 #include "buildghost.h"
 #include "VeterancyHack.h"
 #include "NotToAir.h"
+#include "OffMapAircraft.h"
 #include "SurfaceFire.h"
+#include "TerrainFireGate.h"
+#include "AirCorpseFall.h"
 #include "PacketChatRouter.h"
 #include "AlliedBuildQueueSync.h"
 #include "VoteReject.h"
@@ -43,7 +46,7 @@ using namespace std;
 #include "WeaponFiredExt.h"
 #include "ReloadBars.h"
 #include "UnitStatusCounters.h"
-#include "ExplosionCapsTelemetry.h"
+#include "EngineLimits.h"
 #include "ZeroDamageMapWeapons.h"
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
@@ -127,6 +130,8 @@ void AddtionRelease (void)
 }
 int __stdcall AddtionInitAfterDDraw (PInlineX86StackBuffer X86StrackBuffer)
 {
+	EngineLimits::AbortIfInstallFailed();
+
 	char FontName[0x100];
 	FontName[0]= 0;
 	MyConfig->GetIniStr ( "UnicodeSupport", FontName, 0x100, NULL);
@@ -202,12 +207,12 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 		FixTABug= new TABugFixing;
 		InstallCrashTrace();
+		EngineLimits::Install();
 
 		StartPositions::GetInstance();
 		AutoTeam::Install();
 		ChatBackdrop::Install();
 		MultiplayerSchemaUnits::GetInstance();
-		ExplosionCapsTelemetry::Install();
 
 #if USEMEGAMAP
 		GUIExpander= new GUIExpand;
@@ -230,7 +235,14 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		CBuildGhost::GetInstance();
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
+#if OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES > 0
+		OffMapAircraft::Install(OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES);
+#endif
 		SurfaceFire::Install();
+		TerrainFireGate::Install();
+#if AIR_CORPSE_FALL_ENABLE
+		AirCorpseFall::Install();
+#endif
 		UnitStatusCounters::Install();
 		ReloadBars::Install();
 		ShadingFix::Install();
@@ -257,6 +269,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 	}
 	if(reason==DLL_PROCESS_DETACH)
 	{
+		EngineLimits::Uninstall();
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Stop();
 #endif
@@ -306,6 +319,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 HRESULT WINAPI DirectDrawCreate(GUID FAR *lpGUID, LPDIRECTDRAW FAR *lplpDD, IUnknown FAR *pUnkOuter)
 {
+	EngineLimits::AbortIfInstallFailed();
 	IDDrawSurface::OutptTxt("DirectDrawCreate");
 	if(SDDraw == NULL)
 	{
@@ -449,8 +463,8 @@ void EnableSound()
 	WriteProcessMemory(GetCurrentProcess(), (void*)0x4CEFE2, &adress, 4, NULL);
 
 	//secondary buffer
-	//adress = 0x4092;
-	//WriteProcessMemory(GetCurrentProcess(), (void*)0x4CF3CF, &adress, 4, NULL);
+	adress = 0x4092;
+	WriteProcessMemory(GetCurrentProcess(), (void*)0x4CF3CF, &adress, 4, NULL);
 }
 
 /*

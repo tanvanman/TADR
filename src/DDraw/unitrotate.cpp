@@ -131,6 +131,11 @@ namespace
     // Prologue: MOV EAX,[0x511de8] = exactly 5 bytes.
     constexpr unsigned ADDR_Order_Resurrect_Entry       = 0x00404db0;
 
+    // Order_Resurrect state 5 validates the wreck again after creating the
+    // replacement unit. If creation cleared that wreck first, TA returns 8
+    // and leaves the new unit unfinished. Hook the six-byte validity check.
+    constexpr unsigned ADDR_Resurrect_PostCreateFeatureCheck = 0x0040514f;
+
     // LOADGAME_LoadUnit: the CALL UNITS_CreateUnit instruction (E8, 5 bytes).
     // The unit record read from the save file sits in the caller's frame; at
     // this instruction all 8 args are pushed (ESP = frame_base - 0x20) and
@@ -621,15 +626,114 @@ __declspec(naked) static void GiveUnitReturnThunk()
 }
 
 // ---- Order_Resurrect return thunk ----
-// Same job as the GiveUnit thunk for resurrect bail-outs (feature vanished,
-// FeatureDef not resurrectable, create failed). __stdcall int in EAX — MOV
-// touches neither EAX nor flags.
+// Clear both the pending rotation and recovery snapshot on every resurrection
+// exit, including validation bail-outs and retryable creation failures.
+// Order_Resurrect is __stdcall int in EAX; MOV touches neither EAX nor flags.
 static DWORD g_resurrectRealReturn = 0;
+static UnitOrdersStruct* g_resurrectOrder = nullptr;
+static UnitStruct* g_resurrectTargetBefore = nullptr;
+static bool g_resurrectFeatureValid = false;
+static int g_resurrectRootX = 0;
+static int g_resurrectRootZ = 0;
+static unsigned short g_resurrectFeatureDef = 0;
+static unsigned short g_resurrectAnimIndex = 0;
+
+struct ResurrectFeatureSnapshot
+{
+    bool valid;
+    int rootX;
+    int rootZ;
+    unsigned short featureDef;
+    unsigned short animIndex;
+};
+
+static ResurrectFeatureSnapshot CaptureResurrectFeature(const BYTE* order)
+{
+    ResurrectFeatureSnapshot snapshot = {};
+    TAdynmemStruct* ta = GetTA();
+    if (!ta || !order || !ta->FeatureMap || !ta->FeatureDef) return snapshot;
+
+    int tileX = *reinterpret_cast<const int*>(order + OFF_ORDER_target_pos_x) >> 20;
+    int tileZ = *reinterpret_cast<const int*>(order + OFF_ORDER_target_pos_z) >> 20;
+    const int width = ta->FeatureMapSizeX;
+    const int height = ta->FeatureMapSizeY;
+    if (tileX < 0 || tileZ < 0 || tileX >= width || tileZ >= height)
+        return snapshot;
+
+    FeatureStruct* tile = &ta->FeatureMap[tileZ * width + tileX];
+    if (tile->FeatureDefIndex == 0xFFFE)
+    {
+        tileX -= tile->FeatureDefDx;
+        tileZ -= tile->FeatureDefDy;
+        if (tileX < 0 || tileZ < 0 || tileX >= width || tileZ >= height)
+            return snapshot;
+        tile = &ta->FeatureMap[tileZ * width + tileX];
+    }
+
+    if (tile->FeatureDefIndex > 0xFFFA ||
+        tile->FeatureDefIndex >= ta->NumFeatureDefs)
+    {
+        return snapshot;
+    }
+
+    const FeatureDefStruct* featureDef = &ta->FeatureDef[tile->FeatureDefIndex];
+    if (!(featureDef->FeatureMask & 0x80)) return snapshot;
+
+    snapshot.valid = true;
+    snapshot.rootX = tileX;
+    snapshot.rootZ = tileZ;
+    snapshot.featureDef = tile->FeatureDefIndex;
+    snapshot.animIndex = *reinterpret_cast<unsigned short*>(&tile->FeatureDefDy);
+    return snapshot;
+}
+
+static int __stdcall ResurrectPostCreateFeatureCheck_Proc(
+    PInlineX86StackBuffer X86StrackBuffer)
+{
+    // A value below 0xFFFB is TA's normal successful lookup result.
+    if ((X86StrackBuffer->Eax & 0xFFFF) < 0xFFFB ||
+        !g_resurrectFeatureValid || !g_resurrectOrder)
+    {
+        return 0;
+    }
+
+    UnitStruct* created = g_resurrectOrder->AttackTargat;
+    const unsigned unitType = g_resurrectOrder->BuildUnitID & 0xFFFF;
+    if (!created || created == g_resurrectTargetBefore ||
+        unitType == 0 || created->UnitID != unitType)
+    {
+        return 0;
+    }
+
+    TAdynmemStruct* ta = GetTA();
+    if (!ta || !ta->FeatureMap ||
+        g_resurrectRootX < 0 || g_resurrectRootZ < 0 ||
+        g_resurrectRootX >= ta->FeatureMapSizeX ||
+        g_resurrectRootZ >= ta->FeatureMapSizeY ||
+        g_resurrectFeatureDef >= ta->NumFeatureDefs)
+    {
+        return 0;
+    }
+
+    FeatureStruct* root = &ta->FeatureMap[
+        g_resurrectRootZ * ta->FeatureMapSizeX + g_resurrectRootX];
+
+    // Downstream code reads the FeatureAnimData index from root bytes 0xA..0xB
+    // and derives network coordinates from the root pointer. Keep the wreck
+    // absent by not restoring FeatureDefIndex beneath the newly-created unit.
+    *reinterpret_cast<unsigned short*>(&root->FeatureDefDy) = g_resurrectAnimIndex;
+    X86StrackBuffer->Edi = reinterpret_cast<DWORD>(root);
+    X86StrackBuffer->Eax = g_resurrectFeatureDef;
+    return 0;
+}
 
 __declspec(naked) static void ResurrectReturnThunk()
 {
     __asm
     {
+        mov byte ptr [g_resurrectFeatureValid], 0
+        mov dword ptr [g_resurrectOrder], 0
+        mov dword ptr [g_resurrectTargetBefore], 0
         mov dword ptr [g_pendingCreateRotation], -1
         jmp dword ptr [g_resurrectRealReturn]
     }
@@ -1036,14 +1140,27 @@ static int __stdcall GiveUnit_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
 // pending creation rotation from it.
 static int __stdcall OrderResurrect_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
 {
-    CUnitRotate* self = CUnitRotate::GetInstance();
-    if (!self) return 0;
-
     // __stdcall: [Esp]=ret, [Esp+4]=builder, [Esp+8]=order, [Esp+C]=flags.
     DWORD* stackTop = reinterpret_cast<DWORD*>(X86StrackBuffer->Esp);
     BYTE* order = reinterpret_cast<BYTE*>(stackTop[2]);
     if (!order) return 0;
     if (*(order + OFF_ORDER_state_step) != 5) return 0;
+
+    const ResurrectFeatureSnapshot feature = CaptureResurrectFeature(order);
+    if (!feature.valid) return 0;
+
+    g_resurrectOrder = reinterpret_cast<UnitOrdersStruct*>(order);
+    g_resurrectTargetBefore = g_resurrectOrder->AttackTargat;
+    g_resurrectRootX = feature.rootX;
+    g_resurrectRootZ = feature.rootZ;
+    g_resurrectFeatureDef = feature.featureDef;
+    g_resurrectAnimIndex = feature.animIndex;
+    g_resurrectFeatureValid = true;
+    g_resurrectRealReturn = stackTop[0];
+    stackTop[0] = reinterpret_cast<DWORD>(&ResurrectReturnThunk);
+
+    CUnitRotate* self = CUnitRotate::GetInstance();
+    if (!self) return 0;
 
     unsigned unitTypeIdx =
         *reinterpret_cast<unsigned*>(order + OFF_ORDER_build_unitType) & 0xFFFF;
@@ -1084,8 +1201,6 @@ static int __stdcall OrderResurrect_Entry_Proc(PInlineX86StackBuffer X86StrackBu
     if (!self->IsRotationAllowed(unitTypeIdx, rotation)) return 0;
 
     g_pendingCreateRotation = rotation;
-    g_resurrectRealReturn = stackTop[0];
-    stackTop[0] = reinterpret_cast<DWORD>(&ResurrectReturnThunk);
     return 0;
 }
 
@@ -1261,6 +1376,9 @@ CUnitRotate::CUnitRotate()
         ADDR_UNITS_GiveUnit_Entry, 5, INLINE_5BYTESLAGGERJMP, GiveUnit_Entry_Proc)));
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
         ADDR_Order_Resurrect_Entry, 5, INLINE_5BYTESLAGGERJMP, OrderResurrect_Entry_Proc)));
+    m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
+        ADDR_Resurrect_PostCreateFeatureCheck, 6, INLINE_5BYTESLAGGERJMP,
+        ResurrectPostCreateFeatureCheck_Proc)));
     m_hooks.push_back(std::unique_ptr<InlineSingleHook>(new InlineSingleHook(
         ADDR_LoadUnit_PreCreate, 5, INLINE_5BYTESLAGGERJMP, LoadUnit_PreCreate_Proc)));
 

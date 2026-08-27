@@ -20,6 +20,9 @@ The release .zip files are annotated with a build configuration tag: "tdraw-<con
     and enables the following features, which no other configuration has:
     - share-abuse guard (structure share rate limit, and .take refused against a destroyed commander - see below)
     - fix repair rate exploit
+    - wrecks of aircraft destroyed over land fall to the ground
+    and differs as follows:
+    - off-map aircraft can be shot down up to 32 tiles past the map edge, where every other configuration only covers 1 tile
   * tdraw-tazero.zip: built for TA:Zero.  same as tdraw-prota.zip except it disables the following features
     - wind and tidal readouts in the weather report at top of screen (the game time clock is retained)
     - that is all
@@ -32,6 +35,8 @@ The release .zip files are annotated with a build configuration tag: "tdraw-<con
     - sync wind speed between players
     - map DT's always visible.
     - rendering of map features (mexes, geos, spires, walls) on the megamap
+  * tdraw-mayhem.zip: built for TA:Mayhem.  same as tdraw-prota.zip except
+    - off-map aircraft can be shot down up to 32 tiles past the map edge (as Escalation), rather than the 1 tile the other configurations cover
   * tdraw-bta.zip: same as tdraw-prota.zip except
     - rendering of map features (mexes, geos, spires, walls) on the megamap is disabled
     - mex and wreck snap radius limited to 1
@@ -57,6 +62,13 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- add "notoverwater" and "notoverland" flags for weapons (see NEW FEATURES IN DETAIL)
+- (escalation only) wrecks of aircraft destroyed over land now fall to the ground instead of hanging in the air where the aircraft died (see NEW FEATURES IN DETAIL)
+- Keep the +bps network and game-time display visible over the megamap (thanks TAG_Venom)
+- Fix resurrected units intermittently being left incomplete or as unusable wireframes (thanks TAG_Venom)
+- New build configuration for TA:Mayhem (tdraw-mayhem.zip): same as tdraw-prota.zip, but off-map aircraft can be shot down up to 32 tiles past the map edge instead of 1
+- Aircraft hiding near the map edge can now be shot down.
+- Increase TotalA.exe projectile and explosion-related limits to ten times their stock values (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Add stockpile and transport counters above unit health bars, with configurable counter and group number colours (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix black model faces caused by zero shade level (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)
@@ -238,6 +250,44 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Resurrection finalization fix
+
+  TA can create a replacement unit from a wreck and then fail its second lookup
+  of that wreck after unit creation has already cleared it.  The resurrection
+  order then exits before initialization is complete, leaving a mobile unit
+  partly built or a structure as a permanent unusable wireframe.
+
+  TADR preserves the validated wreck information immediately before creation.
+  If the requested replacement unit was successfully created but only the
+  post-create wreck lookup failed, TADR supplies that preserved information and
+  lets TA continue its normal finalization path.  Successful resurrections,
+  invalid wrecks, and retryable unit-creation failures are unchanged.
+
+- Expanded projectile and explosion-related limits
+
+  TotalA.exe uses several fixed-size pools for projectiles, explosions, flying
+  model pieces, and related effects.  When a stock pool is full, TA silently
+  refuses new entries.  In particular, reaching the projectile limit can make
+  units stop firing until older projectiles disappear.
+
+  TADR increases all four capacities to ten times their stock values:
+  - Active projectiles: 300 to 3000
+  - Active explosion effects: 300 to 3000
+  - Flying model-piece effect slots: 100 to 1000
+  - Auxiliary debris/effect records and workspaces: 300 to 3000
+
+  These are fixed safety limits and require no totala.ini settings.  Entries
+  beyond the new limits are still discarded, preventing an extreme effect burst
+  from growing without bound.  The model-piece allocator grows from 100,000 to
+  1,000,000 bytes alongside its slot table.  The relocated fixed pools reserve
+  approximately 1.3 MB of additional DLL memory.
+
+  The projectile limit affects game simulation.  In multiplayer, every player
+  must therefore use the same TADR version; mixing this version with an older
+  projectile limit can desynchronize the game after the stock limit is exceeded.
+  If the required TotalA.exe instructions cannot be validated or patched, TADR
+  displays an error and closes TA rather than continuing with mismatched limits.
 
 - Unit status counters
 
@@ -482,7 +532,7 @@ NEW FEATURES IN DETAIL:
   - Reload time: up to 16 levels or the number of VeterancyThresholds, whichever is lower
   - Accuracy buff: no limit
 
-- Weapon TDF flags: nottoair, nottounderwater, surfacefire, nomapweaponalert and reloadbar
+- Weapon TDF flags: nottoair, nottounderwater, notoverwater, notoverland, surfacefire, nomapweaponalert and reloadbar
 
   Optional keys for weapon definition files (weapons/*.tdf) give mod developers
   finer control over targeting and alert behaviour.
@@ -531,6 +581,51 @@ NEW FEATURES IN DETAIL:
       nottounderwater=1;
       }
 
+  notoverwater=1
+    The weapon will not fire while the FIRING unit is over water, that is, while the terrain
+    beneath it is at or below sea level.  It is aimed at aircraft weapons, and is about where
+    the firer is, not where the target is - so a bomber with notoverwater=1 bombs will stop
+    bombing as it crosses a coastline and start again once it is back over land.
+
+    While suppressed the weapon does not aim or track, and its turret holds its last angle, but
+    it keeps reloading and does not lose its target.  It resumes on the first frame the unit is
+    over land again, with no reload penalty.  Ammunition and per-shot resource costs are not
+    consumed while suppressed.
+
+    Note the flag is a property of the weapon, so every unit using that weapon is affected.  If
+    only one unit should be restricted, give it its own copy of the weapon under a new name and
+    a spare ID.
+
+    Example:
+
+      [BOMB]
+      {
+      ...
+      dropped=1;
+      notoverwater=1;
+      }
+
+  notoverland=1
+    The mirror of notoverwater: the weapon will not fire while the FIRING unit is over land,
+    that is, while the terrain beneath it is above sea level.  Suppression behaves exactly as
+    for notoverwater - no aiming or turret tracking, but reloading continues, the target is
+    kept, and no ammunition or per-shot resources are spent.
+
+    Use it for weapons that only make sense over water, such as an aircraft-dropped torpedo or
+    depth charge, so the unit cannot release them over dry ground.
+
+    Setting both notoverwater=1 and notoverland=1 on the same weapon leaves nowhere for it to
+    fire from, and it will never fire.
+
+    Example:
+
+      [AIR_TORPEDO]
+      {
+      ...
+      dropped=1;
+      notoverland=1;
+      }
+
   surfacefire=1
     Used together with waterweapon=1.  Normally a water weapon can only target submarines and
     other units that are at or below sea level.  With surfacefire=1 the weapon can also target
@@ -561,6 +656,38 @@ NEW FEATURES IN DETAIL:
       ...
       damage=0;
       nomapweaponalert=1;
+      }
+
+- Aircraft wrecks fall to the ground (escalation build only)
+
+  When a unit dies, TA places its Corpse= wreck at the exact position the unit died,
+  including its altitude.  For a unit killed over water the engine gives that wreck a
+  downward velocity so it sinks, but for one killed over land it gives it none - and a
+  wreck with no velocity is never simulated, so it simply hangs in the air at the height
+  the unit was flying.
+
+  With this feature a wreck created above the terrain is given a downward velocity, so it
+  falls under the map's normal gravity, lands on the terrain and stops.  It can then be
+  reclaimed on the ground like any other wreck.
+
+  Only wrecks that are created above the terrain are affected.  Ground units die at ground
+  level already, so their wrecks are untouched and behave exactly as before, as do wrecks
+  created over water, which keep the engine's existing sinking behaviour.
+
+  The wreck falls straight down; it does not carry the aircraft's forward momentum.  That is
+  deliberate - a wreck that travelled any distance would separate from the map tile it is
+  registered on, and reclaim and blocking would stay behind at the tile where the unit died.
+
+  Note that this only does anything for units that actually define a corpse.  Most mods give
+  their aircraft no Corpse= key at all, in which case nothing is placed when they die and
+  nothing changes.  To see it, give the aircraft a corpse in its FBI:
+
+    Example:
+
+      [UNITINFO]
+      {
+      ...
+      Corpse=armthund_dead;
       }
 
 - Unit FBI transported explosion overrides

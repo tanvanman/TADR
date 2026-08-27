@@ -7,7 +7,8 @@
      defined(TDRAW_CONFIG_ESCALATION) + \
      defined(TDRAW_CONFIG_OTA) + \
      defined(TDRAW_CONFIG_TAZERO) + \
-     defined(TDRAW_CONFIG_BTA)) != 1
+     defined(TDRAW_CONFIG_BTA) + \
+     defined(TDRAW_CONFIG_MAYHEM)) != 1
 #pragma message ( __FILE__ " - Warning: Exactly one TDRAW_CONFIG_* configurations must be #define'd. defaulting to TDRAW_CONFIG_PROTA" )
 #define TDRAW_CONFIG_PROTA
 // Implicit-default builds (no explicit config selected) get the profiler
@@ -31,6 +32,8 @@
 #include "config_tazero.h"
 #elif defined(TDRAW_CONFIG_BTA)
 #include "config_bta.h"
+#elif defined(TDRAW_CONFIG_MAYHEM)
+#include "config_mayhem.h"
 #endif
 
 //
@@ -64,4 +67,38 @@
 //
 #ifndef TDRAW_EXTENDED_WEAPON_IDS
 #define TDRAW_EXTENDED_WEAPON_IDS 0
+#endif
+
+//
+// AirCorpseFall: make the wreck of an aircraft killed over land fall to the
+// ground instead of hanging at the altitude it died. Changes vanilla behaviour
+// for every unit that dies airborne, so it is opt-in per config.
+//
+#ifndef AIR_CORPSE_FALL_ENABLE
+#define AIR_CORPSE_FALL_ENABLE 0
+#endif
+
+//
+// Repair-rate fix heal multipliers -- see config_escalation.h for the tunable
+// values and RepairRateFix.cpp for how they're applied. Every config_*.h must
+// define both explicitly (same convention as REPAIR_RATE_FIX_ENABLE itself,
+// SS9), so there is no #ifndef fallback here on purpose: a config that forgets
+// one gets a hard compiler error at the #ifndef check below, not a silent 1.
+//
+#ifndef REPAIR_RATE_FIX_REPAIR_MULTIPLIER
+#error "config_*.h must define REPAIR_RATE_FIX_REPAIR_MULTIPLIER explicitly (1 if REPAIR_RATE_FIX_ENABLE is 0)"
+#endif
+#ifndef REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER
+#error "config_*.h must define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER explicitly (1 if REPAIR_RATE_FIX_ENABLE is 0)"
+#endif
+
+// Rule: both multipliers are meaningless -- and forbidden -- unless the fix
+// itself is installed. They scale RepairRateFix's accumulator formula, which
+// only exists when REPAIR_RATE_FIX_ENABLE is 1 (ddraw.cpp guards Install()
+// with it). A config that sets a multiplier != 1 while the fix is off would
+// silently do nothing at runtime -- fail the build instead, loudly, so that
+// mistake can't ship unnoticed.
+#if !REPAIR_RATE_FIX_ENABLE && \
+    (REPAIR_RATE_FIX_REPAIR_MULTIPLIER != 1 || REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER != 1)
+#error "REPAIR_RATE_FIX_REPAIR_MULTIPLIER / SELFHEAL_MULTIPLIER require REPAIR_RATE_FIX_ENABLE 1 -- they scale RepairRateFix's accumulator, which is not installed in this config."
 #endif

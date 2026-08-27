@@ -29,6 +29,21 @@
 //
 // See CLAUDE.md / config_escalation.h -- Escalation-only balance nerf, not enabled here.
 #define REPAIR_RATE_FIX_ENABLE 0
+// Multipliers require REPAIR_RATE_FIX_ENABLE 1 (config.h enforces this at
+// compile time) -- must be 1/1 here since the fix itself is off.
+#define REPAIR_RATE_FIX_REPAIR_MULTIPLIER 1
+#define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 1
+
+//
+// Off-map aircraft
+//
+// Width, in map tiles (16 world units each), of the band outside the map where aircraft can
+// still be seen, targeted and killed; stock TA cannot touch them at all.  0 disables the whole
+// module, including the separate LOS-shear fix that this number does not bound.
+// ~32 covers a whole attack-run overshoot; 1-3 covers only the immediate edge.
+// Compile-time only, deliberately -- it decides who can shoot what, so a per-machine
+// override would be a mixed-fleet vector.  See OFFMAP_AIRCRAFT.md.
+#define OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES 1
 
 // See WideHealth.h -- Escalation-only data rework, not enabled here.
 #define WIDE_HEALTH_ENABLE 0

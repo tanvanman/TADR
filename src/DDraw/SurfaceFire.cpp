@@ -1,7 +1,6 @@
 #include "SurfaceFire.h"
-#include "WeaponTdfHook.h"
+#include "WeaponTags.h"
 #include "tamem.h"
-#include <unordered_set>
 
 // -----------------------------------------------------------------------
 // UnitAutoAim_CheckUnitWeapon water-path REJECT 1 hook @ 0x49AC0F
@@ -103,10 +102,7 @@ static const DWORD kGuidanceNormalAddr  = 0x49BA16u;
 static const char kSurfaceFireKey[]     = "surfacefire";
 static const char kNotToUnderwaterKey[] = "nottounderwater";
 
-// Weapon defs (WeaponTypedef*) that have surfacefire=1 / nottounderwater=1 in their TDF.
-// Populated at load time by the WeaponTdfHook handler; read at runtime by the routers.
-static std::unordered_set<DWORD> s_surfaceFireWeapons;
-static std::unordered_set<DWORD> s_notToUnderwaterWeapons;
+// Tag storage lives in WeaponTags, keyed off the weapon def pointer.
 
 // -----------------------------------------------------------------------
 
@@ -120,42 +116,55 @@ void SurfaceFire::Install()
 
 SurfaceFire::SurfaceFire()
 {
-    m_rejectHook.reset(new InlineSingleHook(
+    WeaponTags::RegisterKey(kSurfaceFireKey,     WeaponTags::SurfaceFire);
+    WeaponTags::RegisterKey(kNotToUnderwaterKey, WeaponTags::NotToUnderwater);
+
+    WeaponTags::OnFirstUse(WeaponTags::SurfaceFire,     &InstallSurfaceFireHooks);
+    WeaponTags::OnFirstUse(WeaponTags::NotToUnderwater, &InstallNotToUnderwaterHooks);
+}
+
+void SurfaceFire::InstallSurfaceFireHooks()
+{
+    if (!m_instance || m_instance->m_rejectHook)
+        return;
+
+    m_instance->m_rejectHook.reset(new InlineSingleHook(
         kRejectHookAddr, kRejectHookLen,
         INLINE_5BYTESLAGGERJMP,
         (InlineX86HookRouter)CheckRouter));
 
-    m_weaponCheckHook.reset(new InlineSingleHook(
+    m_instance->m_weaponCheckHook.reset(new InlineSingleHook(
         kCheckHookAddr, kCheckHookLen,
         INLINE_5BYTESLAGGERJMP,
         (InlineX86HookRouter)CheckRouter));
 
-    m_canAimHook.reset(new InlineSingleHook(
+    m_instance->m_canAimHook.reset(new InlineSingleHook(
         kCanAimHookAddr, kCanAimHookLen,
         INLINE_5BYTESLAGGERJMP,
         (InlineX86HookRouter)CanAimRouter));
 
-    m_scriptActionHook.reset(new InlineSingleHook(
+    m_instance->m_scriptActionHook.reset(new InlineSingleHook(
         kScriptHookAddr, kScriptHookLen,
         INLINE_5BYTESLAGGERJMP,
         (InlineX86HookRouter)ScriptActionRouter));
 
-    m_guidanceHook.reset(new InlineSingleHook(
+    m_instance->m_guidanceHook.reset(new InlineSingleHook(
         kGuidanceHookAddr, kGuidanceHookLen,
         INLINE_5BYTESLAGGERJMP,
         (InlineX86HookRouter)GuidanceRouter));
+}
 
-    m_rangeCheckHook.reset(new InlineSingleHook(
+// Independent of the surfacefire group: CheckRouter's redirect target is
+// kRangeCheckAddr, which is a valid instruction boundary hooked or not.
+void SurfaceFire::InstallNotToUnderwaterHooks()
+{
+    if (!m_instance || m_instance->m_rangeCheckHook)
+        return;
+
+    m_instance->m_rangeCheckHook.reset(new InlineSingleHook(
         kRangeCheckAddr, kRangeCheckHookLen,
         INLINE_5BYTESLAGGERJMP,
         (InlineX86HookRouter)RangeCheckRouter));
-
-    WeaponTdfHook::Register([](const WeaponTdfHook::Context& ctx) {
-        if (ctx.getInt(kSurfaceFireKey) & 1)
-            s_surfaceFireWeapons.insert((DWORD)ctx.pWeaponDef);
-        if (ctx.getInt(kNotToUnderwaterKey) & 1)
-            s_notToUnderwaterWeapons.insert((DWORD)ctx.pWeaponDef);
-    });
 }
 
 SurfaceFire::~SurfaceFire()
@@ -174,7 +183,7 @@ SurfaceFire::~SurfaceFire()
 // At both hook sites: EAX = pTargetUnit, EDI = pWeaponDef.
 int __stdcall SurfaceFire::CheckRouter(PInlineX86StackBuffer pBuf)
 {
-    if (s_surfaceFireWeapons.count(pBuf->Edi))
+    if (WeaponTags::Has((const void*)pBuf->Edi, WeaponTags::SurfaceFire))
     {
         DWORD weaponMask = *(DWORD*)((BYTE*)pBuf->Edi + kWeaponMaskOff);
         if (weaponMask & WTM_NotToAir)
@@ -193,7 +202,7 @@ int __stdcall SurfaceFire::CheckRouter(PInlineX86StackBuffer pBuf)
 // WeaponCanAim: allow surfacefire weapons to aim regardless of firer depth.
 int __stdcall SurfaceFire::CanAimRouter(PInlineX86StackBuffer pBuf)
 {
-    if (s_surfaceFireWeapons.count(pBuf->Ebx))
+    if (WeaponTags::Has((const void*)pBuf->Ebx, WeaponTags::SurfaceFire))
     {
         pBuf->rtnAddr_Pvoid = (LPVOID)kCanAimSuccessAddr;
         return X86STRACKBUFFERCHANGE;
@@ -205,7 +214,7 @@ int __stdcall SurfaceFire::CanAimRouter(PInlineX86StackBuffer pBuf)
 // when weapon0 has surfacefire=1.
 int __stdcall SurfaceFire::ScriptActionRouter(PInlineX86StackBuffer pBuf)
 {
-    if (s_surfaceFireWeapons.count(pBuf->Esi))
+    if (WeaponTags::Has((const void*)pBuf->Esi, WeaponTags::SurfaceFire))
     {
         pBuf->rtnAddr_Pvoid = (LPVOID)kScriptAllowAddr;
         return X86STRACKBUFFERCHANGE;
@@ -217,7 +226,7 @@ int __stdcall SurfaceFire::ScriptActionRouter(PInlineX86StackBuffer pBuf)
 // ESI = WeaponTypedef* for the current projectile.
 int __stdcall SurfaceFire::GuidanceRouter(PInlineX86StackBuffer pBuf)
 {
-    if (s_surfaceFireWeapons.count(pBuf->Esi))
+    if (WeaponTags::Has((const void*)pBuf->Esi, WeaponTags::SurfaceFire))
     {
         pBuf->rtnAddr_Pvoid = (LPVOID)kGuidanceNormalAddr;
         return X86STRACKBUFFERCHANGE;
@@ -231,7 +240,7 @@ int __stdcall SurfaceFire::GuidanceRouter(PInlineX86StackBuffer pBuf)
 // for why the reject redirects to 0x49AC3B and not 0x49AC0F.
 int __stdcall SurfaceFire::RangeCheckRouter(PInlineX86StackBuffer pBuf)
 {
-    if (s_notToUnderwaterWeapons.count(pBuf->Edi))
+    if (WeaponTags::Has((const void*)pBuf->Edi, WeaponTags::NotToUnderwater))
     {
         BYTE* pTarget  = (BYTE*)pBuf->Eax;
         DWORD unitInfo = *(DWORD*)(pTarget + kUnitInfoPtrOff);
