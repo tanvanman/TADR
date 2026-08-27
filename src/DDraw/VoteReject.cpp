@@ -32,12 +32,47 @@ static _Send_PacketPlayerState_1B Send_PacketPlayerState_1B =
 typedef void(__stdcall* _RejectPlayer)(int playerIndex);
 static _RejectPlayer RejectPlayer_fn = (_RejectPlayer)0x00446080;
 
+// GameRunSec @ 0x004b6340 -- game clock in 1/30 s units, the same reference
+// CheckForDroppedPlayers uses for its dropout gap test.
+typedef int(__cdecl* _GameRunSec)(void);
+static _GameRunSec GameRunSec_fn = (_GameRunSec)0x004b6340;
+
 static bool AreAllies(TAdynmemStruct* taPtr, int slotA, int slotB)
 {
 	if (slotA < 0 || slotB < 0 || slotA >= 10 || slotB >= 10 || slotA == slotB)
 		return false;
 	return taPtr->Players[slotA].AllyFlagAry[slotB] != 0
 		&& taPtr->Players[slotB].AllyFlagAry[slotA] != 0;
+}
+
+// CanCastVote: can the player in this slot actually deliver a vote to us?
+//
+//   Only humans run tdraw, so an AI slot never sends a VoteRejectMessage; and a
+//   remote human who has stopped sending packets cannot send one either.  A
+//   dropped player stays in TA's Players[] table (PlayerActive, DirectPlayID != 0)
+//   until the reject packet lands, so both kinds of non-voter used to be counted
+//   as eligible voters.  That inflated votesNeeded AND made the teammate-consent
+//   gate unsatisfiable: when an entire team disconnected at once, the surviving
+//   team could never reach the threshold and could never obtain consent from an
+//   ally of the target, because every ally of the target had dropped too.  Manual
+//   votes have no auto-execute path, so those deadlocked outright.
+//
+//   Gap test matches CheckForDroppedPlayers / MultiDropoutRouter:
+//     gameNow - max(LastMsgTimeStamp, GameTimeSec) > NetworkDropoutTimeoutSec * 30
+static bool CanCastVote(TAdynmemStruct* taPtr, int slot, int gameNow)
+{
+	const PlayerStruct& p = taPtr->Players[slot];
+	if (!p.PlayerActive || p.DirectPlayID == 0)
+		return false;
+	if (p.My_PlayerType == Player_LocalHuman)
+		return true;                    // ourselves: responsive by definition
+	if (p.My_PlayerType != Player_RemoteHuman)
+		return false;                   // AI: never sends a VoteReject packet
+
+	int ts = p.LastMsgTimeStamp;
+	int gameTimeSec = *(int*)0x00512c7c;
+	if (ts < gameTimeSec) ts = gameTimeSec;
+	return (gameNow - ts) <= (int)taPtr->NetworkDropoutTimeoutSec * 30;
 }
 
 static int FindSlotByDpid(TAdynmemStruct* taPtr, unsigned dpid)
@@ -519,8 +554,64 @@ void VoteReject::BroadcastMsg(VoteRejectCommand command, unsigned targetDpid, ch
 }
 
 // -----------------------------------------------------------------------
+// ComputeTally: single source of truth for the vote arithmetic, shared by the
+//   threshold check, the HUD line and the VoteDialog rows so they can never
+//   disagree with each other.
+//
+//   Eligible voters = active players who CanCastVote(), excluding the target.
+//   Players who have dropped (or AI slots) are excluded: they cannot vote, so
+//   counting them only makes the ballot harder or impossible to carry.
+//
+//   Timeout reject: proposer + 1 seconder (1 in a 2-player game).
+//   Manual reject : ceiling(2/3 * eligibleVoters), minimum 1.
+//   Both additionally require teammate consent when the target still has an
+//   ally who is able to vote.
+// -----------------------------------------------------------------------
+VoteReject::VoteTally VoteReject::ComputeTally(unsigned targetDpid, const VoteState& state) const
+{
+	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
+	int gameNow = GameRunSec_fn();
+
+	VoteTally t;
+	t.yesVotes = (int)state.voters.size();
+	t.noVotes  = (int)state.noVoters.size();
+
+	t.eligibleVoters = 0;
+	for (int i = 0; i < 10; ++i) {
+		if (taPtr->Players[i].DirectPlayID == targetDpid) continue;
+		if (!CanCastVote(taPtr, i, gameNow)) continue;
+		++t.eligibleVoters;
+	}
+
+	if (state.rejectMask == 6)
+		t.votesNeeded = (t.eligibleVoters <= 1) ? 1 : 2;
+	else
+		t.votesNeeded = (t.eligibleVoters <= 1) ? 1 : ((t.eligibleVoters * 2 + 2) / 3);
+
+	// Teammate consent: at least one ally of the target that is *able to vote*
+	// must have voted YES.  Allies who have dropped out themselves are skipped —
+	// they can never consent, and requiring them deadlocks the ballot.
+	t.teammateConsent   = true;
+	t.needsTeammateVote = false;
+	if (state.targetSlot >= 0) {
+		for (int i = 0; i < 10; ++i) {
+			if (!CanCastVote(taPtr, i, gameNow)) continue;
+			if (!AreAllies(taPtr, state.targetSlot, i)) continue;
+			unsigned allyDpid = taPtr->Players[i].DirectPlayID;
+			if (std::find(state.voters.begin(), state.voters.end(), allyDpid) != state.voters.end()) {
+				t.teammateConsent   = true;
+				t.needsTeammateVote = false;
+				break;
+			}
+			t.teammateConsent   = false;
+			t.needsTeammateVote = true;
+		}
+	}
+	return t;
+}
+
+// -----------------------------------------------------------------------
 // CheckAndExecuteReject: called after each new vote is recorded.
-//   Votes needed = ceiling(2/3 * nonTargetActivePlayers), minimum 1.
 //   When threshold met, each client independently calls Send_PacketPlayerState_1B.
 // -----------------------------------------------------------------------
 void VoteReject::CheckAndExecuteReject(unsigned targetDpid)
@@ -529,76 +620,17 @@ void VoteReject::CheckAndExecuteReject(unsigned targetDpid)
 	if (it == m_votes.end())
 		return;
 
-	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	int totalActive = 0;
-	for (int i = 0; i < 10; ++i) {
-		if (taPtr->Players[i].PlayerActive && taPtr->Players[i].DirectPlayID != 0)
-			++totalActive;
-	}
-
 	bool isTimeoutReject = (it->second.rejectMask == 6);
-	int voteCount = (int)it->second.voters.size();
+	VoteTally tally = ComputeTally(targetDpid, it->second);
 
-	// Timeout reject: just need proposer + 1 seconder; no teammate consent required.
-	// Manual reject: 2/3 of non-target active players; plus teammate consent if applicable.
-	int votesNeeded;
-	bool teammateConsent;
-	if (isTimeoutReject)
-	{
-		// Need at least 2 votes (or 1 in a 2-player game); plus teammate consent
-		// (at least one ally of the target must have voted YES).
-		int nonTarget = totalActive - 1;
-		votesNeeded     = (nonTarget <= 1) ? 1 : 2;
+	int voteCount   = tally.yesVotes;
+	int noVoteCount = tally.noVotes;
+	int votesNeeded = tally.votesNeeded;
 
-		int targetSlot = it->second.targetSlot;
-		teammateConsent = true;
-		if (targetSlot >= 0) {
-			for (int i = 0; i < 10; ++i) {
-				if (i == targetSlot) continue;
-				if (!taPtr->Players[i].PlayerActive || taPtr->Players[i].DirectPlayID == 0) continue;
-				if (!taPtr->Players[targetSlot].AllyFlagAry[i] || !taPtr->Players[i].AllyFlagAry[targetSlot]) continue;
-				// Found an active ally of the target — they must vote YES.
-				teammateConsent = false;
-				if (std::find(it->second.voters.begin(), it->second.voters.end(),
-					taPtr->Players[i].DirectPlayID) != it->second.voters.end())
-				{
-					teammateConsent = true;
-					break;
-				}
-			}
-		}
-	}
-	else
-	{
-		int nonTarget = totalActive - 1;
-		votesNeeded   = (nonTarget <= 1) ? 1 : ((nonTarget * 2 + 2) / 3);
+	IDDrawSurface::OutptFmtTxt("[VoteReject] threshold check: %d yes, %d no / %d eligible (need %d), teammate consent: %d",
+		voteCount, noVoteCount, tally.eligibleVoters, votesNeeded, (int)tally.teammateConsent);
 
-		int targetSlot = it->second.targetSlot;
-		teammateConsent = true;
-		if (targetSlot >= 0) {
-			for (int i = 0; i < 10; ++i) {
-				if (i == targetSlot) continue;
-				if (!taPtr->Players[i].PlayerActive || taPtr->Players[i].DirectPlayID == 0) continue;
-				if (!taPtr->Players[targetSlot].AllyFlagAry[i] || !taPtr->Players[i].AllyFlagAry[targetSlot]) continue;
-				// Target has an active teammate — they must have voted
-				teammateConsent = false;
-				if (std::find(it->second.voters.begin(), it->second.voters.end(),
-					taPtr->Players[i].DirectPlayID) != it->second.voters.end())
-				{
-					teammateConsent = true;
-					break;
-				}
-			}
-		}
-	}
-
-	int noVoteCount = (int)it->second.noVoters.size();
-	int nonTarget = totalActive - 1;
-
-	IDDrawSurface::OutptFmtTxt("[VoteReject] threshold check: %d yes, %d no / %d (need %d), teammate consent: %d",
-		voteCount, noVoteCount, totalActive, votesNeeded, (int)teammateConsent);
-
-	if (voteCount >= votesNeeded && teammateConsent)
+	if (voteCount >= votesNeeded && tally.teammateConsent)
 	{
 		std::string targetName = it->second.targetName;
 		HudLineId voteHudId = it->second.hudLineId;
@@ -607,11 +639,11 @@ void VoteReject::CheckAndExecuteReject(unsigned targetDpid)
 		m_votes.erase(it);
 		if (g_VoteDialog) g_VoteDialog->Refresh();
 	}
-	else if (noVoteCount > nonTarget - votesNeeded)
+	else if (noVoteCount > tally.eligibleVoters - votesNeeded)
 	{
 		// Enough NO votes that the YES threshold can never be reached.
 		IDDrawSurface::OutptFmtTxt("[VoteReject] vote for dpid=%u failed by NO majority (%d no, need %d yes from %d)",
-			targetDpid, noVoteCount, votesNeeded, nonTarget);
+			targetDpid, noVoteCount, votesNeeded, tally.eligibleVoters);
 		if (!isTimeoutReject)
 		{
 			// Manual vote: cancel immediately, show transient failure notice.
@@ -782,11 +814,32 @@ void VoteReject::Tick()
 		}
 	}
 
-	// Refresh countdown text every second so the HUD timer stays live.
 	DWORD nowSec = now / 1000;
 	if (nowSec != m_lastHudUpdateSec)
 	{
 		m_lastHudUpdateSec = nowSec;
+
+		// Re-evaluate every open vote against the CURRENT player table.
+		//
+		// ComputeTally always reads live state -- nothing is snapshotted when the
+		// vote is proposed -- but CheckAndExecuteReject only runs when a vote
+		// packet arrives.  Voters can drop out after casting, and in particular
+		// the target's last remaining live ally can drop after everyone else has
+		// already voted: that lowers votesNeeded and makes teammate consent
+		// vacuous, turning an already-cast ballot into a passing one with no
+		// further packet to trigger the check.  Without this pass such a vote
+		// would sit open until it expired -- and a manual vote expires as a
+		// FAILURE, which is exactly the whole-team-disconnect deadlock.
+		//
+		// Collect the keys first: CheckAndExecuteReject may erase from m_votes.
+		std::vector<unsigned> openVotes;
+		openVotes.reserve(m_votes.size());
+		for (const auto& kv : m_votes)
+			openVotes.push_back(kv.first);
+		for (unsigned targetDpid : openVotes)
+			CheckAndExecuteReject(targetDpid);
+
+		// Refresh countdown text every second so the HUD timer stays live.
 		for (auto& kv : m_votes)
 			HudNotifications::GetInstance()->UpdateLine(
 				kv.second.hudLineId, FormatVoteLine(kv.first, kv.second));
@@ -829,49 +882,27 @@ std::string VoteReject::FormatVoteLine(unsigned targetDpid, const VoteState& sta
 		return line;
 	}
 
-	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	int totalActive = 0;
-	for (int i = 0; i < 10; ++i)
-		if (taPtr->Players[i].PlayerActive && taPtr->Players[i].DirectPlayID != 0)
-			++totalActive;
-
 	bool isTimeoutReject = (state.rejectMask == 6);
-	int voteCount  = (int)state.voters.size();
-	int noVoteCount = isTimeoutReject ? 0 : (int)state.noVoters.size();
+	VoteTally tally = ComputeTally(targetDpid, state);
 
-	int votesNeeded;
-	bool needsTeammateVote = false;
-	if (isTimeoutReject) {
-		int nonTarget = totalActive - 1;
-		votesNeeded = (nonTarget <= 1) ? 1 : 2;
-	} else {
-		int nonTarget = totalActive - 1;
-		votesNeeded = (nonTarget <= 1) ? 1 : ((nonTarget * 2 + 2) / 3);
-		if (state.targetSlot >= 0) {
-			for (int i = 0; i < 10; ++i) {
-				if (i == state.targetSlot) continue;
-				if (!taPtr->Players[i].PlayerActive || taPtr->Players[i].DirectPlayID == 0) continue;
-				if (!taPtr->Players[state.targetSlot].AllyFlagAry[i]
-					|| !taPtr->Players[i].AllyFlagAry[state.targetSlot]) continue;
-				unsigned tdpid = taPtr->Players[i].DirectPlayID;
-				if (std::find(state.voters.begin(), state.voters.end(), tdpid) == state.voters.end())
-					needsTeammateVote = true;
-				else
-					needsTeammateVote = false;
-				break;
-			}
-		}
-	}
+	int voteCount   = tally.yesVotes;
+	int noVoteCount = isTimeoutReject ? 0 : tally.noVotes;
+	int votesNeeded = tally.votesNeeded;
+	bool needsTeammateVote = tally.needsTeammateVote;
 
 	DWORD now = GetTickCount();
 	int secsLeft = (now < state.expiryTime) ? (int)((state.expiryTime - now) / 1000) : 0;
 
 	char line[256];
-	if (isTimeoutReject) {
+	if (isTimeoutReject && needsTeammateVote) {
+		wsprintfA(line, "Timeout: reject %s (%d yes/%d, need ally vote, %ds)",
+			state.targetName.c_str(), voteCount, votesNeeded, secsLeft);
+	}
+	else if (isTimeoutReject) {
 		wsprintfA(line, "Timeout: reject %s (%d yes/%d, %ds)",
 			state.targetName.c_str(), voteCount, votesNeeded, secsLeft);
 	}
-	else if (state.targetSlot >= 0 && needsTeammateVote) {
+	else if (needsTeammateVote) {
 		wsprintfA(line, "%s: reject %s (%d yes/%d no/%d, need teammate vote, %ds)",
 			state.proposerName.c_str(), state.targetName.c_str(),
 			voteCount, noVoteCount, votesNeeded, secsLeft);
@@ -978,11 +1009,6 @@ void VoteReject::GetActiveVotes(std::vector<VoteDisplayInfo>& out) const
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	unsigned myDpid = taPtr->Players[taPtr->LocalHumanPlayer_PlayerID].DirectPlayID;
 
-	int totalActive = 0;
-	for (int i = 0; i < 10; ++i)
-		if (taPtr->Players[i].PlayerActive && taPtr->Players[i].DirectPlayID != 0)
-			++totalActive;
-
 	out.clear();
 	for (const auto& kv : m_votes)
 	{
@@ -1002,11 +1028,7 @@ void VoteReject::GetActiveVotes(std::vector<VoteDisplayInfo>& out) const
 		info.expiryTime   = s.expiryTime;
 		info.votingClosed = s.votingClosed;
 
-		int nonTarget = totalActive - 1;
-		if (s.rejectMask == 6)
-			info.votesNeeded = (nonTarget <= 1) ? 1 : 2;
-		else
-			info.votesNeeded = (nonTarget <= 1) ? 1 : ((nonTarget * 2 + 2) / 3);
+		info.votesNeeded = ComputeTally(kv.first, s).votesNeeded;
 
 		info.isAllyOfLocal = false;
 		if (s.rejectMask == 6 && s.targetSlot >= 0) {
