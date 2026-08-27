@@ -45,8 +45,6 @@
 // override would be a mixed-fleet vector.  See OFFMAP_AIRCRAFT.md.
 #define OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES 1
 
-// See WideHealth.h -- Escalation-only data rework, not enabled here.
-#define WIDE_HEALTH_ENABLE 0
 
 //
 // Environment / sim sync

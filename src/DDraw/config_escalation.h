@@ -32,14 +32,6 @@
 // ones), not a pure engine-bug fix, so it is scoped to this config only.
 #define REPAIR_RATE_FIX_ENABLE 1
 
-// Real 32-bit unit health -- see WideHealth.h for the full design and, importantly,
-// its "SCOPE OF THIS BUILD" section: several write paths (build progress, savegame,
-// ownership transfer, map-spawn, net sync) are not hooked yet and fall back to a
-// drift-detection self-heal instead. Off by default even here: this is a first-draft
-// implementation that has not been compiled or live-tested (only the design's
-// assumptions were, in Phase 1's T1-T5). Flip to 1 only after working through the
-// plan's Verification steps.
-#define WIDE_HEALTH_ENABLE 0
 // HP delivered per tick is multiplied by one of these two factors -- which one
 // applies is decided per call by RepairRateFix.cpp itself (return-address
 // check against the one known passive-regen call site), NOT by anything in
