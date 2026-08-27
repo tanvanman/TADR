@@ -49,6 +49,8 @@ using namespace std;
 #include "RepairRateFix.h"
 #include "WideHealth.h"
 #include "TransportedExplosions.h"
+#include "AreaDamageOverflow.h"
+#include "GridClaimTieBreak.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -219,6 +221,8 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
 		TransportedExplosions::Install();
+		AreaDamageOverflow::Install();
+		GridClaimTieBreak::Install();
 		CUnitRotate::RegisterUnitDefKeys();
 		CBuildGhost::RegisterUnitDefKeys();
 		// Eager-construct so the DrawGameScreen inline hook is

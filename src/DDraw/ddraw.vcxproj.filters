@@ -283,6 +283,12 @@
     <ClCompile Include="TransportedExplosions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="AreaDamageOverflow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GridClaimTieBreak.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="LagSwitchGuard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -613,6 +619,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TransportedExplosions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AreaDamageOverflow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GridClaimTieBreak.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="tafstatusexporter.h">

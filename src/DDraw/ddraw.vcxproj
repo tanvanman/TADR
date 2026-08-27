@@ -381,6 +381,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="RepairRateFix.h" />
     <ClInclude Include="WideHealth.h" />
     <ClInclude Include="TransportedExplosions.h" />
+    <ClInclude Include="AreaDamageOverflow.h" />
+    <ClInclude Include="GridClaimTieBreak.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="config_prota.h" />
     <ClInclude Include="config_ota.h" />
@@ -401,6 +403,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     </ClInclude>
     <ClCompile Include="StartPositions.cpp" />
     <ClCompile Include="TransportedExplosions.cpp" />
+    <ClCompile Include="AreaDamageOverflow.cpp" />
+    <ClCompile Include="GridClaimTieBreak.cpp" />
     <ClCompile Include="TenPlayerReplay.cpp" />
     <ClCompile Include="TPacket.cpp" />
     <ClCompile Include="UnitIcon.cpp" />
