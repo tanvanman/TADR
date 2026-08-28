@@ -119,6 +119,19 @@ namespace
 	const DWORD kStateMaskLayerBits = 3u;
 	const DWORD kStateMaskAirborne  = 2u;
 
+	// Same two bits and the same test as OffMapAircraft.cpp's IsAliveAndTargetable(),
+	// duplicated rather than shared so this file keeps its no-cross-module-coupling
+	// convention -- kept byte-identical to that one on purpose (see the loop below).
+	// Without this, a unit that has taken lethal damage but not yet been removed from
+	// the array still reads as airborne and keeps consuming an overflow slot: with a
+	// tight stack past the residual cap, the survivors behind it starve one at a time
+	// instead of the freed slot going to a live unit next tick. Confirmed live
+	// 2026-08-28: a 26-Hawk stack on one cell logged 5,000,180 saturation events in
+	// one session (1408x1408 map, `[AreaDamageOverflow] NOTE ... air=26`) -- real
+	// scale, not a corner case.
+	const DWORD kUnitStateAlive        = 0x10000000u;
+	const DWORD kUnitStatePendingDeath = 0x00004000u;
+
 	// ------------------------------------------------------------------- state ---
 
 	struct OverflowCell
@@ -535,6 +548,15 @@ namespace
 				continue;
 
 			if ((unit->UnitSelected & kStateMaskLayerBits) != kStateMaskAirborne)
+				continue;
+
+			// Dead-but-not-yet-removed units still pass every check above -- UnitType
+			// stays set and the layer bits do not change on death. Reads the same
+			// UnitSelected word already loaded for the airborne test above, so this is
+			// one extra mask-and-compare, not a new load. Matches OffMapAircraft.cpp's
+			// IsAliveAndTargetable() exactly: alive bit set, pending-death bit clear.
+			if ((unit->UnitSelected & (kUnitStateAlive | kUnitStatePendingDeath))
+				!= kUnitStateAlive)
 				continue;
 
 			// Cargo is not on the map. Without this, every Roach riding inside a
