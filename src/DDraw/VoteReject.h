@@ -177,6 +177,19 @@ private:
 
 	void AddTransientNotice(const std::string& text, DWORD durationMs);
 
+	// Vote arithmetic snapshot.  Computed in one place (ComputeTally) and used by
+	// the threshold check, the HUD line and the VoteDialog rows, so the three can
+	// never disagree about how many votes are needed or who still has to consent.
+	struct VoteTally {
+		int  eligibleVoters;    // active players able to vote, excluding the target
+		int  votesNeeded;
+		int  yesVotes;
+		int  noVotes;
+		bool teammateConsent;   // target has no ally able to vote, or one voted YES
+		bool needsTeammateVote; // an ally able to vote exists and has not voted YES
+	};
+	VoteTally ComputeTally(unsigned targetDpid, const VoteState& state) const;
+
 	// Format a single HUD line for an active vote or a completed take-window.
 	// Declared after the struct definitions so VoteState/CompletedTimeoutReject
 	// are fully in scope (avoids spurious global-scope forward declarations).

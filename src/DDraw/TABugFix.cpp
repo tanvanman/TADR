@@ -1038,6 +1038,48 @@ static void CaptureSelfModuleRange()
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Crash-report timestamping.
+//
+// Errorlog.txt is append-only across runs and has no clock of its own, so a
+// CRASHTRACE block on its own can't be placed in time: you can't tell whether
+// it killed the process or whether it was a swallowed first-chance probe that
+// the run sailed straight past. (Real case: game 188954, where cnc-ddraw's
+// SEH-guarded module scan produced a full CRASHTRACE at startup and the player
+// then went on to play a 24-minute game and exit cleanly.)
+//
+// Every block therefore carries wall-clock local time plus process uptime, and
+// InstallCrashTrace/ExitProcess bracket the run so a reader can see at a glance
+// that play continued after the report. Wall clock is what lines up with
+// game_<id>.log; uptime is what survives a machine whose clock is wrong.
+// ---------------------------------------------------------------------------
+static DWORD  g_crashTraceInstallTick = 0;
+static volatile LONG g_crashReportCount = 0;
+
+static void FormatLocalTime(char* buf, size_t cb)
+{
+	SYSTEMTIME st;
+	GetLocalTime(&st);
+	_snprintf_s(buf, cb, _TRUNCATE, "%04u-%02u-%02u %02u:%02u:%02u.%03u",
+		st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+}
+
+// Milliseconds since InstallCrashTrace(). GetTickCount wraps at 49.7 days;
+// unsigned subtraction still yields the correct delta across the wrap.
+static DWORD CrashTraceUptimeMs()
+{
+	return g_crashTraceInstallTick ? (DWORD)(GetTickCount() - g_crashTraceInstallTick) : 0;
+}
+
+static void WriteCrashTimestamp(FILE* f)
+{
+	char when[40];
+	FormatLocalTime(when, sizeof(when));
+	DWORD ms = CrashTraceUptimeMs();
+	fprintf(f, "Time = %s local, %u.%03us after CrashTrace install (report #%ld)\n",
+		when, ms / 1000, ms % 1000, (long)InterlockedIncrement(&g_crashReportCount));
+}
+
 static const char* ExceptionCodeName(DWORD code)
 {
 	switch (code) {
@@ -1230,6 +1272,12 @@ static void WriteGenericCrashReport(FILE* f, PEXCEPTION_POINTERS ei)
 
 	fprintf(f, "\n===== CRASHTRACE: %s (0x%08X) at %08X (%s) =====\n",
 		ExceptionCodeName(code), code, (unsigned)eip, ModForAddr(mods, nmods, eip));
+	WriteCrashTimestamp(f);
+	// This is a FIRST-CHANCE report: the VEH runs before any __try/__except in
+	// the faulting module gets a look, and we return EXCEPTION_CONTINUE_SEARCH.
+	// The process may well survive this. Compare the timestamp above against the
+	// "process exiting" line at the end of the run before calling it a crash.
+	fprintf(f, "(first-chance report - the process may have handled this and continued)\n");
 	// VEH runs on the faulting thread, so this is the thread that crashed
 	// (cross-reference against the per-event tid in the breadcrumb ring below).
 	fprintf(f, "Faulting thread id = %lu\n", (unsigned long)GetCurrentThreadId());
@@ -1275,10 +1323,12 @@ LONG CALLBACK VectoredHandler(
 				? ExceptionInfo->ExceptionRecord->ExceptionInformation[1] : 0;
 			int isWrite = ExceptionInfo->ExceptionRecord->NumberParameters >= 1
 				? (int)ExceptionInfo->ExceptionRecord->ExceptionInformation[0] : -1;
+			DWORD elapsed = CrashTraceUptimeMs();
 			IDDrawSurface::OutptFmtTxt(
-				"[CrashTrace] first-chance AV #%ld at EIP=0x%08X (%s 0x%p) "
+				"[CrashTrace] first-chance AV #%ld t=+%u.%03us at EIP=0x%08X (%s 0x%p) "
 				"EAX=%08X ECX=%08X EDX=%08X EBX=%08X ESI=%08X EDI=%08X EBP=%08X ESP=%08X",
-				n, (unsigned)ExceptionInfo->ExceptionRecord->ExceptionAddress,
+				n, elapsed / 1000, elapsed % 1000,
+				(unsigned)ExceptionInfo->ExceptionRecord->ExceptionAddress,
 				isWrite == 1 ? "write" : isWrite == 0 ? "read" : "?",
 				(void*)faultAddr,
 				ctx->Eax, ctx->Ecx, ctx->Edx, ctx->Ebx,
@@ -1299,6 +1349,7 @@ LONG CALLBACK VectoredHandler(
 			// --- Crash registers ---
 			const CONTEXT* ctx = ExceptionInfo->ContextRecord;
 			fprintf(f, "\n===== CRASH AT 0x4CBED5 =====\n");
+			WriteCrashTimestamp(f);
 			fprintf(f, "Registers: EAX=%08X EBX=%08X ECX=%08X EDX=%08X\n",
 				ctx->Eax, ctx->Ebx, ctx->Ecx, ctx->Edx);
 			fprintf(f, "           ESI=%08X EDI=%08X EBP=%08X ESP=%08X\n",
@@ -1861,6 +1912,9 @@ TABugFixing::TABugFixing ()
 	// Minimal SetSessionDesc guard (see comment on NullLpszPasswordInUpdateGameInfoAddr).
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(NullLpszPasswordInUpdateGameInfoAddr, 5, INLINE_5BYTESLAGGERJMP, NullLpszPasswordInUpdateGameInfoProc));
 
+	// Start the crash-report clock here rather than in InstallCrashTrace():
+	// the VEH goes live now, so a report can be written before that runs.
+	g_crashTraceInstallTick = GetTickCount();
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
@@ -1946,6 +2000,27 @@ static void DumpStackForCrashTrace(DWORD ebp, DWORD esp)
 	}
 }
 
+// Close the bracket opened by any CRASHTRACE block written this run, so
+// Errorlog.txt answers "did the process survive it?" on its own. Only emitted
+// when a report was actually written — otherwise every launch would append a
+// line to a file that already carries the VerCheck hash dumps.
+static void NoteProcessExitInErrorlog(const char* how, UINT exitCode)
+{
+	if (g_crashReportCount <= 0) return;
+	static volatile LONG s_noted = 0;
+	if (InterlockedExchange(&s_noted, 1)) return;   // first exit path wins
+
+	FILE* f = fopen("Errorlog.txt", "a");
+	if (!f) return;
+	char when[40];
+	FormatLocalTime(when, sizeof(when));
+	DWORD ms = CrashTraceUptimeMs();
+	fprintf(f, "\n===== CRASHTRACE: process exiting via %s(0x%X) at %s local, "
+		"%u.%03us after CrashTrace install; %ld report(s) written this run =====\n",
+		how, exitCode, when, ms / 1000, ms % 1000, (long)g_crashReportCount);
+	fclose(f);
+}
+
 // __stdcall ExitProcess(UINT exitCode). At entry: [ESP]=retaddr, [ESP+4]=exitCode.
 static int __stdcall ExitProcessHookProc(PInlineX86StackBuffer X)
 {
@@ -1955,6 +2030,7 @@ static int __stdcall ExitProcessHookProc(PInlineX86StackBuffer X)
 	IDDrawSurface::OutptFmtTxt("[CrashTrace] ExitProcess(0x%X) called from 0x%08X",
 		exitCode, retAddr);
 	DumpStackForCrashTrace(X->Ebp, X->Esp);
+	NoteProcessExitInErrorlog("ExitProcess", exitCode);
 	return 0;
 }
 
@@ -1971,7 +2047,11 @@ static int __stdcall TerminateProcessHookProc(PInlineX86StackBuffer X)
 		|| hProc == (HANDLE)(LONG_PTR)-1);
 	IDDrawSurface::OutptFmtTxt("[CrashTrace] TerminateProcess(hProc=%p%s, code=0x%X) from 0x%08X",
 		hProc, isSelf ? " [SELF]" : "", exitCode, retAddr);
-	if (isSelf) DumpStackForCrashTrace(X->Ebp, X->Esp);
+	if (isSelf)
+	{
+		DumpStackForCrashTrace(X->Ebp, X->Esp);
+		NoteProcessExitInErrorlog("TerminateProcess", exitCode);
+	}
 	return 0;
 }
 
@@ -2024,6 +2104,9 @@ static void LogLoadedModules()
 
 void InstallCrashTrace()
 {
+	// Normally already set by the TABugFixing ctor (which arms the VEH); this
+	// covers the case where InstallCrashTrace is reached without it.
+	if (!g_crashTraceInstallTick) g_crashTraceInstallTick = GetTickCount();
 	LogLoadedModules();
 	CaptureSelfModuleRange();
 
@@ -2049,7 +2132,15 @@ void InstallCrashTrace()
 	_set_invalid_parameter_handler(OurInvalidParameterHandler);
 	signal(SIGABRT, OurAbortHandler);
 
-	IDDrawSurface::OutptTxt("[CrashTrace] installed (ExitProcess + TerminateProcess + CRT + first-chance AV)");
+	// tdrawlog.txt has no clock of its own; this one line anchors the whole
+	// file to wall time, and every later CrashTrace line carries t=+<elapsed>.
+	{
+		char when[40];
+		FormatLocalTime(when, sizeof(when));
+		IDDrawSurface::OutptFmtTxt(
+			"[CrashTrace] installed (ExitProcess + TerminateProcess + CRT + first-chance AV) at %s local",
+			when);
+	}
 }
 
 void LogToErrorlog (LPSTR Str)
