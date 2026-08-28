@@ -45,7 +45,6 @@
 // override would be a mixed-fleet vector.  See OFFMAP_AIRCRAFT.md.
 #define OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES 1
 
-
 //
 // Environment / sim sync
 //

@@ -25,8 +25,11 @@
 //   firer self-exclusion at 0x0049A259 and the network broadcast are ALL untouched.
 //   No new floating point anywhere in this module.
 //
-// SCOPE -- AIR ONLY, deliberately:
-//   The index is built exclusively from units with (UnitStateMask & 3) == 2. Ground,
+// SCOPE -- AIR ONLY for victim DISCOVERY, but see the dedup note below:
+//   The index is built exclusively from units with (UnitStateMask & 3) == 2, and excludes
+//   transported cargo and units the engine has parked off-map (pSortBucket ==
+//   OffMapBucket_p -- OffMapAircraft.cpp already damages those, and without the exclusion
+//   every aircraft on the map's last tile row or column would take splash twice). Ground,
 //   naval and building splash takes the identical slot A / slot B path it takes today.
 //   Live-confirmed 2026-08-22 (T4) that ground units cannot stack in the first place --
 //   three CORCKs ordered onto one spot settled on three distinct cells -- so air-only

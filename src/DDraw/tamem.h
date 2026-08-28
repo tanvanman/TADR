@@ -687,10 +687,21 @@ struct FeatureStruct{
 	// building occupying this tile. Index into TAdynmemStruct::BeginUnitsArray_p.
 	unsigned short occupyingUnitNumber;
 	// 0x02 (Ghidra: TileStateEntry.buildGridOccupant) — the ONE **airborne** unit on this
-	// tile. Formerly named "deadspace" here, which is wrong: Unit_UpdateYardmap @0047c790
-	// (older notes call it UNITS_RebuildFootPrint) branch (c), the movestate==Flying branch,
-	// stamps flying units into this slot, first-come-first-served over the unit's
-	// SizeFootX x SizeFootZ footprint, and a later aircraft does NOT evict the holder.
+	// tile. Formerly named "deadspace" here, which is wrong.
+	//
+	// CAREFUL: TWO functions stamp this slot, and older notes here conflated them under
+	// one name ("Unit_UpdateYardmap" / "UNITS_RebuildFootPrint" @0047c790). They are
+	// distinct, they carry byte-identical contest logic in DIFFERENT registers, and only
+	// the second one is on the path a moving unit takes:
+	//   * Unit_ClaimFootprintCells @0047c790 — RE-CLAIM. Entry-gated on UnitStateMask
+	//     bit 27 ("displaced"). Reached from Unit_SetYardOpen and from the vacated-rect
+	//     sweep Unit_ClearFootprintFromMap runs via vftable 0x004FD660.
+	//   * Unit_LinkToSpatialGrid @0047cc30 — STAMP. Ungated, called every tick a unit
+	//     moves (UnitMotion_ApplyDeltaAndRelink @0043DA41). THIS is where a flying unit
+	//     puts itself in this slot.
+	// Both stamp first-come-first-served over SizeFootX x SizeFootZ, and a later aircraft
+	// does NOT evict the holder unless the incumbent belongs to a remote human — see
+	// GridClaimTieBreak.h, which patches all six contest sites across the two functions.
 	// One index, no list. Off-map units are not written here at all.
 	// AreaOfEffectDamage @0049a120 reads only these two slots per tile, so at most one
 	// aircraft per tile is reachable by any explosion — the basis of "bomber stacking";
@@ -1022,9 +1033,12 @@ struct UnitStruct {
   short XLargeGridPos;
   short YLargeGridPos;
   // 0x7E/0x80 (Ghidra: SizeFootX / SizeFootZ). Footprint in TILES, baked from
-  // UNITINFO.FootX/FootZ, used by Unit_UpdateYardmap @0047c790 and
-  // Unit_ClearMapTileOccupancy @0047d0e0 as the extent of the tile block this unit
-  // claims/releases starting at XGridPos,YGridPos.
+  // UNITINFO.FootX/FootZ, used by Unit_ClaimFootprintCells @0047c790,
+  // Unit_LinkToSpatialGrid @0047cc30 and Unit_ClearFootprintFromMap @0047d0e0 as the
+  // extent of the tile block this unit claims/releases starting at XGridPos,YGridPos.
+  // NOTE the exclusive-end test at 0047cc85/0047cca1: a unit is treated as OFF-MAP when
+  // XGridPos + SizeFootX >= FeatureMapSizeX (or the Z equivalent), so the map's last
+  // tile row and column are never stamped and their occupants land in OffMapBucket_p.
   short SizeFootX;              // 0x7E: footprint width in map tiles
   short SizeFootZ;              // 0x80: footprint depth in map tiles
   // 0x82: sort-grid bucket this unit is linked into (Ghidra: View_dw0, a placeholder name).

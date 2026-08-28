@@ -13,33 +13,32 @@
 namespace
 {
 	// ---------------------------------------------------------------- addresses ---
-	// All `[bin]` VERIFIED against TotalA.exe, Escalation 10.1 GOLD, 1,178,624 bytes,
+	// All `[bin]` VERIFIED against TotalA.exe, Escalation GOLD 10.2.0, 1,178,624 bytes,
 	// md5 1e677a7f92c79b5ab35440853d822c17. ImageBase 0x400000, no ASLR.
+	// (Version read from the PE resource, not assumed: FileVersion 10.2.0.0. Earlier
+	// revisions said "10.1 GOLD"; 10.1 and 10.2 are code-identical apart from 8 bytes --
+	// version strings, one minor-version immediate, the PE checksum -- so every address
+	// here is valid for both and only the label was wrong. ENGINE_NOTES.md §27.)
 
 	const DWORD kTaPtrAddr            = 0x00511DE8u;
 
-	// TAdynmemStruct field offsets (verified in HeightMap_GetCell @0x00481550 and
-	// Unit_ClaimFootprintCells @0x0047C790).
-	const DWORD kMapWidthOff          = 0x14233u;   // dword, cells
-	const DWORD kMapHeightOff         = 0x14237u;   // dword, cells
-	const DWORD kCellBaseOff          = 0x14287u;   // cell array base
-	const DWORD kUnitArrayBeginOff    = 0x14357u;
-	const DWORD kUnitArrayEndOff      = 0x1435Bu;
+	// Every struct offset this module needs is already named AND static_assert-guarded in
+	// tamem.h (see the "Layout guards" block there). Duplicating them as raw constants
+	// here would swap a compile-time guarantee for a comment -- and it is exactly what hid
+	// the off-map double-damage bug: UnitStruct::pSortBucket sits four fields from
+	// SizeFootZ, so reading the footprint through `unit + 0x7E` put the one field that
+	// answers "is this unit even on the map" out of sight. Typed access, not offsets.
+	//
+	// The one field tamem.h does not name is the transport back-pointer at UnitStruct+0x86
+	// (`mov eax,[esi+0x86]` @0x004867BA, the same field TransportedExplosions uses). It
+	// falls inside `data15`, so pin it to that rather than to a bare literal.
+	static_assert(offsetof(UnitStruct, data15) == 0x86,
+		"UnitStruct+0x86 BeingTransportedByUnit_p (unnamed in tamem.h, lives in data15)");
 
-	const DWORD kCellStride           = 13u;
-	const DWORD kUnitStride           = 0x118u;
-
-	// UnitStruct field offsets. UnitInGameIndex / UnitSelected are asserted against
-	// tamem.h below; the rest are raw because tamem.h does not name them.
-	const DWORD kUnitCellXOff         = 0x76u;   // int16 -- movsx @0x0047C7CD
-	const DWORD kUnitCellZOff         = 0x78u;   // int16 -- movsx @0x0047C7C9
-	const DWORD kUnitFootprintOff     = 0x7Eu;   // packed dword: lo int16 = W, hi = H
-	                                             //   read @0x0047C7AC, split @0x0047C7E7
-	                                             //   (movsx ebx,di = W) and @0x0047C7DA
-	                                             //   (movsx ecx,[esp+0x16] = H)
-	const DWORD kBeingTransportedOff  = 0x86u;   // UnitStruct* carrier, NULL if not cargo
-	                                             //   -- same field TransportedExplosions
-	                                             //   uses (mov eax,[esi+0x86] @0x004867BA)
+	inline UnitStruct* CarrierOf(const UnitStruct* u)
+	{
+		return *reinterpret_cast<UnitStruct* const*>(&u->data15[0]);
+	}
 
 	// Patch sites.
 	const DWORD kSlotDispatchAddr     = 0x0049A214u;  // 29 bytes, .. 0x0049A230
@@ -48,9 +47,19 @@ namespace
 	const DWORD kLoopBoundAddr        = 0x0049A41Au;  // 83 F8 01  ->  cmp eax, N-1
 	const DWORD kLoopBoundImmAddr     = 0x0049A41Cu;  // the immediate byte itself
 	const DWORD kAreaDamageFn         = 0x0049A120u;  // Weapon_ApplyAreaDamageAndBroadcast
-	const DWORD kAreaDamageCallA      = 0x0049A0A9u;  // both call sites, byte-pattern
-	const DWORD kAreaDamageCallB      = 0x0049A109u;  //   xref verified: exactly 2
-	const DWORD kGameTimeOff          = 0x38A47u;     // same field air_stack_test_helper.lua's tick() reads
+	// Both call sites, byte-pattern and xref verified: AreaOfEffectDamage has exactly two
+	// callers, Weapon_DetonateOrImpact+0x1F9 and Weapon_ApplyBurnWeaponAtPos+0x49.
+	//
+	// ORDERING DEPENDENCY -- ZeroDamageMapWeapons (ddraw.cpp:248) installs an
+	// InlineSingleHook at 0x0049A0A7 length 7, a region that CONTAINS kAreaDamageCallA.
+	// It works today only because ddraw.cpp installs this module first (line 228), so that
+	// hook copies an already-patched `call AreaDamageWrapper` into its trampoline and
+	// InlineHook.cpp's X86RedirectOpcodeToNewBase relocates the rel32. If those two
+	// Install() calls are ever reordered, this module's signature check at kAreaDamageCallA
+	// sees ZeroDamageMapWeapons' E9 displacement and disables itself -- safe, but silent.
+	// Do not reorder them without reading both modules.
+	const DWORD kAreaDamageCallA      = 0x0049A0A9u;
+	const DWORD kAreaDamageCallB      = 0x0049A109u;
 
 	// ------------------------------------------------------------ original bytes ---
 	// Byte-signature validation. If any of these do not match, the binary is not the
@@ -80,15 +89,21 @@ namespace
 
 	// ------------------------------------------------------------------- tuning ---
 
-	// Extra airborne occupants tracked per cell, on top of vanilla's two slots.
+	// Airborne occupants tracked per cell in the DLL-side index.
 	// Total per-cell loop iterations N = 2 + kOverflowSlots.
 	//
-	// Capacity vs memory: the index costs (4 + 2*kOverflowSlots) bytes per map cell.
-	// At 6 slots that is 16 bytes/cell -- 4.8 MB on a 418x712 map, 16 MB on 1024x1024.
-	// Six covers six airborne units genuinely sharing one cell; the reported incident
-	// was three. Units beyond that on a single cell remain unreachable, which is a
-	// known, measured residual -- see g_saturationEvents below, which counts it so the
-	// question stays a measurement rather than a guess.
+	// CAPACITY, precisely -- this is NOT "6 on top of vanilla's 2". IndexUnit inserts
+	// EVERY airborne unit on a cell unconditionally, including the one that already holds
+	// vanilla's native air slot; the per-explosion dedup collapses that repeat downstream,
+	// not at insert time. So k aircraft on one cell consume k of the kOverflowSlots
+	// entries, and the reachable total is 6 aircraft per cell -- occasionally 7, when the
+	// unit that lost the index race happens to be the one holding vanilla's slot B and so
+	// arrives through selector 1 anyway. Aircraft beyond that are still unreachable: a
+	// known residual, counted at runtime by g_saturationEvents below so the question stays
+	// a measurement rather than a guess. Raising the ceiling costs 2 bytes/cell.
+	//
+	// Memory: the index costs (4 + 2*kOverflowSlots) bytes per map cell. At 6 slots that
+	// is 16 bytes/cell -- 4.8 MB on a 418x712 map, 16 MB on 1024x1024.
 	const int kOverflowSlots = 6;
 
 	// Vanilla's two cell slots plus the overflow slots. Patched into the loop bound at
@@ -120,7 +135,7 @@ namespace
 	int            g_indexCellCount   = 0;
 	int            g_indexWidth       = 0;
 	int            g_indexHeight      = 0;
-	const BYTE*    g_indexCellBase    = NULL;    // engine cell base the index was built for
+	const FeatureStruct* g_indexCellBase = NULL; // engine cell base the index was built for
 	unsigned int   g_stamp            = 0;       // bumped per rebuild; 0 is never valid
 
 	// Per-explosion victim dedup, keyed by UnitInGameIndex. A generation counter
@@ -137,6 +152,10 @@ namespace
 	int            g_lastGameTime     = -1;
 	int            g_airUnitsLastTick = 0;
 
+	// The game tick the index was last rebuilt for. NOT the same as g_lastGameTime,
+	// which only exists to spot a new game (gameTime going backwards). See OnGameTick.
+	int            g_indexBuiltForTick = -1;
+
 	BYTE           g_savedSlotDispatch[sizeof(kSlotDispatchBytes)];
 	BYTE           g_savedLoopBound[sizeof(kLoopBoundBytes)];
 	BYTE           g_savedCallA[sizeof(kCallABytes)];
@@ -144,14 +163,9 @@ namespace
 
 	// ------------------------------------------------------------------ helpers ---
 
-	inline BYTE* TaPtr()
+	inline TAdynmemStruct* Ta()
 	{
-		return *reinterpret_cast<BYTE**>(kTaPtrAddr);
-	}
-
-	inline int ReadTaInt(BYTE* ta, DWORD off)
-	{
-		return *reinterpret_cast<int*>(ta + off);
+		return *reinterpret_cast<TAdynmemStruct**>(kTaPtrAddr);
 	}
 
 	bool WriteCode(DWORD address, const void* data, size_t length)
@@ -182,7 +196,6 @@ namespace
 		return false;
 	}
 
-
 	// ------------------------------------------------------- the occupant provider ---
 	//
 	// Replaces vanilla's two-slot dispatch. Called once per (cell, slot selector).
@@ -195,7 +208,7 @@ namespace
 	// new control flow is introduced. Every returned unit is marked against the current
 	// explosion generation, so no unit is ever returned twice for one blast.
 
-	unsigned int __stdcall GetOccupantIndex(int slot, const BYTE* cell)
+	unsigned int __stdcall GetOccupantIndex(int slot, const FeatureStruct* cell)
 	{
 		// Vanilla already NULL-checks the cell at 0x0049A206, but a new consumer of
 		// HeightMap_GetCell's NULL return is the single most reachable crash this
@@ -207,14 +220,22 @@ namespace
 
 		if (slot == 0)
 		{
-			index = *reinterpret_cast<const unsigned short*>(cell + 0);
+			index = cell->occupyingUnitNumber;      // vanilla slot A, cell+0x00
 		}
 		else if (slot == 1)
 		{
-			index = *reinterpret_cast<const unsigned short*>(cell + 2);
+			index = cell->airborneUnitNumber;       // vanilla slot B, cell+0x02
 		}
 		else
 		{
+			// Cheapest, most selective test first. The widened loop bound means slots
+			// 2..N-1 run on EVERY tile of EVERY explosion in the game; with nothing
+			// airborne the index is never written, so without this the module would pay
+			// a guaranteed cold miss into a multi-megabyte array precisely when it has
+			// nothing to say. One compare instead.
+			if (g_airUnitsLastTick == 0)
+				return 0;
+
 			const int k = slot - 2;
 			if (!g_index || k < 0 || k >= kOverflowSlots)
 				return 0;
@@ -222,16 +243,12 @@ namespace
 			// The index is addressed by cell ordinal, so it is only meaningful if the
 			// engine's cell array is still the one we indexed against. A map change
 			// between rebuild and use would otherwise read the wrong cell entirely.
-			BYTE* ta = TaPtr();
-			if (!ta || reinterpret_cast<const BYTE*>(
-					*reinterpret_cast<BYTE**>(ta + kCellBaseOff)) != g_indexCellBase)
+			const TAdynmemStruct* ta = Ta();
+			if (!ta || ta->FeatureMap != g_indexCellBase)
 				return 0;
 
-			const ptrdiff_t byteOffset = cell - g_indexCellBase;
-			if (byteOffset < 0)
-				return 0;
-			const ptrdiff_t cellOrdinal = byteOffset / kCellStride;
-			if (cellOrdinal >= g_indexCellCount)
+			const ptrdiff_t cellOrdinal = cell - g_indexCellBase;
+			if (cellOrdinal < 0 || cellOrdinal >= g_indexCellCount)
 				return 0;
 
 			const OverflowCell& oc = g_index[cellOrdinal];
@@ -244,14 +261,29 @@ namespace
 		if (index == 0)
 			return 0;
 
-
 		// Per-explosion dedup. Bounds-checked against the LIVE unit array size, which
 		// was measured at 10000 slots -- not the 4096 an earlier note assumed. An
 		// unchecked index here would be an out-of-bounds write on every large game.
-		if (static_cast<int>(index) >= g_hitGenCount || !g_hitGen)
+		if (!g_hitGen || static_cast<int>(index) >= g_hitGenCount)
 			return 0;
 
-		if (g_hitGen[index] == g_currentGen)
+		// Generation 0 means "no explosion bracket is active", which can only happen if
+		// AreaDamageWrapper was bypassed while the provider and the widened loop bound
+		// stayed installed. g_hitGen is zero-filled, so dedupping against 0 would suppress
+		// EVERY victim on first sight -- splash silently vanishing instead of degrading to
+		// vanilla. Fail open: hand the victim back undedupped.
+		if (g_currentGen == 0)
+			return index;
+
+		// `>=`, not `==`. A nested explosion (an outer blast killing a unit whose death
+		// explosion detonates before the outer call returns) runs at a HIGHER generation,
+		// so a victim it marked would compare unequal to the outer generation and take the
+		// outer blast a second time. Not reachable on this binary -- the damage path
+		// (Weapon_ApplyScaledDamageToTarget -> Unit_ApplyDamageAndBroadcast ->
+		// Unit_ApplyNetDamagePacket) has no route back to AreaOfEffectDamage, so death is
+		// deferred to the unit tick -- but `>=` closes it for free without depending on
+		// that staying true.
+		if (g_hitGen[index] >= g_currentGen)
 		{
 #if AREA_DAMAGE_OVERFLOW_FIX_DEDUP_CAP
 			return 0;
@@ -263,12 +295,13 @@ namespace
 				return 0;
 #endif
 		}
-		g_hitGen[index] = g_currentGen;
-
+		else
+		{
+			g_hitGen[index] = g_currentGen;
+		}
 
 		return index;
 	}
-
 
 	// ------------------------------------------------------------- the tick rebuild ---
 
@@ -283,7 +316,7 @@ namespace
 		g_stamp = 0;
 	}
 
-	bool EnsureIndex(BYTE* ta, int width, int height, const BYTE* cellBase)
+	bool EnsureIndex(int width, int height, const FeatureStruct* cellBase)
 	{
 		if (g_index && g_indexWidth == width && g_indexHeight == height
 			&& g_indexCellBase == cellBase)
@@ -322,14 +355,14 @@ namespace
 		return true;
 	}
 
-	bool EnsureHitGen(BYTE* ta)
+	bool EnsureHitGen(const TAdynmemStruct* ta)
 	{
-		BYTE* begin = *reinterpret_cast<BYTE**>(ta + kUnitArrayBeginOff);
-		BYTE* end   = *reinterpret_cast<BYTE**>(ta + kUnitArrayEndOff);
+		const UnitStruct* begin = ta->BeginUnitsArray_p;
+		const UnitStruct* end   = ta->EndOfUnitsArray_p;
 		if (!begin || !end || end <= begin)
 			return false;
 
-		const int count = static_cast<int>((end - begin) / kUnitStride);
+		const int count = static_cast<int>(end - begin);
 		if (count <= 0)
 			return false;
 
@@ -355,22 +388,21 @@ namespace
 
 	// Insert one airborne unit into every cell of its claimed footprint rect.
 	//
-	// The rect is taken from Unit+0x76 / Unit+0x78 (anchor) and Unit+0x7E (packed
-	// width/height) -- the exact fields Unit_ClaimFootprintCells reads, so the index
-	// covers precisely the cells vanilla itself claims, rather than a rect re-derived
-	// from UnitDef footprint or world position which could disagree at the margins.
+	// The rect is XGridPos/YGridPos (anchor) plus SizeFootX/SizeFootZ -- the exact fields
+	// the engine's own claim loops read, so the index covers precisely the cells vanilla
+	// itself claims, rather than a rect re-derived from UnitDef footprint or world
+	// position which could disagree at the margins.
 	//
 	// Unlike vanilla's claim loop, this CLAMPS to the map. Vanilla walks fw*fh cells
 	// with raw pointer arithmetic and no bounds check; clamping can only ever index
 	// fewer cells than vanilla claims, never more, so the victim set stays a superset
 	// of today's without ever writing outside the index.
-	void IndexUnit(const BYTE* unit, unsigned short unitIndex, int width, int height)
+	void IndexUnit(const UnitStruct* unit, unsigned short unitIndex, int width, int height)
 	{
-		const int anchorX = *reinterpret_cast<const short*>(unit + kUnitCellXOff);
-		const int anchorZ = *reinterpret_cast<const short*>(unit + kUnitCellZOff);
-		const DWORD packed = *reinterpret_cast<const DWORD*>(unit + kUnitFootprintOff);
-		const int footW = static_cast<short>(packed & 0xFFFF);
-		const int footH = static_cast<short>((packed >> 16) & 0xFFFF);
+		const int anchorX = unit->XGridPos;
+		const int anchorZ = unit->YGridPos;
+		const int footW   = unit->SizeFootX;
+		const int footH   = unit->SizeFootZ;
 
 		if (footW <= 0 || footH <= 0)
 			return;
@@ -407,7 +439,9 @@ namespace
 						break;      // already present, nothing to do
 				}
 				if (i == kOverflowSlots)
+				{
 					++g_saturationEvents;
+				}
 			}
 		}
 	}
@@ -417,7 +451,7 @@ namespace
 		if (!g_active)
 			return;
 
-		BYTE* ta = TaPtr();
+		TAdynmemStruct* ta = Ta();
 		if (!ta)
 			return;
 
@@ -426,21 +460,59 @@ namespace
 		{
 			g_saturationEvents = 0;
 			g_lastReportedSat = 0;
+			g_indexBuiltForTick = -1;
 			FreeIndex();
 		}
 		g_lastGameTime = gameTime;
 
-		const int width  = ReadTaInt(ta, kMapWidthOff);
-		const int height = ReadTaInt(ta, kMapHeightOff);
-		const BYTE* cellBase = *reinterpret_cast<BYTE**>(ta + kCellBaseOff);
+		// GameTickHook does NOT fire once per game tick. It is an InlineSingleHook at
+		// 0x004969CB, inside Game_MainLoopTick -- the main loop, which iterates faster
+		// than the simulation advances. Measured live 2026-08-27 at roughly 9x-15x per
+		// tick, and the multiplier varies with frame rate.
+		//
+		// Evidence, from the A3 session log: 7 airborne CORMUATs (FootprintX/Z = 5, read
+		// from unitse\cormuat.fbi, the only copy across all mounted archives) share a
+		// 5x5 = 25 cell block. With 6 overflow slots exactly ONE unit can fail to insert
+		// per cell, so the ceiling is 25 saturation events per rebuild. The log recorded
+		// a steady 225/tick early and ~374/tick later -- 9x and 15x the ceiling.
+		//
+		// Without this guard the entire index is rebuilt on every one of those calls:
+		// the whole 10000-slot unit array walked and every airborne footprint re-stamped,
+		// 9-15 times per tick instead of once. That is pure waste, it multiplies the
+		// module's measured per-tick cost by the same factor, and it inflates
+		// g_saturationEvents by that factor so the diagnostic cannot be read as an
+		// absolute count.
+		//
+		// Skipping is safe, not merely cheap: `[bin]` VERIFIED that GameTime is written
+		// only by Game_RunSimulationStep @0x00495490 (the write is at 0x004954C0), and
+		// that Game_RunSimulationStep is the ONLY route from Game_MainLoopTick to
+		// UnitMotion_Tick -> UnitMotion_ApplyDeltaAndRelink, which is where XGridPos /
+		// YGridPos change. So if gameTime has not advanced the simulation has not
+		// stepped, no unit has moved, and a rebuild would reproduce the identical index
+		// byte for byte. (Caveat on the provenance of that claim: the reachability walk
+		// covered direct E8 call edges to depth 7; indirect vtable dispatch was not
+		// enumerated, and this engine does use it -- SpatialQueryCb_ClaimFootprint is
+		// reached through vftable 0x004FD660. That particular callback is itself invoked
+		// from inside the simulation step, but the general limitation stands.)
+		if (gameTime == g_indexBuiltForTick && g_index != NULL)
+			return;
+
+		const int width  = ta->FeatureMapSizeX;
+		const int height = ta->FeatureMapSizeY;
+		const FeatureStruct* cellBase = ta->FeatureMap;
 		if (width <= 0 || height <= 0 || !cellBase)
 			return;                       // not in a game yet
 
 		if (!EnsureHitGen(ta))
 			return;
-		if (!EnsureIndex(ta, width, height, cellBase))
+		if (!EnsureIndex(width, height, cellBase))
+		{
+			// No index means no overflow slots. Zeroing this makes the provider's first
+			// test reject every slot >= 2 call immediately, so the widened loop bound
+			// costs a compare per (tile, slot) instead of walking into the null checks.
+			g_airUnitsLastTick = 0;
 			return;
-
+		}
 
 		// Bump the stamp. Every cell whose stamp does not match is treated as empty,
 		// which is what makes "rebuild from scratch" free -- no 5 MB memset per tick.
@@ -448,33 +520,49 @@ namespace
 		if (++g_stamp == 0)
 			++g_stamp;
 
-		BYTE* begin = *reinterpret_cast<BYTE**>(ta + kUnitArrayBeginOff);
-		BYTE* end   = *reinterpret_cast<BYTE**>(ta + kUnitArrayEndOff);
+		UnitStruct* begin = ta->BeginUnitsArray_p;
+		UnitStruct* end   = ta->EndOfUnitsArray_p;
 		if (!begin || !end || end <= begin)
 			return;
 
 		int airUnits = 0;
-		for (BYTE* unit = begin; unit < end; unit += kUnitStride)
+		for (UnitStruct* unit = begin; unit < end; ++unit)
 		{
 			// Skip empty pool slots. The unit array is a fixed pool (measured: 10000
 			// slots) and the overwhelming majority are unused at any moment, marked by
 			// a null UnitType.
-			if (!*reinterpret_cast<void**>(unit + offsetof(UnitStruct, UnitType)))
+			if (!unit->UnitType)
 				continue;
 
-			const DWORD mask = *reinterpret_cast<DWORD*>(
-				unit + offsetof(UnitStruct, UnitSelected));
-			if ((mask & kStateMaskLayerBits) != kStateMaskAirborne)
+			if ((unit->UnitSelected & kStateMaskLayerBits) != kStateMaskAirborne)
 				continue;
 
 			// Cargo is not on the map. Without this, every Roach riding inside a
 			// transport would start taking splash it has never taken, which would be a
 			// large and entirely unintended nerf to transports.
-			if (*reinterpret_cast<void**>(unit + kBeingTransportedOff))
+			if (CarrierOf(unit))
 				continue;
 
-			const unsigned short unitIndex = *reinterpret_cast<unsigned short*>(
-				unit + offsetof(UnitStruct, UnitInGameIndex));
+			// Off-map units are not on the map either, and this one is load-bearing.
+			// Unit_LinkToSpatialGrid @0x0047CC30 refuses to stamp a unit whose footprint
+			// is not wholly inside the map -- `X < 0 || Z < 0 || X + SizeFootX >= TilesWidth
+			// || Z + SizeFootZ >= TilesHeight` (0x0047CC57..0x0047CCA3) -- and parks it in
+			// OffMapBucket_p instead. Note the `>=`: that catches the ENTIRE last tile row
+			// and column, not just genuinely off-map units.
+			//
+			// OffMapAircraft.cpp already damages everything in that bucket from its own
+			// AreaOfEffectDamage hook, and its comment says its victim set and the engine's
+			// are disjoint "because the engine's tile scan is clamped to the map". That was
+			// true while the only victim source was the engine's own stamps. It is NOT true
+			// of this index, which is built from unit coordinates and CLAMPS rather than
+			// skips -- so without this line every aircraft on the map's last row or column
+			// would take splash twice, once from each module. Escalation runs both
+			// (OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES 32, AREA_DAMAGE_OVERFLOW_ENABLE 1).
+			if (ta->OffMapBucket_p && unit->pSortBucket == ta->OffMapBucket_p)
+				continue;
+
+			const unsigned short unitIndex =
+				static_cast<unsigned short>(unit->UnitInGameIndex);
 			if (unitIndex == 0 || static_cast<int>(unitIndex) >= g_hitGenCount)
 				continue;   // 0 is the grid's "empty" sentinel and cannot be indexed
 
@@ -483,7 +571,7 @@ namespace
 		}
 		g_airUnitsLastTick = airUnits;
 
-
+		g_indexBuiltForTick = gameTime;   // see the multi-fire guard above
 
 		// Report overflow saturation the first time it happens and then only when it
 		// grows by an order of magnitude, so the log records that the residual limit
@@ -517,10 +605,7 @@ namespace
 		if (g_currentGen == 0)                 // wrapped; 0 collides with a fresh table
 			g_currentGen = ++g_genCounter;
 
-
-
 		reinterpret_cast<AreaDamageFn>(kAreaDamageFn)(a, b);
-
 
 		g_currentGen = saved;
 	}
@@ -647,11 +732,32 @@ namespace AreaDamageOverflow
 		{
 			WriteCode(kSlotDispatchAddr, g_savedSlotDispatch, sizeof(g_savedSlotDispatch));
 			WriteCode(kLoopBoundAddr, g_savedLoopBound, sizeof(g_savedLoopBound));
-			WriteCode(kAreaDamageCallA, g_savedCallA, sizeof(g_savedCallA));
+
+			// kAreaDamageCallA sits INSIDE the 7-byte region ZeroDamageMapWeapons hooks
+			// (0x0049A0A7). Today Shutdown() only runs from Install()'s own failure paths,
+			// which execute before that hook is installed, so the bytes there are still
+			// ours. If that ever stops being true, restoring blind would write 5 bytes
+			// into the middle of somebody else's E9 rel32. Restore only what we still own.
+			if (std::memcmp(reinterpret_cast<const void*>(kAreaDamageCallA),
+					g_savedCallA, sizeof(g_savedCallA)) != 0
+				&& *reinterpret_cast<const BYTE*>(kAreaDamageCallA) == 0xE8)
+			{
+				WriteCode(kAreaDamageCallA, g_savedCallA, sizeof(g_savedCallA));
+			}
+			else if (*reinterpret_cast<const BYTE*>(kAreaDamageCallA) != 0xE8)
+			{
+				IDDrawSurface::OutptFmtTxt(
+					"[AreaDamageOverflow] NOT restoring 0x%08X: another module owns those "
+					"bytes now (first byte 0x%02X, expected 0xE8)",
+					kAreaDamageCallA,
+					*reinterpret_cast<const BYTE*>(kAreaDamageCallA));
+			}
+
 			WriteCode(kAreaDamageCallB, g_savedCallB, sizeof(g_savedCallB));
 			g_savedValid = false;
 		}
 		g_active = false;
+		g_airUnitsLastTick = 0;
 
 		FreeIndex();
 		delete[] g_hitGen;

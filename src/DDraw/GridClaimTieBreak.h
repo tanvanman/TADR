@@ -10,8 +10,8 @@
 // independently -- see the scope warning at the bottom.
 //
 // THE BUG (`[bin]` VERIFIED):
-//   When a unit claims a map cell that is already occupied, Unit_ClaimFootprintCells
-//   @0x0047C790 decides whether to evict the incumbent with:
+//   When a unit claims a map cell that is already occupied, the engine decides whether
+//   to evict the incumbent with:
 //
 //       mov edx, [ecx+0x96]           ; incumbent's owning PlayerStruct
 //       cmp dword ptr [edx], 0        ; PlayerActive?
@@ -54,10 +54,49 @@
 //   re-claims a cell it already owns compares equal to itself, does not take the EVICT
 //   branch, and therefore behaves exactly as vanilla does today in that case.
 //
-//   Applied at all THREE structurally identical sites in Unit_ClaimFootprintCells:
-//     0x0047C847  yardmap / building path
-//     0x0047C950  slot A (ground layer)
-//     0x0047CA2C  slot B (air layer)
+//   Applied at all SIX structurally identical sites. There are two functions, not one,
+//   and the distinction is load-bearing -- this module patched only the first three
+//   until 2026-08-27, which left the rule half-applied (see THE FUNCTION MAP below):
+//
+//     Unit_ClaimFootprintCells @0x0047C790 -- RE-CLAIM (ecx = incumbent, dx scratch)
+//       0x0047C847  yardmap / building path
+//       0x0047C950  slot A (ground layer)
+//       0x0047CA2C  slot B (air layer)
+//
+//     Unit_LinkToSpatialGrid   @0x0047CC30 -- STAMP    (eax = incumbent, cx scratch)
+//       0x0047CDCA  yardmap / building path
+//       0x0047CF00  slot A (ground layer)
+//       0x0047CFDA  slot B (air layer)
+//
+//   The second function needs a DIFFERENT encoding: edx there holds the live tile
+//   pointer (`mov [edx+2],ax` / `add edx,0xd`), so the scratch register must be cx,
+//   which both of its branch targets reload from `[eax+0x110]` and is therefore dead.
+//
+// THE FUNCTION MAP (`[bin]` VERIFIED 2026-08-27 -- xrefs read from TotalA.exe):
+//   Both functions carry the same 17-byte discriminator, but they run at different
+//   moments and only ONE of them is on the path a moving aircraft takes to stamp its
+//   new cell:
+//
+//     Unit_ClaimFootprintCells @0x0047C790
+//       Entry-gated on UnitStateMask bit 27 "I am displaced" (`shr ecx,0x1B / test cl,1`
+//       @0x0047C7A0). Callers: Unit_SetYardOpen @0x0047DAFD, and
+//       SpatialQueryCb_ClaimFootprint @0x0047ED35 (vftable 0x004FD660), which
+//       Unit_ClearFootprintFromMap invokes over a vacated rect -- but only when the
+//       departing unit held bit 26 "I own a cell" (`shr ecx,0x1A / test cl,1`
+//       @0x0047D29F). So this is "somebody left, displaced neighbours may re-claim".
+//
+//     Unit_LinkToSpatialGrid @0x0047CC30
+//       Not gated. Callers include UnitMotion_ApplyDeltaAndRelink @0x0043DA41, i.e.
+//       EVERY TICK A UNIT MOVES, immediately after Unit_ClearFootprintFromMap
+//       @0x0043DA0F. This is where a moving aircraft stamps itself into the air slot,
+//       and therefore where a hovering stack's contest is actually decided.
+//
+//   Bits 26 and 27 of UnitStruct+0x110 are the state this machinery runs on: the six
+//   sites SET them (winner gets 26, loser gets 27), Unit_ClearFootprintFromMap clears
+//   both, and the two `shr`/`test` reads above are their only consumers. They are read
+//   nowhere else in the binary -- which is why changing the tie-break cannot leak into
+//   any other system, but DOES change who triggers a re-claim sweep and who is eligible
+//   to answer one.
 //
 // SIDE BENEFIT: the incumbent's PlayerStruct is no longer dereferenced at all, so a unit
 // carrying a null or stale owner pointer can no longer fault here.
@@ -82,8 +121,11 @@
 
 namespace GridClaimTieBreak
 {
-    // Idempotent. Byte-signature validates all three sites and disables itself with a
-    // logged message rather than patching anything if any site does not match.
+    // Idempotent. Byte-signature validates all six sites and disables itself with a
+    // logged message rather than patching anything if any site does not match. All-or-
+    // nothing on purpose: a build with the stamp path patched and the re-claim path not
+    // (or vice versa) resolves the same contest by two different rules on alternating
+    // ticks, which is strictly worse than either rule applied consistently.
     void Install();
 
     // Restores the original bytes. Safe to call if Install() failed or did nothing.

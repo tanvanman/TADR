@@ -454,9 +454,23 @@ namespace
 	}
 
 	// AreaOfEffectDamage body. [EBP+8] = WeaponProjectile*, [EBP+0xC] = explosion point.
-	// The engine's tile scan is clamped to the map, so its victim set and the off-map bucket
-	// are disjoint -- no dedup needed. Adding a discovery source cannot make damage wrong:
-	// out-of-radius units are still rejected by the distance test below.
+	//
+	// DISJOINTNESS INVARIANT -- this pass and the engine's tile scan must never reach the
+	// same unit, because neither dedups against the other. It holds because a unit in
+	// OffMapBucket_p has no tile stamp at all: Unit_LinkToSpatialGrid's guard
+	// (0x0047CC57..0x0047CCA3) sends it to the bucket and stamps nothing.
+	//
+	// That used to be a property inherited from the engine. It is now something the tree
+	// has to ENFORCE, because AreaDamageOverflow adds a second victim source that does not
+	// come from the engine's stamps: it builds its own per-cell index from unit
+	// coordinates and CLAMPS the footprint rect into the map instead of rejecting it. An
+	// off-map unit straddling the border would therefore be indexed on real map cells and
+	// take splash from both modules. AreaDamageOverflow::OnGameTick skips
+	// `pSortBucket == OffMapBucket_p` for exactly this reason -- do not remove that check,
+	// and do not add a third victim source without re-checking this invariant.
+	//
+	// Beyond that, adding a discovery source cannot make damage wrong: out-of-radius units
+	// are still rejected by the distance test below.
 	int __stdcall AreaOfEffectProc(PInlineX86StackBuffer pBuf)
 	{
 		if (s_marginTiles <= 0) return 0;
