@@ -95,6 +95,21 @@ public:
 	// LastMsgTimeStamp in Tick() when the player's network traffic resumes.
 	void CancelTimeoutVote(unsigned targetDpid);
 
+	// A '.take' of targetDpid is under way: hold the row open, relabelled, and
+	// stop the resume heuristic, whose "traffic" is the take's own injected
+	// gives (they carry the TARGET's dpid as their source).
+	void NoteTakeInProgress(unsigned targetDpid, const std::string& takerName);
+
+	// The take finished: reject targetDpid here. Called on EVERY client from the
+	// taker's Complete broadcast, so the reject and all the dialogs resolve
+	// together rather than waiting out a vote or TA's 120 s timeout.
+	void ExecuteRejectAfterTake(unsigned targetDpid);
+
+	// True while the post-reject window in which allies may '.take' targetDpid
+	// is still open. Used by TakeClaim as the "TA is about to destroy these
+	// units" precondition, which is what a take actually depends on.
+	bool IsTakeWindowOpen(unsigned targetDpid) const;
+
 	// VoteDialog integration: cast a local yes/no vote.
 	void CastLocalYesVote(unsigned targetDpid);
 	void CastLocalNoVote(unsigned targetDpid);
@@ -160,6 +175,8 @@ private:
 		                                   // (timeout votes only: advance = network resumed)
 		HudLineId hudLineId;               // token for the live HUD status line
 		bool votingClosed;                 // timeout vote: NO-majority reached, auto-reject still pending
+		bool takeInProgress = false;       // an ally is taking this player's base
+		std::string takerName;             // who; for the status line
 	};
 
 	// Timeout reject completed -- allies may now issue .take.
@@ -201,6 +218,12 @@ private:
 
 	std::map<unsigned, VoteState>              m_votes;                   // keyed by targetDpid
 	std::map<unsigned, DWORD>                  m_cooldownExpiry;          // targetDpid -> cooldown end
+	// Threshold checks queued by OnReceive and run on the game tick. Executing a
+	// reject means Send_PacketPlayerState_1B, and OnReceive runs inside TA's chat
+	// dispatch (PacketChatRouter's hook at 0x0045522e) - sending from there
+	// re-enters the network stack and refills PACKET_DATA while TA is still
+	// holding a pointer into it. See TakeClaim.cpp for the junk-chat symptom.
+	std::vector<unsigned>                      m_pendingThresholdChecks;
 	std::map<unsigned, CompletedTimeoutReject> m_completedTimeoutRejects; // targetDpid -> take window
 	std::vector<TransientNotice>               m_transientNotices;
 

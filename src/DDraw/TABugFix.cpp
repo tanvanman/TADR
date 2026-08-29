@@ -1782,6 +1782,102 @@ int __stdcall NullLpszPasswordInUpdateGameInfoProc(PInlineX86StackBuffer X)
 	return 0;
 }
 
+
+// ---------------------------------------------------------------------------
+// MultiplayerPlayerLost @ 0x00450380 reads one slot PAST the end of Player_Ary.
+//
+// It looks the dying player up by DirectPlayID twice. The first result is
+// guarded (index 10 -> NULL); the second is not:
+//
+//   0045046e  MOV byte ptr [ESP+0xc],0xa       ; not found -> index = 10
+//   00450488  LEA ESI,[EDX + ECX*2 + 0x1b63]   ; Player_Ary + 10*0x14B
+//   0045048f  TEST ESI,ESI                     ; only catches NULL - never true
+//   004504a9  LEA EAX,[ESI + 0x2b]             ; ->Name, out of bounds
+//   004504b7  CALL sprintf                     ; "%s %s", garbage name, phrase
+//   004504bc  MOV DL,byte ptr [ESI + 0x146]    ; ->colour index, also garbage
+//
+// So when the owner is already out of the table it announces a departure with a
+// name and colour read from whatever follows the array - which is dplayIds, and
+// prints as a junk chat line right after "X has been eliminated".
+//
+// Reachable whenever the player is removed before their last unit deaths are
+// dispatched. '.take' now rejects on transfer completion, which makes that the
+// normal case rather than a rarity.
+//
+// __stdcall, arg at [Esp+4] with the prologue not yet run; epilogue is RET 4.
+static unsigned int MultiplayerPlayerLostAddr = 0x00450380;
+
+__declspec(naked) void MultiplayerPlayerLostSuppressStub()
+{
+    __asm { ret 4 }
+}
+
+int __stdcall MultiplayerPlayerLostProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    const unsigned dpid = *(unsigned*)(X86StrackBuffer->Esp + 4);
+    TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+    if (ta)
+    {
+        // Same test TA uses: a slot with Controller 0 is not a player.
+        for (int i = 0; i < 10; ++i)
+            if (ta->Players[i].My_PlayerType != 0 &&
+                (unsigned)ta->Players[i].DirectPlayID == dpid)
+                return 0;                       // found: let TA announce it
+    }
+    IDDrawSurface::OutptFmtTxt(
+        "[TABugFix] suppressed MultiplayerPlayerLost for unknown dpid %08x"
+        " (would have read Player_Ary[10])", dpid);
+    X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)&MultiplayerPlayerLostSuppressStub;
+    return X86STRACKBUFFERCHANGE;
+}
+
+
+// ---------------------------------------------------------------------------
+// Guard: never let TA print a chat line from a packet that is not a chat packet.
+//
+// Packet_Dispatcher's chat branch prints from PACKET_DATA + 1. PACKET_DATA is a
+// fixed staging buffer refilled by getNextPacket(), so that is normally exactly
+// the chat subpacket being handled. It stops being true if anything refills the
+// buffer between the switch and the call at 0x00455250 - which is what happens
+// when one of our own packet handlers sends, re-entering TA's network stack. TA
+// then prints the packet that replaced ours, as text.
+//
+// The handlers no longer send (TakeClaim::OnClaimPacket, VoteReject::OnReceive),
+// so this should never fire. It logs when it does: that junk line was the only
+// symptom that led us to the re-entrancy, and silently swallowing the next one
+// would be worse than printing it.
+//
+// Tests the STRUCTURE, not the content - the residue is sometimes printable.
+static unsigned int NewChatTextGuardAddr = 0x00463ca0;
+
+// NewChatText is __stdcall with four args; skipping it means RET 0x10.
+__declspec(naked) void NewChatTextSuppressStub()
+{
+    __asm { ret 0x10 }
+}
+
+int __stdcall NewChatTextGuardProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    const DWORD* sp   = (const DWORD*)X86StrackBuffer->Esp;
+    const DWORD  ret  = sp[0];
+    const char*  text = (const char*)sp[1];
+
+    if (ret != 0x00455255)              // only TA's received-chat branch
+        return 0;
+
+    TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+    const unsigned char* base = ta ? (const unsigned char*)ta->PacketBuffer_p : 0;
+    if (!base || IsBadReadPtr(base, 1) ||
+        (const void*)text != (const void*)(base + 1) || base[0] == 0x05)
+        return 0;
+
+    IDDrawSurface::OutptFmtTxt(
+        "[TABugFix] suppressed chat printed from a non-chat packet (base code %02x)",
+        base[0]);
+    X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)&NewChatTextSuppressStub;
+    return X86STRACKBUFFERCHANGE;
+}
+
 TABugFixing::TABugFixing ()
 {
 
@@ -1866,6 +1962,11 @@ TABugFixing::TABugFixing ()
 	}
 
     SavePlayerColor.reset(new InlineSingleHook(SavePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, SavePlayerColorProc));
+    // 6 bytes: the whole MOV EDX,[0x00511de8] - a 5-byte cut would split it.
+    MultiplayerPlayerLostGuard.reset(new InlineSingleHook(MultiplayerPlayerLostAddr, 6, INLINE_5BYTESLAGGERJMP, MultiplayerPlayerLostProc));
+    // 6 bytes: PUSH EBP / PUSH ESI / MOV ESI,[ESP+0xc]
+    // 6 bytes: PUSH EBP / PUSH ESI / MOV ESI,[ESP+0xc]
+    NewChatTextGuard.reset(new InlineSingleHook(NewChatTextGuardAddr, 6, INLINE_5BYTESLAGGERJMP, NewChatTextGuardProc));
     RestorePlayerColor.reset(new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc));
 	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
 	ResourceStripHeightFix.reset(new InlineSingleHook(ResourceStripHeightFixAddr, 5, INLINE_5BYTESLAGGERJMP, ResourceStripHeightFixProc));

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <cstddef>
 
 // Anti-share-abuse guard (Escalation).
 //
@@ -42,12 +43,10 @@
 //     whose client is no longer dispatching deaths. For a live player the same
 //     state exists only for the sub-second before their death packet arrives.
 //
-//     Enforced at _ShowText (0x00463E50), the single choke point for OUTGOING
-//     chat — every route to '.take' converges there (typed chat via
-//     TALK_OnCommand, TA's timeout dialog, and tdraw's own VoteDialog button).
-//     eplayx is an IDirectPlay shim sitting BELOW TA's HAPI layer, so it only
-//     sees the command once BroadcastText has sent it; suppressing that call
-//     stops OnTake ever running, on every client including the issuer's own.
+//     Asked by TakeClaim, which owns the _ShowText hook and '.take' policy.
+//     The command names its target now, so this applies to the player actually
+//     being claimed; it used to run with no target available and refuse if ANY
+//     player in the game had a destroyed commander.
 
 namespace ShareGuard {
 
@@ -59,6 +58,10 @@ void Shutdown();
 // death (TAdynmemStruct+0x37EF6). With the option off, a destroyed commander
 // eliminates nobody and rule 2 is meaningless.
 bool IsComEndsGame();
+
+// Rule 2, for one named target. True to refuse, filling reason[] with a
+// player-facing explanation.
+bool RefusesTake(unsigned targetDpid, char* reason, size_t reasonSize);
 
 // ---- call-outs from CUnitRotate's UNITS_GiveUnit hook ----------------------
 // That address is already hooked by CUnitRotate and hook.h allows exactly one

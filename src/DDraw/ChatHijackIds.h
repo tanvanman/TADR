@@ -18,6 +18,8 @@ namespace ChatHijackId {
     constexpr unsigned char VoteReject        = 0x2c;  // VoteReject.cpp
     constexpr unsigned char TenPlayerReplayToggle = 0x2d;  // replayer funnel on/off
     constexpr unsigned char WeaponFiredExt        = 0x2e;  // WeaponFiredExt.cpp
+    // 0x2f is spoken for by the parked UnitEstate work; check before reusing.
+    constexpr unsigned char TakeClaim             = 0x30;  // TakeClaim.cpp
 
     // ---- 0x40..0x5F : reserved for gameplay extensions ---------------------
     // ---- 0x60..0x7F : UI / HUD notifications -------------------------------

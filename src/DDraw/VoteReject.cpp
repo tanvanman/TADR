@@ -434,8 +434,8 @@ void VoteReject::OnReceive(unsigned fromDpid, const VoteRejectMessage& msg)
 		}
 		if (g_VoteDialog) g_VoteDialog->Refresh();
 
-		// Check immediately in case threshold is already met (2-player game)
-		CheckAndExecuteReject(msg.targetDpid);
+		// Queue, never execute here: OnReceive runs inside TA's chat dispatch.
+		m_pendingThresholdChecks.push_back(msg.targetDpid);
 	}
 	else if (msg.command == VoteRejectCommand::CastVote)
 	{
@@ -454,7 +454,7 @@ void VoteReject::OnReceive(unsigned fromDpid, const VoteRejectMessage& msg)
 		IDDrawSurface::OutptFmtTxt("[VoteReject] CastVote from dpid=%u for reject of dpid=%u (%d yes)",
 			fromDpid, msg.targetDpid, (int)voters.size());
 
-		CheckAndExecuteReject(msg.targetDpid);
+		m_pendingThresholdChecks.push_back(msg.targetDpid);
 		RefreshVoteLine(msg.targetDpid);
 	}
 	else if (msg.command == VoteRejectCommand::CastNoVote)
@@ -474,7 +474,7 @@ void VoteReject::OnReceive(unsigned fromDpid, const VoteRejectMessage& msg)
 		IDDrawSurface::OutptFmtTxt("[VoteReject] CastNoVote from dpid=%u for reject of dpid=%u (%d no)",
 			fromDpid, msg.targetDpid, (int)noVoters.size());
 
-		CheckAndExecuteReject(msg.targetDpid);
+		m_pendingThresholdChecks.push_back(msg.targetDpid);
 		RefreshVoteLine(msg.targetDpid);
 	}
 }
@@ -760,6 +760,15 @@ void VoteReject::Tick()
 		}
 	}
 
+	// Threshold checks deferred out of the packet handler (see the header).
+	if (!m_pendingThresholdChecks.empty())
+	{
+		std::vector<unsigned> due;
+		due.swap(m_pendingThresholdChecks);
+		for (size_t i = 0; i < due.size(); ++i)
+			CheckAndExecuteReject(due[i]);
+	}
+
 	// Expire timed-out votes
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	for (auto it = m_votes.begin(); it != m_votes.end(); ) {
@@ -779,8 +788,10 @@ void VoteReject::Tick()
 				if (g_VoteDialog) g_VoteDialog->Refresh();
 				continue;
 			}
+			// A take in flight injects gives carrying the TARGET's dpid, so the
+			// target looks alive again. That traffic is ours, not theirs.
 			int currentTs = taPtr->Players[it->second.targetSlot].LastMsgTimeStamp;
-			if (currentTs != it->second.lastMsgTimeStampAtProposal) {
+			if (!it->second.takeInProgress && currentTs != it->second.lastMsgTimeStampAtProposal) {
 				IDDrawSurface::OutptFmtTxt("[VoteReject] network resumed for dpid=%u, cancelling timeout vote",
 					it->first);
 				HudNotifications::GetInstance()->RemoveLine(it->second.hudLineId);
@@ -854,6 +865,47 @@ void VoteReject::Tick()
 // CancelTimeoutVote: cancel an active timeout vote without executing the reject.
 //   Network resumption is detected automatically via LastMsgTimeStamp in Tick().
 // -----------------------------------------------------------------------
+// True while the completed-timeout-reject window for targetDpid is still open,
+// i.e. TA is about to destroy that player's units and an ally may claim them.
+bool VoteReject::IsTakeWindowOpen(unsigned targetDpid) const
+{
+	return m_completedTimeoutRejects.find(targetDpid) != m_completedTimeoutRejects.end();
+}
+
+void VoteReject::NoteTakeInProgress(unsigned targetDpid, const std::string& takerName)
+{
+	auto it = m_votes.find(targetDpid);
+	if (it == m_votes.end())
+		return;
+	if (it->second.takeInProgress)
+		return;
+	it->second.takeInProgress = true;
+	it->second.takerName      = takerName;
+	IDDrawSurface::OutptFmtTxt("[VoteReject] take in progress for dpid=%u by %s; vote held open",
+		targetDpid, takerName.c_str());
+	RefreshVoteLine(targetDpid);
+	if (g_VoteDialog) g_VoteDialog->Refresh();
+}
+
+void VoteReject::ExecuteRejectAfterTake(unsigned targetDpid)
+{
+	// The vote may already be gone; the reject still has to happen.
+	std::string name;
+	auto it = m_votes.find(targetDpid);
+	if (it != m_votes.end())
+	{
+		name = it->second.targetName;
+		HudNotifications::GetInstance()->RemoveLine(it->second.hudLineId);
+		m_votes.erase(it);
+	}
+	if (name.empty())
+		name = GetPlayerName(targetDpid);
+
+	IDDrawSurface::OutptFmtTxt("[VoteReject] take complete for dpid=%u; executing reject", targetDpid);
+	ExecuteReject(targetDpid, 6, name);
+	if (g_VoteDialog) g_VoteDialog->Refresh();
+}
+
 void VoteReject::CancelTimeoutVote(unsigned targetDpid)
 {
 	auto it = m_votes.find(targetDpid);
@@ -872,6 +924,16 @@ void VoteReject::CancelTimeoutVote(unsigned targetDpid)
 // -----------------------------------------------------------------------
 std::string VoteReject::FormatVoteLine(unsigned targetDpid, const VoteState& state) const
 {
+	// Nothing left to vote on; just report until the taker's Complete arrives.
+	if (state.takeInProgress)
+	{
+		char line[256];
+		wsprintfA(line, "%s is taking %s's base...",
+			state.takerName.empty() ? "An ally" : state.takerName.c_str(),
+			state.targetName.c_str());
+		return line;
+	}
+
 	// Timeout vote where the NO majority closed voting — show countdown to auto-reject.
 	if (state.votingClosed)
 	{

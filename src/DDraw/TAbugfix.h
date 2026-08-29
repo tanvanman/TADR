@@ -31,6 +31,8 @@ private:
 	std::unique_ptr <SingleHook> LeaveUnitLoop;
 	std::unique_ptr <SingleHook> LeaveUnitLoop2;
 	std::unique_ptr <SingleHook> SavePlayerColor;
+	std::unique_ptr<InlineSingleHook> MultiplayerPlayerLostGuard;
+	std::unique_ptr<InlineSingleHook> NewChatTextGuard;
 	std::unique_ptr <SingleHook> RestorePlayerColor;
 	std::unique_ptr <SingleHook> DisplayModeMinHeight768Enum;
 	std::unique_ptr <SingleHook> DisplayModeMinHeight768Reg;

@@ -18,6 +18,13 @@
 #define SHARE_ABUSE_GUARD 0
 
 //
+// '.take' claim arbitration
+//
+// Per-target claims and a deterministic election replace dplayx's single global
+// TakeStatus latch; '.take' gains an explicit target.  See TakeClaim.h.
+#define TAKE_CLAIM_ENABLE 1
+
+//
 // Construction / AI behavior
 //
 #define FIXED_POSN_GUARDING_CONS_ENABLE 1

@@ -26,6 +26,7 @@ using namespace std;
 #include "GUIExpand.h"
 #include "StartPositions.h"
 #include "AutoTeam.h"
+#include "TakeClaim.h"
 #include "ChatBackdrop.h"
 #include "MultiplayerSchemaUnits.h"
 #include "UnitDefExtensions.h"
@@ -219,6 +220,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 			INLINE_5BYTESLAGGERJMP, AddtionInitAfterDDraw);
 
 		PacketChatRouter::GetInstance();
+		TakeClaim::Install();          // owns the _ShowText hook; ShareGuard rides it
 		AlliedBuildQueueSync::Install();
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
