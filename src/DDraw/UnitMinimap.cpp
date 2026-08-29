@@ -1587,7 +1587,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 				{
 					if (MegamapAntiNukeMinimum<static_cast<int>(unitPtr->Weapon1->coverage))
 					{
-						int Radius= (static_cast<int>(unitPtr->Weapon1->coverage- 0x200)* Width_m/ mmRight);
+						int Radius= (static_cast<int>(unitPtr->Weapon1->coverage)* Width_m/ mmRight);
 
 						if (unitPtr->Weapon1Dotte)
 						{
@@ -1611,8 +1611,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 				{
 					if (MegamapAntiNukeMinimum<static_cast<int>(unitPtr->Weapon2->coverage))
 					{
-						int Radius= (static_cast<int>(unitPtr->Weapon2->coverage- 0x200)* Width_m/ mmRight);
-						//int Radius= static_cast<int>(static_cast<float>(unitPtr->Weapon2->coverage- 0x200)* (static_cast<float>(Aspect->x)/ static_cast<float>(parent->TAMAPTAPos.right)));
+						int Radius= (static_cast<int>(unitPtr->Weapon2->coverage)* Width_m/ mmRight);
 						if (unitPtr->Weapon2Dotte)
 						{
 							DrawDotteCircle ( PixelBits, Aspect,
@@ -1635,7 +1634,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 				{
 					if (MegamapAntiNukeMinimum<static_cast<int>(unitPtr->Weapon3->coverage))
 					{
-						int Radius= (static_cast<int>(unitPtr->Weapon3->coverage- 0x200)* Width_m/ mmRight);
+						int Radius= (static_cast<int>(unitPtr->Weapon3->coverage)* Width_m/ mmRight);
 						if (unitPtr->Weapon3Dotte)
 						{
 							DrawDotteCircle ( PixelBits, Aspect,
