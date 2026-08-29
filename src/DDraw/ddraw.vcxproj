@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -385,6 +385,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="TeamColorNanolathe.h" />
     <ClInclude Include="RepairRateFix.h" />
     <ClInclude Include="TransportedExplosions.h" />
+    <ClInclude Include="AreaDamageOverflow.h" />
+    <ClInclude Include="GridClaimTieBreak.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="config_prota.h" />
     <ClInclude Include="config_ota.h" />
@@ -407,6 +409,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     </ClInclude>
     <ClCompile Include="StartPositions.cpp" />
     <ClCompile Include="TransportedExplosions.cpp" />
+    <ClCompile Include="AreaDamageOverflow.cpp" />
+    <ClCompile Include="GridClaimTieBreak.cpp" />
     <ClCompile Include="TenPlayerReplay.cpp" />
     <ClCompile Include="TPacket.cpp" />
     <ClCompile Include="UnitIcon.cpp" />

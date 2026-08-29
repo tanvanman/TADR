@@ -68,3 +68,23 @@
 #define USEMEGAMAP 1
 #define MEGAMAP_FEATURES 0
 #define USEWHITEBOARD 1
+
+//
+// Air-unit stacking / area-damage immunity -- see AreaDamageOverflow.h.
+// Lets one explosion damage every airborne unit on a cell instead of only the one
+// holding the cell's air slot. Air-only; ground/naval splash is unchanged.
+// Class B patch: every player must run the same build, old demos will not replay.
+#define AREA_DAMAGE_OVERFLOW_ENABLE 0
+
+// 1 = dedup victims with no cap, which also repairs vanilla's 20-victim overflow bug
+//     (unit 21+ otherwise takes one blast once per cell it occupies).
+// 0 = restrict dedup to overflow slots, leaving vanilla ground behaviour bit-exact.
+#define AREA_DAMAGE_OVERFLOW_FIX_DEDUP_CAP 1
+
+// Contested-cell tie-break -- see GridClaimTieBreak.h, and READ ITS SCOPE WARNING.
+// Replaces the client-relative "evict if the incumbent belongs to a remote human" rule
+// with "the lower UnitInGameIndex wins", so every client agrees on who holds a cell.
+// WIDER SCOPE THAN AreaDamageOverflow: this sits in the claim path used by every unit
+// type on both layers, not just aircraft. Class B patch.
+#define GRID_CLAIM_TIEBREAK_ENABLE 0
+
