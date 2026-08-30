@@ -64,6 +64,7 @@ NEW FEATURES IN BRIEF:
 *????.??.??
 - add "notoverwater" and "notoverland" flags for weapons (see NEW FEATURES IN DETAIL)
 - (escalation only) wrecks of aircraft destroyed over land now fall to the ground instead of hanging in the air where the aircraft died (see NEW FEATURES IN DETAIL)
+- Stop the main-menu background hum from continuing into a restarted game when unlimited sound mixing is enabled (thanks TAG_Venom)
 - Keep the +bps network and game-time display visible over the megamap (thanks TAG_Venom)
 - Fix resurrected units intermittently being left incomplete or as unusable wireframes (thanks TAG_Venom)
 - New build configuration for TA:Mayhem (tdraw-mayhem.zip): same as tdraw-prota.zip, but off-map aircraft can be shot down up to 32 tiles past the map edge instead of 1

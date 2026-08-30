@@ -1878,10 +1878,24 @@ int __stdcall NewChatTextGuardProc(PInlineX86StackBuffer X86StrackBuffer)
     return X86STRACKBUFFERCHANGE;
 }
 
+static const unsigned int ReserveLoopingSoundSlotAddr = 0x004CF5B8;
+static const DWORD SoundBufferSlotCount = 32;
+
+static int __stdcall ReserveLoopingSoundSlotProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (*(DWORD*)0x0051FF48 && X86StrackBuffer->Ecx > SoundBufferSlotCount)
+		X86StrackBuffer->Ecx = SoundBufferSlotCount;
+	return 0;
+}
+
 TABugFixing::TABugFixing ()
 {
 
 	MaxUnitID= 0;
+	// Unlimited mode may leave one-shot sounds untracked, but looping sounds
+	// must own one of TA's 32 slots so stop-all can find them later.
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(ReserveLoopingSoundSlotAddr, 6,
+		INLINE_5BYTESLAGGERJMP, ReserveLoopingSoundSlotProc));
 
 	NullUnitDeathVictim= NULL;
 	CircleRadius= NULL;
