@@ -30,6 +30,91 @@
 #include <tlhelp32.h>
 
 TABugFixing * FixTABug;
+
+namespace
+{
+	const DWORD AntiNukeTargetSearchAddr = 0x0049D120u;
+	const BYTE AntiNukeTargetSearchExpected[5] = { 0x8B, 0x44, 0x24, 0x08, 0x53 };
+	BYTE AntiNukeTargetSearchPatch[5];
+	const DWORD AntiNukeMinimapCoverageAdjustAddr = 0x004670C4u;
+	const BYTE AntiNukeMinimapCoverageAdjustExpected[6] = { 0x81, 0xE9, 0x00, 0x02, 0x00, 0x00 };
+	BYTE AntiNukeMinimapCoverageAdjustPatch[6] = { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+
+	// Mirror TA's target search at 0x0049D120, replacing only its independent
+	// X/Y bounds with a circular horizontal-distance check.
+	ProjectileStruct* __stdcall FindAntiNukeTargetCircular(UnitStruct* unit, unsigned int weaponIndex)
+	{
+		weaponIndex &= 0xFFu;
+		if (!unit || weaponIndex >= 3u)
+		{
+			return NULL;
+		}
+
+		const BYTE* unitBytes = reinterpret_cast<const BYTE*>(unit);
+		const unsigned int weaponOffset = weaponIndex * 0x1Cu;
+		if (unitBytes[weaponOffset + 0x1E] == 0)
+		{
+			return NULL;
+		}
+
+		WeaponStruct* weapon = *reinterpret_cast<WeaponStruct* const*>(unitBytes + weaponOffset + 0x10);
+		TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+		if (!weapon || !ta || !ta->Projectiles || ta->NumProjectiles <= 0)
+		{
+			return NULL;
+		}
+
+		const __int64 radius = static_cast<__int64>(weapon->coverage) << 16;
+		const __int64 radiusSquared = radius * radius;
+		const int unitX = *reinterpret_cast<const int*>(unitBytes + 0x6A);
+		const int unitMapY = *reinterpret_cast<const int*>(unitBytes + 0x72);
+
+		ProjectileStruct* projectiles = ta->Projectiles;
+		const int projectileCount = ta->NumProjectiles;
+		for (int i = 0; i < projectileCount; ++i)
+		{
+			ProjectileStruct* candidate = &projectiles[i];
+			if (candidate->myLos_PlayerID == unit->cOwnerID
+				|| !candidate->Weapon
+				|| (candidate->Weapon->WeaponTypeMask & WTM_Targetable) == 0)
+			{
+				continue;
+			}
+
+			const BYTE* candidateBytes = reinterpret_cast<const BYTE*>(candidate);
+			const __int64 dx = static_cast<__int64>(unitX)
+				- *reinterpret_cast<const int*>(candidateBytes + 0x28);
+			// The engine keeps the projectile's current 16.16 map coordinates at
+			// +0x28 and +0x30; these are the same fields used by the original search.
+			const __int64 dy = static_cast<__int64>(unitMapY)
+				- *reinterpret_cast<const int*>(candidateBytes + 0x30);
+			if (dx < -radius || dx > radius || dy < -radius || dy > radius
+				|| dx * dx + dy * dy > radiusSquared)
+			{
+				continue;
+			}
+
+			bool alreadyTargeted = false;
+			for (int j = 0; j < projectileCount; ++j)
+			{
+				ProjectileStruct* target = *reinterpret_cast<ProjectileStruct**>(
+					reinterpret_cast<BYTE*>(&projectiles[j]) + 0x56);
+				if (target == candidate)
+				{
+					alreadyTargeted = true;
+					break;
+				}
+			}
+
+			if (!alreadyTargeted)
+			{
+				return candidate;
+			}
+		}
+
+		return NULL;
+	}
+}
 ///////---------------------
 /*
 .text:004866E8 078 75 04                                                           jnz     short loc_4866EE
@@ -1987,6 +2072,30 @@ TABugFixing::TABugFixing ()
 	HostDoesntLeave.reset(new InlineSingleHook(PutDeadHostInWatchModeAddr, 5, INLINE_5BYTESLAGGERJMP, PutDeadHostInWatchModeProc));
 	JunkYardmapFix.reset(new InlineSingleHook(JunkYardmapFixAddr, 5, INLINE_5BYTESLAGGERJMP, JunkYardmapFixProc));
 	CanBuildArrayBufferOverrunFix.reset(new SingleHook(CanBuildArrayBufferOverrunFixAddr, sizeof(CanBuildArrayBufferOverrunFixBytes), INLINE_UNPROTECTEVINMENT, CanBuildArrayBufferOverrunFixBytes));
+	if (memcmp(reinterpret_cast<const void*>(AntiNukeTargetSearchAddr),
+		AntiNukeTargetSearchExpected, sizeof(AntiNukeTargetSearchExpected)) == 0)
+	{
+		AntiNukeTargetSearchPatch[0] = 0xE9;
+		*reinterpret_cast<DWORD*>(AntiNukeTargetSearchPatch + 1) =
+			reinterpret_cast<DWORD>(&FindAntiNukeTargetCircular) - (AntiNukeTargetSearchAddr + 5u);
+		m_hooks.push_back(std::make_unique<SingleHook>(AntiNukeTargetSearchAddr,
+			sizeof(AntiNukeTargetSearchPatch), INLINE_UNPROTECTEVINMENT, AntiNukeTargetSearchPatch));
+	}
+	else
+	{
+		IDDrawSurface::OutptTxt("[AntiNukeCoverage] target-search entry did not match; circular coverage fix skipped");
+	}
+	if (memcmp(reinterpret_cast<const void*>(AntiNukeMinimapCoverageAdjustAddr),
+		AntiNukeMinimapCoverageAdjustExpected, sizeof(AntiNukeMinimapCoverageAdjustExpected)) == 0)
+	{
+		m_hooks.push_back(std::make_unique<SingleHook>(AntiNukeMinimapCoverageAdjustAddr,
+			sizeof(AntiNukeMinimapCoverageAdjustPatch), INLINE_UNPROTECTEVINMENT,
+			AntiNukeMinimapCoverageAdjustPatch));
+	}
+	else
+	{
+		IDDrawSurface::OutptTxt("[AntiNukeCoverage] minimap radius adjustment did not match; minimap coverage fix skipped");
+	}
 	// Redirect the cmalloc_comt CALL at 0x42dd74 to ZeroingDownloadMenuAlloc (see comment at its definition).
 	ZeroDownloadMenuCallPatch[0] = 0xE8;
 	*(DWORD*)(ZeroDownloadMenuCallPatch + 1) = (DWORD)((BYTE*)&ZeroingDownloadMenuAlloc - (0x42dd74 + 5));

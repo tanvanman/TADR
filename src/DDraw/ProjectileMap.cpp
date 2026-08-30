@@ -117,10 +117,16 @@ void  ProjectileMap::DrawProjectile (LPBYTE PixelBits, POINT * Aspect, Projectil
 
 	if (IsPosInPlayerLos ( X/ 32, Y/ 32,  Projectile_p))
 	{
-		int X_Screen= static_cast<int>(static_cast<float>(X)* (static_cast<float>(Aspect->x)/ static_cast<float>(parent->TAMAPTAPos.right)));
-		int Y_Screen= static_cast<int>(static_cast<float>(Y)* (static_cast<float>(Aspect->y)/ static_cast<float>(parent->TAMAPTAPos.bottom)));
+		int MapRight= (TAmainStruct_Ptr->FeatureMapSizeX- 2)* 16;
+		int MapBottom= (TAmainStruct_Ptr->FeatureMapSizeY- 8)* 16;
+		if (MapRight<=0) MapRight= parent->TAMAPTAPos.right;
+		if (MapBottom<=0) MapBottom= parent->TAMAPTAPos.bottom;
+		int X_Screen= static_cast<int>(static_cast<float>(X)* (static_cast<float>(Aspect->x)/ static_cast<float>(MapRight)));
+		int Y_Screen= static_cast<int>(static_cast<float>(Y)* (static_cast<float>(Aspect->y)/ static_cast<float>(MapBottom)));
 
-		if ((WTM_Cruise | WTM_Targetable | WTM_Stockpile)==((WTM_Cruise | WTM_Targetable | WTM_Stockpile)& Projectile_p->Weapon->WeaponTypeMask))
+		unsigned int WeaponTypeMask= Projectile_p->Weapon->WeaponTypeMask;
+		if ((WTM_Cruise | WTM_Targetable | WTM_Stockpile)==((WTM_Cruise | WTM_Targetable | WTM_Stockpile)& WeaponTypeMask)
+			||(0!=(WTM_Interceptor& WeaponTypeMask)))
 		{//
 			DrawNuke ( PixelBits, Aspect, X_Screen, Y_Screen, Projectile_p);
 		}
@@ -143,14 +149,18 @@ void  ProjectileMap::DrawNuke (LPBYTE PixelBits, POINT * Aspect, int X_screen,  
 
 		int Width= NukeAspect.x;
 		int Height=NukeAspect.y;
+		int SrcX= 0;
+		int SrcY= 0;
 
 		if (X_screen<0)
 		{
+			SrcX= -X_screen;
 			Width= Width+ X_screen;
 			X_screen= 0;
 		}
 		if (Y_screen<0)
 		{
+			SrcY= -Y_screen;
 			Height= Height+ Y_screen;
 			Y_screen= 0;
 		}
@@ -167,7 +177,7 @@ void  ProjectileMap::DrawNuke (LPBYTE PixelBits, POINT * Aspect, int X_screen,  
 		{
 			for ( int i= 0; i<Height; ++i)
 			{
-				int SrcLine= i* NukeAspect.x;
+				int SrcLine= (i+ SrcY)* NukeAspect.x+ SrcX;
 				int Line= (i+ Y_screen)* Aspect->x;
 				for ( int j= 0; j<Width; ++j)
 				{
