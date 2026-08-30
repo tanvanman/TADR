@@ -847,10 +847,10 @@ void MegamapTAStuff::DrawTargatOrder (OFFSCREEN * OffScreen, UnitOrdersStruct * 
 				Order->Order_State|= 0x200000;											
 			}
 			Order->RemeberX= Order->AttackTargat->XPos;
-			Order->RemeberY= Order->AttackTargat->YPos- Order->AttackTargat->ZPos/ 2;
+			Order->RemeberY= Order->AttackTargat->YPos;
 
 		} while (false);
-		TAPos2ScreenPos ( &Pos, Order->RemeberX, Order->RemeberY, 0);
+		TAPos2ScreenPos ( &Pos, Order->RemeberX, Order->RemeberY, Order->AttackTargat->ZPos);
 	}
 	else
 	{
@@ -896,7 +896,7 @@ void MegamapTAStuff::DrawOrderPath (OFFSCREEN * OffScreen, UnitOrdersStruct * Or
 	{
 		X1= Order->RemeberX;
 		X2= UnitPos->X;
-		Y1= Order->RemeberY;
+		Y1= Order->RemeberY- Order->AttackTargat->ZPos/ 2;
 		Y2=  UnitPos->Y- UnitPos->Z/ 2;
 	}
 	else
@@ -1131,7 +1131,7 @@ void MegamapTAStuff::BlitOrder (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 							{
 								TargatPos.X= Order->RemeberX;
 								TargatPos.Y= Order->RemeberY;
-								TargatPos.Z= 0;
+								TargatPos.Z= Order->AttackTargat->ZPos;
 							}
 							else
 							{
@@ -1181,7 +1181,7 @@ void MegamapTAStuff::BlitOrder (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 							{
 								TargatPos.X= Order->RemeberX;
 								TargatPos.Y= Order->RemeberY;
-								TargatPos.Z= 0;
+								TargatPos.Z= Order->AttackTargat->ZPos;
 							}
 							else
 							{

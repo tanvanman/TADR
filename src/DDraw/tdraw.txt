@@ -68,6 +68,7 @@ NEW FEATURES IN BRIEF:
 - (escalation only) wrecks of aircraft destroyed over land now fall to the ground instead of hanging in the air where the aircraft died (see NEW FEATURES IN DETAIL)
 - Keep the +bps network and game-time display visible over the megamap (thanks TAG_Venom)
 - Fix megamap projectile icons and range displays, and make anti-nuke coverage circular and consistent with its displayed ring (thanks TAG_Venom)
+- Fix megamap cursor hit testing, order placement, stationary hover updates, and edge/one-axis selection drags (thanks TAG_Venom)
 - Fix resurrected units intermittently being left incomplete or as unusable wireframes (thanks TAG_Venom)
 - New build configuration for TA:Mayhem (tdraw-mayhem.zip): same as tdraw-prota.zip, but off-map aircraft can be shot down up to 32 tiles past the map edge instead of 1
 - Aircraft hiding near the map edge can now be shot down.
