@@ -52,6 +52,15 @@
 #define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 1
 
 //
+// Extended weapon IDs (>= 256)
+//
+// Installs WeaponIdOverflow (heap-backed weapon slots above TA's hard-coded
+// Weapons[256]) plus WeaponFiredExt (the CHAT_05-hijack packet that carries
+// fire events for those overflow IDs, which the native WEAPON_FIRED_0D byte ID
+// cannot address).  See config.h for the full description.
+#define TDRAW_EXTENDED_WEAPON_IDS 1
+
+//
 // Off-map aircraft
 //
 // Width, in map tiles (16 world units each), of the band outside the map where aircraft can
