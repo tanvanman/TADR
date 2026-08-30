@@ -25,6 +25,16 @@
 #define TAKE_CLAIM_ENABLE 1
 
 //
+// Lag-switch mitigation
+//
+// Freezes the local simulation while every remote peer is silent, so a player
+// pulling the plug on his own connection cannot manoeuvre while immune to
+// incoming damage.  Purely local -- it only suppresses this client's own sim
+// ticks, so it neither desyncs nor changes the wire protocol.  It does,
+// however, stall the game on ordinary packet loss too.  See LagSwitchGuard.h.
+#define LAG_SWITCH_GUARD_ENABLE 1
+
+//
 // Construction / AI behavior
 //
 #define FIXED_POSN_GUARDING_CONS_ENABLE 1
@@ -75,7 +85,7 @@
 // Lets one explosion damage every airborne unit on a cell instead of only the one
 // holding the cell's air slot. Air-only; ground/naval splash is unchanged.
 // Class B patch: every player must run the same build, old demos will not replay.
-#define AREA_DAMAGE_OVERFLOW_ENABLE 0
+#define AREA_DAMAGE_OVERFLOW_ENABLE 1
 
 // 1 = dedup victims with no cap, which also repairs vanilla's 20-victim overflow bug
 //     (unit 21+ otherwise takes one blast once per cell it occupies).
@@ -87,5 +97,5 @@
 // with "the lower UnitInGameIndex wins", so every client agrees on who holds a cell.
 // WIDER SCOPE THAN AreaDamageOverflow: this sits in the claim path used by every unit
 // type on both layers, not just aircraft. Class B patch.
-#define GRID_CLAIM_TIEBREAK_ENABLE 0
+#define GRID_CLAIM_TIEBREAK_ENABLE 1
 

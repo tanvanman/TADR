@@ -1,4 +1,7 @@
 #include "LagSwitchGuard.h"
+
+#if LAG_SWITCH_GUARD_ENABLE
+
 #include "iddrawsurface.h"
 #include "tamem.h"
 
@@ -224,3 +227,5 @@ void LagSwitchGuard::Tick()
 		m_resumeLineExpiry = now + RESUME_NOTICE_MS;
 	}
 }
+
+#endif // LAG_SWITCH_GUARD_ENABLE

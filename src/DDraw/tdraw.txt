@@ -40,6 +40,7 @@ The release .zip files are annotated with a build configuration tag: "tdraw-<con
   * tdraw-bta.zip: same as tdraw-prota.zip except
     - rendering of map features (mexes, geos, spires, walls) on the megamap is disabled
     - mex and wreck snap radius limited to 1
+    - lag-switch mitigation (freezing the local simulation when the network goes dark) is disabled
 
 
 INSTALLATION
@@ -62,6 +63,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Lag-switch mitigation is now a per-build option, and is disabled in tdraw-bta.zip.  Every other build keeps it as before
 - add "notoverwater" and "notoverland" flags for weapons (see NEW FEATURES IN DETAIL)
 - (escalation only) wrecks of aircraft destroyed over land now fall to the ground instead of hanging in the air where the aircraft died (see NEW FEATURES IN DETAIL)
 - Keep the +bps network and game-time display visible over the megamap (thanks TAG_Venom)

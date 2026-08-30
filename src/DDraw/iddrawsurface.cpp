@@ -704,7 +704,9 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				{ PROFILE_SCOPE("Unlock.WeatherReport"); Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 #endif
 				{ PROFILE_SCOPE("Unlock.VoteReject_Tick"); VoteReject::GetInstance()->Tick(); }
+#if LAG_SWITCH_GUARD_ENABLE
 				{ PROFILE_SCOPE("Unlock.LagSwitchGuard_Tick"); LagSwitchGuard::GetInstance()->Tick(); }
+#endif
 				{ PROFILE_SCOPE("Unlock.HudNotifications_Blit"); HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 			}
 
@@ -843,7 +845,9 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				{ PROFILE_SCOPE("Unlock.WeatherReport"); Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 #endif
 				{ PROFILE_SCOPE("Unlock.VoteReject_Tick"); VoteReject::GetInstance()->Tick(); }
+#if LAG_SWITCH_GUARD_ENABLE
 				{ PROFILE_SCOPE("Unlock.LagSwitchGuard_Tick"); LagSwitchGuard::GetInstance()->Tick(); }
+#endif
 				{ PROFILE_SCOPE("Unlock.HudNotifications_Blit"); HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 			}
 

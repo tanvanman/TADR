@@ -1,10 +1,13 @@
 #pragma once
 
+#include "config.h"
 #include "HudNotifications.h"
 #include "hook/hook.h"
 
 #include <memory>
 #include <windows.h>
+
+#if LAG_SWITCH_GUARD_ENABLE
 
 // Lag-switch countermeasure: detects when the local player's network goes dark
 // (no packets from ANY remote peer) and freezes the local simulation so the
@@ -63,3 +66,5 @@ private:
 	static const DWORD RESUME_NOTICE_MS      = 5000;
 	static const DWORD TICK_LEAK_INTERVAL_MS = 500;
 };
+
+#endif // LAG_SWITCH_GUARD_ENABLE

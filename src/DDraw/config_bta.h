@@ -25,6 +25,17 @@
 #define TAKE_CLAIM_ENABLE 1
 
 //
+// Lag-switch mitigation
+//
+// Freezes the local simulation while every remote peer is silent, so a player
+// pulling the plug on his own connection cannot manoeuvre while immune to
+// incoming damage.  Purely local -- it only suppresses this client's own sim
+// ticks, so it neither desyncs nor changes the wire protocol.  It does,
+// however, stall the game on ordinary packet loss too.  See LagSwitchGuard.h.
+// Off for BTA: no freeze, no DeltaTime/pause-key hooks are installed at all.
+#define LAG_SWITCH_GUARD_ENABLE 0
+
+//
 // Construction / AI behavior
 //
 #define FIXED_POSN_GUARDING_CONS_ENABLE 1

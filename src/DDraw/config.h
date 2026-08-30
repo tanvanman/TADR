@@ -79,6 +79,17 @@
 #endif
 
 //
+// LagSwitchGuard: freeze the local simulation while every remote peer is
+// silent, so a lag switch cannot buy the cheater invulnerable manoeuvring
+// time.  Defaulted on so a config_*.h that predates the flag keeps the
+// behaviour it shipped with; a mod that would rather ride out packet loss
+// than stall sets it to 0.
+//
+#ifndef LAG_SWITCH_GUARD_ENABLE
+#define LAG_SWITCH_GUARD_ENABLE 1
+#endif
+
+//
 // Repair-rate fix heal multipliers -- see config_escalation.h for the tunable
 // values and RepairRateFix.cpp for how they're applied. Every config_*.h must
 // define both explicitly (same convention as REPAIR_RATE_FIX_ENABLE itself,
