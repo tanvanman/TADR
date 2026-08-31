@@ -1032,6 +1032,171 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 }
 
 // ============================================================================
+// Order-state-machine dispatch guard.
+//
+// MainOrderStateController (0x0043B7C0) and BackgroundOrderStateController
+// (0x0043BAD0) dispatch a unit's current order through
+//
+//     CALL dword ptr [g_COBTable + order->COBHandler_index * 0x19 + 4]
+//
+// with NO bounds check against g_COBTable_end (0x00512348). COBHandler_index is
+// a raw byte, so any recycled / half-freed OrderStruct drives an indirect call
+// through whatever lies past the end of the table. Diagnosed from game 189724
+// (ProTA 4.9test2, 2026-08-31): EIP ended up on dynmem+0x14353 -- a data address
+// -- out of MainOrderStateController, with an empty breadcrumb ring because
+// nothing on the order path recorded anything.
+//
+// We hook the instruction that loads the table base (BEFORE the three argument
+// pushes), so ESP is still exactly at the post-prologue level. That makes a
+// clean bail-out possible: jumping to the function's own epilogue unwinds the
+// frame correctly.
+//
+//   site 0x0043B865  MOV ECX,[0x00512344]  (6 bytes)  -> epilogue 0x0043BA9C
+//                    ESI=OrderStruct*, unit at [Esp+0x18]   (5 POPs + RET 4)
+//   site 0x0043BB0F  MOV EDX,[0x00512344]  (6 bytes)  -> epilogue 0x0043BC57
+//                    ESI=OrderStruct*, EDI=UnitStruct*      (4 POPs + RET 4)
+//
+// DEFAULT IS OBSERVE-ONLY -- WE WANT THE CRASH.
+// Bailing out would work (the epilogue targets above unwind cleanly, and this
+// path writes nothing to game state so there is no new desync surface), but a
+// client that survives never produces an ErrorLog and nobody ever sends the
+// report in. No crash, no report, no diagnosis. So while we are still hunting
+// this bug the guard records everything and then lets the dispatch proceed
+// exactly as before, i.e. straight into the crash -- which now arrives with the
+// offending order named in the report's "Order dispatch" section and the
+// preceding KICK / MBRE breadcrumbs still in the ring.
+//
+// Flip TDRAW_ORDER_DISPATCH_BAILOUT to 1 once the cause is understood and the
+// goal changes from "diagnose" to "protect players". Compile-time only, per the
+// no-runtime-switches-on-sim-features rule: a mixed fleet where some clients
+// bail and others don't is exactly the kind of divergence that rule exists to
+// prevent.
+// ============================================================================
+
+#define TDRAW_ORDER_DISPATCH_BAILOUT 0
+
+static const unsigned OrderDispatchGuardMainAddr       = 0x0043b865;
+static const unsigned OrderDispatchGuardMainBailout    = 0x0043ba9c;
+static const unsigned OrderDispatchGuardBgAddr         = 0x0043bb0f;
+static const unsigned OrderDispatchGuardBgBailout      = 0x0043bc57;
+
+// Last few dispatches, kept OUTSIDE the breadcrumb ring on purpose: this path
+// runs once per order per unit per tick (~10k/s in a big game), which would
+// flush the 128-entry ring in a few milliseconds and bury every rare event.
+// A tiny dedicated ring costs 6 stores and gives the crash report the one thing
+// it most needs -- the order that was being dispatched when we died.
+struct OrderDispatchNote
+{
+	DWORD unit, order, idx, count, handler, tick;
+	const char* which;
+};
+static const int ORDER_DISPATCH_NOTES = 4;
+static OrderDispatchNote g_orderDispatchNotes[ORDER_DISPATCH_NOTES];
+static volatile LONG     g_orderDispatchHead = 0;
+static DWORD             g_orderDispatchRejects = 0;
+
+// A permanently-corrupt order would otherwise re-reject every tick forever.
+// Breadcrumbs are cheap and always recorded; only the tdrawlog line is throttled.
+static bool OrderDispatchShouldLog(DWORD n)
+{
+	return n <= 20 || (n % 1000) == 0;
+}
+
+// TotalA.exe code range -- a handler_fn outside this is garbage even when the
+// index happens to fall inside the table (the recycled-table case).
+static const DWORD kTaCodeLo = 0x00401000u;
+static const DWORD kTaCodeHi = 0x004fc000u;
+
+static int OrderDispatchGuardCommon(PInlineX86StackBuffer buf, DWORD unit,
+                                    unsigned bailout, const char* which)
+{
+	UnitOrdersStruct* order = (UnitOrdersStruct*)buf->Esi;
+
+	// The order pointer itself can already be freed memory. Probe only the 5
+	// bytes we are about to read (through COBHandler_index at +4) -- this runs
+	// once per order per unit per tick, and SafeIsBadReadPtr is a byte-at-a-time
+	// volatile loop, so probing the whole 0x56-byte struct here would cost ~17x
+	// more for no benefit. The reject path re-probes in full before it logs the
+	// deeper fields.
+	const bool readable = order && !SafeIsBadReadPtr(order, 5);
+
+	unsigned idx = 0xFFFFFFFFu, count = 0;
+	DWORD handler = 0;
+	if (readable)
+	{
+		const BYTE* begin = (const BYTE*)*COBSciptHandler_Begin;
+		const BYTE* end   = (const BYTE*)*COBSciptHandler_End;
+		// sizeof(COBHandle) is 0x19 -- tamem.h is inside #pragma pack(1). Spelled
+		// out so a stray packing change can't silently re-scale the stride.
+		const unsigned kStride = 0x19u;
+		count = (begin && end && end > begin) ? (unsigned)((end - begin) / kStride) : 0;
+		idx   = order->COBHandler_index;
+		if (idx < count)
+			handler = *(const DWORD*)(begin + idx * kStride + 4);  // COBHandle::orderFunctionPointer
+	}
+
+	// Record the note for EVERY dispatch, good or bad. The whole point of this
+	// snapshot is to survive into the crash report, and the dispatch we care
+	// about most is the one that is about to kill us -- so it must be the
+	// newest entry, not squeezed out by the reject path returning early.
+	LONG slot = InterlockedIncrement(&g_orderDispatchHead) - 1;
+	OrderDispatchNote& n = g_orderDispatchNotes[slot & (ORDER_DISPATCH_NOTES - 1)];
+	n.unit = unit; n.order = (DWORD)order; n.idx = idx; n.count = count;
+	n.handler = handler; n.which = which;
+	TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+	n.tick = ta ? (DWORD)ta->GameTime : 0;
+
+	if (readable && idx < count && handler >= kTaCodeLo && handler < kTaCodeHi)
+		return 0;                       // normal case: let the dispatch proceed
+
+	++g_orderDispatchRejects;
+	CrashTrace_RecordEvent(TRACE_CAT_OBAD, unit, (DWORD)order,
+		readable ? (idx | (count << 16)) : 0xFFFFFFFFu, handler);
+	if (OrderDispatchShouldLog(g_orderDispatchRejects))
+	{
+		// Only the first 5 bytes are known-readable, and maybe not even those.
+		bool deep = readable && !SafeIsBadReadPtr(order, sizeof(UnitOrdersStruct));
+		IDDrawSurface::OutptFmtTxt(
+			"[OrderDispatchGuard] %s: BAD dispatch unit=%08X order=%08X readable=%d "
+			"COBHandler_index=%d (table has %u) handler=%08X state=%d orderState=%08X "
+			"next=%08X tick=%lu (#%u)",
+			which, unit, (DWORD)order, (int)readable,
+			readable ? (int)idx : -1, count, handler,
+			readable ? (int)order->State : -1,
+			deep ? order->Order_State : 0xBADBAD00u,
+			deep ? (DWORD)order->NextOrder : 0xBADBAD00u,
+			(unsigned long)n.tick, g_orderDispatchRejects);
+	}
+
+#if TDRAW_ORDER_DISPATCH_BAILOUT
+	// Survive instead of crashing: unwind via the function's own epilogue,
+	// costing one tick of this unit's order processing. Verified stack-correct
+	// (ESP is still at post-prologue level at the hook site), but OFF by default
+	// -- see the comment block above for why.
+	buf->rtnAddr_Pvoid = (LPVOID)bailout;
+	return X86STRACKBUFFERCHANGE;
+#else
+	(void)bailout;
+	return 0;
+#endif
+}
+
+int __stdcall OrderDispatchGuardMainProc(PInlineX86StackBuffer buf)
+{
+	// MainOrderStateController: unit_ptr is the stdcall arg at [Esp+0x18]
+	// (5 pushed regs + return address below it).
+	const DWORD* stackTop = (const DWORD*)buf->Esp;
+	DWORD unit = (stackTop && !SafeIsBadReadPtr(stackTop, 0x1c)) ? stackTop[6] : 0;
+	return OrderDispatchGuardCommon(buf, unit, OrderDispatchGuardMainBailout, "main");
+}
+
+int __stdcall OrderDispatchGuardBgProc(PInlineX86StackBuffer buf)
+{
+	// BackgroundOrderStateController keeps unit_ptr in EDI across the loop.
+	return OrderDispatchGuardCommon(buf, buf->Edi, OrderDispatchGuardBgBailout, "background");
+}
+
+// ============================================================================
 // Generic crash report — fires for ANY fatal exception that the address-specific
 // handlers above don't claim. Captures registers, bytes@EIP, the faulting-memory
 // window, an EBP stack walk + raw stack attributed to modules, a TA game-state
@@ -1309,6 +1474,29 @@ static void WriteGameStateSnapshot(FILE* f)
 	}
 }
 
+// The order that was being dispatched when we died. Kept separate from the
+// breadcrumb ring because this path is far too hot to breadcrumb (see the
+// OrderDispatchGuard comment block).
+static void WriteOrderDispatch(FILE* f)
+{
+	fprintf(f, "--- Order dispatch (last %d, newest first; %u flagged bad this run) ---\n",
+		ORDER_DISPATCH_NOTES, g_orderDispatchRejects);
+	LONG head = g_orderDispatchHead;
+	bool any = false;
+	for (int i = 1; i <= ORDER_DISPATCH_NOTES; ++i)
+	{
+		const OrderDispatchNote& n = g_orderDispatchNotes[(head - i) & (ORDER_DISPATCH_NOTES - 1)];
+		if (!n.order) continue;
+		any = true;
+		fprintf(f, "  %-10s tick=%-8lu unit=%08X order=%08X idx=%-4d/%-4u handler=%08X%s\n",
+			n.which ? n.which : "?", (unsigned long)n.tick,
+			n.unit, n.order, (int)n.idx, n.count, n.handler,
+			(n.idx == 0xFFFFFFFFu || n.idx >= n.count ||
+			 n.handler < kTaCodeLo || n.handler >= kTaCodeHi) ? "   <== BAD" : "");
+	}
+	if (!any) fprintf(f, "(none)\n");
+}
+
 static void WriteTraceRing(FILE* f)
 {
 	fprintf(f, "--- Breadcrumb ring (last %d events, oldest first) ---\n", TRACE_RING_SIZE);
@@ -1378,6 +1566,7 @@ static void WriteGenericCrashReport(FILE* f, PEXCEPTION_POINTERS ei)
 	WriteStackWalk(f, ctx->Ebp, mods, nmods);
 	WriteRawStack(f, ctx->Esp, mods, nmods, 32);
 	WriteGameStateSnapshot(f);
+	WriteOrderDispatch(f);
 	WriteTraceRing(f);
 
 	fprintf(f, "--- modules ---\n");
@@ -2071,6 +2260,17 @@ TABugFixing::TABugFixing ()
 	FixFactoryExplosionsRecycleUnitId.reset(new InlineSingleHook(FixFactoryExplosionsRecycleUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsRecycleUnitIdProc));
 	HostDoesntLeave.reset(new InlineSingleHook(PutDeadHostInWatchModeAddr, 5, INLINE_5BYTESLAGGERJMP, PutDeadHostInWatchModeProc));
 	JunkYardmapFix.reset(new InlineSingleHook(JunkYardmapFixAddr, 5, INLINE_5BYTESLAGGERJMP, JunkYardmapFixProc));
+	// 6 bytes each: MOV ECX/EDX,[0x00512344] -- a whole instruction, and it sits
+	// before the dispatch's argument pushes so the bail-out is stack-correct.
+	OrderDispatchGuardMain.reset(new InlineSingleHook(
+		OrderDispatchGuardMainAddr, 6, INLINE_5BYTESLAGGERJMP, OrderDispatchGuardMainProc));
+	OrderDispatchGuardBackground.reset(new InlineSingleHook(
+		OrderDispatchGuardBgAddr, 6, INLINE_5BYTESLAGGERJMP, OrderDispatchGuardBgProc));
+	IDDrawSurface::OutptFmtTxt(
+		"[OrderDispatchGuard] installed at 0x%08X (main) and 0x%08X (background): "
+		"COBHandler_index + handler_fn checked, OBSERVE-ONLY (bailout=%d)",
+		OrderDispatchGuardMainAddr, OrderDispatchGuardBgAddr,
+		TDRAW_ORDER_DISPATCH_BAILOUT);
 	CanBuildArrayBufferOverrunFix.reset(new SingleHook(CanBuildArrayBufferOverrunFixAddr, sizeof(CanBuildArrayBufferOverrunFixBytes), INLINE_UNPROTECTEVINMENT, CanBuildArrayBufferOverrunFixBytes));
 	if (memcmp(reinterpret_cast<const void*>(AntiNukeTargetSearchAddr),
 		AntiNukeTargetSearchExpected, sizeof(AntiNukeTargetSearchExpected)) == 0)

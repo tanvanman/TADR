@@ -8,6 +8,7 @@
 #include "tafunctions.h"
 #include "tamem.h"
 #include "UnitDefExtensions.h"
+#include "TAbugfix.h"
 #include "ShareGuard.h"
 #include "Profiler.h"
 #include "config.h"
@@ -527,14 +528,55 @@ __declspec(naked) static void CreateFromNetworkReturnThunk()
 }
 
 // ---- Order_MobileBuild / Order_VTOL_MobileBuild pre/post state ----
-// One save slot is enough — Order_MobileBuild does not recurse into itself
-// (and Order_VTOL_MobileBuild can't be on the stack while Order_MobileBuild
-// is, or vice versa, because the per-builder dispatch picks one or the other).
+// The old comment here claimed "one save slot is enough — Order_MobileBuild does
+// not recurse into itself (and Order_VTOL_MobileBuild can't be on the stack while
+// Order_MobileBuild is, or vice versa, because the per-builder dispatch picks one
+// or the other)". That is an assumption about the ENGINE, and it stops being true
+// the moment anything re-enters the order machinery from inside a handler — which
+// is exactly what ConstructionKickout's hook at 0x00403CD0 does (it calls
+// Order_Stop / SendOrder / PushOrder on other units from inside Order_MobileBuild).
+//
+// If it ever is re-entered, a single slot means the OUTER return thunk jumps to
+// the INNER saved return address, with the outer frame's stack — arbitrary control
+// flow out of MainOrderStateController. Suspected cause of game 189724's crash.
+//
+// The depth accounting below is ALWAYS active, so re-entrancy is detected and
+// logged (MBRE breadcrumb + tdrawlog line) the moment it happens. Whether we
+// then *survive* it is a separate, compile-time decision:
+//
+//   TDRAW_UNITROTATE_RETURN_STACK 0 (default) — restore nothing; the single slot
+//     behaves exactly as the shipped bug does. We keep crashing, which is the
+//     only reason anyone ever sends us an ErrorLog. The MBRE breadcrumb is then
+//     sitting in the ring of the report that arrives.
+//   TDRAW_UNITROTATE_RETURN_STACK 1 — pop the outer return address back, making
+//     re-entrancy survivable. Flip this once the cause is confirmed and the goal
+//     changes from diagnosing to protecting players.
+//
+// Deliberately leaving a known-unsafe path live: see the matching note on
+// TDRAW_ORDER_DISPATCH_BAILOUT in TABugFix.cpp.
+#define TDRAW_UNITROTATE_RETURN_STACK 0
+
+static const int kOmbMaxDepth = 8;
+static DWORD g_ombRetStack[kOmbMaxDepth];
+static int   g_ombDepth = 0;
+// The slot the naked thunk jmps through.
 static DWORD g_orderMobileBuildRealReturn = 0;
 static bool  g_orderMobileBuildSwapActive = false;
 
 static void OrderMobileBuildPostSwap()
 {
+    if (g_ombDepth > 0)
+    {
+        DWORD popped = g_ombRetStack[--g_ombDepth];
+#if TDRAW_UNITROTATE_RETURN_STACK
+        g_orderMobileBuildRealReturn = popped;
+#else
+        (void)popped;   // observe-only: leave the single slot as the bug leaves it
+#endif
+    }
+
+    // Swap-clear semantics deliberately unchanged: still flag-gated and still
+    // cleared by the first thunk to run.
     if (!g_orderMobileBuildSwapActive) return;
     g_orderMobileBuildSwapActive = false;
     if (CUnitRotate* self = CUnitRotate::GetInstance())
@@ -964,6 +1006,20 @@ static int __stdcall OrderMobileBuild_Entry_Proc(PInlineX86StackBuffer X86Strack
     // Defensive: ignore stale entries from a freed-and-reused order address.
     if (!self->IsRotationAllowed(unitTypeIdx, rotation)) return 0;
 
+    // Envelope depth check BEFORE the swap is installed — bailing out after
+    // ApplyRotationTo would leave UNITINFO swapped with no thunk to clear it.
+    if (g_ombDepth >= kOmbMaxDepth)
+    {
+        CrashTrace_RecordEvent(TRACE_CAT_MBRE, stackTop[1], reinterpret_cast<DWORD>(order),
+                               static_cast<DWORD>(g_ombDepth), g_ombRetStack[kOmbMaxDepth - 1]);
+        IDDrawSurface::OutptFmtTxt(
+            "[CUnitRotate] Order_MobileBuild envelope depth limit (%d) hit on unit %08X "
+            "order %08X — not arming (rotation swap skipped for this call)",
+            kOmbMaxDepth, stackTop[1], reinterpret_cast<DWORD>(order));
+        return 0;
+    }
+    const bool reentrant = (g_ombDepth > 0);
+
     // Install footprint + yardmap swap. The (idx, rotation) overload drives
     // needSwap from the explicit order rotation without touching m_rotation
     // (and without printing "Build facing: …" — this hook fires per tick).
@@ -972,8 +1028,27 @@ static int __stdcall OrderMobileBuild_Entry_Proc(PInlineX86StackBuffer X86Strack
 
     // Arm the return thunk to clear the swap on function exit.
     g_orderMobileBuildSwapActive = true;
+    g_ombRetStack[g_ombDepth++] = stackTop[0];
     g_orderMobileBuildRealReturn = stackTop[0];
     stackTop[0] = reinterpret_cast<DWORD>(&OrderMobileBuildReturnThunk);
+
+    if (reentrant)
+    {
+        // The condition the single-slot design could not survive. Rare enough to
+        // breadcrumb and log unconditionally.
+        CrashTrace_RecordEvent(TRACE_CAT_MBRE, stackTop[1], reinterpret_cast<DWORD>(order),
+                               static_cast<DWORD>(g_ombDepth), g_ombRetStack[g_ombDepth - 2]);
+        IDDrawSurface::OutptFmtTxt(
+            "[CUnitRotate] RE-ENTRANT Order_MobileBuild envelope: depth=%d unit=%08X "
+            "order=%08X rot=%d innerRet=%08X outerRet=%08X",
+            g_ombDepth, stackTop[1], reinterpret_cast<DWORD>(order), rotation,
+            g_ombRetStack[g_ombDepth - 1], g_ombRetStack[g_ombDepth - 2]);
+    }
+    else
+    {
+        CrashTrace_RecordEvent(TRACE_CAT_MBLD, stackTop[1], reinterpret_cast<DWORD>(order),
+                               static_cast<DWORD>(g_ombDepth), g_orderMobileBuildRealReturn);
+    }
     return 0;
 }
 

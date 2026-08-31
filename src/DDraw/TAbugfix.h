@@ -59,6 +59,8 @@ private:
 	std::unique_ptr <SingleHook> WindSpeedSync;
 	std::unique_ptr <SingleHook> NetworkRawReceiveLog;
 	std::unique_ptr <SingleHook> NetworkDispatchLog;
+	std::unique_ptr <SingleHook> OrderDispatchGuardMain;
+	std::unique_ptr <SingleHook> OrderDispatchGuardBackground;
 	std::vector<std::unique_ptr<SingleHook> > m_hooks;
 	CRITICAL_SECTION DrawPlayer_MAPPEDMEM_cris;
 	CRITICAL_SECTION UnitLoop_cris;
@@ -85,6 +87,17 @@ void InstallCrashTrace();
 // them. Categories are FOURCC tags; payload meaning is per-category.
 #define TRACE_CAT_RECV 0x52454356u  // 'RECV' : a=fromDpid b=size c=buf[0] d=buf[1]
 #define TRACE_CAT_UNIT 0x554E4954u  // 'UNIT' : reserved (a=slot b=typeId c=owner d=event)
+// ---- Order-state-machine breadcrumbs (see OrderDispatchGuard in TABugFix.cpp) ----
+// These are all RARE by construction: nothing here fires on the per-unit-per-tick
+// happy path, so they survive in the 128-entry ring for minutes of play.
+#define TRACE_CAT_OBAD 0x4F424144u  // 'OBAD' : rejected order dispatch
+                                    //          a=unit b=order c=idx|(count<<16) d=handler
+#define TRACE_CAT_MBLD 0x4D424C44u  // 'MBLD' : Order_MobileBuild rotation envelope armed
+                                    //          a=unit b=order c=depth d=savedReturn
+#define TRACE_CAT_MBRE 0x4D425245u  // 'MBRE' : Order_MobileBuild envelope RE-ENTERED
+                                    //          a=unit b=order c=depth d=outerSavedReturn
+#define TRACE_CAT_KICK 0x4B49434Bu  // 'KICK' : ConstructionKickout mutated an order list
+                                    //          a=unit b=oldOrders c=oldOrderType d=branch
 void CrashTrace_RecordEvent(unsigned cat, unsigned a, unsigned b, unsigned c, unsigned d);
 // RECV-style breadcrumb that also captures the first bytes of a packet buffer.
 void CrashTrace_RecordPacket(unsigned cat, unsigned fromDpid, unsigned size,
