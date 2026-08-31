@@ -1,6 +1,7 @@
 #ifndef dialogH
 #define dialogH
 
+#include "config.h"
 #include "DialogBase.h"
 
 #include <memory>
@@ -67,8 +68,10 @@ public:
 	// When false the build menu behaves stock. Default ON.
 	bool GetBuildMenuRotationOverlayEnabled();
 
+#if ALLIED_BUILD_QUEUE_ENABLE
 	// Local display preference for allied queued-build overlays. Default ON.
 	bool GetShowAlliedBuildQueuesEnabled();
+#endif
 
 	// True when the player wants a solid black backdrop drawn behind in-game
 	// chat text (top-left) for legibility. Default OFF. Read each frame by
@@ -86,7 +89,9 @@ public:
 	std::shared_ptr <VirtualKeyField> m_megaMapVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_rotateBuildVirtualKeyField;
 	std::shared_ptr <Button>          m_buildMenuRotationOverlayButton;
+#if ALLIED_BUILD_QUEUE_ENABLE
 	std::shared_ptr <Button>          m_showAlliedBuildQueuesButton;
+#endif
 	std::shared_ptr <Button>          m_chatBackdropButton;
 	std::shared_ptr <IntegerField> m_mexSnapRadiusIntegerField;
 	std::shared_ptr <IntegerField> m_wreckSnapRadiusIntegerField;

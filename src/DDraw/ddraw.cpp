@@ -223,7 +223,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 		PacketChatRouter::GetInstance();
 		TakeClaim::Install();          // owns the _ShowText hook; ShareGuard rides it
+#if ALLIED_BUILD_QUEUE_ENABLE
 		AlliedBuildQueueSync::Install();
+#endif
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
 		TransportedExplosions::Install();
@@ -273,7 +275,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 		ReloadBars::Shutdown();
 		UnitStatusCounters::Shutdown();
+#if ALLIED_BUILD_QUEUE_ENABLE
 		AlliedBuildQueueSync::Shutdown();
+#endif
 		ShadingFix::Shutdown();
 		ZeroDamageMapWeapons::Shutdown();
 		TeamColorNanolathe::Shutdown();

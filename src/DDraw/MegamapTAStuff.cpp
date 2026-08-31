@@ -33,7 +33,9 @@ using namespace std;
 #if USEMEGAMAP
 namespace
 {
+#if ALLIED_BUILD_QUEUE_ENABLE
 	const unsigned char kAlliedBuildOuterColor = 221;
+#endif
 	const unsigned int kDrawBpsAddress = 0x00468380;
 	typedef void (__stdcall* DrawBpsFn)(OFFSCREEN*);
 
@@ -69,6 +71,8 @@ namespace
 		drawBps(offscreen);
 	}
 
+#if ALLIED_BUILD_QUEUE_ENABLE
+	// Helpers used only by DrawAlliedBuildQueues().
 	bool IsMegamapBuildOrder(const UnitOrdersStruct* order)
 	{
 		if (!order || order->BuildUnitID == 0
@@ -86,6 +90,7 @@ namespace
 			&& (unit->UnitSelected & 0x10000000) != 0
 			&& (unit->UnitSelected & 0x4000) == 0;
 	}
+#endif // ALLIED_BUILD_QUEUE_ENABLE
 }
 
 MegamapTAStuff::MegamapTAStuff (FullScreenMinimap * parent_p, RECT * MegaMapScreen_p, RECT * TAMap_p, RECT * GameScreen_p,
@@ -674,6 +679,7 @@ void MegamapTAStuff::DrawBuildRect (OFFSCREEN * offscren_p, unsigned char  Color
 	::TADrawRect ( offscren_p, &Rect, Color);
 }
 
+#if ALLIED_BUILD_QUEUE_ENABLE
 void MegamapTAStuff::DrawAlliedBuildRect(
 	OFFSCREEN* offscreen,
 	unsigned char color,
@@ -829,6 +835,7 @@ void MegamapTAStuff::DrawAlliedBuildQueues(OFFSCREEN* offscreen)
 		}
 	}
 }
+#endif // ALLIED_BUILD_QUEUE_ENABLE
 
 void MegamapTAStuff::DrawTargatOrder (OFFSCREEN * OffScreen, UnitOrdersStruct * Order, PlayerStruct * me)
 {
@@ -1054,10 +1061,14 @@ void MegamapTAStuff::BlitOrder (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 		}
 	}
 
+#if ALLIED_BUILD_QUEUE_ENABLE
 	if (OtherBuilder)
 	{
 		DrawAlliedBuildQueues(&OffScreen);
 	}
+#else
+	(void)OtherBuilder;
+#endif
 
 	vector<Position_Dword> DrawedTargat;
 	Position_Dword TargatPos;

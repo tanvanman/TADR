@@ -1,6 +1,10 @@
 #pragma once
 
+#include "config.h"
+
 #include <vector>
+
+#if ALLIED_BUILD_QUEUE_ENABLE
 
 struct AlliedBuildQueueRecord
 {
@@ -17,3 +21,5 @@ namespace AlliedBuildQueueSync
 	void Shutdown();
 	const std::vector<AlliedBuildQueueRecord>& GetPlayerQueue(int playerSlot);
 }
+
+#endif // ALLIED_BUILD_QUEUE_ENABLE

@@ -86,6 +86,15 @@
 #define USEWHITEBOARD 1
 
 //
+// Allied build-queue overlay -- see AlliedBuildQueueSync.h, and config.h for
+// the full description.  Draws allies' queued build placements (game screen
+// while SHIFT is held with an allied builder under the cursor/camera, and the
+// megamap) and broadcasts the local player's own queue to allies on
+// CHAT_05-hijack msgId 0x60.  Off: nothing is hooked, sent, parsed or drawn,
+// and the "Show ally queues" dialog checkbox is not created.
+#define ALLIED_BUILD_QUEUE_ENABLE 0
+
+//
 // Air-unit stacking / area-damage immunity -- see AreaDamageOverflow.h.
 // Lets one explosion damage every airborne unit on a cell instead of only the one
 // holding the cell's air slot. Air-only; ground/naval splash is unchanged.
