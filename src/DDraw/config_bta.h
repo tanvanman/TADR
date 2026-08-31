@@ -33,7 +33,7 @@
 // ticks, so it neither desyncs nor changes the wire protocol.  It does,
 // however, stall the game on ordinary packet loss too.  See LagSwitchGuard.h.
 // Off for BTA: no freeze, no DeltaTime/pause-key hooks are installed at all.
-#define LAG_SWITCH_GUARD_ENABLE 0
+#define LAG_SWITCH_GUARD_ENABLE 1
 
 //
 // Construction / AI behavior
