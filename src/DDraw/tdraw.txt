@@ -66,6 +66,7 @@ NEW FEATURES IN BRIEF:
 - Lag-switch mitigation is now a per-build option, and is disabled in tdraw-bta.zip.  Every other build keeps it as before
 - add "notoverwater" and "notoverland" flags for weapons (see NEW FEATURES IN DETAIL)
 - (escalation only) wrecks of aircraft destroyed over land now fall to the ground instead of hanging in the air where the aircraft died (see NEW FEATURES IN DETAIL)
+- Stop the main-menu background hum from continuing into a restarted game when unlimited sound mixing is enabled (thanks TAG_Venom)
 - Keep the +bps network and game-time display visible over the megamap (thanks TAG_Venom)
 - Fix megamap projectile icons and range displays, and make anti-nuke coverage circular and consistent with its displayed ring (thanks TAG_Venom)
 - Fix megamap cursor hit testing, order placement, stationary hover updates, and edge/one-axis selection drags (thanks TAG_Venom)
