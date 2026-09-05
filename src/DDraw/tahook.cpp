@@ -19,6 +19,7 @@
 #include "unitrotate.h"
 #include "buildghost.h"
 #include "AlliedBuildQueueSync.h"
+#include "ChatLayout.h"
 
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
@@ -809,6 +810,15 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 			case WM_MOUSEWHEEL:
+				// Stage 4c-b step 3: while the chat scrollback is armed (the
+				// TALK.GUI compose prompt is open), the wheel pages retained
+				// chat history instead of doing anything else with it -- takes
+				// priority over WheelZoom / WheelMoveMegaMap / the
+				// SnapOverrideKey build-rotate gesture below, and is a no-op
+				// (returns false immediately) whenever the prompt is closed.
+				if (ChatLayout::ScrollbackWheel((short)HIWORD(wParam)))
+					return true;
+
 				/*FootPrint += ((short)HIWORD(wParam))/120;
 				if(FootPrint>8)
 				FootPrint = 8;

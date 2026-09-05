@@ -1,5 +1,6 @@
 #include "config.h"
 #include "ChatPosition.h"
+#include "ChatLayout.h"    // ChatLayout::TakingOver() -- gates the textlines cap below
 
 #include <windows.h>       // TAConfig.h assumes the Win32 typedefs are already in
 
@@ -7,6 +8,7 @@
 #include "iddrawsurface.h"
 
 #include <cstring>
+#include <cstdlib>
 
 namespace
 {
@@ -37,13 +39,29 @@ namespace
 
 	bool  g_installed   = false;
 	bool  g_patched     = false;
+	bool  g_growUp      = false;   // set by ChatPosition::SetGrowUp() -- see the bottomcenter branch
 	Anchor g_anchor     = AnchorNone;
 	int   g_offsetX     = 0;
 	int   g_offsetY     = 0;
+	bool  g_offsetXPct  = false;   // g_offsetX is a % of screen width, not pixels
+	bool  g_offsetYPct  = false;   // g_offsetY is a % of screen height, not pixels
+
+	// Lines the bottomcenter anchor keeps clear ABOVE the bottom HUD bar. The
+	// engine draws the message list top-down from the anchor, so a point near
+	// the bottom bar puts everything after the first line or two off-screen.
+	// Reserving this many lines' height is the stopgap; drawing the list
+	// upward from the bottom is Stage 4. Overridable via ChatBottomLines.
+	int   g_bottomLines = 8;
 
 	// Last values actually written, so EnsureApplied() can early-out.
 	int   g_appliedX    = VANILLA_X;
 	int   g_appliedY    = VANILLA_Y;
+
+	// Non-zero once we have forced the engine's `textlines` down for the
+	// bottomcenter anchor (see EnsureApplied). Shutdown restores 30.
+	int   g_appliedTextlines = 0;
+
+	const unsigned OFF_TEXTLINES = 0x37F27;   // ta+0x37F27, dword (ENGINE_NOTES SS26.4)
 
 	// Original bytes, captured before the first write.
 	DWORD  g_origYImm   = 0;
@@ -78,6 +96,40 @@ namespace
 		}
 	}
 
+	unsigned char* TaBase()
+	{
+		__try
+		{
+			return *(unsigned char**)0x00511DE8;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			return nullptr;
+		}
+	}
+
+	// COMIX chat-font cell height, read from the live TA struct
+	// (ta+0x391F9 -> FontDataStruct*, [0] = charHeight). 0 if not resolvable
+	// yet -- callers fall back to a nominal value and self-correct next frame.
+	int LineHeight()
+	{
+		__try
+		{
+			unsigned char* ta = TaBase();
+			if (!ta)
+				return 0;
+			unsigned char* font = *(unsigned char**)(ta + 0x391F9);
+			if (!font)
+				return 0;
+			const int lh = *(int*)font;
+			return (lh > 0 && lh < 128) ? lh : 0;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			return 0;
+		}
+	}
+
 	Anchor ParseAnchor(const char* s)
 	{
 		if (!s || !*s)
@@ -104,6 +156,29 @@ namespace
 		return AnchorNone;
 	}
 
+	// Reads "138", "-110", "12%", "-8 %" (a trailing ';' and surrounding
+	// spaces are tolerated, matching the shipped ini style). "<n>%" sets
+	// *isPct and *val = n, meaning n percent of the screen dimension, resolved
+	// per frame. Otherwise *val is a pixel offset. Unparseable -> 0 pixels.
+	void ParseOffset(const char* s, int* val, bool* isPct)
+	{
+		*val   = 0;
+		*isPct = false;
+		if (!s)
+			return;
+
+		char buf[32];
+		strncpy_s(buf, sizeof(buf), s, _TRUNCATE);
+
+		for (char* p = buf; *p; ++p)
+		{
+			if (*p == ';') { *p = '\0'; break; }
+			if (*p == '%') { *isPct = true; *p = ' '; }
+		}
+
+		*val = atoi(buf);   // tolerates leading spaces and a sign
+	}
+
 	int Clamp(int v, int lo, int hi)
 	{
 		if (hi < lo) return lo;
@@ -125,6 +200,7 @@ namespace
 
 		int x = VANILLA_X;
 		int y = VANILLA_Y;
+		int maxY = h - 16;   // clamp ceiling for the anchor (top of the list)
 
 		switch (g_anchor)
 		{
@@ -137,21 +213,40 @@ namespace
 			y = VANILLA_Y;
 			break;
 		case AnchorBottomCenter:
+		{
+			const int lh = (LineHeight() > 0 ? LineHeight() : 14);
 			x = HUD_LEFT + (w - HUD_LEFT) / 2;
-			y = h - HUD_BOTTOM;
+			if (g_growUp)
+			{
+				// ChatLayout draws the list UPWARD from this point (the newest
+				// line sits here), so anchor one line above the bottom bar and
+				// let older lines climb. ChatPosY still nudges UP only.
+				y = h - HUD_BOTTOM - lh;
+			}
+			else
+			{
+				// Drawn DOWNWARD from this point. Anchoring at the bottom bar
+				// puts everything past the first line or two off-screen (the
+				// "can't see messages after a while" bug). Reserve g_bottomLines
+				// lines' height above the bar and anchor there; ChatPosY nudges
+				// from that reserved position, UP only.
+				y = h - HUD_BOTTOM - lh * g_bottomLines;
+			}
+			maxY = y;
 			break;
+		}
 		default:
 			return false;
 		}
 
-		x += g_offsetX;
-		y += g_offsetY;
+		x += g_offsetXPct ? (g_offsetX * w / 100) : g_offsetX;
+		y += g_offsetYPct ? (g_offsetY * h / 100) : g_offsetY;
 
 		// Keep the anchor inside the game viewport. Drawing left of the
 		// sidebar or above the top bar puts text under HUD chrome, and the
 		// engine's clipper is not prepared for negative coordinates here.
 		outX = Clamp(x, HUD_LEFT, w - 16);
-		outY = Clamp(y, HUD_TOP,  h - 16);
+		outY = Clamp(y, HUD_TOP,  maxY);
 		return true;
 	}
 
@@ -161,14 +256,16 @@ namespace
 		const DWORD  yi = (DWORD)y;
 		const double xd = (double)x;
 
-		PokeBytes(ADDR_Y_IMM32,  &yi, sizeof(yi));
-		PokeBytes(ADDR_X_IMM32,  &xi, sizeof(xi));
-		PokeBytes(ADDR_X_DISP32, &xi, sizeof(xi));
-		PokeBytes(ADDR_X_DOUBLE, &xd, sizeof(xd));
+		const bool okY = PokeBytes(ADDR_Y_IMM32,  &yi, sizeof(yi));
+		const bool okX = PokeBytes(ADDR_X_IMM32,  &xi, sizeof(xi));
+		const bool okD = PokeBytes(ADDR_X_DISP32, &xi, sizeof(xi));
+		const bool okF = PokeBytes(ADDR_X_DOUBLE, &xd, sizeof(xd));
 
 		g_appliedX = x;
 		g_appliedY = y;
 		g_patched  = true;
+
+		(void)okY; (void)okX; (void)okD; (void)okF;
 	}
 }
 
@@ -181,16 +278,23 @@ void ChatPosition::Install()
 	if (MyConfig)
 	{
 		MyConfig->GetIniStr("ChatAnchor", anchorBuf, sizeof(anchorBuf), (LPSTR)"");
-		g_anchor  = ParseAnchor(anchorBuf);
-		g_offsetX = MyConfig->GetIniInt("ChatPosX", 0);
-		g_offsetY = MyConfig->GetIniInt("ChatPosY", 0);
+		g_anchor = ParseAnchor(anchorBuf);
+
+		char xBuf[32] = { 0 };
+		char yBuf[32] = { 0 };
+		MyConfig->GetIniStr("ChatPosX", xBuf, sizeof(xBuf), (LPSTR)"0");
+		MyConfig->GetIniStr("ChatPosY", yBuf, sizeof(yBuf), (LPSTR)"0");
+		ParseOffset(xBuf, &g_offsetX, &g_offsetXPct);
+		ParseOffset(yBuf, &g_offsetY, &g_offsetYPct);
+
+		g_bottomLines = MyConfig->GetIniInt("ChatBottomLines", 8);
 	}
 
-	// Sanity-clamp the offsets so a typo cannot fling chat off-screen; the
-	// resolved value is clamped to the viewport anyway, this just keeps the
-	// arithmetic in a sane range.
-	g_offsetX = Clamp(g_offsetX, -4096, 4096);
-	g_offsetY = Clamp(g_offsetY, -4096, 4096);
+	// Sanity-clamp so a typo cannot fling chat off-screen; the resolved value
+	// is clamped to the viewport anyway, this just keeps the arithmetic sane.
+	g_offsetX = Clamp(g_offsetX, g_offsetXPct ? -100 : -4096, g_offsetXPct ? 100 : 4096);
+	g_offsetY = Clamp(g_offsetY, g_offsetYPct ? -100 : -4096, g_offsetYPct ? 100 : 4096);
+	g_bottomLines = Clamp(g_bottomLines, 1, 20);
 
 	if (g_anchor == AnchorNone)
 	{
@@ -230,13 +334,24 @@ void ChatPosition::Install()
 		return;
 	}
 
-	IDDrawSurface::OutptFmtTxt("[ChatPosition] anchor=%d offset=(%d,%d)",
-		(int)g_anchor, g_offsetX, g_offsetY);
+	IDDrawSurface::OutptFmtTxt("[ChatPosition] anchor=%d offset=(%d%s,%d%s) bottom_lines=%d",
+		(int)g_anchor,
+		g_offsetX, g_offsetXPct ? "%" : "px",
+		g_offsetY, g_offsetYPct ? "%" : "px",
+		g_bottomLines);
 	g_installed = true;
 }
 
 void ChatPosition::Shutdown()
 {
+	if (g_appliedTextlines)
+	{
+		unsigned char* ta = TaBase();
+		if (ta)
+			*(int*)(ta + OFF_TEXTLINES) = 30;   // engine's own default
+		g_appliedTextlines = 0;
+	}
+
 	if (!g_patched)
 		return;
 
@@ -259,10 +374,57 @@ void ChatPosition::EnsureApplied()
 	if (!Resolve(x, y))
 		return;                       // screen size not known yet
 
-	if (g_patched && x == g_appliedX && y == g_appliedY)
-		return;                       // nothing moved
+	if (!g_patched || x != g_appliedX || y != g_appliedY)
+		WritePosition(x, y);
 
-	WritePosition(x, y);
+	// bottomcenter only: cap the engine's line count.
+	//
+	// Hud_DrawChatHudRing draws the visible window DOWNWARD from the anchor,
+	// oldest line at the anchor and newest `(count-1)*charHeight` below it, up
+	// to `textlines` lines. With a bottom anchor and the stock textlines=30 the
+	// newest messages are drawn past the bottom edge and are never seen -- the
+	// "can't see new messages after a while" bug.
+	//
+	// ENGINE_NOTES SS26.4 says never write `textlines`, because a feature that
+	// holds it low and expects a later "show more" to recover the scrolled-off
+	// lines cannot -- chatNum ratchets one way. That caveat does NOT apply
+	// here: this is a deliberately small, fixed chat window (identical to the
+	// ctrl-F2 "chat lines" option), not a collapsible one. Stage 4's
+	// scroll-back keeps its own message buffer fed from the 0x463CA0 writer and
+	// does not consult chatNum, so the ratchet costs nothing we can otherwise
+	// see. Restored to 30 by Shutdown().
+	//
+	// ...UNLESS ChatLayout has taken over the draw (ChatRenderer=tadr). It then
+	// walks the full 30-entry ring itself and applies its own per-column
+	// ChatLines / ChatSysLines budget with a screen-fit clamp, so the "drawn
+	// off the bottom edge" bug cannot occur. Throttling `textlines` here would
+	// only hide older lines from that drawer for nothing -- leave it at 30.
+	if (g_anchor == AnchorBottomCenter && !ChatLayout::TakingOver())
+	{
+		unsigned char* ta = TaBase();
+		if (ta)
+		{
+			int* tl = (int*)(ta + OFF_TEXTLINES);
+			const int want = Clamp(g_bottomLines, 1, 30);
+			if (*tl != want)
+			{
+				*tl = want;
+				g_appliedTextlines = want;
+			}
+		}
+	}
+}
+
+void ChatPosition::SetGrowUp(bool growUp)
+{
+	// ChatLayout calls this at Install() (after ours) when ChatRenderer=tadr
+	// and ChatGrow=up. Only affects the bottomcenter anchor: the list is drawn
+	// upward, so the anchor moves from the top of the reserved band to one
+	// line above the bottom bar. EnsureApplied() re-resolves on the next frame.
+	if (g_growUp == growUp)
+		return;
+	g_growUp = growUp;
+	g_appliedX = -1;   // force EnsureApplied() to re-resolve and re-patch
 }
 
 int ChatPosition::X()

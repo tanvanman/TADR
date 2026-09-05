@@ -36,6 +36,8 @@
 // Defaults are topleft / 0 / 0, which resolves to exactly (138, 52) — i.e.
 // vanilla, byte for byte. An absent or unparseable ChatAnchor leaves the
 // engine completely unpatched.
+#include "config.h"
+
 namespace ChatPosition
 {
 	// Reads the ini and captures the original bytes. Does NOT patch yet —
@@ -52,6 +54,13 @@ namespace ChatPosition
 	// values are always correct for the frame about to be drawn, including
 	// after a resolution change.
 	void EnsureApplied();
+
+	// ChatLayout calls this once at its Install() (which runs after ours) when
+	// ChatRenderer=tadr and ChatGrow=up. It shifts the `bottomcenter` anchor
+	// from the top of the reserved band to one line above the bottom bar,
+	// because the list is then drawn upward from the anchor (newest line on
+	// it) rather than downward. No effect for other anchors or growth modes.
+	void SetGrowUp(bool growUp);
 
 	// Currently applied top-left of the chat list, in absolute screen
 	// pixels. Returns the vanilla 138/52 until EnsureApplied() has run.

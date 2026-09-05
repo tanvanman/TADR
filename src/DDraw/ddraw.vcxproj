@@ -335,6 +335,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="HudNotifications.cpp" />
     <ClCompile Include="ChatBackdrop.cpp" />
     <ClCompile Include="ChatPosition.cpp" />
+    <ClCompile Include="ChatLayout.cpp" />
     <ClCompile Include="PlayerMute.cpp" />
     <ClCompile Include="ChatFont.cpp" />
     <ClCompile Include="WeaponTdfHook.cpp" />
@@ -377,6 +378,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="HudNotifications.h" />
     <ClInclude Include="ChatBackdrop.h" />
     <ClInclude Include="ChatPosition.h" />
+    <ClInclude Include="ChatLayout.h" />
+    <ClInclude Include="ChatClassify.h" />
     <ClInclude Include="PlayerMute.h" />
     <ClInclude Include="ChatFont.h" />
     <ClInclude Include="DebugPipeServer.h" />
