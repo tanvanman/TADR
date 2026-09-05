@@ -134,21 +134,37 @@ void MegaMapControl::Init (FullScreenMinimap * parent_p, RECT * MegaMapScreen_p,
 
 	Screen2MapWidthScale= static_cast<float>(MegaMapWidth)/ static_cast<float>(TAMapWidth);
 	Screen2MapHeightScale= static_cast<float>(MegaMapHeight)/ static_cast<float>(TAMapHeight);
+	PlayScaleFixed= FALSE;
+	MaxIconWidth_Screen= MaxIconWidth;
+	MaxIconHeight_Screen= MaxIconHeight;
 
 	memcpy ( &TAGameScreen, GameScreen_p, sizeof(RECT));
-
-	Position_Dword temp;
-
-	ScreenPos2TAPos ( &temp, MaxIconWidth, MaxIconHeight);
-
-	HalfMaxIconWidth_TAPos= temp.X/ 2;
-	HalfMaxIconHeight_TAPos= temp.Y/ 2;
 
 	InControl= FALSE;
 	InMap= FALSE;
 
 	LastDblXPos= -1;
 	LastDblYpos= -1;
+}
+
+void MegaMapControl::EnsurePlayableScale (void)
+{
+	if (PlayScaleFixed)
+	{
+		return;
+	}
+
+	int FeatureWidth= TAmainStruct_Ptr->FeatureMapSizeX;
+	int FeatureHeight= TAmainStruct_Ptr->FeatureMapSizeY;
+	int PlayableWidth= (FeatureWidth- 2)* 16;
+	int PlayableHeight= (FeatureHeight- 8)* 16;
+	if ((0<PlayableWidth)
+		&&(0<PlayableHeight))
+	{
+		Screen2MapWidthScale= static_cast<float>(MegaMapWidth)/ static_cast<float>(PlayableWidth);
+		Screen2MapHeightScale= static_cast<float>(MegaMapHeight)/ static_cast<float>(PlayableHeight);
+		PlayScaleFixed= TRUE;
+	}
 }
 
 /*
@@ -221,6 +237,7 @@ POINT * MegaMapControl::TAPos2ScreenPos (POINT * ScreenPos, unsigned int TAX, un
 	{
 		return NULL;
 	}
+	EnsurePlayableScale ( );
 	int TAx= TAX; 
 	int TAy= TAY- TAZ/ 2;
 
@@ -237,12 +254,112 @@ Position_Dword * MegaMapControl::ScreenPos2TAPos (Position_Dword * TAPos, int x,
 	{
 		return NULL;
 	}
-	TAPos->X= static_cast<int>(static_cast<float>(x)/ Screen2MapWidthScale);
-	TAPos->Y= static_cast<int>(static_cast<float>(y)/ Screen2MapHeightScale);
+	EnsurePlayableScale ( );
+	TAPos->x_= 0;
+	TAPos->z_= 0;
+	TAPos->y_= 0;
+	// Choose the centre world coordinate represented by this screen pixel.
+	// Using truncation here and again in TAPos2ScreenPos moved ground orders
+	// one pixel up and left when their Shift marker was drawn, while choosing
+	// the pixel edge made the zoomed-in destination visibly biased.
+	if (UseTAHeight)
+	{
+		TAPos->X= static_cast<int>((static_cast<double>(x)+ 0.5)/ Screen2MapWidthScale);
+		while (static_cast<int>(static_cast<float>(TAPos->X)* Screen2MapWidthScale)<x)
+		{
+			++TAPos->X;
+		}
+		while ((0<TAPos->X)
+			&&(x<static_cast<int>(static_cast<float>(TAPos->X)* Screen2MapWidthScale)))
+		{
+			--TAPos->X;
+		}
+	}
+	else
+	{
+		TAPos->X= static_cast<int>(static_cast<float>(x)/ Screen2MapWidthScale);
+	}
+	int ProjectedY= UseTAHeight
+		?static_cast<int>((static_cast<double>(y)+ 0.5)/ Screen2MapHeightScale)
+		:static_cast<int>(static_cast<float>(y)/ Screen2MapHeightScale);
+	TAPos->Y= ProjectedY;
+	TAPos->Z= 0;
 	if (UseTAHeight&&
 		TAmainStruct_Ptr->FeatureMap)
 	{
-		TAPos->Z= GetPosHeight ( TAPos);
+		// Megamap drawing projects world Y as Y-Z/2.  Recover world Y here so
+		// TA receives the same ground point that the cursor indicates.  Height
+		// depends on Y, so refine the inverse a few times for sloped terrain.
+		int MaxY= (TAmainStruct_Ptr->FeatureMapSizeY- 8)* 16- 1;
+		int MinTriedY= TAPos->Y;
+		int MaxTriedY= TAPos->Y;
+		for (int i= 0; i<8; ++i)
+		{
+			int Height= GetPosHeight ( TAPos);
+			if (Height<0)
+			{
+				Height= TAmainStruct_Ptr->SeaLevel;
+			}
+			int WorldY= ProjectedY+ Height/ 2;
+			if (WorldY<0)
+			{
+				WorldY= 0;
+			}
+			else if ((0<MaxY)
+				&&(MaxY<WorldY))
+			{
+				WorldY= MaxY;
+			}
+			if (WorldY<MinTriedY) MinTriedY= WorldY;
+			if (MaxTriedY<WorldY) MaxTriedY= WorldY;
+			if (WorldY==TAPos->Y)
+			{
+				break;
+			}
+			TAPos->Y= WorldY;
+		}
+		int Height= GetPosHeight ( TAPos);
+		TAPos->Z= (Height<0)? TAmainStruct_Ptr->SeaLevel: Height;
+
+		// At a sharp height boundary the inverse can alternate between two
+		// terrain samples.  Search only that small interval and select the
+		// ground point whose normal world-to-screen projection best matches
+		// the cursor pixel.
+		int DrawY= static_cast<int>(static_cast<float>(TAPos->Y- TAPos->Z/ 2)* Screen2MapHeightScale);
+		if (DrawY!=y)
+		{
+			int SearchPad= static_cast<int>(ceil(1.0/ Screen2MapHeightScale))+ 2;
+			int SearchFirst= MinTriedY- SearchPad;
+			int SearchLast= MaxTriedY+ SearchPad;
+			if (SearchFirst<0) SearchFirst= 0;
+			if ((0<MaxY)
+				&&(MaxY<SearchLast)) SearchLast= MaxY;
+
+			int BestY= TAPos->Y;
+			int BestZ= TAPos->Z;
+			int BestScreenError= abs(DrawY- y);
+			int BestWorldError= abs((TAPos->Y- TAPos->Z/ 2)- ProjectedY);
+			for (int CandidateY= SearchFirst; CandidateY<=SearchLast; ++CandidateY)
+			{
+				TAPos->Y= CandidateY;
+				int CandidateHeight= GetPosHeight ( TAPos);
+				int CandidateZ= (CandidateHeight<0)? TAmainStruct_Ptr->SeaLevel: CandidateHeight;
+				int CandidateDrawY= static_cast<int>(static_cast<float>(CandidateY- CandidateZ/ 2)* Screen2MapHeightScale);
+				int ScreenError= abs(CandidateDrawY- y);
+				int WorldError= abs((CandidateY- CandidateZ/ 2)- ProjectedY);
+				if ((ScreenError<BestScreenError)
+					||((ScreenError==BestScreenError)
+						&&(WorldError<BestWorldError)))
+				{
+					BestY= CandidateY;
+					BestZ= CandidateZ;
+					BestScreenError= ScreenError;
+					BestWorldError= WorldError;
+				}
+			}
+			TAPos->Y= BestY;
+			TAPos->Z= BestZ;
+		}
 	}
 	else
 	{
@@ -796,17 +913,17 @@ BOOL MegaMapControl::CheckInControl (int xPos, int yPos)
 		}
 	}
 	return (xPos<TAGameScreen.right)
-		&&(TAGameScreen.left<xPos)
+		&&(TAGameScreen.left<=xPos)
 		&&(yPos<TAGameScreen.bottom)
-		&&(TAGameScreen.top<yPos);
+		&&(TAGameScreen.top<=yPos);
 }
 
 BOOL MegaMapControl::CheckInMap (int xPos, int yPos)
 {
 	return (xPos<(MegaMapScreen.right))
-		&&(MegaMapScreen.left<xPos)
+		&&(MegaMapScreen.left<=xPos)
 		&&(yPos<(MegaMapScreen.bottom))
-		&&(MegaMapScreen.top<yPos);
+		&&(MegaMapScreen.top<=yPos);
 }
 
 BOOL MegaMapControl::IsInControl(void)
@@ -886,12 +1003,6 @@ BOOL MegaMapControl::MouseMove (int x, int y)
 	{
 		ScreenPos2TAPos ( &TAmainStruct_Ptr->MouseMapPos, x, y, TRUE);
 
-		RECT MouseRect;
-		MouseRect.left= TAmainStruct_Ptr->MouseMapPos.X- HalfMaxIconWidth_TAPos;
-		MouseRect.right= TAmainStruct_Ptr->MouseMapPos.X+ HalfMaxIconWidth_TAPos;
-		MouseRect.top= TAmainStruct_Ptr->MouseMapPos.Y- HalfMaxIconHeight_TAPos;
-		MouseRect.bottom= TAmainStruct_Ptr->MouseMapPos.Y+ HalfMaxIconHeight_TAPos;
-
 		int Count= TAmainStruct_Ptr->NumHotRadarUnits;
 
 		RadarUnit_ * RadarUnits_v= (*TAmainStruct_PtrPtr)->RadarUnits;
@@ -903,27 +1014,54 @@ BOOL MegaMapControl::MouseMove (int x, int y)
 		for (int i= 0; i<Count; ++i)
 		{
 			unitPtr=  &Begin[RadarUnits_v[i].ID];
-			int X= static_cast<int>(unitPtr->XPos+ unitPtr->UnitType->FootX/ 2);
-			int Y= static_cast<int>(unitPtr->YPos+ unitPtr->UnitType->FootY/ 2- unitPtr->ZPos/ 2);
-			if ((MouseRect.left<X)
-				&&(X<MouseRect.right)
-				&&(MouseRect.top<Y)
-				&&(Y<MouseRect.bottom))
+			if ((NULL==unitPtr->UnitType)
+				||(NULL==unitPtr->Owner_PlayerPtr0))
 			{
+				continue;
+			}
+			int TAx= static_cast<int>(unitPtr->XPos- unitPtr->UnitType->FootX/ 2);
+			int TAy= static_cast<int>(unitPtr->YPos- unitPtr->UnitType->FootY/ 2- unitPtr->ZPos/ 2);
+			int UnitScreenX= static_cast<int>(static_cast<float>(TAx)* Screen2MapWidthScale);
+			int UnitScreenY= static_cast<int>(static_cast<float>(TAy)* Screen2MapHeightScale);
+			if (((UnitScreenX- MaxIconWidth_Screen/ 2- 1)<=x)
+				&&(x<=(UnitScreenX+ MaxIconWidth_Screen/ 2+ 1))
+				&&((UnitScreenY- MaxIconHeight_Screen/ 2- 1)<=y)
+				&&(y<=(UnitScreenY+ MaxIconHeight_Screen/ 2+ 1)))
+			{
+				LPBYTE GafPixelBits= NULL;
 				POINT GafAspect;
-				parent->UnitsMap->UnitPicture ( unitPtr, TAmainStruct_Ptr->LocalHumanPlayer_PlayerID, NULL, &GafAspect);
-				
-				Position_Dword GafAspectTA;
-				ScreenPos2TAPos ( &GafAspectTA, GafAspect.x, GafAspect.y);
-
-				MouseRect.left= TAmainStruct_Ptr->MouseMapPos.X- GafAspectTA.X/ 2;
-				MouseRect.right=  MouseRect.left+ GafAspectTA.X;
-				MouseRect.top= TAmainStruct_Ptr->MouseMapPos.Y- GafAspectTA.Y/ 2;
-				MouseRect.bottom=  MouseRect.top+ GafAspectTA.Y;
-				if ((MouseRect.left<X)
-					&&(X<MouseRect.right)
-					&&(MouseRect.top<Y)
-					&&(Y<MouseRect.bottom))
+				int PlayerID= unitPtr->Owner_PlayerPtr0->PlayerAryIndex;
+				parent->UnitsMap->UnitPicture ( unitPtr, PlayerID, &GafPixelBits, &GafAspect);
+				if ((NULL==GafPixelBits)
+					||(GafAspect.x<=0)
+					||(GafAspect.y<=0))
+				{
+					continue;
+				}
+				int LocalX= x- (UnitScreenX- GafAspect.x/ 2);
+				int LocalY= y- (UnitScreenY- GafAspect.y/ 2);
+				int MinX= GafAspect.x;
+				int MinY= GafAspect.y;
+				int MaxX= -1;
+				int MaxY= -1;
+				int TransparentColor= parent->UnitsMap->GetTransparentColor ( );
+				for (int PixelY= 0; PixelY<GafAspect.y; ++PixelY)
+				{
+					for (int PixelX= 0; PixelX<GafAspect.x; ++PixelX)
+					{
+						if (GafPixelBits[PixelY* GafAspect.x+ PixelX]!=TransparentColor)
+						{
+							if (PixelX<MinX) MinX= PixelX;
+							if (MaxX<PixelX) MaxX= PixelX;
+							if (PixelY<MinY) MinY= PixelY;
+							if (MaxY<PixelY) MaxY= PixelY;
+						}
+					}
+				}
+				if (((MinX- 1)<=LocalX)
+					&&(LocalX<=(MaxX+ 1))
+					&&((MinY- 1)<=LocalY)
+					&&(LocalY<=(MaxY+ 1)))
 				{
 					TAmainStruct_Ptr->MouseOverUnit= RadarUnits_v[i].ID;
 					UnitUnderMouse= TRUE;
@@ -955,6 +1093,38 @@ BOOL MegaMapControl::MouseMove (int x, int y)
 	return TRUE;
 }
 
+void MegaMapControl::RefreshMouseHover (void)
+{
+	if (IsBliting ( )
+		&&InControl
+		&&InMap
+		&&(-1!=PubCursorX)
+		&&(-1!=PubCursorY))
+	{
+		if (selectbuttom::none==SelectState)
+		{
+			MouseMove ( PubCursorX- MegaMapScreen.left, PubCursorY- MegaMapScreen.top);
+		}
+		else if ((selectbuttom::down==SelectState)
+			&&(0!=TAmainStruct_Ptr->MouseOverUnit))
+		{
+			BOOL StillVisible= FALSE;
+			for (int i= 0; i<TAmainStruct_Ptr->NumHotRadarUnits; ++i)
+			{
+				if (TAmainStruct_Ptr->RadarUnits[i].ID==TAmainStruct_Ptr->MouseOverUnit)
+				{
+					StillVisible= TRUE;
+					break;
+				}
+			}
+			if (! StillVisible)
+			{
+				TAmainStruct_Ptr->MouseOverUnit= 0;
+			}
+		}
+	}
+}
+
 BOOL MegaMapControl::SelectDown (int x, int y, bool out, bool shift)
 {
 	if (false==out)
@@ -963,8 +1133,6 @@ BOOL MegaMapControl::SelectDown (int x, int y, bool out, bool shift)
 
 		SelectScreenRect.left= x;
 		SelectScreenRect.top= y;
-
-		SelectTick= GetTickCount ( );
 
 		// Issue a prepared order (build placement, move, attack, ...) on
 		// button-DOWN rather than waiting for button-UP, so a megamap click
@@ -1018,10 +1186,11 @@ BOOL MegaMapControl::SelectUp (int x, int y, bool out, bool shift)
 		}
 
 
-		if ((MINSELECTHEIGHT<abs ( SelectScreenRect.bottom- SelectScreenRect.top))
-			&&(MINSELECTWIDTH<abs ( SelectScreenRect.right- SelectScreenRect.left))
-			&&((SelectTick/ 1000)<= (GetTickCount ( )/ 1000)))
+		if ((SelectScreenRect.left!=SelectScreenRect.right)
+			||(SelectScreenRect.top!=SelectScreenRect.bottom))
 		{
+			ExpandThinSelectRect ( &SelectScreenRect);
+
 			ScreenPos2TAPos ( &TmpPos, SelectScreenRect.left, SelectScreenRect.top);
 			SelectScreenRect.left= TmpPos.X;
 			SelectScreenRect.top= TmpPos.Y;
@@ -1074,6 +1243,12 @@ BOOL MegaMapControl::SelectMove (int x, int y, bool Out_b, bool LBMD)
 			||selectbuttom::select==SelectState)
 			)
 		{
+			if ((selectbuttom::down==SelectState)
+				&&(abs ( x- SelectScreenRect.left)<GetSystemMetrics ( SM_CXDRAG))
+				&&(abs ( y- SelectScreenRect.top)<GetSystemMetrics ( SM_CYDRAG)))
+			{
+				return TRUE;
+			}
 			SelectState= selectbuttom::select;
 
 			if (Out_b)
@@ -1115,11 +1290,38 @@ selectbuttom::SELECTBUTTOM MegaMapControl::ReadSelectState (void)
 	return SelectState;
 }
 
+void MegaMapControl::ExpandThinSelectRect (RECT * rect_p)
+{
+	if (rect_p->left==rect_p->right)
+	{
+		if (rect_p->right<(MegaMapWidth- 1))
+		{
+			++rect_p->right;
+		}
+		else if (0<rect_p->left)
+		{
+			--rect_p->left;
+		}
+	}
+	if (rect_p->top==rect_p->bottom)
+	{
+		if (rect_p->bottom<(MegaMapHeight- 1))
+		{
+			++rect_p->bottom;
+		}
+		else if (0<rect_p->top)
+		{
+			--rect_p->top;
+		}
+	}
+}
+
 RECT * MegaMapControl::ReadSelectRect (RECT * rect_p)
 {
 	if (rect_p)
 	{
 		memcpy ( rect_p, &SelectScreenRect, sizeof(RECT));
+		ExpandThinSelectRect ( rect_p);
 	}
 
 	return &SelectScreenRect;
@@ -1137,9 +1339,8 @@ BOOL MegaMapControl::IsDrawRect (BOOL Build_b)
 		return (BUILD==TAmainStruct_Ptr->PrepareOrder_Type);
 	}
 	return (selectbuttom::select==SelectState
-		&&(MINSELECTHEIGHT<abs ( SelectScreenRect.bottom- SelectScreenRect.top))
-		&&(MINSELECTWIDTH<abs ( SelectScreenRect.right- SelectScreenRect.left))
-		&&((SelectTick/ 1000)<= (GetTickCount ( )/ 1000)))
+		&&((SelectScreenRect.left!=SelectScreenRect.right)
+			||(SelectScreenRect.top!=SelectScreenRect.bottom)))
 		||(BUILD==TAmainStruct_Ptr->PrepareOrder_Type);
 }
 

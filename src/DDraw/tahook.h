@@ -1,6 +1,7 @@
 #ifndef tahookH
 #define tahookH
 
+#include "config.h"
 #include "tamem.h"
 #include <vector>
 #include <memory>
@@ -90,7 +91,9 @@ class CTAHook
 
 	UnitOrdersStruct* FindUnitOrdersUnderMouse();
 	bool IsAnOrder(UnitOrdersStruct *unitOrders, UnitOrdersStruct *order);
+#if ALLIED_BUILD_QUEUE_ENABLE
 	void VisualizeAlliedQueuedBuilds();
+#endif
 	void VisualizeDraggingBuildRectangle();
 	void VisualizeMexSnapPreview();
 	void VisualizeWreckSnapPreview(LPDIRECTDRAWSURFACE DestSurf);

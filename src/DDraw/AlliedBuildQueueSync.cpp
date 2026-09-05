@@ -1,5 +1,7 @@
 #include "AlliedBuildQueueSync.h"
 
+#if ALLIED_BUILD_QUEUE_ENABLE
+
 #include "ChatHijackIds.h"
 #include "GameTickHook.h"
 #include "PacketChatRouter.h"
@@ -443,3 +445,5 @@ namespace AlliedBuildQueueSync
 		return g_remoteQueues[playerSlot].records;
 	}
 }
+
+#endif // ALLIED_BUILD_QUEUE_ENABLE

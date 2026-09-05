@@ -52,6 +52,15 @@
 #define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 1
 
 //
+// Extended weapon IDs (>= 256)
+//
+// Installs WeaponIdOverflow (heap-backed weapon slots above TA's hard-coded
+// Weapons[256]) plus WeaponFiredExt (the CHAT_05-hijack packet that carries
+// fire events for those overflow IDs, which the native WEAPON_FIRED_0D byte ID
+// cannot address).  See config.h for the full description.
+#define TDRAW_EXTENDED_WEAPON_IDS 1
+
+//
 // Off-map aircraft
 //
 // Width, in map tiles (16 world units each), of the band outside the map where aircraft can
@@ -78,6 +87,15 @@
 #define USEMEGAMAP 1
 #define MEGAMAP_FEATURES 1
 #define USEWHITEBOARD 1
+
+//
+// Allied build-queue overlay -- see AlliedBuildQueueSync.h, and config.h for
+// the full description.  Draws allies' queued build placements (game screen
+// while SHIFT is held with an allied builder under the cursor/camera, and the
+// megamap) and broadcasts the local player's own queue to allies on
+// CHAT_05-hijack msgId 0x60.  Off: nothing is hooked, sent, parsed or drawn,
+// and the "Show ally queues" dialog checkbox is not created.
+#define ALLIED_BUILD_QUEUE_ENABLE 0
 
 //
 // Air-unit stacking / area-damage immunity -- see AreaDamageOverflow.h.

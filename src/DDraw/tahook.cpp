@@ -44,6 +44,8 @@
 #define WM_MOUSEWHEEL 522
 #define MAX_SPACING 10
 
+#if ALLIED_BUILD_QUEUE_ENABLE
+// Helpers used only by VisualizeAlliedQueuedBuilds().
 namespace
 {
 	const int kAlliedQueuedBuildRectOuterColor = 221;
@@ -90,6 +92,7 @@ namespace
 			|| IsBuilderContextUnit(GetUnitByIndex(ta, ta->MouseOverUnit)));
 	}
 }
+#endif // ALLIED_BUILD_QUEUE_ENABLE
 
 CTAHook* TAHook;
 
@@ -1002,7 +1005,9 @@ void CTAHook::DrawBuildOverlays()
 			VisualizeRow();
 		}
 	}
+#if ALLIED_BUILD_QUEUE_ENABLE
 	VisualizeAlliedQueuedBuilds();
+#endif
 	VisualizeDraggingBuildRectangle();
 	VisualizeMexSnapPreview();
 
@@ -1819,6 +1824,7 @@ bool CTAHook::IsAnOrder(UnitOrdersStruct* unitOrders, UnitOrdersStruct* order)
 	return false;
 }
 
+#if ALLIED_BUILD_QUEUE_ENABLE
 void CTAHook::VisualizeAlliedQueuedBuilds()
 {
 	if (!TAdynmem || (LocalShare && LocalShare->Dialog
@@ -1932,6 +1938,7 @@ void CTAHook::VisualizeAlliedQueuedBuilds()
 		}
 	}
 }
+#endif // ALLIED_BUILD_QUEUE_ENABLE
 
 void CTAHook::VisualizeDraggingBuildRectangle()
 {

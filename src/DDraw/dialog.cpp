@@ -128,9 +128,13 @@ Dialog::Dialog(BOOL Vidmem_a)
 	m_widgets.push_back(m_chatMacroTextField = std::make_shared<TextField>(COL2, ROW(3), 170, 4 * ROW_HEIGHT,
 		"+setshareenergy 1000\x0d+setsharemetal 1000\x0d+shareall\x0d+shootall", "ShareText"));
 
+#if ALLIED_BUILD_QUEUE_ENABLE
+	// ROW(7) is left empty when the overlay is compiled out; the rows below keep
+	// their positions so the rest of the page does not shift between configs.
 	m_widgets.push_back(m_showAlliedBuildQueuesButton = std::make_shared<Button>(COL2, ROW(7), lpCheckBox,
 		1, 2, false, std::vector<std::string>(), "ShowAlliedBuildQueues", std::function<void(int)>()));
 	m_widgets.push_back(std::make_shared<Label>(COL2 + m_showAlliedBuildQueuesButton->m_width + 4, ROW(7), "Show ally queues"));
+#endif
 
 	m_widgets.push_back(std::make_shared<Label>(COL2, ROW(8), "Resource Bar Background"));
 	m_widgets.push_back(m_resourceBarBackgroundButton = std::make_shared<Button>(COL2, ROW(9), lpStagedButton3,
@@ -317,11 +321,13 @@ bool Dialog::GetBuildMenuRotationOverlayEnabled()
 		|| m_buildMenuRotationOverlayButton->GetState() != 0;
 }
 
+#if ALLIED_BUILD_QUEUE_ENABLE
 bool Dialog::GetShowAlliedBuildQueuesEnabled()
 {
 	return !m_showAlliedBuildQueuesButton
 		|| m_showAlliedBuildQueuesButton->GetState() != 0;
 }
+#endif
 
 bool Dialog::GetChatBackdropEnabled()
 {

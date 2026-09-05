@@ -90,6 +90,24 @@
 #endif
 
 //
+// AlliedBuildQueue: show allies' queued (not yet started) build placements --
+// on the game screen while SHIFT is held with an allied builder under the
+// cursor/camera, and on the megamap -- and broadcast the local player's own
+// queue to allies over a CHAT_05-hijack packet (ChatHijackId::AlliedBuildQueue,
+// 0x60) so allies see placements TA never puts on the wire.  Purely additive
+// display: it changes no simulation state, and a client built without it
+// neither sends nor parses the packet.  It does add periodic packet traffic
+// and hands allies information stock TA does not, so it is opt-in per config.
+// Defaulted OFF so a config_*.h predating the flag does not pick it up
+// silently.  When 0, AlliedBuildQueueSync.cpp compiles to nothing, no hook or
+// packet handler is installed, neither overlay is drawn, and the "Show ally
+// queues" dialog checkbox is not created.
+//
+#ifndef ALLIED_BUILD_QUEUE_ENABLE
+#define ALLIED_BUILD_QUEUE_ENABLE 0
+#endif
+
+//
 // Repair-rate fix heal multipliers -- see config_escalation.h for the tunable
 // values and RepairRateFix.cpp for how they're applied. Every config_*.h must
 // define both explicitly (same convention as REPAIR_RATE_FIX_ENABLE itself,

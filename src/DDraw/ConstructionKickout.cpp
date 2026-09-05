@@ -4,6 +4,7 @@
 #include "iddrawsurface.h"
 #include "hook/hook.h"
 #include "tafunctions.h"
+#include "TAbugfix.h"
 
 #include <cmath>
 #include <set>
@@ -450,6 +451,19 @@ void ConstructionKickout::KickoutUnitTo(UnitStruct* unit, int x, int y, int z)
 
 	typedef int(__stdcall* _Order_Stop)(UnitStruct* CallerUnit, UnitOrdersStruct* OrderUnit_p, int LastState);
 	_Order_Stop Order_Stop = (_Order_Stop)0x0401c20;
+
+	// Breadcrumb BEFORE we touch anything. This runs from inside a live order
+	// handler (our hook at 0x00403CD0 sits in Order_MobileBuild), so everything
+	// below rebuilds an order list while MainOrderStateController is mid-walk
+	// holding ESI=current order and EBX=&unit->UnitOrders. If a later crash shows
+	// a bad COBHandler_index, this is the event to correlate it against.
+	// d = branch: 1=cancel-build 2=zero-pos 3=already-kicked 4=stop+substitute.
+	unsigned kickBranch =
+		(oldOrderType == ordertype::BUILD && (!oldOrders->AttackTargat || oldOrders->AttackTargat->Nanoframe == 1.0)) ? 1u :
+		(oldOrders->Pos.X == 0 && oldOrders->Pos.Y == 0 && oldOrders->Pos.Z == 0) ? 2u :
+		IsUnitBeingKickedOut(unit) ? 3u : 4u;
+	CrashTrace_RecordEvent(TRACE_CAT_KICK, reinterpret_cast<DWORD>(unit),
+		reinterpret_cast<DWORD>(oldOrders), static_cast<DWORD>(oldOrderType), kickBranch);
 
 	if (oldOrderType == ordertype::BUILD && (!oldOrders->AttackTargat || oldOrders->AttackTargat->Nanoframe == 1.0))
 	{

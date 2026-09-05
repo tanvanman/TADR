@@ -33,7 +33,7 @@
 // ticks, so it neither desyncs nor changes the wire protocol.  It does,
 // however, stall the game on ordinary packet loss too.  See LagSwitchGuard.h.
 // Off for BTA: no freeze, no DeltaTime/pause-key hooks are installed at all.
-#define LAG_SWITCH_GUARD_ENABLE 0
+#define LAG_SWITCH_GUARD_ENABLE 1
 
 //
 // Construction / AI behavior
@@ -80,6 +80,15 @@
 #define USEMEGAMAP 1
 #define MEGAMAP_FEATURES 0
 #define USEWHITEBOARD 1
+
+//
+// Allied build-queue overlay -- see AlliedBuildQueueSync.h, and config.h for
+// the full description.  Draws allies' queued build placements (game screen
+// while SHIFT is held with an allied builder under the cursor/camera, and the
+// megamap) and broadcasts the local player's own queue to allies on
+// CHAT_05-hijack msgId 0x60.  Off: nothing is hooked, sent, parsed or drawn,
+// and the "Show ally queues" dialog checkbox is not created.
+#define ALLIED_BUILD_QUEUE_ENABLE 0
 
 //
 // Air-unit stacking / area-damage immunity -- see AreaDamageOverflow.h.
