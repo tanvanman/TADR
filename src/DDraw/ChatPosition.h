@@ -29,7 +29,7 @@
 //
 // Configuration (taesc.ini [Preferences]):
 //
-//   ChatAnchor = topleft | topcenter | bottomcenter | topright | bottomright
+//   ChatAnchor = topleft | topcenter | bottomcenter
 //   ChatPosX   = signed pixel offset from the anchor
 //   ChatPosY   = signed pixel offset from the anchor
 //
