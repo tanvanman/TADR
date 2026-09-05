@@ -8,6 +8,8 @@
 #include "gaf.h"
 #include "hook/hook.h"
 #include "ChatFont.h"
+#include "ChatPosition.h"
+#include "ChatLayout.h"
 
 #include <windows.h>
 #include <cstring>
@@ -54,8 +56,13 @@ namespace
 	const unsigned OFF_TEXTLINES     = 0x37F27;  // dword: max visible lines
 	const unsigned OFF_COMIX_FONT    = 0x391F9;  // FontDataStruct*
 
-	const int CHAT_TEXT_X = 0x8A;   // 138: line left (no logo); logo shifts it right
-	const int CHAT_TOP_Y  = 0x34;   // 52: top of first line
+	// Line left (no logo; a logo shifts the text right) and the top of the
+	// first line. These are no longer constants: ChatPosition may relocate
+	// the whole list, and the backdrop has to follow it or it detaches from
+	// the text. Both return the vanilla 138 / 52 when the feature is
+	// unconfigured, so behaviour is unchanged by default.
+	inline int ChatTextX() { return ChatPosition::X(); }
+	inline int ChatTopY()  { return ChatPosition::Y(); }
 	const int BLACK_INDEX = 0;      // TA palette: pure black
 	const int PAD_X_LEFT  = 4;
 	const int PAD_X_RIGHT = 4;
@@ -73,11 +80,14 @@ namespace
 	// DrawText does: EAX = *(int*)0x51FBA4; if (*(int*)(EAX+0x14) != 0) { font
 	// object = that; seq = *(int*)(fontObject + 0xc); ... }. Note 0x51FBA4 is a
 	// pointer to the GUI, not the GUI itself.
-	int MeasureChatLineWidth(const unsigned char* str, unsigned char* comixFont)
+	int MeasureChatLineWidth(const unsigned char* str, unsigned char* comixFont, int lineHOverride = 0)
 	{
-		// When the crisp chat font is active the line is rendered with our own
-		// TTF atlas, so the backdrop must be sized to that, not the GAF font.
-		const int lineH = comixFont ? comixFont[0] : 0;
+		// When the crisp chat font (or ChatLayout's ChatFontSize) is active the
+		// line is rendered with our own TTF atlas, so the backdrop must be
+		// sized to that, not the GAF font. lineHOverride, when given, is
+		// authoritative -- it is whatever height the caller is actually about
+		// to draw at, which may differ from the engine's native comixFont[0].
+		const int lineH = lineHOverride > 0 ? lineHOverride : (comixFont ? comixFont[0] : 0);
 		if (lineH > 0 && ChatFont::Ensure(lineH))
 			return ChatFont::Measure((const char*)str);
 
@@ -189,7 +199,7 @@ void ChatBackdrop::Draw(_OFFSCREEN* offscreen)
 
 	// Iterate forward to the write head, drawing a backdrop behind each
 	// visible line. The y cursor only advances for lines that are drawn.
-	int y = CHAT_TOP_Y;
+	int y = ChatTopY();
 	while (idx != freeIndex)
 	{
 		const unsigned char* entry = ta + OFF_CHAT_TEXT + idx * CHAT_ENTRY_STRIDE;
@@ -197,12 +207,12 @@ void ChatBackdrop::Draw(_OFFSCREEN* offscreen)
 		if (ChatLineVisible(mode, screenchat, channel))
 		{
 			const bool hasLogo = entry[OFF_STR_LOGO] != 10;
-			const int  textX   = CHAT_TEXT_X + (hasLogo ? lineHeight : 0);
+			const int  textX   = ChatTextX() + (hasLogo ? lineHeight : 0);
 			const int  textW   = MeasureChatLineWidth(entry, font);
 			if (textW > 0)
 			{
 				FillBlack(offscreen,
-					CHAT_TEXT_X - PAD_X_LEFT, y - PAD_Y,
+					ChatTextX() - PAD_X_LEFT, y - PAD_Y,
 					textX + textW + PAD_X_RIGHT, y + lineHeight + PAD_Y);
 			}
 			y += lineHeight;
@@ -256,6 +266,20 @@ namespace
 	// before drawing, so an unexpected stack layout skips rather than crashes.
 	unsigned int ChatDrawHookProc(PInlineX86StackBuffer buf)
 	{
+		// Resolve the configured chat anchor against the current screen size
+		// and patch the engine's four position constants if they moved. Done
+		// here rather than at Install() because the screen size is not known
+		// during DLL init, and because this also picks up resolution changes.
+		// Early-outs to a couple of integer compares once settled.
+		ChatPosition::EnsureApplied();
+
+		// When ChatLayout owns the draw (ChatRenderer=tadr) it cancels the
+		// engine function and draws the backdrop itself, per line, at the real
+		// column positions. Our single-column fill would land in the wrong
+		// place, so stand down.
+		if (ChatLayout::TakingOver())
+			return 0;
+
 		OFFSCREEN* off = nullptr;
 		__try
 		{
@@ -362,4 +386,26 @@ void ChatBackdrop::Install()
 	if (!g_drawTextHook)
 		g_drawTextHook = new InlineSingleHook(
 			DRAWTEXT_ADDR, 5, INLINE_5BYTESLAGGERJMP, DrawTextHookProc);
+}
+
+// --- helpers ChatLayout borrows when it owns the draw (ChatRenderer=tadr) ---
+
+bool ChatBackdrop::BackdropEnabled()
+{
+	return CrispChatEnabled();
+}
+
+int ChatBackdrop::MeasureLineWidth(const unsigned char* ringEntry, int lineHOverride)
+{
+	if (!ringEntry)
+		return 0;
+	unsigned char* ta = *(unsigned char**)0x00511de8;
+	unsigned char* font = ta ? *(unsigned char**)(ta + OFF_COMIX_FONT) : nullptr;
+	return MeasureChatLineWidth(ringEntry, font, lineHOverride);
+}
+
+void ChatBackdrop::FillBehind(_OFFSCREEN* offscreen, int left, int top, int right, int bottom)
+{
+	if (offscreen)
+		FillBlack(offscreen, left, top, right, bottom);
 }
