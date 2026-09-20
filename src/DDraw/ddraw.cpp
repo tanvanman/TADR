@@ -56,6 +56,7 @@ using namespace std;
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
 #include "CobDispatchTable.h"
+#include "BuildWeaponSlotGuard.h"
 #include "TransportedExplosions.h"
 #include "AreaDamageOverflow.h"
 #include "GridClaimTieBreak.h"
@@ -285,6 +286,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Install();
 #endif
+		BuildWeaponSlotGuard::Install();
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Start();
 #endif
@@ -326,6 +328,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Shutdown();
 #endif
+		BuildWeaponSlotGuard::Shutdown();
 		/* KillTimer(NULL, Timer);
 		KillTimer(NULL, DetectTimer); */
 		AddtionReleaseAfterDDraw ( );

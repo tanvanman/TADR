@@ -95,6 +95,25 @@
 #define COB_DISPATCH_TABLE_ENABLE 1
 
 //
+// BuildWeaponSlotGuard -- fixes the stockpile-weapon build-percent divide-by-zero
+// crash (real cause, corrected 2026-09-14: unit-identity divergence resolving a
+// weapon slot to WeaponsTypedefArray[0], TA's zero-divisor "no weapon" sentinel --
+// see BuildWeaponSlotGuard.h), plus a bounds check on the adjacent unchecked
+// weapon-slot index. See BuildWeaponSlotGuard.h for the full derivation and evidence.
+//
+// Gated to Escalation because this project has verified these addresses against
+// Escalation's TotalA.exe alone -- not because the addresses are believed unique to
+// it (PR #26's review found them byte-identical on all seven shipped TotalA.exe
+// builds; this project has not re-run that check itself). config.h defaults this to
+// 0 everywhere else. Active by default here: this is a fix, not a diagnostic -- both
+// the reload-divisor clamp (Class A: only touches weapons that are already
+// degenerate, bit-identical otherwise) and the weapon-slot bounds check (Class B, but
+// the DLL ships with a new game version, so there is no mixed-client-version fleet to
+// keep in lockstep) are meant to be on for every player, not staged behind further
+// review.
+#define BUILD_WEAPON_SLOT_GUARD_ENABLE 1
+
+//
 // Extended weapon IDs (>= 256)
 //
 // Installs WeaponIdOverflow (heap-backed weapon slots above TA's hard-coded

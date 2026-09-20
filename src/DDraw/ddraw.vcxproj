@@ -352,6 +352,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="TeamColorNanolathe.cpp" />
     <ClCompile Include="RepairRateFix.cpp" />
     <ClCompile Include="CobDispatchTable.cpp" />
+    <ClCompile Include="BuildWeaponSlotGuard.cpp" />
     <ClCompile Include="DebugPipeServer.cpp" />
     <ClCompile Include="VoteDialog.cpp" />
     <ClCompile Include="LagSwitchGuard.cpp" />
@@ -395,6 +396,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="TeamColorNanolathe.h" />
     <ClInclude Include="RepairRateFix.h" />
     <ClInclude Include="CobDispatchTable.h" />
+    <ClInclude Include="BuildWeaponSlotGuard.h" />
     <ClInclude Include="TransportedExplosions.h" />
     <ClInclude Include="AreaDamageOverflow.h" />
     <ClInclude Include="GridClaimTieBreak.h" />
