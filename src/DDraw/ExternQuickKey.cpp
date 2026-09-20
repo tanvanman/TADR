@@ -257,6 +257,22 @@ bool ExternQuickKey::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 	return false;
 }
 
+// Last index of the player's unit slot block (Units .. UnitsAry_End inclusive),
+// or -1 if it has none.
+static int UnitBlockMaxIndex (TAdynmemStruct *PTR, int playerIndex)
+{
+	if (NULL==PTR)
+	{
+		return -1;
+	}
+	const PlayerStruct & Player= PTR->Players[playerIndex];
+	if ((NULL==Player.Units)||(NULL==Player.UnitsAry_End)||(Player.UnitsAry_End<Player.Units))
+	{
+		return -1;
+	}
+	return (int)(Player.UnitsAry_End- Player.Units);
+}
+
 void ExternQuickKey::FindIdelFactory ()
 {
 	DWORD Wait_rtn= WaitForSingleObject ( Semaphore_IdleFac, INFINITE);
@@ -271,7 +287,8 @@ void ExternQuickKey::FindIdelFactory ()
 		return ;
 	}
 
-	static int LastNum = 0;
+	// -1 == no previous hit, so slot 0 passes the strict LastNum<j cycle gate.
+	static int LastNum = -1;
 reTry:
 	TAdynmemStruct *PTR = TAMainStruct_Ptr;
 
@@ -280,15 +297,20 @@ reTry:
 	UnitStruct *  Current= Begin;
 
 
-	int j= LastNum;
-	int MyMaxUnit= PTR->Players[PTR->LocalHumanPlayer_PlayerID].UnitsNumber;
+	int j= (LastNum<0) ? 0 : LastNum;
+	// Slot block, NOT UnitsNumber: that is the live unit count, and death frees a
+	// slot in place, so survivors of a loss sit at indices above it and used to be
+	// unreachable here.
+	int MyMaxUnit= UnitBlockMaxIndex ( PTR, PTR->LocalHumanPlayer_PlayerID);
 
 	while (j<=MyMaxUnit)
 	{
 
 		Current= &(PTR->Players[PTR->LocalHumanPlayer_PlayerID].Units[j]);
 
-		if ((0!=((UnitValid2_State)& Current->UnitSelected)))
+		// UnitID==0 is the engine's free-slot marker; the rest of the slot still
+		// holds the dead unit's bytes.
+		if ((0!=Current->UnitID)&&(0!=((UnitValid2_State)& Current->UnitSelected)))
 		{
 			if (0.0F==(Current->Nanoframe))
 			{
@@ -329,9 +351,9 @@ reTry:
 	else
 	{
 		// not found once
-		if (0!=LastNum)
+		if (0<=LastNum)
 		{
-			LastNum= 0;
+			LastNum= -1;
 			goto reTry;
 		}
 	}
@@ -360,19 +382,27 @@ void ExternQuickKey::FindIdleConst()
 		goto ReleaseIdleConsSemaphore;
 	}
 
-	static int LastNum = 0;
+	static int LastNum = -1;
 
 	TAdynmemStruct *PTR = TAMainStruct_Ptr;
 	UnitStruct * Start;//
 
 	int i;
-	int MyMaxUnit= PTR->Players[PTR->LocalHumanPlayer_PlayerID].UnitsNumber;
+	// Slot block, not UnitsNumber -- see FindIdelFactory.
+	int MyMaxUnit= UnitBlockMaxIndex ( PTR, PTR->LocalHumanPlayer_PlayerID);
+
+	if (MyMaxUnit<0)
+	{
+		// The wrap-around recursion below only terminates from inside the loop.
+		LastNum= -1;
+		goto ReleaseIdleConsSemaphore;
+	}
 
 	if (MyMaxUnit<LastNum)
 	{
-		LastNum= 0;
+		LastNum= -1;
 	}
-	i= LastNum;
+	i= (LastNum<0) ? 0 : LastNum;
 
 	while (i<=MyMaxUnit)
 	{
@@ -386,7 +416,8 @@ void ExternQuickKey::FindIdleConst()
 
 		int *UnitOrderPTR = (int*)(&Start->UnitOrders);
 
-		if(*UnitDead!=0 && *UnitDead!=1)
+		// UnitID==0 => free slot.
+		if(0!=Start->UnitID && *UnitDead!=0 && *UnitDead!=1)
 		{
 			if(*IsUnit)
 			{
@@ -417,7 +448,7 @@ void ExternQuickKey::FindIdleConst()
 
 		if(MyMaxUnit<i)
 		{
-			if(LastNum == 0) //no units found and all units searched. this is 2rd time enter FindIdleConst;
+			if(LastNum < 0) //no units found and all units searched. this is 2rd time enter FindIdleConst;
 			{
 				goto ReleaseIdleConsSemaphore;
 			}
@@ -427,7 +458,7 @@ void ExternQuickKey::FindIdleConst()
 	}
 
 	//search from the beginning, cause last num be reset at this case
-	LastNum = 0;
+	LastNum = -1;
 
 	ReleaseSemaphore ( Semaphore_IdleCons, 1, NULL);
 	FindIdleConst();
