@@ -263,6 +263,22 @@
 // against Escalation's TotalA.exe alone. Every config_*.h defines this explicitly;
 // this fallback is only for a future one that forgets to.
 //
+//
+// VtolRepairBeamFix: stop an air constructor emitting the nanolathe beam while its
+// repair is not actually being paid for. MissionTick_VTOL_RepairUnit is the only
+// repair tick in the engine that ignores Unit_ApplyRepairHealProgress's return value
+// before spawning the beam; its own ground counterpart and both other repair ticks
+// test it and skip. One InlineSingleHook, redirecting to vanilla's own shared tail.
+//
+// Class B (uniform simulation change): the skipped region runs a COB script function
+// (UnitScript_QueryNanoPiece), so every client in a game must run the same build.
+// Compile-time only, no runtime switch. Addresses verified against Escalation's
+// TotalA.exe; see VtolRepairBeamFix.h for the full derivation.
+//
+#ifndef VTOL_REPAIR_BEAM_FIX_ENABLE
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 0
+#endif
+
 #ifndef GROUND_TO_AIR_GUARD_ENABLE
 #define GROUND_TO_AIR_GUARD_ENABLE 0
 #endif

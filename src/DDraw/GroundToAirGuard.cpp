@@ -61,13 +61,6 @@ namespace
 		return true;
 	}
 
-	// Matches the OrderDispatchShouldLog idiom in TABugFix.cpp: log the first 20
-	// occurrences in full, then only every 1000th.
-	bool ShouldLog(DWORD n)
-	{
-		return n <= 20 || (n % 1000) == 0;
-	}
-
 	// ---- P1: cursor DEFEND unblock -------------------------------------------------
 	//
 	// Unit_ResolveCursorOrderType, DEFEND case. Checked as one 23-byte region (the
@@ -165,11 +158,35 @@ namespace
 	// this module. None of the sites below are 0xC6.
 
 	// MissionOrder_FindByName @0x00438760: __thiscall(void* outByteBuf, const char* name).
-	// Binary-searches the sorted runtime COBHandle table and writes ONE byte -- the
+	// Binary-searches the sorted mission template table and writes ONE byte -- the
 	// matched entry's runtime index, or 0 if not found -- to *outByteBuf. Confirmed by
 	// disassembling the whole function, including both write-back sites.
 	typedef void (__thiscall* MissionOrderFindByNameFn)(void*, const char*);
 	const DWORD kMissionOrderFindByNameAddr = 0x00438760u;
+
+	// The table that function searches is a global vector of 25-byte mission templates
+	// copied from .rdata: begin/end pointers below, read fresh on every call. The
+	// install-time check covers both loads AND the /25 stride magic between them, so
+	// these addresses are validated by the same all-or-nothing gate as the patch sites.
+	const DWORD kMissionTableEndPtrAddr = 0x00512348u;
+	const DWORD kMissionTableBeginPtrAddr = 0x00512344u;
+	const DWORD kMissionTableProbeAddr = 0x00438763u;
+	const BYTE kMissionTableProbeExpectedBytes[20] = {
+		0x8B, 0x2D, 0x44, 0x23, 0x51, 0x00,      // mov ebp,[0x512344]
+		0x56,                                    // push esi
+		0x8B, 0xF1,                              // mov esi,ecx
+		0xB8, 0x1F, 0x85, 0xEB, 0x51,            // mov eax,0x51EB851F  (reciprocal for /25)
+		0x8B, 0x0D, 0x48, 0x23, 0x51, 0x00       // mov ecx,[0x512348]
+	};
+
+	DWORD MissionTableSize()
+	{
+		return *reinterpret_cast<const volatile DWORD*>(kMissionTableEndPtrAddr)
+			- *reinterpret_cast<const volatile DWORD*>(kMissionTableBeginPtrAddr);
+	}
+
+	// Table extent the cached ids were resolved against.
+	DWORD g_missionTableSize = 0;
 
 	BYTE g_vtolMobileBuildId = 0;
 	BYTE g_groundMobileBuildId = 0;
@@ -192,14 +209,11 @@ namespace
 
 		// All three must resolve to distinct ids -- if any lookup failed (the engine's
 		// own "not found" sentinel is 0), trusting id 0 to mean a real mission would
-		// risk matching whatever real entry happens to sit at index 0. "VTOL_HelpBuild"
-		// is an engine-level mission name populated by the same per-map COB table as
-		// the other two, at the same time -- it is expected to resolve exactly as
-		// reliably as they already do, not a separate/weaker guarantee.
-		// Not logged here: this fails on every call made before the COBHandle table is
-		// populated (expected, routine, happens on every launch until the first live
-		// guard tick), and the caller (P5's router) already logs a throttled message
-		// for exactly this case. Logging here too would just double it, unthrottled.
+		// risk matching whatever real entry happens to sit at index 0. All three names
+		// are entries in the same static template table, so they resolve or fail
+		// together; this is a sanity check on the lookup, not a mod-data dependency.
+		// Not logged here: the caller already logs a throttled message for the
+		// unresolved case, and logging here too would just double it, unthrottled.
 		if (vtolId == groundId || vtolHelpId == vtolId || vtolHelpId == groundId)
 			return false;
 
@@ -244,11 +258,11 @@ namespace
 		return true;
 	}
 
-	DWORD g_p1Allowed = 0;
 	DWORD g_p2Refused = 0;
 	DWORD g_p3Refused = 0;
 	DWORD g_p5Translated = 0;
 	DWORD g_p5RepairTranslated = 0;
+	DWORD g_p5NullTarget = 0;
 	DWORD g_p5Suppressed = 0;
 	DWORD g_p6Refused = 0;
 
@@ -256,7 +270,10 @@ namespace
 	// P2, P3 and P6 -- same predicate, same safety rules, one place to get it right.
 	bool DefCanFly(const UnitDefStruct* def)
 	{
-		if (!def || SafeIsBadReadPtr(def, offsetof(UnitDefStruct, UnitTypeMask_0) + sizeof(DWORD)))
+		// Probe only the field about to be read, not the whole struct prefix:
+		// SafeIsBadReadPtr is a byte-at-a-time volatile loop and this runs per guard order
+		// per unit per tick. Same rule as TABugFix.cpp's order-pointer probe.
+		if (!def || SafeIsBadReadPtr(&def->UnitTypeMask_0, sizeof(def->UnitTypeMask_0)))
 			return false;   // unreadable -> treated as "does not fly" (the common case)
 		return (def->UnitTypeMask_0 & canfly) != 0;
 	}
@@ -277,14 +294,14 @@ namespace
 		// for the target but the wrong one for the guardian: "does not fly" is precisely
 		// the guardian state that leads to a refusal, so an unverifiable guardian would
 		// refuse an order vanilla allows. Unknown guardian -> never refuse.
-		if (!guardianDef || SafeIsBadReadPtr(guardianDef,
-			offsetof(UnitDefStruct, UnitTypeMask_0) + sizeof(DWORD)))
+		if (!guardianDef || SafeIsBadReadPtr(&guardianDef->UnitTypeMask_0,
+			sizeof(guardianDef->UnitTypeMask_0)))
 			return false;
 
 		if (DefCanFly(guardianDef))
 			return false;   // flying guardian: never restricted, unaffected by this module
 
-		if (!target || SafeIsBadReadPtr(target, offsetof(UnitStruct, UnitType) + sizeof(void*)))
+		if (!target || SafeIsBadReadPtr(&target->UnitType, sizeof(target->UnitType)))
 			return false;
 
 		return DefCanFly(target->UnitType);
@@ -321,14 +338,6 @@ namespace
 			return 0;
 
 		++g_p3Refused;
-		if (ShouldLog(g_p3Refused))
-		{
-			IDDrawSurface::OutptFmtTxt(
-				"[GroundToAirGuard] move-click refused a ground-guards-air order: "
-				"guardianDef=%08X target=%08X (#%lu)",
-				reinterpret_cast<DWORD>(guardianDef), reinterpret_cast<DWORD>(target),
-				g_p3Refused);
-		}
 		buf->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(kP3PlainMoveTarget);
 		return X86STRACKBUFFERCHANGE;
 	}
@@ -356,14 +365,6 @@ namespace
 			return 0;
 
 		++g_p6Refused;
-		if (ShouldLog(g_p6Refused))
-		{
-			IDDrawSurface::OutptFmtTxt(
-				"[GroundToAirGuard] smart-click refused a ground-guards-air order: "
-				"guardianDef=%08X target=%08X (#%lu)",
-				reinterpret_cast<DWORD>(guardianDef), reinterpret_cast<DWORD>(target),
-				g_p6Refused);
-		}
 		buf->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(kP6NoGuardTarget);
 		return X86STRACKBUFFERCHANGE;
 	}
@@ -380,27 +381,66 @@ namespace
 		const UnitOrdersStruct* targetOrder =
 			reinterpret_cast<const UnitOrdersStruct*>(buf->Ecx);
 
-		if (!target || SafeIsBadReadPtr(target, offsetof(UnitStruct, UnitType) + sizeof(void*)))
+		if (!target || SafeIsBadReadPtr(&target->UnitType, sizeof(target->UnitType)))
 			return 0;
 		if (!DefCanFly(target->UnitType))
 			return 0;   // ground target: vanilla mirror, unchanged
 
-		if (!targetOrder || SafeIsBadReadPtr(targetOrder,
-			offsetof(UnitOrdersStruct, COBHandler_index) + sizeof(BYTE)))
+		// Both fields this router reads, probed individually. The order pointer can
+		// already be freed memory, and probing the whole 0x56-byte struct on a per-tick
+		// path costs far more for no added safety -- TABugFix.cpp makes the same call.
+		if (!targetOrder
+			|| SafeIsBadReadPtr(&targetOrder->COBHandler_index,
+				sizeof(targetOrder->COBHandler_index))
+			|| SafeIsBadReadPtr(&targetOrder->AttackTargat,
+				sizeof(targetOrder->AttackTargat)))
 			return 0;
 
-		// Resolved lazily, not at Install() time: the runtime COBHandle table this
-		// depends on (MissionOrder_FindByName's [0x512344,0x512348) range) is empty
-		// during DLL_PROCESS_ATTACH -- it is populated by map/script load, which
-		// has not happened yet that early. This router can only run inside a live
-		// simulation tick, which cannot happen before a map has loaded, so resolution
-		// is guaranteed to succeed by the time this is actually reached for real.
-		// Build and repair ids are resolved and flagged independently (see
-		// ResolveRepairMissionIds) so a failure in one can never suppress the other.
-		if (!g_missionIdsResolved)
-			ResolveMissionIds();
-		if (!g_repairIdsResolved)
-			ResolveRepairMissionIds();
+		// Vanilla only ever enters the assist construction at 0x00406636 past its own
+		// null-target guard at 0x00406629 (`cmp [order+0x16],ebp / je 0x004066AC`), and
+		// both redirects below land after it. That guard is reachable, not theoretical:
+		// VTOL_MobileBuild's Order_State carries 0x400 (has a position) and not 0x200
+		// (has a unit target), so the mirror-branch discriminator at 0x004065E7 admits it
+		// without testing the target -- and an air constructor holds that order with
+		// AttackTargat still null for the whole flight to the build site, because the
+		// nanoframe is only created on arrival (0x004140A1 writes the slot). Constructing
+		// HelpBuild on a null target makes MissionTick_HelpBuild bail at 0x00403F9D with a
+		// "Construction terminated" announcement, once per tick. Mirror the guard.
+		// VTOL_HelpBuild and VTOL_RepairUnit both carry 0x200 and cannot reach here null.
+		if (!targetOrder->AttackTargat)
+		{
+			++g_p5NullTarget;
+			buf->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(kP5PlainFollowTarget);
+			return X86STRACKBUFFERCHANGE;
+		}
+
+		// Resolved lazily, not at Install() time: the table MissionOrder_FindByName
+		// searches ([0x512344,0x512348)) is filled once from WinMain, and this DLL's
+		// DLL_PROCESS_ATTACH runs before that, so an eager resolve would fail every
+		// launch. This router only ever runs inside a live simulation tick, well after
+		// WinMain, so resolution succeeds on its first real invocation. Build and repair
+		// ids are resolved and flagged independently (see ResolveRepairMissionIds) so a
+		// failure in one can never suppress the other.
+		//
+		// The ids are POSITIONS in that table, so re-resolve if its extent ever changes.
+		// It does not change -- but that is an argument, and this makes it an invariant.
+		// An empty table also short-circuits the five binary searches instead of retrying
+		// them every tick. Both reads are of engine state identical on every client, so
+		// neither branch can diverge a lockstep game.
+		const DWORD tableSize = MissionTableSize();
+		if (tableSize != g_missionTableSize)
+		{
+			g_missionTableSize = tableSize;
+			g_missionIdsResolved = false;
+			g_repairIdsResolved = false;
+		}
+		if (tableSize != 0)
+		{
+			if (!g_missionIdsResolved)
+				ResolveMissionIds();
+			if (!g_repairIdsResolved)
+				ResolveRepairMissionIds();
+		}
 
 		// If it has NOT succeeded yet (should not happen in practice, kept as a
 		// belt-and-suspenders case): do not fall through to `return 0` here -- at
@@ -410,13 +450,6 @@ namespace
 		if (!g_missionIdsResolved && !g_repairIdsResolved)
 		{
 			++g_p5Suppressed;
-			if (ShouldLog(g_p5Suppressed))
-			{
-				IDDrawSurface::OutptFmtTxt(
-					"[GroundToAirGuard] mission ids not resolved yet -- suppressed "
-					"mirroring onto a ground guardian (target=%08X, #%lu)",
-					reinterpret_cast<DWORD>(target), g_p5Suppressed);
-			}
 			buf->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(kP5PlainFollowTarget);
 			return X86STRACKBUFFERCHANGE;
 		}
@@ -428,15 +461,6 @@ namespace
 			|| targetOrder->COBHandler_index == g_vtolHelpBuildId))
 		{
 			++g_p5Translated;
-			if (ShouldLog(g_p5Translated))
-			{
-				IDDrawSurface::OutptFmtTxt(
-					"[GroundToAirGuard] %s -> HelpBuild for ground guardian on "
-					"target=%08X (#%lu)",
-					(targetOrder->COBHandler_index == g_vtolMobileBuildId)
-						? "VTOL_MobileBuild" : "VTOL_HelpBuild (chained)",
-					reinterpret_cast<DWORD>(target), g_p5Translated);
-			}
 			buf->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(kP5HelpBuildTarget);
 			return X86STRACKBUFFERCHANGE;
 		}
@@ -447,13 +471,6 @@ namespace
 		if (g_repairIdsResolved && targetOrder->COBHandler_index == g_vtolRepairUnitId)
 		{
 			++g_p5RepairTranslated;
-			if (ShouldLog(g_p5RepairTranslated))
-			{
-				IDDrawSurface::OutptFmtTxt(
-					"[GroundToAirGuard] VTOL_RepairUnit -> RepairUnit for ground "
-					"guardian on target=%08X (#%lu)",
-					reinterpret_cast<DWORD>(target), g_p5RepairTranslated);
-			}
 			*reinterpret_cast<BYTE*>(buf->Esp + kP5RepairStackIdOffset) = g_groundRepairUnitId;
 			buf->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(kP5RepairConstructTarget);
 			return X86STRACKBUFFERCHANGE;
@@ -462,14 +479,6 @@ namespace
 		// Any other flying-unit mission: do not mirror a flying-unit order onto a
 		// ground unit. Fall back to plain follow.
 		++g_p5Suppressed;
-		if (ShouldLog(g_p5Suppressed))
-		{
-			IDDrawSurface::OutptFmtTxt(
-				"[GroundToAirGuard] suppressed mirroring order type %u onto a ground "
-				"guardian (target=%08X, #%lu)",
-				targetOrder->COBHandler_index, reinterpret_cast<DWORD>(target),
-				g_p5Suppressed);
-		}
 		buf->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(kP5PlainFollowTarget);
 		return X86STRACKBUFFERCHANGE;
 	}
@@ -584,14 +593,13 @@ namespace
 		UnitStruct airTarget; std::memset(&airTarget, 0, sizeof(airTarget));
 		airTarget.UnitType = &airDef;
 
-		// Real state saved/restored around this test: production resolves ids lazily,
-		// for real, on first live use (see P5FollowGroundMirrorProc) -- this self-test
-		// runs at Install() time, before the engine's COBHandle table is populated, so
-		// a real resolve attempt here would fail exactly like it does in production,
-		// and every air-target case below would take the "not resolved" fallback
-		// instead of exercising translate/suppress. Force known synthetic ids instead.
-		// Build and repair ids are saved/forced/restored as two independent pairs,
-		// matching how the router itself treats them.
+		// Real state saved/restored around this test: production resolves ids lazily on
+		// first live use (see P5FollowGroundMirrorProc). This self-test runs at Install()
+		// time, before WinMain has filled the mission table, so a real resolve here would
+		// fail exactly as it does in production and every air-target case below would
+		// take the "not resolved" fallback instead of exercising translate/suppress.
+		// Force known synthetic ids instead. Build and repair ids are saved/forced/
+		// restored as two independent pairs, matching how the router treats them.
 		const bool savedResolved = g_missionIdsResolved;
 		const BYTE savedVtolId = g_vtolMobileBuildId;
 		const BYTE savedGroundId = g_groundMobileBuildId;
@@ -599,6 +607,7 @@ namespace
 		const bool savedRepairResolved = g_repairIdsResolved;
 		const BYTE savedVtolRepairId = g_vtolRepairUnitId;
 		const BYTE savedGroundRepairId = g_groundRepairUnitId;
+		const DWORD savedTableSize = g_missionTableSize;
 
 		InlineX86StackBuffer buf;
 		// A real, writable stack slot for buf.Esp: the repair-translate branch writes
@@ -606,13 +615,12 @@ namespace
 		// valid address there even when that branch isn't the one under test.
 		BYTE espScratch[64];
 
-		// Ids unresolved + flying target. This sub-case drives the router through the
-		// real ResolveMissionIds()/ResolveRepairMissionIds(), whose success depends on
-		// whether the engine's COBHandle table happens to be populated yet -- so it
-		// asserts only the invariant that holds either way, and the one that actually
-		// matters: a flying target must NEVER return 0 here, because at this
-		// instruction that means "let vanilla mirror the order verbatim". Which of the
-		// safe redirects it picks is incidental; falling through to vanilla is the bug.
+		// Ids unresolved + flying target. Drives the router through the real
+		// ResolveMissionIds()/ResolveRepairMissionIds(), whose success depends on whether
+		// the mission table happens to be filled yet -- so it asserts only the invariant
+		// that holds either way, and the one that matters: a flying target must NEVER
+		// return 0 here, because at this instruction that means "let vanilla mirror the
+		// order verbatim". Which safe redirect it picks is incidental.
 		g_missionIdsResolved = false;
 		g_vtolMobileBuildId = 0;
 		g_groundMobileBuildId = 0;
@@ -621,7 +629,11 @@ namespace
 		g_vtolRepairUnitId = 0;
 		g_groundRepairUnitId = 0;
 		UnitOrdersStruct someOrder; std::memset(&someOrder, 0, sizeof(someOrder));
+		// Every synthetic order below carries a non-null AttackTargat: a null target is
+		// its own sub-case at the end, and would otherwise short-circuit the branch each
+		// of these exists to exercise.
 		someOrder.COBHandler_index = 5;
+		someOrder.AttackTargat = &groundTarget;
 		std::memset(&buf, 0, sizeof(buf));
 		buf.Esp = reinterpret_cast<DWORD>(espScratch);
 		buf.Eax = reinterpret_cast<DWORD>(&airTarget);
@@ -641,12 +653,20 @@ namespace
 
 		UnitOrdersStruct mobileBuildOrder; std::memset(&mobileBuildOrder, 0, sizeof(mobileBuildOrder));
 		mobileBuildOrder.COBHandler_index = g_vtolMobileBuildId;
+		mobileBuildOrder.AttackTargat = &groundTarget;
 		UnitOrdersStruct chainedHelpBuildOrder; std::memset(&chainedHelpBuildOrder, 0, sizeof(chainedHelpBuildOrder));
 		chainedHelpBuildOrder.COBHandler_index = g_vtolHelpBuildId;
+		chainedHelpBuildOrder.AttackTargat = &groundTarget;
 		UnitOrdersStruct repairOrder; std::memset(&repairOrder, 0, sizeof(repairOrder));
 		repairOrder.COBHandler_index = g_vtolRepairUnitId;
+		repairOrder.AttackTargat = &groundTarget;
 		UnitOrdersStruct otherOrder; std::memset(&otherOrder, 0, sizeof(otherOrder));
 		otherOrder.COBHandler_index = 8;  // matches none of the ids above
+		otherOrder.AttackTargat = &groundTarget;
+		// The case this module had wrong until PR review: an air constructor flying to
+		// its build site holds VTOL_MobileBuild with no target yet.
+		UnitOrdersStruct noTargetBuildOrder; std::memset(&noTargetBuildOrder, 0, sizeof(noTargetBuildOrder));
+		noTargetBuildOrder.COBHandler_index = g_vtolMobileBuildId;
 
 		// Ground target -> always vanilla (return 0), regardless of order type.
 		std::memset(&buf, 0, sizeof(buf));
@@ -718,6 +738,20 @@ namespace
 			&& buf.rtnAddr_Pvoid == reinterpret_cast<LPVOID>(kP5PlainFollowTarget)
 			&& g_p5Suppressed == before + 1);
 
+		// Air target, VTOL_MobileBuild but no build target yet -> plain follow. Must NOT
+		// construct: vanilla's own guard at 0x00406629 refuses exactly this.
+		std::memset(&buf, 0, sizeof(buf));
+		buf.Esp = reinterpret_cast<DWORD>(espScratch);
+		buf.Eax = reinterpret_cast<DWORD>(&airTarget);
+		buf.Ecx = reinterpret_cast<DWORD>(&noTargetBuildOrder);
+		before = g_p5Translated;
+		const DWORD beforeNull = g_p5NullTarget;
+		rc = P5FollowGroundMirrorProc(&buf);
+		const bool nullTargetOk = (rc == X86STRACKBUFFERCHANGE
+			&& buf.rtnAddr_Pvoid == reinterpret_cast<LPVOID>(kP5PlainFollowTarget)
+			&& g_p5Translated == before
+			&& g_p5NullTarget == beforeNull + 1);
+
 		// Unsafe target pointer -> vanilla, never a wild redirect.
 		std::memset(&buf, 0, sizeof(buf));
 		buf.Esp = reinterpret_cast<DWORD>(espScratch);
@@ -733,6 +767,7 @@ namespace
 		g_repairIdsResolved = savedRepairResolved;
 		g_vtolRepairUnitId = savedVtolRepairId;
 		g_groundRepairUnitId = savedGroundRepairId;
+		g_missionTableSize = savedTableSize;
 
 		const SubCase subs[] = {
 			{ unresolvedOk,       "mission ids unresolved + air target -> plain follow, never mirror" },
@@ -742,6 +777,7 @@ namespace
 			{ repairTranslateOk,  "air target + VTOL_RepairUnit -> RepairUnit, id written to stack" },
 			{ repairGroundOk,     "ground target + VTOL_RepairUnit id -> vanilla, no redirect" },
 			{ suppressOk,         "air target + other order -> plain follow" },
+			{ nullTargetOk,       "air target + VTOL_MobileBuild, no target yet -> plain follow" },
 			{ unsafeOk,           "unreadable target -> vanilla, no redirect" },
 		};
 		const bool ok = ReportSubCases(subs, sizeof(subs) / sizeof(subs[0]));
@@ -774,6 +810,7 @@ namespace
 		// BuildWeaponSlotGuard.cpp's RunSelfTest.
 		g_p5Translated = 0;
 		g_p5RepairTranslated = 0;
+		g_p5NullTarget = 0;
 		g_p5Suppressed = 0;
 		g_p2Refused = 0;
 		g_p3Refused = 0;
@@ -836,14 +873,16 @@ namespace GroundToAirGuard
 			"P6 resolver smart-click hook") && ok;
 		ok = CheckBytes(kP6NoGuardTarget, kP6NoGuardTargetExpectedBytes,
 			sizeof(kP6NoGuardTargetExpectedBytes), "P6 redirect target") && ok;
+		ok = CheckBytes(kMissionTableProbeAddr, kMissionTableProbeExpectedBytes,
+			sizeof(kMissionTableProbeExpectedBytes),
+			"mission table pointers in MissionOrder_FindByName") && ok;
 		if (!ok)
 			return;
 
-		// Mission ids are NOT resolved here. At DLL_PROCESS_ATTACH time the engine's
-		// COBHandle table (MissionOrder_FindByName's backing store) is still empty --
-		// it fills in during map/script load, which has not run yet -- so an eager
-		// resolve attempt here would fail every launch and would wrongly abort P1-P4,
-		// none of which need it. P5's router resolves lazily on first real use instead
+		// Mission ids are NOT resolved here. The table MissionOrder_FindByName searches
+		// is filled once from WinMain, and this DLL's DLL_PROCESS_ATTACH runs before
+		// that, so an eager resolve would fail every launch and would wrongly abort
+		// P1-P4, none of which need it. P5's router resolves lazily on first real use
 		// (see its definition) and fails safe until it succeeds.
 
 		if (!RunSelfTest())
@@ -898,11 +937,29 @@ namespace GroundToAirGuard
 
 	void Shutdown()
 	{
+		// The counters are the only way to tell "feature never triggered" from "module
+		// never installed". Reported once, at teardown, so nothing is logged per click or
+		// per simulation tick during play.
+		if (g_savedValid)
+		{
+			IDDrawSurface::OutptFmtTxt(
+				"[GroundToAirGuard] counters: implicit guard refused cursor=%lu move=%lu "
+				"smart=%lu; assist translated build=%lu repair=%lu; not translated "
+				"flying-mission=%lu no-target-yet=%lu",
+				g_p2Refused, g_p3Refused, g_p6Refused, g_p5Translated,
+				g_p5RepairTranslated, g_p5Suppressed, g_p5NullTarget);
+		}
+
 		g_p2Hook.reset();
 		g_p3Hook.reset();
 		g_p5Hook.reset();
 		g_p6Hook.reset();
 
+		// Restores the whole saved region, not just the patched bytes. Correct today
+		// (nothing else in the project hooks inside either region) and this only runs at
+		// process detach, but a future module hooking in those ranges after this one
+		// would be clobbered here. The reverse order is already safe: our CheckBytes
+		// would fail and the whole module would decline to install.
 		if (g_savedValid)
 		{
 			WriteCode(kP1RegionAddr, g_savedP1, sizeof(g_savedP1));

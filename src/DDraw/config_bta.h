@@ -137,3 +137,7 @@
 // Escalation's TotalA.exe only; staged rollout, not a belief this build differs.
 #define GROUND_TO_AIR_GUARD_ENABLE 0
 
+// VtolRepairBeamFix -- see VtolRepairBeamFix.h. Off: addresses verified against
+// Escalation's TotalA.exe only; staged rollout, not a belief this build differs.
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 0
+

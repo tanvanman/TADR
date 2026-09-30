@@ -195,3 +195,7 @@
 // this is a feature this config ships with, not a diagnostic staged behind review.
 #define GROUND_TO_AIR_GUARD_ENABLE 1
 
+// VtolRepairBeamFix -- see VtolRepairBeamFix.h. On: a stalled air constructor stops
+// showing the nanolathe beam, which is what every ground repair tick already does.
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 1
+

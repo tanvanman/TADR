@@ -57,6 +57,19 @@
 // A byte-granular branch-target scan of the whole .text section confirms nothing branches
 // into the middle of any instruction this module steals or rewrites.
 //
+// Outside src/DDraw, and therefore missed by the sweep above: the Delphi recorder
+// (src/Recorder, shipped as eplayx, registered for Escalation via `IniSettings.ModId > 1`)
+// splices 9 bytes at 0x0043E4F5 in Unit_ResolveCursorOrderType and 9 at 0x0043F144 in
+// Orders_ResolveMissionNameFromIntent -- the same two functions P1/P2 and P3/P6 patch.
+// No byte overlap with any of the six windows here. It matters anyway, because P6's
+// reachability proof is a CFG walk over VANILLA bytes and 0x0043F144 replaces that
+// function's `cmp ecx,0Dh / ja` dispatch prologue at runtime. The proof still holds: the
+// wrapper re-implements that test and returns to 0x0043F14D -- the untouched
+// `jmp [ecx*4+0x4401EC]` -- for every intent <= 0x0D, which covers STOP(1), MOVE(2) and
+// DEFEND(7); its custom-order exits (0x00440194, 0x004401DC, and 0x0043EA5A on the cursor
+// side) are all function epilogues ending in `ret`, so no recorder path can enter a hook
+// site here. Recorded so a future change on either side can see the coupling.
+//
 // ---------------------------------------------------------------------------------
 // P1 -- cursor DEFEND unblock. In-place byte rewrite.
 // ---------------------------------------------------------------------------------
@@ -131,6 +144,21 @@
 //   00406352  mov eax,8                    ; flying target -> bail, every tick, forever
 // je -> jmp. Ground->ground: dl&1 was already 0, so both go to the same place.
 //
+// Removing the veto exposes TWO order-construction sites further down the tick, not one.
+// P5 covers the verbatim mirror; the other needs no patch but should not surprise anyone:
+//   0x004064C2  if the guarded unit is damaged ([unit+0x108] < [def+0x1FA]) and the
+//               GUARDIAN is a builder ([def+0x241] & 0x40), the tick calls
+//               Orders_ResolveMissionNameFromIntent(out, intent=8 REPAIR, guardian,
+//               target, 0) at 0x004064F5 and constructs whatever comes back, through its
+//               own allocate/ctor/assign at 0x00406502-0x00406537 (id read from
+//               [esp+0x14], a different slot from P5's [esp+0x10]).
+// Correct without help: intent 8's resolver arm (0x0043F46C) branches on the GUARDIAN's
+// canfly only (0x0043F48F / 0x0043F4AB), so a ground guardian resolves the GROUND mission
+// -- HELPBUILD or REPAIRUNIT -- whatever the target is, then returns immediately
+// (0x0043FA8C / 0x0043FAD5, both `ret 0x14`), reaching neither P3's nor P6's hook site.
+// Net effect: a ground constructor guarding a DAMAGED air constructor repairs it, via
+// vanilla code. That is the intended behaviour, not a side effect to be suppressed.
+//
 // ---------------------------------------------------------------------------------
 // P5 -- assist translation. InlineSingleHook, 5 bytes (auto-extends to 7). Class B.
 // ---------------------------------------------------------------------------------
@@ -152,6 +180,9 @@
 // Router reads Eax (guarded unit) and Ecx (its order), and dispatches on the order's
 // COBHandler_index:
 //   - guarded unit doesn't fly -> return 0. Ground->ground is untouched.
+//   - guarded unit's order has no target yet (AttackTargat == 0) -> redirect to
+//     0x004066AC. Mirrors vanilla's own guard at 0x00406629, which both redirects below
+//     would otherwise jump past. See the 'no target yet' note -- this is reachable.
 //   - VTOL_MobileBuild, or VTOL_HelpBuild -> redirect to 0x406636 (vanilla's own
 //     HelpBuild lookup+construct). Both carry the being-built unit in the same
 //     AttackTargat field. See "guard chains" below for why VTOL_HelpBuild belongs here.
@@ -163,11 +194,51 @@
 // (0x4065E7) with net-zero stack delta -- each intervening call is thiscall-with-one-arg
 // and cleans its own bytes. Verified by counting pushes on every path, not assumed.
 //
-// Mission ids are runtime table positions, not constants. Resolved lazily on first live
-// use via MissionOrder_FindByName@0x00438760, __thiscall(void* outByteBuf, const char*
-// name). NOT at Install(): that table is empty during DLL_PROCESS_ATTACH and fills at
-// map load, so an eager resolve fails every launch. Distinctness is cross-checked to
-// catch a failed lookup before it can collide with index 0.
+// Mission ids are table positions, not constants. Resolved lazily on first live use via
+// MissionOrder_FindByName@0x00438760, __thiscall(void* outByteBuf, const char* name),
+// which binary-searches a global vector of 25-byte mission templates -- begin/end/capacity
+// at 0x00512344/0x00512348/0x0051234C -- and returns (entry - begin) / 25.
+//
+// That vector is constructed by a CRT static initialiser (0x00438450, registered in the
+// .data init table at 0x0050100C) and filled through a single call site on the startup
+// path, 0x0049136E -> 0x0043C050, from .rdata templates. Every instruction in the image
+// that writes its begin/end pointers belongs to that construct/populate/grow sequence or
+// to the atexit destructor (0x00438461/66, 0x00438490/95, 0x0043BD85/8D, 0x0043C135/40,
+// 0x0043C355) -- nothing rebuilds or clears it mid-game. Two consequences, both stated
+// wrongly in an earlier revision of this file:
+//   - Resolution must still be lazy, but because of LOAD ORDER, not because the table is
+//     per-map: this DLL's DLL_PROCESS_ATTACH runs before WinMain, so it really is empty
+//     at Install() time.
+//   - The ids are per-BINARY constants. Mod files do not feed this table, so two clients
+//     on the same TotalA.exe cannot resolve different ids, and no mod can fail to supply
+//     one of these names.
+// The module records the table's extent alongside the ids and re-resolves if it ever
+// changes, which turns the paragraph above from an argument into a runtime invariant, and
+// skips the lookups entirely while the table is empty. Distinctness is still cross-checked
+// to catch a failed lookup before it can collide with index 0. Install() byte-checks
+// MissionOrder_FindByName's prologue, covering both table pointers and the /25 stride.
+//
+// ---- no target yet: why the null check is not optional ----
+// Vanilla reaches 0x00406636 from exactly one place, and only past a null-target guard:
+//   00406623  je 0x4066AC                  ; name did not match -> plain follow
+//   00406629  cmp dword [esi+0x16],ebp     ; guarded unit's order has a target?
+//   0040662C  je 0x4066AC                  ; null -> plain follow, do NOT construct
+//   00406636  push 0x5013F0                ; HelpBuild
+// That guard is reachable, not theoretical. The mirror-branch discriminator at 0x004065E7
+// admits an order either because Order_State bit 0x200 is set AND its target is non-null,
+// or because bit 0x400 is set -- and the 0x400 arm tests no target at all. The order
+// constructor fixes what those bits mean: 0x0043A1A1 clears 0x200 when the target argument
+// is null, 0x0043A1B3 clears 0x400 when the position argument is null. Template defaults
+// (.rdata, 25-byte entries): VTOL_MobileBuild 0x00100508 (0x400, no 0x200), VTOL_HelpBuild
+// 0x00100208 and VTOL_RepairUnit 0x00100200 (both 0x200).
+//
+// So VTOL_MobileBuild -- the headline case -- takes the arm with no target test, and an air
+// constructor holds it with AttackTargat null for the whole flight to the build site: the
+// nanoframe only exists on arrival (0x004140A1 writes the order's target slot). Building a
+// HelpBuild order on that null target makes MissionTick_HelpBuild bail at 0x00403F9D with
+// a Construction-terminated announcement -- one allocate/construct/assign and one
+// announcement per tick, for the whole flight. The router mirrors the guard instead.
+// VTOL_HelpBuild and VTOL_RepairUnit carry 0x200, so they cannot arrive here null.
 //
 // ---- repair: why a stack write rather than a redirect ----
 // Unlike MobileBuild there is no vanilla path that constructs a generic-target
@@ -241,10 +312,19 @@
 // outside this feature's scope.
 //
 // ---------------------------------------------------------------------------------
-// Gating: GROUND_TO_AIR_GUARD_ENABLE (config.h / config_*.h). P4 and P5 change simulation
-// behaviour (Class B): every client in a game must run the same build. Compile-time only,
-// no runtime switch. 1 on Escalation (the build these addresses were verified against),
-// 0 elsewhere -- a staged rollout, not a belief that the addresses differ.
+// Gating: GROUND_TO_AIR_GUARD_ENABLE (config.h / config_*.h). Compile-time only, no runtime
+// switch. 1 on Escalation (the build these addresses were verified against), 0 elsewhere --
+// a staged rollout, not a belief that the addresses differ.
+//
+// Class B (uniform simulation change: every client in a game must run the same build).
+// FOUR sites change simulation behaviour, not two:
+//   - P4 and P5, as described above.
+//   - P3 and P6 too, for the refused pairing only. Vanilla DID construct a FOLLOW_GROUND
+//     order on a move-click or smart-click onto a friendly aircraft; it was simply inert,
+//     because MissionTick_Follow_Ground vetoed it at 0x00406350 and the unit stopped. P3/P6
+//     refuse earlier, so the click now resolves to the ordinary position order it would
+//     otherwise have produced and the unit walks there. Better behaviour, and required by
+//     the hard constraint above -- but a change for that pairing, not a preservation.
 // ---------------------------------------------------------------------------------
 
 namespace GroundToAirGuard
