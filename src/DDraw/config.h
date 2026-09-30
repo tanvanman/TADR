@@ -261,3 +261,27 @@
 #ifndef SHARE_PERCENT_ENABLE
 #define SHARE_PERCENT_ENABLE 0
 #endif
+
+//
+// PatrolReclaimThreshold: +setreclaimmetal / +setreclaimenergy <0-100>[%] set, per player, the
+// storage level below which a patrolling constructor reclaims features (vanilla: 20%). Local
+// decision state, nothing replicated -- not a Class B patch. Escalation only: the addresses are
+// specific to that TotalA.exe and the module refuses to install unless every byte matches.
+// See PatrolReclaimThreshold.h.
+//
+#ifndef PATROL_RECLAIM_THRESHOLD_ENABLE
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 0
+#endif
+
+//
+// PatrolReclaimThreshold air gate: a vanilla air constructor on patrol has no "stock is high, do not
+// reclaim" check (a ground one does). 1 applies the ground rule to air constructors. THIS CHANGES
+// DEFAULT AIR-CONSTRUCTOR BEHAVIOUR for every player of the config. 0 leaves air patrol vanilla
+// apart from honouring typed thresholds. Requires PATROL_RECLAIM_THRESHOLD_ENABLE.
+//
+#ifndef PATROL_RECLAIM_AIR_GATE_ENABLE
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 0
+#endif
+#if PATROL_RECLAIM_AIR_GATE_ENABLE && !PATROL_RECLAIM_THRESHOLD_ENABLE
+#error "PATROL_RECLAIM_AIR_GATE_ENABLE requires PATROL_RECLAIM_THRESHOLD_ENABLE 1 -- the gate reads the per-player thresholds that module owns."
+#endif

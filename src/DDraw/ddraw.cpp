@@ -61,6 +61,7 @@ using namespace std;
 #include "AreaDamageOverflow.h"
 #include "GridClaimTieBreak.h"
 #include "SharePercent.h"
+#include "PatrolReclaimThreshold.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -272,6 +273,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if SHARE_PERCENT_ENABLE
 		SharePercent::Install();       // does not share a hook address with anything above; order-independent
 #endif
+#if PATROL_RECLAIM_THRESHOLD_ENABLE
+		PatrolReclaimThreshold::Install();   // own bytes only: patrol handler operands/entries, one call operand, one registration site
+#endif
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponIdOverflow::Install();
 		WeaponFiredExt::Install();
@@ -316,6 +320,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if SHARE_PERCENT_ENABLE
 		SharePercent::Shutdown();
+#endif
+#if PATROL_RECLAIM_THRESHOLD_ENABLE
+		PatrolReclaimThreshold::Shutdown();
 #endif
 		UnitIdentity::Shutdown();
 #if TDRAW_EXTENDED_WEAPON_IDS

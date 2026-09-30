@@ -114,3 +114,9 @@
 // WIDER SCOPE THAN AreaDamageOverflow: this sits in the claim path used by every unit
 // type on both layers, not just aircraft. Class B patch.
 #define GRID_CLAIM_TIEBREAK_ENABLE 1
+
+//
+// Per-player patrol reclaim thresholds and the air-constructor gate: Escalation only (addresses are
+// specific to its TotalA.exe); see PatrolReclaimThreshold.h.
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 0
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 0

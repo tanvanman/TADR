@@ -187,3 +187,8 @@
 // require every player to run the same build.
 #define SHARE_PERCENT_ENABLE 1
 
+
+//
+// Per-player patrol reclaim thresholds and the air-constructor gate; see PatrolReclaimThreshold.h.
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 1
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 1
