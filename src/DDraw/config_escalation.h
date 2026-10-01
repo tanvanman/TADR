@@ -187,3 +187,15 @@
 // require every player to run the same build.
 #define SHARE_PERCENT_ENABLE 1
 
+// Ground-to-air Guard -- see GroundToAirGuard.h. Lets a ground CanGuard unit guard a
+// flying ally (e.g. a ground constructor assisting an air constructor's build),
+// reachable only via the explicit Guard command. Class B: changes which orders can be
+// constructed and what the simulation does with one, so every client must run the
+// same build. Active by default here, same rationale as BuildWeaponSlotGuard above:
+// this is a feature this config ships with, not a diagnostic staged behind review.
+#define GROUND_TO_AIR_GUARD_ENABLE 1
+
+// VtolRepairBeamFix -- see VtolRepairBeamFix.h. On: a stalled air constructor stops
+// showing the nanolathe beam, which is what every ground repair tick already does.
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 1
+

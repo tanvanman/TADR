@@ -61,6 +61,8 @@ using namespace std;
 #include "AreaDamageOverflow.h"
 #include "GridClaimTieBreak.h"
 #include "SharePercent.h"
+#include "GroundToAirGuard.h"
+#include "VtolRepairBeamFix.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -287,6 +289,8 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		CobDispatchTable::Install();
 #endif
 		BuildWeaponSlotGuard::Install();
+		GroundToAirGuard::Install();
+		VtolRepairBeamFix::Install();
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Start();
 #endif
@@ -329,6 +333,8 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		CobDispatchTable::Shutdown();
 #endif
 		BuildWeaponSlotGuard::Shutdown();
+		GroundToAirGuard::Shutdown();
+		VtolRepairBeamFix::Shutdown();
 		/* KillTimer(NULL, Timer);
 		KillTimer(NULL, DetectTimer); */
 		AddtionReleaseAfterDDraw ( );

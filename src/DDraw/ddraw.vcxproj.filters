@@ -313,6 +313,12 @@
     <ClCompile Include="SharePercent.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GroundToAirGuard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VtolRepairBeamFix.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="LagSwitchGuard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -673,6 +679,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SharePercent.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GroundToAirGuard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VtolRepairBeamFix.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="tafstatusexporter.h">
