@@ -2359,10 +2359,50 @@ int __stdcall NewChatTextGuardProc(PInlineX86StackBuffer X86StrackBuffer)
     return X86STRACKBUFFERCHANGE;
 }
 
+static const unsigned int ReserveLoopingSoundSlotAddr = 0x004CF5B2;
+static const BYTE ReserveLoopingSoundSlotBytes[] = { 0x8B, 0x46, 0x30, 0x8B, 0x4E, 0x2C };
+static const DWORD SoundBufferSlotCount = 32; // pBufferSlots_32 has 32 entries.
+static const DWORD DSoundPlayLoopingAddr = 0x0051FF48; // Used for DSBPLAY_LOOPING at 0x004CF766.
+
+static int __stdcall ReserveLoopingSoundSlotProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (!*reinterpret_cast<const DWORD*>(DSoundPlayLoopingAddr))
+		return 0;
+
+	const DWORD self = X86StrackBuffer->Esi;
+	X86StrackBuffer->Eax = *reinterpret_cast<const DWORD*>(self + 0x30);
+	const DWORD maxChannels = *reinterpret_cast<const DWORD*>(self + 0x2C);
+	X86StrackBuffer->Ecx = maxChannels > SoundBufferSlotCount
+		? SoundBufferSlotCount : maxChannels;
+	X86StrackBuffer->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(0x004CF5B8);
+	return X86STRACKBUFFERCHANGE;
+}
+
 TABugFixing::TABugFixing ()
 {
 
 	MaxUnitID= 0;
+	// Unlimited mixing deliberately allows untracked one-shots, but a looping
+	// sound needs a tracked slot so TA's stop-all can find it. The old hook at
+	// 0x004CF5B8 covered the eviction loop's back-edge target at 0x004CF5BC.
+	// This site ends before the comparison and leaves that target untouched.
+	// The earlier looping-sound check at 0x004CF590 rules out pinned slots,
+	// so TA's existing eviction path still has a non-looping slot to remove.
+#if MENU_HUM_TRACKED_LOOPING
+	if (memcmp(reinterpret_cast<const void*>(ReserveLoopingSoundSlotAddr),
+		ReserveLoopingSoundSlotBytes, sizeof(ReserveLoopingSoundSlotBytes)) == 0)
+	{
+		m_hooks.push_back(std::make_unique<InlineSingleHook>(ReserveLoopingSoundSlotAddr,
+			sizeof(ReserveLoopingSoundSlotBytes), INLINE_5BYTESLAGGERJMP,
+			ReserveLoopingSoundSlotProc));
+	}
+	else
+	{
+		IDDrawSurface::OutptFmtTxt(
+			"[MenuHum] SKIPPED sound hook: bytes at 0x%08X not stock",
+			ReserveLoopingSoundSlotAddr);
+	}
+#endif
 
 	NullUnitDeathVictim= NULL;
 	CircleRadius= NULL;

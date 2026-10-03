@@ -39,6 +39,11 @@
 #include "config_twilight.h"
 #endif
 
+// Keep looping menu audio in TA's tracked sound slots. Override per config if needed.
+#ifndef MENU_HUM_TRACKED_LOOPING
+#define MENU_HUM_TRACKED_LOOPING 1
+#endif
+
 //
 // Weather report rows.  WEATHER_REPORT is the master switch for the whole
 // top-of-screen overlay (wind / tidal / game time); these two select which of
