@@ -199,3 +199,6 @@
 // showing the nanolathe beam, which is what every ground repair tick already does.
 #define VTOL_REPAIR_BEAM_FIX_ENABLE 1
 
+// Per-player patrol reclaim thresholds and the air-constructor gate; see PatrolReclaimThreshold.h.
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 1
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 1
