@@ -25,7 +25,12 @@
 // PATROL_RECLAIM_AIR_GATE_ENABLE: the air handler's call to the feature picker
 // (0x47EA40) is retargeted to a stub that applies the ground "both not low"
 // step to air constructors. This changes default air behaviour for every
-// player of the config.
+// player of the config, including air constructors set to "Reclaim Only" (the
+// Hold Pos default), which vanilla never gated: they now reclaim only while a
+// stock is below its threshold, as ground constructors in that mode already
+// do. Thresholds reset every game; 100% for both resources restores the old
+// air behaviour except while both stocks are exactly full (and, through the
+// energy value, limits assisting to full energy).
 //
 // Cannot desync: mission handlers run only on the machine that owns the unit
 // (Unit_TickAllPlayersScriptsAndWeapons skips them for remote owners), the
@@ -38,6 +43,11 @@
 // 0x415621) or AutoTeam's (0x4195DD). Install checks every byte first and
 // disables the module (logged) on a mismatch, self-tests before patching, and
 // rolls back if a read-back differs.
+//
+// Two checked ranges abut hooks installed earlier: the ground step at 0x405B1E
+// follows PatrolDisableReclaim (0x405B18, 6 bytes) and the registration check
+// ends at 0x4195DC, where AutoTeam's hook begins. If either hook is lengthened,
+// Install() reads patched bytes, logs DISABLED and patches nothing.
 //
 // If the recorder's OrdersOverride plugin replaced the RepairPatrol table
 // entry, the ground thresholds have no effect: logged at game start, and the

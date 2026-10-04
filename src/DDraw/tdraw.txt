@@ -81,6 +81,7 @@ NEW FEATURES IN BRIEF:
 - Add reload bars for tagged weapons (thanks TAG_Venom)
 - Allied queued-build overlays (thanks TAG_Venom) are now a per-build option, and are disabled in every build for now
 - the nanoframe build preview can now also be turned off entirely: totala.ini [Preferences] "NanoframePreview" takes FULL, WIREFRAME or DISABLED (replaces the old TRUE/FALSE "NanoframePreviewFill", which is still honoured)
+- (escalation only) Add +setreclaimmetal and +setreclaimenergy to set the storage level below which your patrolling construction units reclaim (default 20%).  Patrolling air construction units now stop reclaiming while both stocks are at or above their levels, as ground units already did (see NEW FEATURES IN DETAIL)
 
 *2026.8.6
 - Build configuration "full" renamed to "prota" (tdraw-prota.zip) and "minimal" renamed to "ota" (tdraw-ota.zip).  No feature changes - the names now say which mod each build is intended for
@@ -373,6 +374,29 @@ NEW FEATURES IN DETAIL:
     Maneuvre/roam: your construction units will both look for reclaim and for units that need repair or assist
 
   Mash the 'v' key to get the desired movement order and then set a patrol route.
+
+- Patrol reclaim thresholds (escalation build only)
+
+  A patrolling construction unit looks for something to reclaim only while metal or energy is
+  below 20% of your storage.  These commands change that level for your own units:
+
+    +setreclaimmetal <0-100>[%]
+    +setreclaimenergy <0-100>[%]
+
+  With no value they print the current levels.  The levels belong to the player who types the
+  command, are not sent to other players, and go back to 20% at the start of every game.
+  0 never counts as low, so patrols do not reclaim and always assist; 100 counts as low unless
+  the storage is exactly full.
+
+  The energy level also decides when patrols assist: a patrolling unit assists only while energy
+  is at or above it.  In the "Assist Only" patrol mode it is the only level that has an effect.
+
+  Air construction units used to reclaim on patrol whatever your stocks were.  They now follow
+  the same rule as ground units and look for something to reclaim only while metal or energy is
+  below its level.  This includes air units set to "Reclaim Only", which is the default for Hold
+  Position.  To get the old air behaviour back, type +setreclaimmetal 100 and +setreclaimenergy
+  100 at the start of a game; as the energy level is shared, that also limits assisting to
+  moments when energy is full.
 
 - Neutral unit and/or per-player additional unit spawn
 

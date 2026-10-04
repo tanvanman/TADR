@@ -383,6 +383,7 @@ namespace
 		return r;
 	}
 
+	// The copy only bounds what is handed to NewChatText (191 characters).
 	void Say(const char* text)
 	{
 		char buf[192];
@@ -506,6 +507,8 @@ namespace
 				resource == kMetal ? "metal" : "energy", resource == kMetal ? "metal" : "energy",
 				ShownPercent(resource, slot));
 			Say(msg);
+			if (resource == kEnergy)
+				Say("Energy also decides when patrols assist: they assist only while energy is at or above it.");
 			return;
 		}
 
@@ -923,7 +926,7 @@ namespace
 			g_groundResume = savedG;
 			g_vtolResume   = savedV;
 			if (g != 0)                              PRT_FAIL("ground entry stub");
-			if ((v & 0xFF) != 0x48 || v == 0xDEADBEEF)  PRT_FAIL("air entry stub");
+			if ((v & 0xFF) != 0x48)                  PRT_FAIL("air entry stub");
 		}
 
 	done:

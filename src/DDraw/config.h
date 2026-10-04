@@ -309,8 +309,11 @@
 //
 // PatrolReclaimThreshold air gate: a vanilla air constructor on patrol has no "stock is high, do not
 // reclaim" check (a ground one does). 1 applies the ground rule to air constructors. THIS CHANGES
-// DEFAULT AIR-CONSTRUCTOR BEHAVIOUR for every player of the config. 0 leaves air patrol vanilla
-// apart from honouring typed thresholds. Requires PATROL_RECLAIM_THRESHOLD_ENABLE.
+// DEFAULT AIR-CONSTRUCTOR BEHAVIOUR for every player of the config, including units whose patrol
+// mode is Reclaim Only (the Hold Pos default), which vanilla never gated. Thresholds reset every
+// game; 100% for both resources restores the old behaviour (except while both stocks are exactly
+// full) and limits assisting to full energy. 0 leaves air patrol vanilla apart from honouring
+// typed thresholds. Requires PATROL_RECLAIM_THRESHOLD_ENABLE.
 //
 #ifndef PATROL_RECLAIM_AIR_GATE_ENABLE
 #define PATROL_RECLAIM_AIR_GATE_ENABLE 0
