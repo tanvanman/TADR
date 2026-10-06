@@ -159,8 +159,9 @@
 // and the "Show ally queues" dialog checkbox is not created.
 #define ALLIED_BUILD_QUEUE_ENABLE 0
 
-// PlayerMute: local `.mute` / `.unmute` -- see config.h. Escalation is the
-// designated rollout target for the whole chat feature set this ships with.
+// PlayerMute: local `.mute` / `.unmute` -- see config.h.  Display-only and cannot
+// desync; both splice sites are byte-checked at static-init time and the feature
+// disables itself (logged) if the exe does not match, so it ships on every config.
 #define PLAYER_MUTE_ENABLE 1
 
 //

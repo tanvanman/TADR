@@ -117,9 +117,10 @@
 // and the "Show ally queues" dialog checkbox is not created.
 #define ALLIED_BUILD_QUEUE_ENABLE 0
 
-// PlayerMute: local .mute / .unmute -- see config.h. Off here; only turn on
-// once this chat feature set has been validated against this config too.
-#define PLAYER_MUTE_ENABLE 0
+// PlayerMute: local .mute / .unmute -- see config.h.  Display-only and cannot
+// desync; both splice sites are byte-checked at static-init time and the feature
+// disables itself (logged) if the exe does not match, so it ships on every config.
+#define PLAYER_MUTE_ENABLE 1
 
 //
 // Air-unit stacking / area-damage immunity -- see AreaDamageOverflow.h.
@@ -139,15 +140,31 @@
 // type on both layers, not just aircraft. Class B patch.
 #define GRID_CLAIM_TIEBREAK_ENABLE 1
 
-// Ground-to-air Guard -- see GroundToAirGuard.h. Off: addresses verified against
-// Escalation's TotalA.exe only; staged rollout, not a belief this build differs.
-#define GROUND_TO_AIR_GUARD_ENABLE 0
+//
+// Percentage-based resource share thresholds -- see SharePercent.h and config.h for
+// the full description.  A `%` suffix on +setsharemetal / +setshareenergy keeps the
+// threshold tracking max storage; a plain integer is unchanged vanilla behaviour.
+// Purely local per-client state; not a Class B patch, does not require every player
+// to run the same build.  Install() byte-checks both command handlers and skips
+// installation (logged) if the exe does not match.
+#define SHARE_PERCENT_ENABLE 1
 
-// VtolRepairBeamFix -- see VtolRepairBeamFix.h. Off: addresses verified against
-// Escalation's TotalA.exe only; staged rollout, not a belief this build differs.
-#define VTOL_REPAIR_BEAM_FIX_ENABLE 0
+// Ground-to-air Guard -- see GroundToAirGuard.h. Lets a ground CanGuard unit guard a
+// flying ally (e.g. a ground constructor assisting an air constructor's build),
+// reachable only via the explicit Guard command. Class B: changes which orders can be
+// constructed and what the simulation does with one, so every client must run the
+// same build. On here; the six windows are byte-checked at install and the module
+// patches nothing if the exe does not match.
+#define GROUND_TO_AIR_GUARD_ENABLE 1
 
-// Per-player patrol reclaim thresholds and the air-constructor gate: Escalation only (addresses are
-// specific to its TotalA.exe); see PatrolReclaimThreshold.h.
-#define PATROL_RECLAIM_THRESHOLD_ENABLE 0
-#define PATROL_RECLAIM_AIR_GATE_ENABLE 0
+// VtolRepairBeamFix -- see VtolRepairBeamFix.h. On: a stalled air constructor stops
+// showing the nanolathe beam, which is what every ground repair tick already does.
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 1
+
+// Per-player patrol reclaim thresholds (+setreclaimmetal / +setreclaimenergy) and the
+// air-constructor gate; see PatrolReclaimThreshold.h.  Local decision state only, nothing
+// replicated.  The addresses were derived from Escalation's TotalA.exe, so Install() checks
+// every patched byte against the live image and disables the module (logged, nothing patched)
+// on any mismatch -- a build whose exe differs loses the feature instead of misbehaving.
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 1
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 1

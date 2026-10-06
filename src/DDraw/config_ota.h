@@ -108,9 +108,10 @@
 // and the "Show ally queues" dialog checkbox is not created.
 #define ALLIED_BUILD_QUEUE_ENABLE 0
 
-// PlayerMute: local .mute / .unmute -- see config.h. Off here; only turn on
-// once this chat feature set has been validated against this config too.
-#define PLAYER_MUTE_ENABLE 0
+// PlayerMute: local .mute / .unmute -- see config.h.  Display-only and cannot
+// desync; both splice sites are byte-checked at static-init time and the feature
+// disables itself (logged) if the exe does not match, so it ships on every config.
+#define PLAYER_MUTE_ENABLE 1
 
 //
 // Air-unit stacking / area-damage immunity -- see AreaDamageOverflow.h.
@@ -131,6 +132,11 @@
 // type on both layers, not just aircraft. Class B patch.
 #define GRID_CLAIM_TIEBREAK_ENABLE 0
 
+//
+// Percentage-based resource share thresholds -- see SharePercent.h and config.h.
+// Off here: OTA keeps vanilla's absolute-only +setsharemetal / +setshareenergy.
+#define SHARE_PERCENT_ENABLE 0
+
 // Ground-to-air Guard -- see GroundToAirGuard.h. Off: addresses verified against
 // Escalation's TotalA.exe only; staged rollout, not a belief this build differs.
 #define GROUND_TO_AIR_GUARD_ENABLE 0
@@ -139,7 +145,8 @@
 // Escalation's TotalA.exe only; staged rollout, not a belief this build differs.
 #define VTOL_REPAIR_BEAM_FIX_ENABLE 0
 
-// Per-player patrol reclaim thresholds and the air-constructor gate: Escalation only (addresses are
-// specific to its TotalA.exe); see PatrolReclaimThreshold.h.
+// Per-player patrol reclaim thresholds and the air-constructor gate; see
+// PatrolReclaimThreshold.h.  Off here along with the rest of the construction-unit
+// behaviour features -- OTA stays vanilla.
 #define PATROL_RECLAIM_THRESHOLD_ENABLE 0
 #define PATROL_RECLAIM_AIR_GATE_ENABLE 0
