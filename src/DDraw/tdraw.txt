@@ -63,6 +63,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Fix intermittent corruption in the map-selection preview while preserving the original selector and rendering (thanks TAG_Venom)
 - Fix ctrl-F and ctrl-B skipping your most recently built factories/constructors once you had lost any units
 - Lag-switch mitigation is now a per-build option, and is disabled in tdraw-bta.zip.  Every other build keeps it as before
 - add "notoverwater" and "notoverland" flags for weapons (see NEW FEATURES IN DETAIL)
