@@ -5,4 +5,3 @@ Forked from https://svn.riouxsvn.com/tadr with contributors:
 - Xpoy
 - N72
 - Fnordia, SJ and Yeha
-- TAG_Venom
