@@ -17,7 +17,6 @@
 #include "TAConfig.h"
 #include "LimitCrack.h"
 #include "IncreaseCompositeSize.h"
-#include "MapPreviewCopy.h"
 
 #include "ddraw.h"
 #include "Profiler.h"
@@ -34,6 +33,7 @@ TABugFixing * FixTABug;
 
 namespace
 {
+    // Map-selection preview fix by TAG_Venom.
     const DWORD MapPreviewCopyCallAddr = 0x004666C0u;
     // PUSH 0, PUSH 0, LEA EDX,[ESP+68], PUSH EDI, PUSH EDX, CALL DrawFrame.
     const BYTE MapPreviewCopyContext[] = {
@@ -41,23 +41,11 @@ namespace
         0xE8, 0xCB, 0x18, 0x05, 0x00
     };
     BYTE MapPreviewCopyCallPatch[5];
-    bool MapPreviewFixEnabled = false;
-    bool MapPreviewDiagnosticsEnabled = false;
-    unsigned int MapPreviewCopySequence = 0;
 
     static_assert(sizeof(GAFFrame) == 0x18, "Retail frame ABI");
     static_assert(offsetof(GAFFrame, Background) == 0x08, "Retail color key ABI");
     static_assert(offsetof(GAFFrame, PtrFrameBits) == 0x10, "Retail pixels ABI");
     static_assert(sizeof(OFFSCREEN) == 0x30, "Retail surface ABI");
-
-    unsigned int PreviewHash(const BYTE* pixels, int width, int height, int pitch)
-    {
-        unsigned int hash = 2166136261u;
-        for (int y = 0; y < height; ++y)
-            for (int x = 0; x < width; ++x)
-                hash = (hash ^ pixels[static_cast<size_t>(y) * pitch + x]) * 16777619u;
-        return hash;
-    }
 
     // This CALL alone is intercepted. The stock allocator leaves frame+08
     // uninitialized; DrawFrame uses it as a color key, leaving matching pixels
@@ -78,46 +66,15 @@ namespace
             destination->ScreenRect.bottom == source->Height - 1;
         if (!expected)
         {
-            IDDrawSurface::OutptTxt("[MapPreview] unexpected temporary-copy contract; using original DrawFrame");
             original(destination, source, x, y);
             return;
         }
 
-        unsigned int keyPixels = 0;
-        unsigned int inputHash = 0;
-        if (MapPreviewDiagnosticsEnabled)
-        {
-            const size_t count = static_cast<size_t>(source->Width) * source->Height;
-            for (size_t i = 0; i < count; ++i)
-                if (source->PtrFrameBits[i] == source->Background) ++keyPixels;
-            inputHash = PreviewHash(source->PtrFrameBits, source->Width,
-                source->Height, source->Width);
-        }
-
-        if (MapPreviewFixEnabled)
-            MapPreviewCopy::CopyOpaque(static_cast<BYTE*>(destination->lpSurface),
-                destination->Width, destination->Height, destination->lPitch,
-                source->PtrFrameBits, source->Width, source->Height);
-        else
-            original(destination, source, x, y);
-
-        if (MapPreviewDiagnosticsEnabled)
-        {
-            unsigned int different = 0;
-            const BYTE* output = static_cast<const BYTE*>(destination->lpSurface);
-            for (int row = 0; row < source->Height; ++row)
-                for (int column = 0; column < source->Width; ++column)
-                    if (output[static_cast<size_t>(row) * destination->lPitch + column] !=
-                        source->PtrFrameBits[static_cast<size_t>(row) * source->Width + column])
-                        ++different;
-            IDDrawSurface::OutptFmtTxt(
-                "[MapPreview] copy=%u fix=%d size=%ux%u pitch=%d key=%u keyPixels=%u "
-                "different=%u input=%08X output=%08X src=%p dst=%p",
-                ++MapPreviewCopySequence, MapPreviewFixEnabled, source->Width, source->Height,
-                destination->lPitch, source->Background, keyPixels, different, inputHash,
-                PreviewHash(output, source->Width, source->Height, destination->lPitch),
-                source, destination->lpSurface);
-        }
+        BYTE* output = static_cast<BYTE*>(destination->lpSurface);
+        for (int row = 0; row < source->Height; ++row)
+            std::memcpy(output + static_cast<size_t>(row) * destination->lPitch,
+                source->PtrFrameBits + static_cast<size_t>(row) * source->Width,
+                source->Width);
     }
 
 	const DWORD AntiNukeTargetSearchAddr = 0x0049D120u;
@@ -2449,23 +2406,14 @@ int __stdcall NewChatTextGuardProc(PInlineX86StackBuffer X86StrackBuffer)
 TABugFixing::TABugFixing ()
 {
 
-    MapPreviewFixEnabled = MyConfig->GetIniBool("MapSelectionPreviewFix", TRUE) != FALSE;
-    MapPreviewDiagnosticsEnabled = MyConfig->GetIniBool("MapSelectionPreviewDiagnostics", FALSE) != FALSE;
-    if (MapPreviewFixEnabled || MapPreviewDiagnosticsEnabled)
+    if (memcmp(reinterpret_cast<const void*>(MapPreviewCopyCallAddr - 10u),
+        MapPreviewCopyContext, sizeof(MapPreviewCopyContext)) == 0)
     {
-        if (memcmp(reinterpret_cast<const void*>(MapPreviewCopyCallAddr - 10u),
-            MapPreviewCopyContext, sizeof(MapPreviewCopyContext)) == 0)
-        {
-            MapPreviewCopyCallPatch[0] = 0xE8;
-            *reinterpret_cast<DWORD*>(MapPreviewCopyCallPatch + 1) =
-                reinterpret_cast<DWORD>(&CopyMapPreviewFrame) - (MapPreviewCopyCallAddr + 5u);
-            m_hooks.push_back(std::make_unique<SingleHook>(MapPreviewCopyCallAddr,
-                sizeof(MapPreviewCopyCallPatch), INLINE_UNPROTECTEVINMENT, MapPreviewCopyCallPatch));
-            IDDrawSurface::OutptFmtTxt("[MapPreview] installed fix=%d diagnostics=%d at %08X",
-                MapPreviewFixEnabled, MapPreviewDiagnosticsEnabled, MapPreviewCopyCallAddr);
-        }
-        else
-            IDDrawSurface::OutptTxt("[MapPreview] SKIPPED: preview-copy context does not match retail 3.1");
+        MapPreviewCopyCallPatch[0] = 0xE8;
+        *reinterpret_cast<DWORD*>(MapPreviewCopyCallPatch + 1) =
+            reinterpret_cast<DWORD>(&CopyMapPreviewFrame) - (MapPreviewCopyCallAddr + 5u);
+        m_hooks.push_back(std::make_unique<SingleHook>(MapPreviewCopyCallAddr,
+            sizeof(MapPreviewCopyCallPatch), INLINE_UNPROTECTEVINMENT, MapPreviewCopyCallPatch));
     }
 
 	MaxUnitID= 0;
