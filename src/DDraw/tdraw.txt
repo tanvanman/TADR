@@ -86,7 +86,10 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
+
+*2026.10.6
 - Fix ctrl-F and ctrl-B skipping your most recently built factories/constructors once you had lost any units
 - Lag-switch mitigation is now a per-build option.  It is enabled in every build, and now logs each time it engages,
   releases, or fails to freeze the simulation
@@ -315,6 +318,16 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Map-selection preview
+
+  Fixes intermittent corruption in the preview shown when selecting a map.
+  TA accidentally treated one of the minimap's colours as transparent while
+  copying the image, leaving old buffer contents in place of those pixels.
+  The preview now copies every colour correctly before TA scales and draws it.
+
+  The original map selector, preview size, colours, scaling and black borders
+  are preserved.  The fix is automatic and requires no configuration settings.
 
 - Shared unit settings
 

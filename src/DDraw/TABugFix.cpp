@@ -33,6 +33,50 @@ TABugFixing * FixTABug;
 
 namespace
 {
+    // Map-selection preview fix by TAG_Venom.
+    const DWORD MapPreviewCopyCallAddr = 0x004666C0u;
+    // PUSH 0, PUSH 0, LEA EDX,[ESP+68], PUSH EDI, PUSH EDX, CALL DrawFrame.
+    const BYTE MapPreviewCopyContext[] = {
+        0x6A, 0x00, 0x6A, 0x00, 0x8D, 0x54, 0x24, 0x68, 0x57, 0x52,
+        0xE8, 0xCB, 0x18, 0x05, 0x00
+    };
+    BYTE MapPreviewCopyCallPatch[5];
+
+    static_assert(sizeof(GAFFrame) == 0x18, "Retail frame ABI");
+    static_assert(offsetof(GAFFrame, Background) == 0x08, "Retail color key ABI");
+    static_assert(offsetof(GAFFrame, PtrFrameBits) == 0x10, "Retail pixels ABI");
+    static_assert(sizeof(OFFSCREEN) == 0x30, "Retail surface ABI");
+
+    // This CALL alone is intercepted. The stock allocator leaves frame+08
+    // uninitialized; DrawFrame uses it as a color key, leaving matching pixels
+    // in the temporary image untouched. Preserve every index before stock scaling.
+    void __stdcall CopyMapPreviewFrame(OFFSCREEN* destination, GAFFrame* source,
+        int x, int y)
+    {
+        typedef void (__stdcall *DrawFrameFn)(OFFSCREEN*, GAFFrame*, int, int);
+        const DrawFrameFn original = reinterpret_cast<DrawFrameFn>(0x004B7F90u);
+        const bool expected = destination && source && destination->lpSurface &&
+            source->PtrFrameBits && x == 0 && y == 0 && source->xPosition == 0 &&
+            source->yPosition == 0 && source->Compressed == 0 && source->FramePointers == 0 &&
+            source->Width > 0 && source->Height > 0 &&
+            destination->Width == source->Width && destination->Height == source->Height &&
+            destination->lPitch >= source->Width &&
+            destination->ScreenRect.left == 0 && destination->ScreenRect.top == 0 &&
+            destination->ScreenRect.right == source->Width - 1 &&
+            destination->ScreenRect.bottom == source->Height - 1;
+        if (!expected)
+        {
+            original(destination, source, x, y);
+            return;
+        }
+
+        BYTE* output = static_cast<BYTE*>(destination->lpSurface);
+        for (int row = 0; row < source->Height; ++row)
+            std::memcpy(output + static_cast<size_t>(row) * destination->lPitch,
+                source->PtrFrameBits + static_cast<size_t>(row) * source->Width,
+                source->Width);
+    }
+
 	const DWORD AntiNukeTargetSearchAddr = 0x0049D120u;
 	const BYTE AntiNukeTargetSearchExpected[5] = { 0x8B, 0x44, 0x24, 0x08, 0x53 };
 	BYTE AntiNukeTargetSearchPatch[5];
@@ -2361,6 +2405,16 @@ int __stdcall NewChatTextGuardProc(PInlineX86StackBuffer X86StrackBuffer)
 
 TABugFixing::TABugFixing ()
 {
+
+    if (memcmp(reinterpret_cast<const void*>(MapPreviewCopyCallAddr - 10u),
+        MapPreviewCopyContext, sizeof(MapPreviewCopyContext)) == 0)
+    {
+        MapPreviewCopyCallPatch[0] = 0xE8;
+        *reinterpret_cast<DWORD*>(MapPreviewCopyCallPatch + 1) =
+            reinterpret_cast<DWORD>(&CopyMapPreviewFrame) - (MapPreviewCopyCallAddr + 5u);
+        m_hooks.push_back(std::make_unique<SingleHook>(MapPreviewCopyCallAddr,
+            sizeof(MapPreviewCopyCallPatch), INLINE_UNPROTECTEVINMENT, MapPreviewCopyCallPatch));
+    }
 
 	MaxUnitID= 0;
 
