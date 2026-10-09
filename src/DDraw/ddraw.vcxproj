@@ -358,6 +358,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="LagSwitchGuard.cpp" />
     <ClCompile Include="VoteReject.cpp" />
     <ClCompile Include="ShareGuard.cpp" />
+    <ClCompile Include="ShareUnitSettings.cpp" />
     <ClCompile Include="TakeClaim.cpp" />
     <ClCompile Include="VeterancyHack.cpp" />
     <ClCompile Include="Widgets\Button.cpp" />
@@ -391,6 +392,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="LagSwitchGuard.h" />
     <ClInclude Include="VoteReject.h" />
     <ClInclude Include="ShareGuard.h" />
+    <ClInclude Include="ShareUnitSettings.h" />
     <ClInclude Include="TakeClaim.h" />
     <ClInclude Include="ZeroDamageMapWeapons.h" />
     <ClInclude Include="TeamColorNanolathe.h" />
@@ -401,6 +403,9 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="AreaDamageOverflow.h" />
     <ClInclude Include="GridClaimTieBreak.h" />
     <ClInclude Include="SharePercent.h" />
+    <ClInclude Include="GroundToAirGuard.h" />
+    <ClInclude Include="VtolRepairBeamFix.h" />
+    <ClInclude Include="PatrolReclaimThreshold.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="config_prota.h" />
     <ClInclude Include="config_ota.h" />
@@ -427,6 +432,9 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="AreaDamageOverflow.cpp" />
     <ClCompile Include="GridClaimTieBreak.cpp" />
     <ClCompile Include="SharePercent.cpp" />
+    <ClCompile Include="GroundToAirGuard.cpp" />
+    <ClCompile Include="VtolRepairBeamFix.cpp" />
+    <ClCompile Include="PatrolReclaimThreshold.cpp" />
     <ClCompile Include="TenPlayerReplay.cpp" />
     <ClCompile Include="TPacket.cpp" />
     <ClCompile Include="UnitIcon.cpp" />

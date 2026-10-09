@@ -52,6 +52,25 @@
 #define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 1
 
 //
+// COB script VM -- opcode dispatch
+//
+// See CLAUDE.md / config_escalation.h -- the splice window and every
+// hardcoded address are specific to Escalation GOLD 10.1/10.2's TotalA.exe,
+// so this stays off here unless someone re-verifies it against this config's
+// own exe.  See ai-reference/simulation-performance/COB_DISPATCH_PROJECT.md.
+#define COB_DISPATCH_TABLE_ENABLE 0
+
+//
+// BuildWeaponSlotGuard -- stockpile-weapon divide-by-zero fix + weapon-slot bounds
+// check.
+//
+// See BuildWeaponSlotGuard.h / config_escalation.h. All six signatures match
+// byte-for-byte on all seven shipped TotalA.exe builds (this is stock TA engine code),
+// so the addresses are not believed to differ here; it is off only because this project
+// has not independently re-verified it against this config's own exe.
+#define BUILD_WEAPON_SLOT_GUARD_ENABLE 0
+
+//
 // Extended weapon IDs (>= 256)
 //
 // Installs WeaponIdOverflow (heap-backed weapon slots above TA's hard-coded
@@ -69,7 +88,7 @@
 // ~32 covers a whole attack-run overshoot; 1-3 covers only the immediate edge.
 // Compile-time only, deliberately -- it decides who can shoot what, so a per-machine
 // override would be a mixed-fleet vector.  See OFFMAP_AIRCRAFT.md.
-#define OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES 32
+#define OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES 1
 
 //
 // Environment / sim sync
@@ -97,12 +116,17 @@
 // and the "Show ally queues" dialog checkbox is not created.
 #define ALLIED_BUILD_QUEUE_ENABLE 0
 
+// PlayerMute: local .mute / .unmute -- see config.h.  Display-only and cannot
+// desync; both splice sites are byte-checked at static-init time and the feature
+// disables itself (logged) if the exe does not match, so it ships on every config.
+#define PLAYER_MUTE_ENABLE 1
+
 //
 // Air-unit stacking / area-damage immunity -- see AreaDamageOverflow.h.
 // Lets one explosion damage every airborne unit on a cell instead of only the one
 // holding the cell's air slot. Air-only; ground/naval splash is unchanged.
 // Class B patch: every player must run the same build, old demos will not replay.
-#define AREA_DAMAGE_OVERFLOW_ENABLE 1
+#define AREA_DAMAGE_OVERFLOW_ENABLE 0
 // 1 = dedup victims with no cap, which also repairs vanilla's 20-victim overflow bug
 //     (unit 21+ otherwise takes one blast once per cell it occupies).
 // 0 = restrict dedup to overflow slots, leaving vanilla ground behaviour bit-exact.
@@ -113,4 +137,29 @@
 // with "the lower UnitInGameIndex wins", so every client agrees on who holds a cell.
 // WIDER SCOPE THAN AreaDamageOverflow: this sits in the claim path used by every unit
 // type on both layers, not just aircraft. Class B patch.
-#define GRID_CLAIM_TIEBREAK_ENABLE 1
+#define GRID_CLAIM_TIEBREAK_ENABLE 0
+
+//
+// Percentage-based resource share thresholds -- see SharePercent.h and config.h for
+// the full description.  A `%` suffix on +setsharemetal / +setshareenergy keeps the
+// threshold tracking max storage; a plain integer is unchanged vanilla behaviour.
+// Purely local per-client state; not a Class B patch, does not require every player
+// to run the same build.  Install() byte-checks both command handlers and skips
+// installation (logged) if the exe does not match.
+#define SHARE_PERCENT_ENABLE 1
+
+// Ground-to-air Guard -- see GroundToAirGuard.h. Off: addresses verified against
+// Escalation's TotalA.exe only; staged rollout, not a belief this build differs.
+#define GROUND_TO_AIR_GUARD_ENABLE 0
+
+// VtolRepairBeamFix -- see VtolRepairBeamFix.h. Off: addresses verified against
+// Escalation's TotalA.exe only; staged rollout, not a belief this build differs.
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 0
+
+// Per-player patrol reclaim thresholds (+setreclaimmetal / +setreclaimenergy) and the
+// air-constructor gate; see PatrolReclaimThreshold.h.  Local decision state only, nothing
+// replicated.  The addresses were derived from Escalation's TotalA.exe, so Install() checks
+// every patched byte against the live image and disables the module (logged, nothing patched)
+// on any mismatch -- a build whose exe differs loses the feature instead of misbehaving.
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 1
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 1

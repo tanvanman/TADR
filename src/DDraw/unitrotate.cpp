@@ -10,6 +10,7 @@
 #include "UnitDefExtensions.h"
 #include "TAbugfix.h"
 #include "ShareGuard.h"
+#include "ShareUnitSettings.h"
 #include "Profiler.h"
 #include "config.h"
 
@@ -676,14 +677,26 @@ __declspec(naked) static void CreateUnitReturnThunk()
 // Clears a pending rotation the entry hook armed when the function takes a
 // branch that never reaches UNITS_CreateUnit (watcher broadcast path, early
 // validation bail-outs). GiveUnit is __stdcall void RET 0xC.
-static DWORD g_giveUnitRealReturn = 0;
+extern "C" DWORD __cdecl GiveUnitEnvelopeCleanup()
+{
+    g_pendingCreateRotation = -1;
+    return ShareUnitSettings::EndGive();
+}
 
 __declspec(naked) static void GiveUnitReturnThunk()
 {
     __asm
     {
-        mov dword ptr [g_pendingCreateRotation], -1
-        jmp dword ptr [g_giveUnitRealReturn]
+        // Reserve a return-address slot, then preserve all registers/flags.
+        // EndGive returns the caller saved before any entry redirection.
+        push 0
+        pushfd
+        pushad
+        call GiveUnitEnvelopeCleanup
+        mov dword ptr [esp + 0x24], eax
+        popad
+        popfd
+        ret
     }
 }
 
@@ -1257,6 +1270,12 @@ static int __stdcall GiveUnit_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
     }
 #endif
 
+    // Record the real share/capture caller for ALL units, including mobiles,
+    // before rotation can replace the return address. Suppressed/delayed calls
+    // above never arm an envelope; their later accepted re-issue does.
+    ShareUnitSettings::BeginGive(stackTop[0]);
+    stackTop[0] = reinterpret_cast<DWORD>(&GiveUnitReturnThunk);
+
     WORD unitTypeIdx = *reinterpret_cast<WORD*>(srcUnit + OFF_UNIT_UnitINFOID);
     if (unitTypeIdx == 0) return 0;
     BYTE* ui = GetUnitInfoRaw(unitTypeIdx);
@@ -1271,8 +1290,6 @@ static int __stdcall GiveUnit_Entry_Proc(PInlineX86StackBuffer X86StrackBuffer)
     if (!self->IsRotationAllowed(unitTypeIdx, rotation)) return 0;
 
     g_pendingCreateRotation = rotation;
-    g_giveUnitRealReturn = stackTop[0];
-    stackTop[0] = reinterpret_cast<DWORD>(&GiveUnitReturnThunk);
     return 0;
 }
 

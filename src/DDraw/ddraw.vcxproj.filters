@@ -289,6 +289,9 @@
     <ClCompile Include="ZeroDamageMapWeapons.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ShareUnitSettings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="TeamColorNanolathe.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -311,6 +314,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SharePercent.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GroundToAirGuard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VtolRepairBeamFix.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PatrolReclaimThreshold.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="LagSwitchGuard.cpp">
@@ -651,6 +663,9 @@
     <ClInclude Include="ZeroDamageMapWeapons.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ShareUnitSettings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="TeamColorNanolathe.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -673,6 +688,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SharePercent.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GroundToAirGuard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="VtolRepairBeamFix.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PatrolReclaimThreshold.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="tafstatusexporter.h">

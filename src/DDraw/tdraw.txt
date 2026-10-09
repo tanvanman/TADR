@@ -12,35 +12,58 @@ The present release includes contributions from Axle, FunkyFresh, tagROCK and TA
 
 CONFIGURATIONS
 
-The release .zip files are annotated with a build configuration tag: "tdraw-<config>.zip".  The various configurations are:
-  * tdraw-prota.zip: all features enabled (this is the mainline build, used by ProTA)
-  * tdraw-escalation.zip: built for TA:Escalation.  disables the following features
-    - mex snap
-    - that is all
-    and enables the following features, which no other configuration has:
-    - share-abuse guard (structure share rate limit, and .take refused against a destroyed commander - see below)
-    - fix repair rate exploit
-    - wrecks of aircraft destroyed over land fall to the ground
-    and differs as follows:
-    - off-map aircraft can be shot down up to 32 tiles past the map edge, where every other configuration only covers 1 tile
-  * tdraw-tazero.zip: built for TA:Zero.  same as tdraw-prota.zip except it disables the following features
-    - wind and tidal readouts in the weather report at top of screen (the game time clock is retained)
-    - that is all
-  * tdraw-ota.zip: built for original TA (OTA).  disables the following features
-    - mex/wreck snap
-    - options for construction units to stay put when guarding
-    - options for construction units to only reclaim or onlt assist while patrolling
-    - auto kickout construction units that are blocking another builder
-    - weather report at top of screen
-    - sync wind speed between players
-    - map DT's always visible.
-    - rendering of map features (mexes, geos, spires, walls) on the megamap
-  * tdraw-mayhem.zip: built for TA:Mayhem.  same as tdraw-prota.zip except
-    - off-map aircraft can be shot down up to 32 tiles past the map edge (as Escalation), rather than the 1 tile the other configurations cover
-  * tdraw-bta.zip: same as tdraw-prota.zip except
-    - rendering of map features (mexes, geos, spires, walls) on the megamap is disabled
-    - mex and wreck snap radius limited to 1
-    - lag-switch mitigation (freezing the local simulation when the network goes dark) is disabled
+The release .zip files are annotated with a build configuration tag: "tdraw-<config>.zip".  Each zip
+carries tdraw.dll together with that mod's recorder DLL.  The configurations are:
+
+  tdraw-prota.zip        ProTA.  The mainline build
+  tdraw-escalation.zip   TA:Escalation
+  tdraw-mayhem.zip       TA:Mayhem
+  tdraw-ota.zip          original TA (OTA).  Deliberately the most conservative build
+  tdraw-tazero.zip       TA:Zero
+  tdraw-bta.zip          Beta patch (BTA)
+  tdraw-twilight.zip     Twilight
+
+Everything described in this file is in every build EXCEPT the features in the table below, which is
+the complete list of differences between the configurations.  Anything not in the table is in all
+seven builds -- the TA Hook, the megamap, the whiteboard, ".take" claim arbitration, lag-switch
+mitigation, the local ".mute" command, and every bug fix not named here.
+
+  y = enabled    n = disabled    a number = that setting's value for the build
+
+                                                            prota  esc  mayhem  ota  tazero  bta  twilight
+  mex snap radius, in tiles                                   3     0     3      0     3      1      3
+  wreck snap radius, in tiles                                 1     1     1      0     1      1      1
+  construction units stay put while guarding a factory        y     y     y      n     y      y      y
+  construction units reclaim-only / assist-only on patrol     y     y     y      n     y      y      y
+  auto kickout of construction units blocking a builder       y     y     y      n     y      y      y
+  patrol reclaim thresholds, +setreclaimmetal/energy  [1]     y     y     y      n     y      y      y
+  percentage share thresholds, +setsharemetal 50%             y     y     y      n     y      y      y
+  weather report at top of screen (the game clock)            y     y     y      n     y      y      y
+     ... including its wind and tidal readouts                y     y     y      n     n      y      y
+  sync wind speed between players                             y     y     y      n     y      y      y
+  map DTs and fortwalls always visible                        y     y     y      n     y      y      y
+  map features (mexes, geos, spires, walls) on megamap        y     y     y      n     y      n      y
+  off-map aircraft targetable, in tiles past the map edge     1     32    32     1     1      1      1
+  explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     n      n      y
+  ground constructors can guard / assist air constructors     n     y     y      n     n      n      n
+  air repair beam shown only while the repair is paid for     n     y     y      n     n      n      n
+  weapon IDs above 255 in Weapons/*.tdf                       n     y     y      n     n      n      y
+  share-abuse guard (share rate limit, .take refusal)         n     y     n      n     n      n      n
+  repair rate exploit fix  [3]                                n     y     n      n     n      n      n
+  wrecks of aircraft killed over land fall to the ground      n     y     n      n     n      n      n
+  stockpile build-percent / weapon-slot crash guard  [4]      n     y     n      n     n      n      n
+  COB opcode jump table (speed only, same behaviour)  [4]     n     y     n      n     n      n      n
+  allied queued-build overlays  [5]                           n     n     n      n     n      n      n
+
+  [1] the thresholds also gate air construction units, which vanilla never gated at all --
+      read NEW FEATURES IN DETAIL before enabling this for a new mod
+  [2] together with the contested-cell tie-break that makes every client agree which unit
+      holds a map cell.  Both are simulation changes: all players must run the same build,
+      and demos recorded with them will not replay against a build without them
+  [3] tdraw-escalation.zip additionally runs repair and self-heal at 3x the fixed rate
+  [4] a fix, off elsewhere only because its engine addresses have not been re-verified
+      against the other mods' TotalA.exe; it will be turned on as that is done
+  [5] written and shippable, but off in every build for now
 
 
 INSTALLATION
@@ -64,24 +87,63 @@ NEW FEATURES IN BRIEF:
 
 *????.??.??
 - Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
+- Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
+
+*2026.10.6
 - Fix ctrl-F and ctrl-B skipping your most recently built factories/constructors once you had lost any units
-- Lag-switch mitigation is now a per-build option, and is disabled in tdraw-bta.zip.  Every other build keeps it as before
+- Lag-switch mitigation is now a per-build option.  It is enabled in every build, and now logs each time it engages,
+  releases, or fails to freeze the simulation
 - add "notoverwater" and "notoverland" flags for weapons (see NEW FEATURES IN DETAIL)
-- (escalation only) wrecks of aircraft destroyed over land now fall to the ground instead of hanging in the air where the aircraft died (see NEW FEATURES IN DETAIL)
+- (escalation only) wrecks of aircraft destroyed over land now fall to the ground instead of hanging in the air where
+  the aircraft died (see NEW FEATURES IN DETAIL)
 - Keep the +bps network and game-time display visible over the megamap (thanks TAG_Venom)
-- Fix megamap projectile icons and range displays, and make anti-nuke coverage circular and consistent with its displayed ring (thanks TAG_Venom)
-- Fix megamap cursor hit testing, order placement, stationary hover updates, and edge/one-axis selection drags (thanks TAG_Venom)
+- Fix megamap projectile icons and range displays, and make anti-nuke coverage circular and consistent with its
+  displayed ring (thanks TAG_Venom)
+- Fix megamap cursor hit testing, order placement, stationary hover updates, and edge/one-axis selection drags (thanks
+  TAG_Venom)
 - Fix resurrected units intermittently being left incomplete or as unusable wireframes (thanks TAG_Venom)
-- New build configuration for TA:Mayhem (tdraw-mayhem.zip): same as tdraw-prota.zip, but off-map aircraft can be shot down up to 32 tiles past the map edge instead of 1
-- Aircraft hiding near the map edge can now be shot down.
-- Increase TotalA.exe projectile and explosion-related limits to ten times their stock values (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
-- Add stockpile and transport counters above unit health bars, with configurable counter and group number colours (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
+- New build configuration for TA:Mayhem (tdraw-mayhem.zip): see CONFIGURATIONS
+- New build configuration "twilight" (tdraw-twilight.zip): see CONFIGURATIONS
+- Aircraft hiding near the map edge can now be shot down (thanks RDKL)
+- Explosions now damage every aircraft stacked on the same spot instead of only one of them, and every client agrees
+  which unit holds a contested map cell (thanks RDKL; prota, escalation and mayhem only)
+- Increase TotalA.exe projectile and explosion-related limits to ten times their stock values (thanks TAG_Venom; see NEW
+  FEATURES IN DETAIL)
+- Add stockpile and transport counters above unit health bars, with configurable counter and group number colours
+  (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix black model faces caused by zero shade level (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)
-- Add optional TransportedExplodeAs and TransportedSelfDestructAs unit FBI tags for using different explosion weapons while a unit is being transported (thanks TAG_Venom)
+- Add optional TransportedExplodeAs and TransportedSelfDestructAs unit FBI tags for using different explosion weapons
+  while a unit is being transported (thanks TAG_Venom)
 - Add reload bars for tagged weapons (thanks TAG_Venom)
 - Allied queued-build overlays (thanks TAG_Venom) are now a per-build option, and are disabled in every build for now
-- the nanoframe build preview can now also be turned off entirely: totala.ini [Preferences] "NanoframePreview" takes FULL, WIREFRAME or DISABLED (replaces the old TRUE/FALSE "NanoframePreviewFill", which is still honoured)
+- the nanoframe build preview can now also be turned off entirely: totala.ini [Preferences] "NanoframePreview" takes
+  FULL, WIREFRAME or DISABLED (replaces the old TRUE/FALSE "NanoframePreviewFill", still honoured)
+- New in-game chat drawer: "all" and "allies" chat split into their own channels, scrollback through what you missed,
+  and a larger, coloured, outlined font.  The chat text can also be moved around the screen (thanks RDKL)
+- Add .mute and .unmute to silence another player's chat, map pings and whiteboard drawings for yourself only - nobody
+  else is affected and nothing is sent over the network (thanks RDKL)
+- Add a "%" suffix to +setsharemetal and +setshareenergy (eg "+setshareenergy 50%") so the share threshold keeps
+  tracking your storage as it grows.  A plain number behaves as before (thanks RDKL, all builds except ota)
+- Add +setreclaimmetal / +setreclaimenergy to set the level below which patrolling construction units reclaim (default
+  20%); air ones now follow it too (thanks RDKL, all but ota; see NEW FEATURES IN DETAIL)
+- (escalation and mayhem) a ground construction unit can now be given an explicit Guard order on a flying ally, so it
+  can assist an air constructor's build or repair (thanks RDKL)
+- (escalation and mayhem) an air construction unit no longer shows the nanolathe beam while its repair is not actually
+  being paid for, which is what ground construction units already did (thanks RDKL)
+- (escalation only) the repair rate fix now heals at 3x the rate it shipped with in 2026.8.6, for both repair and
+  self-heal (thanks RDKL)
+- (escalation only) Fix divide-by-zero crash when a stockpile weapon's build percentage is drawn, and bounds-check the
+  weapon slot index it is read from (thanks RDKL)
+- (escalation only) Replace the COB script interpreter's opcode compare ladder with a jump table: identical behaviour,
+  less CPU per simulation tick (thanks RDKL)
+- Crash mitigation for units whose identity has drifted apart between clients, the usual cause of "one player crashed
+  and nobody else did": round-robin unit id recycling, weapon fire from the firing unit's own slot
+- Fix crash caused by a re-entrant build order on a rotated structure
+- Limit a given sound to one playback per 50ms, which cuts a large slice of the stutter caused by many simultaneous
+  explosions or weapon impacts
+- Clients now exchange a unit-identity digest about every 30 seconds and log any disagreement to tdrawlog.txt, so
+  desyncs can be diagnosed after the fact
 
 *2026.8.6
 - Build configuration "full" renamed to "prota" (tdraw-prota.zip) and "minimal" renamed to "ota" (tdraw-ota.zip).  No feature changes - the names now say which mod each build is intended for
@@ -267,6 +329,27 @@ NEW FEATURES IN DETAIL:
   The original map selector, preview size, colours, scaling and black borders
   are preserved.  The fix is automatic and requires no configuration settings.
 
+- Shared unit settings
+
+  TA shares a unit by creating a replacement for its new owner.  It clears
+  the replacement's fire and movement orders to Hold Fire and Hold Position,
+  and does not send those orders or the requested cloak setting to the recipient.
+
+  Voluntary shares now preserve the giver's fire and movement orders, on/off
+  state, and cloak request, as well as the operational state TA already copies.
+  A unit temporarily decloaked by firing or nearby enemies keeps its requested
+  cloak setting.  Factories retain the standing orders inherited by products.
+  Stockpiled ammunition and building orientation continue through TA's existing
+  transfer path.  Command queues, factory build queues, groups and experience
+  are separate from these settings and retain TA's existing transfer behavior.
+
+  This is automatic in all builds, with no INI setting.  Both giver and receiver
+  need the updated DLL for network transfers.  An older DLL ignores or omits
+  the settings snapshot, so TA's original receiving behavior applies instead.
+  Sharing to an unallied player also preserves settings; captures are unchanged.
+  Escalation's structure-share delay still applies; settings are taken when
+  the delayed transfer actually happens.
+
 - Resurrection finalization fix
 
   TA can create a replacement unit from a wreck and then fail its second lookup
@@ -384,6 +467,29 @@ NEW FEATURES IN DETAIL:
     Maneuvre/roam: your construction units will both look for reclaim and for units that need repair or assist
 
   Mash the 'v' key to get the desired movement order and then set a patrol route.
+
+- Patrol reclaim thresholds (all builds except tdraw-ota.zip)
+
+  A patrolling construction unit looks for something to reclaim only while metal or energy is
+  below 20% of your storage.  These commands change that level for your own units:
+
+    +setreclaimmetal <0-100>[%]
+    +setreclaimenergy <0-100>[%]
+
+  With no value they print the current levels.  The levels belong to the player who types the
+  command, are not sent to other players, and go back to 20% at the start of every game.
+  0 never counts as low, so patrols do not reclaim and always assist; 100 counts as low unless
+  the storage is exactly full.
+
+  The energy level also decides when patrols assist: a patrolling unit assists only while energy
+  is at or above it.  In the "Assist Only" patrol mode it is the only level that has an effect.
+
+  Air construction units used to reclaim on patrol whatever your stocks were.  They now follow
+  the same rule as ground units and look for something to reclaim only while metal or energy is
+  below its level.  This includes air units set to "Reclaim Only", which is the default for Hold
+  Position.  To get the old air behaviour back, type +setreclaimmetal 100 and +setreclaimenergy
+  100 at the start of a game; as the energy level is shared, that also limits assisting to
+  moments when energy is full.
 
 - Neutral unit and/or per-player additional unit spawn
 

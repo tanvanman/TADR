@@ -45,6 +45,7 @@ using namespace std;
 #include "AlliedBuildQueueSync.h"
 #include "VoteReject.h"
 #include "ShareGuard.h"
+#include "ShareUnitSettings.h"
 #include "ShadingFix.h"
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
@@ -61,6 +62,9 @@ using namespace std;
 #include "AreaDamageOverflow.h"
 #include "GridClaimTieBreak.h"
 #include "SharePercent.h"
+#include "GroundToAirGuard.h"
+#include "VtolRepairBeamFix.h"
+#include "PatrolReclaimThreshold.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -266,11 +270,15 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		ZeroDamageMapWeapons::Install();
 		TeamColorNanolathe::Install();
 		VoteReject::Install();
+		ShareUnitSettings::Install();
 #if SHARE_ABUSE_GUARD
 		ShareGuard::Install();
 #endif
 #if SHARE_PERCENT_ENABLE
 		SharePercent::Install();       // does not share a hook address with anything above; order-independent
+#endif
+#if PATROL_RECLAIM_THRESHOLD_ENABLE
+		PatrolReclaimThreshold::Install();   // own bytes only: patrol handler operands/entries, one call operand, one registration site
 #endif
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponIdOverflow::Install();
@@ -287,6 +295,8 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		CobDispatchTable::Install();
 #endif
 		BuildWeaponSlotGuard::Install();
+		GroundToAirGuard::Install();
+		VtolRepairBeamFix::Install();
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Start();
 #endif
@@ -317,6 +327,10 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if SHARE_PERCENT_ENABLE
 		SharePercent::Shutdown();
 #endif
+#if PATROL_RECLAIM_THRESHOLD_ENABLE
+		PatrolReclaimThreshold::Shutdown();
+#endif
+		ShareUnitSettings::Shutdown();
 		UnitIdentity::Shutdown();
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponFiredExt::Shutdown();
@@ -329,6 +343,8 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		CobDispatchTable::Shutdown();
 #endif
 		BuildWeaponSlotGuard::Shutdown();
+		GroundToAirGuard::Shutdown();
+		VtolRepairBeamFix::Shutdown();
 		/* KillTimer(NULL, Timer);
 		KillTimer(NULL, DetectTimer); */
 		AddtionReleaseAfterDDraw ( );

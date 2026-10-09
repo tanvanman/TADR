@@ -159,8 +159,9 @@
 // and the "Show ally queues" dialog checkbox is not created.
 #define ALLIED_BUILD_QUEUE_ENABLE 0
 
-// PlayerMute: local `.mute` / `.unmute` -- see config.h. Escalation is the
-// designated rollout target for the whole chat feature set this ships with.
+// PlayerMute: local `.mute` / `.unmute` -- see config.h.  Display-only and cannot
+// desync; both splice sites are byte-checked at static-init time and the feature
+// disables itself (logged) if the exe does not match, so it ships on every config.
 #define PLAYER_MUTE_ENABLE 1
 
 //
@@ -187,3 +188,18 @@
 // require every player to run the same build.
 #define SHARE_PERCENT_ENABLE 1
 
+// Ground-to-air Guard -- see GroundToAirGuard.h. Lets a ground CanGuard unit guard a
+// flying ally (e.g. a ground constructor assisting an air constructor's build),
+// reachable only via the explicit Guard command. Class B: changes which orders can be
+// constructed and what the simulation does with one, so every client must run the
+// same build. Active by default here, same rationale as BuildWeaponSlotGuard above:
+// this is a feature this config ships with, not a diagnostic staged behind review.
+#define GROUND_TO_AIR_GUARD_ENABLE 1
+
+// VtolRepairBeamFix -- see VtolRepairBeamFix.h. On: a stalled air constructor stops
+// showing the nanolathe beam, which is what every ground repair tick already does.
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 1
+
+// Per-player patrol reclaim thresholds and the air-constructor gate; see PatrolReclaimThreshold.h.
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 1
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 1
