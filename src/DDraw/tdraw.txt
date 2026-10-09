@@ -86,6 +86,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
 - Fix ctrl-F and ctrl-B skipping your most recently built factories/constructors once you had lost any units
 - Lag-switch mitigation is now a per-build option.  It is enabled in every build, and now logs each time it engages,
   releases, or fails to freeze the simulation
@@ -314,6 +315,27 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Shared unit settings
+
+  TA shares a unit by creating a replacement for its new owner.  It clears
+  the replacement's fire and movement orders to Hold Fire and Hold Position,
+  and does not send those orders or the requested cloak setting to the recipient.
+
+  Voluntary shares now preserve the giver's fire and movement orders, on/off
+  state, and cloak request, as well as the operational state TA already copies.
+  A unit temporarily decloaked by firing or nearby enemies keeps its requested
+  cloak setting.  Factories retain the standing orders inherited by products.
+  Stockpiled ammunition and building orientation continue through TA's existing
+  transfer path.  Command queues, factory build queues, groups and experience
+  are separate from these settings and retain TA's existing transfer behavior.
+
+  This is automatic in all builds, with no INI setting.  Both giver and receiver
+  need the updated DLL for network transfers.  An older DLL ignores or omits
+  the settings snapshot, so TA's original receiving behavior applies instead.
+  Sharing to an unallied player also preserves settings; captures are unchanged.
+  Escalation's structure-share delay still applies; settings are taken when
+  the delayed transfer actually happens.
 
 - Resurrection finalization fix
 

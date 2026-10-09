@@ -45,6 +45,7 @@ using namespace std;
 #include "AlliedBuildQueueSync.h"
 #include "VoteReject.h"
 #include "ShareGuard.h"
+#include "ShareUnitSettings.h"
 #include "ShadingFix.h"
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
@@ -269,6 +270,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		ZeroDamageMapWeapons::Install();
 		TeamColorNanolathe::Install();
 		VoteReject::Install();
+		ShareUnitSettings::Install();
 #if SHARE_ABUSE_GUARD
 		ShareGuard::Install();
 #endif
@@ -328,6 +330,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if PATROL_RECLAIM_THRESHOLD_ENABLE
 		PatrolReclaimThreshold::Shutdown();
 #endif
+		ShareUnitSettings::Shutdown();
 		UnitIdentity::Shutdown();
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponFiredExt::Shutdown();

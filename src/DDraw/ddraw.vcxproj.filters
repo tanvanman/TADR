@@ -289,6 +289,9 @@
     <ClCompile Include="ZeroDamageMapWeapons.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ShareUnitSettings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="TeamColorNanolathe.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -658,6 +661,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ZeroDamageMapWeapons.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ShareUnitSettings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TeamColorNanolathe.h">
