@@ -88,6 +88,7 @@ NEW FEATURES IN BRIEF:
 *????.??.??
 - Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
+- Stop the main-menu background hum from continuing into a restarted game when unlimited sound mixing is enabled (thanks TAG_Venom)
 
 *2026.10.6
 - Fix ctrl-F and ctrl-B skipping your most recently built factories/constructors once you had lost any units
