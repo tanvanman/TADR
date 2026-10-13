@@ -3,6 +3,7 @@
 #include "tamem.h"
 #include "tafunctions.h"
 #include "stdio.h"
+#include "CameraBounds.h"
 
 #ifdef min
 #undef min
@@ -283,16 +284,16 @@ bool MatchInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[])
 
 int GetMaxScrollX()
 {
-	int *PTR = (int*)0x00511de8;
-	int *MapSizeX = (int*)(*PTR + 0x1422b);
-	return *MapSizeX - (LocalShare->ScreenWidth-128);
+	const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	const int maximum = CameraBounds::Maximum(ta->MapSizeX, static_cast<int>(ta->GameScreenWidth));
+	return SmallMapCameraEnabled() || maximum > 0 ? maximum : 0;
 }
 
 int GetMaxScrollY()
 {
-	int *PTR = (int*)0x00511de8;
-	int *MapSizeY = (int*)(*PTR + 0x1422f);
-	return *MapSizeY - (LocalShare->ScreenHeight-64);
+	const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	const int maximum = CameraBounds::Maximum(ta->MapSizeY, static_cast<int>(ta->GameScreenHeight));
+	return SmallMapCameraEnabled() || maximum > 0 ? maximum : 0;
 }
 
 void ScrollToCenter(int x, int y)
