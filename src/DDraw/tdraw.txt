@@ -140,6 +140,7 @@ NEW FEATURES IN BRIEF:
   explosions or weapon impacts
 - Clients now exchange a unit-identity digest about every 30 seconds and log any disagreement to tdrawlog.txt, so
   desyncs can be diagnosed after the fact
+- (tazero only) Nukes now show the nuke icon on the megamap; TA:Zero's nukes have no stockpile (thanks Sircrashalot)
 
 *2026.8.6
 - Build configuration "full" renamed to "prota" (tdraw-prota.zip) and "minimal" renamed to "ota" (tdraw-ota.zip).  No feature changes - the names now say which mod each build is intended for

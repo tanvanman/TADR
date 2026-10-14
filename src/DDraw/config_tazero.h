@@ -104,6 +104,9 @@
 #define USEMEGAMAP 1
 #define MEGAMAP_FEATURES 1
 #define USEWHITEBOARD 1
+// TA:Zero's nukes have no stockpile, so cruise + targetable alone earns the
+// megamap nuke icon (tanvanman/TADR#31).
+#define MEGAMAP_NUKE_REQUIRES_STOCKPILE 0
 
 //
 // Allied build-queue overlay -- see AlliedBuildQueueSync.h, and config.h for

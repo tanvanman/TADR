@@ -54,6 +54,17 @@
 #endif
 
 //
+// Megamap nuke icon: a projectile is drawn with the nuke picture when its
+// weapon is cruise + targetable (+ stockpile when this is 1), or when it is an
+// interceptor.  TA:Zero's nukes are not stockpile weapons, so it sets this to 0
+// (tanvanman/TADR#31).  Display-only.  Defaulted so a config_*.h that predates
+// it keeps the old behaviour.
+//
+#ifndef MEGAMAP_NUKE_REQUIRES_STOCKPILE
+#define MEGAMAP_NUKE_REQUIRES_STOCKPILE 1
+#endif
+
+//
 // Extended weapon IDs (>= 256) — experimental, OFF by default for now.
 //
 // When enabled this installs two cooperating patches:

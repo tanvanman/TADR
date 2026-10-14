@@ -125,7 +125,12 @@ void  ProjectileMap::DrawProjectile (LPBYTE PixelBits, POINT * Aspect, Projectil
 		int Y_Screen= static_cast<int>(static_cast<float>(Y)* (static_cast<float>(Aspect->y)/ static_cast<float>(MapBottom)));
 
 		unsigned int WeaponTypeMask= Projectile_p->Weapon->WeaponTypeMask;
-		if ((WTM_Cruise | WTM_Targetable | WTM_Stockpile)==((WTM_Cruise | WTM_Targetable | WTM_Stockpile)& WeaponTypeMask)
+#if MEGAMAP_NUKE_REQUIRES_STOCKPILE
+		const unsigned int NukeMask= WTM_Cruise | WTM_Targetable | WTM_Stockpile;
+#else
+		const unsigned int NukeMask= WTM_Cruise | WTM_Targetable;
+#endif
+		if (NukeMask==(NukeMask& WeaponTypeMask)
 			||(0!=(WTM_Interceptor& WeaponTypeMask)))
 		{//
 			DrawNuke ( PixelBits, Aspect, X_Screen, Y_Screen, Projectile_p);
