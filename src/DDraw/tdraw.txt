@@ -86,7 +86,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
-- Fix camera flickering and centre small maps without repeated terrain or oversized minimap outlines (thanks TAG_Venom)
+- Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
 - Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
 - Stop the main-menu background hum from continuing into a restarted game when unlimited sound mixing is enabled (thanks TAG_Venom)
