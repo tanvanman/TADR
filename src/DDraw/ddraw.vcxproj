@@ -358,6 +358,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="LagSwitchGuard.cpp" />
     <ClCompile Include="VoteReject.cpp" />
     <ClCompile Include="ShareGuard.cpp" />
+    <ClCompile Include="ShareUnitSettings.cpp" />
     <ClCompile Include="TakeClaim.cpp" />
     <ClCompile Include="VeterancyHack.cpp" />
     <ClCompile Include="Widgets\Button.cpp" />
@@ -391,6 +392,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="LagSwitchGuard.h" />
     <ClInclude Include="VoteReject.h" />
     <ClInclude Include="ShareGuard.h" />
+    <ClInclude Include="ShareUnitSettings.h" />
     <ClInclude Include="TakeClaim.h" />
     <ClInclude Include="ZeroDamageMapWeapons.h" />
     <ClInclude Include="TeamColorNanolathe.h" />
