@@ -1,4 +1,5 @@
 #include "ChallengeResponse.h"
+#include "AlliedProjectileCollision.h"
 #include "config.h"
 #include "BattleroomCommands.h"
 #include "ChatHijackIds.h"
@@ -558,6 +559,14 @@ void ChallengeResponse::ComputeChallengeResponse(const char* _nonse, char* modul
 		}
 
 		HmacSha256Calculator hmacGameData((unsigned char*)hmacKey, sizeof(hmacKey));
+		// Include the active build-time gameplay rule in game-data verification.
+		// Keep the disabled hash unchanged; enabled peers hash the same rule tag.
+		if (AlliedProjectileCollision::IsInstalled())
+		{
+			const unsigned char rule[] = "AlliedProjectileCollision:1";
+			hmacGameData.processChunk(rule, sizeof(rule) - 1);
+			log << "  AlliedProjectileCollision:1" << std::endl;
+		}
 		HashWeapons(hmacGameData);
 		log << "  weapons:" << hmacGameData << std::endl;
 		HashFeatures(hmacGameData);

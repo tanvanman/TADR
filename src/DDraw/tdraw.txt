@@ -45,6 +45,7 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   map features (mexes, geos, spires, walls) on megamap        y     y     y      n     y      n      y
   off-map aircraft targetable, in tiles past the map edge     1     32    32     1     1      1      1
   explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     n      n      y
+  projectiles pass through allied players' units              y     n     n      n     n      n      n
   ground constructors can guard / assist air constructors     n     y     y      n     n      n      n
   air repair beam shown only while the repair is paid for     n     y     y      n     n      n      n
   weapon IDs above 255 in Weapons/*.tdf                       n     y     y      n     n      n      y
@@ -86,6 +87,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Enable allied projectile pass-through in the ProTA build (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
 - Stop the main-menu background hum from continuing into a restarted game when unlimited sound mixing is enabled (thanks TAG_Venom)
@@ -320,6 +322,35 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Allied projectile pass-through
+
+  Projectiles normally ignore the firing player's own units but can detonate
+  on another player's allied units. The ProTA build now always passes through
+  units whose owners the firing player currently considers allied. This is a
+  build-time mod choice with no INI override. Other mod builds retain their
+  existing collision behavior unless their maintainer enables this feature.
+  Both native unit-collision slots and off-map aircraft use this rule; enemies
+  retain their normal height checks and impacts. Ownership is never changed.
+  Transfers use the candidate's current owner; shots already in flight use
+  their original firing player and the current alliance at collision time.
+  One-way alliances follow the firing player's offer, independently in each
+  direction. Same-owner pass-through does not depend on self-alliance flags.
+
+  Splash, ground/feature impacts, interception, timed detonation, guidance and
+  weapon-specific rules are unchanged, including damage they can cause to own
+  or allied units. This is collision pass-through, not damage immunity.
+  Weapons that bypass the native unit-collision path retain their own rules.
+
+  All players must use matching DLL builds; replay playback must match
+  the recording session. The active rule participates in TADR's existing
+  game-data verification hash, but mismatches are not automatically blocked.
+  Check each player's build before launch and heed VerCheck warnings after
+  the game starts. Mixed gameplay rules are unsupported.
+  Unsupported or conflicting collision code is rejected before patching;
+  a build using this feature then prevents startup instead of silently using
+  other gameplay rules. To restore the previous behavior, use a matching build
+  with this feature disabled on every client. Unloading restores both hooks.
 
 - Map-selection preview
 
