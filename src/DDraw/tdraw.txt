@@ -337,6 +337,14 @@ NEW FEATURES IN DETAIL:
   accept world orders, placement previews or whiteboard input. The sidebar,
   resource bars and selected display resolution stay unchanged.
 
+  Shared allied camera outlines also stay inside the minimap picture,
+  including on narrow or short maps. Existing position-sharing packets and
+  replay camera tracking remain compatible.
+
+  Position sharing must be enabled on both clients. The .sharemappos command
+  toggles it; check the ON/OFF message. Turning it off also hides incoming
+  allied camera outlines.
+
   Fog masks extend the nearest map-edge visibility into missing corners in
   the screen cache, preventing bright terrain seams on centred map borders.
   The underlying mapped and line-of-sight grids are not changed.
