@@ -150,3 +150,8 @@
 // behaviour features -- OTA stays vanilla.
 #define PATROL_RECLAIM_THRESHOLD_ENABLE 0
 #define PATROL_RECLAIM_AIR_GATE_ENABLE 0
+
+// Fair split of the auto-share among allies, and +givemetal / +giveenergy; see ShareSplit.h and GiveCommands.h.
+// Escalation only: the hooks are byte-verified against that TotalA.exe.
+#define SHARE_SPLIT_ENABLE 0
+#define GIVE_COMMANDS_ENABLE 0

@@ -406,6 +406,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="GroundToAirGuard.h" />
     <ClInclude Include="VtolRepairBeamFix.h" />
     <ClInclude Include="PatrolReclaimThreshold.h" />
+    <ClInclude Include="ShareSplit.h" />
+    <ClInclude Include="GiveCommands.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="config_prota.h" />
     <ClInclude Include="config_ota.h" />
@@ -435,6 +437,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="GroundToAirGuard.cpp" />
     <ClCompile Include="VtolRepairBeamFix.cpp" />
     <ClCompile Include="PatrolReclaimThreshold.cpp" />
+    <ClCompile Include="ShareSplit.cpp" />
+    <ClCompile Include="GiveCommands.cpp" />
     <ClCompile Include="TenPlayerReplay.cpp" />
     <ClCompile Include="TPacket.cpp" />
     <ClCompile Include="UnitIcon.cpp" />

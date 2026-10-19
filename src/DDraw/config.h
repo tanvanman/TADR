@@ -337,3 +337,23 @@
 #if PATROL_RECLAIM_AIR_GATE_ENABLE && !PATROL_RECLAIM_THRESHOLD_ENABLE
 #error "PATROL_RECLAIM_AIR_GATE_ENABLE requires PATROL_RECLAIM_THRESHOLD_ENABLE 1 -- the gate reads the per-player thresholds that module owns."
 #endif
+
+//
+// ShareSplit: the auto-share (the 2-second resource pulse of Share_AutoAllyResourcesAndMap) divides the surplus among
+// every eligible ally with free storage -- mutual allies that are less full than the sender -- in equal shares capped at
+// each ally's free storage, instead of sending all of it to the last qualifying slot. Local decision state: the amount
+// travels in the packet, so it is not a Class B patch and interoperates with unpatched clients. Escalation only: the
+// addresses are specific to that TotalA.exe and the module refuses to install unless every byte matches. See ShareSplit.h.
+//
+#ifndef SHARE_SPLIT_ENABLE
+#define SHARE_SPLIT_ENABLE 0
+#endif
+
+//
+// GiveCommands: +givemetal / +giveenergy <player> <amount> and a fixed +give (allies only, capped at the giver's stock and
+// the receiver's free storage, with a chat line for every result). Local command, same transfer and packet as vanilla.
+// Escalation only, byte-verified like ShareSplit. See GiveCommands.h.
+//
+#ifndef GIVE_COMMANDS_ENABLE
+#define GIVE_COMMANDS_ENABLE 0
+#endif

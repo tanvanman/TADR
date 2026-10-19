@@ -325,6 +325,12 @@
     <ClCompile Include="PatrolReclaimThreshold.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ShareSplit.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GiveCommands.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="LagSwitchGuard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -697,6 +703,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="PatrolReclaimThreshold.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ShareSplit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GiveCommands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="tafstatusexporter.h">

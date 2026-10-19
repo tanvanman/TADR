@@ -65,6 +65,8 @@ using namespace std;
 #include "GroundToAirGuard.h"
 #include "VtolRepairBeamFix.h"
 #include "PatrolReclaimThreshold.h"
+#include "ShareSplit.h"
+#include "GiveCommands.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -280,6 +282,12 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if PATROL_RECLAIM_THRESHOLD_ENABLE
 		PatrolReclaimThreshold::Install();   // own bytes only: patrol handler operands/entries, one call operand, one registration site
 #endif
+#if SHARE_SPLIT_ENABLE
+		ShareSplit::Install();               // own bytes only: one jne at 0x457D5F, one call operand at 0x49563B
+#endif
+#if GIVE_COMMANDS_ENABLE
+		GiveCommands::Install();             // own bytes only: one registration site at 0x4195C9, disjoint from PatrolReclaimThreshold and AutoTeam
+#endif
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponIdOverflow::Install();
 		WeaponFiredExt::Install();
@@ -329,6 +337,12 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if PATROL_RECLAIM_THRESHOLD_ENABLE
 		PatrolReclaimThreshold::Shutdown();
+#endif
+#if SHARE_SPLIT_ENABLE
+		ShareSplit::Shutdown();
+#endif
+#if GIVE_COMMANDS_ENABLE
+		GiveCommands::Shutdown();
 #endif
 		ShareUnitSettings::Shutdown();
 		UnitIdentity::Shutdown();
