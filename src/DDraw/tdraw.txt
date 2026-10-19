@@ -87,7 +87,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
-- Enable allied projectile pass-through in the ProTA build (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
+- Enable allied projectile pass-through (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
 - Stop the main-menu background hum from continuing into a restarted game when unlimited sound mixing is enabled (thanks TAG_Venom)
