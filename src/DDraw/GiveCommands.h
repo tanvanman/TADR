@@ -30,6 +30,14 @@
 // The transfer is the engine's own Player_Transfer{Metal,Energy}Resource with sendPacket 1, so the
 // amount travels in the 0x16 packet exactly as vanilla's did: no desync, interoperable with clients
 // without this module. See ai-reference/share-resources-split/.
+//
+// Receive guard (GIVE_RECEIVE_GUARD_ENABLE): the engine applies a received 0x16 resource packet with no
+// sign check. A zero or NaN amount is ignored by the transfer's own zero test, but a NEGATIVE or infinite
+// amount is credited exactly as received, so a peer can drain or flood the receiver's stock. The two arms
+// of the packet switch that read the amount (metal 0x4558C2, energy 0x4558E0) are spliced (8 bytes each) to
+// a stub that tests the float bits with integer arithmetic only and leaves through the arm's own exit when
+// the amount is not positive and finite. It protects the receiving client's own view; it cannot stop a
+// cheater's client from crediting itself. Valid packets take exactly vanilla's path.
 
 namespace GiveCommands
 {

@@ -162,3 +162,5 @@
 // Escalation only: the hooks are byte-verified against that TotalA.exe.
 #define SHARE_SPLIT_ENABLE 0
 #define GIVE_COMMANDS_ENABLE 0
+// Drops received resource packets whose amount is not positive and finite; see GiveCommands.h.
+#define GIVE_RECEIVE_GUARD_ENABLE 0

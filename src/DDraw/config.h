@@ -357,3 +357,16 @@
 #ifndef GIVE_COMMANDS_ENABLE
 #define GIVE_COMMANDS_ENABLE 0
 #endif
+
+//
+// GiveCommands receive guard: a received 0x16 resource packet is applied with no sign check, so a zero is a no-op but a negative or
+// infinite amount credits the recipient with garbage (a drain or a flood for whoever receives it). Two 8-byte splices in the packet switch
+// drop a packet whose amount is not positive and finite, as if it had not arrived. Protects the receiving client's own view only.
+// Escalation only, byte-verified. Requires GIVE_COMMANDS_ENABLE (the code lives in GiveCommands.cpp). See GiveCommands.h.
+//
+#ifndef GIVE_RECEIVE_GUARD_ENABLE
+#define GIVE_RECEIVE_GUARD_ENABLE 0
+#endif
+#if GIVE_RECEIVE_GUARD_ENABLE && !GIVE_COMMANDS_ENABLE
+#error "GIVE_RECEIVE_GUARD_ENABLE requires GIVE_COMMANDS_ENABLE 1 -- the guard is part of the GiveCommands module."
+#endif

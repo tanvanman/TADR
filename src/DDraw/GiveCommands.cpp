@@ -488,6 +488,80 @@ namespace
 		}
 	}
 
+#if GIVE_RECEIVE_GUARD_ENABLE
+	// ---- receive guard (Part C) -------------------------------------------------------------------------------------------
+	// A received 0x16 resource packet is applied by the engine with no sign check: a zero is a no-op, but a NEGATIVE or
+	// NaN amount credits the recipient with garbage (and, through the engine's debit, can raise a stock), and infinity
+	// fills a storage. The two arms of the receive switch (metal 0x4558C2, energy 0x4558E0) read the amount from
+	// [packet+0xD] and call the transfer with sendPacket 0. Each arm's first two instructions are replaced by a jump to a
+	// stub that tests the amount's float bits with integer arithmetic only (no FPU, no flags that matter: the arm's next
+	// consumer of eflags is far below): a valid amount is positive and finite, 0 < bits < 0x7F800000. Anything else is
+	// counted and the arm is left through its own exit (0x455F50), exactly as if the packet had been ignored.
+	// Honest limit: this protects the receiving client's view only; a cheater's own client still credits itself.
+	const DWORD kArmMetal      = 0x004558C2u;   // 8B 54 24 10  8B 4C 24 20   mov edx,[esp+0x10] ; mov ecx,[esp+0x20]
+	const DWORD kArmEnergy     = 0x004558E0u;   // 8B 44 24 10  8B 54 24 20   mov eax,[esp+0x10] ; mov edx,[esp+0x20]
+	const DWORD kArmLen        = 8u;
+	DWORD g_guardMetalResume   = 0x004558CAu;   // the instruction after the replaced pair (push 0)
+	DWORD g_guardEnergyResume  = 0x004558E8u;
+	DWORD g_caseExit           = 0x00455F50u;
+	DWORD g_guardDrops;                         // read by OnGameTick, written by the stubs
+
+	// The test the stubs implement, for the self-test: 0 < bits < 0x7F800000.
+	bool AmountBitsValid(DWORD bits) { return bits - 1u <= 0x7F7FFFFEu; }
+
+	__declspec(naked) void ReceiveGuardMetal()
+	{
+		__asm
+		{
+			mov eax, dword ptr [esp + 0x10]         // the packet
+			mov eax, dword ptr [eax + 0x0D]         // the amount's float bits
+			dec eax
+			cmp eax, 0x7F7FFFFE
+			ja drop
+			mov edx, dword ptr [esp + 0x10]         // replaced: 8B 54 24 10
+			mov ecx, dword ptr [esp + 0x20]         // replaced: 8B 4C 24 20
+			jmp dword ptr [g_guardMetalResume]
+		drop:
+			inc dword ptr [g_guardDrops]
+			jmp dword ptr [g_caseExit]
+		}
+	}
+
+	__declspec(naked) void ReceiveGuardEnergy()
+	{
+		__asm
+		{
+			mov eax, dword ptr [esp + 0x10]
+			mov eax, dword ptr [eax + 0x0D]
+			dec eax
+			cmp eax, 0x7F7FFFFE
+			ja drop
+			mov eax, dword ptr [esp + 0x10]         // replaced: 8B 44 24 10
+			mov edx, dword ptr [esp + 0x20]         // replaced: 8B 54 24 20
+			jmp dword ptr [g_guardEnergyResume]
+		drop:
+			inc dword ptr [g_guardDrops]
+			jmp dword ptr [g_caseExit]
+		}
+	}
+
+	DWORD g_guardLogged;
+	DWORD g_guardLastLog;
+
+	// A forged packet stream must not flood the log: at most one line per ten seconds.
+	void MaybeLogGuard()
+	{
+		if (g_guardDrops == g_guardLogged)
+			return;
+		const DWORD now = GetTickCount();
+		if (now - g_guardLastLog < 10000u)
+			return;
+		g_guardLastLog = now;
+		g_guardLogged = g_guardDrops;
+		IDDrawSurface::OutptFmtTxt("[GiveCommands] receive guard: %lu resource packets with a zero, negative or non-finite amount dropped so far", g_guardDrops);
+	}
+#endif // GIVE_RECEIVE_GUARD_ENABLE
+
 	// Looks the three commands up in the engine's live command vector (12-byte records: name, handler,
 	// permission level). "registered" means the name is there with this module's handler.
 	struct CommandProbe { bool ok; int mine; int foreign; int total; };
@@ -548,6 +622,9 @@ namespace
 		g_wasInGame = inGame;
 		if (newGame)
 			LogGameStart();
+#if GIVE_RECEIVE_GUARD_ENABLE
+		MaybeLogGuard();
+#endif
 	}
 
 	// ---- install-time checks -------------------------------------------------------------------------------------------
@@ -591,6 +668,16 @@ namespace
 	                                     0x8B, 0x04, 0x81, 0xC2, 0x08, 0x00, 0x8B, 0x44, 0x24, 0x08, 0xC2, 0x08, 0x00 };
 	const BYTE kXferHead[12]  = { 0x8B, 0x44, 0x24, 0x04, 0x53, 0x55, 0x56, 0x3C, 0x0A, 0x57, 0x0F, 0x84 };
 	const BYTE kRet10[3]      = { 0xC2, 0x10, 0x00 };
+#if GIVE_RECEIVE_GUARD_ENABLE
+	// kind switch: mov eax,[edx+1] ; dec eax ; je energy arm ; dec eax ; je metal arm ; dec eax ; jne exit
+	const BYTE kRecvSwitch[16] = { 0x8B, 0x42, 0x01, 0x48, 0x74, 0x3C, 0x48, 0x74, 0x1B, 0x48, 0x0F, 0x85, 0xA2, 0x06, 0x00, 0x00 };
+	// metal arm: the two replaced movs, push 0, mov eax,[edx+0xD] (the amount), ... call 0x464C60 ... jmp exit
+	const BYTE kArmMetalB[26]  = { 0x8B, 0x54, 0x24, 0x10, 0x8B, 0x4C, 0x24, 0x20, 0x6A, 0x00, 0x8B, 0x42, 0x0D, 0x8B, 0x54, 0x24, 0x28,
+	                               0x50, 0x51, 0x52, 0xE8, 0x85, 0xF3, 0x00, 0x00, 0xE9 };
+	const BYTE kArmEnergyB[26] = { 0x8B, 0x44, 0x24, 0x10, 0x8B, 0x54, 0x24, 0x20, 0x6A, 0x00, 0x8B, 0x48, 0x0D, 0x8B, 0x44, 0x24, 0x28,
+	                               0x51, 0x52, 0x50, 0xE8, 0x37, 0xF2, 0x00, 0x00, 0xE9 };
+	const BYTE kCaseExitB[7]   = { 0x8B, 0x84, 0x24, 0xF0, 0x00, 0x00, 0x00 };
+#endif
 
 	const Premise kPremises[] =
 	{
@@ -605,6 +692,12 @@ namespace
 		{ 0x004B73C0u, kGetArgPtr, sizeof(kGetArgPtr), "token accessor" },
 		{ kXferMetal, kXferHead, sizeof(kXferHead), "metal transfer entry" },
 		{ kXferEnergy, kXferHead, sizeof(kXferHead), "energy transfer entry" },
+#if GIVE_RECEIVE_GUARD_ENABLE
+		{ 0x0045589Eu, kRecvSwitch, sizeof(kRecvSwitch), "receive switch on the packet kind" },
+		{ 0x004558C2u, kArmMetalB, sizeof(kArmMetalB), "metal receive arm" },
+		{ 0x004558E0u, kArmEnergyB, sizeof(kArmEnergyB), "energy receive arm" },
+		{ 0x00455F50u, kCaseExitB, sizeof(kCaseExitB), "receive case exit" },
+#endif
 		{ 0x00464D8Eu, kRet10, sizeof(kRet10), "metal transfer ret 0x10" },
 		{ 0x00464C5Au, kRet10, sizeof(kRet10), "energy transfer ret 0x10" },
 	};
@@ -783,9 +876,18 @@ namespace
 
 	// ---- patch bookkeeping ----------------------------------------------------------------------------------------------
 	SingleHook* g_regHook;
+#if GIVE_RECEIVE_GUARD_ENABLE
+	SingleHook* g_guardMetalHook;
+	SingleHook* g_guardEnergyHook;
+#endif
 
 	void RemoveAllHooks()
 	{
+#if GIVE_RECEIVE_GUARD_ENABLE
+		delete g_guardEnergyHook;  g_guardEnergyHook = nullptr;
+		delete g_guardMetalHook;   g_guardMetalHook = nullptr;
+		Flush(0x00455000u, 0x1000u);
+#endif
 		delete g_regHook;
 		g_regHook = nullptr;
 		Flush(0x00419000u, 0x1000u);
@@ -798,7 +900,21 @@ namespace
 			return false;
 		DWORD rel = 0;
 		std::memcpy(&rel, code + 1, 4);
-		return code[0] == 0xE9 && rel == reinterpret_cast<DWORD>(&RegisterCommandsStub) - (kRegSite + 5);
+		if (code[0] != 0xE9 || rel != reinterpret_cast<DWORD>(&RegisterCommandsStub) - (kRegSite + 5))
+			return false;
+#if GIVE_RECEIVE_GUARD_ENABLE
+		const struct { DWORD at; DWORD target; } arms[2] = { { kArmMetal, reinterpret_cast<DWORD>(&ReceiveGuardMetal) }, { kArmEnergy, reinterpret_cast<DWORD>(&ReceiveGuardEnergy) } };
+		for (int i = 0; i < 2; ++i)
+		{
+			BYTE b[8];
+			if (!ReadBytes(arms[i].at, b, kArmLen))
+				return false;
+			std::memcpy(&rel, b + 1, 4);
+			if (b[0] != 0xE9 || rel != arms[i].target - (arms[i].at + 5) || b[5] != 0x90 || b[6] != 0x90 || b[7] != 0x90)
+				return false;
+		}
+#endif
+		return true;
 	}
 }
 
@@ -818,6 +934,14 @@ namespace GiveCommands
 		g_wasInGame = false;
 		g_regHook = new SingleHook(kRegSite, 5, INLINE_SINGLEJMP, reinterpret_cast<LPBYTE>(&RegisterCommandsStub));
 		Flush(kRegSite, 5);
+#if GIVE_RECEIVE_GUARD_ENABLE
+		g_guardDrops = g_guardLogged = 0;
+		g_guardLastLog = GetTickCount() - 10000u;
+		g_guardMetalHook = new SingleHook(kArmMetal, kArmLen, INLINE_SINGLEJMP, reinterpret_cast<LPBYTE>(&ReceiveGuardMetal));
+		Flush(kArmMetal, kArmLen);
+		g_guardEnergyHook = new SingleHook(kArmEnergy, kArmLen, INLINE_SINGLEJMP, reinterpret_cast<LPBYTE>(&ReceiveGuardEnergy));
+		Flush(kArmEnergy, kArmLen);
+#endif
 
 		if (!PatchesReadBack())
 		{
@@ -828,7 +952,8 @@ namespace GiveCommands
 
 		GameTickHook::GetInstance()->addCallback(OnGameTick);
 		g_installed = true;
-		IDDrawSurface::OutptFmtTxt("[GiveCommands] installed: Give, GiveMetal, GiveEnergy registered through @0x%08X", kRegSite);
+		IDDrawSurface::OutptFmtTxt("[GiveCommands] installed: Give, GiveMetal, GiveEnergy registered through @0x%08X, receive guard %s", kRegSite,
+			GIVE_RECEIVE_GUARD_ENABLE ? "on" : "off");
 	}
 
 	void Shutdown()
