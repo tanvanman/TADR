@@ -326,10 +326,10 @@ NEW FEATURES IN DETAIL:
 - Allied projectile pass-through
 
   Projectiles normally ignore the firing player's own units but can detonate
-  on another player's allied units. The ProTA build now always passes through
+  on another player's allied units. When enabled, projectiles pass through
   units whose owners the firing player currently considers allied. This is a
-  build-time mod choice with no INI override. Other mod builds retain their
-  existing collision behavior unless their maintainer enables this feature.
+  build-time choice with no INI override. Builds without the feature retain
+  their existing collision behavior.
   Both native unit-collision slots and off-map aircraft use this rule; enemies
   retain their normal height checks and impacts. Ownership is never changed.
   Transfers use the candidate's current owner; shots already in flight use
