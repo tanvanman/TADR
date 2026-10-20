@@ -9,8 +9,6 @@
 #include <cstdio>
 #include <cstring>
 
-#include "GameTickHook.h"
-#include "Profiler.h"
 #include "hook/hook.h"
 #include "iddrawsurface.h"
 #include "tafunctions.h"
@@ -18,7 +16,6 @@
 
 // tamem.h is #pragma pack(1). These anchor every offset the module depends on. If one fires, tamem.h
 // moved: re-derive from the executable before touching anything else here.
-static_assert(offsetof(TAdynmemStruct, LocalHumanPlayer_PlayerID) == 0x2A42, "TAdynmemStruct::LocalHumanPlayer_PlayerID moved");
 static_assert(offsetof(TAdynmemStruct, WorkStatusMask)            == 0x2A44, "TAdynmemStruct::WorkStatusMask moved");
 static_assert(offsetof(TAdynmemStruct, Players)                   == 0x1B63, "TAdynmemStruct::Players moved");
 static_assert(offsetof(TAdynmemStruct, GameTime)                  == 0x38A47, "TAdynmemStruct::GameTime moved");
@@ -32,6 +29,9 @@ static_assert(offsetof(PlayerStruct, ShareEnergy)                 == 0xE8,   "Pl
 static_assert(offsetof(PlayerStruct, resourcesShared)             == 0xEC,   "PlayerStruct::resourcesShared moved");
 static_assert(offsetof(PlayerStruct, AllyFlagAry)                 == 0x108,  "PlayerStruct::AllyFlagAry moved");
 static_assert(offsetof(PlayerStruct, field_113)                   == 0x113,  "PlayerStruct::field_113 (alliedBy[0]) moved");
+// +0x22 is an unnamed byte (the high byte of field_21): the packet path refuses a player whose +0x22 is non-zero.
+static_assert(offsetof(PlayerStruct, field_21) == 0x21 && sizeof(PlayerStruct::field_21) == 2,
+              "PlayerStruct::field_21 moved (the byte read at +0x22 is its high byte)");
 static_assert(offsetof(PlayerStruct, WholeUnitsCounters)          == 0x140,  "PlayerStruct::WholeUnitsCounters moved");
 static_assert(offsetof(PlayerStruct, UnitsNumber)                 == 0x144,  "PlayerStruct::UnitsNumber moved");
 static_assert(offsetof(PlayerStruct, PlayerAryIndex)              == 0x146,  "PlayerStruct::PlayerAryIndex moved");
@@ -48,10 +48,9 @@ namespace
 	const int kSlots = 10;
 	enum { kMetal = 0, kEnergy = 1 };
 
-	// The most receivers one pulse may reach. Fallback F1 (one recipient per pulse, the least full) is this
-	// constant set to 1; nothing else changes.
+	// The most receivers one pulse may reach (the least full ones). 1 = only the least-full receiver.
 	const int kMaxReceivers = 9;
-	const double kMinGive = 1.0;     // the smallest transfer worth a 17-byte packet
+	const double kMinGive = 1.0;     // the smallest give; one 0x16 packet per give
 
 	// ---- TotalA.exe addresses (Escalation GOLD 10.2, md5 1e677a7f..) --------------------------------
 	const DWORD kAutoShare     = 0x00457D30u;   // Share_AutoAllyResourcesAndMap, __stdcall(PlayerStruct* me)
@@ -72,38 +71,12 @@ namespace
 	AutoShareFn g_autoShare   = reinterpret_cast<AutoShareFn>(kAutoShare);   // map half only once the jne is a jmp
 	float       g_k[2]        = { 1.0f / 3.0f, 0.5f };                        // overwritten from the exe at install
 
-	// Production counters, logged once per game.
-	struct Counters
-	{
-		DWORD pulses[2];          // pulses that passed the sender gates
-		DWORD sent[2];            // transfers sent
-		double amount[2];         // total amount sent
-		DWORD maxReceivers;       // most receivers in one pulse
-		DWORD noReceiver[2];      // pulses whose pool had no eligible receiver
-		DWORD senderRefused;      // pulses stopped by a sender gate vanilla lacks (dead, +0x22, spectator, index)
-		DWORD invariant;          // gives dropped because they broke an invariant (must stay 0)
-		DWORD playbackSkips;      // calls seen while watching a replay
-		DWORD faults;             // access violations caught in a pulse (the module disables itself)
-		DWORD cpuCount;
-		double cpuSumUs, cpuMaxUs;
-	};
-	Counters g_c;
-
 	bool  g_installed;
-	bool  g_disabledAtRuntime;
-	bool  g_playbackLogged;
-	int   g_lastGameTime;
-	bool  g_wasInGame;
-	LARGE_INTEGER g_qpcFreq;
+	bool  g_disabledAtRuntime;      // set by a fault inside a pulse; the split stays off for the process
 
 	void Flush(DWORD addr, size_t len)
 	{
 		FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<LPCVOID>(addr), len);
-	}
-
-	bool GameRunning()
-	{
-		return DataShare != nullptr && DataShare->TAProgress == TAInGame;
 	}
 
 	// ---- the split ---------------------------------------------------------------------------------
@@ -233,9 +206,9 @@ namespace
 		return kSenderOk;
 	}
 
-	// Builds the plan for one resource and one sender over a Players[10] array. Pure: reads the array and
-	// nothing else, so the install-time self-test and the offline harness run exactly this code.
-	// `k` is the engine's constant (1/3 metal, 1/2 energy).
+	// Builds the plan for one resource and one sender over a Players[10] array. Pure (reads `players`
+	// only), so the install-time self-test runs exactly this code. `k` = the engine's 1/3 or 1/2.
+	// Returns the sender verdict; on kSenderOk, out->n == 0 means nothing to send.
 	SenderVerdict PlanPulse(const PlayerStruct* players, int me, int r, float k, Plan* out)
 	{
 		out->pool = 0.0;
@@ -325,7 +298,8 @@ namespace
 		return kSenderOk;
 	}
 
-	// The invariants the plan must satisfy (checked again before sending and in the self-test).
+	// Invariants checked before sending: slot order, every give >= 1 and <= the receiver's room, finite,
+	// sum <= pool (+1e-6 relative). A plan that fails is not sent.
 	bool PlanHolds(const PlayerStruct* players, int r, const Plan& p)
 	{
 		double sum = 0.0;
@@ -347,7 +321,7 @@ namespace
 	}
 
 	// ---- execution -----------------------------------------------------------------------------------
-	// One resource, one sender. Returns without doing anything unless the sender gates pass.
+	// One resource, one sender (`me` = the player the engine passes, the local one): plan, check, send.
 	void RunPulse(PlayerStruct* me, int r)
 	{
 		TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
@@ -356,53 +330,19 @@ namespace
 		const int mySlot = static_cast<int>(me - &ta->Players[0]);
 		if (mySlot < 0 || mySlot >= kSlots)
 			return;
-
-		LARGE_INTEGER t0, t1;
-		QueryPerformanceCounter(&t0);
-
 		Plan plan;
-		const SenderVerdict sv = PlanPulse(&ta->Players[0], mySlot, r, g_k[r], &plan);
-		if (sv == kSenderRefused)
-		{
-			++g_c.senderRefused;
-		}
-		else if (sv == kSenderOk && plan.pool >= kMinGive)
-		{
-			++g_c.pulses[r];
-			if (plan.n == 0)
-			{
-				++g_c.noReceiver[r];
-			}
-			else if (!PlanHolds(&ta->Players[0], r, plan))
-			{
-				++g_c.invariant;                       // a bug: send nothing rather than a bad amount
-			}
-			else
-			{
-				const unsigned int src = static_cast<unsigned char>(me->PlayerAryIndex);
-				for (int i = 0; i < plan.n; ++i)
-				{
-					const PlayerStruct* d = &ta->Players[plan.give[i].slot];
-					g_transfer[r](src, static_cast<unsigned char>(d->PlayerAryIndex), plan.give[i].amount, 1);
-					++g_c.sent[r];
-					g_c.amount[r] += plan.give[i].amount;
-				}
-				if (static_cast<DWORD>(plan.n) > g_c.maxReceivers)
-					g_c.maxReceivers = static_cast<DWORD>(plan.n);
-			}
-		}
-
-		QueryPerformanceCounter(&t1);
-		const double us = (t1.QuadPart - t0.QuadPart) * 1.0e6 / static_cast<double>(g_qpcFreq.QuadPart);
-		++g_c.cpuCount;
-		g_c.cpuSumUs += us;
-		if (us > g_c.cpuMaxUs)
-			g_c.cpuMaxUs = us;
+		if (PlanPulse(&ta->Players[0], mySlot, r, g_k[r], &plan) != kSenderOk || plan.n == 0)
+			return;
+		if (!PlanHolds(&ta->Players[0], r, plan))
+			return;                                    // never send an amount that breaks an invariant
+		const unsigned int src = static_cast<unsigned char>(me->PlayerAryIndex);
+		for (int i = 0; i < plan.n; ++i)
+			g_transfer[r](src, static_cast<unsigned char>(ta->Players[plan.give[i].slot].PlayerAryIndex), plan.give[i].amount, 1);
 	}
 
-	// A fault inside a pulse (bad engine memory, or a bug here) must not take the game down: the module
-	// switches itself off for the rest of the process and the map half keeps running through the original
-	// function. SEH needs a function without C++ objects with destructors.
+	// Metal, then energy, under SEH: a fault (corrupt engine memory, or a bug here) switches the split off
+	// for the rest of the process instead of crashing the game. Vanilla's resource half stays bypassed, so
+	// resource auto-share is then off; map sharing keeps running. No C++ objects here (SEH restriction).
 	void RunPulses(PlayerStruct* me)
 	{
 		__try
@@ -412,99 +352,21 @@ namespace
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			++g_c.faults;
 			g_disabledAtRuntime = true;
+			IDDrawSurface::OutptTxt("[ShareSplit] DISABLED: fault in a pulse; resource auto-share is off for this session");
 		}
 	}
 
-	// PROFILE_SCOPE owns an object with a destructor, which cannot share a function with __try.
-	void RunPulsesProfiled(PlayerStruct* me)
-	{
-		PROFILE_SCOPE("Hook.ShareSplit.Pulse");
-		RunPulses(me);
-	}
-
-	// Replaces `call 0x457D30` at 0x49563A: same __stdcall(PlayerStruct* me), same place in the step (before
-	// Net_FlushPendingFrames), same gates, same order: metal, energy, then the original function, whose resource
-	// half is now unreachable and whose map half runs as before.
+	// Replaces `call 0x457D30` at 0x49563A: same __stdcall(PlayerStruct* me), same point in the step, vanilla's
+	// gates (session bit 0, GameTime % 60), metal before energy, then the original function (its map half).
 	void __stdcall ShareSplitStep(PlayerStruct* me)
 	{
 		TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
 		if (ta && me && !g_disabledAtRuntime && (ta->WorkStatusMask & 1) &&
-			(static_cast<DWORD>(ta->GameTime) % 60u) == 0)
-		{
-			if (DataShare && DataShare->PlayingDemo)
-				++g_c.playbackSkips;                   // recorded transfers arrive as packets: nothing of our own
-			else
-				RunPulsesProfiled(me);
-		}
+			(static_cast<DWORD>(ta->GameTime) % 60u) == 0 &&
+			!(DataShare && DataShare->PlayingDemo))    // a replay carries the recorded transfers as packets
+			RunPulses(me);
 		g_autoShare(me);
-	}
-
-	// ---- logging ------------------------------------------------------------------------------------
-	void ResetCounters()
-	{
-		std::memset(&g_c, 0, sizeof(g_c));
-		g_playbackLogged = false;
-	}
-
-	void LogSummary(const char* when)
-	{
-		const bool any = g_c.pulses[0] || g_c.pulses[1] || g_c.senderRefused || g_c.playbackSkips || g_c.faults || g_c.invariant;
-		if (!any)
-			return;
-		IDDrawSurface::OutptFmtTxt(
-			"[ShareSplit] %s: metal pulses=%lu sent=%lu amount=%.0f, energy pulses=%lu sent=%lu amount=%.0f, maxReceivers=%lu, "
-			"noReceiver=%lu/%lu, senderRefused=%lu, invariant=%lu, playbackSkips=%lu, faults=%lu, cpu n=%lu mean=%.2fus max=%.2fus",
-			when, g_c.pulses[kMetal], g_c.sent[kMetal], g_c.amount[kMetal], g_c.pulses[kEnergy], g_c.sent[kEnergy], g_c.amount[kEnergy],
-			g_c.maxReceivers, g_c.noReceiver[kMetal], g_c.noReceiver[kEnergy], g_c.senderRefused, g_c.invariant, g_c.playbackSkips,
-			g_c.faults, g_c.cpuCount, g_c.cpuCount ? g_c.cpuSumUs / g_c.cpuCount : 0.0, g_c.cpuMaxUs);
-	}
-
-	// One line per game: who the module sees. The first real games verify the remote-side fields passively
-	// (is `+0x113` set for teammates, is `+0x22` zero, which slots are type 3).
-	void LogGameStart()
-	{
-		TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
-		if (!ta)
-			return;
-		const int local = static_cast<unsigned char>(ta->LocalHumanPlayer_PlayerID);
-		char buf[420];
-		int off = snprintf(buf, sizeof(buf), "[ShareSplit] game start: local=%d work=0x%02X slots(type/ptype/allied/alliedBy/watch/b22/alive):",
-			local, static_cast<unsigned char>(ta->WorkStatusMask));
-		for (int i = 0; i < kSlots && off > 0 && off < static_cast<int>(sizeof(buf)) - 40; ++i)
-		{
-			const PlayerStruct* p = &ta->Players[i];
-			if (!p->PlayerActive)
-				continue;
-			const PlayerInfoStruct* info = p->PlayerInfo;
-			const bool allied = local >= 0 && local < kSlots && ta->Players[local].AllyFlagAry[i] != 0;
-			const bool alliedBy = local >= 0 && local < kSlots && AlliedBy(&ta->Players[local], i);
-			off += snprintf(buf + off, sizeof(buf) - off, " s%d:%d/%d/%d/%d/%d/%d/%d", i, p->My_PlayerType, info ? info->PlayerType : -1,
-				allied ? 1 : 0, alliedBy ? 1 : 0, (info && IsSpectator(info)) ? 1 : 0, reinterpret_cast<const BYTE*>(p)[0x22], Alive(p) ? 1 : 0);
-		}
-		IDDrawSurface::OutptTxt(buf);
-	}
-
-	void OnGameTick(int gameTime)
-	{
-		// GameTickHook fires several times per game tick with an unchanged gameTime.
-		if (gameTime == g_lastGameTime)
-			return;
-		bool newGame = gameTime < g_lastGameTime;
-		g_lastGameTime = gameTime;
-
-		const bool inGame = GameRunning();
-		if (inGame && !g_wasInGame)
-			newGame = true;
-		g_wasInGame = inGame;
-
-		if (newGame)
-		{
-			LogSummary("previous game");
-			ResetCounters();
-			LogGameStart();
-		}
 	}
 
 	// ---- install-time checks -------------------------------------------------------------------------
@@ -531,7 +393,7 @@ namespace
 	}
 
 	// ---- premises: every byte this module relies on, verified before anything is patched ---------------------------------
-	// A table so the offline harness can flip each byte in turn and prove the install refuses (and writes nothing).
+	// The auto-share, its call site, the transfers and the packet path whose gates PlanPulse mirrors.
 	struct Premise { DWORD addr; const BYTE* bytes; size_t len; const char* what; };
 
 	const BYTE kHead[6]       = { 0x83, 0xEC, 0x1C, 0x53, 0x55, 0x56 };
@@ -566,7 +428,8 @@ namespace
 	                                     0x85, 0xC0, 0x0F, 0x85, 0xE0, 0x00, 0x00, 0x00 };
 	const BYTE kKindEnergy[8] = { 0xC7, 0x44, 0x24, 0x09, 0x01, 0x00, 0x00, 0x00 };
 	const BYTE kKindMetal[8]  = { 0xC7, 0x44, 0x24, 0x09, 0x02, 0x00, 0x00, 0x00 };
-	// the packet gate: session bit, then the recipient must be type 3 and +0x22 == 0
+	// the packet gate: session bit, then the recipient must be type 3 and +0x22 == 0. TenPlayerReplay hooks 0x451CD0 (10 bytes),
+	// but only once a demo is playing, after this check has run; the split does not run during a demo.
 	const BYTE kPktGate[13]   = { 0xF6, 0x82, 0x44, 0x2A, 0x00, 0x00, 0x01, 0x0F, 0x84, 0x43, 0x01, 0x00, 0x00 };
 	const BYTE kPktType3[10]  = { 0x80, 0x79, 0x73, 0x03, 0x0F, 0x85, 0xFD, 0x00, 0x00, 0x00 };
 
@@ -617,8 +480,8 @@ namespace
 	}
 
 	// ---- self-test -------------------------------------------------------------------------------------
-	// Runs before anything is patched; touches no engine code. Synthetic players are built with the
-	// engine's own layout (static_asserts above), so the plan is exercised exactly as it runs in game.
+	// Runs before anything is patched; calls no engine code. Synthetic players use the engine's layout
+	// (static_asserts above), so PlanPulse / PlanHolds run exactly as in game.
 	struct World
 	{
 		PlayerStruct          p[kSlots];
@@ -869,25 +732,16 @@ namespace ShareSplit
 		if (!VerifyPremises())
 			return;                        // logged inside; refuse to patch an unexpected build
 
-		if (!QueryPerformanceFrequency(&g_qpcFreq) || g_qpcFreq.QuadPart <= 0)
-		{
-			IDDrawSurface::OutptTxt("[ShareSplit] DISABLED: no performance counter");
-			return;
-		}
 		std::memcpy(&g_k[kMetal],  reinterpret_cast<const void*>(kKMetal),  sizeof(float));
 		std::memcpy(&g_k[kEnergy], reinterpret_cast<const void*>(kKEnergy), sizeof(float));
 		if (!RunSelfTest())
 			return;                        // logged inside
 
-		ResetCounters();
 		g_disabledAtRuntime = false;
-		g_lastGameTime = 0;
-		g_wasInGame = false;
 		g_callRel32 = reinterpret_cast<DWORD>(&ShareSplitStep) - (kCallSite + 5);
 
-		// The new call target first, then the dead-code jump: with either one alone the game still behaves
-		// (vanilla's resource half plus our split would double-send for one step, which cannot happen because
-		// Install runs before the first simulation step).
+		// Call target first, then the jmp. Between the two writes vanilla's resource half and the split would
+		// both run; Install runs from DllMain, before the first simulation step, so that window is never hit.
 		g_callHook = new SingleHook(kCallSite + 1, 4, INLINE_UNPROTECTEVINMENT, reinterpret_cast<LPBYTE>(&g_callRel32));
 		Flush(kCallSite + 1, 4);
 		g_jmpHook = new SingleHook(kJneSite, kJneLen, INLINE_SINGLEJMP, reinterpret_cast<LPBYTE>(kMapHalf));
@@ -900,7 +754,6 @@ namespace ShareSplit
 			return;
 		}
 
-		GameTickHook::GetInstance()->addCallback(OnGameTick);
 		g_installed = true;
 
 		IDDrawSurface::OutptFmtTxt("[ShareSplit] installed: resource half bypassed @0x%08X, step call @0x%08X, K metal=%.6f energy=%.6f, max receivers %d",
@@ -911,7 +764,6 @@ namespace ShareSplit
 	{
 		if (!g_installed)
 			return;
-		LogSummary("last game");
 		RemoveAllHooks();
 		g_installed = false;
 	}

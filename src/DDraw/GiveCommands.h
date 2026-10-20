@@ -10,42 +10,43 @@
 //   +giveenergy <player> <amount>
 //   +give       <player> <amount> metal|energy        (vanilla's argument order)
 //
-// <player> is an exact name (case-insensitive, spaces allowed), else a slot number 0-9, else a unique
-// prefix of a name. <amount> is a whole number of at least 1 (digits only). The amount actually sent is
-// capped at the giver's stock and at the receiver's free storage; the chat line says so.
+// <player>: exact name (Name or SecondName, case-insensitive, spaces allowed), else a slot number 0-9,
+// else a unique case-insensitive prefix of Name (ambiguous: up to 3 candidates are listed). <amount>:
+// digits only, >= 1, saturating at 1e9. Sent = min(amount, giver's stock, receiver's free storage).
+// Every result and refusal is a local chat line (wrapped at 63 characters, the HUD's line length).
 //
-// Vanilla +give (Cmd_GiveResource 0x416BD0) reads the slot with atoi and tests only the low byte (256
-// -> slot 0), so a name means slot 0; it has no ally, self, sign, room or alive checks and prints
-// nothing. This module registers its own table on every map load through a splice in the command
-// registration routine (0x4195C9); the exact-case name `Give` replaces vanilla's handler in the
-// registrar (a same-name, same-case entry overwrites), `GiveMetal` and `GiveEnergy` are new. Every
-// refusal and result is a local chat line.
+// Vanilla +give (Cmd_GiveResource 0x416BD0) takes the slot from atoi and compares only its low byte
+// (256 -> slot 0, a name -> slot 0), does not validate the amount, and has no ally, self, room or alive
+// check and no feedback. This module registers its own table on every map load through an InlineSingleHook at
+// 0x4195C9 (the registration routine, before the second built-in table): the record `Give` (same name
+// and case as vanilla's) overwrites vanilla's handler in the registrar; `GiveMetal` / `GiveEnergy` are
+// new. All three are run level 1, as vanilla's Give.
 //
-// Refused: the giver or the receiver is not an active, living, non-spectating player that can use the
-// transfer path (a transfer to a player the network path would refuse is debited and lost); receiver
-// not allied BY THE GIVER; self; no free storage. Works in skirmish (credit to a local AI is scaled by
-// the engine's own difficulty rule). Does nothing while watching a replay. The typed line is still
-// broadcast to everyone as chat (engine behaviour).
+// Refused: self; receiver not allied by the giver (me+0x108); receiver inactive, spectator, dead,
+// without economy object, slot/index mismatch, or (remote) +0x22 != 0; giver without economy object, or
+// (to a remote receiver) dead, spectator or +0x22 != 0 -- the packet path would refuse after the debit;
+// receiver with < 1 free storage; giver with < 1 stock; outside a game; during a replay. A local AI
+// (skirmish) can receive; the engine scales that credit by its difficulty rule. The typed line itself is
+// still broadcast as chat (engine behaviour).
 //
-// The transfer is the engine's own Player_Transfer{Metal,Energy}Resource with sendPacket 1, so the
-// amount travels in the 0x16 packet exactly as vanilla's did: no desync, interoperable with clients
-// without this module. See ai-reference/share-resources-split/.
+// The give is the engine's Player_Transfer{Metal,Energy}Resource (0x464C60 / 0x464B30) with sendPacket
+// 1: same debit, credit and 0x16 packet as vanilla, so clients without the module interoperate.
 //
-// Receive guard (GIVE_RECEIVE_GUARD_ENABLE): the engine applies a received 0x16 resource packet with no
-// sign check. A zero or NaN amount is ignored by the transfer's own zero test, but a NEGATIVE or infinite
-// amount is credited exactly as received, so a peer can drain or flood the receiver's stock. The two arms
-// of the packet switch that read the amount (metal 0x4558C2, energy 0x4558E0) are spliced (8 bytes each) to
-// a stub that tests the float bits with integer arithmetic only and leaves through the arm's own exit when
-// the amount is not positive and finite. It protects the receiving client's own view; it cannot stop a
-// cheater's client from crediting itself. Valid packets take exactly vanilla's path.
+// Receive guard (GIVE_RECEIVE_GUARD_ENABLE): the engine applies the amount of a received 0x16 resource
+// packet without validating it (0 and NaN are no-ops only through the transfer's own zero test). An
+// InlineSingleHook on each of the metal and energy arms of the receive switch (0x4558C2, 0x4558E0; the
+// hook covers the arm's first two instructions, 8 bytes) tests the float bits with integer instructions
+// only (valid: 0 < bits < 0x7F800000, positive and finite) and sends an invalid packet through the case's
+// own exit (0x455F50), as if it had not arrived. Valid packets run vanilla's code.
+// Protects the receiving client only; a modified sender can still credit itself on its own machine.
 
 namespace GiveCommands
 {
-	// Verifies every premise and self-tests, then patches the registration site. Idempotent. Logs and
-	// installs nothing if anything does not match.
+	// Verifies every relied-on byte, runs the self-test, then patches the registration site (and the two
+	// receive arms). Idempotent. On any mismatch it logs one DISABLED line and patches nothing.
 	void Install();
 
-	// Restores the registration site. Safe to call more than once.
+	// Restores every patched byte. Safe to call more than once.
 	void Shutdown();
 }
 

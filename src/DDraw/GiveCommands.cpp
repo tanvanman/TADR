@@ -10,8 +10,6 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "GameTickHook.h"
-#include "Profiler.h"
 #include "hook/hook.h"
 #include "iddrawsurface.h"
 #include "tafunctions.h"
@@ -29,6 +27,9 @@ static_assert(offsetof(PlayerStruct, My_PlayerType)               == 0x73,   "Pl
 static_assert(offsetof(PlayerStruct, PlayerRes)                   == 0x8C,   "PlayerStruct::PlayerRes moved");
 static_assert(offsetof(PlayerStruct, resourcesShared)             == 0xEC,   "PlayerStruct::resourcesShared moved");
 static_assert(offsetof(PlayerStruct, AllyFlagAry)                 == 0x108,  "PlayerStruct::AllyFlagAry moved");
+// +0x22 is an unnamed byte (the high byte of field_21): the packet path refuses a player whose +0x22 is non-zero.
+static_assert(offsetof(PlayerStruct, field_21) == 0x21 && sizeof(PlayerStruct::field_21) == 2,
+              "PlayerStruct::field_21 moved (the byte read at +0x22 is its high byte)");
 static_assert(offsetof(PlayerStruct, WholeUnitsCounters)          == 0x140,  "PlayerStruct::WholeUnitsCounters moved");
 static_assert(offsetof(PlayerStruct, UnitsNumber)                 == 0x144,  "PlayerStruct::UnitsNumber moved");
 static_assert(offsetof(PlayerStruct, PlayerAryIndex)              == 0x146,  "PlayerStruct::PlayerAryIndex moved");
@@ -42,7 +43,7 @@ static_assert(offsetof(PlayerInfoStruct, PropertyMask)            == 0x9B,   "Pl
 namespace
 {
 	const int kSlots = 10;
-	const int kMaxTokens = 20;       // the engine's tokenizer stores at most 20 (ENGINE_NOTES 17.4)
+	const int kMaxTokens = 20;       // the tokenizer 0x4B7440 stores at most 20 token pointers
 	enum { kMetal = 0, kEnergy = 1 };
 	enum Mode { kModeGive = 0, kModeMetal = 1, kModeEnergy = 2 };
 	const double kMinGive = 1.0;
@@ -51,12 +52,9 @@ namespace
 	// Inside the routine that registers the built-in command tables on every map load: the second
 	// `push 0x501F48 ; call registrar` pair. The registrar is at 0x4B7760.
 	const DWORD kRegSite     = 0x004195C9u;
-	const DWORD kRegResume   = 0x004195CEu;   // the vanilla `call registrar`
 	const DWORD kGiveRecord  = 0x00501D68u;   // vanilla {"Give", 0x416BD0, level 1}
 	const DWORD kXferMetal   = 0x00464C60u;   // Player_TransferMetalResource  __stdcall(src, dst, float, sendPacket)
 	const DWORD kXferEnergy  = 0x00464B30u;   // Player_TransferEnergyResource
-	const DWORD kCmdVecBegin = 0x0051FC9Du;   // the engine's sorted command vector (12-byte records), unaligned
-	const DWORD kCmdVecEnd   = 0x0051FCA1u;
 
 	typedef void (__stdcall* TransferFn)(unsigned int src, unsigned int dst, float amount, int sendPacket);
 	TransferFn g_transfer[2] = { reinterpret_cast<TransferFn>(kXferMetal), reinterpret_cast<TransferFn>(kXferEnergy) };
@@ -67,10 +65,7 @@ namespace
 	typedef char* (__thiscall* TokenLine_GetArgPtr_t)(TaTokenLine* self, int index, char* fallback);
 	TokenLine_GetArgPtr_t TokenLine_GetArgPtr = reinterpret_cast<TokenLine_GetArgPtr_t>(0x004B73C0u);
 
-	DWORD g_regResume = kRegResume;
 	bool  g_installed;
-	int   g_lastGameTime;
-	bool  g_wasInGame;
 
 	void Flush(DWORD addr, size_t len)
 	{
@@ -262,7 +257,7 @@ namespace
 	};
 
 	// Everything the command decides, from the array and the parsed arguments: no engine call, no side
-	// effect, so the self-test and the offline harness run exactly this.
+	// effect, so the install-time self-test runs exactly this.
 	void Evaluate(const PlayerStruct* pl, int me, const Parsed& in, Result* out)
 	{
 		std::memset(out, 0, sizeof(*out));
@@ -397,19 +392,51 @@ namespace
 		}
 	}
 
-	// ---- the commands ------------------------------------------------------------------------------------------------
-	// The copy only bounds what is handed to NewChatText (191 characters).
-	void Say(const char* text)
+	// ---- chat output ---------------------------------------------------------------------------------------------------
+	// NewChatText (0x463CA0) copies at most 63 characters into its HUD line (strncpy 0x40, NUL at +0x3F) and
+	// does no formatting. Splits `text` at spaces into lines of at most kChatLine characters (a longer word is
+	// cut); returns the number of lines written.
+	const size_t kChatLine = 63;
+	const int kChatMaxLines = 8;
+
+	int WrapChat(const char* text, char (*lines)[kChatLine + 1], int maxLines)
 	{
-		char buf[192];
-		snprintf(buf, sizeof(buf), "%s", text);
-		IDDrawSurface::OutptFmtTxt("[GiveCommands] chat: %s", buf);
-		NewChatText(buf, 2, 0, 10);
+		int n = 0;
+		const char* p = text;
+		while (*p == ' ')
+			++p;
+		while (*p && n < maxLines)
+		{
+			size_t len = std::strlen(p);
+			if (len > kChatLine)
+			{
+				size_t cut = kChatLine;                     // p[kChatLine] exists: len > kChatLine
+				while (cut > 0 && p[cut] != ' ')
+					--cut;
+				len = cut ? cut : kChatLine;
+			}
+			std::memcpy(lines[n], p, len);
+			lines[n][len] = '\0';
+			++n;
+			p += len;
+			while (*p == ' ')
+				++p;
+		}
+		return n;
 	}
 
+	// Local chat line(s), command channel (2), no sender.
+	void Say(const char* text)
+	{
+		char lines[kChatMaxLines][kChatLine + 1];
+		const int n = WrapChat(text, lines, kChatMaxLines);
+		for (int i = 0; i < n; ++i)
+			NewChatText(lines[i], 2, 0, 10);
+	}
+
+	// ---- the commands ------------------------------------------------------------------------------------------------
 	void HandleGive(TaTokenLine* line, Mode mode)
 	{
-		PROFILE_SCOPE("Cmd.Give");
 		TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
 		if (!ta || !GameRunning())
 		{
@@ -474,158 +501,39 @@ namespace
 		{ NULL, NULL, InternalCommandRunLevel::CMD_LEVEL_NULL }
 	};
 
-	// Runs before the vanilla `push 0x501F48 ; call registrar`: registers this module's table, replays the
-	// push and resumes. eax/ecx/edx are dead here (the registrar writes them before reading); flags are dead
-	// across the call.
-	__declspec(naked) void RegisterCommandsStub()
+	// Runs before the vanilla `push 0x501F48 ; call registrar` (the hook replays the push afterwards): registers this module's table.
+	int __stdcall RegisterCommandsProc(PInlineX86StackBuffer)
 	{
-		__asm
-		{
-			push offset g_commandTable
-			call dword ptr [InitInternalCommand]
-			push 0x00501F48                     // replaced: 68 48 1F 50 00
-			jmp dword ptr [g_regResume]
-		}
+		InitInternalCommand(g_commandTable);
+		return 0;
 	}
 
 #if GIVE_RECEIVE_GUARD_ENABLE
-	// ---- receive guard (Part C) -------------------------------------------------------------------------------------------
-	// A received 0x16 resource packet is applied by the engine with no sign check: a zero is a no-op, but a NEGATIVE or
-	// NaN amount credits the recipient with garbage (and, through the engine's debit, can raise a stock), and infinity
-	// fills a storage. The two arms of the receive switch (metal 0x4558C2, energy 0x4558E0) read the amount from
-	// [packet+0xD] and call the transfer with sendPacket 0. Each arm's first two instructions are replaced by a jump to a
-	// stub that tests the amount's float bits with integer arithmetic only (no FPU, no flags that matter: the arm's next
-	// consumer of eflags is far below): a valid amount is positive and finite, 0 < bits < 0x7F800000. Anything else is
-	// counted and the arm is left through its own exit (0x455F50), exactly as if the packet had been ignored.
-	// Honest limit: this protects the receiving client's view only; a cheater's own client still credits itself.
+	// ---- receive guard ---------------------------------------------------------------------------------------------------
+	// Each arm of the receive switch (metal 0x4558C2, energy 0x4558E0) starts with two movs (8 bytes) and calls the transfer with
+	// sendPacket 0 on the amount at [packet+0xD]; the packet pointer is [esp+0x10] in both. The hook runs before those movs.
+	// Valid = positive and finite = 0 < bits < 0x7F800000, tested as (bits - 1) <= 0x7F7FFFFE unsigned. A valid packet falls
+	// through to vanilla's arm; an invalid one (<= 0, -0, NaN, +-inf) leaves through the case exit 0x455F50, as if it had not arrived.
 	const DWORD kArmMetal      = 0x004558C2u;   // 8B 54 24 10  8B 4C 24 20   mov edx,[esp+0x10] ; mov ecx,[esp+0x20]
 	const DWORD kArmEnergy     = 0x004558E0u;   // 8B 44 24 10  8B 54 24 20   mov eax,[esp+0x10] ; mov edx,[esp+0x20]
-	const DWORD kArmLen        = 8u;
-	DWORD g_guardMetalResume   = 0x004558CAu;   // the instruction after the replaced pair (push 0)
-	DWORD g_guardEnergyResume  = 0x004558E8u;
-	DWORD g_caseExit           = 0x00455F50u;
-	DWORD g_guardDrops;                         // read by OnGameTick, written by the stubs
+	const DWORD kArmLen        = 8u;            // the two instructions; the hook rounds its 5 bytes up to this
+	const DWORD kCaseExit      = 0x00455F50u;
 
-	// The test the stubs implement, for the self-test: 0 < bits < 0x7F800000.
-	bool AmountBitsValid(DWORD bits) { return bits - 1u <= 0x7F7FFFFEu; }
-
-	__declspec(naked) void ReceiveGuardMetal()
+	int GuardDecision(PInlineX86StackBuffer buf)
 	{
-		__asm
-		{
-			mov eax, dword ptr [esp + 0x10]         // the packet
-			mov eax, dword ptr [eax + 0x0D]         // the amount's float bits
-			dec eax
-			cmp eax, 0x7F7FFFFE
-			ja drop
-			mov edx, dword ptr [esp + 0x10]         // replaced: 8B 54 24 10
-			mov ecx, dword ptr [esp + 0x20]         // replaced: 8B 4C 24 20
-			jmp dword ptr [g_guardMetalResume]
-		drop:
-			inc dword ptr [g_guardDrops]
-			jmp dword ptr [g_caseExit]
-		}
+		const BYTE* packet = *reinterpret_cast<const BYTE* const*>(buf->Esp + 0x10);
+		DWORD bits;
+		std::memcpy(&bits, packet + 0x0D, sizeof(bits));
+		if (bits - 1u <= 0x7F7FFFFEu)
+			return 0;
+		buf->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(kCaseExit);
+		return X86STRACKBUFFERCHANGE;
 	}
 
-	__declspec(naked) void ReceiveGuardEnergy()
-	{
-		__asm
-		{
-			mov eax, dword ptr [esp + 0x10]
-			mov eax, dword ptr [eax + 0x0D]
-			dec eax
-			cmp eax, 0x7F7FFFFE
-			ja drop
-			mov eax, dword ptr [esp + 0x10]         // replaced: 8B 44 24 10
-			mov edx, dword ptr [esp + 0x20]         // replaced: 8B 54 24 20
-			jmp dword ptr [g_guardEnergyResume]
-		drop:
-			inc dword ptr [g_guardDrops]
-			jmp dword ptr [g_caseExit]
-		}
-	}
-
-	DWORD g_guardLogged;
-	DWORD g_guardLastLog;
-
-	// A forged packet stream must not flood the log: at most one line per ten seconds.
-	void MaybeLogGuard()
-	{
-		if (g_guardDrops == g_guardLogged)
-			return;
-		const DWORD now = GetTickCount();
-		if (now - g_guardLastLog < 10000u)
-			return;
-		g_guardLastLog = now;
-		g_guardLogged = g_guardDrops;
-		IDDrawSurface::OutptFmtTxt("[GiveCommands] receive guard: %lu resource packets with a zero, negative or non-finite amount dropped so far", g_guardDrops);
-	}
+	// One router per hook.
+	int __stdcall ReceiveGuardMetalProc(PInlineX86StackBuffer buf)  { return GuardDecision(buf); }
+	int __stdcall ReceiveGuardEnergyProc(PInlineX86StackBuffer buf) { return GuardDecision(buf); }
 #endif // GIVE_RECEIVE_GUARD_ENABLE
-
-	// Looks the three commands up in the engine's live command vector (12-byte records: name, handler,
-	// permission level). "registered" means the name is there with this module's handler.
-	struct CommandProbe { bool ok; int mine; int foreign; int total; };
-	CommandProbe ProbeCommands()
-	{
-		CommandProbe r = { false, 0, 0, 0 };
-		__try
-		{
-			const BYTE* begin = *reinterpret_cast<const BYTE* const*>(kCmdVecBegin);
-			const BYTE* end   = *reinterpret_cast<const BYTE* const*>(kCmdVecEnd);
-			if (!begin || end < begin || static_cast<size_t>(end - begin) > 4096u * 12u)
-				return r;
-			for (const BYTE* rec = begin; rec + 12 <= end; rec += 12)
-			{
-				++r.total;
-				const char* name = *reinterpret_cast<const char* const*>(rec);
-				const DWORD handler = *reinterpret_cast<const DWORD*>(rec + 4);
-				if (!name)
-					continue;
-				DWORD want = 0;
-				if (_stricmp(name, "give") == 0)            want = reinterpret_cast<DWORD>(&CmdGive);
-				else if (_stricmp(name, "givemetal") == 0)  want = reinterpret_cast<DWORD>(&CmdGiveMetal);
-				else if (_stricmp(name, "giveenergy") == 0) want = reinterpret_cast<DWORD>(&CmdGiveEnergy);
-				if (want)
-				{
-					if (handler == want) ++r.mine; else ++r.foreign;
-				}
-			}
-			r.ok = true;
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			r.ok = false;
-		}
-		return r;
-	}
-
-	void LogGameStart()
-	{
-		const CommandProbe c = ProbeCommands();
-		if (!c.ok)
-			IDDrawSurface::OutptTxt("[GiveCommands] commands: engine command table unreadable");
-		else
-			IDDrawSurface::OutptFmtTxt("[GiveCommands] commands: %d of 3 registered with this module's handler%s; %d engine commands",
-				c.mine, c.foreign ? ", FOREIGN HANDLER present" : "", c.total);
-	}
-
-	void OnGameTick(int gameTime)
-	{
-		// GameTickHook fires several times per game tick with an unchanged gameTime.
-		if (gameTime == g_lastGameTime)
-			return;
-		bool newGame = gameTime < g_lastGameTime;
-		g_lastGameTime = gameTime;
-		const bool inGame = GameRunning();
-		if (inGame && !g_wasInGame)
-			newGame = true;
-		g_wasInGame = inGame;
-		if (newGame)
-			LogGameStart();
-#if GIVE_RECEIVE_GUARD_ENABLE
-		MaybeLogGuard();
-#endif
-	}
 
 	// ---- install-time checks -------------------------------------------------------------------------------------------
 	bool ReadBytes(DWORD addr, BYTE* out, size_t len)
@@ -651,7 +559,6 @@ namespace
 	}
 
 	// ---- premises: every byte this module relies on, verified before anything is patched ---------------------------------
-	// A table so the offline harness can flip each byte in turn and prove the install refuses (and writes nothing).
 	struct Premise { DWORD addr; const BYTE* bytes; size_t len; const char* what; };
 
 	// the second table's push and the registrar call after it; the first table's call just before; the
@@ -867,6 +774,29 @@ namespace
 		if (Run(w, 2, "givemetal Bob 5", kModeMetal, &r) != kOk || r.slot != 0)                                         GC_FAIL("exact name beats prefix");
 		if (Run(w, 2, "givemetal bo 5", kModeMetal, &r) != kAmbiguous || r.resolved.total != 2)                         GC_FAIL("ambiguous two");
 
+		// 6. chat wrapping: lines <= 63 characters, cut at spaces, nothing lost but the spaces at the cuts
+		{
+			char lines[kChatMaxLines][kChatLine + 1];
+			if (WrapChat("Gave 5 metal to Bob.", lines, kChatMaxLines) != 1 || std::strcmp(lines[0], "Gave 5 metal to Bob.") != 0) GC_FAIL("wrap: short line");
+			const char* longText = "Gave 999999999 energy to ABCDEFGHIJKLMNOPQRSTUVWXYZ0123 (ABCDEFGHIJKLMNOPQRSTUVWXYZ0123's energy storage is now full).";
+			const int n = WrapChat(longText, lines, kChatMaxLines);
+			char joined[256];
+			size_t used = 0;
+			for (int i = 0; i < n; ++i)
+			{
+				const size_t len = std::strlen(lines[i]);
+				if (len > kChatLine || lines[i][0] == ' ')                                                         GC_FAIL("wrap: line too long or starts with a space");
+				if (i) joined[used++] = ' ';
+				std::memcpy(joined + used, lines[i], len);
+				used += len;
+			}
+			joined[used] = '\0';
+			if (n < 2 || std::strcmp(joined, longText) != 0)                                                       GC_FAIL("wrap: text lost");
+			char word[80];
+			std::memset(word, 'x', 70);  word[70] = '\0';
+			if (WrapChat(word, lines, kChatMaxLines) != 2 || std::strlen(lines[0]) != kChatLine || std::strlen(lines[1]) != 7) GC_FAIL("wrap: long word");
+		}
+
 	done:
 		#undef GC_FAIL
 		if (!ok)
@@ -875,10 +805,10 @@ namespace
 	}
 
 	// ---- patch bookkeeping ----------------------------------------------------------------------------------------------
-	SingleHook* g_regHook;
+	InlineSingleHook* g_regHook;
 #if GIVE_RECEIVE_GUARD_ENABLE
-	SingleHook* g_guardMetalHook;
-	SingleHook* g_guardEnergyHook;
+	InlineSingleHook* g_guardMetalHook;
+	InlineSingleHook* g_guardEnergyHook;
 #endif
 
 	void RemoveAllHooks()
@@ -893,28 +823,27 @@ namespace
 		Flush(0x00419000u, 0x1000u);
 	}
 
+	// A hook is in place if its site starts with a jmp followed by nops, it took the expected number of bytes (the hook rounds up to
+	// whole instructions) and the instructions it replays after the router are the ones that were there.
+	bool HookTook(InlineSingleHook* h, DWORD site, const BYTE* original, DWORD len)
+	{
+		BYTE b[8];
+		if (!h || h->RtnAddrOfHook() != reinterpret_cast<LPVOID>(site + len) || !h->RedirectedOrgOpcodes() ||
+			std::memcmp(h->RedirectedOrgOpcodes(), original, len) != 0 || !ReadBytes(site, b, len) || b[0] != 0xE9)
+			return false;
+		for (DWORD i = 5; i < len; ++i)
+			if (b[i] != 0x90)
+				return false;
+		return true;
+	}
+
 	bool PatchesReadBack()
 	{
-		BYTE code[8];
-		if (!ReadBytes(kRegSite, code, 5))
-			return false;
-		DWORD rel = 0;
-		std::memcpy(&rel, code + 1, 4);
-		if (code[0] != 0xE9 || rel != reinterpret_cast<DWORD>(&RegisterCommandsStub) - (kRegSite + 5))
-			return false;
 #if GIVE_RECEIVE_GUARD_ENABLE
-		const struct { DWORD at; DWORD target; } arms[2] = { { kArmMetal, reinterpret_cast<DWORD>(&ReceiveGuardMetal) }, { kArmEnergy, reinterpret_cast<DWORD>(&ReceiveGuardEnergy) } };
-		for (int i = 0; i < 2; ++i)
-		{
-			BYTE b[8];
-			if (!ReadBytes(arms[i].at, b, kArmLen))
-				return false;
-			std::memcpy(&rel, b + 1, 4);
-			if (b[0] != 0xE9 || rel != arms[i].target - (arms[i].at + 5) || b[5] != 0x90 || b[6] != 0x90 || b[7] != 0x90)
-				return false;
-		}
+		if (!HookTook(g_guardMetalHook, kArmMetal, kArmMetalB, kArmLen) || !HookTook(g_guardEnergyHook, kArmEnergy, kArmEnergyB, kArmLen))
+			return false;
 #endif
-		return true;
+		return HookTook(g_regHook, kRegSite, kRegPair, 5);
 	}
 }
 
@@ -930,16 +859,12 @@ namespace GiveCommands
 		if (!RunSelfTest())
 			return;                        // logged inside
 
-		g_lastGameTime = 0;
-		g_wasInGame = false;
-		g_regHook = new SingleHook(kRegSite, 5, INLINE_SINGLEJMP, reinterpret_cast<LPBYTE>(&RegisterCommandsStub));
+		g_regHook = new InlineSingleHook(kRegSite, 5, INLINE_5BYTESLAGGERJMP, RegisterCommandsProc);
 		Flush(kRegSite, 5);
 #if GIVE_RECEIVE_GUARD_ENABLE
-		g_guardDrops = g_guardLogged = 0;
-		g_guardLastLog = GetTickCount() - 10000u;
-		g_guardMetalHook = new SingleHook(kArmMetal, kArmLen, INLINE_SINGLEJMP, reinterpret_cast<LPBYTE>(&ReceiveGuardMetal));
+		g_guardMetalHook = new InlineSingleHook(kArmMetal, 5, INLINE_5BYTESLAGGERJMP, ReceiveGuardMetalProc);
 		Flush(kArmMetal, kArmLen);
-		g_guardEnergyHook = new SingleHook(kArmEnergy, kArmLen, INLINE_SINGLEJMP, reinterpret_cast<LPBYTE>(&ReceiveGuardEnergy));
+		g_guardEnergyHook = new InlineSingleHook(kArmEnergy, 5, INLINE_5BYTESLAGGERJMP, ReceiveGuardEnergyProc);
 		Flush(kArmEnergy, kArmLen);
 #endif
 
@@ -950,7 +875,6 @@ namespace GiveCommands
 			return;
 		}
 
-		GameTickHook::GetInstance()->addCallback(OnGameTick);
 		g_installed = true;
 		IDDrawSurface::OutptFmtTxt("[GiveCommands] installed: Give, GiveMetal, GiveEnergy registered through @0x%08X, receive guard %s", kRegSite,
 			GIVE_RECEIVE_GUARD_ENABLE ? "on" : "off");

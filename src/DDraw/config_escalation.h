@@ -205,7 +205,7 @@
 #define PATROL_RECLAIM_AIR_GATE_ENABLE 1
 
 // Fair split of the auto-share among allies, and +givemetal / +giveenergy; see ShareSplit.h and GiveCommands.h.
-// Escalation only: the hooks are byte-verified against that TotalA.exe.
+// Staged rollout: verified against Escalation's TotalA.exe (see config.h).
 #define SHARE_SPLIT_ENABLE 1
 #define GIVE_COMMANDS_ENABLE 1
 // Drops received resource packets whose amount is not positive and finite; see GiveCommands.h.

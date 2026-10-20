@@ -286,7 +286,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		ShareSplit::Install();               // own bytes only: one jne at 0x457D5F, one call operand at 0x49563B
 #endif
 #if GIVE_COMMANDS_ENABLE
-		GiveCommands::Install();             // own bytes only: one registration site at 0x4195C9, disjoint from PatrolReclaimThreshold and AutoTeam
+		GiveCommands::Install();             // own bytes only: registration site at 0x4195C9 (disjoint from PatrolReclaimThreshold and AutoTeam); receive guard: 8 bytes each at 0x4558C2 / 0x4558E0
 #endif
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponIdOverflow::Install();
