@@ -87,6 +87,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Restore the tenth replay player's POV, camera follow and starting allies (thanks TAG_Venom)
 - Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
 - Enable allied projectile pass-through (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
@@ -323,6 +324,24 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Tenth replay player POV
+
+  Double-clicking the recorded player sharing the viewer slot selects that
+  player's fog and allied vision; My Original Camera restores full-map LOS.
+  A second double-click follows the recorded camera, including the shared
+  player's camera. A small stripe in the player's colour pulses every 0.4
+  seconds to indicate camera follow; the row highlight stays steady.
+  In My Original Camera, the stock top resource HUD leaves its background
+  visible without displaying the shared player's resource values.
+  The legacy resource list includes the shared player with its native resource
+  values. This fix does not require the experimental ally resource UI.
+
+  Updated replay tools supply the starting team already saved in existing
+  recordings. Both directions of those starting alliances are restored once;
+  later recorded alliance changes are not overwritten. No replay conversion
+  or new setting is needed. Older replay tools keep the legacy observer path,
+  including their existing shared-slot limitations.
 
 - Centred camera on small maps
 

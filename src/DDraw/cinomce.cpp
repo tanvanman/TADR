@@ -1,6 +1,7 @@
 #include "config.h"
 #include "oddraw.h"
 #include "cincome.h"
+#include "TenPlayerReplay.h"
 #include "iddrawsurface.h"
 #include "font.h"
 #include "tamem.h"
@@ -116,8 +117,13 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 			? Ptr->GameSreen_Rect.right - MinimiseWidgetSize
 			: Ptr->GameSreen_Rect.left;
 
+		// Refresh on pulse edges as well as the usual resource refresh. This
+		// keeps the follow indicator's timing independent of the frame rate.
+		const bool followPulseOn = (GetTickCount() / 400 & 1) == 0;
 		if (GetCurrentThreadId() == LocalShare->GuiThreadId &&
-			(BlitState % 30 == 1 || Minimised && posX != targetPosX))
+			(BlitState % 30 == 1 ||
+				(ReplayCameraFollowSlot() >= 0 && followPulseOn != m_followPulseOn) ||
+				Minimised && posX != targetPosX))
 		{
 			DDSURFACEDESC ddsd;
 			DDRAW_INIT_STRUCT(ddsd);
@@ -132,6 +138,7 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 			{
 				SurfaceMemory = ddsd.lpSurface;
 				lPitch = ddsd.lPitch;
+				m_followPulseOn = followPulseOn;
 
 				if((0!=(WATCH& (Ptr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask)))
 					||DataShare->PlayingDemo)
@@ -244,6 +251,7 @@ int CIncome::GetMinimiseWidgetXPos()
 
 int CIncome::ShowAllIncome()
 {
+	for (int& player : m_replayPlayers) player = -1;
 	DataShare->IsRunning = 15;
 
 	if (Minimised)
@@ -269,11 +277,13 @@ int CIncome::ShowAllIncome()
 	LocalShare->Width = PlayerWidth;
 
 	int j = 0;
-	for(int i=1; i<10; i++)
+	for(int i=TenPlayerReplay_HasPovMetadata() ? 0 : 1; i<10; i++)
 	{
-		if(strlen(DataShare->PlayerNames[i])>0)
+		bool funnel = TenPlayerReplay_IsFunnelPlayer(&(*TAmainStruct_PtrPtr)->Players[i]);
+		if(funnel || strlen(DataShare->PlayerNames[i])>0)
 		{
 			DataShare->IsRunning = 50;
+			m_replayPlayers[j] = i;
 			ShowPlayerIncome(i, 0, j*PlayerHight);
 			j++;
 		}
@@ -359,57 +369,77 @@ void CIncome::ShowMyViewIncome (int posx, int posy)
 
 void CIncome::ShowPlayerIncome(int Player, int posx, int posy)
 {
+	PlayerStruct& nativePlayer = (*TAmainStruct_PtrPtr)->Players[Player];
+	const bool funnel = TenPlayerReplay_IsFunnelPlayer(&nativePlayer);
+	const PlayerResourcesStruct& res = nativePlayer.PlayerRes;
 	float ValueF;
 	char Value[100];
 
 	char C = GetPlayerDotColor(Player);
 
-	static unsigned char LockColor= 20;
-	static unsigned char LosViewColor= 20^ 0x20;
-	
-	if (Player==DataShare->LockOn)
-	{//hignlight the player name that lockon
-		if (NULL!=SurfaceMemory)
+	const bool following = Player == ReplayCameraFollowSlot();
+	if (SurfaceMemory && (following ||
+		(Player == DataShare->LosViewOn && IsWatchingOtherPlayerPov())))
+	{
+		char* pixels = (char*)SurfaceMemory;
+		for (int i = 0; i < PlayerHight; ++i)
 		{
-			LockColor= LockColor^ 0x20;
-			char *SurfMem = (char*)SurfaceMemory;
-
-			for(int i=0; i<PlayerHight; i++)
-			{
-				memset(&SurfMem[posx+(posy+i)*lPitch], LockColor, PlayerWidth);
-			}
-		}
-	}
-	else if (Player==DataShare->LosViewOn)
-	{//hignlight the player that lockon
-		if (NULL!=SurfaceMemory)
-		{
-			char *SurfMem = (char*)SurfaceMemory;
-
-			for(int i=0; i<PlayerHight; i++)
-			{
-				memset(&SurfMem[posx+(posy+i)*lPitch], LosViewColor, PlayerWidth);
-			}
+			memset(&pixels[posx + (posy+i)*lPitch], 20 ^ 0x20, PlayerWidth);
+			if (following && m_followPulseOn)
+				memset(&pixels[posx + (posy+i)*lPitch], (unsigned char)C, 3);
 		}
 	}
 
 	//DrawText(DataShare->PlayerNames[Player], posx+45, posy+1, 0);
 	DrawPlayerRect(posx+36, posy+1, C);
 
-	DrawText(DataShare->PlayerNames[Player], posx+44, posy, PlayerNameColour);
+	DrawText(funnel ? nativePlayer.Name : DataShare->PlayerNames[Player], posx+44, posy, PlayerNameColour);
 
-	DrawStorageText(DataShare->storedM[Player], posx, posy+10);
-	DrawStorageText(DataShare->storedE[Player], posx, posy+20);
+	DrawStorageText(funnel ? res.fCurrentMetal : DataShare->storedM[Player], posx, posy+10);
+	DrawStorageText(funnel ? res.fCurrentEnergy : DataShare->storedE[Player], posx, posy+20);
 
 	PaintStoragebar(posx+44, posy+10, Player , MetalBar);
-	ValueF = DataShare->incomeM[Player];
+	ValueF = funnel ? res.fMetalProduction : DataShare->incomeM[Player];
 	sprintf_s(Value, 100, "+%.1f", ValueF);
 	DrawText(Value, posx+149, posy+10, ResourceValueColour);
 
 	PaintStoragebar(posx+44, posy+20, Player , EnergyBar);
-	ValueF = DataShare->incomeE[Player];
+	ValueF = funnel ? res.fEnergyProducton : DataShare->incomeE[Player];
 	sprintf_s(Value, 100, "+%.0f", ValueF);
 	DrawText(Value, posx+149, posy+20, ResourceValueColour);
+}
+
+void CIncome::SelectReplayPlayer(int slot)
+{
+	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	const int following = ReplayCameraFollowSlot();
+	if (slot < 0)
+	{
+		SetReplayCameraFollowSlot(-1);
+		DataShare->LosViewOn = 0xa;
+	}
+	else if (slot == following)
+	{
+		SetReplayCameraFollowSlot(-1);
+		return;
+	}
+	else if (slot == DataShare->LosViewOn && IsWatchingOtherPlayerPov())
+	{
+		SetReplayCameraFollowSlot(slot);
+		return;
+	}
+	else
+	{
+		DataShare->LosViewOn = slot;
+		if (following >= 0) SetReplayCameraFollowSlot(slot);
+	}
+
+	DeselectUnits();
+	UpdateSelectUnitEffect();
+	ApplySelectUnitMenu_Wapper();
+	const bool control = slot >= 0 ? bool(DataShare->PlayingDemo) :
+		LocalShare->OrgLocalPlayerID != ta->LocalHumanPlayer_PlayerID;
+	ViewPlayerLos_Replay(slot < 0 ? 0 : slot, control, slot < 0);
 }
 
 int CIncome::DrawStorageText(float Storage, int posx, int posy)
@@ -520,6 +550,13 @@ int CIncome::DrawMinimiseWidget(int posx, int posy, char Color)
 
 void CIncome::PaintStoragebar(int posx, int posy, int Player, int Type)
 {
+	const PlayerStruct& nativePlayer = (*TAmainStruct_PtrPtr)->Players[Player];
+	const bool funnel = TenPlayerReplay_IsFunnelPlayer(&nativePlayer);
+	const PlayerResourcesStruct& res = nativePlayer.PlayerRes;
+	const float energy = funnel ? res.fCurrentEnergy : DataShare->storedE[Player];
+	const float energyMax = funnel ? res.fMaxEnergyStorage : DataShare->storageE[Player];
+	const float metal = funnel ? res.fCurrentMetal : DataShare->storedM[Player];
+	const float metalMax = funnel ? res.fMaxMetalStorage : DataShare->storageM[Player];
 	if(SurfaceMemory == NULL)
 		return;
 
@@ -540,14 +577,14 @@ void CIncome::PaintStoragebar(int posx, int posy, int Player, int Type)
 
 	if(Type == EnergyBar)
 	{
-		if(DataShare->storageE[Player]!=0)
-			StorageBarLength = static_cast<int>((DataShare->storedE[Player] / DataShare->storageE[Player])*100);
+		if(energyMax!=0)
+			StorageBarLength = static_cast<int>((energy / energyMax)*100);
 		FillColor = 208U;
 	}
 	else if(Type == MetalBar)
 	{
-		if(DataShare->storageM[Player]!=0)
-			StorageBarLength = static_cast<int>((DataShare->storedM[Player] / DataShare->storageM[Player])*100);
+		if(metalMax!=0)
+			StorageBarLength = static_cast<int>((metal / metalMax)*100);
 		FillColor = 224U;
 	}
 	if ( StorageBarLength>99)
@@ -736,63 +773,11 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					//((Dialog*)LocalShare->Dialog)->ShowDialog();
 					WORD CurtXPos= LOWORD(lParam);
 					WORD CurtYPos= HIWORD(lParam);
-					int ClickedPlayerID= (CurtYPos- posY)/ PlayerHight+ 1;
+					int clickedRow = (CurtYPos - posY) / PlayerHight;
+					int ClickedPlayerID = clickedRow >= 0 && clickedRow < 10 ? m_replayPlayers[clickedRow] : -1;
 
-					if (CurtYPos>(posY+ LocalShare->Height- PlayerHight))
-					{
-						DataShare->LockOn= 0;
-						DataShare->LosViewOn= 0xa;
-						if (LocalShare->OrgLocalPlayerID!=Ptr->LocalHumanPlayer_PlayerID)
-						{
-							DeselectUnits ( );
-							UpdateSelectUnitEffect ( ) ;
-							ApplySelectUnitMenu_Wapper ( );
-							ViewPlayerLos_Replay ( 0, TRUE);
-						}
-						else
-						{
-
-							DeselectUnits ( );
-							UpdateSelectUnitEffect ( ) ;
-							ApplySelectUnitMenu_Wapper ( );
-
-							ViewPlayerLos_Replay ( 0);
-						}
-					}
-					else if (ClickedPlayerID==DataShare->LockOn)
-					{// now we deal about click in player res bar. first check if already lockon someone
-						DataShare->LockOn= 0;
-					}
-					else if (ClickedPlayerID==(DataShare->LosViewOn))
-					{// if not lock on this one, maybe watching this one's res bar
-						DataShare->LockOn= DataShare->LosViewOn;
-					}
-					else
-					{// when watching not the one res bar, exchange this this one.
-						DataShare->LosViewOn= (CurtYPos- posY)/ PlayerHight+ 1;
-
-						if (DataShare->PlayingDemo)
-						{
-							DeselectUnits ( );
-							UpdateSelectUnitEffect ( ) ;
-							ApplySelectUnitMenu_Wapper ( );
-							ViewPlayerLos_Replay ( DataShare->LosViewOn, TRUE);
-						}
-						else
-						{
-							DeselectUnits ( );
-
-							UpdateSelectUnitEffect ( ) ;
-							ApplySelectUnitMenu_Wapper ( );
-							ViewPlayerLos_Replay ( DataShare->LosViewOn);
-						}
-						
-						//
-						if (LocalShare->OrgLocalPlayerID!=DataShare->LockOn)
-						{
-							DataShare->LockOn= DataShare->LosViewOn;;
-						}
-					}
+					SelectReplayPlayer(ClickedPlayerID);
+					BlitState = 0; // Repaint selection/follow changes on the next frame.
 
 					return true;
 				}

@@ -17,6 +17,14 @@ struct PlayerStruct;
 // is the funnel slot in a 10-player replay with a sampled rate. See TenPlayerReplay.cpp.
 void TenPlayerReplay_OverrideFunnelIncome(PlayerStruct* player);
 
+// Distinguish the recorded player sharing the viewer slot from an ordinary watcher.
+bool TenPlayerReplay_IsFunnelPlayer(const PlayerStruct* player);
+bool TenPlayerReplay_HasPovMetadata();
+
+// Keep zero as the recorder's "not following" value; 10 encodes replay slot zero.
+int ReplayCameraFollowSlot();
+void SetReplayCameraFollowSlot(int slot);
+
 class TenPlayerReplay
 {
 public:

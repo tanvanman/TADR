@@ -1,4 +1,5 @@
 #include "TenPlayerReplay.h"
+#include "ReplayFunnelInfo.h"
 #include "HexDump.h"
 
 #include "iddrawsurface.h"
@@ -13,6 +14,21 @@
 
 static bool HACK_ON = false;
 static PlayerStruct* LOCAL_HUMAN_PLAYER = NULL;
+static unsigned g_funnelTeamDpid = 0;
+static int g_funnelTeamGameTime = -1;
+
+static void SetFunnelStartingTeam(TAdynmemStruct* ta, PlayerStruct* player, unsigned char team)
+{
+	player->AllyTeam = team;
+	const int slot = player->PlayerAryIndex;
+	for (int n = 0; n < 10; ++n)
+	{
+		PlayerStruct& other = ta->Players[n];
+		const bool allied = &other == player || (team < 5 && other.AllyTeam == team);
+		player->AllyFlagAry[n] = allied;
+		other.AllyFlagAry[slot] = allied;
+	}
+}
 
 // ===========================================================================
 // HAPINET_receivepacket detour (0x4c9840)
@@ -46,7 +62,8 @@ int __stdcall HapiReceive_Detour(HAPINETStruct* hapi, void* outBuf, int* bufSize
 
 	// 10-player-replay hack on/off detection + fromDpid rewrite -- the reason we wrap
 	// the receive at all. Runs after the real Receive has filled outBuf / hapi->fromDpid.
-	if (hapi && DataShare->PlayingDemo && TAInGame == DataShare->TAProgress)
+	if (result == 0 && hapi && outBuf && actualSize >= 13 &&
+		DataShare->PlayingDemo && TAInGame == DataShare->TAProgress)
 	{
 		std::uint8_t* buffer = (std::uint8_t*)outBuf;
 
@@ -72,8 +89,31 @@ int __stdcall HapiReceive_Detour(HAPINETStruct* hapi, void* outBuf, int* bufSize
 			{
 				taPtr->hapinet.fromDpid = LOCAL_HUMAN_PLAYER->DirectPlayID;
 				LOCAL_HUMAN_PLAYER->My_PlayerType = Player_RemoteHuman;
-				for (int i = 0; i < 10; ++i)
-					LOCAL_HUMAN_PLAYER->AllyFlagAry[i] = 1;
+				unsigned char startingTeam = 5;
+				if (ReplayFunnelStartingTeam(buffer, actualSize, startingTeam))
+				{
+					// Initialise once; later recorded alliance changes must remain intact.
+					if (g_funnelTeamDpid != (unsigned)LOCAL_HUMAN_PLAYER->DirectPlayID ||
+						taPtr->GameTime < g_funnelTeamGameTime)
+					{
+						SetFunnelStartingTeam(taPtr, LOCAL_HUMAN_PLAYER, startingTeam);
+						g_funnelTeamDpid = LOCAL_HUMAN_PLAYER->DirectPlayID;
+					}
+					g_funnelTeamGameTime = taPtr->GameTime;
+					unsigned short mapX, mapY;
+					if (ReplayFunnelMapPosition(buffer, actualSize, mapX, mapY))
+					{
+						const int slot = LOCAL_HUMAN_PLAYER->PlayerAryIndex;
+						DataShare->OtherMapX[slot] = mapX;
+						DataShare->OtherMapY[slot] = mapY;
+					}
+				}
+				else if (g_funnelTeamDpid != (unsigned)LOCAL_HUMAN_PLAYER->DirectPlayID)
+				{
+					// Older replayers send no starting team. Preserve their existing
+					// observer behaviour instead of guessing the recorded alliances.
+					for (int n = 0; n < 10; ++n) LOCAL_HUMAN_PLAYER->AllyFlagAry[n] = 1;
+				}
 			}
 		}
 	}
@@ -368,6 +408,52 @@ void TenPlayerReplay_OverrideFunnelIncome(PlayerStruct* player)
 	player->PlayerRes.fEnergyExpense    = g_funnelEcon.energyExpense;
 }
 
+bool TenPlayerReplay_IsFunnelPlayer(const PlayerStruct* player)
+{
+	return DataShare->PlayingDemo && player && player == LOCAL_HUMAN_PLAYER;
+}
+
+bool TenPlayerReplay_HasPovMetadata()
+{
+	return DataShare->PlayingDemo && LOCAL_HUMAN_PLAYER &&
+		g_funnelTeamDpid == (unsigned)LOCAL_HUMAN_PLAYER->DirectPlayID;
+}
+
+int ReplayCameraFollowSlot()
+{
+	if (DataShare->LockOn == 10 && TenPlayerReplay_HasPovMetadata()) return 0;
+	return DataShare->LockOn > 0 && DataShare->LockOn < 10 ? DataShare->LockOn : -1;
+}
+
+void SetReplayCameraFollowSlot(int slot)
+{
+	DataShare->LockOn = slot == 0 && TenPlayerReplay_HasPovMetadata() ? 10 :
+		(slot > 0 && slot < 10 ? slot : 0);
+}
+
+// In a ten-player replay the native HUD otherwise reports the shared player's
+// resources even in the observer's original camera. Only change the draw cache
+// and skip the player-value paint pass; never touch simulated resources.
+static bool HideOriginalCameraResourceHud()
+{
+	return TAInGame == DataShare->TAProgress && TenPlayerReplay_HasPovMetadata() &&
+		((*TAmainStruct_PtrPtr)->LosType & (NOMAPPING | Permanent)) == 0;
+}
+
+static int __stdcall OriginalCameraHudCacheProc(PInlineX86StackBuffer stack)
+{
+	if (HideOriginalCameraResourceHud())
+		*(unsigned char*)(stack->Esp + 0x78) = 0xff;
+	return 0;
+}
+
+static int __stdcall OriginalCameraHudPaintProc(PInlineX86StackBuffer stack)
+{
+	if (!HideOriginalCameraResourceHud()) return 0;
+	stack->rtnAddr_Pvoid = (LPVOID)0x469610;
+	return X86STRACKBUFFERCHANGE;
+}
+
 std::unique_ptr<TenPlayerReplay> TenPlayerReplay::m_instance = NULL;
 
 TenPlayerReplay::TenPlayerReplay()
@@ -377,6 +463,17 @@ TenPlayerReplay::TenPlayerReplay()
 	// hack on/off detection + fromDpid rewrite can run after each packet is received
 	// (and drops a RECV breadcrumb into the crash-trace ring).
 	InstallHapiReceiveDetour();
+	// Validate both instruction boundaries and the resume point before installing.
+	static const unsigned char cacheBytes[] = {0x8d,0x83,0x3f,0x7e,0x03,0x00};
+	static const unsigned char paintBytes[] = {0x8d,0x46,0x42,0x6a,0x00};
+	static const unsigned char resumeBytes[] = {0x8d,0x54,0x24,0x34};
+	if (!memcmp((void*)0x468fc6, cacheBytes, sizeof(cacheBytes)) &&
+		!memcmp((void*)0x46909f, paintBytes, sizeof(paintBytes)) &&
+		!memcmp((void*)0x469610, resumeBytes, sizeof(resumeBytes)))
+	{
+		m_hooks.push_back(std::make_unique<InlineSingleHook>(0x468fc6, 6, INLINE_5BYTESLAGGERJMP, OriginalCameraHudCacheProc));
+		m_hooks.push_back(std::make_unique<InlineSingleHook>(0x46909f, 5, INLINE_5BYTESLAGGERJMP, OriginalCameraHudPaintProc));
+	}
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(GetLocalPlayerDpidHackAddr, 5, INLINE_5BYTESLAGGERJMP, GetLocalPlayerDpidHackProc));
 	//m_hooks.push_back(std::make_unique<InlineSingleHook>(LocalPlayerCheckHack1Addr, 5, INLINE_5BYTESLAGGERJMP, LocalPlayerCheckHack1Proc));
 	//m_hooks.push_back(std::make_unique<InlineSingleHook>(LocalPlayerCheckHack2Addr, 5, INLINE_5BYTESLAGGERJMP, LocalPlayerCheckHack2Proc));

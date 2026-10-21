@@ -5,6 +5,7 @@
 #include "tamem.h"
 #include "whiteboard.h"
 #include "SmallMapViewport.h"
+#include "TenPlayerReplay.h"
 
 namespace
 {
@@ -138,10 +139,11 @@ void CMapRect::LockBlit(char *VidBuf, int Pitch)
 		RECT Dest;
 		TAdynmemStruct * Ptr= *(TAdynmemStruct* *)0x00511de8;
 
-		for(int i=1; i<10; i++)
+		for(int i=TenPlayerReplay_HasPovMetadata() ? 0 : 1; i<10; i++)
 		{
+			const bool funnel = TenPlayerReplay_IsFunnelPlayer(&Ptr->Players[i]);
 			if((DataShare->allies[i] || DataShare->PlayingDemo|| (0!=(WATCH& (Ptr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))
-				&& DataShare->OtherMapX[i]!=-1 && DataShare->PlayerNames[i][0]!='\0')
+				&& DataShare->OtherMapX[i]!=-1 && (funnel || DataShare->PlayerNames[i][0]!='\0'))
 			{
 				Dest.left = static_cast<LONG>(((((float)(DataShare->OtherMapX[i]) / (float)(*MapSizeX))*MiniMapWidth) + XOffset) - Width/2);
 				Dest.top = static_cast<LONG>(((((float)(DataShare->OtherMapY[i]) / (float)(*MapSizeY))*MiniMapHeight) + YOffset) - Height/2);
@@ -151,7 +153,7 @@ void CMapRect::LockBlit(char *VidBuf, int Pitch)
 				if(DataShare->PlayingDemo
 					|| (0!=(WATCH& (Ptr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))
 				{
-					if(DataShare->LockOn==i)
+					if(ReplayCameraFollowSlot()==i)
 						((AlliesWhiteboard*)LocalShare->Whiteboard)->ScrollToCenter(DataShare->OtherMapX[i], DataShare->OtherMapY[i]);
 				}
 
