@@ -9,6 +9,8 @@
 #include "tafunctions.h"
 #include "dialog.h"
 #include "PlayerMute.h"
+#include "CameraBounds.h"
+#include "SmallMapViewport.h"
 
 #include "pcxread.h"
 #include "maprect.h"
@@ -250,6 +252,16 @@ void AlliesWhiteboard::LockBlit(char *VidBuf, int Pitch)
 	min_clip_x = 128;
 	max_clip_x = SizeX-1;
 	max_clip_y = SizeY-1;
+	const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	if (ta && SmallMapCameraEnabled()
+		&& SmallMapViewport::Small(ta->MapSizeX, ta->MapSizeY, ta->GameScreenWidth, ta->GameScreenHeight))
+	{
+		const RECT& r = ta->GameSreen_Rect;
+		const auto clip = SmallMapViewport::MapClip({r.left,r.top,r.right+1,r.bottom+1},
+			ta->EyeBallMapXPos, ta->EyeBallMapYPos, ta->MapSizeX, ta->MapSizeY);
+		min_clip_x = clip.left; min_clip_y = clip.top;
+		max_clip_x = clip.right-1; max_clip_y = clip.bottom-1;
+	}
 
 	std::vector<GraphicElement*> ElementPTR;
 	int x1 = *MapX-75;
@@ -1559,6 +1571,13 @@ bool AlliesWhiteboard::IsInGameArea(LPARAM lParam)
 bool AlliesWhiteboard::IsInGameArea(LONG x, LONG y)
 {
 	TAdynmemStruct *Ptr = *(TAdynmemStruct**)0x00511de8;
+	if (SmallMapCameraEnabled()
+		&& SmallMapViewport::Small(Ptr->MapSizeX, Ptr->MapSizeY, Ptr->GameScreenWidth, Ptr->GameScreenHeight))
+	{
+		const RECT& r = Ptr->GameSreen_Rect;
+		return SmallMapViewport::ContainsScreen({r.left,r.top,r.right+1,r.bottom+1},
+			Ptr->EyeBallMapXPos, Ptr->EyeBallMapYPos, Ptr->MapSizeX, Ptr->MapSizeY, x, y);
+	}
 	return x >= Ptr->GameSreen_Rect.left && y >= Ptr->GameSreen_Rect.top && y < Ptr->GameSreen_Rect.bottom;
 }
 

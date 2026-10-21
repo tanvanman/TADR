@@ -87,6 +87,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
 - Enable allied projectile pass-through (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
@@ -322,6 +323,39 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Centred camera on small maps
+
+  At high or wide resolutions, TA can calculate a negative maximum camera
+  position and repeatedly move between that position and zero. This makes
+  small maps, including CORE Campaign Mission 1, jump across the screen.
+
+  Each undersized axis now has one fixed, centred camera position. The map
+  appears once, with black margins in the unused game area. Any axis larger
+  than the viewport retains its normal scrolling range. Current positions,
+  destinations, follow and recentre paths use the same boundaries.
+
+  Small-map terrain reads are limited to valid map rows and columns, and the
+  minimap viewport outline stays inside its picture. Black margins do not
+  accept world orders, placement previews or whiteboard input. The sidebar,
+  resource bars and selected display resolution stay unchanged.
+
+  Shared allied camera outlines also stay inside the minimap picture,
+  including on narrow or short maps. Existing position-sharing packets and
+  replay camera tracking remain compatible.
+
+  Position sharing must be enabled on both clients. The .sharemappos command
+  toggles it; check the ON/OFF message. Turning it off also hides incoming
+  allied camera outlines.
+
+  Fog masks extend the nearest map-edge visibility into missing corners in
+  the screen cache, preventing bright terrain seams on centred map borders.
+  The underlying mapped and line-of-sight grids are not changed.
+
+  The fix is automatic in every build and requires no INI setting. It does
+  not change map files or simulation. The camera, terrain and input hooks
+  are installed together only when all required executable signatures match.
+  Normal-sized maps retain the original terrain renderer and camera controls.
 
 - Allied projectile pass-through
 
