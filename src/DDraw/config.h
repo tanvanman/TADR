@@ -337,3 +337,39 @@
 #if PATROL_RECLAIM_AIR_GATE_ENABLE && !PATROL_RECLAIM_THRESHOLD_ENABLE
 #error "PATROL_RECLAIM_AIR_GATE_ENABLE requires PATROL_RECLAIM_THRESHOLD_ENABLE 1 -- the gate reads the per-player thresholds that module owns."
 #endif
+
+//
+// ShareSplit: the auto-share (the 2-second resource pulse of Share_AutoAllyResourcesAndMap) divides the surplus among
+// every eligible ally with free storage -- mutual allies that are less full than the sender -- in equal shares capped at
+// each ally's free storage, instead of sending all of it to the last qualifying slot. Local decision state: the amount
+// travels in the packet, so it is not a Class B patch and interoperates with unpatched clients.
+// Gated to Escalation as a staged rollout, not because the addresses differ: every relied-on byte was verified against
+// Escalation's TotalA.exe and is byte-identical in Cavedog v3.1; other shipped builds have not been checked. The module
+// refuses to install unless every byte matches. See ShareSplit.h.
+//
+#ifndef SHARE_SPLIT_ENABLE
+#define SHARE_SPLIT_ENABLE 0
+#endif
+
+//
+// GiveCommands: +givemetal / +giveenergy <player> <amount> and a fixed +give (allies only, capped at the giver's stock and
+// the receiver's free storage, with a chat line for every result). Local command, same transfer and packet as vanilla.
+// Gated and byte-verified like ShareSplit (staged rollout). See GiveCommands.h.
+//
+#ifndef GIVE_COMMANDS_ENABLE
+#define GIVE_COMMANDS_ENABLE 0
+#endif
+
+//
+// GiveCommands receive guard: the engine applies the amount of a received 0x16 resource packet without validating it. Two hooks
+// on the packet switch drop a packet whose amount is not positive and finite, as if it had not arrived. Protects the receiving
+// client only.
+// Gated and byte-verified like ShareSplit (staged rollout). Requires GIVE_COMMANDS_ENABLE (the code lives in GiveCommands.cpp).
+// See GiveCommands.h.
+//
+#ifndef GIVE_RECEIVE_GUARD_ENABLE
+#define GIVE_RECEIVE_GUARD_ENABLE 0
+#endif
+#if GIVE_RECEIVE_GUARD_ENABLE && !GIVE_COMMANDS_ENABLE
+#error "GIVE_RECEIVE_GUARD_ENABLE requires GIVE_COMMANDS_ENABLE 1 -- the guard is part of the GiveCommands module."
+#endif
