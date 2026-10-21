@@ -2,6 +2,9 @@
 
 #define TDRAW_CONFIG_NAME "ota"
 
+// Allied projectile collision is a mod build choice, never an INI preference.
+#define ALLIED_PROJECTILE_COLLISION_ENABLE 0
+
 //
 // Snap radii
 //
@@ -150,3 +153,10 @@
 // behaviour features -- OTA stays vanilla.
 #define PATROL_RECLAIM_THRESHOLD_ENABLE 0
 #define PATROL_RECLAIM_AIR_GATE_ENABLE 0
+
+// Fair split of the auto-share among allies, and +givemetal / +giveenergy; see ShareSplit.h and GiveCommands.h.
+// Off here as a staged rollout (verified against Escalation's TotalA.exe only), not because the addresses differ.
+#define SHARE_SPLIT_ENABLE 0
+#define GIVE_COMMANDS_ENABLE 0
+// Drops received resource packets whose amount is not positive and finite; see GiveCommands.h.
+#define GIVE_RECEIVE_GUARD_ENABLE 0

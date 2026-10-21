@@ -2,6 +2,9 @@
 
 #define TDRAW_CONFIG_NAME "tazero"
 
+// Allied projectile collision is a mod build choice, never an INI preference.
+#define ALLIED_PROJECTILE_COLLISION_ENABLE 0
+
 //
 // Snap radii
 //
@@ -104,6 +107,9 @@
 #define USEMEGAMAP 1
 #define MEGAMAP_FEATURES 1
 #define USEWHITEBOARD 1
+// TA:Zero's nukes have no stockpile, so cruise + targetable alone earns the
+// megamap nuke icon (tanvanman/TADR#31).
+#define MEGAMAP_NUKE_REQUIRES_STOCKPILE 0
 
 //
 // Allied build-queue overlay -- see AlliedBuildQueueSync.h, and config.h for
@@ -162,3 +168,10 @@
 // on any mismatch -- a build whose exe differs loses the feature instead of misbehaving.
 #define PATROL_RECLAIM_THRESHOLD_ENABLE 1
 #define PATROL_RECLAIM_AIR_GATE_ENABLE 1
+
+// Fair split of the auto-share among allies, and +givemetal / +giveenergy; see ShareSplit.h and GiveCommands.h.
+// Off here as a staged rollout (verified against Escalation's TotalA.exe only), not because the addresses differ.
+#define SHARE_SPLIT_ENABLE 0
+#define GIVE_COMMANDS_ENABLE 0
+// Drops received resource packets whose amount is not positive and finite; see GiveCommands.h.
+#define GIVE_RECEIVE_GUARD_ENABLE 0

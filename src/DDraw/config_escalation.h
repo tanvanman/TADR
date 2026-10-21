@@ -2,6 +2,9 @@
 
 #define TDRAW_CONFIG_NAME "escalation"
 
+// Allied projectile collision is a mod build choice, never an INI preference.
+#define ALLIED_PROJECTILE_COLLISION_ENABLE 0
+
 //
 // Snap radii
 //
@@ -203,3 +206,10 @@
 // Per-player patrol reclaim thresholds and the air-constructor gate; see PatrolReclaimThreshold.h.
 #define PATROL_RECLAIM_THRESHOLD_ENABLE 1
 #define PATROL_RECLAIM_AIR_GATE_ENABLE 1
+
+// Fair split of the auto-share among allies, and +givemetal / +giveenergy; see ShareSplit.h and GiveCommands.h.
+// Staged rollout: verified against Escalation's TotalA.exe (see config.h).
+#define SHARE_SPLIT_ENABLE 1
+#define GIVE_COMMANDS_ENABLE 1
+// Drops received resource packets whose amount is not positive and finite; see GiveCommands.h.
+#define GIVE_RECEIVE_GUARD_ENABLE 1

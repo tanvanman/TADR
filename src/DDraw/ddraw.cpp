@@ -38,6 +38,7 @@ using namespace std;
 #include "VeterancyHack.h"
 #include "NotToAir.h"
 #include "OffMapAircraft.h"
+#include "AlliedProjectileCollision.h"
 #include "SurfaceFire.h"
 #include "TerrainFireGate.h"
 #include "AirCorpseFall.h"
@@ -65,6 +66,8 @@ using namespace std;
 #include "GroundToAirGuard.h"
 #include "VtolRepairBeamFix.h"
 #include "PatrolReclaimThreshold.h"
+#include "ShareSplit.h"
+#include "GiveCommands.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -142,6 +145,7 @@ void AddtionRelease (void)
 int __stdcall AddtionInitAfterDDraw (PInlineX86StackBuffer X86StrackBuffer)
 {
 	EngineLimits::AbortIfInstallFailed();
+	AlliedProjectileCollision::AbortIfInstallFailed();
 
 	char FontName[0x100];
 	FontName[0]= 0;
@@ -256,6 +260,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		CBuildGhost::GetInstance();
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
+		AlliedProjectileCollision::Install();
 #if OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES > 0
 		OffMapAircraft::Install(OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES);
 #endif
@@ -279,6 +284,12 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if PATROL_RECLAIM_THRESHOLD_ENABLE
 		PatrolReclaimThreshold::Install();   // own bytes only: patrol handler operands/entries, one call operand, one registration site
+#endif
+#if SHARE_SPLIT_ENABLE
+		ShareSplit::Install();               // own bytes only: one jne at 0x457D5F, one call operand at 0x49563B
+#endif
+#if GIVE_COMMANDS_ENABLE
+		GiveCommands::Install();             // own bytes only: registration site at 0x4195C9 (disjoint from PatrolReclaimThreshold and AutoTeam); receive guard: 8 bytes each at 0x4558C2 / 0x4558E0
 #endif
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponIdOverflow::Install();
@@ -304,6 +315,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 	}
 	if(reason==DLL_PROCESS_DETACH)
 	{
+		AlliedProjectileCollision::Shutdown();
 		EngineLimits::Uninstall();
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Stop();
@@ -329,6 +341,12 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if PATROL_RECLAIM_THRESHOLD_ENABLE
 		PatrolReclaimThreshold::Shutdown();
+#endif
+#if SHARE_SPLIT_ENABLE
+		ShareSplit::Shutdown();
+#endif
+#if GIVE_COMMANDS_ENABLE
+		GiveCommands::Shutdown();
 #endif
 		ShareUnitSettings::Shutdown();
 		UnitIdentity::Shutdown();
@@ -373,6 +391,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 HRESULT WINAPI DirectDrawCreate(GUID FAR *lpGUID, LPDIRECTDRAW FAR *lplpDD, IUnknown FAR *pUnkOuter)
 {
 	EngineLimits::AbortIfInstallFailed();
+	AlliedProjectileCollision::AbortIfInstallFailed();
 	IDDrawSurface::OutptTxt("DirectDrawCreate");
 	if(SDDraw == NULL)
 	{
