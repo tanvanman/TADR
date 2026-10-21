@@ -1,4 +1,5 @@
 #include "OffMapAircraft.h"
+#include "AlliedProjectileCollision.h"
 
 #include <windows.h>
 
@@ -328,8 +329,9 @@ namespace
 		{
 			if (!IsAliveAndTargetable(u) || !IsAirborne(u)) continue;
 			// The engine's own owner test at 0x0049b2b6 / 0x0049b2fa: a projectile never
-			// collides with a unit belonging to the player who fired it.
-			if (u->cOwnerID == static_cast<unsigned char>(proj->myLos_PlayerID)) continue;
+			// collides with a unit belonging to the player who fired it. The optional
+			// allied pass-through rule must also apply to this extra candidate path.
+			if (AlliedProjectileCollision::ShouldPassThrough(proj, u)) continue;
 			if (!UnitWithinMargin(u)) continue;
 
 			anyCandidate = true;

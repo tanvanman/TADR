@@ -38,6 +38,7 @@ using namespace std;
 #include "VeterancyHack.h"
 #include "NotToAir.h"
 #include "OffMapAircraft.h"
+#include "AlliedProjectileCollision.h"
 #include "SurfaceFire.h"
 #include "TerrainFireGate.h"
 #include "AirCorpseFall.h"
@@ -144,6 +145,7 @@ void AddtionRelease (void)
 int __stdcall AddtionInitAfterDDraw (PInlineX86StackBuffer X86StrackBuffer)
 {
 	EngineLimits::AbortIfInstallFailed();
+	AlliedProjectileCollision::AbortIfInstallFailed();
 
 	char FontName[0x100];
 	FontName[0]= 0;
@@ -258,6 +260,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		CBuildGhost::GetInstance();
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
+		AlliedProjectileCollision::Install();
 #if OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES > 0
 		OffMapAircraft::Install(OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES);
 #endif
@@ -312,6 +315,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 	}
 	if(reason==DLL_PROCESS_DETACH)
 	{
+		AlliedProjectileCollision::Shutdown();
 		EngineLimits::Uninstall();
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Stop();
@@ -387,6 +391,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 HRESULT WINAPI DirectDrawCreate(GUID FAR *lpGUID, LPDIRECTDRAW FAR *lplpDD, IUnknown FAR *pUnkOuter)
 {
 	EngineLimits::AbortIfInstallFailed();
+	AlliedProjectileCollision::AbortIfInstallFailed();
 	IDDrawSurface::OutptTxt("DirectDrawCreate");
 	if(SDDraw == NULL)
 	{

@@ -44,6 +44,14 @@
 #define MENU_HUM_TRACKED_LOOPING 1
 #endif
 
+// Every mod explicitly selects this simulation rule at build time.
+#ifndef ALLIED_PROJECTILE_COLLISION_ENABLE
+#error "config_*.h must define ALLIED_PROJECTILE_COLLISION_ENABLE"
+#endif
+#if ALLIED_PROJECTILE_COLLISION_ENABLE != 0 && ALLIED_PROJECTILE_COLLISION_ENABLE != 1
+#error "ALLIED_PROJECTILE_COLLISION_ENABLE must be 0 or 1"
+#endif
+
 //
 // Weather report rows.  WEATHER_REPORT is the master switch for the whole
 // top-of-screen overlay (wind / tidal / game time); these two select which of
