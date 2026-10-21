@@ -87,6 +87,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Show allied AI resource bars in skirmish (thanks TAG_Venom)
 - Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
 - Enable allied projectile pass-through (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
@@ -323,6 +324,15 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Allied AI resource bars
+
+  Allied computer players now appear in the legacy resource list during
+  skirmish, using the game's native names, stored amounts, capacities and
+  local AI income rates. Mutual alliances are required; enemy AI, spectators
+  and your own slot remain excluded. Existing human multiplayer data is
+  unchanged. No new setting is needed. Remote AI rates show as unknown
+  when no recorder rate data is available.
 
 - Centred camera on small maps
 
