@@ -9,6 +9,7 @@
 using namespace std;
 
 #include "tamem.h"
+#include "ResourceBarAi.h"
 #include "ChallengeResponse.h"
 #include "tafunctions.h"
 
@@ -741,8 +742,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 #endif
 
 			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }
-			if (GameingState_P
-				&&(gameingstate::MULTI==GameingState_P->State))
+			if (GameingState_P && ResourceBarsGameState(GameingState_P->State))
 			{
 				PROFILE_SCOPE("Unlock.Income_Blit");
 				Income->BlitIncome(lpBack);
@@ -884,8 +884,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }
 
-			if (GameingState_P
-				&&(gameingstate::MULTI==GameingState_P->State))
+			if (GameingState_P && ResourceBarsGameState(GameingState_P->State))
 			{
 				PROFILE_SCOPE("Unlock.Income_Blit");
 				Income->BlitIncome(lpBack);

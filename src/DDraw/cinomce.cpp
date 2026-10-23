@@ -1,6 +1,7 @@
 #include "config.h"
 #include "oddraw.h"
 #include "cincome.h"
+#include "ResourceBarAi.h"
 #include "iddrawsurface.h"
 #include "font.h"
 #include "tamem.h"
@@ -320,9 +321,14 @@ int CIncome::ShowAllyIncome()
 	//int OffsetY = posY;
 	LocalShare->Height = 0;
 	int j = 0;
-	for(int i=1; i<10; i++)
+	for(int i=0; i<10; i++)
 	{
-		if(DataShare->allies[i])
+		const TAdynmemStruct& ta = **TAmainStruct_PtrPtr;
+		const int original = LocalShare->OrgLocalPlayerID;
+		const bool allied = ResourceBarsAI(ta.Players[i])
+			? ResourceBarsAlliedAI(ta, original, i)
+			: i != original && DataShare->allies[i];
+		if(allied)
 		{
 			DataShare->IsRunning = 100;
 			ShowPlayerIncome(i, 0, j*PlayerHight);
@@ -359,6 +365,11 @@ void CIncome::ShowMyViewIncome (int posx, int posy)
 
 void CIncome::ShowPlayerIncome(int Player, int posx, int posy)
 {
+	PlayerStruct& nativePlayer = (*TAmainStruct_PtrPtr)->Players[Player];
+	const PlayerResourcesStruct& res = nativePlayer.PlayerRes;
+	const bool nativeEconomy = ResourceBarsAI(nativePlayer);
+	const bool nativeRates = nativePlayer.My_PlayerType == Player_LocalAI;
+	const bool haveRates = nativeRates || !nativeEconomy || DataShare->PlayerNames[Player][0];
 	float ValueF;
 	char Value[100];
 
@@ -396,19 +407,21 @@ void CIncome::ShowPlayerIncome(int Player, int posx, int posy)
 	//DrawText(DataShare->PlayerNames[Player], posx+45, posy+1, 0);
 	DrawPlayerRect(posx+36, posy+1, C);
 
-	DrawText(DataShare->PlayerNames[Player], posx+44, posy, PlayerNameColour);
+	DrawText(nativeEconomy ? nativePlayer.Name : DataShare->PlayerNames[Player], posx+44, posy, PlayerNameColour);
 
-	DrawStorageText(DataShare->storedM[Player], posx, posy+10);
-	DrawStorageText(DataShare->storedE[Player], posx, posy+20);
+	DrawStorageText(nativeEconomy ? res.fCurrentMetal : DataShare->storedM[Player], posx, posy+10);
+	DrawStorageText(nativeEconomy ? res.fCurrentEnergy : DataShare->storedE[Player], posx, posy+20);
 
 	PaintStoragebar(posx+44, posy+10, Player , MetalBar);
-	ValueF = DataShare->incomeM[Player];
-	sprintf_s(Value, 100, "+%.1f", ValueF);
+	ValueF = nativeRates ? res.fMetalProduction : DataShare->incomeM[Player];
+	if (haveRates) sprintf_s(Value, 100, "+%.1f", ValueF);
+	else strcpy_s(Value, "-");
 	DrawText(Value, posx+149, posy+10, ResourceValueColour);
 
 	PaintStoragebar(posx+44, posy+20, Player , EnergyBar);
-	ValueF = DataShare->incomeE[Player];
-	sprintf_s(Value, 100, "+%.0f", ValueF);
+	ValueF = nativeRates ? res.fEnergyProducton : DataShare->incomeE[Player];
+	if (haveRates) sprintf_s(Value, 100, "+%.0f", ValueF);
+	else strcpy_s(Value, "-");
 	DrawText(Value, posx+149, posy+20, ResourceValueColour);
 }
 
@@ -520,6 +533,13 @@ int CIncome::DrawMinimiseWidget(int posx, int posy, char Color)
 
 void CIncome::PaintStoragebar(int posx, int posy, int Player, int Type)
 {
+	const PlayerStruct& nativePlayer = (*TAmainStruct_PtrPtr)->Players[Player];
+	const bool nativeEconomy = ResourceBarsAI(nativePlayer);
+	const PlayerResourcesStruct& res = nativePlayer.PlayerRes;
+	const float energy = nativeEconomy ? res.fCurrentEnergy : DataShare->storedE[Player];
+	const float energyMax = nativeEconomy ? res.fMaxEnergyStorage : DataShare->storageE[Player];
+	const float metal = nativeEconomy ? res.fCurrentMetal : DataShare->storedM[Player];
+	const float metalMax = nativeEconomy ? res.fMaxMetalStorage : DataShare->storageM[Player];
 	if(SurfaceMemory == NULL)
 		return;
 
@@ -540,14 +560,14 @@ void CIncome::PaintStoragebar(int posx, int posy, int Player, int Type)
 
 	if(Type == EnergyBar)
 	{
-		if(DataShare->storageE[Player]!=0)
-			StorageBarLength = static_cast<int>((DataShare->storedE[Player] / DataShare->storageE[Player])*100);
+		if(energyMax!=0)
+			StorageBarLength = static_cast<int>((energy / energyMax)*100);
 		FillColor = 208U;
 	}
 	else if(Type == MetalBar)
 	{
-		if(DataShare->storageM[Player]!=0)
-			StorageBarLength = static_cast<int>((DataShare->storedM[Player] / DataShare->storageM[Player])*100);
+		if(metalMax!=0)
+			StorageBarLength = static_cast<int>((metal / metalMax)*100);
 		FillColor = 224U;
 	}
 	if ( StorageBarLength>99)
