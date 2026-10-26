@@ -381,3 +381,14 @@
 #if GIVE_RECEIVE_GUARD_ENABLE && !GIVE_COMMANDS_ENABLE
 #error "GIVE_RECEIVE_GUARD_ENABLE requires GIVE_COMMANDS_ENABLE 1 -- the guard is part of the GiveCommands module."
 #endif
+
+//
+// HealthBarColors: the unit health bar in five colours (20 % steps) instead of thirds. Visual and
+// client-local, nothing replicated. Tested on Escalation only; the other mods were not tested, so the
+// flag is 0 in their configs. The colour slots were chosen from Escalation's palettes. The address is not
+// what limits it: the same 19 bytes are in the other TotalA.exe builds checked, and the module refuses to
+// install unless they match. See HealthBarColors.h.
+//
+#ifndef HEALTH_BAR_COLORS_ENABLE
+#define HEALTH_BAR_COLORS_ENABLE 0
+#endif

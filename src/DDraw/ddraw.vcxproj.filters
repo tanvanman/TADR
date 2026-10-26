@@ -238,6 +238,9 @@
     <ClCompile Include="ReloadBars.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="HealthBarColors.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="AlliedBuildQueueSync.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -631,6 +634,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ReloadBars.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HealthBarColors.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="UnitStatusCounters.h">
