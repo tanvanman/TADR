@@ -350,7 +350,10 @@ NEW FEATURES IN DETAIL:
   Show selects Incomes, Totals, Both or Off. Separate Metal, Energy and Units
   checkboxes choose which replay totals are included. Metal and Energy measure
   total production; Units measures the current total, not units built or combat
-  strength. Totals are replay-only. With no totals selected, only incomes remain.
+  strength. Totals require an active recorded multiplayer replay. Live games,
+  including spectators, skirmish and campaigns, cannot display them. Drawing
+  and screen-copy checks also reject cached totals outside replay mode.
+  With no totals selected, only incomes remain.
 
   F4 cycles available views and the native scoreboard states. Over a single
   visible panel, mouse wheel up selects incomes and down selects totals. The

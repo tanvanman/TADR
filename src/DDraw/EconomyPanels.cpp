@@ -62,11 +62,20 @@ namespace
             sprintf_s(text, "%.0f%s", std::floor(value), suffix[unit]);
     }
 
+    // Replays use the multiplayer engine mode. Never treat a live skirmish
+    // or campaign as a replay, even if shared memory retains an old flag.
+    bool ReplaySession()
+    {
+        if (!DataShare->PlayingDemo || DataShare->TAProgress != TAInGame) return false;
+        const auto ta = *TAmainStruct_PtrPtr;
+        return ta && ta->GameingState_Ptr && ta->GameingState_Ptr->State == gameingstate::MULTI;
+    }
+
     bool Observer()
     {
         int original = LocalShare->OrgLocalPlayerID;
         auto ta = *TAmainStruct_PtrPtr;
-        return DataShare->PlayingDemo || (original >= 0 && original < 10 &&
+        return ReplaySession() || (original >= 0 && original < 10 &&
             ta->Players[original].PlayerInfo && (ta->Players[original].PlayerInfo->PropertyMask & WATCH));
     }
 
@@ -105,7 +114,7 @@ bool EconomyPanels::Contains(int x, int y) const
 {
     if (!UseNewBars()) return false;
     return (m_bars.visible && Inside(m_bars.rect, x, y)) ||
-        (DataShare->PlayingDemo && m_totals.visible && Inside(m_totals.rect, x, y));
+        (ReplaySession() && m_totals.visible && Inside(m_totals.rect, x, y));
 }
 
 void EconomyPanels::Sample()
@@ -215,7 +224,7 @@ void EconomyPanels::Layout()
     auto dialog = static_cast<Dialog*>(LocalShare->Dialog);
     RECT bounds = (*TAmainStruct_PtrPtr)->GameSreen_Rect;
     int width = bounds.right - bounds.left, height = bounds.bottom - bounds.top;
-    bool replay = DataShare->PlayingDemo != 0;
+    bool replay = ReplaySession() != 0;
     m_totalsMask = dialog ? (dialog->GetReplayTotalsMask() & 7) : 7;
     int groups = (m_totalsMask & 1 ? 1 : 0) + (m_totalsMask & 2 ? 1 : 0) + (m_totalsMask & 4 ? 1 : 0);
     int enabled = dialog ? (dialog->GetEconomyEnabledView() & 3) : Both;
@@ -406,7 +415,7 @@ void EconomyPanels::ResetPositions()
     m_enabledView = -1;
     auto dialog = static_cast<Dialog*>(LocalShare->Dialog);
     int available = dialog ? dialog->GetEconomyEnabledView() : Both;
-    if (!DataShare->PlayingDemo) available &= Incomes;
+    if (!ReplaySession()) available &= Incomes;
     m_displayMode = static_cast<DisplayMode>(available);
     PublishView();
     for (auto panel : { &m_bars, &m_totals })
@@ -610,6 +619,7 @@ void EconomyPanels::DrawBars()
 
 void EconomyPanels::DrawTotals()
 {
+    if (!ReplaySession()) return;
     DrawPanel(m_totals);
     if (m_totals.hidden) return;
     const char* titles[] = { "Total metal produced", "Total energy produced", "Total current units" };
@@ -656,7 +666,7 @@ void EconomyPanels::DrawTotals()
 
 void EconomyPanels::BlitPanel(Panel& panel, LPDIRECTDRAWSURFACE destination)
 {
-    if (!panel.visible) return;
+    if (!panel.visible || (&panel == &m_totals && !ReplaySession())) return;
     if (!panel.surface)
     {
         DDSURFACEDESC desc = {};
@@ -706,14 +716,14 @@ void EconomyPanels::Blit(LPDIRECTDRAWSURFACE destination, const RECT* legacyBoun
         return;
     }
     DWORD now = GetTickCount();
-    if (m_gameTime < 0 || ta->GameTime < m_gameTime || m_replay != (DataShare->PlayingDemo != 0))
+    if (m_gameTime < 0 || ta->GameTime < m_gameTime || m_replay != (ReplaySession() != 0))
     {
         m_bars.page = m_totals.page = 0;
         m_drag = nullptr;
         m_sampleTime = now - 250;
     }
     m_gameTime = ta->GameTime;
-    m_replay = DataShare->PlayingDemo != 0;
+    m_replay = ReplaySession() != 0;
     if (m_allPlayers.empty() || now - m_sampleTime >= 250) { Sample(); m_sampleTime = now; }
     Layout();
     if (m_bars.visible) DrawBars();
@@ -752,7 +762,7 @@ void EconomyPanels::ViewPlayer(int slot)
         if (following >= 0) SetReplayCameraFollowSlot(slot);
     }
     DeselectUnits(); UpdateSelectUnitEffect(); ApplySelectUnitMenu_Wapper();
-    const bool control = slot >= 0 ? bool(DataShare->PlayingDemo) :
+    const bool control = slot >= 0 ? bool(ReplaySession()) :
         LocalShare->OrgLocalPlayerID != ta->LocalHumanPlayer_PlayerID;
     ViewPlayerLos_Replay(slot < 0 ? 0 : slot, control, slot < 0);
 }
@@ -805,7 +815,7 @@ bool EconomyPanels::Message(UINT message, WPARAM wParam, LPARAM lParam)
         }
         auto dialog = static_cast<Dialog*>(LocalShare->Dialog);
         int enabled = dialog ? (dialog->GetEconomyEnabledView() & 3) : Both;
-        if (!DataShare->PlayingDemo) enabled &= Incomes;
+        if (!ReplaySession()) enabled &= Incomes;
         if (m_allPlayers.empty()) enabled &= ~Totals;
         if (m_players.empty()) enabled &= ~Incomes;
         if (!enabled) return false;
@@ -869,7 +879,7 @@ bool EconomyPanels::Message(UINT message, WPARAM wParam, LPARAM lParam)
             // Both already shows each view. Consume wheel input over either
             // panel without replacing it or changing its current page.
             if (m_displayMode == Both || m_displayMode == Hidden) return true;
-            if (m_enabledView == Both && m_totalsMask && DataShare->PlayingDemo &&
+            if (m_enabledView == Both && m_totalsMask && ReplaySession() &&
                 static_cast<Dialog*>(LocalShare->Dialog)->GetReplayTotalsEnabled() && !m_allPlayers.empty())
             {
                 // Keep the replacement under the pointer. Both single views
