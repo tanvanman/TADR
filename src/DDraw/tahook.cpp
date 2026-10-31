@@ -1527,10 +1527,14 @@ void CTAHook::CalculateRing()
 	//char *unittested = new char [0xffff];
 	//memset(unittested, 0, 0xffff);
 
-	int footx = TAdynmem->BeginUnitsArray_p [MouseOverUnit].UnitType->FootX + Spacing*2;
-	int footy = TAdynmem->BeginUnitsArray_p [MouseOverUnit].UnitType->FootY + Spacing*2;
-	int posx = TAdynmem->BeginUnitsArray_p [MouseOverUnit].XGridPos*16 - Spacing*16;
-	int posy =  TAdynmem->BeginUnitsArray_p [MouseOverUnit].YGridPos*16 - Spacing*16;
+	const UnitStruct& unit = TAdynmem->BeginUnitsArray_p[MouseOverUnit];
+	// TAG_Venom: use the placed footprint, baked with its build rotation.
+	// UnitType dimensions describe the original facing and may also be
+	// temporarily swapped for a different building's placement preview.
+	int footx = unit.SizeFootX + Spacing*2;
+	int footy = unit.SizeFootZ + Spacing*2;
+	int posx = unit.XGridPos*16 - Spacing*16;
+	int posy = unit.YGridPos*16 - Spacing*16;
 
 	//int x1 = posx;
 	//int y1 = posy;
