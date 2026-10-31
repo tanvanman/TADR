@@ -142,7 +142,7 @@
 // with "the lower UnitInGameIndex wins", so every client agrees on who holds a cell.
 // WIDER SCOPE THAN AreaDamageOverflow: this sits in the claim path used by every unit
 // type on both layers, not just aircraft. Class B patch.
-#define GRID_CLAIM_TIEBREAK_ENABLE 0
+#define GRID_CLAIM_TIEBREAK_ENABLE 1
 
 //
 // Percentage-based resource share thresholds -- see SharePercent.h and config.h for
