@@ -106,17 +106,7 @@ jobs:
           throw "$dll is missing. Recorder binaries are missing from the repository."
         }
         $v = (Get-Content src/Recorder/dist/VERSION -Raw).Trim()
-        "Committed recorder build: v$v" | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
-
-    - name: Check committed recorder version matches tag
-      if: startsWith(github.ref, 'refs/tags/')
-      shell: pwsh
-      run: |
-        $tag = "${{ github.ref_name }}" -replace '^v', ''
-        $v   = (Get-Content src/Recorder/dist/VERSION -Raw).Trim()
-        if ($tag -ne $v) {
-          throw "Tag '$tag' does not match committed recorder build 'v$v'. Rebuild the recorder, commit, then re-tag."
-        }
+        "Committed recorder build: v$v (versioned independently of the tdraw tag)" | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
 
     # One zip per mod carrying both DLLs, so a user installs a matched pair instead of
     # sourcing tdraw and the recorder from two separate downloads.

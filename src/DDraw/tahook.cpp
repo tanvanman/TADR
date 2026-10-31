@@ -20,6 +20,8 @@
 #include "buildghost.h"
 #include "AlliedBuildQueueSync.h"
 #include "ChatLayout.h"
+#include "CameraBounds.h"
+#include "SmallMapViewport.h"
 
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
@@ -390,6 +392,18 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 
 		if (TAInGame==DataShare->TAProgress)
 		{
+			// Click-snap must not issue an order from a black camera margin.
+			const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+			if (Msg == WM_LBUTTONDOWN && SmallMapCameraEnabled()
+				&& SmallMapViewport::Small(ta->MapSizeX, ta->MapSizeY, ta->GameScreenWidth, ta->GameScreenHeight))
+			{
+				const RECT& r = ta->GameSreen_Rect;
+				const int x = static_cast<short>(LOWORD(lParam)), y = static_cast<short>(HIWORD(lParam));
+				if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
+					&& !SmallMapViewport::ContainsScreen({r.left,r.top,r.right+1,r.bottom+1},
+						ta->EyeBallMapXPos, ta->EyeBallMapYPos, ta->MapSizeX, ta->MapSizeY, x, y))
+					return false;
+			}
 			switch(Msg)
 			{
 			case WM_KEYDOWN:

@@ -39,6 +39,19 @@
 #include "config_twilight.h"
 #endif
 
+// Keep looping menu audio in TA's tracked sound slots. Override per config if needed.
+#ifndef MENU_HUM_TRACKED_LOOPING
+#define MENU_HUM_TRACKED_LOOPING 1
+#endif
+
+// Every mod explicitly selects this simulation rule at build time.
+#ifndef ALLIED_PROJECTILE_COLLISION_ENABLE
+#error "config_*.h must define ALLIED_PROJECTILE_COLLISION_ENABLE"
+#endif
+#if ALLIED_PROJECTILE_COLLISION_ENABLE != 0 && ALLIED_PROJECTILE_COLLISION_ENABLE != 1
+#error "ALLIED_PROJECTILE_COLLISION_ENABLE must be 0 or 1"
+#endif
+
 //
 // Weather report rows.  WEATHER_REPORT is the master switch for the whole
 // top-of-screen overlay (wind / tidal / game time); these two select which of
@@ -51,6 +64,17 @@
 #endif
 #ifndef WEATHER_REPORT_TIDAL
 #define WEATHER_REPORT_TIDAL WEATHER_REPORT
+#endif
+
+//
+// Megamap nuke icon: a projectile is drawn with the nuke picture when its
+// weapon is cruise + targetable (+ stockpile when this is 1), or when it is an
+// interceptor.  TA:Zero's nukes are not stockpile weapons, so it sets this to 0
+// (tanvanman/TADR#31).  Display-only.  Defaulted so a config_*.h that predates
+// it keeps the old behaviour.
+//
+#ifndef MEGAMAP_NUKE_REQUIRES_STOCKPILE
+#define MEGAMAP_NUKE_REQUIRES_STOCKPILE 1
 #endif
 
 //
@@ -251,6 +275,39 @@
 #endif
 
 //
+// GroundToAirGuard: lets a ground CanGuard unit be given an explicit Guard order on a
+// flying ally (e.g. a ground constructor guarding/assisting an air constructor's
+// build) -- vanilla only allows this when the GUARDIAN flies. Reachable only through
+// the explicit Guard command; the Move-click-becomes-Guard convenience is patched to
+// keep refusing this one pairing. See GroundToAirGuard.h for the full derivation.
+//
+// Class B: two of the six sites change simulation behaviour (which orders can be
+// constructed and what the sim does with one), so every client in a game must run the
+// same build. Gated to Escalation only -- this project has verified these addresses
+// against Escalation's TotalA.exe alone. Every config_*.h defines this explicitly;
+// this fallback is only for a future one that forgets to.
+//
+//
+// VtolRepairBeamFix: stop an air constructor emitting the nanolathe beam while its
+// repair is not actually being paid for. MissionTick_VTOL_RepairUnit is the only
+// repair tick in the engine that ignores Unit_ApplyRepairHealProgress's return value
+// before spawning the beam; its own ground counterpart and both other repair ticks
+// test it and skip. One InlineSingleHook, redirecting to vanilla's own shared tail.
+//
+// Class B (uniform simulation change): the skipped region runs a COB script function
+// (UnitScript_QueryNanoPiece), so every client in a game must run the same build.
+// Compile-time only, no runtime switch. Addresses verified against Escalation's
+// TotalA.exe; see VtolRepairBeamFix.h for the full derivation.
+//
+#ifndef VTOL_REPAIR_BEAM_FIX_ENABLE
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 0
+#endif
+
+#ifndef GROUND_TO_AIR_GUARD_ENABLE
+#define GROUND_TO_AIR_GUARD_ENABLE 0
+#endif
+
+//
 // SharePercent: accept a `%` suffix on +setsharemetal / +setshareenergy
 // (e.g. `+setshareenergy 50%`) so the share threshold tracks a percentage of
 // max storage instead of a fixed absolute that never adjusts as storage
@@ -260,4 +317,67 @@
 //
 #ifndef SHARE_PERCENT_ENABLE
 #define SHARE_PERCENT_ENABLE 0
+#endif
+
+//
+// PatrolReclaimThreshold: +setreclaimmetal / +setreclaimenergy <0-100>[%] set, per player, the
+// storage level below which a patrolling constructor reclaims features (vanilla: 20%). Local
+// decision state, nothing replicated -- not a Class B patch. Escalation only: the addresses are
+// specific to that TotalA.exe and the module refuses to install unless every byte matches.
+// See PatrolReclaimThreshold.h.
+//
+#ifndef PATROL_RECLAIM_THRESHOLD_ENABLE
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 0
+#endif
+
+//
+// PatrolReclaimThreshold air gate: a vanilla air constructor on patrol has no "stock is high, do not
+// reclaim" check (a ground one does). 1 applies the ground rule to air constructors. THIS CHANGES
+// DEFAULT AIR-CONSTRUCTOR BEHAVIOUR for every player of the config, including units whose patrol
+// mode is Reclaim Only (the Hold Pos default), which vanilla never gated. Thresholds reset every
+// game; 100% for both resources restores the old behaviour (except while both stocks are exactly
+// full) and limits assisting to full energy. 0 leaves air patrol vanilla apart from honouring
+// typed thresholds. Requires PATROL_RECLAIM_THRESHOLD_ENABLE.
+//
+#ifndef PATROL_RECLAIM_AIR_GATE_ENABLE
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 0
+#endif
+#if PATROL_RECLAIM_AIR_GATE_ENABLE && !PATROL_RECLAIM_THRESHOLD_ENABLE
+#error "PATROL_RECLAIM_AIR_GATE_ENABLE requires PATROL_RECLAIM_THRESHOLD_ENABLE 1 -- the gate reads the per-player thresholds that module owns."
+#endif
+
+//
+// ShareSplit: the auto-share (the 2-second resource pulse of Share_AutoAllyResourcesAndMap) divides the surplus among
+// every eligible ally with free storage -- mutual allies that are less full than the sender -- in equal shares capped at
+// each ally's free storage, instead of sending all of it to the last qualifying slot. Local decision state: the amount
+// travels in the packet, so it is not a Class B patch and interoperates with unpatched clients.
+// Gated to Escalation as a staged rollout, not because the addresses differ: every relied-on byte was verified against
+// Escalation's TotalA.exe and is byte-identical in Cavedog v3.1; other shipped builds have not been checked. The module
+// refuses to install unless every byte matches. See ShareSplit.h.
+//
+#ifndef SHARE_SPLIT_ENABLE
+#define SHARE_SPLIT_ENABLE 0
+#endif
+
+//
+// GiveCommands: +givemetal / +giveenergy <player> <amount> and a fixed +give (allies only, capped at the giver's stock and
+// the receiver's free storage, with a chat line for every result). Local command, same transfer and packet as vanilla.
+// Gated and byte-verified like ShareSplit (staged rollout). See GiveCommands.h.
+//
+#ifndef GIVE_COMMANDS_ENABLE
+#define GIVE_COMMANDS_ENABLE 0
+#endif
+
+//
+// GiveCommands receive guard: the engine applies the amount of a received 0x16 resource packet without validating it. Two hooks
+// on the packet switch drop a packet whose amount is not positive and finite, as if it had not arrived. Protects the receiving
+// client only.
+// Gated and byte-verified like ShareSplit (staged rollout). Requires GIVE_COMMANDS_ENABLE (the code lives in GiveCommands.cpp).
+// See GiveCommands.h.
+//
+#ifndef GIVE_RECEIVE_GUARD_ENABLE
+#define GIVE_RECEIVE_GUARD_ENABLE 0
+#endif
+#if GIVE_RECEIVE_GUARD_ENABLE && !GIVE_COMMANDS_ENABLE
+#error "GIVE_RECEIVE_GUARD_ENABLE requires GIVE_COMMANDS_ENABLE 1 -- the guard is part of the GiveCommands module."
 #endif

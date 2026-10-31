@@ -4,6 +4,30 @@
 #include "tafunctions.h"
 #include "tamem.h"
 #include "whiteboard.h"
+#include "SmallMapViewport.h"
+#include "TenPlayerReplay.h"
+
+namespace
+{
+	// Allied view outlines are reconstructed locally from a shared centre, not
+	// from TA's own MinimapRect. Bound them to the actual picture, including
+	// letterboxing, rather than only to the surrounding 128x128 panel.
+	// Fix by TAG_Venom; the recorder's centre-only packet stays unchanged.
+	bool ClipSharedMapRect(RECT& rect, bool inclusive)
+	{
+		const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+		const short* origin = reinterpret_cast<const short*>(ta->data21);
+		const auto picture = SmallMapViewport::Intersect(
+			{origin[0], origin[1], origin[0] + ta->RadarPicSizeX, origin[1] + ta->RadarPicSizeY},
+			{0, 0, 128, 128});
+		const int lastPixel = inclusive ? 1 : 0;
+		const auto clipped = SmallMapViewport::Intersect(picture,
+			{rect.left, rect.top, rect.right + lastPixel, rect.bottom + lastPixel});
+		if (SmallMapViewport::Empty(clipped)) return false;
+		rect = {clipped.left, clipped.top, clipped.right - lastPixel, clipped.bottom - lastPixel};
+		return true;
+	}
+}
 
 #ifdef max
 #undef max
@@ -115,10 +139,11 @@ void CMapRect::LockBlit(char *VidBuf, int Pitch)
 		RECT Dest;
 		TAdynmemStruct * Ptr= *(TAdynmemStruct* *)0x00511de8;
 
-		for(int i=1; i<10; i++)
+		for(int i=TenPlayerReplay_HasPovMetadata() ? 0 : 1; i<10; i++)
 		{
+			const bool funnel = TenPlayerReplay_IsFunnelPlayer(&Ptr->Players[i]);
 			if((DataShare->allies[i] || DataShare->PlayingDemo|| (0!=(WATCH& (Ptr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))
-				&& DataShare->OtherMapX[i]!=-1 && DataShare->PlayerNames[i][0]!='\0')
+				&& DataShare->OtherMapX[i]!=-1 && (funnel || DataShare->PlayerNames[i][0]!='\0'))
 			{
 				Dest.left = static_cast<LONG>(((((float)(DataShare->OtherMapX[i]) / (float)(*MapSizeX))*MiniMapWidth) + XOffset) - Width/2);
 				Dest.top = static_cast<LONG>(((((float)(DataShare->OtherMapY[i]) / (float)(*MapSizeY))*MiniMapHeight) + YOffset) - Height/2);
@@ -128,11 +153,13 @@ void CMapRect::LockBlit(char *VidBuf, int Pitch)
 				if(DataShare->PlayingDemo
 					|| (0!=(WATCH& (Ptr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask))))
 				{
-					if(DataShare->LockOn==i)
+					if(ReplayCameraFollowSlot()==i)
 						((AlliesWhiteboard*)LocalShare->Whiteboard)->ScrollToCenter(DataShare->OtherMapX[i], DataShare->OtherMapY[i]);
 				}
 
 				char C = GetPlayerDotColor(i);
+				if (!ClipSharedMapRect(Dest, true))
+					continue;
 
 				WhiteBoard->DrawFreeLine(Dest.left, Dest.top, Dest.right, Dest.top, C, VidBuf, Pitch);
 				WhiteBoard->DrawFreeLine(Dest.right, Dest.top, Dest.right, Dest.bottom, C, VidBuf, Pitch);
@@ -176,6 +203,8 @@ void CMapRect::Blit(LPDIRECTDRAWSURFACE DestSurf)
 				Dest.top = static_cast<LONG>(((((float)(DataShare->OtherMapY[i]) / (float)(*MapSizeY))*MiniMapHeight) + YOffset) - Height/2);
 				Dest.right = Dest.left + Width;
 				Dest.bottom = Dest.top + Height;
+				if (!ClipSharedMapRect(Dest, false))
+					continue;
 
 				if(DestSurf->Blt(&Dest, lpMapRect, NULL, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx)!=DD_OK)
 				{

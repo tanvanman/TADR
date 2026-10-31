@@ -17,6 +17,8 @@
 #include "TAConfig.h"
 #include "LimitCrack.h"
 #include "IncreaseCompositeSize.h"
+#include "CameraBounds.h"
+#include "SmallMapViewport.h"
 
 #include "ddraw.h"
 #include "Profiler.h"
@@ -33,6 +35,211 @@ TABugFixing * FixTABug;
 
 namespace
 {
+    static_assert(offsetof(TAdynmemStruct, MapSizeX)==0x1422B && offsetof(TAdynmemStruct, MapSizeY)==0x1422F, "Camera map extents");
+    static_assert(offsetof(TAdynmemStruct, EyeBallMapXPos)==0x1431F && offsetof(TAdynmemStruct, MapXScrollingTo)==0x14327, "Camera coordinates");
+    static_assert(offsetof(TAdynmemStruct, GameScreenWidth)==0x37E37 && offsetof(TAdynmemStruct, GameScreenHeight)==0x37E3B, "Camera viewport spans");
+    static_assert(offsetof(TAdynmemStruct, BuildSpotState)==0x2CC6 && offsetof(TAdynmemStruct, TILE_SET)==0x14283, "Small-map input and tile bank");
+    static_assert(offsetof(OFFSCREEN, lpSurface)==0x0C && offsetof(OFFSCREEN, ScreenRect)==0x1C, "Indexed framebuffer ABI");
+    BYTE CameraBoundsCode[sizeof(CameraBounds::Sites) / sizeof(CameraBounds::Sites[0])][32];
+    BYTE SmallMapPhaseCode[32];
+    const BYTE SmallMapPhaseExpected[] = {0x8B,0x0D,0xE8,0x1D,0x51,0x00};
+    bool SmallMapHooksInstalled = false;
+
+    bool HasSmallMap(const TAdynmemStruct* ta)
+    {
+        return ta && SmallMapViewport::Small(ta->MapSizeX, ta->MapSizeY,
+            static_cast<int>(ta->GameScreenWidth), static_cast<int>(ta->GameScreenHeight));
+    }
+
+    void __stdcall ClampCurrentCamera()
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        CameraBounds::ClampPair(ta->EyeBallMapXPos, ta->EyeBallMapYPos, ta->MapSizeX, ta->MapSizeY,
+            ta->GameScreenWidth, ta->GameScreenHeight);
+    }
+    void __stdcall ClampDesiredCamera()
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        CameraBounds::ClampPair(ta->MapXScrollingTo, ta->MapYScrollingTo, ta->MapSizeX, ta->MapSizeY,
+            ta->GameScreenWidth, ta->GameScreenHeight);
+    }
+
+    // Reset/save/mode transitions can leave a zero destination on a centred
+    // axis. Normalize both positions before the glide compares them, so an
+    // idle camera does not try to approach zero again on every simulation tick.
+    void __stdcall NormalizeSmallMapState()
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta)) return;
+        const int oldX=ta->EyeBallMapXPos, oldY=ta->EyeBallMapYPos;
+        ClampCurrentCamera();
+        ClampDesiredCamera();
+        if(oldX!=ta->EyeBallMapXPos || oldY!=ta->EyeBallMapYPos)
+        {
+            *reinterpret_cast<BYTE*>(reinterpret_cast<BYTE*>(ta)+0x142F1) |= 2;
+            ta->LosType &= ~8u;
+        }
+    }
+
+    SmallMapViewport::Rect WorldView(const TAdynmemStruct* ta)
+    {
+        const RECT& r = ta->GameSreen_Rect;
+        return {r.left, r.top, r.right + 1, r.bottom + 1};
+    }
+    SmallMapViewport::Surface PixelSurface(OFFSCREEN* surface)
+    {
+        const RECT& r = surface->ScreenRect;
+        return {static_cast<BYTE*>(surface->lpSurface), surface->Width, surface->Height,
+            surface->lPitch, {r.left, r.top, r.right + 1, r.bottom + 1}};
+    }
+
+    // Small-map terrain fix by TAG_Venom. Clip source rows/columns before
+    // reading tile IDs: clipping only the destination allowed horizontal wrap.
+    void __stdcall DrawSmallMapTerrain(OFFSCREEN* surface)
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta))
+        {
+            reinterpret_cast<void (__stdcall*)(OFFSCREEN*)>(0x00483FA0u)(surface);
+            return;
+        }
+        const DWORD* bank = reinterpret_cast<const DWORD*>(ta->TILE_SET);
+        const WORD* ids = *reinterpret_cast<const WORD* const*>(reinterpret_cast<const BYTE*>(ta) + 0x1428B);
+        SmallMapViewport::Terrain terrain = {ids, bank ? reinterpret_cast<const BYTE*>(bank[1]) : NULL,
+            ta->FeatureMapSizeX / 2, ta->FeatureMapSizeY / 2, bank ? bank[0] : 0,
+            ta->MapSizeX, ta->MapSizeY};
+        SmallMapViewport::DrawTerrain(PixelSurface(surface), WorldView(ta),
+            ta->EyeBallMapXPos, ta->EyeBallMapYPos, terrain);
+    }
+
+    // This call is after world/fog/selection drawing and before HUD drawing.
+    // Mask only unused world margins, never the sidebar, minimap or resource UI.
+    void __stdcall DrawStripWithSmallMapMargins(OFFSCREEN* surface)
+    {
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (HasSmallMap(ta))
+            SmallMapViewport::ClearMargins(PixelSurface(surface), WorldView(ta),
+                ta->EyeBallMapXPos, ta->EyeBallMapYPos, ta->MapSizeX, ta->MapSizeY);
+        reinterpret_cast<void (__stdcall*)(OFFSCREEN*)>(0x004689C0u)(surface);
+    }
+
+    void __stdcall BuildSmallMapFogCache()
+    {
+        reinterpret_cast<void (__stdcall*)()>(0x004843C0u)();
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta)) return;
+        // Stock extends missing corners at the screen borders. A centred map
+        // needs that same extension at its actual grid borders inside the view.
+        const int* cache = *reinterpret_cast<const int* const*>(reinterpret_cast<const BYTE*>(ta)+0x1421F);
+        if (cache)
+            SmallMapViewport::ExtendFogEdges(reinterpret_cast<BYTE*>(cache[0]),cache[1],cache[2],cache[3],
+                ta->EyeBallMapXPos,ta->EyeBallMapYPos,ta->FeatureMapSizeX/2,ta->FeatureMapSizeY/2);
+    }
+
+    void __stdcall UpdateSmallMapMinimap(int* rect)
+    {
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta))
+        {
+            reinterpret_cast<void (__stdcall*)(int*)>(0x00466B70u)(rect);
+            return;
+        }
+        const BYTE* state = reinterpret_cast<const BYTE*>(ta);
+        SmallMapViewport::MinimapAxis(rect[0],rect[2],*reinterpret_cast<const short*>(state+0x142E7),
+            ta->RadarPicSizeX,ta->EyeBallMapXPos,ta->GameScreenWidth,ta->MapSizeX);
+        SmallMapViewport::MinimapAxis(rect[1],rect[3],*reinterpret_cast<const short*>(state+0x142E9),
+            ta->RadarPicSizeY,ta->EyeBallMapYPos,ta->GameScreenHeight,ta->MapSizeY);
+    }
+
+    void __stdcall ProjectSmallMapPointer(int x, int y, void* position)
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (HasSmallMap(ta))
+            ta->BuildSpotState = SmallMapViewport::PointerFlags(ta->BuildSpotState,
+                x, y, ta->MapSizeX, ta->MapSizeY);
+        reinterpret_cast<void (__stdcall*)(int, int, void*)>(0x00484B50u)(x, y, position);
+    }
+
+    int __stdcall SmallMapBuildPreviewContains(const RECT* rect, int x, int y)
+    {
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta))
+            return reinterpret_cast<int (__stdcall*)(const RECT*,int,int)>(0x004B6720u)(rect,x,y);
+        return SmallMapViewport::ContainsScreen(WorldView(ta),ta->EyeBallMapXPos,ta->EyeBallMapYPos,
+            ta->MapSizeX,ta->MapSizeY,x,y) ? 1 : 0;
+    }
+
+    // Preserve the original ECX receiver/flag word and four-byte stack cleanup.
+    // Margin clicks must not turn the clamped height-resolver point into orders.
+    void __fastcall DispatchSmallMapCommand(void* context, void*, int* message)
+    {
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (HasSmallMap(ta) && (ta->BuildSpotState & 3) == 0) return;
+        reinterpret_cast<void (__thiscall*)(void*, int*)>(0x00498F70u)(context, message);
+    }
+
+    struct SmallMapCall
+    {
+        DWORD address;
+        BYTE expected[5];
+        void* replacement;
+        BYTE patch[5];
+    };
+    SmallMapCall SmallMapCalls[] = {
+        // The clamp at 0041C3C6 always resumes at 0041C43C; its other
+        // minimap CALL at 0041C426 is bypassed and must remain untouched.
+        {0x0041C442u, {0xE8,0x29,0xA7,0x04,0x00}, reinterpret_cast<void*>(&UpdateSmallMapMinimap)},
+        {0x00468DB0u, {0xE8,0xEB,0xB1,0x01,0x00}, reinterpret_cast<void*>(&DrawSmallMapTerrain)},
+        {0x004848FAu, {0xE8,0xC1,0xFA,0xFF,0xFF}, reinterpret_cast<void*>(&BuildSmallMapFogCache)},
+        {0x00469F9Fu, {0xE8,0x1C,0xEA,0xFF,0xFF}, reinterpret_cast<void*>(&DrawStripWithSmallMapMargins)},
+        {0x00469DF6u, {0xE8,0x25,0xC9,0x04,0x00}, reinterpret_cast<void*>(&SmallMapBuildPreviewContains)},
+        {0x00498EF9u, {0xE8,0x52,0xBC,0xFE,0xFF}, reinterpret_cast<void*>(&ProjectSmallMapPointer)},
+        {0x004995B3u, {0xE8,0xB8,0xF9,0xFF,0xFF}, reinterpret_cast<void*>(&DispatchSmallMapCommand)}
+    };
+    // Map-selection preview fix by TAG_Venom.
+    const DWORD MapPreviewCopyCallAddr = 0x004666C0u;
+    // PUSH 0, PUSH 0, LEA EDX,[ESP+68], PUSH EDI, PUSH EDX, CALL DrawFrame.
+    const BYTE MapPreviewCopyContext[] = {
+        0x6A, 0x00, 0x6A, 0x00, 0x8D, 0x54, 0x24, 0x68, 0x57, 0x52,
+        0xE8, 0xCB, 0x18, 0x05, 0x00
+    };
+    BYTE MapPreviewCopyCallPatch[5];
+
+    static_assert(sizeof(GAFFrame) == 0x18, "Retail frame ABI");
+    static_assert(offsetof(GAFFrame, Background) == 0x08, "Retail color key ABI");
+    static_assert(offsetof(GAFFrame, PtrFrameBits) == 0x10, "Retail pixels ABI");
+    static_assert(sizeof(OFFSCREEN) == 0x30, "Retail surface ABI");
+
+    // This CALL alone is intercepted. The stock allocator leaves frame+08
+    // uninitialized; DrawFrame uses it as a color key, leaving matching pixels
+    // in the temporary image untouched. Preserve every index before stock scaling.
+    void __stdcall CopyMapPreviewFrame(OFFSCREEN* destination, GAFFrame* source,
+        int x, int y)
+    {
+        typedef void (__stdcall *DrawFrameFn)(OFFSCREEN*, GAFFrame*, int, int);
+        const DrawFrameFn original = reinterpret_cast<DrawFrameFn>(0x004B7F90u);
+        const bool expected = destination && source && destination->lpSurface &&
+            source->PtrFrameBits && x == 0 && y == 0 && source->xPosition == 0 &&
+            source->yPosition == 0 && source->Compressed == 0 && source->FramePointers == 0 &&
+            source->Width > 0 && source->Height > 0 &&
+            destination->Width == source->Width && destination->Height == source->Height &&
+            destination->lPitch >= source->Width &&
+            destination->ScreenRect.left == 0 && destination->ScreenRect.top == 0 &&
+            destination->ScreenRect.right == source->Width - 1 &&
+            destination->ScreenRect.bottom == source->Height - 1;
+        if (!expected)
+        {
+            original(destination, source, x, y);
+            return;
+        }
+
+        BYTE* output = static_cast<BYTE*>(destination->lpSurface);
+        for (int row = 0; row < source->Height; ++row)
+            std::memcpy(output + static_cast<size_t>(row) * destination->lPitch,
+                source->PtrFrameBits + static_cast<size_t>(row) * source->Width,
+                source->Width);
+    }
+
 	const DWORD AntiNukeTargetSearchAddr = 0x0049D120u;
 	const BYTE AntiNukeTargetSearchExpected[5] = { 0x8B, 0x44, 0x24, 0x08, 0x53 };
 	BYTE AntiNukeTargetSearchPatch[5];
@@ -2359,10 +2566,132 @@ int __stdcall NewChatTextGuardProc(PInlineX86StackBuffer X86StrackBuffer)
     return X86STRACKBUFFERCHANGE;
 }
 
+static const unsigned int ReserveLoopingSoundSlotAddr = 0x004CF5B2;
+static const BYTE ReserveLoopingSoundSlotBytes[] = { 0x8B, 0x46, 0x30, 0x8B, 0x4E, 0x2C };
+static const DWORD SoundBufferSlotCount = 32; // pBufferSlots_32 has 32 entries.
+static const DWORD DSoundPlayLoopingAddr = 0x0051FF48; // Used for DSBPLAY_LOOPING at 0x004CF766.
+
+static int __stdcall ReserveLoopingSoundSlotProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (!*reinterpret_cast<const DWORD*>(DSoundPlayLoopingAddr))
+		return 0;
+
+	const DWORD self = X86StrackBuffer->Esi;
+	X86StrackBuffer->Eax = *reinterpret_cast<const DWORD*>(self + 0x30);
+	const DWORD maxChannels = *reinterpret_cast<const DWORD*>(self + 0x2C);
+	X86StrackBuffer->Ecx = maxChannels > SoundBufferSlotCount
+		? SoundBufferSlotCount : maxChannels;
+	X86StrackBuffer->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(0x004CF5B8);
+	return X86STRACKBUFFERCHANGE;
+}
+
+bool SmallMapCameraEnabled()
+{
+    return SmallMapHooksInstalled;
+}
+
 TABugFixing::TABugFixing ()
 {
+    // Camera, bounded terrain, fog edges, margins, minimap and input are one guarded
+    // installation. A centred origin must never reach the unbounded stock pass.
+    bool cameraBoundsMatch = true;
+    for (const auto& site : CameraBounds::Sites)
+    {
+        cameraBoundsMatch = cameraBoundsMatch && CameraBounds::Matches(site,
+            reinterpret_cast<const void*>(site.calculation))
+            && CameraBounds::MatchesContinuation(site,reinterpret_cast<const void*>(site.continuation));
+    }
+    for (const auto& site : SmallMapCalls)
+        cameraBoundsMatch = cameraBoundsMatch
+            && memcmp(reinterpret_cast<const void*>(site.address), site.expected, sizeof(site.expected)) == 0;
+    cameraBoundsMatch = cameraBoundsMatch
+        && memcmp(reinterpret_cast<const void*>(0x0041CA10u), SmallMapPhaseExpected, sizeof(SmallMapPhaseExpected)) == 0;
+    if (cameraBoundsMatch)
+    {
+        for (unsigned i = 0; i < sizeof(CameraBounds::Sites) / sizeof(CameraBounds::Sites[0]); ++i)
+        {
+            const auto& site = CameraBounds::Sites[i];
+            CameraBounds::BuildTrampoline(CameraBoundsCode[i],
+                reinterpret_cast<DWORD>(site.current ? &ClampCurrentCamera : &ClampDesiredCamera),
+                site.continuation);
+        }
+        DWORD oldProtection;
+        CameraBounds::BuildTrampoline(SmallMapPhaseCode, reinterpret_cast<DWORD>(&NormalizeSmallMapState),
+            0x0041CA16u, SmallMapPhaseExpected, sizeof(SmallMapPhaseExpected));
+        if (VirtualProtect(CameraBoundsCode, sizeof(CameraBoundsCode), PAGE_EXECUTE_READWRITE,
+            &oldProtection) && VirtualProtect(SmallMapPhaseCode, sizeof(SmallMapPhaseCode),
+            PAGE_EXECUTE_READWRITE, &oldProtection))
+        {
+            const size_t firstCameraHook=m_hooks.size();
+            FlushInstructionCache(GetCurrentProcess(), CameraBoundsCode, sizeof(CameraBoundsCode));
+            FlushInstructionCache(GetCurrentProcess(), SmallMapPhaseCode, sizeof(SmallMapPhaseCode));
+            for (unsigned i = 0; i < sizeof(CameraBounds::Sites) / sizeof(CameraBounds::Sites[0]); ++i)
+            {
+                const auto& site = CameraBounds::Sites[i];
+                const DWORD address = site.calculation;
+                m_hooks.push_back(std::make_unique<SingleHook>(address, 6,
+                    INLINE_SINGLEJMP, CameraBoundsCode[i]));
+                FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<void*>(address), 6);
+            }
+            for (auto& site : SmallMapCalls)
+            {
+                site.patch[0] = 0xE8;
+                const DWORD displacement = reinterpret_cast<DWORD>(site.replacement) - (site.address + 5);
+                memcpy(site.patch + 1, &displacement, sizeof(displacement));
+                m_hooks.push_back(std::make_unique<SingleHook>(site.address, sizeof(site.patch),
+                    INLINE_UNPROTECTEVINMENT, site.patch));
+                FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<void*>(site.address), sizeof(site.patch));
+            }
+            m_hooks.push_back(std::make_unique<SingleHook>(0x0041CA10u, sizeof(SmallMapPhaseExpected),
+                INLINE_SINGLEJMP, SmallMapPhaseCode));
+            FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<void*>(0x0041CA10u), sizeof(SmallMapPhaseExpected));
+            bool installed=true;
+            for(size_t i=firstCameraHook;i<m_hooks.size();++i)
+            {
+                const SingleHook* hook=m_hooks[i].get();
+                installed = installed && memcmp(hook->m_AddrToHook,hook->m_NewBytes_Pbyte,hook->m_LenToModify_Dw)==0;
+            }
+            if(installed) SmallMapHooksInstalled=true;
+            else
+            {
+                m_hooks.resize(firstCameraHook); // restore every original site on a failed write
+                FlushInstructionCache(GetCurrentProcess(),NULL,0);
+            }
+        }
+    }
+
+    if (memcmp(reinterpret_cast<const void*>(MapPreviewCopyCallAddr - 10u),
+        MapPreviewCopyContext, sizeof(MapPreviewCopyContext)) == 0)
+    {
+        MapPreviewCopyCallPatch[0] = 0xE8;
+        *reinterpret_cast<DWORD*>(MapPreviewCopyCallPatch + 1) =
+            reinterpret_cast<DWORD>(&CopyMapPreviewFrame) - (MapPreviewCopyCallAddr + 5u);
+        m_hooks.push_back(std::make_unique<SingleHook>(MapPreviewCopyCallAddr,
+            sizeof(MapPreviewCopyCallPatch), INLINE_UNPROTECTEVINMENT, MapPreviewCopyCallPatch));
+    }
 
 	MaxUnitID= 0;
+	// Unlimited mixing deliberately allows untracked one-shots, but a looping
+	// sound needs a tracked slot so TA's stop-all can find it. The old hook at
+	// 0x004CF5B8 covered the eviction loop's back-edge target at 0x004CF5BC.
+	// This site ends before the comparison and leaves that target untouched.
+	// The earlier looping-sound check at 0x004CF590 rules out pinned slots,
+	// so TA's existing eviction path still has a non-looping slot to remove.
+#if MENU_HUM_TRACKED_LOOPING
+	if (memcmp(reinterpret_cast<const void*>(ReserveLoopingSoundSlotAddr),
+		ReserveLoopingSoundSlotBytes, sizeof(ReserveLoopingSoundSlotBytes)) == 0)
+	{
+		m_hooks.push_back(std::make_unique<InlineSingleHook>(ReserveLoopingSoundSlotAddr,
+			sizeof(ReserveLoopingSoundSlotBytes), INLINE_5BYTESLAGGERJMP,
+			ReserveLoopingSoundSlotProc));
+	}
+	else
+	{
+		IDDrawSurface::OutptFmtTxt(
+			"[MenuHum] SKIPPED sound hook: bytes at 0x%08X not stock",
+			ReserveLoopingSoundSlotAddr);
+	}
+#endif
 
 	NullUnitDeathVictim= NULL;
 	CircleRadius= NULL;

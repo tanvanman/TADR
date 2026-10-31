@@ -48,10 +48,12 @@ class CIncome
 
     LPDIRECTDRAWSURFACE lpIncomeSurf;
     unsigned int BlitState;
+    bool m_followPulseOn = false;
     int BackgroundType;
 
     int ShowAllyIncome();
     int ShowAllIncome();
+    void SelectReplayPlayer(int slot);
 
     void PaintStoragebar(int posx, int posy, int Player, int Type);
     LPVOID SurfaceMemory;
@@ -64,6 +66,7 @@ class CIncome
 	int DrawMinimiseWidget(int posx, int posy, char Color);
 	int DrawMinimiseWidgetTooltip(int posx, int posy, char Color);
     void FillRect(char Color);
+    int m_replayPlayers[10] = {};
     bool First;
     int posX;
     int posY;
