@@ -80,7 +80,7 @@
 // ~32 covers a whole attack-run overshoot; 1-3 covers only the immediate edge.
 // Compile-time only, deliberately -- it decides who can shoot what, so a per-machine
 // override would be a mixed-fleet vector.  See OFFMAP_AIRCRAFT.md.
-#define OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES 1
+#define OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES 32
 
 
 //
@@ -127,7 +127,7 @@
 // Lets one explosion damage every airborne unit on a cell instead of only the one
 // holding the cell's air slot. Air-only; ground/naval splash is unchanged.
 // Class B patch: every player must run the same build, old demos will not replay.
-#define AREA_DAMAGE_OVERFLOW_ENABLE 0
+#define AREA_DAMAGE_OVERFLOW_ENABLE 1
 
 // 1 = dedup victims with no cap, which also repairs vanilla's 20-victim overflow bug
 //     (unit 21+ otherwise takes one blast once per cell it occupies).
