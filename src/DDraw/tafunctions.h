@@ -275,7 +275,7 @@ extern _DPlayAddNewPlayer DPlayAddNewPlayer;
 typedef void(__stdcall* _battleroom_OnCommand)(GUIInfo *guiInfo);
 extern _battleroom_OnCommand battleroom_OnCommand;
 
-int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl= FALSE);
+int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl= FALSE, BOOL OriginalCamera= FALSE);
 int UpdateTAProcess (void);
 void SendOrder (unsigned int TAX, unsigned int TAY, unsigned int TAZ, int OrderType, bool Shift);
 void SendOrder(UnitStruct* unit, unsigned int TAX, unsigned int TAY, unsigned int TAZ, UnitStruct* target, ordertype::ORDERTYPE orderType, int orCobIndex, bool shift);

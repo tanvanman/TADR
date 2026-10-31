@@ -345,6 +345,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="UnitIdentity.cpp" />
     <ClCompile Include="NotToAir.cpp" />
     <ClCompile Include="OffMapAircraft.cpp" />
+    <ClCompile Include="AlliedProjectileCollision.cpp" />
     <ClCompile Include="SurfaceFire.cpp" />
     <ClCompile Include="TerrainFireGate.cpp" />
     <ClCompile Include="AirCorpseFall.cpp" />
@@ -406,6 +407,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="GroundToAirGuard.h" />
     <ClInclude Include="VtolRepairBeamFix.h" />
     <ClInclude Include="PatrolReclaimThreshold.h" />
+    <ClInclude Include="ShareSplit.h" />
+    <ClInclude Include="GiveCommands.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="config_prota.h" />
     <ClInclude Include="config_ota.h" />
@@ -435,6 +438,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="GroundToAirGuard.cpp" />
     <ClCompile Include="VtolRepairBeamFix.cpp" />
     <ClCompile Include="PatrolReclaimThreshold.cpp" />
+    <ClCompile Include="ShareSplit.cpp" />
+    <ClCompile Include="GiveCommands.cpp" />
     <ClCompile Include="TenPlayerReplay.cpp" />
     <ClCompile Include="TPacket.cpp" />
     <ClCompile Include="UnitIcon.cpp" />
@@ -613,6 +618,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="UnitLimit.h" />
     <ClInclude Include="UnitTypeLimit.h" />
     <ClInclude Include="OffMapAircraft.h" />
+    <ClInclude Include="AlliedProjectileCollision.h" />
     <ClInclude Include="unitrotate.h" />
     <ClInclude Include="buildghost.h" />
     <ClInclude Include="whiteboard.h" />

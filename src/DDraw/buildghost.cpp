@@ -11,6 +11,8 @@
 #include "UnitDefExtensions.h"
 #include "hook/etc.h"
 #include "hook/hook.h"
+#include "CameraBounds.h"
+#include "SmallMapViewport.h"
 
 #include <cctype>
 #include <climits>
@@ -953,6 +955,11 @@ void CBuildGhost::RenderNanoframeGhost()
         long mx = ta->CurtMousePostion.x;
         long my = ta->CurtMousePostion.y;
         if (mx < gs.left || mx >= gs.right || my < gs.top || my >= gs.bottom)
+            return;
+        if (SmallMapCameraEnabled()
+            && SmallMapViewport::Small(ta->MapSizeX,ta->MapSizeY,ta->GameScreenWidth,ta->GameScreenHeight)
+            && !SmallMapViewport::ContainsScreen({gs.left,gs.top,gs.right+1,gs.bottom+1},
+                ta->EyeBallMapXPos,ta->EyeBallMapYPos,ta->MapSizeX,ta->MapSizeY,mx,my))
             return;
     }
 

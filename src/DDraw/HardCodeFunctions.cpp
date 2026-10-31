@@ -2,14 +2,16 @@
 #include "iddrawsurface.h"
 #include "tamem.h"
 #include "tafunctions.h"
+#include "TenPlayerReplay.h"
 #include "stdio.h"
+#include "CameraBounds.h"
 
 #ifdef min
 #undef min
 #endif
 #include <algorithm>
 
-int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl)
+int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl, BOOL OriginalCamera)
 {
 	TAdynmemStruct * PTR1 = *(TAdynmemStruct * *)0x511de8;
 
@@ -20,7 +22,7 @@ int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl)
 	//PTR1->LOS_Sight_PlayerID= 0;
 	char Curt_LOS_Sight_PlayerID= PTR1->LOS_Sight_PlayerID;
 
-	if (PlayerAryIndex<10
+	if (PlayerAryIndex>=0 && PlayerAryIndex<10
 		&&(0!=PTR1->Players[PlayerAryIndex].PlayerActive)
 		&& (10!=PTR1->Players[PlayerAryIndex].PlayerAryIndex))
 	{//valid player ID
@@ -31,7 +33,9 @@ int ViewPlayerLos_Replay (int PlayerAryIndex, BOOL HaveControl)
 			|| (Player_RemoteHuman==CurtPlayerType)
 			|| (Player_RemoteAI==CurtPlayerType))
 		{
-			if (0==PlayerAryIndex)
+			if (OriginalCamera || (PlayerAryIndex == 0 &&
+				TenPlayerReplay_IsFunnelPlayer(&PTR1->Players[LocalShare->OrgLocalPlayerID]) &&
+				!TenPlayerReplay_HasPovMetadata()))
 			{//back to my view
 				
 				PlayerAryIndex= LocalShare->OrgLocalPlayerID;
@@ -283,16 +287,16 @@ bool MatchInTypeAry (WORD ID, DWORD SelectedUnitTypeIDAry_Dw[])
 
 int GetMaxScrollX()
 {
-	int *PTR = (int*)0x00511de8;
-	int *MapSizeX = (int*)(*PTR + 0x1422b);
-	return *MapSizeX - (LocalShare->ScreenWidth-128);
+	const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	const int maximum = CameraBounds::Maximum(ta->MapSizeX, static_cast<int>(ta->GameScreenWidth));
+	return SmallMapCameraEnabled() || maximum > 0 ? maximum : 0;
 }
 
 int GetMaxScrollY()
 {
-	int *PTR = (int*)0x00511de8;
-	int *MapSizeY = (int*)(*PTR + 0x1422f);
-	return *MapSizeY - (LocalShare->ScreenHeight-64);
+	const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	const int maximum = CameraBounds::Maximum(ta->MapSizeY, static_cast<int>(ta->GameScreenHeight));
+	return SmallMapCameraEnabled() || maximum > 0 ? maximum : 0;
 }
 
 void ScrollToCenter(int x, int y)
@@ -520,7 +524,11 @@ BOOL IsWatchingOtherPlayerPov (void)
 	{// no fog of war at all -- nothing is being hidden from anyone
 		return FALSE;
 	}
-	return PTR1->LOS_Sight_PlayerID!=LocalShare->OrgLocalPlayerID;
+	if (TenPlayerReplay_IsFunnelPlayer(&PTR1->Players[LocalShare->OrgLocalPlayerID]) &&
+		!TenPlayerReplay_HasPovMetadata())
+		return PTR1->LOS_Sight_PlayerID!=LocalShare->OrgLocalPlayerID;
+	return DataShare->PlayingDemo ||
+		(0!=(WATCH & PTR1->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask));
 }
 
 void GetWeatherReport(int& _solar, int& windPower, int & windPowerMin, int & windPowerMax, int& tidalPower)
