@@ -150,6 +150,12 @@ END
 
 
 
+MENUBUTTON RCDATA "resources/default/bitmaps/MenuButton.pcx"
+PAGEPREVIOUS RCDATA "resources/default/bitmaps/ARMPREV.pcx"
+PAGENEXT RCDATA "resources/default/bitmaps/ARMNEXT.pcx"
+STYLESELECTOR RCDATA "resources/default/bitmaps/StyleSelector.pcx"
+VIEWSELECTOR RCDATA "resources/default/bitmaps/ViewSelector.pcx"
+
 #endif    // 瑞典语(瑞典) resources
 /////////////////////////////////////////////////////////////////////////////
 

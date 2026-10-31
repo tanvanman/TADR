@@ -22,6 +22,7 @@ public:
 	virtual void DoDraw(DialogBase*) = 0;
 	virtual void RegistryRead(HKEY hKey) { }
 	virtual void RegistryWrite(HKEY hKey) { }
+	virtual void CancelInteraction() { m_focused = false; }
 
 	int m_x;
 	int m_y;
@@ -30,4 +31,5 @@ public:
 	bool m_focused;
 	bool m_disabled;
 	bool m_hidden;
+    bool m_dimmed = false;
 };
