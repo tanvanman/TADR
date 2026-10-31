@@ -54,7 +54,7 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   wrecks of aircraft killed over land fall to the ground      n     y     n      n     n      n      n
   stockpile build-percent / weapon-slot crash guard  [4]      n     y     n      n     n      n      n
   COB opcode jump table (speed only, same behaviour)  [4]     n     y     n      n     n      n      n
-  allied queued-build overlays  [5]                           y     n     n      n     n      n      n
+  allied queued-build overlays                                y     n     n      n     n      n      n
 
   [1] the thresholds also gate air construction units, which vanilla never gated at all --
       read NEW FEATURES IN DETAIL before enabling this for a new mod
@@ -64,7 +64,6 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   [3] tdraw-escalation.zip additionally runs repair and self-heal at 3x the fixed rate
   [4] a fix, off elsewhere only because its engine addresses have not been re-verified
       against the other mods' TotalA.exe; it will be turned on as that is done
-  [5] demand-driven sharing is enabled for ProTA; other mods remain a per-build choice
 
 
 INSTALLATION
@@ -87,7 +86,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
-- Re-enable allied queued-build overlays for ProTA with requested, paced queue changes (thanks TAG_Venom)
+- Optimise allied queued-build overlays with on-demand, paced queue updates (thanks TAG_Venom)
 - Restore the tenth replay player's POV, camera follow and starting allies (thanks TAG_Venom)
 - Show allied AI resource bars in skirmish (thanks TAG_Venom)
 - Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
@@ -946,26 +945,21 @@ NEW FEATURES IN DETAIL:
   nonmobile building placements are shared per player; mobile factory products
   and their production counts are not part of this overlay.
 
-  Enabled by default for ProTA. Other mods retain ALLIED_BUILD_QUEUE_ENABLE=0
-  in their build profiles. There is no new INI setting. The existing ctrl-F2
-  "Show ally queues" checkbox controls your display and requests; unchecking
-  it does not refuse another mutual ally's requests for your placements.
+  Use "Show ally queues" in ctrl-F2 to show or hide the overlay. Hiding it
+  stops your requests without preventing allies from viewing your placements.
 
-  Previously, complete queues were resent on changes and periodic refreshes,
-  even when nobody was viewing them. Now sharing starts on demand while Shift
-  is held. After the initial snapshot, only changes are sent when that is
-  smaller. Collection is limited to once per 100 ms while somebody requests
-  your queue, and sending is paced across allies independently of game speed.
-  Very large first snapshots can take longer to arrive. Releasing Shift stops
-  requests; a lost stop expires after six seconds. Completed caches remain
-  visible during a paused game. Unchanged queues need only small keepalives.
+  Queue positions are shared on demand while Shift is held. After an initial
+  snapshot, smaller updates carry changes instead of repeatedly sending the
+  whole queue. Updates are paced across allies to avoid bursts, and queue
+  collection stops when nobody requests it. Large first snapshots can take
+  longer to arrive. Releasing Shift stops requests; a lost stop expires after
+  six seconds. Completed overlays remain visible while the game is paused.
 
   Only active mutual allies exchange queues. Partial updates do not replace
   a complete display, and missing data is retried. Silent caches expire after
-  ten seconds while unpaused. Queue information changes no game orders or
-  simulation state. Complete queue exchange requires this updated protocol
-  at both ends; older clients ignore it. Locally available allied orders can
-  still be drawn.
+  ten seconds while unpaused. This changes no game orders or simulation state.
+  Complete queue exchange requires updated clients at both ends. Locally
+  available allied orders can still be drawn.
 
 - Unit model zero-shade fallback
 
