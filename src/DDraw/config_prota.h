@@ -107,10 +107,11 @@
 // Allied build-queue overlay -- see AlliedBuildQueueSync.h, and config.h for
 // the full description.  Draws allies' queued build placements (game screen
 // while SHIFT is held with an allied builder under the cursor/camera, and the
-// megamap) and broadcasts the local player's own queue to allies on
-// CHAT_05-hijack msgId 0x60.  Off: nothing is hooked, sent, parsed or drawn,
+// megamap) and shares requested queue changes with mutual allies on
+// CHAT_05-hijack msgId 0x60, version 2. Other profiles remain disabled.
+// Off: nothing is hooked, sent, parsed or drawn,
 // and the "Show ally queues" dialog checkbox is not created.
-#define ALLIED_BUILD_QUEUE_ENABLE 0
+#define ALLIED_BUILD_QUEUE_ENABLE 1
 
 // PlayerMute: local .mute / .unmute -- see config.h.  Display-only and cannot
 // desync; both splice sites are byte-checked at static-init time and the feature

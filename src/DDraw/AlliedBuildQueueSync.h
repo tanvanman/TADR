@@ -6,18 +6,16 @@
 
 #if ALLIED_BUILD_QUEUE_ENABLE
 
-struct AlliedBuildQueueRecord
-{
-	unsigned short buildUnitId;
-	unsigned short x;
-	unsigned short y;
-	unsigned short z;
-	unsigned char rotation;
-};
+#include "AlliedBuildQueueProtocol.h"
+
+struct UnitOrdersStruct;
 
 namespace AlliedBuildQueueSync
 {
 	void Install();
+	bool Enabled();
+	bool CanSeePlayer(int playerSlot);
+	bool IsBuildOrder(const UnitOrdersStruct* order);
 	void Shutdown();
 	const std::vector<AlliedBuildQueueRecord>& GetPlayerQueue(int playerSlot);
 }

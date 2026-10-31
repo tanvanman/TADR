@@ -133,12 +133,12 @@
 //
 // AlliedBuildQueue: show allies' queued (not yet started) build placements --
 // on the game screen while SHIFT is held with an allied builder under the
-// cursor/camera, and on the megamap -- and broadcast the local player's own
-// queue to allies over a CHAT_05-hijack packet (ChatHijackId::AlliedBuildQueue,
-// 0x60) so allies see placements TA never puts on the wire.  Purely additive
+// cursor/camera, and on the megamap -- and share requested placements with
+// mutual allies over CHAT_05-hijack version 2 (msgId 0x60). TA does not keep
+// remote peers' complete future placement queues locally. Purely additive
 // display: it changes no simulation state, and a client built without it
-// neither sends nor parses the packet.  It does add periodic packet traffic
-// and hands allies information stock TA does not, so it is opt-in per config.
+// neither sends nor parses the packet. Demand leases, acknowledged deltas and
+// a wall-time budget bound traffic. This remains a choice per mod profile.
 // Defaulted OFF so a config_*.h predating the flag does not pick it up
 // silently.  When 0, AlliedBuildQueueSync.cpp compiles to nothing, no hook or
 // packet handler is installed, neither overlay is drawn, and the "Show ally
@@ -146,6 +146,11 @@
 //
 #ifndef ALLIED_BUILD_QUEUE_ENABLE
 #define ALLIED_BUILD_QUEUE_ENABLE 0
+#endif
+
+// Developer measurements only; no runtime/INI setting or production file I/O.
+#ifndef TDRAW_ALLIED_BUILD_QUEUE_DIAGNOSTICS
+#define TDRAW_ALLIED_BUILD_QUEUE_DIAGNOSTICS 0
 #endif
 
 //

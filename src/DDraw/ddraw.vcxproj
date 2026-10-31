@@ -381,6 +381,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="ReloadBars.h" />
     <ClInclude Include="UnitStatusCounters.h" />
     <ClInclude Include="AlliedBuildQueueSync.h" />
+    <ClInclude Include="AlliedBuildQueueProtocol.h" />
     <ClInclude Include="HudNotifications.h" />
     <ClInclude Include="ChatBackdrop.h" />
     <ClInclude Include="ChatPosition.h" />
