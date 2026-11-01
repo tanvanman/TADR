@@ -62,11 +62,24 @@ var
   DPlay : TDPlay;
 begin
 try
+  lplpDP := nil;
   Result := lobby2.Connect (dwFlags, dp, pUnk);
+  if Result <> DP_OK then Exit;
+  if dp = nil then
+  begin
+    Result := E_NOINTERFACE;
+    Exit;
+  end;
   TLog.Add(5,'LOBBY.Connect');
   TLog.Add(5,' + dwFlags : ', dwFlags);
   TLog.Flush;
-  dp.QueryInterface (IID_IDirectPlay, dp1);
+  Result := dp.QueryInterface(IID_IDirectPlay, dp1);
+  if Result <> S_OK then Exit;
+  if dp1 = nil then
+  begin
+    Result := E_NOINTERFACE;
+    Exit;
+  end;
   DPlay := TDPlay.Create( dp1 );
   try
      // todo : issue command to recorder backend to prepare for a new session

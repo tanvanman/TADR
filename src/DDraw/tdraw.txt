@@ -87,6 +87,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Guard recorder settings, decompression and timer rollover; fix unsafe configuration buffers and registry-handle leaks (thanks TAG_Venom)
 - Restore the tenth replay player's POV, camera follow and starting allies (thanks TAG_Venom)
 - Show allied AI resource bars in skirmish (thanks TAG_Venom)
 - Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)

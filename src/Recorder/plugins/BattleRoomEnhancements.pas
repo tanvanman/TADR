@@ -263,13 +263,16 @@ begin
     if REGISTRY_ReadInteger(PAnsiChar('Total Annihilation'),
       PAnsiChar('RaceSide'), @Buffer) <> 0 then
     begin
-      if TAData.MainStruct.RaceSideData[Buffer].Name <> #0 then
-        Player.PlayerInfo.Raceside := Buffer;
+      if (Buffer >= Low(TAData.MainStruct.RaceSideData)) and
+         (Buffer <= High(TAData.MainStruct.RaceSideData)) then
+        if TAData.MainStruct.RaceSideData[Buffer].Name <> #0 then
+          Player.PlayerInfo.Raceside := Buffer;
     end;
     if IsLocalPlayerHost then
     begin
-      if REGISTRY_ReadInteger(PAnsiChar('Total Annihilation'),
-        PAnsiChar('MultiDifficulty'), @Buffer) <> 0 then
+      if (REGISTRY_ReadInteger(PAnsiChar('Total Annihilation'),
+        PAnsiChar('MultiDifficulty'), @Buffer) <> 0) and
+         (Buffer >= 0) and (Buffer <= High(Byte)) then
         GlobalDPlay.AIDifficulty := Buffer
       else
         GlobalDPlay.AIDifficulty := 1;

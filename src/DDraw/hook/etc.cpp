@@ -1,5 +1,6 @@
 #include "..\oddraw.h"
 #include "etc.h"
+#include <vector>
 
 //禁止掉格式转化的warn提示，这个的原因是确定了转化没问题的:
 // EN: Suppress format-conversion warnings; these conversions are known safe:
@@ -1211,89 +1212,46 @@ prefix:
 /// 
 char * trim_crlf_ (char * Str)
 {
-	char C;
-	char * Rtn;
-	int len;
-	C= Str[0];
-	len= strlen ( Str);
-	Rtn= Str;
-	if (0==C)
-	{
-		return Str;
-	}
-
-	while (0!=C)
-	{
-		if (('\r'==C)
-			||('\n'==C)
-			||(' '==C)
-			||('\t'==C))
-		{
-
-			++Rtn;
-			C= Rtn[0];
-		}
-		else
-		{
-			C= 0;
-		}
-
-	}
-
-	--len;
-	C= Str[len];
-
-	while (0!=C)
-	{
-		if (('\r'==C)
-			||('\n'==C)
-			||(' '==C)
-			||('\t'==C))
-		{
-			Str[len--]= 0;
-			C= Str[len];
-		}
-		else
-		{
-			C= 0;
-		}
-	}
-	return Rtn;
+	char* first = Str;
+	while (*first == '\r' || *first == '\n' || *first == ' ' || *first == '\t')
+		++first;
+	char* end = first + strlen(first);
+	while (end > first && (end[-1] == '\r' || end[-1] == '\n' || end[-1] == ' ' || end[-1] == '\t'))
+		*--end = 0;
+	return first;
 }
 
 LONG RegReadData (HKEY RootKey, LPTSTR lpSubKey, LPTSTR lpValueName, DWORD Type, LPVOID Data, DWORD TypeLen)
 {
-	HKEY hKey= RootKey;
-	DWORD dwDisposition;
-	DWORD Size = sizeof(int);
-	LONG Rtn= 0;
-	if (NULL!=lpSubKey)
-	{	
-		Rtn= RegCreateKeyEx ( RootKey, lpSubKey, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
-		if (ERROR_SUCCESS!=Rtn)
-		{
-			return Rtn;
-		}
-		
-	}
-
-	Rtn= RegQueryValueEx(
-		hKey,	// handle of key to query 
-		lpValueName,	// address of name of value to query 
-		NULL,	// reserved 
-		&Type,	// address of buffer for value type 
-		static_cast<LPBYTE>(Data),	// address of data buffer 
-		&TypeLen 	// address of data buffer size 
-		);
-	//
-	if ((NULL!=lpSubKey)
-		&&(ERROR_SUCCESS!=Rtn))
+	if (Data == NULL || TypeLen == 0) return ERROR_INVALID_PARAMETER;
+	// Allocate before opening a key so allocation failure cannot leak a handle.
+	std::vector<BYTE> buffer(TypeLen);
+	HKEY hKey = RootKey;
+	if (lpSubKey != NULL)
 	{
-		RegCloseKey(hKey);
+		LONG status = RegOpenKeyEx(RootKey, lpSubKey, 0, KEY_QUERY_VALUE, &hKey);
+		if (status != ERROR_SUCCESS) return status;
 	}
-
-
-	return Rtn;
+	DWORD actualType = REG_NONE;
+	DWORD size = TypeLen;
+	LONG status = RegQueryValueEx(hKey, lpValueName, NULL, &actualType,
+		buffer.data(), &size);
+	if (lpSubKey != NULL) RegCloseKey(hKey);
+	if (status != ERROR_SUCCESS) return status;
+	if (actualType != Type || (Type == REG_DWORD && size != sizeof(DWORD)))
+		return ERROR_INVALID_DATA;
+	if (Type == REG_SZ)
+	{
+		// The API need not return a terminator for old or malformed REG_SZ data.
+		if (size == 0) { buffer[0] = 0; size = 1; }
+		else if (buffer[size - 1] != 0)
+		{
+			if (size >= TypeLen) return ERROR_MORE_DATA;
+			buffer[size++] = 0;
+		}
+	}
+	memcpy(Data, buffer.data(), size);
+	return ERROR_SUCCESS;
 }
 
 LONG RegWriteData ( HKEY RootKey, LPTSTR lpSubKey, LPTSTR lpValueName, DWORD Type, LPVOID Data, DWORD TypeLen)

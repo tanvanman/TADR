@@ -37,7 +37,7 @@ Procedure OnUninstallRegPathFix;
 implementation
 uses
   Windows,
-  Registry,
+  Registry, RecorderRegistry,
   IniOptions,
   TA_MemoryConstants,
   ModsList,
@@ -230,7 +230,7 @@ function GetPlugin : TPluginData;
 var
   sRegName : AnsiString;
   baRegName: TByteArray;
-  Registry : TRegistry;
+  Registry : TRecorderRegistry;
   CurrentProcessHandle : THandle;
   CommittedBytes : Longword;
   OldProtect, tmpOldProtect : longword;
@@ -264,22 +264,16 @@ begin
       Win32Check(VirtualProtect(Pointer($00509EB8), Length(sRegName), OldProtect, tmpOldProtect));
     end;
 
-    Registry := TRegistry.Create(KEY_READ or KEY_WOW64_64KEY);
+    Registry := TRecorderRegistry.Create(HKEY_LOCAL_MACHINE,
+      'Software\TA Patch', KEY_WOW64_64KEY);
     try
-      Registry.RootKey := HKEY_LOCAL_MACHINE;
-      if Registry.KeyExists('Software\TA Patch\') then
-        if Registry.OpenKey('Software\TA Patch\', False) then
-        begin
-          IniSettings.CommonMapsPath := Registry.ReadString('CommonMapsPath');
-          if IniSettings.CommonMapsPath <> '' then
-            IniSettings.CommonMapsPath := IncludeTrailingPathDelimiter(IniSettings.CommonMapsPath);
-
-          IniSettings.CommonGameDataPath := Registry.ReadString('CommonGameDataPath');
-          if IniSettings.CommonGameDataPath <> '' then
-            IniSettings.CommonGameDataPath := IncludeTrailingPathDelimiter(IniSettings.CommonGameDataPath);
-        end;
+      IniSettings.CommonMapsPath := Registry.ReadString('', 'CommonMapsPath', '');
+      if IniSettings.CommonMapsPath <> '' then
+        IniSettings.CommonMapsPath := IncludeTrailingPathDelimiter(IniSettings.CommonMapsPath);
+      IniSettings.CommonGameDataPath := Registry.ReadString('', 'CommonGameDataPath', '');
+      if IniSettings.CommonGameDataPath <> '' then
+        IniSettings.CommonGameDataPath := IncludeTrailingPathDelimiter(IniSettings.CommonGameDataPath);
     finally
-      Registry.CloseKey;
       Registry.Free;
     end;
     

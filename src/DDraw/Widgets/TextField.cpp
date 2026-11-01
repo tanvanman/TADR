@@ -45,9 +45,13 @@ void TextField::RegistryRead(HKEY hKey)
 	{
 		char buffer[1024];
 		DWORD size = sizeof(buffer);
-		if (RegQueryValueEx(hKey, m_registryKey.c_str(), NULL, NULL, (unsigned char*)&buffer, &size) == ERROR_SUCCESS)
+		DWORD type = REG_NONE;
+		if (RegQueryValueEx(hKey, m_registryKey.c_str(), NULL, &type,
+			reinterpret_cast<BYTE*>(buffer), &size) == ERROR_SUCCESS && type == REG_SZ)
 		{
-			m_text = buffer;
+			// Legacy writers omitted the NUL. Never scan beyond returned bytes.
+			const char* end = static_cast<const char*>(memchr(buffer, 0, size));
+			m_text.assign(buffer, end ? end - buffer : size);
 		}
 	}
 }
@@ -56,6 +60,6 @@ void TextField::RegistryWrite(HKEY hKey)
 {
 	if (!m_registryKey.empty())
 	{
-		RegSetValueEx(hKey, m_registryKey.c_str(), NULL, REG_SZ, (unsigned char*)m_text.c_str(), m_text.size());
+		RegSetValueEx(hKey, m_registryKey.c_str(), NULL, REG_SZ, (unsigned char*)m_text.c_str(), m_text.size() + 1);
 	}
 }

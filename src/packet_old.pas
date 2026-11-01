@@ -417,90 +417,99 @@ end;
 //Tar ett helt paket med kontrollkod och checksum i alltså
 class function TPacket.Decompress(const Data :string) :string;
 var
-  SourceIndex, ChunkNumber :integer;
-  SourceLen : Integer;
+  SourceIndex, ChunkNumber, SourceLen: Integer;
+  A, Uop, RunIndex, Count, Capacity, NewCapacity: Integer;
+  MaxCapacity64: Int64;
+  MaxCapacity: Integer;
+  Fixup1stByte: Boolean;
+  IsCompressedBitMask: Byte;
 
-  a,uop : Integer;
-  RunIndex : Integer;
-
-  Fixup1stByte : Boolean;
-  IsCompressedBitMask : byte;
-  count : Integer;
-
-  newBufferSize : Integer;
+  procedure EnsureCapacity(Required: Integer);
+  begin
+    if Required <= Capacity then Exit;
+    NewCapacity := Capacity;
+    while NewCapacity < Required do
+      if NewCapacity > MaxCapacity div 2 then
+        NewCapacity := MaxCapacity
+      else
+        NewCapacity := NewCapacity * 2;
+    SetLength(Result, NewCapacity);
+    Capacity := NewCapacity;
+    if Capacity > DecompressionBufferSize then
+      DecompressionBufferSize := Capacity;
+  end;
 
 begin {Decompress}
-if Data[1] <> #$04 then
+  SourceLen := Length(Data);
+  if SourceLen = 0 then
+    raise EConvertError.Create('Empty packet');
+  if Data[1] <> #$04 then
   begin
-  Result := Data;
-  exit;
+    Result := Data;
+    Exit;
   end;
-SourceLen := Length(Data);
-SourceIndex := 4;
-//setlength(Result, LastBufferSize );
-//Count := 0;
-//{
-setlength(Result, DecompressionBufferSize );
-Result[1] := Data[1];
-Result[2] := Data[2];
-Result[3] := Data[3];
-count := 3;
-//}
-Fixup1stByte := True;
-try
-  while SourceIndex <= SourceLen do
+  if SourceLen < 3 then
+    raise EConvertError.Create('Truncated compressed packet header');
+
+  // A token emits at most 17 bytes. Bound the cached allocation hint by what
+  // this actual input could produce, rather than trusting a registry integer.
+  // This is an allocation bound, not an arbitrary limit on supported packets.
+  MaxCapacity64 := 3 + (Int64(SourceLen) - 3) * 17;
+  if MaxCapacity64 > High(Integer) then MaxCapacity := High(Integer)
+  else MaxCapacity := Integer(MaxCapacity64);
+  if DecompressionBufferSize < 3 then DecompressionBufferSize := 2048;
+  Capacity := DecompressionBufferSize;
+  if Capacity > MaxCapacity then Capacity := MaxCapacity;
+  SetLength(Result, Capacity);
+  Result[1] := Data[1];
+  Result[2] := Data[2];
+  Result[3] := Data[3];
+  Count := 3;
+  SourceIndex := 4;
+  Fixup1stByte := True;
+  try
+    while SourceIndex <= SourceLen do
     begin
-    IsCompressedBitMask := byte(Data[SourceIndex]);
-    Inc( SourceIndex );
-    for ChunkNumber := 0 to 7 do
+      IsCompressedBitMask := Byte(Data[SourceIndex]);
+      Inc(SourceIndex);
+      for ChunkNumber := 0 to 7 do
       begin
-      if SourceIndex > SourceLen then
+        if SourceIndex > SourceLen then
         begin
-        Fixup1stByte := False;
-        exit;
+          Fixup1stByte := False;
+          Exit;
         end;
-      if (( IsCompressedBitMask shr ChunkNumber) and 1) = 0 then
+        if ((IsCompressedBitMask shr ChunkNumber) and 1) = 0 then
         begin
-        inc( Count );
-        if Count > DecompressionBufferSize then
-          begin
-          newBufferSize := 2*(DecompressionBufferSize+1);
-          Tlog.Add( 3, 'TPacket.Decompress, increasing decompression buffer size from ' +IntToStr(DecompressionBufferSize) +' to '+IntToStr(newBufferSize) );
-          DecompressionBufferSize := newBufferSize;
-          setlength(Result, DecompressionBufferSize );
-          end;
-        Result[Count] := Data[SourceIndex];
-        Inc( SourceIndex );
+          Inc(Count);
+          EnsureCapacity(Count);
+          Result[Count] := Data[SourceIndex];
+          Inc(SourceIndex);
         end
-      else
+        else
         begin
-        uop := PWord(@Data[SourceIndex])^;
-        Inc( SourceIndex, 2 );
-        a := uop shr 4;
-      	if a = 0 then
-          exit;
-        uop := uop and $0f;
-        for RunIndex := a to a + uop + 1 do
+          if SourceIndex >= SourceLen then
+            raise EConvertError.Create('Truncated compressed packet reference');
+          Uop := Byte(Data[SourceIndex]) or (Byte(Data[SourceIndex + 1]) shl 8);
+          Inc(SourceIndex, 2);
+          A := Uop shr 4;
+          if A = 0 then Exit;
+          if A > Count - 3 then
+            raise EConvertError.Create('Compressed packet references unwritten data');
+          Uop := Uop and $0f;
+          for RunIndex := A to A + Uop + 1 do
           begin
-          inc( Count );
-          if Count > DecompressionBufferSize then
-            begin
-            newBufferSize := 2*(DecompressionBufferSize+1);
-            Tlog.Add( 3, 'TPacket.Decompress, increasing decompression buffer size from ' +IntToStr(DecompressionBufferSize) +' to '+IntToStr(newBufferSize) );
-            DecompressionBufferSize := newBufferSize;
-            setlength(Result, DecompressionBufferSize );
-            end;
-          Result[Count] := Result[RunIndex+3];
+            Inc(Count);
+            EnsureCapacity(Count);
+            Result[Count] := Result[RunIndex + 3];
           end;
         end;
       end;
     end;
-finally
-  SetLength( Result, count );
-//  Result := Copy( Data, 1, 3) + Result;
-  if Fixup1stByte then
-    Result[1] := #3;
-end;
+  finally
+    SetLength(Result, Count);
+    if Fixup1stByte then Result[1] := #3;
+  end;
 end; {Decompress}
 
 // Takes a packet with controlcodes and checksum (will overwrite controlcode)

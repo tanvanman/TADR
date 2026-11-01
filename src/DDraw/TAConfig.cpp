@@ -8,6 +8,7 @@ using namespace std;
 #include "tafunctions.h"
 #include "TAHPI.h"
 #include <tchar.h>
+#include <limits.h>
 #include "hook\etc.h"
 
 
@@ -22,7 +23,7 @@ TADRConfig::TADRConfig ()
 	char TAexeName[MAX_PATH];
 	unsigned int IniFileLen= -1;
 	char * IniFileBuf= NULL;
-	BYTE * IniFileData;
+	BYTE * IniFileData = NULL;
 	HANDLE File;
 	
 	GetTempPathA ( MAX_PATH, TAexePath);
@@ -52,20 +53,21 @@ TADRConfig::TADRConfig ()
 			return ;
 		}
 
-		IniFileLen= GetFileSize ( File, NULL);
-		if (0<IniFileLen)
+		DWORD highSize = 0;
+		IniFileLen = GetFileSize(File, &highSize);
+		if (highSize == 0 && IniFileLen != INVALID_FILE_SIZE && IniFileLen > 0 && IniFileLen < INT_MAX)
 		{
-			IniFileData= new BYTE[IniFileLen+ 1];
-				 
-			ReadFile ( File, IniFileData, IniFileLen, reinterpret_cast<DWORD *>(&IniFileLen), NULL);
-				
-			IniFileData[IniFileLen]= 0;
-
-			LoadIniRegSetting ( IniFileData);
+			IniFileData = new BYTE[IniFileLen + 1];
+			DWORD bytesRead = 0;
+			if (ReadFile(File, IniFileData, IniFileLen, &bytesRead, NULL) && bytesRead == IniFileLen)
+			{
+				IniFileData[bytesRead] = 0;
+				LoadIniRegSetting(IniFileData);
+			}
 		}
 		if (NULL!=IniFileData)
 		{
-			delete IniFileData;
+			delete[] IniFileData;
 		}
 	}
 	else
@@ -211,12 +213,16 @@ int TADRConfig::GetIniStr (LPCSTR ConfigName, LPSTR lpReturnedString, DWORD nSiz
 HKEY TADRConfig::TARegPath_HKEY (void)
 {
 	DWORD dwDisposition;
-	HKEY Rtn;
-	HKEY tmp;
+	HKEY Rtn = NULL;
+	HKEY tmp = NULL;
 
-	RegCreateKeyEx ( HKEY_CURRENT_USER, CompanyName_CCSTR, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &tmp, &dwDisposition);
-	RegCreateKeyEx ( tmp, GameName_CCSTR, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &Rtn, &dwDisposition);
-	RegCloseKey ( tmp);
+	if (RegCreateKeyEx(HKEY_CURRENT_USER, CompanyName_CCSTR, 0, NULL,
+		REG_OPTION_NON_VOLATILE, KEY_CREATE_SUB_KEY, NULL, &tmp, &dwDisposition) != ERROR_SUCCESS)
+		return NULL;
+	if (RegCreateKeyEx(tmp, GameName_CCSTR, 0, NULL, REG_OPTION_NON_VOLATILE,
+		KEY_QUERY_VALUE | KEY_SET_VALUE, NULL, &Rtn, &dwDisposition) != ERROR_SUCCESS)
+		Rtn = NULL;
+	RegCloseKey(tmp);
 	return Rtn;
 }
 
@@ -280,8 +286,15 @@ void TADRConfig::LoadIniRegSetting (/*__in __out */LPBYTE IniFileData)
 			{//no [REG] in 
 				goto end;
 			}
-			memcpy ( LineBuf, tmp_cstrp+ 1, tm1_cstrp- tmp_cstrp- 1);
-			LineBuf[3]= 0;
+			// A section name is untrusted input, not a fixed-size copy length.
+			const ptrdiff_t sectionLen = tm1_cstrp - tmp_cstrp - 1;
+			LineBuf[0] = 0;
+			// Keep the legacy three-letter prefix match (e.g. REGISTRY).
+			if (sectionLen >= 3)
+			{
+				memcpy(LineBuf, tmp_cstrp + 1, 3);
+				LineBuf[3] = 0;
+			}
 			//*tm1_cstrp= 0;
 			_strupr_s ( LineBuf, 0x200);
 			if (0==strncmp ( LineBuf, "REG", 3))
@@ -334,7 +347,7 @@ void TADRConfig::LoadIniRegSetting (/*__in __out */LPBYTE IniFileData)
 				LineLen= tm1_cstrp- tmp_cstrp;
 			}
 
-			if (LineLen>0x200)
+			if (LineLen >= static_cast<int>(sizeof(LineBuf)))
 			{// error!too long line, this is bad end
 				//LineLen= MAX_PATH;
 				goto end;
@@ -374,9 +387,11 @@ void TADRConfig::LoadIniRegSetting (/*__in __out */LPBYTE IniFileData)
 			}
 
 			*TagSign_cstrp= 0;
-			strcpy_s ( RegName, 0x100, tmp_cstrp+ 1);
-			memset ( RegData, 0, sizeof ( RegData));
-			memcpy ( RegData, TagSign_cstrp+ 1, LineBuf+ LineLen- TagSign_cstrp- 1- 1);
+			if (strlen(tmp_cstrp + 1) >= sizeof(RegName)) continue;
+			strcpy_s(RegName, sizeof(RegName), tmp_cstrp + 1);
+			// Copy the actual bounded string, including its terminator. Pointer
+			// arithmetic based on the pre-trim line can underflow on short lines.
+			strcpy_s(RegData, sizeof(RegData), TagSign_cstrp + 1);
 
 			//now check RegType
 
@@ -598,7 +613,7 @@ RegDword::~RegDword ()
 {
 	if (NULL!=myName)
 	{
-		delete myName;
+		delete[] myName;
 	}
 
 }
@@ -634,11 +649,11 @@ RegString::~RegString ()
 {
 	if (NULL!=myName)
 	{
-		delete myName;
+		delete[] myName;
 	}
 	if (NULL!=myStr)
 	{
-		delete myStr;
+		delete[] myStr;
 	}
 }
 

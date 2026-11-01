@@ -417,7 +417,7 @@ var
 implementation
 
 uses
- mmsystem, registry,
+ mmsystem, registry, RecorderRegistry, RecorderClock,
  shfolder,
  DPLobbyWrapper,
  uDebug, textdata,
@@ -599,10 +599,8 @@ if IsRecording then
     begin
     SetLength( s, 5 );
     a:=integer(timeGetTime);
-    b:=a-integer(prevtime);
-    prevtime:=a;
-    if b<0 then
-      b:=b+1000*60*60*24;                   //kl24 fix
+    b:=RecorderTimeDelta(Longword(a), prevtime);
+    prevtime:=Longword(a); // Preserve high uptime bits with range checks enabled.
     s[3] := char(b and $ff);                //tid sedan senaste
     s[4] := char(b shr 8);
 
@@ -3122,10 +3120,8 @@ begin
       begin
         SetLength( s, 5 );
         a:=integer(timeGetTime);
-        b:=a-integer(prevtime);
+        b:=RecorderTimeDelta(Longword(a), prevtime);
         prevtime:=longword(a);
-        if b<0 then
-          b:=b+1000*60*60*24;                   //kl24 fix
         s[3] := char(b and $ff);                //tid sedan senaste
         s[4] := char(b shr 8);
         s[5] := char(FromPlayer.playerindex);             //spelare som sände
@@ -3791,11 +3787,11 @@ end;
 
 procedure TDPlay.ResetRecorder;
 var
-  reg :TRegIniFile;
+  reg :TRecorderRegistry;
 begin
 cs.Acquire;
 try
-  reg := TRegInifile.Create('Software\TA Patch\TA Demo');
+  reg := TRecorderRegistry.Create(HKEY_CURRENT_USER, 'Software\TA Patch\TA Demo');
 try
 {$IFDEF ThreadLogging}
   ThreadLogger.KnownThreads.Clear;
@@ -3851,19 +3847,14 @@ try
   if demodir <> '' then
   begin
     demodir := IncludeTrailingPathDelimiter(demodir);
-    try
-      if IniSettings.modid > 0 then
-      begin
-        if IniSettings.name <> '' then
-          ForceDirectories(demodir+IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name)))
-        else
-          ForceDirectories(demodir);
-      end else
-        ForceDirectories(demodir);
-    except
-      on e : EInOutError do
+    if (IniSettings.modid > 0) and (IniSettings.name <> '') then
+    begin
+      if not EnsureRecorderDirectory(demodir +
+        IncludeTrailingPathDelimiter(fnRemoveInvalidChar(IniSettings.name))) then
         demodir := '';
-    end;
+    end
+    else if not EnsureRecorderDirectory(demodir) then
+      demodir := '';
   end;
   if demodir = '' then
   begin
@@ -3871,12 +3862,7 @@ try
     if demodir <> '' then
     begin
       demodir := IncludeTrailingPathDelimiter(demodir)+'My Games\Total Annihilation\demos\';
-      try
-        ForceDirectories( demodir );
-      except
-        on e : EInOutError do
-          demodir := '';
-      end;
+      if not EnsureRecorderDirectory(demodir) then demodir := '';
       if demodir <> '' then
         reg.WriteString( 'Options', 'defdir', demodir );
     end;
@@ -3937,7 +3923,7 @@ procedure TDPlay.Exiting();
 var
   LogFile : TTextFile;
   i : Integer;
-  reg : TRegInifile;
+  reg : TRecorderRegistry;
 begin
 cs.Acquire;
 try
@@ -3958,7 +3944,7 @@ IsInGame := False;
 TADemoRecorderOff := True;
 try
   // write out persistant options
-  reg := TRegInifile.Create ('Software\TA Patch\TA Demo');
+  reg := TRecorderRegistry.Create(HKEY_CURRENT_USER, 'Software\TA Patch\TA Demo');
   try
     reg.WriteInteger( 'Options', 'DecompressionBufferSize', DecompressionBufferSize);
   finally
