@@ -57,6 +57,7 @@
 #endif
 #if AI_COMMANDER_KEEPS_ORDERS_ENABLE != 0 && AI_COMMANDER_KEEPS_ORDERS_ENABLE != 1
 #error "AI_COMMANDER_KEEPS_ORDERS_ENABLE must be 0 or 1"
+#endif
 
 // ProCast-inspired economy panels. Mods explicitly opt in in config_*.h.
 // Opted-in builds offer a local Classic/New choice and replay totals settings.
