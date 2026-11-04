@@ -9,11 +9,14 @@
 #include "SmallMapViewport.h"
 #include "DrawnMove.h"
 #include "DrawnMoveGeometry.h"
-#include <algorithm>
+#include <mutex>
 
 namespace
 {
     using DrawnMoveGeometry::Point;
+    // WinProc and the presentation callback may run on different threads.
+    // Capture changes can re-enter WinProc synchronously on this thread.
+    std::recursive_mutex gestureMutex;
     struct UnitRef { UnitStruct* unit; short id; };
     struct Gesture {
         HWND window = NULL;
@@ -134,7 +137,7 @@ namespace
     void DispatchFormation(TAdynmemStruct* ta, const std::vector<UnitStruct*>& selection,
         const std::vector<UnitRef>& units, const std::vector<Position_Dword>& destinations, bool shift, unsigned char prepared) {
         __try {
-            for (UnitStruct* u : selection) u->UnitSelected &= ~UnitSelected_State;
+            for (std::size_t i=0; i<selection.size(); ++i) selection[i]->UnitSelected &= ~UnitSelected_State;
             for (std::size_t i=0; i<units.size(); ++i) {
                 UnitStruct* u=units[i].unit;
                 u->UnitSelected |= UnitSelected_State;
@@ -145,8 +148,8 @@ namespace
             }
         }
         __finally {
-            for (const UnitRef& ref : units) ref.unit->UnitSelected &= ~UnitSelected_State;
-            for (UnitStruct* u : selection) u->UnitSelected |= UnitSelected_State;
+            for (std::size_t i=0; i<units.size(); ++i) units[i].unit->UnitSelected &= ~UnitSelected_State;
+            for (std::size_t i=0; i<selection.size(); ++i) selection[i]->UnitSelected |= UnitSelected_State;
             ta->PrepareOrder_Type=shift ? prepared : static_cast<unsigned char>(ordertype::STOP);
             UpdateSelectUnitEffect();
         }
@@ -155,8 +158,12 @@ namespace
 
 namespace DrawnMove
 {
-    bool OwnsInput() { return g.button != 0 || suppressedUp != 0; }
+    bool OwnsInput() {
+        std::lock_guard<std::recursive_mutex> lock(gestureMutex);
+        return g.button != 0 || suppressedUp != 0;
+    }
     bool Message(HWND window, UINT message, WPARAM keys, LPARAM position, bool allowStart) {
+        std::lock_guard<std::recursive_mutex> lock(gestureMutex);
         TAdynmemStruct* ta=*TAmainStruct_PtrPtr;
         const int x=static_cast<short>(LOWORD(position)), y=static_cast<short>(HIWORD(position));
         if (message == suppressedUp && suppressedUp != 0) { suppressedUp=0; return true; }
@@ -228,6 +235,7 @@ namespace DrawnMove
     }
 
     void Draw(LPDIRECTDRAWSURFACE surface) {
+        std::lock_guard<std::recursive_mutex> lock(gestureMutex);
         if (!OwnsInput() || g.cancelled || !g.dragged || !ValidGesture(*TAmainStruct_PtrPtr)) return;
         const std::vector<Point> markers=DrawnMoveGeometry::Resample(g.path,g.units.size());
         std::vector<Position_Dword> positions;
