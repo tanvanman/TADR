@@ -45,7 +45,7 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   map features (mexes, geos, spires, walls) on megamap        y     y     y      n     y      n      y
   off-map aircraft targetable, in tiles past the map edge     1     32    32     1     1      1      1
   explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     n      n      y
-  projectiles pass through allied players' units              y     n     n      n     n      n      n
+  projectiles pass through allied players' units              y     n     n      n     y      n      n
   ground constructors can guard / assist air constructors     n     y     y      n     n      n      n
   air repair beam shown only while the repair is paid for     n     y     y      n     n      n      n
   weapon IDs above 255 in Weapons/*.tdf                       n     y     y      n     n      n      y
@@ -54,7 +54,7 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   wrecks of aircraft killed over land fall to the ground      n     y     n      n     n      n      n
   stockpile build-percent / weapon-slot crash guard  [4]      n     y     n      n     n      n      n
   COB opcode jump table (speed only, same behaviour)  [4]     n     y     n      n     n      n      n
-  allied queued-build overlays  [5]                           n     n     n      n     n      n      n
+  allied queued-build overlays                                y     n     n      n     n      n      n
 
   [1] the thresholds also gate air construction units, which vanilla never gated at all --
       read NEW FEATURES IN DETAIL before enabling this for a new mod
@@ -64,7 +64,6 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   [3] tdraw-escalation.zip additionally runs repair and self-heal at 3x the fixed rate
   [4] a fix, off elsewhere only because its engine addresses have not been re-verified
       against the other mods' TotalA.exe; it will be turned on as that is done
-  [5] written and shippable, but off in every build for now
 
 
 INSTALLATION
@@ -87,6 +86,10 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Optimise allied queued-build overlays with on-demand, paced queue updates (thanks TAG_Venom)
+- Add opt-in ally economy bars and replay totals using the native TA HUD font (thanks TAG_Venom)
+- Organise Ctrl-F2 settings into shared TA-style tabbed pages (thanks TAG_Venom)
+- Fix automatic dragon's teeth rings to follow rotated rectangular building footprints (thanks TAG_Venom)
 - Restore the tenth replay player's POV, camera follow and starting allies (thanks TAG_Venom)
 - Show allied AI resource bars in skirmish (thanks TAG_Venom)
 - Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
@@ -326,6 +329,77 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Enhanced allied resource bars and replay totals
+
+  Enhanced allied resource bars show current resources and storage capacity,
+  with separate green production and red requested-usage rates for metal and
+  energy. Text uses TA's native top resource HUD font without scaling. White
+  player names, team-colour boxes and underlines identify players; blue metal
+  and yellow energy bars have black empty tracks and outlines.
+
+  Replay totals rank Total metal produced, Total energy produced and Total
+  current units. Each ranking shows every recorded player, including defeated
+  players. Names have team-colour boxes; comparison bars use blue for metal,
+  yellow for energy and white for units. The joining spectator is excluded;
+  the shared tenth-player slot appears after recorded resource data confirms it.
+
+  In builds supporting the feature, Ctrl-F2 > Resources > Style selects Classic
+  or Enhanced. Classic retains the original resource bars and F4 behaviour.
+  Enhanced-only settings are grayed out in Classic but retain their saved
+  choices. Background applies immediately to both styles: None, Text or Solid.
+
+  Show selects Incomes, Totals, Both or Off. Separate Metal, Energy and Units
+  checkboxes choose which replay totals are included. Metal and Energy measure
+  total production; Units measures the current total, not units built or combat
+  strength. Totals require an active recorded multiplayer replay. Live games,
+  including spectators, skirmish and campaigns, cannot display them. Drawing
+  and screen-copy checks also reject cached totals outside replay mode.
+  With no totals selected, only incomes remain.
+
+  F4 cycles available views and the native scoreboard states. Over a single
+  visible panel, mouse wheel up selects incomes and down selects totals. The
+  wheel leaves Both and Off unchanged and passes through outside the overlay.
+  Show stays synchronised with F4 and mouse wheel changes.
+
+  Income layout and Totals layout each offer Vertical or Horizontal. Horizontal
+  incomes wrap player cards into up to three columns, preferring complete rows;
+  ten players use two columns of five when space permits. Horizontal totals
+  place the selected rankings beside each other. Vertical panels stack down
+  the right edge where they fit, otherwise totals sit beside incomes. With
+  the standard HUD font, ten-player incomes and all three vertical rankings
+  fit at 1080 height; omitting unit totals allows the stack to fit at 900.
+  Larger fonts may need horizontal layouts. Very small panels provide paging.
+
+  Drag panels to reposition them. Yellow arrows temporarily collapse a panel,
+  leaving a tab in place to reopen it. F4 first restores collapsed panels.
+  Restore reopens selected panels and resets their positions and pages without
+  changing the totals selected. Double-click a player for recorded POV, then
+  double-click again to follow or stop following that player's camera.
+  My Original Camera restores the viewer's original view.
+
+  Rates use cumulative resource counters per game second. Sparse recordings
+  retain the last measured rate between updates instead of alternating with
+  zero. Unknown or stale rates show --; pauses retain rates. Requested usage
+  can exceed accepted spending during stalls. Production includes reclaim and
+  transfers. Displaying these values does not change simulation or replay data.
+
+  The capability is selected at build time with MODERN_ALLY_RESOURCE_UI_ENABLE.
+  Display choices use the existing Eye preferences; no font assets or recorder
+  packet changes are required. Text and bars remain at native pixel size.
+
+- Tabbed Ctrl-F2 settings
+
+  Ctrl-F2 uses one compact menu with Controls, Units and Resources pages,
+  replacing the crowded single panel. Native TA button faces, pressed states,
+  build-page arrows and sounds match the game interface. Click a page or use
+  comma/full stop (including < and >) to switch pages. Escape, Ctrl-F2 or OK
+  saves and closes the menu. Existing settings retain their saved preferences.
+
+  Resources groups shared Style and Background settings above Enhanced Settings.
+  Unsupported capabilities are omitted. In builds supporting allied queued-build
+  overlays, Show ally queues sits below VSync on Controls. Custom menu background
+  artwork may need adapting to the shared 512 x 320 dimensions.
 
 - Tenth replay player POV
 
@@ -940,16 +1014,27 @@ NEW FEATURES IN DETAIL:
 - Allied queued-build overlays
 
   Hold Shift in the normal construction-queue viewing context to display an
-  ally's queued buildings as two-tone purple rectangles.  The local player's
-  normal green/blue queued-build rectangles take priority, except while
-  hovering an allied construction unit.  The megamap uses the dark purple
-  outline.  In multiplayer, players using this version of TADR share their
-  queued build positions with mutual allies.
+  ally's queued buildings as two-tone purple rectangles. The local player's
+  normal green/blue rectangles take priority, except while hovering an allied
+  construction unit. The megamap uses dark-purple outlines. Up to 1200 distinct
+  nonmobile building placements are shared per player; mobile factory products
+  and their production counts are not part of this overlay.
 
-  The display is enabled by default and can be disabled locally with the
-  "Show ally queues" checkbox in the ctrl-f2 menu.  The option only hides the
-  overlay; it does not affect game orders or the queue information sent to
-  allies.  Up to 1200 queued structures are shared per player.
+  Use "Show ally queues" in ctrl-F2 to show or hide the overlay. Hiding it
+  stops your requests without preventing allies from viewing your placements.
+
+  Queue positions are shared on demand while Shift is held. After an initial
+  snapshot, smaller updates carry changes instead of repeatedly sending the
+  whole queue. Updates are paced across allies to avoid bursts, and queue
+  collection stops when nobody requests it. Large first snapshots can take
+  longer to arrive. Releasing Shift stops requests; a lost stop expires after
+  six seconds. Completed overlays remain visible while the game is paused.
+
+  Only active mutual allies exchange queues. Partial updates do not replace
+  a complete display, and missing data is retried. Silent caches expire after
+  ten seconds while unpaused. This changes no game orders or simulation state.
+  Complete queue exchange requires updated clients at both ends. Locally
+  available allied orders can still be drawn.
 
 - Unit model zero-shade fallback
 

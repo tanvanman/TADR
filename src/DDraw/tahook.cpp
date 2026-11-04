@@ -56,12 +56,7 @@ namespace
 
 	bool IsAlliedQueuedBuildOrder(const UnitOrdersStruct* order)
 	{
-		if (order == NULL || order->BuildUnitID == 0
-			|| COBSciptHandler_Begin == NULL || *COBSciptHandler_Begin == NULL)
-		{
-			return false;
-		}
-		return ((*COBSciptHandler_Begin)[order->COBHandler_index].COBScripMask & 1) != 0;
+		return AlliedBuildQueueSync::IsBuildOrder(order);
 	}
 
 	bool IsLiveUnit(const UnitStruct* unit)
@@ -1541,10 +1536,14 @@ void CTAHook::CalculateRing()
 	//char *unittested = new char [0xffff];
 	//memset(unittested, 0, 0xffff);
 
-	int footx = TAdynmem->BeginUnitsArray_p [MouseOverUnit].UnitType->FootX + Spacing*2;
-	int footy = TAdynmem->BeginUnitsArray_p [MouseOverUnit].UnitType->FootY + Spacing*2;
-	int posx = TAdynmem->BeginUnitsArray_p [MouseOverUnit].XGridPos*16 - Spacing*16;
-	int posy =  TAdynmem->BeginUnitsArray_p [MouseOverUnit].YGridPos*16 - Spacing*16;
+	const UnitStruct& unit = TAdynmem->BeginUnitsArray_p[MouseOverUnit];
+	// TAG_Venom: use the placed footprint, baked with its build rotation.
+	// UnitType dimensions describe the original facing and may also be
+	// temporarily swapped for a different building's placement preview.
+	int footx = unit.SizeFootX + Spacing*2;
+	int footy = unit.SizeFootZ + Spacing*2;
+	int posx = unit.XGridPos*16 - Spacing*16;
+	int posy = unit.YGridPos*16 - Spacing*16;
 
 	//int x1 = posx;
 	//int y1 = posy;
@@ -1848,7 +1847,7 @@ bool CTAHook::IsAnOrder(UnitOrdersStruct* unitOrders, UnitOrdersStruct* order)
 #if ALLIED_BUILD_QUEUE_ENABLE
 void CTAHook::VisualizeAlliedQueuedBuilds()
 {
-	if (!TAdynmem || (LocalShare && LocalShare->Dialog
+	if (!AlliedBuildQueueSync::Enabled() || !TAdynmem || (LocalShare && LocalShare->Dialog
 		&& !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetShowAlliedBuildQueuesEnabled())
 		|| (GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0
 		|| !IsNativeBuildQueueContext(TAdynmem))
@@ -1888,7 +1887,7 @@ void CTAHook::VisualizeAlliedQueuedBuilds()
 		PlayerStruct* owner = hoveredUnit->Owner_PlayerPtr0 ? hoveredUnit->Owner_PlayerPtr0 : hoveredUnit->Owner_PlayerPtr1;
 		const int ownerId = owner ? owner->PlayerAryIndex : -1;
 		preferAlliedOverlap = owner && ownerId >= 0 && ownerId < 10 && ownerId != localPlayerId
-			&& TAdynmem->Players[localPlayerId].AllyFlagAry[ownerId] != 0;
+			&& AlliedBuildQueueSync::CanSeePlayer(ownerId);
 	}
 
 	auto drawOne = [this, &drawn, &ownQueuedBuilds, preferAlliedOverlap](
@@ -1931,7 +1930,7 @@ void CTAHook::VisualizeAlliedQueuedBuilds()
 			continue;
 		const int ownerId = owner->PlayerAryIndex;
 		if (ownerId < 0 || ownerId >= 10 || ownerId == localPlayerId
-			|| TAdynmem->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+			|| !AlliedBuildQueueSync::CanSeePlayer(ownerId))
 		{
 			continue;
 		}
@@ -1948,7 +1947,7 @@ void CTAHook::VisualizeAlliedQueuedBuilds()
 
 	for (int ownerId = 0; ownerId < 10; ++ownerId)
 	{
-		if (ownerId == localPlayerId || TAdynmem->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+		if (!AlliedBuildQueueSync::CanSeePlayer(ownerId))
 			continue;
 
 		const std::vector<AlliedBuildQueueRecord>& queue = AlliedBuildQueueSync::GetPlayerQueue(ownerId);

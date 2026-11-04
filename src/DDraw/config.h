@@ -57,6 +57,11 @@
 #endif
 #if AI_COMMANDER_KEEPS_ORDERS_ENABLE != 0 && AI_COMMANDER_KEEPS_ORDERS_ENABLE != 1
 #error "AI_COMMANDER_KEEPS_ORDERS_ENABLE must be 0 or 1"
+
+// ProCast-inspired economy panels. Mods explicitly opt in in config_*.h.
+// Opted-in builds offer a local Classic/New choice and replay totals settings.
+#ifndef MODERN_ALLY_RESOURCE_UI_ENABLE
+#define MODERN_ALLY_RESOURCE_UI_ENABLE 0
 #endif
 
 //
@@ -140,12 +145,12 @@
 //
 // AlliedBuildQueue: show allies' queued (not yet started) build placements --
 // on the game screen while SHIFT is held with an allied builder under the
-// cursor/camera, and on the megamap -- and broadcast the local player's own
-// queue to allies over a CHAT_05-hijack packet (ChatHijackId::AlliedBuildQueue,
-// 0x60) so allies see placements TA never puts on the wire.  Purely additive
+// cursor/camera, and on the megamap -- and share requested placements with
+// mutual allies over CHAT_05-hijack version 2 (msgId 0x60). TA does not keep
+// remote peers' complete future placement queues locally. Purely additive
 // display: it changes no simulation state, and a client built without it
-// neither sends nor parses the packet.  It does add periodic packet traffic
-// and hands allies information stock TA does not, so it is opt-in per config.
+// neither sends nor parses the packet. Demand leases, acknowledged deltas and
+// a wall-time budget bound traffic. This remains a choice per mod profile.
 // Defaulted OFF so a config_*.h predating the flag does not pick it up
 // silently.  When 0, AlliedBuildQueueSync.cpp compiles to nothing, no hook or
 // packet handler is installed, neither overlay is drawn, and the "Show ally
@@ -153,6 +158,11 @@
 //
 #ifndef ALLIED_BUILD_QUEUE_ENABLE
 #define ALLIED_BUILD_QUEUE_ENABLE 0
+#endif
+
+// Developer measurements only; no runtime/INI setting or production file I/O.
+#ifndef TDRAW_ALLIED_BUILD_QUEUE_DIAGNOSTICS
+#define TDRAW_ALLIED_BUILD_QUEUE_DIAGNOSTICS 0
 #endif
 
 //
@@ -387,4 +397,15 @@
 #endif
 #if GIVE_RECEIVE_GUARD_ENABLE && !GIVE_COMMANDS_ENABLE
 #error "GIVE_RECEIVE_GUARD_ENABLE requires GIVE_COMMANDS_ENABLE 1 -- the guard is part of the GiveCommands module."
+#endif
+
+//
+// HealthBarColors: the unit health bar in five colours (20 % steps) instead of thirds. Visual and
+// client-local, nothing replicated. Tested on Escalation only; the other mods were not tested, so the
+// flag is 0 in their configs. The colour slots were chosen from Escalation's palettes. The address is not
+// what limits it: the same 19 bytes are in the other TotalA.exe builds checked, and the module refuses to
+// install unless they match. See HealthBarColors.h.
+//
+#ifndef HEALTH_BAR_COLORS_ENABLE
+#define HEALTH_BAR_COLORS_ENABLE 0
 #endif

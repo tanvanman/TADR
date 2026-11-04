@@ -28,6 +28,9 @@
     <ClCompile Include="AutoTeam.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="EconomyPanels.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="UnitStatusCounters.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -205,6 +208,9 @@
     <ClCompile Include="Widgets\Button.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Widgets\TabButton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Widgets\IntegerField.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -236,6 +242,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ReloadBars.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HealthBarColors.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="AlliedBuildQueueSync.cpp">
@@ -405,6 +414,9 @@
     <ClInclude Include="changequeue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="EconomyPanels.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="cincome.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -564,6 +576,9 @@
     <ClInclude Include="Widgets\Button.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Widgets\TabButton.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Widgets\IntegerField.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -633,10 +648,16 @@
     <ClInclude Include="ReloadBars.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="HealthBarColors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="UnitStatusCounters.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AlliedBuildQueueSync.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AlliedBuildQueueProtocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ChatBackdrop.h">
@@ -771,6 +792,15 @@
     </None>
     <None Include="bitmaps\StagedButtn1.pcx">
       <Filter>Other Files</Filter>
+    </None>
+    <None Include="resources\default\bitmaps\MenuButton.pcx">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\default\bitmaps\StyleSelector.pcx">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\default\bitmaps\ViewSelector.pcx">
+      <Filter>Resource Files</Filter>
     </None>
     <None Include="bitmaps\standarbutton.pcx">
       <Filter>Other Files</Filter>

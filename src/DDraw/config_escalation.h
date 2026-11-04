@@ -215,3 +215,6 @@
 #define GIVE_COMMANDS_ENABLE 1
 // Drops received resource packets whose amount is not positive and finite; see GiveCommands.h.
 #define GIVE_RECEIVE_GUARD_ENABLE 1
+
+// Five-colour unit health bar; see HealthBarColors.h.
+#define HEALTH_BAR_COLORS_ENABLE 1

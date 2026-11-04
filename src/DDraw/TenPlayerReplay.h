@@ -19,6 +19,8 @@ void TenPlayerReplay_OverrideFunnelIncome(PlayerStruct* player);
 
 // Distinguish the recorded player sharing the viewer slot from an ordinary watcher.
 bool TenPlayerReplay_IsFunnelPlayer(const PlayerStruct* player);
+// Positive resource-packet confirmation for the enhanced economy list.
+bool TenPlayerReplay_HasFunnelEconomySample(const PlayerStruct* player);
 bool TenPlayerReplay_HasPovMetadata();
 
 // Keep zero as the recorder's "not following" value; 10 encodes replay slot zero.

@@ -5,6 +5,9 @@
 // Allied projectile collision is a mod build choice, never an INI preference.
 #define ALLIED_PROJECTILE_COLLISION_ENABLE 1
 
+// Opt in to TAG_Venom's compact economy/replay panels (Ctrl-F2 preferences).
+#define MODERN_ALLY_RESOURCE_UI_ENABLE 1
+
 //
 // Snap radii
 //
@@ -109,10 +112,11 @@
 // Allied build-queue overlay -- see AlliedBuildQueueSync.h, and config.h for
 // the full description.  Draws allies' queued build placements (game screen
 // while SHIFT is held with an allied builder under the cursor/camera, and the
-// megamap) and broadcasts the local player's own queue to allies on
-// CHAT_05-hijack msgId 0x60.  Off: nothing is hooked, sent, parsed or drawn,
+// megamap) and shares requested queue changes with mutual allies on
+// CHAT_05-hijack msgId 0x60, version 2. Other profiles remain disabled.
+// Off: nothing is hooked, sent, parsed or drawn,
 // and the "Show ally queues" dialog checkbox is not created.
-#define ALLIED_BUILD_QUEUE_ENABLE 0
+#define ALLIED_BUILD_QUEUE_ENABLE 1
 
 // PlayerMute: local .mute / .unmute -- see config.h.  Display-only and cannot
 // desync; both splice sites are byte-checked at static-init time and the feature
@@ -169,3 +173,6 @@
 #define GIVE_COMMANDS_ENABLE 0
 // Drops received resource packets whose amount is not positive and finite; see GiveCommands.h.
 #define GIVE_RECEIVE_GUARD_ENABLE 0
+
+// Five-colour unit health bar; see HealthBarColors.h.
+#define HEALTH_BAR_COLORS_ENABLE 0
