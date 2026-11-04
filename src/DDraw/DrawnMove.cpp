@@ -1,3 +1,4 @@
+#include "config.h"
 #include "oddraw.h"
 #include "iddrawsurface.h"
 #include "tamem.h"
@@ -10,6 +11,10 @@
 #include "DrawnMove.h"
 #include "DrawnMoveGeometry.h"
 #include <mutex>
+
+#ifndef USEMEGAMAP
+#error "DrawnMove requires config.h to define USEMEGAMAP"
+#endif
 
 namespace
 {
@@ -167,6 +172,14 @@ namespace
 
 namespace DrawnMove
 {
+    void LogBuild() {
+        IDDrawSurface::OutptTxt("[DrawnMove] build=megamap-v3");
+#if USEMEGAMAP
+        IDDrawSurface::OutptTxt("[DrawnMove] compiled-megamap=enabled");
+#else
+        IDDrawSurface::OutptTxt("[DrawnMove] compiled-megamap=disabled");
+#endif
+    }
     bool OwnsInput() {
         std::lock_guard<std::recursive_mutex> lock(gestureMutex);
         return g.button != 0 || suppressedUp != 0;

@@ -33,6 +33,8 @@ jobs:
           arch: amd64_x86
       - name: Build patch DLL
         run: msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=Win32 /p:TDRAW_CONFIG=TDRAW_CONFIG_${{ matrix.mod }}
+      - name: Verify megamap support is compiled into the actual DLL
+        run: python src/DDraw/test/verify_drawn_move_build.py src/DDraw/Public/tdraw.dll
       - name: Verify Windows 7 imports
         run: python src/DDraw/tools/check_win7_imports.py src/DDraw/Public/tdraw.dll
       - uses: actions/upload-artifact@v4

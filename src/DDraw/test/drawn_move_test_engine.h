@@ -17,9 +17,6 @@ using BOOL=int;
 #define NULL 0
 #define TRUE 1
 #define FALSE 0
-#ifndef USEMEGAMAP
-#define USEMEGAMAP 1
-#endif
 #define LOWORD(x) ((x)&0xffff)
 #define HIWORD(x) (((x)>>16)&0xffff)
 constexpr UINT WM_LBUTTONDOWN=1, WM_LBUTTONUP=2, WM_RBUTTONDOWN=3, WM_RBUTTONUP=4,

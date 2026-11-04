@@ -2,6 +2,7 @@
 
 namespace DrawnMove
 {
+    void LogBuild();
     // Called before other consumers while a gesture owns the mouse, so UI
     // overlays cannot lose its release or focus/capture cancellation.
     bool OwnsInput();
