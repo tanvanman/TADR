@@ -303,6 +303,7 @@ int __stdcall PermSonarLosProc(PInlineX86StackBuffer X86StrackBuffer)
 struct FunnelEconomy
 {
 	bool   haveSample = false;
+	int    dpid = 0;
 	double prevMetalProduced = 0.0, prevEnergyProduced = 0.0;
 	double prevMetalConsumed = 0.0, prevEnergyConsumed = 0.0;
 	int    prevGameTime = 0;
@@ -312,6 +313,15 @@ struct FunnelEconomy
 	float  metalExpense = 0.f, energyExpense = 0.f;
 };
 static FunnelEconomy g_funnelEcon;
+
+bool TenPlayerReplay_HasFunnelEconomySample(const PlayerStruct* player)
+{
+	if (!DataShare->PlayingDemo || DataShare->TAProgress != TAInGame) return false;
+	if (g_funnelEcon.haveSample && (*TAmainStruct_PtrPtr)->GameTime < g_funnelEcon.prevGameTime)
+		g_funnelEcon = FunnelEconomy();
+	return player && player == LOCAL_HUMAN_PLAYER && g_funnelEcon.haveSample &&
+		player->DirectPlayID == g_funnelEcon.dpid;
+}
 
 // 0x28 packet float offsets (see Receive_PacketPlayerRes @0x457540):
 //   +0x22 fTotalEnergyProduced, +0x26 fTotalEnergyConsumed,
@@ -377,6 +387,7 @@ static void SampleFunnelEconomy(const std::uint8_t* payload, PlayerStruct* playe
 	g_funnelEcon.prevEnergyConsumed = eCons;
 	g_funnelEcon.prevGameTime = gameTime;
 	g_funnelEcon.haveSample = true;
+	g_funnelEcon.dpid = player->DirectPlayID;
 }
 
 // Entry hook on Receive_PacketPlayerRes (0x457540, __stdcall(packet, player)).
