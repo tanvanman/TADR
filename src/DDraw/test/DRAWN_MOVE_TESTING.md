@@ -24,6 +24,7 @@ From the repository root on Linux:
 ```
 g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/drawn_move_geometry_test.cpp -o /tmp/drawn-move-test
 /tmp/drawn-move-test
+python3 src/DDraw/test/drawn_move_input_test.py
 ```
 
 The validation workflow builds all seven mod configurations with MSVC and

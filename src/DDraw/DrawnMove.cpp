@@ -147,7 +147,7 @@ namespace
         __finally {
             for (const UnitRef& ref : units) ref.unit->UnitSelected &= ~UnitSelected_State;
             for (UnitStruct* u : selection) u->UnitSelected |= UnitSelected_State;
-            ta->PrepareOrder_Type=shift ? prepared : ordertype::STOP;
+            ta->PrepareOrder_Type=shift ? prepared : static_cast<unsigned char>(ordertype::STOP);
             UpdateSelectUnitEffect();
         }
     }
@@ -182,7 +182,7 @@ namespace DrawnMove
                     else {
                         const Position_Dword p=TerrainPosition(g.path.front());
                         SendOrder(p.X,p.Y,p.Z,ordertype::MOVE,g.shift);
-                        ta->PrepareOrder_Type=g.shift ? g.prepared : ordertype::STOP;
+                        ta->PrepareOrder_Type=g.shift ? g.prepared : static_cast<unsigned char>(ordertype::STOP);
                     }
                 }
                 Finish();
