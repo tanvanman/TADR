@@ -321,7 +321,7 @@ unsigned TPacket::getExpectedSubPacketSize(const std::uint8_t *s, unsigned sz)
     case SubPacketCode::REJECT_1B: len = 6;     break;
     case SubPacketCode::START_1E: len = 2;    break;
     case SubPacketCode::UNK_1F: len = 5;     break;
-    case SubPacketCode::PLAYER_INFO_20: len = 192;  break;
+    case SubPacketCode::PLAYER_INFO_20: len = 186;  break;  // was 192; TotalA.exe's five senders push 0xBA (Ghidra), OA's table says 186
     case SubPacketCode::UNK_21: len = 10;    break;
     case SubPacketCode::IDENT3_22:  len = 6;    break;
     case SubPacketCode::ALLY_23: len = 14;    break;

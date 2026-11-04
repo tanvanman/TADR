@@ -45,7 +45,7 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   map features (mexes, geos, spires, walls) on megamap        y     y     y      n     y      n      y
   off-map aircraft targetable, in tiles past the map edge     1     32    32     1     1      1      1
   explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     n      n      y
-  projectiles pass through allied players' units              y     n     n      n     n      n      n
+  projectiles pass through allied players' units              y     n     n      n     y      n      n
   ground constructors can guard / assist air constructors     n     y     y      n     n      n      n
   air repair beam shown only while the repair is paid for     n     y     y      n     n      n      n
   weapon IDs above 255 in Weapons/*.tdf                       n     y     y      n     n      n      y
@@ -89,6 +89,7 @@ NEW FEATURES IN BRIEF:
 *????.??.??
 - Add opt-in ally economy bars and replay totals using the native TA HUD font (thanks TAG_Venom)
 - Organise Ctrl-F2 settings into shared TA-style tabbed pages (thanks TAG_Venom)
+- Fix automatic dragon's teeth rings to follow rotated rectangular building footprints (thanks TAG_Venom)
 - Restore the tenth replay player's POV, camera follow and starting allies (thanks TAG_Venom)
 - Show allied AI resource bars in skirmish (thanks TAG_Venom)
 - Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
