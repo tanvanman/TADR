@@ -26,6 +26,7 @@ using namespace std;
 #include "dialog.h"
 #include "VoteDialog.h"
 #include "tahook.h"
+#include "DrawnMove.h"
 #include "commanderwarp.h"
 #include "maprect.h"
 
@@ -1271,6 +1272,10 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
     __try
 	{
 		UpdateTAProcess ( );
+        // A pending gesture must see release/cancellation even over a dialog,
+        // whiteboard or other overlay that consumes ordinary input.
+        if (DrawnMove::OwnsInput() && DrawnMove::Message(WinProcWnd, Msg, wParam, lParam, false))
+            return 0;
 		if (NULL!=FixTABug)
 		{
 			FixTABug->AntiCheat ( );

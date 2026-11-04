@@ -1,0 +1,38 @@
+name: Validate drawn move formations
+on:
+  push:
+    branches: ['feature/drawn-move-formations']
+  pull_request:
+    paths:
+      - 'src/DDraw/**'
+      - '.github/workflows/drawn-move.yml'
+permissions:
+  contents: read
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test path sampling and unit assignments
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/drawn_move_geometry_test.cpp -o /tmp/drawn-move-test
+          /tmp/drawn-move-test
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mod: [OTA, PROTA, ESCALATION, BTA, MAYHEM, TAZERO, TWILIGHT]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_x86
+      - name: Build patch DLL
+        run: msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=Win32 /p:TDRAW_CONFIG=TDRAW_CONFIG_${{ matrix.mod }}
+      - name: Verify Windows 7 imports
+        run: python src/DDraw/tools/check_win7_imports.py src/DDraw/Public/tdraw.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drawn-move-${{ matrix.mod }}
+          path: src/DDraw/Public/tdraw.dll
