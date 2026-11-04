@@ -44,6 +44,8 @@
 #define FIXED_POSN_GUARDING_CONS_ENABLE 1
 #define PATROLING_CONS_RECLAIM_OR_ASSIST_ENABLE 1
 #define CONSTRUCTION_KICKOUT_ENABLE 1
+// Host-only AI code, so no sync risk: turning it off is purely a balance choice.
+#define AI_COMMANDER_KEEPS_ORDERS_ENABLE 1
 
 //
 // Balance

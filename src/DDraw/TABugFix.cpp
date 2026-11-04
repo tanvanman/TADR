@@ -247,6 +247,19 @@ namespace
 	const BYTE AntiNukeMinimapCoverageAdjustExpected[6] = { 0x81, 0xE9, 0x00, 0x02, 0x00, 0x00 };
 	BYTE AntiNukeMinimapCoverageAdjustPatch[6] = { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
 
+#if AI_COMMANDER_KEEPS_ORDERS_ENABLE
+	// Skips ReactToAttack's DeleteOrders on a hit local-AI commander, which stalls the AI.
+	// Only the AI's host runs that block, so it cannot desync. The 3.9.02 exe ships this patch.
+	const DWORD AiCommanderKeepsOrdersCheckAddr = 0x00406FAEu;
+	const BYTE AiCommanderKeepsOrdersExpected[11] = {
+		0x8B, 0x88, 0x45, 0x02, 0x00, 0x00,  // mov ecx,[eax+245h]
+		0xF6, 0xC5, 0x10,                    // test ch,10h
+		0x74, 0x3D                           // je 0x00406FF6
+	};
+	const DWORD AiCommanderKeepsOrdersPatchAddr = 0x00406FB4u;
+	BYTE AiCommanderKeepsOrdersPatch[2] = { 0xEB, 0x40 };  // jmp 0x00406FF6
+#endif
+
 	// Mirror TA's target search at 0x0049D120, replacing only its independent
 	// X/Y bounds with a circular horizontal-distance check.
 	ProjectileStruct* __stdcall FindAntiNukeTargetCircular(UnitStruct* unit, unsigned int weaponIndex)
@@ -2851,6 +2864,21 @@ TABugFixing::TABugFixing ()
 	{
 		IDDrawSurface::OutptTxt("[AntiNukeCoverage] minimap radius adjustment did not match; minimap coverage fix skipped");
 	}
+#if AI_COMMANDER_KEEPS_ORDERS_ENABLE
+	if (memcmp(reinterpret_cast<const void*>(AiCommanderKeepsOrdersCheckAddr),
+		AiCommanderKeepsOrdersExpected, sizeof(AiCommanderKeepsOrdersExpected)) == 0)
+	{
+		m_hooks.push_back(std::make_unique<SingleHook>(AiCommanderKeepsOrdersPatchAddr,
+			sizeof(AiCommanderKeepsOrdersPatch), INLINE_UNPROTECTEVINMENT,
+			AiCommanderKeepsOrdersPatch));
+	}
+	else if (memcmp(reinterpret_cast<const void*>(AiCommanderKeepsOrdersPatchAddr),
+		AiCommanderKeepsOrdersPatch, sizeof(AiCommanderKeepsOrdersPatch)) != 0)
+	{
+		IDDrawSurface::OutptFmtTxt("[AiCommanderKeepsOrders] bytes at 0x%08X not stock; patch skipped",
+			AiCommanderKeepsOrdersCheckAddr);
+	}
+#endif
 	// Redirect the cmalloc_comt CALL at 0x42dd74 to ZeroingDownloadMenuAlloc (see comment at its definition).
 	ZeroDownloadMenuCallPatch[0] = 0xE8;
 	*(DWORD*)(ZeroDownloadMenuCallPatch + 1) = (DWORD)((BYTE*)&ZeroingDownloadMenuAlloc - (0x42dd74 + 5));
