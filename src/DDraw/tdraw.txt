@@ -54,7 +54,7 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   wrecks of aircraft killed over land fall to the ground      n     y     n      n     n      n      n
   stockpile build-percent / weapon-slot crash guard  [4]      n     y     n      n     n      n      n
   COB opcode jump table (speed only, same behaviour)  [4]     n     y     n      n     n      n      n
-  allied queued-build overlays  [5]                           n     n     n      n     n      n      n
+  allied queued-build overlays                                y     n     n      n     n      n      n
 
   [1] the thresholds also gate air construction units, which vanilla never gated at all --
       read NEW FEATURES IN DETAIL before enabling this for a new mod
@@ -64,7 +64,6 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   [3] tdraw-escalation.zip additionally runs repair and self-heal at 3x the fixed rate
   [4] a fix, off elsewhere only because its engine addresses have not been re-verified
       against the other mods' TotalA.exe; it will be turned on as that is done
-  [5] written and shippable, but off in every build for now
 
 
 INSTALLATION
@@ -87,6 +86,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Optimise allied queued-build overlays with on-demand, paced queue updates (thanks TAG_Venom)
 - Add opt-in ally economy bars and replay totals using the native TA HUD font (thanks TAG_Venom)
 - Organise Ctrl-F2 settings into shared TA-style tabbed pages (thanks TAG_Venom)
 - Fix automatic dragon's teeth rings to follow rotated rectangular building footprints (thanks TAG_Venom)
@@ -1013,16 +1013,27 @@ NEW FEATURES IN DETAIL:
 - Allied queued-build overlays
 
   Hold Shift in the normal construction-queue viewing context to display an
-  ally's queued buildings as two-tone purple rectangles.  The local player's
-  normal green/blue queued-build rectangles take priority, except while
-  hovering an allied construction unit.  The megamap uses the dark purple
-  outline.  In multiplayer, players using this version of TADR share their
-  queued build positions with mutual allies.
+  ally's queued buildings as two-tone purple rectangles. The local player's
+  normal green/blue rectangles take priority, except while hovering an allied
+  construction unit. The megamap uses dark-purple outlines. Up to 1200 distinct
+  nonmobile building placements are shared per player; mobile factory products
+  and their production counts are not part of this overlay.
 
-  The display is enabled by default and can be disabled locally with the
-  "Show ally queues" checkbox in the ctrl-f2 menu.  The option only hides the
-  overlay; it does not affect game orders or the queue information sent to
-  allies.  Up to 1200 queued structures are shared per player.
+  Use "Show ally queues" in ctrl-F2 to show or hide the overlay. Hiding it
+  stops your requests without preventing allies from viewing your placements.
+
+  Queue positions are shared on demand while Shift is held. After an initial
+  snapshot, smaller updates carry changes instead of repeatedly sending the
+  whole queue. Updates are paced across allies to avoid bursts, and queue
+  collection stops when nobody requests it. Large first snapshots can take
+  longer to arrive. Releasing Shift stops requests; a lost stop expires after
+  six seconds. Completed overlays remain visible while the game is paused.
+
+  Only active mutual allies exchange queues. Partial updates do not replace
+  a complete display, and missing data is retried. Silent caches expire after
+  ten seconds while unpaused. This changes no game orders or simulation state.
+  Complete queue exchange requires updated clients at both ends. Locally
+  available allied orders can still be drawn.
 
 - Unit model zero-shade fallback
 

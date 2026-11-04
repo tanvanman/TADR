@@ -56,12 +56,7 @@ namespace
 
 	bool IsAlliedQueuedBuildOrder(const UnitOrdersStruct* order)
 	{
-		if (order == NULL || order->BuildUnitID == 0
-			|| COBSciptHandler_Begin == NULL || *COBSciptHandler_Begin == NULL)
-		{
-			return false;
-		}
-		return ((*COBSciptHandler_Begin)[order->COBHandler_index].COBScripMask & 1) != 0;
+		return AlliedBuildQueueSync::IsBuildOrder(order);
 	}
 
 	bool IsLiveUnit(const UnitStruct* unit)
@@ -1852,7 +1847,7 @@ bool CTAHook::IsAnOrder(UnitOrdersStruct* unitOrders, UnitOrdersStruct* order)
 #if ALLIED_BUILD_QUEUE_ENABLE
 void CTAHook::VisualizeAlliedQueuedBuilds()
 {
-	if (!TAdynmem || (LocalShare && LocalShare->Dialog
+	if (!AlliedBuildQueueSync::Enabled() || !TAdynmem || (LocalShare && LocalShare->Dialog
 		&& !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetShowAlliedBuildQueuesEnabled())
 		|| (GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0
 		|| !IsNativeBuildQueueContext(TAdynmem))
@@ -1892,7 +1887,7 @@ void CTAHook::VisualizeAlliedQueuedBuilds()
 		PlayerStruct* owner = hoveredUnit->Owner_PlayerPtr0 ? hoveredUnit->Owner_PlayerPtr0 : hoveredUnit->Owner_PlayerPtr1;
 		const int ownerId = owner ? owner->PlayerAryIndex : -1;
 		preferAlliedOverlap = owner && ownerId >= 0 && ownerId < 10 && ownerId != localPlayerId
-			&& TAdynmem->Players[localPlayerId].AllyFlagAry[ownerId] != 0;
+			&& AlliedBuildQueueSync::CanSeePlayer(ownerId);
 	}
 
 	auto drawOne = [this, &drawn, &ownQueuedBuilds, preferAlliedOverlap](
@@ -1935,7 +1930,7 @@ void CTAHook::VisualizeAlliedQueuedBuilds()
 			continue;
 		const int ownerId = owner->PlayerAryIndex;
 		if (ownerId < 0 || ownerId >= 10 || ownerId == localPlayerId
-			|| TAdynmem->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+			|| !AlliedBuildQueueSync::CanSeePlayer(ownerId))
 		{
 			continue;
 		}
@@ -1952,7 +1947,7 @@ void CTAHook::VisualizeAlliedQueuedBuilds()
 
 	for (int ownerId = 0; ownerId < 10; ++ownerId)
 	{
-		if (ownerId == localPlayerId || TAdynmem->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+		if (!AlliedBuildQueueSync::CanSeePlayer(ownerId))
 			continue;
 
 		const std::vector<AlliedBuildQueueRecord>& queue = AlliedBuildQueueSync::GetPlayerQueue(ownerId);

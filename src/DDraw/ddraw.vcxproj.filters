@@ -651,6 +651,9 @@
     <ClInclude Include="AlliedBuildQueueSync.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="AlliedBuildQueueProtocol.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="ChatBackdrop.h">
       <Filter>Header Files</Filter>
     </ClInclude>
