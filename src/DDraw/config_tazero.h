@@ -3,7 +3,7 @@
 #define TDRAW_CONFIG_NAME "tazero"
 
 // Allied projectile collision is a mod build choice, never an INI preference.
-#define ALLIED_PROJECTILE_COLLISION_ENABLE 0
+#define ALLIED_PROJECTILE_COLLISION_ENABLE 1
 
 //
 // Snap radii

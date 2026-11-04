@@ -45,7 +45,7 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   map features (mexes, geos, spires, walls) on megamap        y     y     y      n     y      n      y
   off-map aircraft targetable, in tiles past the map edge     1     32    32     1     1      1      1
   explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     n      n      y
-  projectiles pass through allied players' units              y     n     n      n     n      n      n
+  projectiles pass through allied players' units              y     n     n      n     y      n      n
   ground constructors can guard / assist air constructors     n     y     y      n     n      n      n
   air repair beam shown only while the repair is paid for     n     y     y      n     n      n      n
   weapon IDs above 255 in Weapons/*.tdf                       n     y     y      n     n      n      y
