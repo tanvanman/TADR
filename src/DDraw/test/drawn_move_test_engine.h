@@ -17,7 +17,9 @@ using BOOL=int;
 #define NULL 0
 #define TRUE 1
 #define FALSE 0
-#define USEMEGAMAP 0
+#ifndef USEMEGAMAP
+#define USEMEGAMAP 1
+#endif
 #define LOWORD(x) ((x)&0xffff)
 #define HIWORD(x) (((x)>>16)&0xffff)
 constexpr UINT WM_LBUTTONDOWN=1, WM_LBUTTONUP=2, WM_RBUTTONDOWN=3, WM_RBUTTONUP=4,
@@ -28,6 +30,7 @@ constexpr int TAInGame=6, Player_LocalHuman=1, WATCH=0x40, UnitSelected_State=0x
     canmove=1, cursormove=14;
 namespace ordertype { enum { STOP=1, MOVE=2, ATTACK=3 }; }
 struct RECT { int left,top,right,bottom; };
+struct POINT { int x,y; };
 struct Position_Dword { unsigned short X=0,Y=0,Z=0; };
 struct UnitDef { unsigned UnitTypeMask_0=1; int bmcode=1; };
 struct PlayerStruct;
@@ -98,3 +101,31 @@ struct FakeSurface {
 };
 using LPDIRECTDRAWSURFACE=FakeSurface*;
 #include "../SmallMapViewport.h"
+
+int CorretCursor_InGame(unsigned char) { return world.CurrentCursora_Index; }
+// Coordinate projection is provided by the real megamap controller in-game.
+// This fake verifies the gesture selects that interface, not normal-camera
+// offsets, and that overlay painting uses the same inverse projection.
+struct MegaMapControl {
+    bool visible=false;
+    int cursorX=0,cursorY=0;
+    RECT viewport={200,100,800,600};
+    bool IsBliting() { return visible; }
+    bool FormationGroundPoint(Position_Dword* point,int x,int y) {
+        if (!visible || x<viewport.left || x>=viewport.right || y<viewport.top || y>=viewport.bottom) return false;
+        point->X=(x-viewport.left)*4;
+        point->Y=(y-viewport.top)*6;
+        point->Z=0;
+        cursorX=x;cursorY=y;
+        return true;
+    }
+    bool FormationScreenPoint(POINT* screen,RECT* clip,const Position_Dword& point) {
+        screen->x=viewport.left+point.X/4;
+        screen->y=viewport.top+(point.Y-point.Z/2)/6;
+        *clip=viewport;--clip->right;--clip->bottom;
+        return visible;
+    }
+} megaController;
+struct FakeMinimap { MegaMapControl* Controler=&megaController; } fakeMinimap;
+struct FakeExpander { FakeMinimap* myMinimap=&fakeMinimap; } fakeExpander;
+FakeExpander* GUIExpander=&fakeExpander;

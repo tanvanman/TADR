@@ -18,8 +18,9 @@ with tempfile.TemporaryDirectory() as temp:
     (path / 'test.cpp').write_text(
         '#include "drawn_move_test_engine.h"\n' + source +
         '\n#include "drawn_move_input_cases.h"\n')
-    subprocess.run(['g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
-                    '-fsanitize=address,undefined', '-g', '-I', str(root),
+    for megamap in (0, 1):
+        subprocess.run(['g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
+                    '-fsanitize=address,undefined', '-g', f'-DUSEMEGAMAP={megamap}', '-I', str(root),
                     '-I', str(root.parent), str(path / 'test.cpp'), '-o', str(path / 'test')], check=True)
-    subprocess.run([str(path / 'test')], check=True,
+        subprocess.run([str(path / 'test')], check=True,
                    env={**os.environ, 'ASAN_OPTIONS': 'detect_leaks=0'})

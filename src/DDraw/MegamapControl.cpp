@@ -17,6 +17,7 @@
 #include "iddrawsurface.h"
 #include "ExternQuickKey.h "
 #include "tahook.h"
+#include "DrawnMove.h"
 #include "Profiler.h"
 
 #include <math.h>
@@ -529,6 +530,15 @@ bool MegaMapControl::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 				xPos= xPos- MegaMapScreen.left;
 				yPos= yPos- MegaMapScreen.top;
 
+                // Capture a move drag before SelectDown can issue a prepared
+                // command or start a selection box. Refresh hover at the press
+                // so clicks on unit icons retain attack/guard/selection actions.
+                if (Msg == WM_LBUTTONDOWN || Msg == WM_RBUTTONDOWN)
+                {
+                    MouseMove(xPos,yPos);
+                    if (DrawnMove::Message(WinProcWnd,Msg,wParam,lParam,
+                        selectbuttom::none == SelectState,true)) return true;
+                }
 				switch (Msg)
 				{
 				case WM_LBUTTONDOWN:
@@ -601,6 +611,30 @@ bool MegaMapControl::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 	
 
 	return FALSE;
+}
+
+bool MegaMapControl::FormationGroundPoint(Position_Dword* point, int x, int y)
+{
+    if (!point || !IsBliting() || !CheckInControl(x,y) || !CheckInMap(x,y)) return false;
+    ScreenPos2TAPos(point,x-MegaMapScreen.left,y-MegaMapScreen.top,TRUE);
+    if (point->X >= (TAmainStruct_Ptr->FeatureMapSizeX-2)*16
+        || point->Y >= (TAmainStruct_Ptr->FeatureMapSizeY-8)*16) return false;
+    PubCursorX=x;
+    PubCursorY=y;
+    return true;
+}
+
+bool MegaMapControl::FormationScreenPoint(POINT* screen, RECT* clip, const Position_Dword& point)
+{
+    if (!screen || !clip || !IsBliting()) return false;
+    TAPos2ScreenPos(screen,point.X,point.Y,point.Z);
+    screen->x+=MegaMapScreen.left;
+    screen->y+=MegaMapScreen.top;
+    *clip=MegaMapScreen;
+    // OFFSCREEN clipping is inclusive; MegaMapScreen is half-open.
+    --clip->right;
+    --clip->bottom;
+    return CheckInControl(screen->x,screen->y) && CheckInMap(screen->x,screen->y);
 }
 
 BOOL MegaMapControl::RightDown (int x, int y, bool shift)

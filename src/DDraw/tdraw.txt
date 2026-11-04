@@ -656,7 +656,8 @@ NEW FEATURES IN DETAIL:
   Shift held at the start queues the moves. A normal click remains a group move.
   Escape or leaving the battlefield cancels the gesture.
 
-  Supported on the normal battlefield only. Short or tightly curved lines may
+  Supported on the normal battlefield and full-screen megamap. Switching views
+  while drawing cancels the pending gesture. Short or tightly curved lines may
   crowd large units; draw a longer line for more spacing. The engine still
   handles terrain and pathfinding. Units form the line at their destinations;
   they do not maintain a formation while travelling.

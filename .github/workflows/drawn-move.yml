@@ -23,7 +23,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mod: [OTA, PROTA, ESCALATION, BTA, MAYHEM, TAZERO, TWILIGHT]
+        # Iterate quickly on the Escalation play-test branch; a PR validates
+        # every supported mod before it can be considered for merging.
+        mod: ${{ fromJSON(github.event_name == 'pull_request' && '["OTA","PROTA","ESCALATION","BTA","MAYHEM","TAZERO","TWILIGHT"]' || '["ESCALATION"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1
@@ -36,4 +38,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: drawn-move-${{ matrix.mod }}
-          path: src/DDraw/Public/tdraw.dll
+          path: |
+            src/DDraw/Public/tdraw.dll
+            src/DDraw/Public/tdraw.pdb

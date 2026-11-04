@@ -2,13 +2,13 @@ UnitStruct units[4];
 UnitDef defs[4];
 PlayerInfo info;
 LPARAM xy(int x,int y) { return (unsigned(y)&65535)<<16 | (unsigned(x)&65535); }
-bool event(UINT message,int x=300,int y=300,unsigned keys=0,bool start=true) {
-    return DrawnMove::Message(reinterpret_cast<HWND>(1),message,keys,xy(x,y),start);
+bool event(UINT message,int x=300,int y=300,unsigned keys=0,bool start=true,bool megamap=false) {
+    return DrawnMove::Message(reinterpret_cast<HWND>(1),message,keys,xy(x,y),start,megamap);
 }
 void reset(int interface=1) {
     event(WM_CANCELMODE); event(WM_LBUTTONUP); event(WM_RBUTTONUP);
     assert(!DrawnMove::OwnsInput());
-    world=TAdynmemStruct(); share=Share(); orders.clear();
+    world=TAdynmemStruct(); share=Share(); orders.clear();megaController.visible=false;
     world.InterfaceType=interface;
     world.Players[0].PlayerInfo=&info; info.PropertyMask=0;
     world.BeginUnitsArray_p=units;world.EndOfUnitsArray_p=units+4;
@@ -68,5 +68,50 @@ int main() {
     reset();event(WM_RBUTTONDOWN);event(WM_KILLFOCUS);
     // Mouse was released outside the window. A fresh click must recover.
     assert(event(WM_RBUTTONDOWN));event(WM_RBUTTONUP);assert(orders.size()==1);
-    std::cout << "Drawn move input tests passed\n";
+#if USEMEGAMAP
+    reset();megaController.visible=true;
+    // Normal-view interception must defer to the megamap input handler.
+    assert(!event(WM_RBUTTONDOWN));
+    assert(event(WM_RBUTTONDOWN,300,200,MK_SHIFT,true,true));
+    assert(orders.empty());
+    // Captured moves/releases arrive through the early WinProc route, which
+    // does not pass fromMegamap. The frozen view determines their projection.
+    event(WM_MOUSEMOVE,500,200);
+    FakeSurface megaSurface;DrawnMove::Draw(&megaSurface);
+    // First endpoint: (300,200), not normal-camera world coordinates.
+    assert(megaSurface.pixels[197*1024+300]==234);
+    for(int y=0;y<768;++y) for(int x=0;x<1024;++x)
+        if(megaSurface.pixels[y*1024+x]==234)
+            assert(x>=200 && x<800 && y>=100 && y<600);
+    event(WM_RBUTTONUP,500,200);
+    assert(orders.size()==3);selected();
+    std::vector<unsigned> xs;
+    for(const auto& order:orders) { assert(order.shift && order.y==600 && order.selected.size()==1);xs.push_back(order.x); }
+    std::sort(xs.begin(),xs.end());assert((xs==std::vector<unsigned>{400,800,1200}));
+    assert(megaController.cursorX==500 && megaController.cursorY==200);
+    // A megamap click remains a single group order in its coordinate space.
+    reset();megaController.visible=true;
+    assert(event(WM_RBUTTONDOWN,300,200,0,true,true));event(WM_RBUTTONUP,300,200);
+    assert(orders.size()==1 && orders[0].selected.size()==3 && orders[0].x==400 && orders[0].y==600);
+    // Explicit Move in the right-button interface must use left-down, before
+    // the existing prepared-order-on-down handler can issue a duplicate order.
+    reset();megaController.visible=true;world.PrepareOrder_Type=ordertype::MOVE;
+    assert(!event(WM_RBUTTONDOWN,300,200,0,true,true));
+    assert(event(WM_LBUTTONDOWN,300,200,0,true,true));assert(orders.empty());
+    event(WM_LBUTTONUP,500,200);assert(orders.size()==3);assert(world.PrepareOrder_Type==ordertype::STOP);
+    reset(0);megaController.visible=true;
+    assert(!event(WM_RBUTTONDOWN,300,200,0,true,true));
+    assert(event(WM_LBUTTONDOWN,300,200,0,true,true));event(WM_LBUTTONUP,500,200);assert(orders.size()==3);
+    // Changing views cannot join two unrelated coordinate systems or commit
+    // an old stroke on the newly visible map.
+    reset();event(WM_RBUTTONDOWN);megaController.visible=true;event(WM_RBUTTONUP,500,300);assert(orders.empty());
+    reset();megaController.visible=true;event(WM_RBUTTONDOWN,300,200,0,true,true);
+    megaController.visible=false;event(WM_RBUTTONUP,500,200);assert(orders.empty());
+    reset();megaController.visible=true;event(WM_RBUTTONDOWN,300,200,0,true,true);
+    event(WM_MOUSEMOVE,180,200);event(WM_RBUTTONUP,500,200);assert(orders.empty());
+    reset();megaController.visible=true;world.MouseOverUnit=1;
+    assert(!event(WM_RBUTTONDOWN,300,200,0,true,true));
+    world.MouseOverUnit=0;assert(!event(WM_RBUTTONDOWN,300,200,MK_CONTROL,true,true));
+#endif
+    std::cout << "Drawn move input tests passed (USEMEGAMAP=" << USEMEGAMAP << ")\n";
 }

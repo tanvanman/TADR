@@ -10,7 +10,9 @@ one destination per unit. A short click still issues a normal group move.
 Explicit Move uses the left mouse button in either interface. Hold Shift when
 starting the gesture to append destinations to the existing queues.
 
-The first version supports the normal battlefield, not the minimap/megamap.
+Drawing is supported on the normal battlefield and the full-screen megamap.
+The small minimap retains its existing controls. Switching views while drawing
+cancels the pending gesture.
 Destinations are equally spaced along the drawn path. A short or tightly curved
 stroke can pack large units too closely; draw a longer line for more spacing.
 The engine still handles terrain and pathfinding, so blocked or unreachable
@@ -27,18 +29,24 @@ g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/t
 python3 src/DDraw/test/drawn_move_input_test.py
 ```
 
-The validation workflow builds all seven mod configurations with MSVC and
+The validation workflow builds Escalation on the test branch and all seven
+mod configurations for pull requests with MSVC, and
 uploads one DLL artifact per mod. It does not publish releases.
 
 ## Required in-game checks before declaring ready for release
 
 - Both left-click and right-click interfaces: normal clicks, straight lines,
   curves, reversed strokes, and very short strokes; two units and large groups.
-- Confirm the preview matches the release destinations at multiple resolutions,
+- In both normal view and megamap, confirm the preview matches the release destinations at multiple resolutions,
   on slopes, near water, near map boundaries and while edge-scrolling.
 - Shift queues a distinct destination for each unit without clearing older
   orders; releasing Shift during the gesture does not change the captured mode.
 - Explicit Move exits after an ordinary release, and stays prepared with Shift.
+- On the megamap, short clicks send one group order, drags send no orders until
+  release, and unit-icon clicks retain selection/attack/guard behaviour. Check
+  that selection boxes and double-click camera movement still work.
+- Test megamap curves near map margins, income/command panels and on slopes.
+  The cursor and green markers must follow the pointer; leaving the map cancels.
 - Clicks on enemy/friendly units still attack/guard/select normally. Building
   placement, line building, whiteboard drawing and Shift-dragging existing queued
   orders retain their controls. A single selected unit retains stock controls.
@@ -46,7 +54,7 @@ uploads one DLL artifact per mod. It does not publish releases.
   moving into the UI, loss of focus and capture loss cancel without sending an
   order. The next click must work; the original group must stay selected.
 - Selection changes, a selected unit dying or being transferred, entering the
-  megamap, a replay, a spectator view or a new game cancel the old gesture.
+  other map view, a replay, a spectator view or a new game cancel the old gesture.
 - Mixed selections: buildings and incomplete units must not receive formation
   orders, and the complete original selection must be restored.
 - Two-player game: inspect the destinations/queues from both clients. Verify

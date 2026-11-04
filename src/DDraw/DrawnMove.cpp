@@ -25,6 +25,7 @@ namespace
         int player = -1, startX = 0, startY = 0;
         TAdynmemStruct* world = NULL;
         unsigned char prepared = 0;
+        bool megamap = false;
         std::vector<Point> path;
         std::vector<UnitRef> units;
     } g;
@@ -39,7 +40,7 @@ namespace
 #endif
     }
     bool Playable(TAdynmemStruct* ta) {
-        if (!ta || DataShare->TAProgress != TAInGame || DataShare->PlayingDemo || Megamap()) return false;
+        if (!ta || DataShare->TAProgress != TAInGame || DataShare->PlayingDemo) return false;
         const int player = ta->LocalHumanPlayer_PlayerID;
         return player >= 0 && player < 10 && ta->Players[player].PlayerInfo
             && !(ta->Players[player].PlayerInfo->PropertyMask & WATCH)
@@ -53,7 +54,7 @@ namespace
     }
     bool ValidGesture(TAdynmemStruct* ta) {
         if (!Playable(ta) || ta != g.world || ta->LocalHumanPlayer_PlayerID != g.player
-            || ta->PrepareOrder_Type != g.prepared) return false;
+            || ta->PrepareOrder_Type != g.prepared || Megamap() != g.megamap) return false;
         PlayerStruct* owner = &ta->Players[g.player];
         for (const UnitRef& ref : g.units)
             if (ref.unit->UnitID != ref.id || !SelectedMobile(ref.unit,owner)) return false;
@@ -66,6 +67,14 @@ namespace
         return count == g.units.size();
     }
     bool GroundPoint(TAdynmemStruct* ta, int x, int y, Point& out) {
+#if USEMEGAMAP
+        if (Megamap()) {
+            Position_Dword pos = {};
+            if (!GUIExpander->myMinimap->Controler->FormationGroundPoint(&pos,x,y)) return false;
+            out={double(pos.X),double(pos.Y)};
+            return true;
+        }
+#endif
         const RECT& r=ta->GameSreen_Rect;
         if (!SmallMapViewport::ContainsScreen({r.left,r.top,r.right+1,r.bottom+1},
             ta->EyeBallMapXPos,ta->EyeBallMapYPos,ta->MapSizeX,ta->MapSizeY,x,y)) return false;
@@ -162,7 +171,7 @@ namespace DrawnMove
         std::lock_guard<std::recursive_mutex> lock(gestureMutex);
         return g.button != 0 || suppressedUp != 0;
     }
-    bool Message(HWND window, UINT message, WPARAM keys, LPARAM position, bool allowStart) {
+    bool Message(HWND window, UINT message, WPARAM keys, LPARAM position, bool allowStart, bool fromMegamap) {
         std::lock_guard<std::recursive_mutex> lock(gestureMutex);
         TAdynmemStruct* ta=*TAmainStruct_PtrPtr;
         const int x=static_cast<short>(LOWORD(position)), y=static_cast<short>(HIWORD(position));
@@ -210,9 +219,14 @@ namespace DrawnMove
             return message == WM_LBUTTONDOWN || message == WM_RBUTTONDOWN
                 || message == WM_LBUTTONUP || message == WM_RBUTTONUP;
         }
-        if (!allowStart || !Playable(ta) || (message != WM_LBUTTONDOWN && message != WM_RBUTTONDOWN)) return false;
+        if (!allowStart || !Playable(ta) || Megamap() != fromMegamap
+            || (message != WM_LBUTTONDOWN && message != WM_RBUTTONDOWN)) return false;
         static const bool enabled=MyConfig->GetIniBool("DrawnMoveFormations",TRUE) != FALSE;
-        if (!enabled || ta->MouseOverUnit || ta->CurrentCursora_Index != cursormove) return false;
+        // Megamap input refreshes MouseOverUnit for this exact press before
+        // entering here. Resolve its contextual cursor now instead of using
+        // the previous frame's cursor (which may still indicate a unit).
+        const int cursor=fromMegamap ? CorretCursor_InGame(ta->PrepareOrder_Type) : ta->CurrentCursora_Index;
+        if (!enabled || ta->MouseOverUnit || cursor != cursormove) return false;
         const bool explicitMove=ta->PrepareOrder_Type == ordertype::MOVE;
         if (!explicitMove && ta->PrepareOrder_Type != ordertype::STOP) return false;
         const UINT moveButton=explicitMove || ta->InterfaceType == 0 ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
@@ -228,6 +242,7 @@ namespace DrawnMove
         if (next.units.size() < 2) return false;
         next.window=window; next.button=message; next.player=player; next.world=ta;
         next.prepared=ta->PrepareOrder_Type; next.shift=(keys & MK_SHIFT) != 0;
+        next.megamap=fromMegamap;
         next.startX=x; next.startY=y; next.path.push_back(point);
         g=next;
         SetCapture(window);
@@ -238,21 +253,34 @@ namespace DrawnMove
         std::lock_guard<std::recursive_mutex> lock(gestureMutex);
         if (!OwnsInput() || g.cancelled || !g.dragged || !ValidGesture(*TAmainStruct_PtrPtr)) return;
         const std::vector<Point> markers=DrawnMoveGeometry::Resample(g.path,g.units.size());
-        std::vector<Position_Dword> positions;
-        for (const Point& point : markers) positions.push_back(TerrainPosition(point));
+        std::vector<POINT> positions;
+        RECT clip=g.world->GameSreen_Rect;
+        for (const Point& point : markers) {
+            const Position_Dword p=TerrainPosition(point);
+            POINT screen = {};
+#if USEMEGAMAP
+            if (g.megamap) {
+                if (!GUIExpander->myMinimap->Controler->FormationScreenPoint(&screen,&clip,p)) continue;
+            } else
+#endif
+            {
+                screen.x=p.X-g.world->EyeBallMapXPos+clip.left;
+                screen.y=p.Y-g.world->EyeBallMapYPos+clip.top-p.Z/2;
+            }
+            positions.push_back(screen);
+        }
         DDSURFACEDESC desc = {};
         desc.dwSize=sizeof(desc);
         if (surface->Lock(NULL,&desc,DDLOCK_WAIT | DDLOCK_SURFACEMEMORYPTR,NULL) != DD_OK) return;
         if (desc.ddpfPixelFormat.dwRGBBitCount != 8) { surface->Unlock(NULL); return; }
-        const RECT& r=g.world->GameSreen_Rect;
+        const RECT& r=clip;
         auto pixel=[&](int x,int y,int color) {
             if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom && x>=0 && y>=0
                 && x<static_cast<int>(desc.dwWidth) && y<static_cast<int>(desc.dwHeight))
                 static_cast<unsigned char*>(desc.lpSurface)[y*desc.lPitch+x]=static_cast<unsigned char>(color);
         };
-        for (const Position_Dword& p : positions) {
-            const int x=p.X-g.world->EyeBallMapXPos+r.left;
-            const int y=p.Y-g.world->EyeBallMapYPos+r.top-p.Z/2;
+        for (const POINT& p : positions) {
+            const int x=p.x, y=p.y;
             for (int d=-3; d<=3; ++d) {
                 pixel(x+d,y-3,234); pixel(x+d,y+3,234);
                 pixel(x-3,y+d,234); pixel(x+3,y+d,234);
