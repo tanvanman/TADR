@@ -87,6 +87,7 @@ Zero Alpha5-060322      tazero.ini      zdraw.dll
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Fix automatic dragon's teeth rings to follow rotated rectangular building footprints (thanks TAG_Venom)
 - Restore the tenth replay player's POV, camera follow and starting allies (thanks TAG_Venom)
 - Show allied AI resource bars in skirmish (thanks TAG_Venom)
 - Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
