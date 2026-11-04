@@ -5,6 +5,9 @@
 // Allied projectile collision is a mod build choice, never an INI preference.
 #define ALLIED_PROJECTILE_COLLISION_ENABLE 1
 
+// Opt in to TAG_Venom's compact economy/replay panels (Ctrl-F2 preferences).
+#define MODERN_ALLY_RESOURCE_UI_ENABLE 1
+
 //
 // Snap radii
 //

@@ -16,6 +16,11 @@
 #define STANDARBUTTON                   12
 #define INPUTBOX                        13
 #define SMALLCIRCLE                     14
+#define MENUBUTTON                      15
+#define PAGEPREVIOUS                    16
+#define PAGENEXT                        17
+#define STYLESELECTOR                   18
+#define VIEWSELECTOR                    19
 #define GREENRECT                       50
 #define IDC_GROUPBOX1                   101
 #define IDC_RADIOBUTTON1                102

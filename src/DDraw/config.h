@@ -52,6 +52,12 @@
 #error "ALLIED_PROJECTILE_COLLISION_ENABLE must be 0 or 1"
 #endif
 
+// ProCast-inspired economy panels. Mods explicitly opt in in config_*.h.
+// Opted-in builds offer a local Classic/New choice and replay totals settings.
+#ifndef MODERN_ALLY_RESOURCE_UI_ENABLE
+#define MODERN_ALLY_RESOURCE_UI_ENABLE 0
+#endif
+
 //
 // Weather report rows.  WEATHER_REPORT is the master switch for the whole
 // top-of-screen overlay (wind / tidal / game time); these two select which of

@@ -307,6 +307,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="EconomyPanels.cpp" />
     <ClCompile Include="AutoTeam.cpp" />
     <ClCompile Include="BattleroomCommands.cpp" />
     <ClCompile Include="ChallengeResponse.cpp" />
@@ -363,6 +364,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="TakeClaim.cpp" />
     <ClCompile Include="VeterancyHack.cpp" />
     <ClCompile Include="Widgets\Button.cpp" />
+    <ClCompile Include="Widgets\TabButton.cpp" />
     <ClCompile Include="Widgets\IntegerField.cpp" />
     <ClCompile Include="Widgets\Label.cpp" />
     <ClCompile Include="Widgets\TextField.cpp" />
@@ -561,6 +563,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="UnitDefExtensions.h" />
     <ClInclude Include="VeterancyHack.h" />
     <ClInclude Include="Widgets\Button.h" />
+    <ClInclude Include="Widgets\TabButton.h" />
     <ClInclude Include="Widgets\IntegerField.h" />
     <ClInclude Include="Widgets\Label.h" />
     <ClInclude Include="Widgets\TextField.h" />
@@ -572,6 +575,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="bookmarks.h" />
     <ClInclude Include="cgraphic.h" />
     <ClInclude Include="changequeue.h" />
+    <ClInclude Include="EconomyPanels.h" />
     <ClInclude Include="cincome.h" />
     <ClInclude Include="commanderwarp.h" />
     <ClInclude Include="ddraw.h" />
@@ -640,6 +644,9 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <None Include="bitmaps\smallcircle.pcx" />
     <None Include="bitmaps\StagedButtn1.pcx" />
     <None Include="bitmaps\standarbutton.pcx" />
+    <None Include="resources\default\bitmaps\MenuButton.pcx" />
+    <None Include="resources\default\bitmaps\StyleSelector.pcx" />
+    <None Include="resources\default\bitmaps\ViewSelector.pcx" />
     <None Include="bitmaps\tacursor.pcx" />
     <None Include="tdraw.def" />
   </ItemGroup>

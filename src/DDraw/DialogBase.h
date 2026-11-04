@@ -28,8 +28,9 @@ public:
     // Drawing utilities — called by Widget subclasses and subclass RenderDialog().
     void DrawText(LPDIRECTDRAWSURFACE dest, int x, int y, const char* text);
     void DrawSmallText(LPDIRECTDRAWSURFACE dest, int x, int y, const char* text);
+    void DimRect(int x, int y, int width, int height);
     void DrawTexture(int x, int y, int width, int height,
-                     LPDIRECTDRAWSURFACE texture, int texturePosX, int texturePosY);
+                     LPDIRECTDRAWSURFACE texture, int texturePosX, int texturePosY, int colourKey = -1);
     int  DrawTextField(int posX, int posY, int width, int height,
                        const std::string& text, char color);
 

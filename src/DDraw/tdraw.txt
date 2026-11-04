@@ -45,7 +45,7 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   map features (mexes, geos, spires, walls) on megamap        y     y     y      n     y      n      y
   off-map aircraft targetable, in tiles past the map edge     1     32    32     1     1      1      1
   explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     n      n      y
-  projectiles pass through allied players' units              y     n     n      n     n      n      n
+  projectiles pass through allied players' units              y     n     n      n     y      n      n
   ground constructors can guard / assist air constructors     n     y     y      n     n      n      n
   air repair beam shown only while the repair is paid for     n     y     y      n     n      n      n
   weapon IDs above 255 in Weapons/*.tdf                       n     y     y      n     n      n      y
@@ -87,6 +87,9 @@ NEW FEATURES IN BRIEF:
 
 *????.??.??
 - Optimise allied queued-build overlays with on-demand, paced queue updates (thanks TAG_Venom)
+- Add opt-in ally economy bars and replay totals using the native TA HUD font (thanks TAG_Venom)
+- Organise Ctrl-F2 settings into shared TA-style tabbed pages (thanks TAG_Venom)
+- Fix automatic dragon's teeth rings to follow rotated rectangular building footprints (thanks TAG_Venom)
 - Restore the tenth replay player's POV, camera follow and starting allies (thanks TAG_Venom)
 - Show allied AI resource bars in skirmish (thanks TAG_Venom)
 - Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
@@ -325,6 +328,77 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Enhanced allied resource bars and replay totals
+
+  Enhanced allied resource bars show current resources and storage capacity,
+  with separate green production and red requested-usage rates for metal and
+  energy. Text uses TA's native top resource HUD font without scaling. White
+  player names, team-colour boxes and underlines identify players; blue metal
+  and yellow energy bars have black empty tracks and outlines.
+
+  Replay totals rank Total metal produced, Total energy produced and Total
+  current units. Each ranking shows every recorded player, including defeated
+  players. Names have team-colour boxes; comparison bars use blue for metal,
+  yellow for energy and white for units. The joining spectator is excluded;
+  the shared tenth-player slot appears after recorded resource data confirms it.
+
+  In builds supporting the feature, Ctrl-F2 > Resources > Style selects Classic
+  or Enhanced. Classic retains the original resource bars and F4 behaviour.
+  Enhanced-only settings are grayed out in Classic but retain their saved
+  choices. Background applies immediately to both styles: None, Text or Solid.
+
+  Show selects Incomes, Totals, Both or Off. Separate Metal, Energy and Units
+  checkboxes choose which replay totals are included. Metal and Energy measure
+  total production; Units measures the current total, not units built or combat
+  strength. Totals require an active recorded multiplayer replay. Live games,
+  including spectators, skirmish and campaigns, cannot display them. Drawing
+  and screen-copy checks also reject cached totals outside replay mode.
+  With no totals selected, only incomes remain.
+
+  F4 cycles available views and the native scoreboard states. Over a single
+  visible panel, mouse wheel up selects incomes and down selects totals. The
+  wheel leaves Both and Off unchanged and passes through outside the overlay.
+  Show stays synchronised with F4 and mouse wheel changes.
+
+  Income layout and Totals layout each offer Vertical or Horizontal. Horizontal
+  incomes wrap player cards into up to three columns, preferring complete rows;
+  ten players use two columns of five when space permits. Horizontal totals
+  place the selected rankings beside each other. Vertical panels stack down
+  the right edge where they fit, otherwise totals sit beside incomes. With
+  the standard HUD font, ten-player incomes and all three vertical rankings
+  fit at 1080 height; omitting unit totals allows the stack to fit at 900.
+  Larger fonts may need horizontal layouts. Very small panels provide paging.
+
+  Drag panels to reposition them. Yellow arrows temporarily collapse a panel,
+  leaving a tab in place to reopen it. F4 first restores collapsed panels.
+  Restore reopens selected panels and resets their positions and pages without
+  changing the totals selected. Double-click a player for recorded POV, then
+  double-click again to follow or stop following that player's camera.
+  My Original Camera restores the viewer's original view.
+
+  Rates use cumulative resource counters per game second. Sparse recordings
+  retain the last measured rate between updates instead of alternating with
+  zero. Unknown or stale rates show --; pauses retain rates. Requested usage
+  can exceed accepted spending during stalls. Production includes reclaim and
+  transfers. Displaying these values does not change simulation or replay data.
+
+  The capability is selected at build time with MODERN_ALLY_RESOURCE_UI_ENABLE.
+  Display choices use the existing Eye preferences; no font assets or recorder
+  packet changes are required. Text and bars remain at native pixel size.
+
+- Tabbed Ctrl-F2 settings
+
+  Ctrl-F2 uses one compact menu with Controls, Units and Resources pages,
+  replacing the crowded single panel. Native TA button faces, pressed states,
+  build-page arrows and sounds match the game interface. Click a page or use
+  comma/full stop (including < and >) to switch pages. Escape, Ctrl-F2 or OK
+  saves and closes the menu. Existing settings retain their saved preferences.
+
+  Resources groups shared Style and Background settings above Enhanced Settings.
+  Unsupported capabilities are omitted. In builds supporting allied queued-build
+  overlays, Show ally queues sits below VSync on Controls. Custom menu background
+  artwork may need adapting to the shared 512 x 320 dimensions.
 
 - Tenth replay player POV
 
