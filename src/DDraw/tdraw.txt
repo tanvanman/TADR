@@ -83,6 +83,30 @@ ProTA 4.6               ProTA.ini       tdraw.dll
 Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 
+GUI FILES
+
+tdraw.dll ships no .gui files.  The buttons and sliders below appear only when the mod's own GUI files
+contain a gadget with exactly this name.  With stock TA's GUI files they are silently absent.
+
+  guis/SHARE.GUI (in-game share dialog)
+    SRL_SETSHRMETAL, SRL_SETSHAREGRY   sliders (id=4): metal / energy share threshold, applied on OK
+    SM#, SE#                           labels (id=5): show the two slider values
+    EN_SHAREMETAL, EN_SHAREENERGY      buttons (id=1): +sharemetal / +shareenergy
+    EN_SHOOTALL                        button (id=1): +shootall
+    EN_NOSHAKE                         button (id=1): toggles +noshake
+    EN_READY                           button (id=1): sends .ready
+    SRL_GAMESPEED                      slider (id=4): game speed, 0-20
+
+  guis/LOUNGE2.GUI (battleroom; greyed out for everyone but the host)
+    AUTOPAUSE                          button (id=1): .autopause
+    AUTOTEAM                           button (id=1): +autoteam
+    RANDOMTEAM                         button (id=1): +randomteam
+    CRCREPORT                          button (id=1): .crcreport
+
+The SHARE.GUI in the 3.9.02 unofficial patch's rev31.gp3 has every share-dialog gadget except EN_NOSHAKE,
+EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom buttons.
+
+
 NEW FEATURES IN BRIEF:
 
 *????.??.??
