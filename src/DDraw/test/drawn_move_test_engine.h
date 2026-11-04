@@ -27,7 +27,7 @@ constexpr UINT WM_LBUTTONDOWN=1, WM_LBUTTONUP=2, WM_RBUTTONDOWN=3, WM_RBUTTONUP=
     WM_ACTIVATEAPP=9, WM_KEYDOWN=10, WM_MOUSEWHEEL=11;
 constexpr unsigned MK_SHIFT=4, MK_CONTROL=8, VK_SHIFT=16;
 constexpr int TAInGame=6, Player_LocalHuman=1, WATCH=0x40, UnitSelected_State=0x10,
-    canmove=1, cursormove=14;
+    canmove=1, cursormove=14, cursornormal=19;
 namespace ordertype { enum { STOP=1, MOVE=2, ATTACK=3 }; }
 struct RECT { int left,top,right,bottom; };
 struct POINT { int x,y; };
@@ -129,3 +129,8 @@ struct MegaMapControl {
 struct FakeMinimap { MegaMapControl* Controler=&megaController; } fakeMinimap;
 struct FakeExpander { FakeMinimap* myMinimap=&fakeMinimap; } fakeExpander;
 FakeExpander* GUIExpander=&fakeExpander;
+
+struct IDDrawSurface {
+    static void OutptTxt(const char*) {}
+    static void OutptFmtTxt(const char*,...) {}
+};

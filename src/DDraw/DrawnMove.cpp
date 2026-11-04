@@ -221,31 +221,52 @@ namespace DrawnMove
         }
         if (!allowStart || !Playable(ta) || Megamap() != fromMegamap
             || (message != WM_LBUTTONDOWN && message != WM_RBUTTONDOWN)) return false;
+        static unsigned megamapPressLogs=0;
+        const bool trace=fromMegamap && megamapPressLogs++ < 32;
         static const bool enabled=MyConfig->GetIniBool("DrawnMoveFormations",TRUE) != FALSE;
         // Megamap input refreshes MouseOverUnit for this exact press before
         // entering here. Resolve its contextual cursor now instead of using
         // the previous frame's cursor (which may still indicate a unit).
         const int cursor=fromMegamap ? CorretCursor_InGame(ta->PrepareOrder_Type) : ta->CurrentCursora_Index;
-        if (!enabled || ta->MouseOverUnit || cursor != cursormove) return false;
+        // In the right-button interface, STOP means contextual input: the
+        // megamap can legitimately retain the ordinary arrow over empty ground
+        // until a movement-button press. It is not an invalid move cursor.
+        const bool movementCursor=cursor == cursormove
+            || (fromMegamap && cursor == cursornormal && ta->PrepareOrder_Type == ordertype::STOP);
+        if (!enabled || ta->MouseOverUnit || !movementCursor) {
+            if (trace) IDDrawSurface::OutptFmtTxt(
+                "[DrawnMove] megamap rejected: enabled=%d hover=%u cursor=%d prepared=%u",
+                enabled,ta->MouseOverUnit,cursor,ta->PrepareOrder_Type);
+            return false;
+        }
         const bool explicitMove=ta->PrepareOrder_Type == ordertype::MOVE;
         if (!explicitMove && ta->PrepareOrder_Type != ordertype::STOP) return false;
         const UINT moveButton=explicitMove || ta->InterfaceType == 0 ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
         if (message != moveButton || (keys & MK_CONTROL)) return false;
         Point point;
-        if (!GroundPoint(ta,x,y,point)) return false;
+        if (!GroundPoint(ta,x,y,point)) {
+            if (trace) IDDrawSurface::OutptTxt("[DrawnMove] megamap rejected: outside playable map");
+            return false;
+        }
         const int player=ta->LocalHumanPlayer_PlayerID;
         PlayerStruct* owner=&ta->Players[player];
         if (!owner->Units || !owner->UnitsAry_End) return false;
         Gesture next;
         for (UnitStruct* u=owner->Units; u<=owner->UnitsAry_End; ++u)
             if (SelectedMobile(u,owner)) next.units.push_back({u,u->UnitID});
-        if (next.units.size() < 2) return false;
+        if (next.units.size() < 2) {
+            if (trace) IDDrawSurface::OutptFmtTxt(
+                "[DrawnMove] megamap rejected: eligible mobile units=%u",static_cast<unsigned>(next.units.size()));
+            return false;
+        }
         next.window=window; next.button=message; next.player=player; next.world=ta;
         next.prepared=ta->PrepareOrder_Type; next.shift=(keys & MK_SHIFT) != 0;
         next.megamap=fromMegamap;
         next.startX=x; next.startY=y; next.path.push_back(point);
         g=next;
         SetCapture(window);
+        IDDrawSurface::OutptFmtTxt("[DrawnMove] begin view=%s units=%u shift=%d cursor=%d",
+            fromMegamap ? "megamap" : "battlefield",static_cast<unsigned>(g.units.size()),g.shift,cursor);
         return true;
     }
 

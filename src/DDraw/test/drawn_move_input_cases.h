@@ -69,7 +69,9 @@ int main() {
     // Mouse was released outside the window. A fresh click must recover.
     assert(event(WM_RBUTTONDOWN));event(WM_RBUTTONUP);assert(orders.size()==1);
 #if USEMEGAMAP
-    reset();megaController.visible=true;
+    reset();megaController.visible=true;world.CurrentCursora_Index=cursornormal;
+    // Regression: the real right-button interface can show the ordinary arrow
+    // for contextual movement. Rejecting it silently restored old click input.
     // Normal-view interception must defer to the megamap input handler.
     assert(!event(WM_RBUTTONDOWN));
     assert(event(WM_RBUTTONDOWN,300,200,MK_SHIFT,true,true));
@@ -89,6 +91,8 @@ int main() {
     for(const auto& order:orders) { assert(order.shift && order.y==600 && order.selected.size()==1);xs.push_back(order.x); }
     std::sort(xs.begin(),xs.end());assert((xs==std::vector<unsigned>{400,800,1200}));
     assert(megaController.cursorX==500 && megaController.cursorY==200);
+    // The normal battlefield still requires the existing move cursor.
+    reset();world.CurrentCursora_Index=cursornormal;assert(!event(WM_RBUTTONDOWN));
     // A megamap click remains a single group order in its coordinate space.
     reset();megaController.visible=true;
     assert(event(WM_RBUTTONDOWN,300,200,0,true,true));event(WM_RBUTTONUP,300,200);

@@ -536,6 +536,12 @@ bool MegaMapControl::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
                 if (Msg == WM_LBUTTONDOWN || Msg == WM_RBUTTONDOWN)
                 {
                     MouseMove(xPos,yPos);
+                    static unsigned formationPressLogs=0;
+                    if (formationPressLogs++ < 32)
+                        IDDrawSurface::OutptFmtTxt(
+                            "[DrawnMove] megamap press: button=%u select=%d hovered=%u prepared=%u cursor=%u selected=%d",
+                            Msg,SelectState,TAmainStruct_Ptr->MouseOverUnit,TAmainStruct_Ptr->PrepareOrder_Type,
+                            TAmainStruct_Ptr->CurrentCursora_Index,CountSelectedUnits());
                     if (DrawnMove::Message(WinProcWnd,Msg,wParam,lParam,
                         selectbuttom::none == SelectState,true)) return true;
                 }

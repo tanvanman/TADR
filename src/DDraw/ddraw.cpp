@@ -190,6 +190,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 	if(reason==DLL_PROCESS_ATTACH)
 	{
 		IDDrawSurface::OutptTxt("Process Attached.  config=" TDRAW_CONFIG_NAME);
+		IDDrawSurface::OutptTxt("[DrawnMove] build=megamap-v2");
 
 		/* 
 			dplayx.dll TA Patch loader - https://github.com/FunkyFr3sh/Total-Annihilation-Patch-Loader 
