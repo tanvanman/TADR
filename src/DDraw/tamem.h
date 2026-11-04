@@ -936,7 +936,7 @@ struct UnitDefStruct {
 	/* 0x1EE */ WeaponStruct* weapon1;
 	/* 0x1F2 */ WeaponStruct* weapon2;
 	/* 0x1F6 */ WeaponStruct* weapon3;
-	/* 0x1FA */ unsigned short nMaxHP;
+	/* 0x1FA */ unsigned short nMaxHP;   // the engine reads it as a dword with data8 (high word)
 	/* 0x1FC */ unsigned short data8;
 	/* 0x1FE */ unsigned short nWorkerTime;
 	/* 0x200 */ unsigned short nHealTime;
@@ -982,6 +982,9 @@ static_assert(offsetof(UnitDefStruct, CRC_all)     == 0x142, "UnitDefStruct::CRC
 static_assert(offsetof(UnitDefStruct, CRC_weapons) == 0x146, "UnitDefStruct::CRC_weapons moved");
 static_assert(offsetof(UnitDefStruct, FootX)       == 0x14A, "UnitDefStruct::FootX moved");
 static_assert(sizeof(UnitDefStruct)                == 0x249, "UnitDefStruct size changed");
+// The engine treats nMaxHP + data8 as one dword (HealthBarColors, RepairRateFix read it that way).
+static_assert(offsetof(UnitDefStruct, nMaxHP)      == 0x1FA, "UnitDefStruct::nMaxHP moved");
+static_assert(offsetof(UnitDefStruct, data8)       == 0x1FC, "UnitDefStruct::data8 moved");
 
 enum UnitSelectState
 {
