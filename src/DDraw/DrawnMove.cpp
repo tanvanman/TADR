@@ -271,7 +271,7 @@ namespace
 namespace DrawnMove
 {
     void LogBuild() {
-        IDDrawSurface::OutptTxt("[DrawnMove] build=selection-v5-diagnostic");
+        IDDrawSurface::OutptTxt("[DrawnMove] build=alt-v6");
 #if USEMEGAMAP
         IDDrawSurface::OutptTxt("[DrawnMove] compiled-megamap=enabled");
 #else
@@ -296,7 +296,8 @@ namespace DrawnMove
             const UINT up=g.button == WM_LBUTTONDOWN ? WM_LBUTTONUP : WM_RBUTTONUP;
             if (message == WM_KILLFOCUS || message == WM_CANCELMODE || message == WM_CAPTURECHANGED
                 || (message == WM_ACTIVATEAPP && !keys)
-                || (message == WM_KEYDOWN && keys != VK_SHIFT)
+                || ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN)
+                    && keys != VK_SHIFT && keys != VK_MENU)
                 || message == WM_LBUTTONDOWN || message == WM_RBUTTONDOWN || message == WM_MOUSEWHEEL)
                 Cancel();
             if (!g.cancelled && !ValidGesture(ta)) Cancel();
@@ -330,7 +331,11 @@ namespace DrawnMove
             return message == WM_LBUTTONDOWN || message == WM_RBUTTONDOWN
                 || message == WM_LBUTTONUP || message == WM_RBUTTONUP;
         }
-        if (!allowStart || !Playable(ta) || Megamap() != fromMegamap
+        // Activation is sampled only at the press. Once captured, always
+        // handle release/cancellation even if Alt is released first. Mouse
+        // wParam has Shift/Ctrl bits but no Alt bit, so query VK_MENU.
+        if (!allowStart || (GetAsyncKeyState(VK_MENU) & 0x8000) == 0
+            || !Playable(ta) || Megamap() != fromMegamap
             || (message != WM_LBUTTONDOWN && message != WM_RBUTTONDOWN)) return false;
         static unsigned megamapPressLogs=0;
         const bool trace=fromMegamap && megamapPressLogs++ < 32;
@@ -353,7 +358,7 @@ namespace DrawnMove
         const bool explicitMove=ta->PrepareOrder_Type == ordertype::MOVE;
         if (!explicitMove && ta->PrepareOrder_Type != ordertype::STOP) return false;
         const UINT moveButton=explicitMove || ta->InterfaceType == 0 ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
-        if (message != moveButton || (keys & MK_CONTROL)) return false;
+        if (message != moveButton) return false;
         Point point;
         if (!GroundPoint(ta,x,y,point)) {
             if (trace) IDDrawSurface::OutptTxt("[DrawnMove] megamap rejected: outside playable map");

@@ -23,8 +23,8 @@ using BOOL=int;
 #define HIWORD(x) (((x)>>16)&0xffff)
 constexpr UINT WM_LBUTTONDOWN=1, WM_LBUTTONUP=2, WM_RBUTTONDOWN=3, WM_RBUTTONUP=4,
     WM_MOUSEMOVE=5, WM_KILLFOCUS=6, WM_CANCELMODE=7, WM_CAPTURECHANGED=8,
-    WM_ACTIVATEAPP=9, WM_KEYDOWN=10, WM_MOUSEWHEEL=11;
-constexpr unsigned MK_SHIFT=4, MK_CONTROL=8, VK_SHIFT=16;
+    WM_ACTIVATEAPP=9, WM_KEYDOWN=10, WM_MOUSEWHEEL=11, WM_SYSKEYDOWN=12;
+constexpr unsigned MK_SHIFT=4, MK_CONTROL=8, VK_SHIFT=16, VK_MENU=18;
 constexpr int TAInGame=6, Player_LocalHuman=1, WATCH=0x40, UnitSelected_State=0x10,
     canmove=1, cursormove=14, cursornormal=19;
 namespace ordertype { enum { STOP=1, MOVE=2, ATTACK=3 }; }
@@ -79,6 +79,8 @@ struct Config {
     }
 } config;
 Config* MyConfig=&config;
+bool altHeld=true;
+short GetAsyncKeyState(int key) { return key == VK_MENU && altHeld ? static_cast<short>(0x8000) : 0; }
 HWND capture=0;
 HWND GetCapture() { return capture; }
 void ReleaseCapture() { capture=0; }

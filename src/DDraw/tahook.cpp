@@ -404,6 +404,7 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
             const bool allowFormation = (GetAsyncKeyState(VirtualKeyCode) & 0x8000) == 0
                 && DraggingUnitOrdersState == DraggingOrderStateEnum::IDLE
                 && !(Msg == WM_LBUTTONDOWN && (wParam & MK_SHIFT)
+                    && (GetAsyncKeyState(VK_MENU) & 0x8000) == 0
                     && TAdynmem->PrepareOrder_Type == ordertype::STOP && FindUnitOrdersUnderMouse());
             if (DrawnMove::Message(WinProcWnd, Msg, wParam, lParam, allowFormation)) return true;
 			switch(Msg)

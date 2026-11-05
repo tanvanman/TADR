@@ -4,11 +4,16 @@ This feature is implemented in tdraw.dll. Use the DLL matching your mod; keep
 its existing recorder DLL. Enable `DrawnMoveFormations = TRUE` in the
 `[Preferences]` section of totala.ini (enabled by default).
 
-Select two or more completed mobile units. Hold the usual movement mouse
-button on empty ground, draw a line or curve, then release. Green squares show
-one destination per unit. A short click still issues a normal group move.
-Explicit Move uses the left mouse button in either interface. Hold Shift when
-starting the gesture to append destinations to the existing queues.
+Select two or more completed mobile units. Hold Alt and the usual movement
+mouse button on empty ground, draw a line or curve, then release the mouse
+button. Green squares show one destination per unit. An Alt-drawn formation
+replaces current orders; hold Shift+Alt when starting it to append destinations
+to the existing queues. Explicit Move uses the left mouse button in either
+interface. A short Alt-click still issues a group move.
+
+Without Alt, movement and selection retain their normal controls. In
+particular, Shift-click and Shift-drag can add units to the selection, and
+ordinary Shift movement commands remain queued.
 
 Drawing is supported on the normal battlefield and the full-screen megamap.
 The small minimap retains its existing controls. Switching views while drawing
@@ -35,24 +40,33 @@ uploads one DLL artifact per mod. It does not publish releases.
 
 ## Required in-game checks before declaring ready for release
 
-- Both left-click and right-click interfaces: normal clicks, straight lines,
-  curves, reversed strokes, and very short strokes; two units and large groups.
+- Both left-click and right-click interfaces: normal clicks and Alt-drawn
+  straight lines, curves, reversed strokes, and very short strokes; two units
+  and large groups.
 - In both normal view and megamap, confirm the preview matches the release destinations at multiple resolutions,
   on slopes, near water, near map boundaries and while edge-scrolling.
-- Shift queues a distinct destination for each unit without clearing older
-  orders; releasing Shift during the gesture does not change the captured mode.
+- Alt-drawn formations replace current orders. Shift+Alt queues a distinct
+  destination for each unit without clearing older orders; releasing Shift
+  during the gesture does not change the captured queue mode.
+- Without Alt, Shift-click/Shift-drag adds units to the selection and ordinary
+  Shift movement commands still queue. Neither starts a formation.
+- Alt+Shift over an existing move-order marker starts a queued formation;
+  Shift without Alt retains the existing queued-order drag control.
 - Explicit Move exits after an ordinary release, and stays prepared with Shift.
-- On the megamap, short clicks send one group order, drags send no orders until
-  release, and unit-icon clicks retain selection/attack/guard behaviour. Check
+- On the megamap, short Alt-clicks send one group order, Alt-drags send no
+  orders until release, and unit-icon clicks retain selection/attack/guard
+  behaviour. Check
   that selection boxes and double-click camera movement still work.
 - Test megamap curves near map margins, income/command panels and on slopes.
   The cursor and green markers must follow the pointer; leaving the map cancels.
 - Clicks on enemy/friendly units still attack/guard/select normally. Building
   placement, line building, whiteboard drawing and Shift-dragging existing queued
   orders retain their controls. A single selected unit retains stock controls.
-- Escape, another command/hotkey, mouse-wheel zoom, the other mouse button,
+- Escape, another command/hotkey, the mouse wheel, the other mouse button,
   moving into the UI, loss of focus and capture loss cancel without sending an
   order. The next click must work; the original group must stay selected.
+- Check Alt-key release after a formation does not activate a system menu, and
+  native Alt+Tab/Alt+F4 behaviour remains available under Windows and Wine.
 - Selection changes, a selected unit dying or being transferred, entering the
   other map view, a replay, a spectator view or a new game cancel the old gesture.
 - Mixed selections: buildings and incomplete units must not receive formation

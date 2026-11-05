@@ -8,7 +8,7 @@ bool event(UINT message,int x=300,int y=300,unsigned keys=0,bool start=true,bool
 void reset(int interface=1) {
     event(WM_CANCELMODE); event(WM_LBUTTONUP); event(WM_RBUTTONUP);
     assert(!DrawnMove::OwnsInput());
-    world=TAdynmemStruct(); share=Share(); orders.clear();dispatchCallback={};megaController.visible=false;
+    world=TAdynmemStruct(); share=Share(); orders.clear();dispatchCallback={};megaController.visible=false;altHeld=true;
     world.InterfaceType=interface;
     world.Players[0].PlayerInfo=&info; info.PropertyMask=0;
     world.BeginUnitsArray_p=units;world.EndOfUnitsArray_p=units+5;
@@ -39,6 +39,56 @@ int main() {
     std::cout << "Drawn move no-orders diagnostic tests passed\n";
     return 0;
 #endif
+    // Shift-only and Ctrl+Shift input belongs entirely to native selection /
+    // queue controls in both views and both mouse interfaces. No capture,
+    // preview, selection changes or commands may occur without Alt.
+    for (int interface : {0,1}) for (bool mega : {false,true}) {
+#if !USEMEGAMAP
+        if (mega) continue;
+#endif
+        for (unsigned keys : {0u, MK_SHIFT, MK_CONTROL, MK_SHIFT|MK_CONTROL}) {
+            reset(interface);megaController.visible=mega;altHeld=false;
+            const UINT down=interface == 0 ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
+            const UINT up=interface == 0 ? WM_LBUTTONUP : WM_RBUTTONUP;
+            assert(!event(down,300,200,keys,true,mega));
+            assert(!event(WM_MOUSEMOVE,500,200,keys,true,mega));
+            assert(!event(up,500,200,keys,true,mega));
+            assert(!DrawnMove::OwnsInput());assert(orders.empty());selected();
+            // The left-button selection drag must also pass through in the
+            // right-click interface, independently of the movement button.
+            assert(!event(WM_LBUTTONDOWN,300,200,keys,true,mega));
+            assert(!event(WM_MOUSEMOVE,500,200,keys,true,mega));
+            assert(!event(WM_LBUTTONUP,500,200,keys,true,mega));
+        }
+    }
+    // Exact requested controls: Alt replaces, Shift+Alt queues. Exercise
+    // both interfaces and both views without inventing a mouse MK_ALT bit.
+    for (int interface : {0,1}) for (bool mega : {false,true}) for (bool queue : {false,true}) {
+#if !USEMEGAMAP
+        if (mega) continue;
+#endif
+        reset(interface);megaController.visible=mega;
+        const UINT down=interface == 0 ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
+        const UINT up=interface == 0 ? WM_LBUTTONUP : WM_RBUTTONUP;
+        const unsigned keys=queue ? MK_SHIFT : 0;
+        assert(event(down,300,200,keys,true,mega));
+        event(WM_MOUSEMOVE,500,200,keys);event(up,500,200,keys);
+        assert(orders.size()==3);
+        for(const auto& order:orders) assert(order.shift==queue && order.selected.size()==1);
+        selected();
+    }
+    // Bare Alt repeats are harmless; an Alt system shortcut cancels the
+    // gesture and still passes through to the native window procedure.
+    reset();assert(event(WM_RBUTTONDOWN));
+    assert(!event(WM_SYSKEYDOWN,300,300,VK_MENU));
+    event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);assert(orders.size()==3);
+    reset();assert(event(WM_RBUTTONDOWN));
+    assert(!event(WM_SYSKEYDOWN,300,300,0x73)); // Alt+F4
+    event(WM_RBUTTONUP,500,300);assert(orders.empty());
+    // Losing the activation modifier after a press must not lose mouse-up.
+    reset();assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);
+    altHeld=false;assert(event(WM_RBUTTONUP,500,300));
+    assert(orders.size()==3 && !DrawnMove::OwnsInput());
     reset();
     assert(event(WM_RBUTTONDOWN));assert(orders.empty());
     assert(event(WM_RBUTTONUP));assert(orders.size()==1 && orders[0].selected.size()==3);selected();
@@ -118,7 +168,7 @@ int main() {
     world.CurrentCursora_Index=cursormove;world.MouseOverUnit=1;assert(!event(WM_RBUTTONDOWN));
     world.MouseOverUnit=0;share.PlayingDemo=true;assert(!event(WM_RBUTTONDOWN));share.PlayingDemo=false;
     info.PropertyMask=WATCH;assert(!event(WM_RBUTTONDOWN));info.PropertyMask=0;
-    assert(!event(WM_RBUTTONDOWN,300,300,MK_CONTROL));
+    altHeld=false;assert(!event(WM_RBUTTONDOWN,300,300,MK_CONTROL));altHeld=true;
     assert(!event(WM_RBUTTONDOWN,300,300,0,false));
     for(UINT cancel : {WM_KILLFOCUS,WM_CANCELMODE,WM_CAPTURECHANGED,WM_KEYDOWN,WM_MOUSEWHEEL}) {
         reset();event(WM_RBUTTONDOWN);event(WM_MOUSEMOVE,500,300);
@@ -179,7 +229,7 @@ int main() {
     event(WM_MOUSEMOVE,180,200);event(WM_RBUTTONUP,500,200);assert(orders.empty());
     reset();megaController.visible=true;world.MouseOverUnit=1;
     assert(!event(WM_RBUTTONDOWN,300,200,0,true,true));
-    world.MouseOverUnit=0;assert(!event(WM_RBUTTONDOWN,300,200,MK_CONTROL,true,true));
+    world.MouseOverUnit=0;altHeld=false;assert(!event(WM_RBUTTONDOWN,300,200,MK_CONTROL,true,true));altHeld=true;
 #endif
     std::cout << "Drawn move input tests passed (USEMEGAMAP=" << USEMEGAMAP << ")\n";
 }

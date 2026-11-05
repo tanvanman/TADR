@@ -650,11 +650,15 @@ NEW FEATURES IN DETAIL:
 
 - Drawn Move Formations
 
-  Select two or more completed mobile units, hold the movement mouse button
-  on empty ground, draw a line or curve and release. The units receive separate
-  destinations spread along that line. Green squares preview the destinations.
-  Shift held at the start queues the moves. A normal click remains a group move.
-  Escape or leaving the battlefield cancels the gesture.
+  Select two or more completed mobile units, hold Alt and the movement mouse
+  button on empty ground, draw a line or curve and release the mouse button.
+  The units receive separate destinations spread along that line. Green squares
+  preview the destinations. Alt-drawn formations replace current orders;
+  hold Shift+Alt at the start to queue the moves instead.
+
+  Without Alt, movement and selection keep their normal controls. Shift-click
+  and Shift-drag can add units to the selection; ordinary Shift movement
+  commands remain queued. Escape or leaving the battlefield cancels a formation.
 
   Supported on the normal battlefield and full-screen megamap. Switching views
   while drawing cancels the pending gesture. Short or tightly curved lines may
