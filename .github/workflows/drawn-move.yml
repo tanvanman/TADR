@@ -18,14 +18,15 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/drawn_move_geometry_test.cpp -o /tmp/drawn-move-test
           /tmp/drawn-move-test
           python3 src/DDraw/test/drawn_move_input_test.py
+          python3 src/DDraw/test/drawn_move_input_test.py --mod PROTA
   windows:
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        # Iterate quickly on the Escalation play-test branch; a PR validates
+        # Build both requested test mods on the feature branch; a PR validates
         # every supported mod before it can be considered for merging.
-        mod: ${{ fromJSON(github.event_name == 'pull_request' && '["OTA","PROTA","ESCALATION","BTA","MAYHEM","TAZERO","TWILIGHT"]' || '["ESCALATION"]') }}
+        mod: ${{ fromJSON(github.event_name == 'pull_request' && '["OTA","PROTA","ESCALATION","BTA","MAYHEM","TAZERO","TWILIGHT"]' || '["ESCALATION","PROTA"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: ilammy/msvc-dev-cmd@v1

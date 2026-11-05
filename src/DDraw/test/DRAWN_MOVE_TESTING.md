@@ -32,9 +32,10 @@ From the repository root on Linux:
 g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/drawn_move_geometry_test.cpp -o /tmp/drawn-move-test
 /tmp/drawn-move-test
 python3 src/DDraw/test/drawn_move_input_test.py
+python3 src/DDraw/test/drawn_move_input_test.py --mod PROTA
 ```
 
-The validation workflow builds Escalation on the test branch and all seven
+The validation workflow builds Escalation and ProTA on the test branch and all seven
 mod configurations for pull requests with MSVC, and
 uploads one DLL artifact per mod. It does not publish releases.
 
