@@ -23,6 +23,12 @@ namespace
     // Capture changes can re-enter WinProc synchronously on this thread.
     std::recursive_mutex gestureMutex;
     struct UnitRef { UnitStruct* unit; short id; };
+    struct SelectionRef {
+        UnitStruct* unit;
+        short type;
+        UnitDefStruct* definition;
+        bool wasLive;
+    };
     struct Gesture {
         HWND window = NULL;
         UINT button = 0;
@@ -122,11 +128,63 @@ namespace
         }
         g.path.push_back(point);
     }
-    // The normal selected-unit UI dispatcher also emits the normal network /
-    // recorder commands. The lower-level SendOrder(unit,...) helper bypasses
-    // that dispatcher. Restore only selection bits, not simulation state.
-    void DispatchFormation(TAdynmemStruct*, const std::vector<UnitStruct*>&,
-        const std::vector<UnitRef>&, const std::vector<Position_Dword>&, bool, unsigned char);
+    bool IsLiveOwned(UnitStruct* unit, PlayerStruct* owner) {
+        return unit->UnitID != 0 && unit->Owner_PlayerPtr0 == owner && unit->UnitType
+            && (unit->UnitSelected & 0x10000000) && !(unit->UnitSelected & 0x4000);
+    }
+    SelectionRef CaptureSelection(UnitStruct* unit, PlayerStruct* owner) {
+        return {unit,unit->UnitID,unit->UnitType,IsLiveOwned(unit,owner)};
+    }
+    bool SameLiveUnit(const SelectionRef& ref, PlayerStruct* owner) {
+        // UnitID is a type id, not a generation: do not restore a slot that
+        // became free, dead, changed definition, or changed owner during dispatch.
+        return ref.wasLive && IsLiveOwned(ref.unit,owner) && ref.unit->UnitID == ref.type
+            && ref.unit->UnitType == ref.definition;
+    }
+    bool SameSlotBlock(PlayerStruct* owner, UnitStruct* first, UnitStruct* last) {
+        return owner->Units == first && owner->UnitsAry_End == last;
+    }
+    void ClearSelection(UnitStruct* first, UnitStruct* last) {
+        // This is exactly the inclusive range scanned by TA's selected-unit
+        // dispatcher. A free slot can retain selection in its stale bytes;
+        // clearing only live UnitID entries leaves that slot receiving orders.
+        for (UnitStruct* unit=first; unit<=last; ++unit)
+            unit->UnitSelected &= ~UnitSelected_State;
+    }
+    std::vector<SelectionRef> SnapshotSelection(PlayerStruct* owner, UnitStruct* first, UnitStruct* last) {
+        std::vector<SelectionRef> selection;
+        unsigned staleFree=0, staleOther=0;
+        for (UnitStruct* u=first; u<=last; ++u) {
+            if (!(u->UnitSelected & UnitSelected_State)) continue;
+            const SelectionRef ref=CaptureSelection(u,owner);
+            selection.push_back(ref);
+            if (!ref.wasLive) {
+                if (u->UnitID == 0) ++staleFree;
+                else ++staleOther;
+            }
+        }
+        if (staleFree || staleOther)
+            IDDrawSurface::OutptFmtTxt("[DrawnMove] quarantined selected slots: free=%u dead_or_foreign=%u",
+                staleFree,staleOther);
+        return selection;
+    }
+    void ApplyLiveSelection(PlayerStruct* owner, const std::vector<SelectionRef>& selection) {
+        for (std::size_t i=0; i<selection.size(); ++i)
+            if (SameLiveUnit(selection[i],owner)) selection[i].unit->UnitSelected |= UnitSelected_State;
+    }
+    void RestoreSelection(TAdynmemStruct* ta, PlayerStruct* owner, UnitStruct* first, UnitStruct* last,
+        const std::vector<SelectionRef>& selection, bool shift, unsigned char prepared) {
+        if (!SameSlotBlock(owner,first,last)) return;
+        ClearSelection(first,last);
+        ApplyLiveSelection(owner,selection);
+        ta->PrepareOrder_Type=shift ? prepared : static_cast<unsigned char>(ordertype::STOP);
+        UpdateSelectUnitEffect();
+    }
+    // Use the normal UI/network dispatcher, but isolate its exact local slot
+    // block. Remote player selections are never changed.
+    void DispatchFormation(TAdynmemStruct*, PlayerStruct*, UnitStruct*, UnitStruct*,
+        const std::vector<SelectionRef>&, const std::vector<SelectionRef>&,
+        const std::vector<Position_Dword>&, bool, unsigned char);
     bool CommitOrders() {
         static const bool noOrders=MyConfig->GetIniBool("DrawnMoveTestNoOrders",FALSE) != FALSE;
         return !noOrders;
@@ -137,9 +195,13 @@ namespace
         for (const UnitRef& ref : g.units) origins.push_back({double(ref.unit->XPos),double(ref.unit->YPos)});
         const std::vector<Point> slots=DrawnMoveGeometry::Resample(g.path,g.units.size());
         const std::vector<std::size_t> assignment=DrawnMoveGeometry::Assign(origins,slots);
-        std::vector<UnitStruct*> selection;
-        for (UnitStruct* u=ta->BeginUnitsArray_p; u<ta->EndOfUnitsArray_p; ++u)
-            if (u->UnitID && (u->UnitSelected & UnitSelected_State)) selection.push_back(u);
+        PlayerStruct* owner=&ta->Players[g.player];
+        UnitStruct* first=owner->Units;
+        UnitStruct* last=owner->UnitsAry_End;
+        if (!first || !last || last < first) return;
+        const std::vector<SelectionRef> selection=SnapshotSelection(owner,first,last);
+        std::vector<SelectionRef> targets;
+        for (const UnitRef& ref : g.units) targets.push_back(CaptureSelection(ref.unit,owner));
         // Precompute all allocations / terrain lookups before changing selection.
         std::vector<Position_Dword> destinations;
         for (std::size_t i=0; i<g.units.size(); ++i) destinations.push_back(TerrainPosition(slots[assignment[i]]));
@@ -147,38 +209,69 @@ namespace
         // __finally also restores selection if an engine call raises an SEH
         // exception; the outer WinProc exception handler must not strand it.
         // Kept in a separate function below to avoid MSVC C2712 (SEH + vectors).
-        DispatchFormation(ta,selection,g.units,destinations,g.shift,prepared);
+        DispatchFormation(ta,owner,first,last,selection,targets,destinations,g.shift,prepared);
     }
     void Complete(TAdynmemStruct* ta) {
         __try { Issue(ta); }
         __finally { Finish(); }
     }
-    void DispatchFormation(TAdynmemStruct* ta, const std::vector<UnitStruct*>& selection,
-        const std::vector<UnitRef>& units, const std::vector<Position_Dword>& destinations, bool shift, unsigned char prepared) {
+    void DispatchFormation(TAdynmemStruct* ta, PlayerStruct* owner, UnitStruct* first, UnitStruct* last,
+        const std::vector<SelectionRef>& selection, const std::vector<SelectionRef>& targets,
+        const std::vector<Position_Dword>& destinations, bool shift, unsigned char prepared) {
         __try {
-            for (std::size_t i=0; i<selection.size(); ++i) selection[i]->UnitSelected &= ~UnitSelected_State;
-            for (std::size_t i=0; i<units.size(); ++i) {
-                UnitStruct* u=units[i].unit;
-                u->UnitSelected |= UnitSelected_State;
+            for (std::size_t i=0; i<targets.size(); ++i) {
+                // Recheck after every engine call. Do not touch a retired slot
+                // block, and do not dispatch to a unit freed/transferred by a
+                // preceding callback.
+                if (!SameSlotBlock(owner,first,last)) break;
+                ClearSelection(first,last);
+                if (!SameLiveUnit(targets[i],owner)) continue;
+                UnitStruct* unit=targets[i].unit;
+                unit->UnitSelected |= UnitSelected_State;
                 UpdateSelectUnitEffect();
                 const Position_Dword& p=destinations[i];
                 SendOrder(p.X,p.Y,p.Z,ordertype::MOVE,shift);
-                u->UnitSelected &= ~UnitSelected_State;
             }
         }
         __finally {
-            for (std::size_t i=0; i<units.size(); ++i) units[i].unit->UnitSelected &= ~UnitSelected_State;
-            for (std::size_t i=0; i<selection.size(); ++i) selection[i]->UnitSelected |= UnitSelected_State;
-            ta->PrepareOrder_Type=shift ? prepared : static_cast<unsigned char>(ordertype::STOP);
-            UpdateSelectUnitEffect();
+            RestoreSelection(ta,owner,first,last,selection,shift,prepared);
         }
     }
+    void DispatchGroup(TAdynmemStruct* ta, PlayerStruct* owner, UnitStruct* first, UnitStruct* last,
+        const std::vector<SelectionRef>& selection, const Position_Dword& position, bool shift,
+        unsigned char prepared) {
+        __try {
+            if (SameSlotBlock(owner,first,last)) {
+                ClearSelection(first,last);
+                ApplyLiveSelection(owner,selection);
+                UpdateSelectUnitEffect();
+                SendOrder(position.X,position.Y,position.Z,ordertype::MOVE,shift);
+            }
+        }
+        __finally {
+            RestoreSelection(ta,owner,first,last,selection,shift,prepared);
+        }
+    }
+    void IssueClick(TAdynmemStruct* ta, const Position_Dword& position) {
+        if (!CommitOrders()) return;
+        PlayerStruct* owner=&ta->Players[g.player];
+        UnitStruct* first=owner->Units;
+        UnitStruct* last=owner->UnitsAry_End;
+        if (!first || !last || last < first) return;
+        const std::vector<SelectionRef> selection=SnapshotSelection(owner,first,last);
+        DispatchGroup(ta,owner,first,last,selection,position,g.shift,ta->PrepareOrder_Type);
+    }
+    void CompleteClick(TAdynmemStruct* ta, const Position_Dword& position) {
+        __try { IssueClick(ta,position); }
+        __finally { Finish(); }
+    }
+
 }
 
 namespace DrawnMove
 {
     void LogBuild() {
-        IDDrawSurface::OutptTxt("[DrawnMove] build=megamap-v4-diagnostic");
+        IDDrawSurface::OutptTxt("[DrawnMove] build=selection-v5-diagnostic");
 #if USEMEGAMAP
         IDDrawSurface::OutptTxt("[DrawnMove] compiled-megamap=enabled");
 #else
@@ -215,8 +308,8 @@ namespace DrawnMove
                     if (g.dragged) { Sample(point,true); Complete(ta); return true; }
                     else {
                         const Position_Dword p=TerrainPosition(g.path.front());
-                        if (CommitOrders()) SendOrder(p.X,p.Y,p.Z,ordertype::MOVE,g.shift);
-                        ta->PrepareOrder_Type=g.shift ? g.prepared : static_cast<unsigned char>(ordertype::STOP);
+                        CompleteClick(ta,p);
+                        return true;
                     }
                 }
                 Finish();

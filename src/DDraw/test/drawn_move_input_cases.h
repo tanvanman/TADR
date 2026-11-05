@@ -1,5 +1,5 @@
-UnitStruct units[4];
-UnitDef defs[4];
+UnitStruct units[5];
+UnitDef defs[5];
 PlayerInfo info;
 LPARAM xy(int x,int y) { return (unsigned(y)&65535)<<16 | (unsigned(x)&65535); }
 bool event(UINT message,int x=300,int y=300,unsigned keys=0,bool start=true,bool megamap=false) {
@@ -8,17 +8,19 @@ bool event(UINT message,int x=300,int y=300,unsigned keys=0,bool start=true,bool
 void reset(int interface=1) {
     event(WM_CANCELMODE); event(WM_LBUTTONUP); event(WM_RBUTTONUP);
     assert(!DrawnMove::OwnsInput());
-    world=TAdynmemStruct(); share=Share(); orders.clear();megaController.visible=false;
+    world=TAdynmemStruct(); share=Share(); orders.clear();dispatchCallback={};megaController.visible=false;
     world.InterfaceType=interface;
     world.Players[0].PlayerInfo=&info; info.PropertyMask=0;
-    world.BeginUnitsArray_p=units;world.EndOfUnitsArray_p=units+4;
+    world.BeginUnitsArray_p=units;world.EndOfUnitsArray_p=units+5;
     world.Players[0].Units=units;world.Players[0].UnitsAry_End=units+3;
-    for(int i=0;i<4;++i) {
+    for(int i=0;i<5;++i) {
         units[i]=UnitStruct();defs[i]=UnitDef();
         units[i].UnitType=&defs[i];units[i].Owner_PlayerPtr0=&world.Players[0];
         units[i].XPos=100+i*50;
     }
     units[3].UnitSelected &= ~UnitSelected_State;
+    units[4].UnitSelected &= ~UnitSelected_State;
+    units[4].Owner_PlayerPtr0=&world.Players[1];
 }
 void selected() {
     for(int i=0;i<3;++i) assert(units[i].UnitSelected & UnitSelected_State);
@@ -54,6 +56,55 @@ int main() {
     assert(orders[0].x!=orders[1].x || orders[0].y!=orders[1].y);
     for(auto& order:orders) assert(order.shift && order.selected[0]!=2);
     selected();assert(units[0].UnitSelected & 0x100);
+    // Captured short clicks must remain one group order, but must not pass
+    // stale selected free slots through the same native group dispatcher.
+    reset();units[3].UnitID=0;units[3].UnitSelected |= UnitSelected_State;
+    units[4].UnitSelected |= UnitSelected_State;
+    dispatchCallback=[](std::size_t) { assert(units[4].UnitSelected & UnitSelected_State); };
+    assert(event(WM_RBUTTONDOWN));event(WM_RBUTTONUP);
+    assert(orders.size()==1 && (orders[0].selected==std::vector<int>{0,1,2}));
+    selected();assert(units[4].UnitSelected & UnitSelected_State);
+    // A free slot retains its dead unit's bytes, including selection. The
+    // retail dispatcher tests only bit 0x10, so it must be quarantined even
+    // though it is not a live gesture target. A dead nonzero-type slot must
+    // likewise never have selection resurrected during restoration.
+    for (bool freeSlot : {true,false}) {
+        reset();units[3].UnitSelected |= UnitSelected_State;
+        if (freeSlot) units[3].UnitID=0;
+        else units[3].UnitSelected &= ~0x10000000u;
+        assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+        assert(orders.size()==3);
+        for (const auto& order:orders) assert(order.selected.size()==1 && order.selected[0]!=3);
+        selected();
+    }
+    // Include the local owner's final slot even if the global end pointer is
+    // that same address. Do not temporarily deselect a remote player's slot.
+    reset();units[3].UnitSelected |= UnitSelected_State;
+    units[4].UnitSelected |= UnitSelected_State;
+    world.EndOfUnitsArray_p=units+3;
+    dispatchCallback=[](std::size_t) { assert(units[4].UnitSelected & UnitSelected_State); };
+    assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+    assert(orders.size()==4);
+    for(const auto& order:orders) assert(order.selected.size()==1);
+    for(int i=0;i<5;++i) assert(units[i].UnitSelected & UnitSelected_State);
+    // An earlier engine callback can free a later target. Skip its command,
+    // never reselect it, and retain unrelated state written by the callback.
+    reset();dispatchCallback=[](std::size_t count) {
+        if(count==1) { units[1].UnitID=0;units[1].UnitSelected &= ~0x10000000u;units[1].UnitSelected |= 0x200; }
+    };
+    assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+    assert(orders.size()==2);
+    for(const auto& order:orders) assert(order.selected.size()==1 && order.selected[0]!=1);
+    assert(!(units[1].UnitSelected & UnitSelected_State));assert(units[1].UnitSelected & 0x200);
+    assert(units[0].UnitSelected & UnitSelected_State);assert(units[2].UnitSelected & UnitSelected_State);
+    // Do not restore an original selection whose definition changed during
+    // the callback, even if its physical slot and type number still agree.
+    reset();dispatchCallback=[](std::size_t count) {
+        if(count==1) units[0].UnitType=&defs[4];
+    };
+    assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+    assert(orders.size()==3);assert(!(units[0].UnitSelected & UnitSelected_State));
+    assert(units[1].UnitSelected & UnitSelected_State);assert(units[2].UnitSelected & UnitSelected_State);
     // Both interfaces and explicit Move. A release with no intermediate move
     // event must still honour the drag threshold.
     reset(0);assert(!event(WM_RBUTTONDOWN));assert(event(WM_LBUTTONDOWN));

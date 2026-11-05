@@ -6,6 +6,7 @@
 #include <iostream>
 #include <mutex>
 #include <cstring>
+#include <functional>
 #include <vector>
 #include "../DrawnMoveGeometry.h"
 using HWND=void*;
@@ -31,6 +32,7 @@ struct RECT { int left,top,right,bottom; };
 struct POINT { int x,y; };
 struct Position_Dword { unsigned short X=0,Y=0,Z=0; };
 struct UnitDef { unsigned UnitTypeMask_0=1; int bmcode=1; };
+using UnitDefStruct=UnitDef;
 struct PlayerStruct;
 struct UnitStruct {
     short UnitID=1;
@@ -86,15 +88,20 @@ int GetPosHeight(Position_Dword*) { return 0; }
 void UpdateSelectUnitEffect() {}
 struct Order { unsigned x,y,z; bool shift; std::vector<int> selected; };
 std::vector<Order> orders;
+std::function<void(std::size_t)> dispatchCallback;
 void SendOrder(unsigned x,unsigned y,unsigned z,int kind,bool shift) {
     assert(kind==ordertype::MOVE);
     Order order={x,y,z,shift,{}};
-    for (auto* u=world.BeginUnitsArray_p;u<world.EndOfUnitsArray_p;++u)
+    // Match the retail dispatcher: local player's INCLUSIVE slot block,
+    // selection bit only; it does not reject free/dead UnitID entries.
+    auto& owner=world.Players[world.LocalHumanPlayer_PlayerID];
+    for (auto* u=owner.Units;u<=owner.UnitsAry_End;++u)
         if (u->UnitSelected & UnitSelected_State) order.selected.push_back(int(u-world.BeginUnitsArray_p));
     orders.push_back(order);
     // The dispatcher is allowed to change other state. Restoration must not
     // overwrite the whole UnitSelected word from an earlier snapshot.
     if (world.BeginUnitsArray_p) world.BeginUnitsArray_p->UnitSelected |= 0x100;
+    if (dispatchCallback) dispatchCallback(orders.size());
 }
 struct DDSURFACEDESC {
     unsigned dwSize=0,dwWidth=1024,dwHeight=768;
