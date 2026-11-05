@@ -127,7 +127,12 @@ namespace
     // that dispatcher. Restore only selection bits, not simulation state.
     void DispatchFormation(TAdynmemStruct*, const std::vector<UnitStruct*>&,
         const std::vector<UnitRef>&, const std::vector<Position_Dword>&, bool, unsigned char);
+    bool CommitOrders() {
+        static const bool noOrders=MyConfig->GetIniBool("DrawnMoveTestNoOrders",FALSE) != FALSE;
+        return !noOrders;
+    }
     void Issue(TAdynmemStruct* ta) {
+        if (!CommitOrders()) return;
         std::vector<Point> origins;
         for (const UnitRef& ref : g.units) origins.push_back({double(ref.unit->XPos),double(ref.unit->YPos)});
         const std::vector<Point> slots=DrawnMoveGeometry::Resample(g.path,g.units.size());
@@ -173,7 +178,7 @@ namespace
 namespace DrawnMove
 {
     void LogBuild() {
-        IDDrawSurface::OutptTxt("[DrawnMove] build=megamap-v3");
+        IDDrawSurface::OutptTxt("[DrawnMove] build=megamap-v4-diagnostic");
 #if USEMEGAMAP
         IDDrawSurface::OutptTxt("[DrawnMove] compiled-megamap=enabled");
 #else
@@ -210,7 +215,7 @@ namespace DrawnMove
                     if (g.dragged) { Sample(point,true); Complete(ta); return true; }
                     else {
                         const Position_Dword p=TerrainPosition(g.path.front());
-                        SendOrder(p.X,p.Y,p.Z,ordertype::MOVE,g.shift);
+                        if (CommitOrders()) SendOrder(p.X,p.Y,p.Z,ordertype::MOVE,g.shift);
                         ta->PrepareOrder_Type=g.shift ? g.prepared : static_cast<unsigned char>(ordertype::STOP);
                     }
                 }
@@ -278,12 +283,15 @@ namespace DrawnMove
         next.startX=x; next.startY=y; next.path.push_back(point);
         g=next;
         SetCapture(window);
-        IDDrawSurface::OutptFmtTxt("[DrawnMove] begin view=%s units=%u shift=%d cursor=%d",
-            fromMegamap ? "megamap" : "battlefield",static_cast<unsigned>(g.units.size()),g.shift,cursor);
+        IDDrawSurface::OutptFmtTxt("[DrawnMove] begin view=%s units=%u shift=%d cursor=%d preview=%d orders=%d",
+            fromMegamap ? "megamap" : "battlefield",static_cast<unsigned>(g.units.size()),g.shift,cursor,
+            MyConfig->GetIniBool("DrawnMovePreview",TRUE),CommitOrders());
         return true;
     }
 
     void Draw(LPDIRECTDRAWSURFACE surface) {
+        static const bool preview=MyConfig->GetIniBool("DrawnMovePreview",TRUE) != FALSE;
+        if (!preview) return;
         std::lock_guard<std::recursive_mutex> lock(gestureMutex);
         if (!OwnsInput() || g.cancelled || !g.dragged || !ValidGesture(*TAmainStruct_PtrPtr)) return;
         const std::vector<Point> markers=DrawnMoveGeometry::Resample(g.path,g.units.size());

@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <iostream>
 #include <mutex>
+#include <cstring>
 #include <vector>
 #include "../DrawnMoveGeometry.h"
 using HWND=void*;
@@ -62,7 +63,19 @@ TAdynmemStruct* worldPtr=&world;
 TAdynmemStruct** TAmainStruct_PtrPtr=&worldPtr;
 struct Share { int TAProgress=TAInGame; bool PlayingDemo=false; } share;
 Share* DataShare=&share;
-struct Config { BOOL GetIniBool(const char*, BOOL) { return TRUE; } } config;
+#ifndef DRAWN_MOVE_TEST_NO_ORDERS
+#define DRAWN_MOVE_TEST_NO_ORDERS 0
+#endif
+#ifndef DRAWN_MOVE_TEST_PREVIEW
+#define DRAWN_MOVE_TEST_PREVIEW 1
+#endif
+struct Config {
+    BOOL GetIniBool(const char* key, BOOL fallback) {
+        if (std::strcmp(key,"DrawnMovePreview")==0) return DRAWN_MOVE_TEST_PREVIEW;
+        if (std::strcmp(key,"DrawnMoveTestNoOrders")==0) return DRAWN_MOVE_TEST_NO_ORDERS;
+        return fallback;
+    }
+} config;
 Config* MyConfig=&config;
 HWND capture=0;
 HWND GetCapture() { return capture; }

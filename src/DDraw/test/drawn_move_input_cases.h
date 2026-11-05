@@ -25,6 +25,18 @@ void selected() {
     assert(!(units[3].UnitSelected & UnitSelected_State));
 }
 int main() {
+#if DRAWN_MOVE_TEST_NO_ORDERS
+    reset();assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+    assert(orders.empty());selected();assert(!DrawnMove::OwnsInput());
+    assert(event(WM_RBUTTONDOWN));event(WM_RBUTTONUP);assert(orders.empty());
+#if USEMEGAMAP
+    reset();megaController.visible=true;
+    assert(event(WM_RBUTTONDOWN,300,200,0,true,true));event(WM_MOUSEMOVE,500,200);event(WM_RBUTTONUP,500,200);
+    assert(orders.empty());selected();assert(!DrawnMove::OwnsInput());
+#endif
+    std::cout << "Drawn move no-orders diagnostic tests passed\n";
+    return 0;
+#endif
     reset();
     assert(event(WM_RBUTTONDOWN));assert(orders.empty());
     assert(event(WM_RBUTTONUP));assert(orders.size()==1 && orders[0].selected.size()==3);selected();
@@ -34,7 +46,8 @@ int main() {
     assert(event(WM_RBUTTONDOWN,300,300, MK_SHIFT));
     event(WM_MOUSEMOVE,400,300);event(WM_MOUSEMOVE,400,400);
     FakeSurface surface; DrawnMove::Draw(&surface);
-    assert(!surface.locked && std::count(surface.pixels.begin(),surface.pixels.end(),234)>0);
+    assert(!surface.locked);
+    assert((std::count(surface.pixels.begin(),surface.pixels.end(),234)>0) == bool(DRAWN_MOVE_TEST_PREVIEW));
     event(WM_RBUTTONUP,400,400);
     assert(orders.size()==2);assert(orders[0].selected.size()==1 && orders[1].selected.size()==1);
     assert(orders[0].selected[0] != orders[1].selected[0]);
@@ -81,7 +94,7 @@ int main() {
     event(WM_MOUSEMOVE,500,200);
     FakeSurface megaSurface;DrawnMove::Draw(&megaSurface);
     // First endpoint: (300,200), not normal-camera world coordinates.
-    assert(megaSurface.pixels[197*1024+300]==234);
+    assert((megaSurface.pixels[197*1024+300]==234) == bool(DRAWN_MOVE_TEST_PREVIEW));
     for(int y=0;y<768;++y) for(int x=0;x<1024;++x)
         if(megaSurface.pixels[y*1024+x]==234)
             assert(x>=200 && x<800 && y>=100 && y<600);

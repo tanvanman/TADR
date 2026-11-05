@@ -43,3 +43,4 @@ jobs:
           path: |
             src/DDraw/Public/tdraw.dll
             src/DDraw/Public/tdraw.pdb
+            src/DDraw/Public/tdraw.map

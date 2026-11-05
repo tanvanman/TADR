@@ -15,18 +15,20 @@ source = '\n'.join(line for line in source.splitlines() if not line.startswith('
 source = source.replace('__try', '').replace('__finally', '')
 with tempfile.TemporaryDirectory() as temp:
     path = Path(temp)
-    for megamap in (0, 1):
+    from itertools import product
+    for megamap, preview, no_orders in product((0, 1), repeat=3):
         variant = source if megamap else source.replace('#include "config.h"',
             '#include "config.h"\n#undef USEMEGAMAP\n#define USEMEGAMAP 0')
         (path / 'test.cpp').write_text(
             '#include "drawn_move_test_engine.h"\n' + variant +
             '\n#include "drawn_move_input_cases.h"\n')
         subprocess.run(['g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
-                    '-fsanitize=address,undefined', '-g', '-DTDRAW_CONFIG_ESCALATION', '-I', str(root),
-                    '-I', str(root.parent), str(path / 'test.cpp'), '-o', str(path / 'test')], check=True)
+                        '-fsanitize=address,undefined', '-g', '-DTDRAW_CONFIG_ESCALATION',
+                        f'-DDRAWN_MOVE_TEST_PREVIEW={preview}', f'-DDRAWN_MOVE_TEST_NO_ORDERS={no_orders}',
+                        '-I', str(root), '-I', str(root.parent), str(path / 'test.cpp'),
+                        '-o', str(path / 'test')], check=True)
         subprocess.run([str(path / 'test')], check=True,
-                   env={**os.environ, 'ASAN_OPTIONS': 'detect_leaks=0'})
-
+                       env={**os.environ, 'ASAN_OPTIONS': 'detect_leaks=0'})
     # Regression: the original test harness supplied USEMEGAMAP itself and
     # masked a missing production config.h include. The module must now fail
     # preprocessing without that header, rather than silently compiling out
