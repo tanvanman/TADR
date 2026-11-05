@@ -648,6 +648,26 @@ NEW FEATURES IN DETAIL:
   If your Mex/WreckSnap radius shows as "NA" in the ctrl-f2 menu,
   it is likely that Mex/WreckSnap hasn't been enabled by your mod maintainer.
 
+- Drawn Move Formations
+
+  Select two or more completed mobile units, hold Alt and the movement mouse
+  button on empty ground, draw a line or curve and release the mouse button.
+  The units receive separate destinations spread along that line. Green squares
+  preview the destinations. Alt-drawn formations replace current orders;
+  hold Shift+Alt at the start to queue the moves instead.
+
+  Without Alt, movement and selection keep their normal controls. Shift-click
+  and Shift-drag can add units to the selection; ordinary Shift movement
+  commands remain queued. Escape or leaving the battlefield cancels a formation.
+
+  Supported on the normal battlefield and full-screen megamap. Switching views
+  while drawing cancels the pending gesture. Short or tightly curved lines may
+  crowd large units; draw a longer line for more spacing. The engine still
+  handles terrain and pathfinding. Units form the line at their destinations;
+  they do not maintain a formation while travelling.
+
+  Set DrawnMoveFormations = FALSE in totala.ini [Preferences] to disable.
+
 - Move Queued Orders
 
   After queueing a build order or a move order,

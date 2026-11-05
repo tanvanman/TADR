@@ -15,6 +15,7 @@
 #include "hook\etc.h"
 #include "hook\hook.h"
 #include "tahook.h"
+#include "DrawnMove.h"
 #include "TAConfig.h"
 #include "unitrotate.h"
 #include "buildghost.h"
@@ -399,6 +400,13 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 						ta->EyeBallMapXPos, ta->EyeBallMapYPos, ta->MapSizeX, ta->MapSizeY, x, y))
 					return false;
 			}
+            // Preserve queued-order dragging and the existing building-line key.
+            const bool allowFormation = (GetAsyncKeyState(VirtualKeyCode) & 0x8000) == 0
+                && DraggingUnitOrdersState == DraggingOrderStateEnum::IDLE
+                && !(Msg == WM_LBUTTONDOWN && (wParam & MK_SHIFT)
+                    && (GetAsyncKeyState(VK_MENU) & 0x8000) == 0
+                    && TAdynmem->PrepareOrder_Type == ordertype::STOP && FindUnitOrdersUnderMouse());
+            if (DrawnMove::Message(WinProcWnd, Msg, wParam, lParam, allowFormation)) return true;
 			switch(Msg)
 			{
 			case WM_KEYDOWN:
@@ -940,6 +948,7 @@ void CTAHook::WriteShareMacro()
 void CTAHook::Blit(LPDIRECTDRAWSURFACE DestSurf)
 {
 	VisualizeWreckSnapPreview(DestSurf);
+	DrawnMove::Draw(DestSurf);
 
 	/*if(QueueStatus == ScrolledDTLine)
 	{

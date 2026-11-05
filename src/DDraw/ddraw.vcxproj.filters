@@ -139,6 +139,7 @@
     <ClCompile Include="TAConfig.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DrawnMove.cpp" />
     <ClCompile Include="tahook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -525,6 +526,8 @@
     <ClInclude Include="tafunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DrawnMove.h" />
+    <ClInclude Include="DrawnMoveGeometry.h" />
     <ClInclude Include="tahook.h">
       <Filter>Header Files</Filter>
     </ClInclude>

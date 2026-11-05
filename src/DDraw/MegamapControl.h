@@ -32,6 +32,11 @@ public:
 	bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 	void RefreshMouseHover (void);
 
+    // Formation gestures use the same hit-testing and terrain projection as
+    // ordinary megamap commands. Screen arguments are absolute client pixels.
+    bool FormationGroundPoint(Position_Dword* point, int screenX, int screenY);
+    bool FormationScreenPoint(POINT* screen, RECT* clip, const Position_Dword& point);
+
 
 	BOOL IsBliting(void);
 	BOOL IsDrawRect (BOOL Build_b=FALSE);

@@ -1,0 +1,235 @@
+UnitStruct units[5];
+UnitDef defs[5];
+PlayerInfo info;
+LPARAM xy(int x,int y) { return (unsigned(y)&65535)<<16 | (unsigned(x)&65535); }
+bool event(UINT message,int x=300,int y=300,unsigned keys=0,bool start=true,bool megamap=false) {
+    return DrawnMove::Message(reinterpret_cast<HWND>(1),message,keys,xy(x,y),start,megamap);
+}
+void reset(int interface=1) {
+    event(WM_CANCELMODE); event(WM_LBUTTONUP); event(WM_RBUTTONUP);
+    assert(!DrawnMove::OwnsInput());
+    world=TAdynmemStruct(); share=Share(); orders.clear();dispatchCallback={};megaController.visible=false;altHeld=true;
+    world.InterfaceType=interface;
+    world.Players[0].PlayerInfo=&info; info.PropertyMask=0;
+    world.BeginUnitsArray_p=units;world.EndOfUnitsArray_p=units+5;
+    world.Players[0].Units=units;world.Players[0].UnitsAry_End=units+3;
+    for(int i=0;i<5;++i) {
+        units[i]=UnitStruct();defs[i]=UnitDef();
+        units[i].UnitType=&defs[i];units[i].Owner_PlayerPtr0=&world.Players[0];
+        units[i].XPos=100+i*50;
+    }
+    units[3].UnitSelected &= ~UnitSelected_State;
+    units[4].UnitSelected &= ~UnitSelected_State;
+    units[4].Owner_PlayerPtr0=&world.Players[1];
+}
+void selected() {
+    for(int i=0;i<3;++i) assert(units[i].UnitSelected & UnitSelected_State);
+    assert(!(units[3].UnitSelected & UnitSelected_State));
+}
+int main() {
+#if DRAWN_MOVE_TEST_NO_ORDERS
+    reset();assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+    assert(orders.empty());selected();assert(!DrawnMove::OwnsInput());
+    assert(event(WM_RBUTTONDOWN));event(WM_RBUTTONUP);assert(orders.empty());
+#if USEMEGAMAP
+    reset();megaController.visible=true;
+    assert(event(WM_RBUTTONDOWN,300,200,0,true,true));event(WM_MOUSEMOVE,500,200);event(WM_RBUTTONUP,500,200);
+    assert(orders.empty());selected();assert(!DrawnMove::OwnsInput());
+#endif
+    std::cout << "Drawn move no-orders diagnostic tests passed\n";
+    return 0;
+#endif
+    // Shift-only and Ctrl+Shift input belongs entirely to native selection /
+    // queue controls in both views and both mouse interfaces. No capture,
+    // preview, selection changes or commands may occur without Alt.
+    for (int interface : {0,1}) for (bool mega : {false,true}) {
+#if !USEMEGAMAP
+        if (mega) continue;
+#endif
+        for (unsigned keys : {0u, MK_SHIFT, MK_CONTROL, MK_SHIFT|MK_CONTROL}) {
+            reset(interface);megaController.visible=mega;altHeld=false;
+            const UINT down=interface == 0 ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
+            const UINT up=interface == 0 ? WM_LBUTTONUP : WM_RBUTTONUP;
+            assert(!event(down,300,200,keys,true,mega));
+            assert(!event(WM_MOUSEMOVE,500,200,keys,true,mega));
+            assert(!event(up,500,200,keys,true,mega));
+            assert(!DrawnMove::OwnsInput());assert(orders.empty());selected();
+            // The left-button selection drag must also pass through in the
+            // right-click interface, independently of the movement button.
+            assert(!event(WM_LBUTTONDOWN,300,200,keys,true,mega));
+            assert(!event(WM_MOUSEMOVE,500,200,keys,true,mega));
+            assert(!event(WM_LBUTTONUP,500,200,keys,true,mega));
+        }
+    }
+    // Exact requested controls: Alt replaces, Shift+Alt queues. Exercise
+    // both interfaces and both views without inventing a mouse MK_ALT bit.
+    for (int interface : {0,1}) for (bool mega : {false,true}) for (bool queue : {false,true}) {
+#if !USEMEGAMAP
+        if (mega) continue;
+#endif
+        reset(interface);megaController.visible=mega;
+        const UINT down=interface == 0 ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
+        const UINT up=interface == 0 ? WM_LBUTTONUP : WM_RBUTTONUP;
+        const unsigned keys=queue ? MK_SHIFT : 0;
+        assert(event(down,300,200,keys,true,mega));
+        event(WM_MOUSEMOVE,500,200,keys);event(up,500,200,keys);
+        assert(orders.size()==3);
+        for(const auto& order:orders) assert(order.shift==queue && order.selected.size()==1);
+        selected();
+    }
+    // Bare Alt repeats are harmless; an Alt system shortcut cancels the
+    // gesture and still passes through to the native window procedure.
+    reset();assert(event(WM_RBUTTONDOWN));
+    assert(!event(WM_SYSKEYDOWN,300,300,VK_MENU));
+    event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);assert(orders.size()==3);
+    reset();assert(event(WM_RBUTTONDOWN));
+    assert(!event(WM_SYSKEYDOWN,300,300,0x73)); // Alt+F4
+    event(WM_RBUTTONUP,500,300);assert(orders.empty());
+    // Losing the activation modifier after a press must not lose mouse-up.
+    reset();assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);
+    altHeld=false;assert(event(WM_RBUTTONUP,500,300));
+    assert(orders.size()==3 && !DrawnMove::OwnsInput());
+    reset();
+    assert(event(WM_RBUTTONDOWN));assert(orders.empty());
+    assert(event(WM_RBUTTONUP));assert(orders.size()==1 && orders[0].selected.size()==3);selected();
+    // A curve creates individual, distinct destinations, while retaining a
+    // selected building and unrelated simulation bits in the selection word.
+    reset();defs[2].bmcode=0;defs[2].UnitTypeMask_0=0;
+    assert(event(WM_RBUTTONDOWN,300,300, MK_SHIFT));
+    event(WM_MOUSEMOVE,400,300);event(WM_MOUSEMOVE,400,400);
+    FakeSurface surface; DrawnMove::Draw(&surface);
+    assert(!surface.locked);
+    assert((std::count(surface.pixels.begin(),surface.pixels.end(),234)>0) == bool(DRAWN_MOVE_TEST_PREVIEW));
+    event(WM_RBUTTONUP,400,400);
+    assert(orders.size()==2);assert(orders[0].selected.size()==1 && orders[1].selected.size()==1);
+    assert(orders[0].selected[0] != orders[1].selected[0]);
+    assert(orders[0].x!=orders[1].x || orders[0].y!=orders[1].y);
+    for(auto& order:orders) assert(order.shift && order.selected[0]!=2);
+    selected();assert(units[0].UnitSelected & 0x100);
+    // Captured short clicks must remain one group order, but must not pass
+    // stale selected free slots through the same native group dispatcher.
+    reset();units[3].UnitID=0;units[3].UnitSelected |= UnitSelected_State;
+    units[4].UnitSelected |= UnitSelected_State;
+    dispatchCallback=[](std::size_t) { assert(units[4].UnitSelected & UnitSelected_State); };
+    assert(event(WM_RBUTTONDOWN));event(WM_RBUTTONUP);
+    assert(orders.size()==1 && (orders[0].selected==std::vector<int>{0,1,2}));
+    selected();assert(units[4].UnitSelected & UnitSelected_State);
+    // A free slot retains its dead unit's bytes, including selection. The
+    // retail dispatcher tests only bit 0x10, so it must be quarantined even
+    // though it is not a live gesture target. A dead nonzero-type slot must
+    // likewise never have selection resurrected during restoration.
+    for (bool freeSlot : {true,false}) {
+        reset();units[3].UnitSelected |= UnitSelected_State;
+        if (freeSlot) units[3].UnitID=0;
+        else units[3].UnitSelected &= ~0x10000000u;
+        assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+        assert(orders.size()==3);
+        for (const auto& order:orders) assert(order.selected.size()==1 && order.selected[0]!=3);
+        selected();
+    }
+    // Include the local owner's final slot even if the global end pointer is
+    // that same address. Do not temporarily deselect a remote player's slot.
+    reset();units[3].UnitSelected |= UnitSelected_State;
+    units[4].UnitSelected |= UnitSelected_State;
+    world.EndOfUnitsArray_p=units+3;
+    dispatchCallback=[](std::size_t) { assert(units[4].UnitSelected & UnitSelected_State); };
+    assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+    assert(orders.size()==4);
+    for(const auto& order:orders) assert(order.selected.size()==1);
+    for(int i=0;i<5;++i) assert(units[i].UnitSelected & UnitSelected_State);
+    // An earlier engine callback can free a later target. Skip its command,
+    // never reselect it, and retain unrelated state written by the callback.
+    reset();dispatchCallback=[](std::size_t count) {
+        if(count==1) { units[1].UnitID=0;units[1].UnitSelected &= ~0x10000000u;units[1].UnitSelected |= 0x200; }
+    };
+    assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+    assert(orders.size()==2);
+    for(const auto& order:orders) assert(order.selected.size()==1 && order.selected[0]!=1);
+    assert(!(units[1].UnitSelected & UnitSelected_State));assert(units[1].UnitSelected & 0x200);
+    assert(units[0].UnitSelected & UnitSelected_State);assert(units[2].UnitSelected & UnitSelected_State);
+    // Do not restore an original selection whose definition changed during
+    // the callback, even if its physical slot and type number still agree.
+    reset();dispatchCallback=[](std::size_t count) {
+        if(count==1) units[0].UnitType=&defs[4];
+    };
+    assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+    assert(orders.size()==3);assert(!(units[0].UnitSelected & UnitSelected_State));
+    assert(units[1].UnitSelected & UnitSelected_State);assert(units[2].UnitSelected & UnitSelected_State);
+    // Both interfaces and explicit Move. A release with no intermediate move
+    // event must still honour the drag threshold.
+    reset(0);assert(!event(WM_RBUTTONDOWN));assert(event(WM_LBUTTONDOWN));
+    event(WM_LBUTTONUP,500,300);assert(orders.size()==3);selected();
+    reset();world.PrepareOrder_Type=ordertype::MOVE;
+    assert(!event(WM_RBUTTONDOWN));assert(event(WM_LBUTTONDOWN,300,300,MK_SHIFT));
+    event(WM_LBUTTONUP,500,300);assert(world.PrepareOrder_Type==ordertype::MOVE);
+    reset();assert(!event(WM_LBUTTONDOWN));
+    // No stealing attack/guard, selection, replay or spectator input.
+    world.CurrentCursora_Index=1;assert(!event(WM_RBUTTONDOWN));
+    world.CurrentCursora_Index=cursormove;world.MouseOverUnit=1;assert(!event(WM_RBUTTONDOWN));
+    world.MouseOverUnit=0;share.PlayingDemo=true;assert(!event(WM_RBUTTONDOWN));share.PlayingDemo=false;
+    info.PropertyMask=WATCH;assert(!event(WM_RBUTTONDOWN));info.PropertyMask=0;
+    altHeld=false;assert(!event(WM_RBUTTONDOWN,300,300,MK_CONTROL));altHeld=true;
+    assert(!event(WM_RBUTTONDOWN,300,300,0,false));
+    for(UINT cancel : {WM_KILLFOCUS,WM_CANCELMODE,WM_CAPTURECHANGED,WM_KEYDOWN,WM_MOUSEWHEEL}) {
+        reset();event(WM_RBUTTONDOWN);event(WM_MOUSEMOVE,500,300);
+        event(cancel);event(WM_RBUTTONUP,500,300);assert(orders.empty());selected();
+        assert(event(WM_RBUTTONDOWN));event(WM_RBUTTONUP);assert(orders.size()==1);
+    }
+    reset();event(WM_RBUTTONDOWN);event(WM_MOUSEMOVE,50,300);event(WM_RBUTTONUP);assert(orders.empty());
+    reset();event(WM_RBUTTONDOWN);units[1].UnitID=0;event(WM_RBUTTONUP,500,300);assert(orders.empty());
+    reset();event(WM_RBUTTONDOWN);units[3].UnitSelected |= UnitSelected_State;event(WM_RBUTTONUP,500,300);assert(orders.empty());
+    reset();event(WM_RBUTTONDOWN);event(WM_LBUTTONDOWN);event(WM_RBUTTONUP);assert(event(WM_LBUTTONUP));assert(orders.empty());
+    reset();event(WM_RBUTTONDOWN);event(WM_KILLFOCUS);
+    // Mouse was released outside the window. A fresh click must recover.
+    assert(event(WM_RBUTTONDOWN));event(WM_RBUTTONUP);assert(orders.size()==1);
+#if USEMEGAMAP
+    reset();megaController.visible=true;world.CurrentCursora_Index=cursornormal;
+    // Regression: the real right-button interface can show the ordinary arrow
+    // for contextual movement. Rejecting it silently restored old click input.
+    // Normal-view interception must defer to the megamap input handler.
+    assert(!event(WM_RBUTTONDOWN));
+    assert(event(WM_RBUTTONDOWN,300,200,MK_SHIFT,true,true));
+    assert(orders.empty());
+    // Captured moves/releases arrive through the early WinProc route, which
+    // does not pass fromMegamap. The frozen view determines their projection.
+    event(WM_MOUSEMOVE,500,200);
+    FakeSurface megaSurface;DrawnMove::Draw(&megaSurface);
+    // First endpoint: (300,200), not normal-camera world coordinates.
+    assert((megaSurface.pixels[197*1024+300]==234) == bool(DRAWN_MOVE_TEST_PREVIEW));
+    for(int y=0;y<768;++y) for(int x=0;x<1024;++x)
+        if(megaSurface.pixels[y*1024+x]==234)
+            assert(x>=200 && x<800 && y>=100 && y<600);
+    event(WM_RBUTTONUP,500,200);
+    assert(orders.size()==3);selected();
+    std::vector<unsigned> xs;
+    for(const auto& order:orders) { assert(order.shift && order.y==600 && order.selected.size()==1);xs.push_back(order.x); }
+    std::sort(xs.begin(),xs.end());assert((xs==std::vector<unsigned>{400,800,1200}));
+    assert(megaController.cursorX==500 && megaController.cursorY==200);
+    // The normal battlefield still requires the existing move cursor.
+    reset();world.CurrentCursora_Index=cursornormal;assert(!event(WM_RBUTTONDOWN));
+    // A megamap click remains a single group order in its coordinate space.
+    reset();megaController.visible=true;
+    assert(event(WM_RBUTTONDOWN,300,200,0,true,true));event(WM_RBUTTONUP,300,200);
+    assert(orders.size()==1 && orders[0].selected.size()==3 && orders[0].x==400 && orders[0].y==600);
+    // Explicit Move in the right-button interface must use left-down, before
+    // the existing prepared-order-on-down handler can issue a duplicate order.
+    reset();megaController.visible=true;world.PrepareOrder_Type=ordertype::MOVE;
+    assert(!event(WM_RBUTTONDOWN,300,200,0,true,true));
+    assert(event(WM_LBUTTONDOWN,300,200,0,true,true));assert(orders.empty());
+    event(WM_LBUTTONUP,500,200);assert(orders.size()==3);assert(world.PrepareOrder_Type==ordertype::STOP);
+    reset(0);megaController.visible=true;
+    assert(!event(WM_RBUTTONDOWN,300,200,0,true,true));
+    assert(event(WM_LBUTTONDOWN,300,200,0,true,true));event(WM_LBUTTONUP,500,200);assert(orders.size()==3);
+    // Changing views cannot join two unrelated coordinate systems or commit
+    // an old stroke on the newly visible map.
+    reset();event(WM_RBUTTONDOWN);megaController.visible=true;event(WM_RBUTTONUP,500,300);assert(orders.empty());
+    reset();megaController.visible=true;event(WM_RBUTTONDOWN,300,200,0,true,true);
+    megaController.visible=false;event(WM_RBUTTONUP,500,200);assert(orders.empty());
+    reset();megaController.visible=true;event(WM_RBUTTONDOWN,300,200,0,true,true);
+    event(WM_MOUSEMOVE,180,200);event(WM_RBUTTONUP,500,200);assert(orders.empty());
+    reset();megaController.visible=true;world.MouseOverUnit=1;
+    assert(!event(WM_RBUTTONDOWN,300,200,0,true,true));
+    world.MouseOverUnit=0;altHeld=false;assert(!event(WM_RBUTTONDOWN,300,200,MK_CONTROL,true,true));altHeld=true;
+#endif
+    std::cout << "Drawn move input tests passed (USEMEGAMAP=" << USEMEGAMAP << ")\n";
+}
