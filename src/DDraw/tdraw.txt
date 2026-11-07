@@ -110,7 +110,7 @@ EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom b
 NEW FEATURES IN BRIEF:
 
 *????.??.??
-- Show native post-game replay statistics until you exit; omit the extra watcher while retaining all ten recorded players (thanks TAG_Venom)
+- Fix replays hanging at the end, return to the results screen, and exclude the extra watcher from the results (thanks TAG_Venom)
 - Optimise allied queued-build overlays with on-demand, paced queue updates (thanks TAG_Venom)
 - Add opt-in ally economy bars and replay totals using the native TA HUD font (thanks TAG_Venom)
 - Organise Ctrl-F2 settings into shared TA-style tabbed pages (thanks TAG_Venom)
