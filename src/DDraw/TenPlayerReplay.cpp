@@ -9,6 +9,10 @@
 #include "tamem.h"
 #include "TPacket.h"
 #include "TAbugfix.h"
+#include "ChatHijackIds.h"
+#include "GameTickHook.h"
+#include "ReplayEndFences.h"
+#include "ReplayTransportClose.h"
 
 #include <sstream>
 
@@ -28,6 +32,163 @@ static void SetFunnelStartingTeam(TAdynmemStruct* ta, PlayerStruct* player, unsi
 		player->AllyFlagAry[n] = allied;
 		other.AllyFlagAry[slot] = allied;
 	}
+}
+
+// Completion is an explicit handoff from the replay feeder, never a silence
+// timeout. Its guaranteed, per-output-player fences follow every recorded event.
+static ReplayEndFences g_endFences;
+static ReplayEndSources g_endSources;
+static int g_endLastGameTime = -1;
+static bool g_replayFinished = false;
+static bool g_replayEnding = false;
+static bool g_insideReplaySimulation = false;
+static bool g_forcedReplayEnd = false;
+
+static void ResetReplayEnd(int gameTime)
+{
+	if (gameTime < g_endLastGameTime || !DataShare->PlayingDemo)
+	{
+		g_endFences = ReplayEndFences{};
+		g_endSources = ReplayEndSources{};
+		g_replayFinished = false;
+		g_replayEnding = false;
+		g_insideReplaySimulation = false;
+		g_forcedReplayEnd = false;
+	}
+	g_endLastGameTime = gameTime;
+}
+
+static void RememberReplaySources(TAdynmemStruct* ta)
+{
+	// Explicit terminal role metadata also covers a tenth player with no data
+	// packets. Resolve the real local controller independently of selected POV
+	// before its final funnel marker reaches the existing raw receive wrapper.
+	if (!LOCAL_HUMAN_PLAYER && g_endFences.viewerIsRecordedPlayer==1)
+		for (unsigned i=0; i<10; ++i)
+			if (ta->Players[i].PlayerActive && ta->Players[i].My_PlayerType==Player_LocalHuman) {
+				LOCAL_HUMAN_PLAYER = &ta->Players[i];
+				break;
+			}
+	for (unsigned i=0; i<10; ++i)
+		if (ta->Players[i].PlayerActive && ta->Players[i].My_PlayerType==Player_RemoteHuman)
+			g_endSources.observe((unsigned)ta->Players[i].DirectPlayID);
+}
+
+static int __stdcall ReplaySimulationBeginProc(PInlineX86StackBuffer)
+{
+	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	if (ta) {
+		ResetReplayEnd(ta->GameTime);
+		g_insideReplaySimulation = DataShare->PlayingDemo && DataShare->TAProgress==TAInGame &&
+			*(unsigned*)((char*)ta+0x38a3b)!=0;
+		if (g_insideReplaySimulation) RememberReplaySources(ta);
+	}
+	return 0;
+}
+
+static void ReceiveReplayEnd(unsigned fromDpid, const void* data)
+{
+	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	if (!ta || !DataShare->PlayingDemo || DataShare->TAProgress != TAInGame) return;
+	ResetReplayEnd(ta->GameTime);
+	const unsigned char* p = (const unsigned char*)data;
+	if (!((p[3] == 16 && p[4] == 1) || (p[3] == 17 && p[4] == 2)) || memcmp(p + 5, "END", 3)) return;
+	const int recordedViewer = p[4] == 2 ? p[16] : -1;
+	unsigned tick;
+	unsigned short players, bit;
+	memcpy(&tick, p + 8, 4);
+	memcpy(&players, p + 12, 2);
+	memcpy(&bit, p + 14, 2);
+	// The protocol token is a recorded colour ID. Native player-array indices
+	// depend on the live session's allocation order and are not interchangeable.
+	RememberReplaySources(ta);
+	if (!g_endFences.accept(tick, players, bit, fromDpid, g_endSources.ids, (unsigned)ta->GameTime,
+		recordedViewer, g_insideReplaySimulation)) return;
+	IDDrawSurface::OutptFmtTxt("[ReplayEnd] fence from=%u token=%u received=%u required=%u final tick=%u game tick=%d",
+		fromDpid, bit, g_endFences.received, g_endFences.required, tick, ta->GameTime);
+}
+
+static int __stdcall ReplayPacketDequeuedProc(PInlineX86StackBuffer stack)
+{
+	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	if (!ta || !DataShare->PlayingDemo) return 0;
+	const unsigned guiState = *(unsigned*)((char*)ta+0x391f1);
+	if (guiState!=5 && guiState!=6) return 0;
+	ResetReplayEnd(ta->GameTime);
+	RememberReplaySources(ta);
+	const unsigned char* p = (const unsigned char*)ta->PacketBuffer_p;
+	if (!p || p[0]!=0x05 || p[1]!=0 || p[2]!=ChatHijackId::ReplayEnd ||
+		!((p[3]==16 && p[4]==1) || (p[3]==17 && p[4]==2))) return 0;
+	if (p[4]==2 && !memcmp(p+5,"BEG",3)) {
+		unsigned short players, bit;
+		memcpy(&players,p+12,2);
+		memcpy(&bit,p+14,2);
+		g_endFences.announce(players,bit,ta->hapinet.fromDpid,g_endSources.ids,p[16]);
+	}
+	else if (!memcmp(p+5,"END",3) && DataShare->TAProgress==TAInGame)
+		ReceiveReplayEnd(ta->hapinet.fromDpid,p);
+	else return 0;
+	// 0x453da8 is after the native per-sender queue returns a CHAT subpacket,
+	// before it rejects an inactive/departed sender. Thus this observes the
+	// actual dispatch boundary, not raw DirectPlay arrival or file EOF.
+	// This is output-only protocol metadata. Consume it and dequeue the next
+	// native packet without manufacturing a rejection for a departed sender.
+	stack->rtnAddr_Pvoid = (void*)0x453d94;
+	return X86STRACKBUFFERCHANGE;
+}
+
+static void CheckReplayEnd(int gameTime)
+{
+	const bool completedSimulation = g_insideReplaySimulation;
+	g_insideReplaySimulation = false;
+	ResetReplayEnd(gameTime);
+	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	if (!ta || DataShare->TAProgress != TAInGame || g_replayFinished || !g_endFences.ready((unsigned)gameTime, completedSimulation)) return;
+	// CHAT and unit updates share TA's per-sender dispatch queue (0x462f30).
+	// All fences therefore follow the recorded events. This callback is after
+	// Game_RunSimulationStep (0x495490). Its entry hook identifies fences read
+	// during that pass; otherwise a later local tick must finish. Pending unit
+	// deaths and other final updates run before this callback in either case.
+	// Bit 4 requests battle->results (0x499600), not a victory/defeat verdict.
+	g_replayFinished = true;
+	ta->GameStateMask |= 4;
+	IDDrawSurface::OutptFmtTxt("[ReplayEnd] all output streams drained; final tick=%u, game tick=%d", g_endFences.finalTick, gameTime);
+}
+
+static int __stdcall ReplayFinalStatsProc(PInlineX86StackBuffer stack)
+{
+	if (!DataShare->PlayingDemo || (!g_endFences.announced && !g_endFences.required)) return 0;
+	g_replayEnding = true;
+	// A recorded victory/leave cannot cut off later recorded final statistics,
+	// the other output queues, or the final simulation pass. Explicit
+	// user exits and actual session loss still follow TA's usual exit path.
+	const bool draining = !g_replayFinished && !g_forcedReplayEnd;
+	// At 0x499639 TA calls Network_AllFinalStatsReceived (0x4572a0).
+	// Real peers exchange 0x28/0x29 here. Synthetic replay peers cannot answer;
+	// their recorded snapshots have already been applied before the fences.
+	// Skip just this network wait, retaining the native snapshot builder, all
+	// cleanup, ENDMSN.GUI/stat bars, and its user-controlled Main Menu button.
+	stack->Eax = draining ? 0 : 1;
+	stack->rtnAddr_Pvoid = (void*)0x49963e;
+	return X86STRACKBUFFERCHANGE;
+}
+
+static int __stdcall ReplayForcedEndProc(PInlineX86StackBuffer)
+{
+	if (DataShare->PlayingDemo) g_forcedReplayEnd = true;
+	return 0;
+}
+
+static int __stdcall ReplayStatsPlayerProc(PInlineX86StackBuffer stack)
+{
+	if (!DataShare->PlayingDemo) return 0;
+	PlayerStruct* player = (PlayerStruct*)stack->Edi;
+	if (!g_endFences.excludeLocalViewer(player->My_PlayerType == Player_LocalHuman, player == LOCAL_HUMAN_PLAYER)) return 0;
+	// Native snapshot builder (0x41dc20), after its normal row eligibility
+	// checks. Skip only the extra viewer, before copying values or computing
+	// bar scales. Do not modify any player, report slot, or recorded statistic.
+	stack->rtnAddr_Pvoid = (void*)0x41debc;
+	return X86STRACKBUFFERCHANGE;
 }
 
 // ===========================================================================
@@ -465,11 +626,84 @@ static int __stdcall OriginalCameraHudPaintProc(PInlineX86StackBuffer stack)
 	return X86STRACKBUFFERCHANGE;
 }
 
+// Only the system provider's blocking Close runs off the GUI thread. The
+// native snapshot builder, recorder, unit cleanup and results GUI stay native.
+static std::unique_ptr<replayclose::Closer> g_transportCloser;
+static unsigned g_pendingMenu = 0;
+static int g_pendingMenuControl = 0;
+static bool g_closingReplayToResults = false;
+
+static bool ReplayMayCloseTransportAsync()
+{
+	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	return g_closingReplayToResults && g_replayEnding && ta &&
+		*(unsigned*)((char*)ta+0x391f1)==6 && (ta->GameStateMask & 4);
+}
+
+static int __stdcall ReplayQueueMainMenuProc(PInlineX86StackBuffer stack)
+{
+	if (!g_transportCloser || !g_transportCloser->pending()) return 0;
+	// Retain a genuine Main Menu click until transport cleanup finishes.
+	// The results continue rendering and handling input during that time.
+	g_pendingMenu = stack->Esi;
+	g_pendingMenuControl = *(int*)(g_pendingMenu+0x60);
+	stack->rtnAddr_Pvoid = (void*)0x41ee6e;
+	return X86STRACKBUFFERCHANGE;
+}
+
+static int __stdcall ReplayContinueMainMenuProc(PInlineX86StackBuffer stack)
+{
+	if (!g_pendingMenu || !g_transportCloser || g_transportCloser->pending()) return 0;
+	unsigned menu = g_pendingMenu;
+	g_pendingMenu = 0;
+	*(int*)(menu+0x60) = g_pendingMenuControl;
+	// Resume the saved native event in its ordinary GUI dispatch slot.
+	((void(__stdcall*)(unsigned))0x41ec50)(menu);
+	stack->rtnAddr_Pvoid = stack->myInlineHookClass_Pish->m_AddrToHook==(void*)0x41ffc3
+		? (void*)0x41ffd7 : (void*)0x420595;
+	return X86STRACKBUFFERCHANGE;
+}
+
+static int __stdcall ReplayBeginResultsCleanupProc(PInlineX86StackBuffer)
+{
+	// Other quit/load paths cannot release a job at a results frame.
+	g_closingReplayToResults = g_replayEnding;
+	return 0;
+}
+
+static int __stdcall ReplayResultsFrameProc(PInlineX86StackBuffer)
+{
+	if (g_transportCloser) {
+		// Native HAPINET_close and all GUI-side Release calls have returned.
+		g_transportCloser->startQueued();
+		g_transportCloser->collect([](HRESULT result, DWORD) {
+			if (FAILED(result)) IDDrawSurface::OutptFmtTxt("[ReplayEnd] transport Close failed: %08x", (unsigned)result);
+		});
+	}
+	return 0;
+}
+
 std::unique_ptr<TenPlayerReplay> TenPlayerReplay::m_instance = NULL;
 
 TenPlayerReplay::TenPlayerReplay()
 {
 	IDDrawSurface::OutptTxt("[TenPlayerReplay] initialising ...");
+	g_transportCloser.reset(new replayclose::Closer(ReplayMayCloseTransportAsync));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x4996aa, 5, INLINE_5BYTESLAGGERJMP, ReplayBeginResultsCleanupProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x41f7f0, 5, INLINE_5BYTESLAGGERJMP, ReplayResultsFrameProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x41ee3c, 7, INLINE_5BYTESLAGGERJMP, ReplayQueueMainMenuProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x41ffc3, 5, INLINE_5BYTESLAGGERJMP, ReplayContinueMainMenuProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x420581, 5, INLINE_5BYTESLAGGERJMP, ReplayContinueMainMenuProc));
+	GameTickHook::GetInstance()->addCallback(CheckReplayEnd);
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x495490, 5, INLINE_5BYTESLAGGERJMP, ReplaySimulationBeginProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x453da8, 6, INLINE_5BYTESLAGGERJMP, ReplayPacketDequeuedProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x499639, 5, INLINE_5BYTESLAGGERJMP, ReplayFinalStatsProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x41dd61, 5, INLINE_5BYTESLAGGERJMP, ReplayStatsPlayerProc));
+	// Native confirmed quit/resign branches and transport-loss callback.
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x46061a, 5, INLINE_5BYTESLAGGERJMP, ReplayForcedEndProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x464e13, 5, INLINE_5BYTESLAGGERJMP, ReplayForcedEndProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x464e50, 5, INLINE_5BYTESLAGGERJMP, ReplayForcedEndProc));
+	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x4578f0, 6, INLINE_5BYTESLAGGERJMP, ReplayForcedEndProc));
 	// HAPINET_receivepacket is wrapped with a manual detour so the 10-player-replay
 	// hack on/off detection + fromDpid rewrite can run after each packet is received
 	// (and drops a RECV breadcrumb into the crash-trace ring).
