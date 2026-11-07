@@ -43,6 +43,9 @@
     <ClCompile Include="Guiexport.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GuiMouseWheel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="MappedMAP.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -445,6 +448,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GUIExpand.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GuiMouseWheel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="hook\etc.h">

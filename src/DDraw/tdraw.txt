@@ -110,6 +110,7 @@ EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom b
 NEW FEATURES IN BRIEF:
 
 *????.??.??
+- Add mouse wheel scrolling over native menu lists and scrollbars (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Optimise allied queued-build overlays with on-demand, paced queue updates (thanks TAG_Venom)
 - Add opt-in ally economy bars and replay totals using the native TA HUD font (thanks TAG_Venom)
 - Organise Ctrl-F2 settings into shared TA-style tabbed pages (thanks TAG_Venom)
@@ -353,6 +354,19 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Mouse wheel scrolling in menus
+
+  Hover a scrollable text list, its scrollbar or its arrow buttons and use the
+  wheel to scroll three rows per notch.  This includes Select Map and compatible
+  saved-game and setup lists.  Partial wheel deltas accumulate while hovering
+  the same control.  Native value sliders move by one unit per notch.
+
+  Scrolling uses the existing GUI association and redraw behaviour, retaining
+  the selected item, keyboard focus and original interface appearance.  Only
+  the top GUI page receives scrolling; wheel input elsewhere keeps its existing
+  behaviour.  Dragging takes precedence.  Picture lists and ambiguous scrollbar
+  associations are not supported.
 
 - Enhanced allied resource bars and replay totals
 
