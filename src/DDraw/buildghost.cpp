@@ -13,6 +13,7 @@
 #include "hook/hook.h"
 #include "CameraBounds.h"
 #include "SmallMapViewport.h"
+#include "MexUpgrade.h"
 
 #include <cctype>
 #include <climits>
@@ -233,8 +234,10 @@ static const unsigned int kBuildRectHookAddr = 0x469f30;
 // from, so dropping the hook would silently disable them too.
 static bool g_previewDisabled = false;
 
-static int __stdcall BuildRectAfterHookProc(PInlineX86StackBuffer)
+static int __stdcall BuildRectAfterHookProc(PInlineX86StackBuffer registers)
 {
+    // DrawGameScreen's clipped OFFSCREEN local, also used by its Shift queue pass.
+    MexUpgrade::DrawFeedback(GetTA(), reinterpret_cast<OFFSCREEN*>(registers->Esp + 0x34));
     // Overlay rects first — VisualizeMexSnapPreview moves CircleSelect_Pos1
     // to the snap target via TestBuildSpot, which the cursor ghost reads.
     if (LocalShare && LocalShare->TAHook)
