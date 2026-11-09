@@ -22,6 +22,7 @@
 #include "ChatLayout.h"
 #include "CameraBounds.h"
 #include "SmallMapViewport.h"
+#include "MexUpgrade.h"
 
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
@@ -1804,6 +1805,7 @@ UnitOrdersStruct* CTAHook::FindUnitOrdersUnderMouse()
 	for (UnitStruct* unit = me->Units; unit != me->UnitsAry_End; ++unit)
 	{
 		UnitOrdersStruct* unitOrders = unit->UnitOrders;
+		UnitOrdersStruct* preceding = nullptr;
 		while (unit->UnitSelected & 0x10 && unitOrders != NULL) {
 			unsigned OrderMask = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].COBScripMask;
 			unsigned cursorIndex = (*COBSciptHandler_Begin)[unitOrders->COBHandler_index].cursorIndex;
@@ -1822,10 +1824,12 @@ UnitOrdersStruct* CTAHook::FindUnitOrdersUnderMouse()
 				const int mouseX = TAdynmem->MouseMapPos.X;
 				const int mouseY = int(TAdynmem->MouseMapPos.Y) - int(TAdynmem->MouseMapPos.Z)/2;
 				if (mouseX >= orderX - 8 * footX && mouseX < orderX + 8 * footX &&
-					mouseY >= orderY - 8 * footY && mouseY < orderY + 8 * footY) {
+					mouseY >= orderY - 8 * footY && mouseY < orderY + 8 * footY &&
+					!MexUpgrade::IsQueuedBuild(TAdynmem, unit, preceding)) {
 					return unitOrders;
 				}
 			}
+			preceding = unitOrders;
 			unitOrders = unitOrders->NextOrder;
 		}
 	}
