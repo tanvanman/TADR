@@ -55,8 +55,6 @@ class CTAHook
     bool RectangleMouseDown;
     bool RectangleCaptured;
     void EndRectangleGesture(HWND window, bool keepRelease);
-    int RectangleExitSide;
-    bool ProbeRectangleSlot(int x, int y, int& centerX, int& centerY);
     void OptimizeDTRows();
     void VisualizeRow();
     void WriteScrollDTLine();

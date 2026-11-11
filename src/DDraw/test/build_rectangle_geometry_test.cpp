@@ -9,7 +9,6 @@
 
 using BuildRectangleGeometry::Generate;
 using BuildRectangleGeometry::Point;
-using BuildRectangleGeometry::Side;
 
 namespace
 {
@@ -45,53 +44,39 @@ namespace
         }
     }
 
-    void TestNearestSidesAndOrder()
+    void TestHorizontalRowsAndOrder()
     {
         std::vector<Point> points;
-        Side exitSide = BuildRectangleGeometry::Bottom;
         // A 3 by 3 rectangle with unequal building dimensions and one grid
-        // square of spacing. Each side selects the corresponding sweep axis.
-        assert(Generate(160, 320, 256, 448, 2, 3, 1, 140, 384, 999, points, &exitSide));
-        assert(exitSide == BuildRectangleGeometry::Left);
-        ExpectOrder(points, {{256,448}, {256,384}, {256,320},
-                            {208,320}, {208,384}, {208,448},
-                            {160,448}, {160,384}, {160,320}});
-        assert(Generate(160, 320, 256, 448, 2, 3, 1, 276, 384, 999, points, &exitSide));
-        assert(exitSide == BuildRectangleGeometry::Right);
-        ExpectOrder(points, {{160,448}, {160,384}, {160,320},
-                            {208,320}, {208,384}, {208,448},
-                            {256,448}, {256,384}, {256,320}});
-        assert(Generate(160, 320, 256, 448, 2, 3, 1, 208, 300, 999, points, &exitSide));
-        assert(exitSide == BuildRectangleGeometry::Top);
+        // square of spacing. Builders beside the rectangle must still produce
+        // horizontal rows, never column sweeps.
+        assert(Generate(160, 320, 256, 448, 2, 3, 1, 140, 384, 999, points));
         ExpectOrder(points, {{256,448}, {208,448}, {160,448},
                             {160,384}, {208,384}, {256,384},
                             {256,320}, {208,320}, {160,320}});
-        assert(Generate(160, 320, 256, 448, 2, 3, 1, 208, 468, 999, points, &exitSide));
-        assert(exitSide == BuildRectangleGeometry::Bottom);
+        assert(Generate(160, 320, 256, 448, 2, 3, 1, 276, 384, 999, points));
+        ExpectOrder(points, {{160,448}, {208,448}, {256,448},
+                            {256,384}, {208,384}, {160,384},
+                            {160,320}, {208,320}, {256,320}});
+        assert(Generate(160, 320, 256, 448, 2, 3, 1, 208, 300, 999, points));
+        ExpectOrder(points, {{256,448}, {208,448}, {160,448},
+                            {160,384}, {208,384}, {256,384},
+                            {256,320}, {208,320}, {160,320}});
+        assert(Generate(160, 320, 256, 448, 2, 3, 1, 208, 468, 999, points));
         ExpectOrder(points, {{256,320}, {208,320}, {160,320},
                             {160,384}, {208,384}, {256,384},
                             {256,448}, {208,448}, {160,448}});
         ExpectAdjacent(points, 48, 64);
 
-        // With two layers, the first direction must reverse to leave the
+        // With two rows, the first direction must reverse to leave the
         // final point at the corner nearest the builder.
-        assert(Generate(0, 0, 32, 64, 2, 2, 0, -16, 0, 999, points));
-        ExpectOrder(points, {{32,0}, {32,32}, {32,64}, {0,64}, {0,32}, {0,0}});
-        assert(Generate(0, 0, 32, 64, 2, 2, 0, -16, 64, 999, points));
-        ExpectOrder(points, {{32,64}, {32,32}, {32,0}, {0,0}, {0,32}, {0,64}});
+        assert(Generate(0, 0, 64, 32, 2, 2, 0, 10, -16, 999, points));
+        ExpectOrder(points, {{0,32}, {32,32}, {64,32}, {64,0}, {32,0}, {0,0}});
+        assert(Generate(0, 0, 64, 32, 2, 2, 0, 10, 48, 999, points));
+        ExpectOrder(points, {{0,0}, {32,0}, {64,0}, {64,32}, {32,32}, {0,32}});
         assert(Generate(0, 0, 64, 32, 2, 2, 0, 54, -16, 999, points));
         ExpectOrder(points, {{64,32}, {32,32}, {0,32}, {0,0}, {32,0}, {64,0}});
 
-        // A builder inside the area still selects the closest side. Equal
-        // side distances use the documented left-first tie break.
-        assert(Generate(0, 0, 64, 96, 2, 2, 0, 8, 48, 999, points));
-        assert(points.front().x == 64 && points.front().y == 96);
-        assert(points.back().x == 0 && points.back().y == 0);
-        ExpectAdjacent(points, 32, 32);
-        assert(Generate(0, 0, 64, 64, 2, 2, 0, 32, 32, 999, points));
-        assert(points[0].x == 64 && points[0].y == 64);
-        assert(points[1].x == 64 && points[1].y == 32);
-        assert(points.back().x == 0 && points.back().y == 0);
     }
 
     void TestAllDragQuadrants()
@@ -106,13 +91,14 @@ namespace
                 const std::vector<int> xs = {160, 160 + directionX * 48, endX};
                 const std::vector<int> ys = {320, 320 + directionY * 64, endY};
                 const int left = directionX < 0 ? endX : 160;
-                const int right = directionX < 0 ? 160 : endX;
                 const int top = directionY < 0 ? endY : 320;
+                const int bottom = directionY < 0 ? 320 : endY;
                 assert(Generate(160, 320, endX, endY, 2, 3, 1,
                     left - 16, top + 64, 999, points));
                 ExpectGrid(points, xs, ys);
                 ExpectAdjacent(points, 48, 64);
-                assert(points.front().x == right);
+                assert(points.front().y == bottom);
+                assert(points[1].y == bottom && points[2].y == bottom);
                 assert(points.back().x == left && points.back().y == top);
             }
         }
@@ -156,27 +142,19 @@ namespace
         ExpectAdjacent(points, 48, 96);
     }
 
-    void TestExitStripReporting()
+    void TestMidpointTies()
     {
         std::vector<Point> points;
-        Side exitSide = BuildRectangleGeometry::Bottom;
-        assert(Generate(0, 0, 0, 96, 2, 2, 0, -16, 48, 999, points, &exitSide));
-        assert(exitSide == BuildRectangleGeometry::Left);
-        for (const Point& point : points) assert(point.x == points.back().x);
-        assert(Generate(0, 0, 96, 0, 2, 2, 0, 48, -16, 999, points, &exitSide));
-        assert(exitSide == BuildRectangleGeometry::Top);
-        for (const Point& point : points) assert(point.y == points.back().y);
-        assert(Generate(17, 29, 17, 29, 2, 2, 0, 100, 100, 999, points, &exitSide));
-        assert(exitSide == BuildRectangleGeometry::Left);
-        assert(points.size() == 1);
-
-        // Reusing the output variable after a rejected rectangle must not
-        // replace the caller's prior valid exit side.
-        exitSide = BuildRectangleGeometry::Right;
-        assert(!Generate(0, 0, 64, 64, 2, 2, 0, 0, 0, 8, points, &exitSide));
-        assert(points.empty() && exitSide == BuildRectangleGeometry::Right);
-        assert(!Generate(0, 0, 0, 0, 0, 2, 0, 0, 0, 999, points, &exitSide));
-        assert(points.empty() && exitSide == BuildRectangleGeometry::Right);
+        // Both midpoint ties finish at the top-left, with complete rows.
+        assert(Generate(0, 0, 64, 32, 2, 2, 0, 32, 16, 999, points));
+        ExpectOrder(points, {{0,32}, {32,32}, {64,32}, {64,0}, {32,0}, {0,0}});
+        // Crossing only the Y midpoint changes the final row.
+        assert(Generate(0, 0, 64, 32, 2, 2, 0, 32, 17, 999, points));
+        ExpectOrder(points, {{0,0}, {32,0}, {64,0}, {64,32}, {32,32}, {0,32}});
+        // Crossing only the X midpoint changes the final corner and the row
+        // traversal direction. The row ordering remains the same.
+        assert(Generate(0, 0, 64, 32, 2, 2, 0, 33, 16, 999, points));
+        ExpectOrder(points, {{64,32}, {32,32}, {0,32}, {0,0}, {32,0}, {64,0}});
     }
 
     void TestCapacityAndInvalidInputs()
@@ -222,11 +200,11 @@ namespace
 
 int main()
 {
-    TestNearestSidesAndOrder();
+    TestHorizontalRowsAndOrder();
     TestAllDragQuadrants();
     TestDegenerateRectangles();
     TestSpacingAndFootprints();
-    TestExitStripReporting();
+    TestMidpointTies();
     TestCapacityAndInvalidInputs();
     TestCoordinateExtremes();
     std::cout << "Rectangle build geometry tests passed\n";

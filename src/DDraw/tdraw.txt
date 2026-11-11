@@ -1158,17 +1158,16 @@ NEW FEATURES IN DETAIL:
   same controls work on the battlefield and megamap.
 
   The rectangle fills with rows and columns. A narrow rectangle makes a
-  single row or column. The mouse wheel (or Page Up/Down) adjusts the gap
+  single row or column. Rows, columns and individual buildings use the
+  usual build queue. The mouse wheel (or Page Up/Down) adjusts the gap
   between buildings on both axes, from 0 to 10 map squares. There is a
   limit of 999 buildings per rectangle; larger rectangles are not queued.
   Existing automatic rings around buildings are unchanged.
 
-  Construction is ordered from the far side back toward the selected
-  constructors' side, leaving that side until last. Before closing this
-  final strip, mobile ground constructors receive individual moves to its
-  outside edge. An outside finishing move follows the build orders. If no
-  clear, reachable-range outside position can be planned, the strip is
-  left open. TA's normal pathfinding still handles terrain and obstacles.
+  Buildings are queued one complete horizontal row at a time, alternating
+  direction on each row. Construction starts on the far side and works
+  back toward the selected constructors. These are ordinary queued build
+  orders, using TA's normal placement checks and pathfinding.
 
 - Nanoframe ghost preview
 

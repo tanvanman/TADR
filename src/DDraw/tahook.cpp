@@ -23,7 +23,6 @@
 #include "CameraBounds.h"
 #include "SmallMapViewport.h"
 #include "BuildRectangleGeometry.h"
-#include "BuildRectangleOrders.h"
 
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
@@ -190,7 +189,6 @@ CTAHook::CTAHook(BOOL VidMem)
 	WriteLine = false;
 	RectangleValid = false;
 	RectangleMouseDown = RectangleCaptured = false;
-	RectangleExitSide = BuildRectangleGeometry::Left;
 	MatrixLength = 0;
 	XMatrix[0] = YMatrix[0] = -1;
 	FootPrintX = FootPrintY = 2;
@@ -219,7 +217,7 @@ CTAHook::CTAHook(BOOL VidMem)
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(ReduceCancelOrderToleranceAddr, 5, INLINE_5BYTESLAGGERJMP, ReduceCancelOrderToleranceProc));
 
 	IDDrawSurface::OutptTxt ( "New CTAHook");
-	IDDrawSurface::OutptTxt ( "[BuildRectangle] release-v3");
+	IDDrawSurface::OutptTxt ( "[BuildRectangle] release-v4");
 }
 
 
@@ -1170,72 +1168,12 @@ void CTAHook::SendQueued()
 
 void CTAHook::WriteDTLine()
 {
-
-	if(!WriteLine && OptimizeRows && FootPrintX==2 && FootPrintY==2)
+	// Rectangle geometry already gives a complete row-by-row build order.
+	// Submit ordinary queued builds; native placement/pathfinding handles each.
+	if (!WriteLine && OptimizeRows && FootPrintX == 2 && FootPrintY == 2)
 		OptimizeDTRows();
-
-	const bool rectangle = WriteLine;
-	const bool exitOnX = RectangleExitSide == BuildRectangleGeometry::Left
-		|| RectangleExitSide == BuildRectangleGeometry::Right;
-	const int outwardX = !exitOnX ? 0 : RectangleExitSide == BuildRectangleGeometry::Left ? -1 : 1;
-	const int outwardY = exitOnX ? 0 : RectangleExitSide == BuildRectangleGeometry::Top ? -1 : 1;
-	const int exitCoordinate = !rectangle ? 0 : exitOnX ? XMatrix[MatrixLength] : YMatrix[MatrixLength];
-	int offsetX = 0, offsetY = 0;
-	int lastCenterX = 0, lastCenterY = 0;
-	bool accepted = false;
-	int i=0;
-	while(XMatrix[i] != -1 && YMatrix[i]!=-1)
-	{
-		if (rectangle)
-		{
-			int centerX, centerY;
-			if (ProbeRectangleSlot(XMatrix[i], YMatrix[i], centerX, centerY))
-			{
-				accepted = true;
-				lastCenterX = centerX;
-				lastCenterY = centerY;
-				offsetX = centerX - static_cast<unsigned short>(XMatrix[i]);
-				offsetY = centerY - static_cast<unsigned short>(YMatrix[i]);
-				const bool closingStrip = (exitOnX ? XMatrix[i] : YMatrix[i]) == exitCoordinate;
-				// The last strip stays open until outward movement has been
-				// queued ahead of its buildings, separately for each builder.
-				if (closingStrip && !BuildRectangleOrders::QueueRetreat(centerX, centerY,
-					outwardX, outwardY, FootPrintX, FootPrintY, false))
-				{
-					char text[] = "Rectangle left open: no clear outside position for the constructor.";
-					SendText(text, 0);
-					return;
-				}
-			}
-		}
-		ClickBuilding(XMatrix[i], YMatrix[i]);
-
-		i++;	
-	}
-	if (rectangle && accepted)
-	{
-		const int x = exitOnX ? static_cast<unsigned short>(XMatrix[MatrixLength]) + offsetX : lastCenterX;
-		const int y = exitOnX ? lastCenterY : static_cast<unsigned short>(YMatrix[MatrixLength]) + offsetY;
-		if (!BuildRectangleOrders::QueueRetreat(x, y, outwardX, outwardY, FootPrintX, FootPrintY, true))
-		{
-			char text[] = "Could not queue the final outside move.";
-			SendText(text, 0);
-		}
-	}
-}
-
-bool CTAHook::ProbeRectangleSlot(int x, int y, int& centerX, int& centerY)
-{
-	const Position_Dword saved = TAdynmem->MouseMapPos;
-	TAdynmem->MouseMapPos.X = static_cast<unsigned short>(x);
-	TAdynmem->MouseMapPos.Y = static_cast<unsigned short>(y);
-	TAdynmem->BuildSpotState = 70;
-	TestBuildSpot();
-	centerX = static_cast<int>(TAdynmem->CircleSelect_Pos1TAx) + FootPrintX*8;
-	centerY = static_cast<int>(TAdynmem->CircleSelect_Pos1TAy) + FootPrintY*8;
-	const bool valid = TAdynmem->BuildSpotState == 70;
-	TAdynmem->MouseMapPos = saved;
-	return valid;
+	for (int index = 0; index < 999 && XMatrix[index] != -1 && YMatrix[index] != -1; ++index)
+		ClickBuilding(XMatrix[index], YMatrix[index]);
 }
 
 void CTAHook::CalculateLine()
@@ -1292,11 +1230,9 @@ void CTAHook::CalculateLine()
 	}
 
 	std::vector<BuildRectangleGeometry::Point> points;
-	BuildRectangleGeometry::Side exitSide;
 	if (!BuildRectangleGeometry::Generate(StartX, StartY, EndX, EndY,
-		FootPrintX, FootPrintY, Spacing, builderX, builderY, 999, points, &exitSide))
+		FootPrintX, FootPrintY, Spacing, builderX, builderY, 999, points))
 		return;
-	RectangleExitSide = exitSide;
 	for (size_t i = 0; i < points.size(); ++i)
 	{
 		XMatrix[i] = static_cast<short>(points[i].x);

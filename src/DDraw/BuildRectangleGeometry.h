@@ -5,8 +5,6 @@
 
 namespace BuildRectangleGeometry
 {
-    enum Side { Left, Right, Top, Bottom };
-
     struct Point
     {
         int x;
@@ -15,14 +13,13 @@ namespace BuildRectangleGeometry
 
     // Coordinates are building centres on the world grid. Preserve the first
     // corner as the grid origin, including when the drag runs left or upward.
-    // Sweep from the far side toward the builder, ending at its nearest corner.
+    // Sweep complete horizontal rows from the farther Y edge toward the builder.
+    // Alternate X direction each row, ending at the nearer X corner. Midpoint
+    // ties finish at the top row and the left corner.
     // The caller reserves its own sentinel slot outside this capacity.
-    // On success, exitSide identifies the final strip. Its points share the
-    // last point's x for Left/Right, or its y for Top/Bottom. Failure leaves
-    // exitSide untouched. A single row or column can be the entire final strip.
     inline bool Generate(int startX, int startY, int endX, int endY,
         int footprintX, int footprintY, int spacing, int builderX, int builderY,
-        int capacity, std::vector<Point>& points, Side* exitSide = nullptr)
+        int capacity, std::vector<Point>& points)
     {
         points.clear();
         if (footprintX <= 0 || footprintY <= 0 || spacing < 0 || capacity <= 0)
@@ -46,60 +43,27 @@ namespace BuildRectangleGeometry
         const Coordinate right = startX > lastX ? startX : lastX;
         const Coordinate top = startY < lastY ? startY : lastY;
         const Coordinate bottom = startY > lastY ? startY : lastY;
-        const Coordinate clampedX = builderX < left ? left : builderX > right ? right : builderX;
-        const Coordinate clampedY = builderY < top ? top : builderY > bottom ? bottom : builderY;
-        const auto square = [](Coordinate value) -> long double {
-            return static_cast<long double>(value) * value;
-        };
-
-        // Distance to each side segment also handles builders beyond a corner
-        // and rectangles with a single row or column. Ties prefer left, right,
-        // top, then bottom, making the order deterministic.
-        const long double distances[] = {
-            square(Coordinate(builderX) - left) + square(Coordinate(builderY) - clampedY),
-            square(Coordinate(builderX) - right) + square(Coordinate(builderY) - clampedY),
-            square(Coordinate(builderX) - clampedX) + square(Coordinate(builderY) - top),
-            square(Coordinate(builderX) - clampedX) + square(Coordinate(builderY) - bottom)
-        };
-        Side nearest = Left;
-        for (int side = Right; side <= Bottom; ++side)
-            if (distances[side] < distances[nearest]) nearest = static_cast<Side>(side);
-
-        const bool verticalSide = nearest == Left || nearest == Right;
-        const bool nearLowSide = nearest == Left || nearest == Top;
-        const Coordinate layers = verticalSide ? columns : rows;
-        const Coordinate cellsPerLayer = verticalSide ? rows : columns;
-        const Coordinate outerLow = verticalSide ? left : top;
-        const Coordinate outerHigh = verticalSide ? right : bottom;
-        const Coordinate innerLow = verticalSide ? top : left;
-        const Coordinate innerHigh = verticalSide ? bottom : right;
-        const Coordinate outerStep = verticalSide ? stepX : stepY;
-        const Coordinate innerStep = verticalSide ? stepY : stepX;
-        const Coordinate builderInner = verticalSide ? builderY : builderX;
-        const bool finalIncreasing = square(builderInner - innerHigh) < square(builderInner - innerLow);
-        // Choose the initial direction from the layer parity, so serpentine
-        // traversal finishes at the selected side's closest endpoint.
-        bool increasing = finalIncreasing != ((layers - 1) % 2 != 0);
-        const Coordinate firstOuter = nearLowSide ? outerHigh : outerLow;
-        const Coordinate outerIncrement = nearLowSide ? -outerStep : outerStep;
+        const bool finishAtTop = Coordinate(builderY) * 2 <= top + bottom;
+        const bool finalIncreasing = Coordinate(builderX) * 2 > left + right;
+        // Choose the first X direction from the row parity so the final row
+        // ends closest to the builder, for either vertical sweep direction.
+        bool increasing = finalIncreasing != ((rows - 1) % 2 != 0);
+        const Coordinate firstY = finishAtTop ? bottom : top;
+        const Coordinate incrementY = finishAtTop ? -stepY : stepY;
 
         points.reserve(static_cast<std::size_t>(columns * rows));
-        for (Coordinate layer = 0; layer < layers; ++layer)
+        for (Coordinate row = 0; row < rows; ++row)
         {
-            const Coordinate outer = firstOuter + layer * outerIncrement;
-            const Coordinate firstInner = increasing ? innerLow : innerHigh;
-            const Coordinate innerIncrement = increasing ? innerStep : -innerStep;
-            for (Coordinate cell = 0; cell < cellsPerLayer; ++cell)
+            const Coordinate y = firstY + row * incrementY;
+            const Coordinate firstX = increasing ? left : right;
+            const Coordinate incrementX = increasing ? stepX : -stepX;
+            for (Coordinate column = 0; column < columns; ++column)
             {
-                const Coordinate inner = firstInner + cell * innerIncrement;
-                const Point point = verticalSide
-                    ? Point{static_cast<int>(outer), static_cast<int>(inner)}
-                    : Point{static_cast<int>(inner), static_cast<int>(outer)};
-                points.push_back(point);
+                const Coordinate x = firstX + column * incrementX;
+                points.push_back({static_cast<int>(x), static_cast<int>(y)});
             }
             increasing = !increasing;
         }
-        if (exitSide) *exitSide = nearest;
         return true;
     }
 }

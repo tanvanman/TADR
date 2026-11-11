@@ -19,7 +19,6 @@ jobs:
           /tmp/build-rectangle-test
           python3 src/DDraw/test/build_rectangle_input_test.py
           python3 src/DDraw/test/build_rectangle_gesture_test.py
-          BUILD_RECTANGLE_SANITIZERS=1 python3 src/DDraw/test/build_rectangle_orders_test.py
   windows:
     runs-on: windows-latest
     strategy:
@@ -34,7 +33,7 @@ jobs:
       - name: Build patch DLL
         run: msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=Win32 /p:TDRAW_CONFIG=TDRAW_CONFIG_${{ matrix.mod }}
       - name: Verify rectangle support is in the DLL
-        run: python -c "from pathlib import Path; assert b'[BuildRectangle] release-v3' in Path('src/DDraw/Public/tdraw.dll').read_bytes()"
+        run: python -c "from pathlib import Path; assert b'[BuildRectangle] release-v4' in Path('src/DDraw/Public/tdraw.dll').read_bytes()"
       - name: Verify Windows 7 imports
         run: python src/DDraw/tools/check_win7_imports.py src/DDraw/Public/tdraw.dll
       - uses: actions/upload-artifact@v4
