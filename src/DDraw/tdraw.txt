@@ -1151,9 +1151,10 @@ NEW FEATURES IN DETAIL:
 
 - Rectangle building
 
-  Choose a building, hold the Autoclick Key (X by default), click the first
-  corner, move the pointer to size the rectangle, then click the opposite
-  corner to queue it. Release the key to cancel the current preview. The
+  Choose a building, hold the configured Autoclick Key (X by default), then
+  press and hold the left mouse button at the first corner. Drag to size
+  the rectangle and release the mouse button to queue it. Release the key
+  before the mouse button to cancel the current preview. The
   same controls work on the battlefield and megamap.
 
   The rectangle fills with rows and columns. A narrow rectangle makes a

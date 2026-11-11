@@ -152,6 +152,9 @@ int __stdcall ReduceCancelOrderToleranceProc(PInlineX86StackBuffer X86StrackBuff
 CTAHook::CTAHook(BOOL VidMem)
 {
 	lpRectSurf = NULL;
+	WriteLine = RingWrite = false;
+	RectangleValid = RectangleMouseDown = RectangleCaptured = false;
+	TAhWnd = NULL;
 
 	if(DataShare->ehaOff == 1)
 		return;
@@ -186,6 +189,7 @@ CTAHook::CTAHook(BOOL VidMem)
 	ClickSnapOverrideKey = VK_LMENU;
 	WriteLine = false;
 	RectangleValid = false;
+	RectangleMouseDown = RectangleCaptured = false;
 	RectangleExitSide = BuildRectangleGeometry::Left;
 	MatrixLength = 0;
 	XMatrix[0] = YMatrix[0] = -1;
@@ -215,12 +219,13 @@ CTAHook::CTAHook(BOOL VidMem)
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(ReduceCancelOrderToleranceAddr, 5, INLINE_5BYTESLAGGERJMP, ReduceCancelOrderToleranceProc));
 
 	IDDrawSurface::OutptTxt ( "New CTAHook");
-	IDDrawSurface::OutptTxt ( "[BuildRectangle] retreat-v2");
+	IDDrawSurface::OutptTxt ( "[BuildRectangle] release-v3");
 }
 
 
 CTAHook::~CTAHook()
 {
+	if (RectangleMouseDown || WriteLine) EndRectangleGesture(TAhWnd, false);
 	if(lpRectSurf)
 		lpRectSurf->Release();
 
@@ -414,13 +419,108 @@ bool CTAHook::UpdateRectangleMouse(LPARAM lParam)
 	return true;
 }
 
+void CTAHook::EndRectangleGesture(HWND window, bool keepRelease)
+{
+	WriteLine = false;
+	RectangleValid = false;
+	XMatrix[0] = YMatrix[0] = -1;
+	if (!keepRelease) RectangleMouseDown = false;
+	EnableTABuildRect();
+	// ReleaseCapture can synchronously send WM_CAPTURECHANGED. Clear our
+	// capture ownership first so the nested message cannot release it again.
+	const bool captured = RectangleCaptured;
+	RectangleCaptured = false;
+	if (captured && GetCapture() == window) ReleaseCapture();
+}
+
+bool CTAHook::RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+	const bool press = Msg == WM_LBUTTONDOWN || Msg == WM_LBUTTONDBLCLK;
+	if (TAInGame != DataShare->TAProgress)
+	{
+		const bool ownedUp = RectangleMouseDown && Msg == WM_LBUTTONUP;
+		if (RectangleMouseDown || WriteLine) EndRectangleGesture(window, false);
+		return ownedUp;
+	}
+	// A cancelled press may have been released outside this window. A new
+	// physical press starts a fresh pair rather than swallowing the next drag.
+	if (press && RectangleMouseDown && !WriteLine) RectangleMouseDown = false;
+	const bool keyHeld = (GetAsyncKeyState(VirtualKeyCode)&0x8000) != 0;
+	if (WriteLine && (!keyHeld || TAdynmem->PrepareOrder_Type != ordertype::BUILD
+		|| (Msg == WM_KEYUP && wParam == static_cast<WPARAM>(VirtualKeyCode))
+		|| (Msg == WM_KEYDOWN && (wParam == VK_ESCAPE
+			|| (wParam == VK_F2 && (GetAsyncKeyState(VK_CONTROL)&0x8000))))
+		|| Msg == WM_KILLFOCUS || Msg == WM_CANCELMODE
+		|| (Msg == WM_ACTIVATEAPP && !wParam)
+		|| (Msg == WM_CAPTURECHANGED && reinterpret_cast<HWND>(lParam) != window)))
+		EndRectangleGesture(window, true);
+
+	if (Msg == WM_LBUTTONUP && RectangleMouseDown)
+	{
+		// Consume this release even if the modifier/focus was lost after DOWN.
+		// Keep WriteLine set through dispatch: it selects rectangle exit routing.
+		RectangleMouseDown = false;
+		__try
+		{
+			if (WriteLine && UpdateRectangleMouse(lParam))
+			{
+				EndX = TAdynmem->MouseMapPos.X;
+				EndY = TAdynmem->MouseMapPos.Y;
+				CalculateLine();
+				if (RectangleValid) WriteDTLine();
+				else
+				{
+					char text[] = "Rectangle too large (maximum 999 buildings). Increase spacing or use a smaller area.";
+					SendText(text, 0);
+				}
+			}
+		}
+		__finally
+		{
+			EndRectangleGesture(window, false);
+		}
+		return true;
+	}
+	if (press && RectangleMouseDown) return true;
+	if (press && !RingWrite && keyHeld && TAdynmem->PrepareOrder_Type == ordertype::BUILD
+		&& UpdateRectangleMouse(lParam))
+	{
+		WriteLine = true;
+		RectangleMouseDown = true;
+		TAhWnd = window;
+		DisableTABuildRect();
+		StartX = ClickSnapPreviewBuild ? ClickSnapPreviewPosXY[0]*16 : TAdynmem->MouseMapPos.X;
+		StartY = ClickSnapPreviewBuild ? ClickSnapPreviewPosXY[1]*16 : TAdynmem->MouseMapPos.Y;
+		EndX = TAdynmem->MouseMapPos.X;
+		EndY = TAdynmem->MouseMapPos.Y;
+		CalculateLine();
+		SetCapture(window);
+		RectangleCaptured = GetCapture() == window;
+		if (!RectangleCaptured) EndRectangleGesture(window, true);
+		return true;
+	}
+	if (Msg == WM_MOUSEMOVE && WriteLine)
+	{
+		ClickSnapPreviewBuild = ClickSnapPreviewWreck = false;
+		if (UpdateRectangleMouse(lParam))
+		{
+			EndX = TAdynmem->MouseMapPos.X;
+			EndY = TAdynmem->MouseMapPos.Y;
+			CalculateLine();
+		}
+		return true;
+	}
+	return false;
+}
+
 bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
 	__try
 	{
 		if (TAInGame != DataShare->TAProgress)
 		{
-			if (WriteLine || RingWrite) EnableTABuildRect();
+			if (RectangleMouseDown || WriteLine) EndRectangleGesture(WinProcWnd, false);
+			if (RingWrite) EnableTABuildRect();
 			WriteLine = RingWrite = false;
 			RectangleValid = false;
 			XMatrix[0] = YMatrix[0] = -1;
@@ -429,17 +529,16 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 
 		if (TAInGame==DataShare->TAProgress)
 		{
-			if ((WriteLine || RingWrite) && (Msg == WM_KILLFOCUS
+			if (RectangleGestureMessage(WinProcWnd, Msg, wParam, lParam)) return true;
+			if (RingWrite && (Msg == WM_KILLFOCUS
 				|| TAdynmem->PrepareOrder_Type != ordertype::BUILD
 				|| (GetAsyncKeyState(VirtualKeyCode)&0x8000) == 0))
 			{
-				WriteLine = RingWrite = false;
+				RingWrite = false;
 				XMatrix[0] = YMatrix[0] = -1;
 				EnableTABuildRect();
 			}
-			// Windows sends the second press as DBLCLK for nearby corners.
-			// It must confirm this gesture rather than reach native selection.
-			if (Msg == WM_LBUTTONDBLCLK && (WriteLine || RingWrite)) Msg = WM_LBUTTONDOWN;
+			if (Msg == WM_LBUTTONDBLCLK && RingWrite) Msg = WM_LBUTTONDOWN;
 			bool megamapBuilding = false;
 #if USEMEGAMAP
 			megamapBuilding = GUIExpander && GUIExpander->myMinimap
@@ -539,81 +638,6 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				if(RingWrite)
 				{
 					WriteDTLine();
-					return true;
-				}
-				else if(WriteLine==true && (GetAsyncKeyState(VirtualKeyCode)&0x8000)>0)
-				{
-					if (!UpdateRectangleMouse(lParam)) return true;
-					FootPrintX = GetFootX();
-					if(FootPrintX == 0)
-						FootPrintX = 1;
-					FootPrintY = GetFootY();
-					if(FootPrintY == 0)
-						FootPrintY = 1;
-
-					EndX= TAdynmem->MouseMapPos.X;
-					EndY= TAdynmem->MouseMapPos.Y;
-					//EndX = (LOWORD(lParam)-128) + TAdynmem->EyeBallMapXPos;
-					//EndY = (HIWORD(lParam)) + TAdynmem->EyeBallMapYPos - 32 + TAdynmem->CircleSelect_Pos1TAz/2;
-					/*if(ScrollEnabled)
-					WriteScrollDTLine();
-					else
-					WriteDTLine();*/
-					CalculateLine();
-					if (!RectangleValid)
-					{
-						char text[] = "Rectangle too large (maximum 999 buildings). Increase spacing or use a smaller area.";
-						SendText(text, 0);
-						return true;
-					}
-					WriteDTLine();
-
-
-					StartX= ClickSnapPreviewBuild ? this->ClickSnapPreviewPosXY[0] * 16 : TAdynmem->MouseMapPos.X;
-					StartY= ClickSnapPreviewBuild ? this->ClickSnapPreviewPosXY[1] * 16 : TAdynmem->MouseMapPos.Y;
-					//StartX = (LOWORD(lParam)-128) + TAdynmem->EyeBallMapXPos;
-					//StartY = (HIWORD(lParam)) + TAdynmem->EyeBallMapYPos - 32 + TAdynmem->CircleSelect_Pos1TAz/2;
-					/*if(ScrollEnabled)
-					{
-					StartMapX = *MapX;
-					StartMapY = *MapY;
-					}*/
-					XMatrix[0]=-1;
-					YMatrix[0]=-1;
-					return true;
-				}
-				else if((ordertype::BUILD==TAdynmem->PrepareOrder_Type)
-					&&(GetAsyncKeyState(VirtualKeyCode)&0x8000)>0 && LOWORD(lParam)>127)
-				{
-					if (!UpdateRectangleMouse(lParam)) return false;
-					FootPrintX = GetFootX();
-					if(FootPrintX == 0)
-						FootPrintX = 1;
-					FootPrintY = GetFootY();
-					if(FootPrintY == 0)
-						FootPrintY = 1;
-
-					WriteLine = true;
-
-					DisableTABuildRect();
-
-					StartX = ClickSnapPreviewBuild ? this->ClickSnapPreviewPosXY[0] * 16 : TAdynmem->MouseMapPos.X;
-					StartY = ClickSnapPreviewBuild ? this->ClickSnapPreviewPosXY[1] * 16 : TAdynmem->MouseMapPos.Y;
-					EndX= TAdynmem->MouseMapPos.X;
-					EndY= TAdynmem->MouseMapPos.Y;
-					//StartX = (LOWORD(lParam)-128) + TAdynmem->EyeBallMapXPos;
-					//StartY = (HIWORD(lParam)) + TAdynmem->EyeBallMapYPos - 32 + TAdynmem->CircleSelect_Pos1TAz/2;
-					//EndX = (LOWORD(lParam)-128) + TAdynmem->EyeBallMapXPos;
-				//	EndY = (HIWORD(lParam)) + TAdynmem->EyeBallMapYPos - 32 + TAdynmem->CircleSelect_Pos1TAz/2;
-					XMatrix[0]=-1;
-					YMatrix[0]=-1;
-
-					CalculateLine();
-					/*if(ScrollEnabled)
-					{
-					StartMapX = *MapX;
-					StartMapY = *MapY;
-					}*/
 					return true;
 				}
 				{
@@ -746,19 +770,6 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					DraggingUnitOrdersState = DraggingOrderStateEnum::DRAG_COMMENCED;
 					DragUnitOrders(DraggingUnitOrders);
 					return true;
-				}
-				else if(WriteLine)
-				{
-					if (!UpdateRectangleMouse(lParam)) break;
-					//EndX = LOWORD(lParam);
-					//EndY = HIWORD(lParam);
-					//if(VisualizeDTRows)
-
-					EndX= TAdynmem->MouseMapPos.X;
-					EndY= TAdynmem->MouseMapPos.Y;
-					//EndX = (LOWORD(lParam)-128) + TAdynmem->EyeBallMapXPos;
-					//EndY = (HIWORD(lParam)) + TAdynmem->EyeBallMapYPos - 32 + TAdynmem->CircleSelect_Pos1TAz/2;
-					CalculateLine();
 				}
 				else if((ordertype::BUILD==TAdynmem->PrepareOrder_Type)
 					&&(GetAsyncKeyState(VirtualKeyCode)&0x8000)>0)
