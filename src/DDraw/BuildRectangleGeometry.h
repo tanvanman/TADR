@@ -5,6 +5,8 @@
 
 namespace BuildRectangleGeometry
 {
+    enum Side { Left, Right, Top, Bottom };
+
     struct Point
     {
         int x;
@@ -15,9 +17,12 @@ namespace BuildRectangleGeometry
     // corner as the grid origin, including when the drag runs left or upward.
     // Sweep from the far side toward the builder, ending at its nearest corner.
     // The caller reserves its own sentinel slot outside this capacity.
+    // On success, exitSide identifies the final strip. Its points share the
+    // last point's x for Left/Right, or its y for Top/Bottom. Failure leaves
+    // exitSide untouched. A single row or column can be the entire final strip.
     inline bool Generate(int startX, int startY, int endX, int endY,
         int footprintX, int footprintY, int spacing, int builderX, int builderY,
-        int capacity, std::vector<Point>& points)
+        int capacity, std::vector<Point>& points, Side* exitSide = nullptr)
     {
         points.clear();
         if (footprintX <= 0 || footprintY <= 0 || spacing < 0 || capacity <= 0)
@@ -50,7 +55,6 @@ namespace BuildRectangleGeometry
         // Distance to each side segment also handles builders beyond a corner
         // and rectangles with a single row or column. Ties prefer left, right,
         // top, then bottom, making the order deterministic.
-        enum Side { Left, Right, Top, Bottom };
         const long double distances[] = {
             square(Coordinate(builderX) - left) + square(Coordinate(builderY) - clampedY),
             square(Coordinate(builderX) - right) + square(Coordinate(builderY) - clampedY),
@@ -95,6 +99,7 @@ namespace BuildRectangleGeometry
             }
             increasing = !increasing;
         }
+        if (exitSide) *exitSide = nearest;
         return true;
     }
 }

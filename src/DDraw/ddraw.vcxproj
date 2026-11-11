@@ -521,6 +521,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="sharedialog.cpp" />
     <ClCompile Include="TABugFix.cpp" />
     <ClCompile Include="TAConfig.cpp" />
+    <ClCompile Include="BuildRectangleOrders.cpp" />
     <ClCompile Include="tahook.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -616,6 +617,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="tafunctions.h" />
     <ClInclude Include="tahook.h" />
     <ClInclude Include="BuildRectangleGeometry.h" />
+    <ClInclude Include="BuildRectangleOrders.h" />
     <ClInclude Include="taHPI.h" />
     <ClInclude Include="tamem.h" />
     <ClInclude Include="AiSeardchMapEntriesLimit.h" />

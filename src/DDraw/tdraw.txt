@@ -1163,8 +1163,11 @@ NEW FEATURES IN DETAIL:
   Existing automatic rings around buildings are unchanged.
 
   Construction is ordered from the far side back toward the selected
-  constructors' side, leaving that side until last. TA still controls
-  their movement around each individual building.
+  constructors' side, leaving that side until last. Before closing this
+  final strip, mobile ground constructors receive individual moves to its
+  outside edge. An outside finishing move follows the build orders. If no
+  clear, reachable-range outside position can be planned, the strip is
+  left open. TA's normal pathfinding still handles terrain and obstacles.
 
 - Nanoframe ghost preview
 

@@ -9,6 +9,7 @@
 
 using BuildRectangleGeometry::Generate;
 using BuildRectangleGeometry::Point;
+using BuildRectangleGeometry::Side;
 
 namespace
 {
@@ -47,21 +48,26 @@ namespace
     void TestNearestSidesAndOrder()
     {
         std::vector<Point> points;
+        Side exitSide = BuildRectangleGeometry::Bottom;
         // A 3 by 3 rectangle with unequal building dimensions and one grid
         // square of spacing. Each side selects the corresponding sweep axis.
-        assert(Generate(160, 320, 256, 448, 2, 3, 1, 140, 384, 999, points));
+        assert(Generate(160, 320, 256, 448, 2, 3, 1, 140, 384, 999, points, &exitSide));
+        assert(exitSide == BuildRectangleGeometry::Left);
         ExpectOrder(points, {{256,448}, {256,384}, {256,320},
                             {208,320}, {208,384}, {208,448},
                             {160,448}, {160,384}, {160,320}});
-        assert(Generate(160, 320, 256, 448, 2, 3, 1, 276, 384, 999, points));
+        assert(Generate(160, 320, 256, 448, 2, 3, 1, 276, 384, 999, points, &exitSide));
+        assert(exitSide == BuildRectangleGeometry::Right);
         ExpectOrder(points, {{160,448}, {160,384}, {160,320},
                             {208,320}, {208,384}, {208,448},
                             {256,448}, {256,384}, {256,320}});
-        assert(Generate(160, 320, 256, 448, 2, 3, 1, 208, 300, 999, points));
+        assert(Generate(160, 320, 256, 448, 2, 3, 1, 208, 300, 999, points, &exitSide));
+        assert(exitSide == BuildRectangleGeometry::Top);
         ExpectOrder(points, {{256,448}, {208,448}, {160,448},
                             {160,384}, {208,384}, {256,384},
                             {256,320}, {208,320}, {160,320}});
-        assert(Generate(160, 320, 256, 448, 2, 3, 1, 208, 468, 999, points));
+        assert(Generate(160, 320, 256, 448, 2, 3, 1, 208, 468, 999, points, &exitSide));
+        assert(exitSide == BuildRectangleGeometry::Bottom);
         ExpectOrder(points, {{256,320}, {208,320}, {160,320},
                             {160,384}, {208,384}, {256,384},
                             {256,448}, {208,448}, {160,448}});
@@ -150,6 +156,29 @@ namespace
         ExpectAdjacent(points, 48, 96);
     }
 
+    void TestExitStripReporting()
+    {
+        std::vector<Point> points;
+        Side exitSide = BuildRectangleGeometry::Bottom;
+        assert(Generate(0, 0, 0, 96, 2, 2, 0, -16, 48, 999, points, &exitSide));
+        assert(exitSide == BuildRectangleGeometry::Left);
+        for (const Point& point : points) assert(point.x == points.back().x);
+        assert(Generate(0, 0, 96, 0, 2, 2, 0, 48, -16, 999, points, &exitSide));
+        assert(exitSide == BuildRectangleGeometry::Top);
+        for (const Point& point : points) assert(point.y == points.back().y);
+        assert(Generate(17, 29, 17, 29, 2, 2, 0, 100, 100, 999, points, &exitSide));
+        assert(exitSide == BuildRectangleGeometry::Left);
+        assert(points.size() == 1);
+
+        // Reusing the output variable after a rejected rectangle must not
+        // replace the caller's prior valid exit side.
+        exitSide = BuildRectangleGeometry::Right;
+        assert(!Generate(0, 0, 64, 64, 2, 2, 0, 0, 0, 8, points, &exitSide));
+        assert(points.empty() && exitSide == BuildRectangleGeometry::Right);
+        assert(!Generate(0, 0, 0, 0, 0, 2, 0, 0, 0, 999, points, &exitSide));
+        assert(points.empty() && exitSide == BuildRectangleGeometry::Right);
+    }
+
     void TestCapacityAndInvalidInputs()
     {
         std::vector<Point> points;
@@ -197,6 +226,7 @@ int main()
     TestAllDragQuadrants();
     TestDegenerateRectangles();
     TestSpacingAndFootprints();
+    TestExitStripReporting();
     TestCapacityAndInvalidInputs();
     TestCoordinateExtremes();
     std::cout << "Rectangle build geometry tests passed\n";

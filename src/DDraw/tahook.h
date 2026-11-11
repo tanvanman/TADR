@@ -52,6 +52,8 @@ class CTAHook
     bool UpdateRectangleMouse(LPARAM lParam);
     void RefreshRectangleFootprint();
     bool RectangleValid;
+    int RectangleExitSide;
+    bool ProbeRectangleSlot(int x, int y, int& centerX, int& centerY);
     void OptimizeDTRows();
     void VisualizeRow();
     void WriteScrollDTLine();
