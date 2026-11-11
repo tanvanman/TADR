@@ -528,6 +528,9 @@
     <ClInclude Include="tahook.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BuildRectangleGeometry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="taHPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>

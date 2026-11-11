@@ -49,6 +49,12 @@ class CTAHook
     //void SendQueued();
     void WriteDTLine();
     void CalculateLine();
+    bool UpdateRectangleMouse(LPARAM lParam);
+    void RefreshRectangleFootprint();
+    bool RectangleValid;
+    bool RectangleMouseDown;
+    bool RectangleCaptured;
+    void EndRectangleGesture(HWND window, bool keepRelease);
     void OptimizeDTRows();
     void VisualizeRow();
     void WriteScrollDTLine();
@@ -146,6 +152,8 @@ class CTAHook
     CTAHook(BOOL VidMem);
     ~CTAHook();
     bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+    bool OwnsRectangleInput() const { return RectangleMouseDown; }
+    bool RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPARAM lParam);
     void Set(int KeyCodei, const char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iMexSnapRadius, int iWreckSnapRadius, int ClickSnapOverrideKey);
     void WriteShareMacro();
     void Blit(LPDIRECTDRAWSURFACE DestSurf);

@@ -603,6 +603,20 @@ bool MegaMapControl::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
 	return FALSE;
 }
 
+bool MegaMapControl::UpdateBuildMouse(int x, int y)
+{
+	if (!IsBliting()) return false;
+	PubCursorX = IsDrawCursor(x,y) ? x : -1;
+	PubCursorY = PubCursorX != -1 ? y : -1;
+	InControl = CheckInControl(x,y);
+	InMap = CheckInMap(x,y);
+	if (!InControl || !InMap) return false;
+	ScreenPos2TAPos(&TAmainStruct_Ptr->MouseMapPos,
+		x-MegaMapScreen.left, y-MegaMapScreen.top, TRUE);
+	return TAmainStruct_Ptr->MouseMapPos.X < TAmainStruct_Ptr->FeatureMapSizeX*16
+		&& TAmainStruct_Ptr->MouseMapPos.Y < (TAmainStruct_Ptr->FeatureMapSizeY-8)*16;
+}
+
 BOOL MegaMapControl::RightDown (int x, int y, bool shift)
 {
 
