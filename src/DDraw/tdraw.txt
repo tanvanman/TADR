@@ -1149,13 +1149,29 @@ NEW FEATURES IN DETAIL:
   the built-in stock-palette defaults for that player.  Changes take effect at
   the next TA start.
 
+- Rectangle building
+
+  Choose a building, hold the Autoclick Key (X by default), click the first
+  corner, move the pointer to size the rectangle, then click the opposite
+  corner to queue it. Release the key to cancel the current preview. The
+  same controls work on the battlefield and megamap.
+
+  The rectangle fills with rows and columns. A narrow rectangle makes a
+  single row or column. The mouse wheel (or Page Up/Down) adjusts the gap
+  between buildings on both axes, from 0 to 10 map squares. There is a
+  limit of 999 buildings per rectangle; larger rectangles are not queued.
+  Existing automatic rings around buildings are unchanged.
+
+  Construction is ordered from the far side back toward the selected
+  constructors' side, leaving that side until last. TA still controls
+  their movement around each individual building.
+
 - Nanoframe ghost preview
 
   A small green animated preview of the building you're about to place
   is drawn inside the build rectangle.  It rotates in step with the
   rotate-build key, and disappears on red (can't-build) squares.  When
-  shift-line / shift-row building, the preview is shown at every
-  rectangle in the row.
+  rectangle building, the preview is shown at every planned building.
 
   Mod authors with upgrade-style units (where the 3DO model contains
   both the basic and upgraded geometry, and the COB script controls

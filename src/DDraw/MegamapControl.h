@@ -32,6 +32,9 @@ public:
 	bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 	void RefreshMouseHover (void);
 
+	// Update terrain coordinates and the visible pointer before a build gesture consumes input.
+	bool UpdateBuildMouse(int screenX, int screenY);
+
 
 	BOOL IsBliting(void);
 	BOOL IsDrawRect (BOOL Build_b=FALSE);

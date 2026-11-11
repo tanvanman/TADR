@@ -615,6 +615,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="TAConfig.h" />
     <ClInclude Include="tafunctions.h" />
     <ClInclude Include="tahook.h" />
+    <ClInclude Include="BuildRectangleGeometry.h" />
     <ClInclude Include="taHPI.h" />
     <ClInclude Include="tamem.h" />
     <ClInclude Include="AiSeardchMapEntriesLimit.h" />

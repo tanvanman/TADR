@@ -49,6 +49,9 @@ class CTAHook
     //void SendQueued();
     void WriteDTLine();
     void CalculateLine();
+    bool UpdateRectangleMouse(LPARAM lParam);
+    void RefreshRectangleFootprint();
+    bool RectangleValid;
     void OptimizeDTRows();
     void VisualizeRow();
     void WriteScrollDTLine();

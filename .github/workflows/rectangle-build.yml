@@ -1,0 +1,43 @@
+name: Validate rectangle building
+on:
+  push:
+    branches: ['feature/rectangle-build', 'feature/rectangle-build-test']
+  pull_request:
+    paths:
+      - 'src/DDraw/**'
+      - '.github/workflows/rectangle-build.yml'
+permissions:
+  contents: read
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test rectangle geometry and construction order
+        run: |
+          g++ -std=c++11 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/build_rectangle_geometry_test.cpp -o /tmp/build-rectangle-test
+          /tmp/build-rectangle-test
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mod: [ESCALATION, PROTA, OTA]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_x86
+      - name: Build patch DLL
+        run: msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=Win32 /p:TDRAW_CONFIG=TDRAW_CONFIG_${{ matrix.mod }}
+      - name: Verify rectangle support is in the DLL
+        run: python -c "from pathlib import Path; assert b'[BuildRectangle] far-to-near-v1' in Path('src/DDraw/Public/tdraw.dll').read_bytes()"
+      - name: Verify Windows 7 imports
+        run: python src/DDraw/tools/check_win7_imports.py src/DDraw/Public/tdraw.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rectangle-${{ matrix.mod }}
+          path: |
+            src/DDraw/Public/tdraw.dll
+            src/DDraw/Public/tdraw.pdb
+            src/DDraw/Public/tdraw.map
