@@ -1149,6 +1149,21 @@ NEW FEATURES IN DETAIL:
   the built-in stock-palette defaults for that player.  Changes take effect at
   the next TA start.
 
+- One-click metal extractor upgrades (Escalation)
+
+  Select a constructor and click one of your completed metal extractors to
+  reclaim it and build the next tier at the same site. The constructor must
+  have the replacement in its build menu. ARM and CORE land and underwater
+  extractors support T1 -> T2 Moho -> T3 Mantle, one tier per upgrade.
+
+  Hold Shift to queue upgrades. Shift-click a queued extractor again to
+  cancel its upgrade. A plain click replaces the current order queue.
+  The larger replacement footprint is checked before reclaim is ordered;
+  terrain, water depth and other occupants must permit construction.
+
+  Enabled by default in Escalation. Set MexUpgrade=FALSE under [Preferences]
+  to disable it, then restart TA. Other mod profiles leave upgrades disabled.
+
 - Nanoframe ghost preview
 
   A small green animated preview of the building you're about to place

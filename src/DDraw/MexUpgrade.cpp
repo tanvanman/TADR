@@ -14,7 +14,7 @@ namespace
 {
     constexpr unsigned kDefinitionEnabled = 0x00800000;
     constexpr unsigned kMaxOrders = 8192;
-    constexpr int kMohoFootprint = 5;
+    constexpr int kMaxUpgradeFootprint = 32;
     constexpr unsigned kFeedbackTicks = 45;
     thread_local bool checkingSite = false;
 
@@ -99,6 +99,8 @@ namespace
     constexpr UpgradePair kUpgrades[] = {
         {"ARMMEX", "ARMMOHO"}, {"CORMEX", "CORMOHO"},
         {"ARMUWMEX", "ARMUWMOHO"}, {"CORUWMEX", "CORUWMOHO"},
+        {"ARMMOHO", "ARMMAS"}, {"CORMOHO", "CORMAS"},
+        {"ARMUWMOHO", "ARMUWMAS"}, {"CORUWMOHO", "CORUWMAS"},
     };
 
     bool LiveOwned(const UnitStruct& unit, const PlayerStruct& owner)
@@ -158,7 +160,8 @@ namespace
 
     bool ReplacementTile(const UnitStruct& old, const UnitDefStruct& def, int& left, int& top)
     {
-        if (def.FootX != kMohoFootprint || def.FootY != kMohoFootprint) return false;
+        if (def.FootX <= 0 || def.FootY <= 0
+            || def.FootX > kMaxUpgradeFootprint || def.FootY > kMaxUpgradeFootprint) return false;
         // Same grid rounding as GUI_IssueMobileBuildOrder, starting from the old center.
         const int x = static_cast<int>(old.XPos) + 8 - def.FootX * 8;
         const int y = static_cast<int>(old.YPos) + 8 - def.FootY * 8;
@@ -179,8 +182,9 @@ namespace
         // TestGridSpot can ignore one occupant by slot. Its earlier yard check also
         // sees the old building's yard reservation, so mask that bit on a private
         // copy only where the clicked building occupies the proposed footprint.
-        char yard[kMohoFootprint * kMohoFootprint];
-        std::memcpy(yard, def.YardMap, sizeof(yard));
+        char yard[kMaxUpgradeFootprint * kMaxUpgradeFootprint] = {};
+        const size_t yardSize = static_cast<size_t>(def.FootX) * def.FootY;
+        std::memcpy(yard, def.YardMap, yardSize);
         for (int row = 0; row < def.FootY; ++row)
         {
             for (int column = 0; column < def.FootX; ++column)
@@ -405,11 +409,11 @@ namespace
 
 bool MexUpgrade::Enabled()
 {
-#if defined(TDRAW_CONFIG_ESCALATION) || defined(TDRAW_CONFIG_PROTA)
+#if defined(TDRAW_CONFIG_ESCALATION)
     if (!MyConfig) return false;
     static const bool enabled = [] {
         const bool active = MyConfig->GetIniBool("MexUpgrade", TRUE) != FALSE;
-        if (active) IDDrawSurface::OutptTxt("[MexUpgrade] plain-click queue replacement enabled");
+        if (active) IDDrawSurface::OutptTxt("[MexUpgrade] build=escalation-tiers-v6");
         return active;
     }();
     return enabled;

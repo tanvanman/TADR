@@ -1,0 +1,41 @@
+name: Validate extractor upgrades
+on:
+  push:
+    branches: ['feature/one-click-extractor-upgrades']
+  pull_request:
+    paths:
+      - 'src/DDraw/**'
+      - '.github/workflows/mex-upgrade.yml'
+permissions:
+  contents: read
+jobs:
+  behavior:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test extractor eligibility, placement and queued upgrades
+        run: python3 src/DDraw/test/mex_upgrade_test.py
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mod: [ESCALATION, PROTA, OTA]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_x86
+      - name: Build patch DLL
+        run: msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=Win32 /p:TDRAW_CONFIG=TDRAW_CONFIG_${{ matrix.mod }}
+      - name: Verify extractor upgrades are enabled only in Escalation
+        run: python -c "from pathlib import Path; b=Path('src/DDraw/Public/tdraw.dll').read_bytes(); assert (b'[MexUpgrade] build=escalation-tiers-v6' in b) == ('${{ matrix.mod }}' == 'ESCALATION')"
+      - name: Verify Windows 7 imports
+        run: python src/DDraw/tools/check_win7_imports.py src/DDraw/Public/tdraw.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mex-upgrade-${{ matrix.mod }}
+          path: |
+            src/DDraw/Public/tdraw.dll
+            src/DDraw/Public/tdraw.pdb
+            src/DDraw/Public/tdraw.map
