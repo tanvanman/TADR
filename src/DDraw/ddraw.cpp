@@ -24,6 +24,7 @@ using namespace std;
 #include "TAbugfix.h"
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
+#include "DrawnMove.h"
 #include "StartPositions.h"
 #include "AutoTeam.h"
 #include "TakeClaim.h"
@@ -190,6 +191,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 	if(reason==DLL_PROCESS_ATTACH)
 	{
 		IDDrawSurface::OutptTxt("Process Attached.  config=" TDRAW_CONFIG_NAME);
+#if DRAWN_MOVE_FORMATIONS_ENABLE
+		DrawnMove::LogBuild();
+#endif
 
 		/* 
 			dplayx.dll TA Patch loader - https://github.com/FunkyFr3sh/Total-Annihilation-Patch-Loader 

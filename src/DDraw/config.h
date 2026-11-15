@@ -39,6 +39,8 @@
 #include "config_twilight.h"
 #endif
 
+#include "OptionalUnitControls.h"
+
 // Keep looping menu audio in TA's tracked sound slots. Override per config if needed.
 #ifndef MENU_HUM_TRACKED_LOOPING
 #define MENU_HUM_TRACKED_LOOPING 1

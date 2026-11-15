@@ -1,4 +1,5 @@
 #pragma once
+#include "config.h"
 class FullScreenMinimap;
 class InlineSingleHook;
 
@@ -31,6 +32,18 @@ public:
 	
 	bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 	void RefreshMouseHover (void);
+
+#if DRAWN_MOVE_FORMATIONS_ENABLE
+    // Formation gestures use the same hit-testing and terrain projection as
+    // ordinary megamap commands. Screen arguments are absolute client pixels.
+    bool FormationGroundPoint(Position_Dword* point, int screenX, int screenY);
+    bool FormationScreenPoint(POINT* screen, RECT* clip, const Position_Dword& point);
+#endif
+
+#if GRID_BUILDING_ENABLE
+	// Update terrain coordinates and the visible pointer before a build gesture consumes input.
+	bool UpdateBuildMouse(int screenX, int screenY);
+#endif
 
 
 	BOOL IsBliting(void);
