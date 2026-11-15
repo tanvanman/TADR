@@ -45,10 +45,12 @@ HARNESS = r'''
 #include <strings.h>
 #include <vector>
 #include "OptionalUnitControls.h"
+#include "MexUpgradeMenu.h"
 #if !MEX_UPGRADE_ENABLE
 #error "The behavior harness requires compiled-in extractor upgrades"
 #endif
 #define _strnicmp strncasecmp
+#define __stdcall
 constexpr int TRUE = 1, FALSE = 0;
 constexpr unsigned builder = 1, canfly = 2, WATCH = 4;
 constexpr int UnitSelected_State = 0x10, Player_LocalHuman = 1, TAInGame = 1;
@@ -73,10 +75,11 @@ struct GAFSequence {
     GAFENTRY PtrFrameAry[1];
 };
 struct DesktopGUI { void* Cursor_3 = nullptr; };
+struct _OFFSCREEN { void* lpSurface = nullptr; };
 struct UnitDefStruct {
     char UnitName[32] = {};
     short* CANBUILD_ptr = nullptr;
-    int canbuildCount = 0, bmcode = 0, FootX = 1, FootY = 1, buildLimit = -1;
+    int canbuildCount = 0, bmcode = 0, FootX = 1, FootY = 1, buildLimit = -1, GUINum = 2;
     float extractsmetal = 0;
     unsigned UnitTypeMask_0 = 0;
     char* YardMap = nullptr;
@@ -113,6 +116,8 @@ struct FeatureStruct { unsigned occupyingUnitNumber = 0; };
 struct TAdynmemStruct {
     int PrepareOrder_Type = ordertype::STOP, BuildSpotState = 2, InterfaceType = 0;
     int LocalHumanPlayer_PlayerID = 0, FeatureMapSizeX = 32, FeatureMapSizeY = 32;
+    unsigned GameTime = 0;
+    void* CameraToUnit = nullptr;
     unsigned MouseOverUnit = 2, UNITINFOCount = 12;
     UnitDefStruct* UnitDef = nullptr;
     FeatureStruct* FeatureMap = nullptr;
@@ -141,7 +146,12 @@ struct IDDrawSurface {
     template<class... Args> static void OutptFmtTxt(const char*, Args...) {}
 };
 static bool controlDown, altDown;
-static int cursorChanges;
+static int cursorChanges, feedbackDrawCalls;
+static int MockFeedbackKeyDown(int key) { assert(key == 0xF9); return 0; }
+static void MockDrawBuildSpotQueue(_OFFSCREEN* surface, const void*, UnitOrdersStruct* order, Position_Dword*, int) {
+    assert(surface && surface->lpSurface && order && order->BuildUnitID);
+    ++feedbackDrawCalls;
+}
 static short GetAsyncKeyState(unsigned key) {
     return ((key == VK_CONTROL && controlDown) || (key == VK_MENU && altDown)) ? -32768 : 0;
 }
@@ -158,6 +168,16 @@ struct Feedback {
 
 // PRODUCTION_CONSTANTS_AND_TABLE
 
+static std::vector<std::string> buildMenuPages;
+static int buildMenuCalls;
+bool HasBuildMenuEntry(const TAdynmemStruct&, const UnitDefStruct& constructor, const char* name) {
+    ++buildMenuCalls;
+    for (int page=0; page < constructor.GUINum && page < static_cast<int>(buildMenuPages.size()); ++page) {
+        const auto& data = buildMenuPages[page];
+        if (MexUpgradeMenu::ContainsBuildButton(data.data(),data.size(),name)) return true;
+    }
+    return false;
+}
 static bool checkingSite, gridAllowed, reclaimAllowed;
 static int gridCalls, nativeSends, removedOrders;
 static const char* originalYard;
@@ -203,6 +223,7 @@ namespace MexUpgrade {
     bool TryCommand(TAdynmemStruct*, const _MOUSEEVENT*);
     bool IsQueuedBuild(const TAdynmemStruct*, const UnitStruct*, const UnitOrdersStruct*);
     void UpdateCursor(TAdynmemStruct*);
+    void DrawFeedback(TAdynmemStruct*, _OFFSCREEN*);
 }
 
 // PRODUCTION_FUNCTIONS
@@ -210,6 +231,11 @@ namespace MexUpgrade {
 static void Name(UnitDefStruct& def, const char* name) {
     std::memset(def.UnitName, 0, sizeof(def.UnitName));
     std::strncpy(def.UnitName, name, sizeof(def.UnitName)-1);
+}
+static std::string BuildButton(const char* name) {
+    return std::string("[GADGET8]{[COMMON]{id=1;assoc=0;name=") + name
+        + ";xpos=0;ypos=128;width=64;height=64;attribs=32;colorf=15;colorb=0;"
+          "texturenumber=0;fontnumber=0;active=1;commonattribs=4;}quickkey=113;}";
 }
 struct World {
     TAdynmemStruct ta;
@@ -224,10 +250,11 @@ struct World {
         gridAllowed = reclaimAllowed = true; checkingSite = false;
         gridCalls = nativeSends = removedOrders = 0; probedYard.clear(); allocatedOrders.clear();
         allowedGridSites.clear(); probedSites.clear();
-        controlDown = altDown = false; cursorChanges = 0;
+        buildMenuCalls = 0; buildMenuPages = {"",BuildButton("ARMMAS") + BuildButton("ARMMOHO")};
+        controlDown = altDown = false; cursorChanges = feedbackDrawCalls = 0; feedback = {};
         shared = SharedData{};
         ta.UnitDef = defs; ta.FeatureMap = map.data();
-        ta.BeginUnitsArray_p = units; ta.EndOfUnitsArray_p = units+8;
+        ta.BeginUnitsArray_p = units; ta.EndOfUnitsArray_p = units+7; // Native range is inclusive.
         auto& owner = ta.Players[0]; owner.Units = units+1; owner.UnitsAry_End = units+7; owner.PlayerInfo = &info;
         Name(defs[1], "ARMACON"); defs[1].bmcode = 1; defs[1].UnitTypeMask_0 = builder;
         defs[1].CANBUILD_ptr = canbuild; defs[1].canbuildCount = 2;
@@ -271,6 +298,168 @@ static void BlockAllLargerSites(World& world) {
         world.map[y*32+x].occupyingUnitNumber = (x >= 18 && x < 23 && y >= 18 && y < 23) ? 2 : 99;
 }
 
+// Complete build-button blocks copied from the installed Escalation GUIe pages.
+// Includes vehicle, hover, submarine, ship and seaplane menus omitted by AI plans.
+struct RealGuiCase { const char* constructor; const char* replacement; int page; const char* gui; };
+static const RealGuiCase kRealMenus[] = {
+    // TAESC.gp3/guie/armaca1.gui
+    {"ARMACA","ARMMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // TAESC.gp3/guie/armack1.gui
+    {"ARMACK","ARMMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // TAESC.gp3/guie/armacsub1.gui
+    {"ARMACSUB","ARMUWMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMUWMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // TAESC.gp3/guie/armacv1.gui
+    {"ARMACV","ARMMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // TAESC.gp3/guie/coraca1.gui
+    {"CORACA","CORMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // TAESC.gp3/guie/corack1.gui
+    {"CORACK","CORMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // TAESC.gp3/guie/coracsub1.gui
+    {"CORACSUB","CORUWMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORUWMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // TAESC.gp3/guie/coracv1.gui
+    {"CORACV","CORMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T2ESC.ufo/guie/armach1.gui
+    {"ARMACH","ARMMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T2ESC.ufo/guie/armach3.gui
+    {"ARMACH","ARMUWMOHO",3,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMUWMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T2ESC.ufo/guie/armacsa1.gui
+    {"ARMACSA","ARMUWMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMUWMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T2ESC.ufo/guie/armacsa2.gui
+    {"ARMACSA","ARMMOHO",2,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T2ESC.ufo/guie/corach1.gui
+    {"CORACH","CORMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T2ESC.ufo/guie/corach3.gui
+    {"CORACH","CORUWMOHO",3,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORUWMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T2ESC.ufo/guie/coracsa1.gui
+    {"CORACSA","CORUWMOHO",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORUWMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T2ESC.ufo/guie/coracsa2.gui
+    {"CORACSA","CORMOHO",2,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMOHO;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/armeca1.gui
+    {"ARMECA","ARMMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/armech1.gui
+    {"ARMECH","ARMMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/armech2.gui
+    {"ARMECH","ARMUWMAS",2,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMUWMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/armeck1.gui
+    {"ARMECK","ARMMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/armecs1.gui
+    {"ARMECS","ARMUWMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMUWMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/armecsa1.gui
+    {"ARMECSA","ARMMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/armecsa2.gui
+    {"ARMECSA","ARMUWMAS",2,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMUWMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/armecsub1.gui
+    {"ARMECSUB","ARMUWMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMUWMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/armecv1.gui
+    {"ARMECV","ARMMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=ARMMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/coreca1.gui
+    {"CORECA","CORMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/corech1.gui
+    {"CORECH","CORMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/corech2.gui
+    {"CORECH","CORUWMAS",2,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORUWMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/coreck1.gui
+    {"CORECK","CORMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/corecs1.gui
+    {"CORECS","CORUWMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORUWMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/corecsa1.gui
+    {"CORECSA","CORMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/corecsa2.gui
+    {"CORECSA","CORUWMAS",2,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORUWMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/corecsub1.gui
+    {"CORECSUB","CORUWMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORUWMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+    // T3ESC.ufo/guie/corecv1.gui
+    {"CORECV","CORMAS",1,"[GADGET8]\r\n{\r\n\t[COMMON]\r\n\t{\r\n\t\tid=1;\r\n\t\tassoc=0;\r\n\t\tname=CORMAS;\r\n\t\txpos=0;\r\n\t\typos=128;\r\n\t\twidth=64;\r\n\t\theight=64;\r\n\t\tattribs=32;\r\n\t\tcolorf=15;\r\n\t\tcolorb=0;\r\n\t\ttexturenumber=0;\r\n\t\tfontnumber=0;\r\n\t\tactive=1;\r\n\t\tcommonattribs=4;\r\n\t}\r\n\tquickkey=113;\r\n}"},
+};
+
+static void TestMenuParser() {
+    const auto valid = BuildButton("ARMMOHO");
+    assert(MexUpgradeMenu::ContainsBuildButton(valid.data(),valid.size(),"armmoho"));
+    for (std::size_t length=0; length<valid.size(); ++length)
+        assert(!MexUpgradeMenu::ContainsBuildButton(valid.data(),length,"ARMMOHO"));
+    const char* good[] = {
+        "[gAdGeT12] { [cOmMoN] { ID=\"1\"; name=\"armmoho\"; ACTIVE=+1; ATTRIBS=32; } }",
+        "[GADGET8]{/* name=FAKE; */[COMMON]{id=1;name=ARMMOHO;active=1;attribs=96;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;attribs=32;active=-1;}[OTHER]{name=WRONG;}}",
+        "// [GADGET8]{[COMMON]{name=WRONG;}}\n[GADGET8]{[COMMON]{id=1;name/* gap */=ARMMOHO;active=1;attribs=32;}}",
+    };
+    for (const char* data : good)
+        assert(MexUpgradeMenu::ContainsBuildButton(data,std::strlen(data),"ARMMOHO"));
+    const char* bad[] = {
+        "// [GADGET8]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=32;}}",
+        "/* [GADGET8]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=32;}} */",
+        "[OTHER]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=32;}}",
+        "[OTHER]{[GADGET8]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=32;}}}",
+        "[GADGET8]{name=ARMMOHO;id=1;active=1;attribs=32;}",
+        "[GADGET8]{[OTHER]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=32;}}}",
+        "[GADGET8]{[COMMON]{id=7;name=ARMMOHO;active=1;attribs=32;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;active=0;attribs=32;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;attribs=32;}}", // Native active defaults to zero.
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=0;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO2;active=1;attribs=32;}}",
+        "[GADGET8]{[COMMON]{id=1;name=PRE_ARMMOHO;active=1;attribs=32;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=32;}",
+        "[GADGET8]{[COMMON]{id=1;name=\"ARMMOHO;active=1;attribs=32;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=32;}} /* truncated",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=32;}} [GADGET9]{",
+        "[GADGET8]{[COMMON]{id=1;name=OTHER;caption=\"name=ARMMOHO; active=1;\";attribs=32;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;id=7;attribs=32;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;attribs=2147483648;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;attribs=32x;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=3/*split*/2;}}",
+        "[GADGET8]{[COMMON]{id=1;name=ARMMOHO;attribs=32;}[COMMON]{id=1;name=OTHER;attribs=32;}}",
+        "[GADGET8suffix]{[COMMON]{id=1;name=ARMMOHO;active=1;attribs=32;}}",
+    };
+    for (const char* data : bad)
+        assert(!MexUpgradeMenu::ContainsBuildButton(data,std::strlen(data),"ARMMOHO"));
+    std::string deep;
+    for (int i=0; i<40; ++i) deep += "[OTHER]{";
+    deep += valid;
+    for (int i=0; i<40; ++i) deep += "}";
+    assert(!MexUpgradeMenu::ContainsBuildButton(deep.data(),deep.size(),"ARMMOHO"));
+    const auto nul = std::string("\0",1) + valid;
+    assert(!MexUpgradeMenu::ContainsBuildButton(nul.data(),nul.size(),"ARMMOHO"));
+    assert(!MexUpgradeMenu::ContainsBuildButton(nullptr,10,"ARMMOHO"));
+    assert(!MexUpgradeMenu::ContainsBuildButton(valid.data(),valid.size(),nullptr));
+    assert(!MexUpgradeMenu::ContainsBuildButton(valid.data(),valid.size(),""));
+    assert(!MexUpgradeMenu::ContainsBuildButton(valid.data(),1024*1024+1,"ARMMOHO"));
+    // The length is authoritative: valid, non-NUL-terminated bytes are accepted.
+    std::vector<char> bounded(valid.begin(),valid.end());
+    assert(MexUpgradeMenu::ContainsBuildButton(bounded.data(),bounded.size(),"ARMMOHO"));
+}
+
+static const char* PreviousTier(const char* replacement) {
+    for (const auto& pair : kUpgrades)
+        if (_strnicmp(pair.to,replacement,32) == 0) return pair.from;
+    assert(false); return "";
+}
+
+static void TestHumanMenusIndependentOfAiPlans() {
+    assert(sizeof(kRealMenus)/sizeof(kRealMenus[0]) == 34);
+    for (const auto& menu : kRealMenus) for (int aiPlan : {0,1,2}) {
+        const bool moho = std::string(menu.replacement).find("MOHO") != std::string::npos;
+        World world(moho ? 5 : 7,moho ? 5 : 7);
+        Name(world.defs[1],menu.constructor);
+        Name(world.defs[2],PreviousTier(menu.replacement));
+        Name(world.defs[3],menu.replacement); Name(world.defs[4],"OTHER");
+        world.defs[2].extractsmetal = moho ? .001f : .003f;
+        world.defs[3].extractsmetal = moho ? .003f : .009f;
+        world.defs[1].GUINum = menu.page+1; // Native field is the first missing page.
+        buildMenuPages.assign(menu.page+1,""); buildMenuPages[menu.page] = menu.gui;
+        if (aiPlan == 0) world.defs[1].CANBUILD_ptr = nullptr;
+        if (aiPlan == 1) world.defs[1].canbuildCount = 0;
+        if (aiPlan == 2) { world.canbuild[0] = 4; world.defs[1].canbuildCount = 1; }
+        assert(FindReplacement(world.ta,world.defs[2],world.defs[1],menu.replacement) == 3);
+        auto upgrade = world.candidate();
+        assert(PrepareUpgrade(world.ta,upgrade,false) && upgrade.type == 3);
+        assert(buildMenuCalls > 0);
+        // A unit in the AI plan does not authorize a human menu that lacks it.
+        buildMenuPages.clear(); world.canbuild[0] = 3;
+        world.defs[1].CANBUILD_ptr = world.canbuild; world.defs[1].canbuildCount = 1;
+        assert(FindReplacement(world.ta,world.defs[2],world.defs[1],menu.replacement) == 0);
+    }
+}
+
 static void TestMappingsAndNoTierSkipping() {
     const char* pairs[][2] = {
         {"ARMMEX","ARMMOHO"}, {"CORMEX","CORMOHO"},
@@ -290,6 +479,84 @@ static void TestMappingsAndNoTierSkipping() {
     assert(FindReplacement(world.ta, world.defs[2], world.defs[1], ReplacementName(world.defs[2])) == 4);
 }
 
+static void MoveUnitSlot(World& world, int from, int to) {
+    assert(from > 0 && from < 8 && to > 0 && to < 8 && from != to);
+    world.units[to] = world.units[from];
+    world.units[to].UnitInGameIndex = static_cast<short>(to);
+    world.units[from] = UnitStruct{};
+    for (auto& tile : world.map)
+        if (tile.occupyingUnitNumber == static_cast<unsigned>(from)) tile.occupyingUnitNumber = to;
+    if (world.ta.MouseOverUnit == static_cast<unsigned>(from)) world.ta.MouseOverUnit = to;
+}
+
+static void UsePlayer(World& world, int player) {
+    assert(player == 0 || player == 9);
+    if (player == 0) return;
+    world.ta.Players[player] = world.ta.Players[0];
+    for (auto& unit : world.units)
+        if (unit.Owner_PlayerPtr0 == &world.ta.Players[0]) unit.Owner_PlayerPtr0 = &world.ta.Players[player];
+    world.ta.LocalHumanPlayer_PlayerID = player;
+}
+
+static void TestInclusiveUnitRanges() {
+    for (int player : {0,9}) for (int finalSlot : {0,1,2}) {
+        World world; UsePlayer(world,player);
+        if (finalSlot == 1) MoveUnitSlot(world,1,7); // Last global slot is the constructor.
+        if (finalSlot == 2) MoveUnitSlot(world,2,7); // Last global slot is the clicked extractor.
+        auto& owner = world.ta.Players[player];
+        assert(owner.UnitsAry_End == world.ta.EndOfUnitsArray_p);
+        Upgrade upgrade = {};
+        assert(FindUpgradeTarget(&world.ta,upgrade));
+        assert(upgrade.constructor == &world.units[finalSlot == 1 ? 7 : 1]);
+        assert(upgrade.target == &world.units[finalSlot == 2 ? 7 : 2]);
+        assert(PrepareUpgrade(world.ta,upgrade,false));
+    }
+    for (int invalid : {0,1,2,3}) {
+        World world;
+        if (invalid == 0) world.ta.BeginUnitsArray_p = world.units+2; // Owner block starts before global range.
+        if (invalid == 1) world.ta.EndOfUnitsArray_p = world.units+6; // Owner block ends after global range.
+        if (invalid == 2) world.owner().Units = world.units+7, world.owner().UnitsAry_End = world.units+6;
+        if (invalid == 3) world.ta.MouseOverUnit = 8; // One past the inclusive last slot.
+        Upgrade upgrade = {};
+        assert(!FindUpgradeTarget(&world.ta,upgrade) && nativeSends == 0);
+    }
+}
+
+static void TestInclusiveUnitQueueAndFeedback() {
+    for (int player : {0,9}) for (int finalSlot : {1,2}) for (int interface : {0,1}) {
+        World world; UsePlayer(world,player);
+        MoveUnitSlot(world,finalSlot,7);
+        world.ta.InterfaceType = interface;
+        if (interface) world.ta.BuildSpotState |= 4;
+        auto* constructor = &world.units[finalSlot == 1 ? 7 : 1];
+        _MOUSEEVENT click; click.Msg = interface ? WM_RBUTTONDOWN : WM_LBUTTONUP;
+        assert(MexUpgrade::TryCommand(&world.ta,&click));
+        auto* reclaim = constructor->UnitOrders;
+        assert(nativeSends == 2 && reclaim && reclaim->NextOrder);
+        assert(MexUpgrade::IsQueuedBuild(&world.ta,constructor,reclaim));
+        int pixel = 0; _OFFSCREEN surface; surface.lpSurface = &pixel;
+        MexUpgrade::DrawFeedback(&world.ta,&surface);
+        assert(feedbackDrawCalls == 1); // A last-slot constructor still draws the native footprint.
+        click.fwKeys = MK_SHIFT;
+        assert(MexUpgrade::TryCommand(&world.ta,&click));
+        assert(!constructor->UnitOrders && removedOrders == 2);
+    }
+    World outside;
+    UnitOrdersStruct reclaim = {}, build = {};
+    reclaim.Unit_ptr = build.Unit_ptr = &outside.units[1];
+    reclaim.AttackTargat = outside.units+8; // One-past pointer must be rejected before dereferencing.
+    reclaim.COBHandler_index = 11; reclaim.NextOrder = &build;
+    build.COBHandler_index = 12; build.BuildUnitID = 3;
+    assert(!MexUpgrade::IsQueuedBuild(&outside.ta,&outside.units[1],&reclaim));
+    auto upgrade = outside.candidate();
+    assert(PrepareUpgrade(outside.ta,upgrade,false));
+    assert(QueueUpgrade(outside.ta,upgrade,UpgradeActions(outside.units[1]),false));
+    feedback.constructorSlot = 8;
+    int pixel = 0; _OFFSCREEN surface; surface.lpSurface = &pixel;
+    MexUpgrade::DrawFeedback(&outside.ta,&surface);
+    assert(feedbackDrawCalls == 0); // One past the inclusive end cannot reach a native draw call.
+}
+
 static void TestBuilderAndDefinitionEligibility() {
     World world; assert(world.candidate().constructor == &world.units[1]);
     assert(FindReplacement(world.ta, world.defs[2], world.defs[1], "ARMMAS") == 3);
@@ -303,9 +570,9 @@ static void TestBuilderAndDefinitionEligibility() {
     }
     for (int reason = 0; reason < 7; ++reason) {
         World rejected; auto upgrade = rejected.candidate();
-        if (reason == 0) rejected.defs[1].CANBUILD_ptr = nullptr;
-        if (reason == 1) rejected.defs[1].canbuildCount = 0;
-        if (reason == 2) rejected.canbuild[0] = 0;
+        if (reason == 0) buildMenuPages.clear();
+        if (reason == 1) buildMenuPages = {"",BuildButton("ARMMOHO")};
+        if (reason == 2) Name(rejected.defs[3],"UNRELATED");
         if (reason == 3) rejected.defs[3].UnitTypeMask_0 = 0;
         if (reason == 4) rejected.defs[3].extractsmetal = rejected.defs[2].extractsmetal;
         if (reason == 5) rejected.defs[3].bmcode = 1;
@@ -414,6 +681,7 @@ static void TestAllPairsOffsetFootprints() {
         const int sourceFoot = pair < 4 ? 3 : 5, replacementFoot = sourceFoot+2;
         World world(replacementFoot,replacementFoot);
         Name(world.defs[2],pairs[pair][0]); Name(world.defs[3],pairs[pair][1]);
+        buildMenuPages = {"",BuildButton(pairs[pair][1])};
         world.old().SizeFootX = world.old().SizeFootZ = sourceFoot;
         world.old().XPos = world.old().YPos = 18*16+sourceFoot*8;
         world.map.assign(32*32,FeatureStruct{}); world.ta.FeatureMap = world.map.data();
@@ -629,8 +897,8 @@ static void TestUpgradeCursorContextAndCapability() {
         const int probes = gridCalls;
         if (reason == 0) Name(world.defs[2],"ARMMAS"); // No further upgrade tier.
         if (reason == 1) world.defs[2].extractsmetal = 0;
-        if (reason == 2) world.defs[1].CANBUILD_ptr = nullptr;
-        if (reason == 3) world.canbuild[0] = 0;
+        if (reason == 2) buildMenuPages.clear();
+        if (reason == 3) buildMenuPages = {"",BuildButton("ARMMOHO")};
         if (reason == 4) world.info.PropertyMask |= WATCH;
         if (reason == 5) world.old().Owner_PlayerPtr0 = &world.ta.Players[1];
         if (reason == 6) world.old().Nanoframe = .5f;
@@ -665,6 +933,9 @@ int main(int argc, char** argv) {
     MyConfig = &config;
     const bool enabled = config.active;
     assert(MexUpgrade::Enabled() == enabled && config.reads == 1);
+    TestMenuParser();
+    TestHumanMenusIndependentOfAiPlans();
+    TestInclusiveUnitRanges();
     TestMappingsAndNoTierSkipping();
     TestBuilderAndDefinitionEligibility();
     TestExpandedSiteAndPrivateYard();
@@ -673,6 +944,7 @@ int main(int argc, char** argv) {
     TestAlignmentAndEdges();
     TestOffsetOrderRecognition();
     if (enabled) {
+        TestInclusiveUnitQueueAndFeedback();
         TestShiftCancellationBeforeBlockedPreparation();
         TestOffsetQueueAndCancellation();
         TestUpgradeCursorTransitions();
@@ -746,7 +1018,7 @@ def test_hook_guards():
 
 def main():
     source = (DDRAW / "MexUpgrade.cpp").read_text()
-    constants = "\n".join(re.findall(r'^\s*constexpr (?:unsigned|int) k(?:DefinitionEnabled|MaxOrders|MaxUpgradeFootprint)\s*=.*?;', source, re.M))
+    constants = "\n".join(re.findall(r'^\s*constexpr (?:unsigned|int) k(?:DefinitionEnabled|MaxOrders|MaxUpgradeFootprint|FeedbackTicks)\s*=.*?;', source, re.M))
     table = extract(source, "constexpr UpgradePair kUpgrades[]") + ";"
     table += "\n\n" + extract(source,"struct UpgradeCursor") + ";"
     signatures = (
@@ -757,12 +1029,20 @@ def main():
         "UnitOrdersStruct* FindReclaim(", "bool IsBuildAt(", "bool IsReplacementBuild(",
         "bool CancelUpgrade(", "bool QueueUpgrade(", "bool MexUpgrade::Enabled()",
         "bool MexUpgrade::IsQueuedBuild(", "bool MexUpgrade::TryCommand(", "void MexUpgrade::UpdateCursor(",
+        "void MexUpgrade::DrawFeedback(",
     )
     methods = "\n\n".join(extract(source, signature) for signature in signatures)
     bridge = "reinterpret_cast<int (__cdecl*)()>(0x0047C780u)"
     if methods.count(bridge) != 1:
         raise RuntimeError("Expected one native grid-height bridge to mock")
     methods = methods.replace(bridge, "MockGridHeight")
+    for bridge, mock in (
+        ("reinterpret_cast<int (__stdcall*)(int)>(0x004C1B80u)", "MockFeedbackKeyDown"),
+        ("reinterpret_cast<DrawBuildSpotQueue>(0x00438C00u)", "static_cast<DrawBuildSpotQueue>(MockDrawBuildSpotQueue)"),
+    ):
+        if methods.count(bridge) != 1:
+            raise RuntimeError("Expected one native feedback bridge to mock: " + bridge)
+        methods = methods.replace(bridge, mock)
     harness = HARNESS.replace("// PRODUCTION_CONSTANTS_AND_TABLE", constants + "\n" + table).replace(
         "// PRODUCTION_FUNCTIONS", methods)
     with tempfile.TemporaryDirectory(prefix="mex-upgrade-test-") as temp:

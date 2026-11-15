@@ -11,7 +11,7 @@ parser.add_argument('--grid', type=int, choices=(0,1), required=True)
 args = parser.parse_args()
 data = args.dll.read_bytes()
 checks = ((b'[DrawnMove] build=alt-v6', args.formations),
-          (b'[MexUpgrade] build=optional-cursors-v9', args.mex),
+          (b'[MexUpgrade] build=optional-cursors-v10', args.mex),
           (b'[BuildRectangle] release-v4', args.grid))
 for marker, enabled in checks:
     if (marker in data) != bool(enabled):

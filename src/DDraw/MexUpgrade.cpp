@@ -2,15 +2,19 @@
 #include "MexUpgrade.h"
 
 #if MEX_UPGRADE_ENABLE
+#include "MexUpgradeMenu.h"
 #include "oddraw.h"
 #include "iddrawsurface.h"
 #include "tamem.h"
 #include "tafunctions.h"
+#include "taHPI.h"
 #include "TAConfig.h"
 #include "Gaf.h"
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <string>
 
 namespace
 {
@@ -150,20 +154,88 @@ namespace
         return nullptr;
     }
 
+    const char* BuildMenuDirectory(const TAdynmemStruct& ta)
+    {
+        // GUI initialization (0x4914C2 -> 0x49FBA0) stores the mod's directory
+        // here, with a trailing slash; GUI_Load reads it at 0x4AA989.
+        static_assert(sizeof(ta.desktopGUI) >= 0x9B6 + 256, "GUI directory layout changed");
+        return reinterpret_cast<const char*>(&ta.desktopGUI) + 0x9B6;
+    }
+
+    bool MenuFileContains(const std::string& path, const char* name)
+    {
+        char filename[260];
+        if (path.size() >= sizeof(filename)) return false;
+        std::memcpy(filename, path.c_str(), path.size() + 1);
+        unsigned size = 0;
+        char* data = readfile_HPI(filename, &size);
+        if (!data) return false;
+        const bool found = size <= 1024 * 1024
+            && MexUpgradeMenu::ContainsBuildButton(data, size, name);
+        freeTAMem(data);
+        return found;
+    }
+
+    bool HasBuildMenuEntry(const TAdynmemStruct& ta, const UnitDefStruct& constructor,
+        const char* name)
+    {
+        const char* directory = BuildMenuDirectory(ta);
+        if (!directory || !constructor.GUINum) return false;
+        size_t directoryLength = 0;
+        while (directoryLength < 256 && directory[directoryLength]) ++directoryLength;
+        if (!directoryLength || directoryLength == 256) return false;
+        char unitName[sizeof(constructor.UnitName) + 1] = {};
+        std::memcpy(unitName, constructor.UnitName, sizeof(constructor.UnitName));
+        if (!unitName[0]) return false;
+
+        // Cache only file names and answers, never live unit pointers. These
+        // menus are immutable during a match; invalidate when its definitions
+        // or world change, or the game clock restarts after returning to menu.
+        static const TAdynmemStruct* world = nullptr;
+        static const UnitDefStruct* definitions = nullptr;
+        static unsigned lastTick = 0;
+        static std::map<std::string, bool> menus;
+        const unsigned tick = static_cast<unsigned>(ta.GameTime);
+        if (world != &ta || definitions != ta.UnitDef || tick < lastTick)
+        {
+            menus.clear();
+            world = &ta;
+            definitions = ta.UnitDef;
+        }
+        lastTick = tick;
+        std::string prefix(directory, directoryLength);
+        if (prefix.back() != '\\' && prefix.back() != '/') prefix += '\\';
+        prefix += unitName;
+        const std::string key = prefix + ":" + std::to_string(constructor.GUINum)
+            + ":" + std::to_string(constructor.UnitTypeMask_0 >> 31) + ":" + name;
+        const auto cached = menus.find(key);
+        if (cached != menus.end()) return cached->second;
+
+        // The engine probes UnitName0.GUI separately, then records the first
+        // missing numbered page in GUINum (0x42D80E through 0x42D8CB).
+        // Its page-zero flag is also required by GUI selection (0x41B794).
+        bool found = false;
+        for (unsigned page = 0; page < constructor.GUINum && !found; ++page)
+            if (page || (constructor.UnitTypeMask_0 & 0x80000000u))
+                found = MenuFileContains(prefix + std::to_string(page) + ".GUI", name);
+        if (menus.size() >= 512) menus.clear();
+        menus.emplace(key, found);
+        return found;
+    }
+
     int FindReplacement(const TAdynmemStruct& ta, const UnitDefStruct& oldDef,
         const UnitDefStruct& constructor, const char* name)
     {
-        if (!constructor.CANBUILD_ptr || constructor.canbuildCount <= 0
-            || static_cast<unsigned>(constructor.canbuildCount) > ta.UNITINFOCount) return 0;
-
-        for (int i = 0; i < constructor.canbuildCount; ++i)
+        // CANBUILD_ptr is the AI's construction plan, not the player's build
+        // menu. Escalation intentionally excludes several human mex options
+        // from that plan, including advanced construction vehicles.
+        for (unsigned id = 1; id < ta.UNITINFOCount; ++id)
         {
-            const unsigned id = static_cast<unsigned short>(constructor.CANBUILD_ptr[i]);
-            if (!id || id >= ta.UNITINFOCount) continue;
             const UnitDefStruct& def = ta.UnitDef[id];
             if (_strnicmp(def.UnitName, name, sizeof(def.UnitName)) == 0
                 && def.bmcode == 0 && def.extractsmetal > oldDef.extractsmetal
-                && (def.UnitTypeMask_0 & kDefinitionEnabled)) return id;
+                && (def.UnitTypeMask_0 & kDefinitionEnabled)
+                && HasBuildMenuEntry(ta, constructor, name)) return id;
         }
         return 0;
     }
@@ -308,14 +380,17 @@ namespace
 
         const int player = ta->LocalHumanPlayer_PlayerID;
         if (player < 0 || player >= 10 || !ta->UnitDef || !ta->FeatureMap
-            || !ta->BeginUnitsArray_p || !ta->EndOfUnitsArray_p) return false;
+            || !ta->BeginUnitsArray_p || !ta->EndOfUnitsArray_p
+            || ta->EndOfUnitsArray_p < ta->BeginUnitsArray_p) return false;
         auto& owner = ta->Players[player];
         if (!owner.PlayerInfo || (owner.PlayerInfo->PropertyMask & WATCH) || owner.My_PlayerType != Player_LocalHuman
             || !owner.Units || !owner.UnitsAry_End || owner.Units < ta->BeginUnitsArray_p
-            || owner.UnitsAry_End >= ta->EndOfUnitsArray_p || owner.UnitsAry_End < owner.Units) return false;
+            || owner.UnitsAry_End > ta->EndOfUnitsArray_p || owner.UnitsAry_End < owner.Units) return false;
 
+        // Both global and per-player end pointers name the last valid record.
+        // The final player's whole block may end at the global end pointer.
         const unsigned slot = ta->MouseOverUnit;
-        if (!slot || slot >= static_cast<size_t>(ta->EndOfUnitsArray_p - ta->BeginUnitsArray_p)) return false;
+        if (!slot || slot > static_cast<size_t>(ta->EndOfUnitsArray_p - ta->BeginUnitsArray_p)) return false;
         auto& target = ta->BeginUnitsArray_p[slot];
         if (!LiveOwned(target, owner) || static_cast<unsigned short>(target.UnitInGameIndex) != slot
             || target.Nanoframe != 0.0f || target.UnitType->bmcode != 0 || target.UnitType->extractsmetal <= 0)
@@ -490,7 +565,7 @@ bool MexUpgrade::Enabled()
     if (!MyConfig) return false;
     static const bool enabled = [] {
         const bool active = MyConfig->GetIniBool("MexUpgrade", TRUE) != FALSE;
-        if (active) IDDrawSurface::OutptTxt("[MexUpgrade] build=optional-cursors-v9");
+        if (active) IDDrawSurface::OutptTxt("[MexUpgrade] build=optional-cursors-v10");
         return active;
     }();
     return enabled;
@@ -525,7 +600,8 @@ void MexUpgrade::DrawFeedback(TAdynmemStruct* ta, _OFFSCREEN* surface)
     if (!feedback.world) return;
     if (!ta || ta != feedback.world || !DataShare || DataShare->TAProgress != TAInGame
         || DataShare->PlayingDemo || static_cast<unsigned>(ta->GameTime) - feedback.start >= kFeedbackTicks
-        || !ta->BeginUnitsArray_p || !ta->EndOfUnitsArray_p || !ta->UnitDef)
+        || !ta->BeginUnitsArray_p || !ta->EndOfUnitsArray_p || !ta->UnitDef
+        || ta->EndOfUnitsArray_p < ta->BeginUnitsArray_p)
     {
         feedback = {};
         return;
@@ -536,7 +612,7 @@ void MexUpgrade::DrawFeedback(TAdynmemStruct* ta, _OFFSCREEN* surface)
 
     const int player = ta->LocalHumanPlayer_PlayerID;
     if (player < 0 || player >= 10 || !feedback.constructorSlot
-        || feedback.constructorSlot >= static_cast<size_t>(ta->EndOfUnitsArray_p - ta->BeginUnitsArray_p)
+        || feedback.constructorSlot > static_cast<size_t>(ta->EndOfUnitsArray_p - ta->BeginUnitsArray_p)
         || static_cast<unsigned>(feedback.type) >= ta->UNITINFOCount) return;
     auto& constructor = ta->BeginUnitsArray_p[feedback.constructorSlot];
     if (!LiveOwned(constructor, ta->Players[player]) || constructor.UnitID != feedback.constructorType
@@ -563,10 +639,11 @@ bool MexUpgrade::IsQueuedBuild(const TAdynmemStruct* ta, const UnitStruct* const
 {
     if (!preceding || !preceding->AttackTargat || !preceding->NextOrder
         || !preceding->NextOrder->BuildUnitID || !ta || !ta->BeginUnitsArray_p || !ta->EndOfUnitsArray_p
+        || ta->EndOfUnitsArray_p < ta->BeginUnitsArray_p
         || !constructor || preceding->Unit_ptr != constructor || preceding->NextOrder->Unit_ptr != constructor
         || !constructor->UnitType || !constructor->Owner_PlayerPtr0 || !Enabled()) return false;
     const auto* target = preceding->AttackTargat;
-    if (target < ta->BeginUnitsArray_p || target >= ta->EndOfUnitsArray_p
+    if (target < ta->BeginUnitsArray_p || target > ta->EndOfUnitsArray_p
         || !LiveOwned(*target, *constructor->Owner_PlayerPtr0)) return false;
     const auto* replacement = ReplacementName(*target->UnitType);
     if (!replacement) return false;

@@ -29,6 +29,10 @@ Extractor upgrades require a supported next-tier unit in the selected
 constructor's build menu. Included ARM/CORE mappings are T1 extractor → Moho →
 Mantle, for both land and underwater. The Mantle tier is available in Escalation;
 an absent or unbuildable replacement leaves normal input behavior intact.
+Capability comes from all pages of the actual human build menu, including mod
+archive overrides, rather than the separate AI construction list. This supports
+vehicle, kbot, air, hover and naval constructors whenever their menu offers the
+matching land or underwater extractor.
 
 ## Build without editing source
 

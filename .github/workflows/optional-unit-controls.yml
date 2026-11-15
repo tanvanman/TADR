@@ -18,6 +18,7 @@ jobs:
           python3 src/DDraw/test/optional_unit_controls_test.py
           python3 src/DDraw/test/grid_building_switch_test.py
           python3 src/DDraw/test/mex_upgrade_test.py
+          python3 src/DDraw/test/mex_upgrade_menu_io_test.py
           python3 src/DDraw/test/drawn_move_input_test.py
           python3 src/DDraw/test/drawn_move_input_test.py --mod PROTA
           python3 src/DDraw/test/drawn_move_input_test.py --mod OTA
