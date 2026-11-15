@@ -7,6 +7,7 @@
 #include "Gaf.h"
 #include "MexUpgrade.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -42,9 +43,9 @@ namespace
         GAFFrame frame = {};
         GAFSequence sequence = {};
 
-        UpgradeCursor()
+        explicit UpgradeCursor(bool blocked)
         {
-            static constexpr char art[] =
+            static constexpr char arrow[] =
                 "......#......"
                 ".....#+#....."
                 "....#+++#...."
@@ -59,11 +60,29 @@ namespace
                 "....#+++#...."
                 "....#+++#...."
                 "....#####....";
-            static_assert(sizeof(art) == sizeof(pixels) + 1, "Upgrade cursor dimensions");
+            static constexpr char cross[] =
+                "##.........##"
+                "#++#.....#++#"
+                ".#++#...#++#."
+                "..#++#.#++#.."
+                "...#+++++#..."
+                "....#+++#...."
+                ".....#+#....."
+                "....#+++#...."
+                "...#+++++#..."
+                "..#++#.#++#.."
+                ".#++#...#++#."
+                "#++#.....#++#"
+                "##.........##"
+                ".............";
+            static_assert(sizeof(arrow) == sizeof(pixels) + 1, "Upgrade arrow dimensions");
+            static_assert(sizeof(cross) == sizeof(pixels) + 1, "Blocked upgrade cursor dimensions");
+            const char* art = blocked ? cross : arrow;
             for (size_t i = 0; i < sizeof(pixels); ++i)
-                pixels[i] = art[i] == '+' ? 232 : art[i] == '#' ? 142 : 9;
-            // The tip is the click hotspot. Index 9 is TA cursor transparency.
-            frame = {13, 14, 6, 0, 9, 0, 0, 0, pixels, 0};
+                // Use the same red/green palette ramps as TA's stock cursors.
+                pixels[i] = art[i] == '+' ? (blocked ? 211 : 232) : art[i] == '#' ? 142 : 9;
+            // Use the arrow tip or the X center as the hotspot. Index 9 is transparent.
+            frame = {13, 14, 6, static_cast<unsigned short>(blocked ? 6 : 0), 9, 0, 0, 0, pixels, 0};
             sequence.Frames = 1;
             sequence.Signature = 1;
             sequence.PtrFrameAry[0] = {&frame, 10};
@@ -171,12 +190,26 @@ namespace
         return true;
     }
 
-    bool CheckReplacementSite(const TAdynmemStruct& ta, PlayerStruct& owner,
-        const UnitStruct& old, unsigned slot, const UnitDefStruct& def, Position_Dword& position, unsigned& blocker)
+    bool ReplacementContainsTarget(const UnitStruct& old, const UnitDefStruct& def, int left, int top)
     {
-        int left, top;
-        if (!def.YardMap || !ReplacementTile(old, def, left, top)) return false;
-        if (left + def.FootX > ta.FeatureMapSizeX || top + def.FootY > ta.FeatureMapSizeY)
+        return def.FootX > 0 && def.FootY > 0
+            && def.FootX <= kMaxUpgradeFootprint && def.FootY <= kMaxUpgradeFootprint
+            && old.SizeFootX > 0 && old.SizeFootZ > 0
+            && old.SizeFootX <= def.FootX && old.SizeFootZ <= def.FootY
+            && old.XGridPos >= 0 && old.YGridPos >= 0 && left >= 0 && top >= 0
+            && left <= old.XGridPos && top <= old.YGridPos
+            && left + def.FootX >= old.XGridPos + old.SizeFootX
+            && top + def.FootY >= old.YGridPos + old.SizeFootZ;
+    }
+
+    bool CheckReplacementTile(const TAdynmemStruct& ta, PlayerStruct& owner,
+        const UnitStruct& old, unsigned slot, const UnitDefStruct& def, int left, int top,
+        Position_Dword& position, unsigned& blocker)
+    {
+        if (!def.YardMap || def.FootX <= 0 || def.FootY <= 0
+            || def.FootX > kMaxUpgradeFootprint || def.FootY > kMaxUpgradeFootprint
+            || left < 0 || top < 0
+            || left + def.FootX > ta.FeatureMapSizeX || top + def.FootY > ta.FeatureMapSizeY)
             return false;
 
         // TestGridSpot can ignore one occupant by slot. Its earlier yard check also
@@ -216,6 +249,48 @@ namespace
         position.Y = static_cast<unsigned short>(top * 16 + def.FootY * 8);
         position.Z = static_cast<unsigned short>(gridHeight());
         return true;
+    }
+
+    bool CheckReplacementSite(const TAdynmemStruct& ta, PlayerStruct& owner,
+        const UnitStruct& old, unsigned slot, const UnitDefStruct& def, Position_Dword& position, unsigned& blocker)
+    {
+        // TA extracts from the footprint's metal cells. Cover every cell used by
+        // the old extractor, even when moving the replacement around a windmill.
+        if (!def.YardMap || !ReplacementContainsTarget(old, def, old.XGridPos, old.YGridPos))
+            return false;
+
+        const int centeredLeft = (static_cast<int>(old.XPos) + 8 - def.FootX * 8) / 16;
+        const int centeredTop = (static_cast<int>(old.YPos) + 8 - def.FootY * 8) / 16;
+        int left, top;
+        const bool centered = ReplacementTile(old, def, left, top)
+            && ReplacementContainsTarget(old, def, left, top);
+        if (centered
+            && CheckReplacementTile(ta, owner, old, slot, def, left, top, position, blocker))
+            return true;
+
+        struct Site { int left, top, distance; };
+        Site sites[kMaxUpgradeFootprint * kMaxUpgradeFootprint];
+        unsigned count = 0;
+        for (top = old.YGridPos + old.SizeFootZ - def.FootY; top <= old.YGridPos; ++top)
+        {
+            for (left = old.XGridPos + old.SizeFootX - def.FootX; left <= old.XGridPos; ++left)
+            {
+                if ((centered && left == centeredLeft && top == centeredTop) || left < 0 || top < 0
+                    || left + def.FootX > ta.FeatureMapSizeX || top + def.FootY > ta.FeatureMapSizeY)
+                    continue;
+                const int dx = left - centeredLeft, dy = top - centeredTop;
+                sites[count++] = {left, top, dx * dx + dy * dy};
+            }
+        }
+        std::sort(sites, sites + count, [](const Site& a, const Site& b) {
+            if (a.distance != b.distance) return a.distance < b.distance;
+            if (a.top != b.top) return a.top < b.top;
+            return a.left < b.left;
+        });
+        for (unsigned i = 0; i < count; ++i)
+            if (CheckReplacementTile(ta, owner, old, slot, def,
+                sites[i].left, sites[i].top, position, blocker)) return true;
+        return false;
     }
 
     bool CanReclaim(UnitStruct* constructor, UnitStruct* target)
@@ -320,10 +395,12 @@ namespace
             || build.State != 0 || build.AttackTargat) return false;
         const auto& def = ta.UnitDef[build.BuildUnitID];
         if (_strnicmp(def.UnitName, replacement, sizeof(def.UnitName)) != 0) return false;
-        int left, top;
-        return ReplacementTile(target, def, left, top)
-            && build.Pos.X == left * 16 + def.FootX * 8 && build.Pos.Y == top * 16 + def.FootY * 8
-            && build.Pos.x_ == 0 && build.Pos.y_ == 0;
+        const int x = static_cast<int>(build.Pos.X) - def.FootX * 8;
+        const int y = static_cast<int>(build.Pos.Y) - def.FootY * 8;
+        if (x < 0 || y < 0 || x % 16 || y % 16 || build.Pos.x_ || build.Pos.y_) return false;
+        const int left = x / 16, top = y / 16;
+        return ReplacementContainsTarget(target, def, left, top)
+            && left + def.FootX <= ta.FeatureMapSizeX && top + def.FootY <= ta.FeatureMapSizeY;
     }
 
     bool CancelUpgrade(TAdynmemStruct& ta, const Upgrade& upgrade, Actions actions)
@@ -413,7 +490,7 @@ bool MexUpgrade::Enabled()
     if (!MyConfig) return false;
     static const bool enabled = [] {
         const bool active = MyConfig->GetIniBool("MexUpgrade", TRUE) != FALSE;
-        if (active) IDDrawSurface::OutptTxt("[MexUpgrade] build=escalation-tiers-v6");
+        if (active) IDDrawSurface::OutptTxt("[MexUpgrade] build=escalation-cursors-v8");
         return active;
     }();
     return enabled;
@@ -434,13 +511,15 @@ void MexUpgrade::UpdateCursor(TAdynmemStruct* ta)
     if (index >= sizeof(ta->cursor_ary) / sizeof(ta->cursor_ary[0])) return;
     auto* stock = ta->cursor_ary[index];
     auto* displayed = reinterpret_cast<GAFSequence*>(ta->desktopGUI.Cursor_3);
-    static UpgradeCursor icon;
+    static UpgradeCursor available(false), blocked(true);
     // Respect custom cursors owned by other patches, such as wreck snapping.
-    if (!stock || (displayed != stock && displayed != &icon.sequence)) return;
+    if (!stock || (displayed != stock && displayed != &available.sequence && displayed != &blocked.sequence)) return;
     Upgrade upgrade = {};
-    const bool ready = !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_MENU) & 0x8000)
-        && FindUpgradeTarget(ta, upgrade) && PrepareUpgrade(*ta, upgrade, false);
-    auto* desired = ready ? &icon.sequence : stock;
+    auto* desired = stock;
+    if (!(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_MENU) & 0x8000)
+        && FindUpgradeTarget(ta, upgrade)
+        && FindReplacement(*ta, *upgrade.target->UnitType, *upgrade.constructor->UnitType, upgrade.replacement))
+        desired = PrepareUpgrade(*ta, upgrade, false) ? &available.sequence : &blocked.sequence;
     if (displayed != desired) SetUICursor(&ta->desktopGUI, desired);
 }
 

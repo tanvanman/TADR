@@ -49,9 +49,26 @@ constexpr int TRUE = 1, FALSE = 0;
 constexpr unsigned builder = 1, canfly = 2, WATCH = 4;
 constexpr int UnitSelected_State = 0x10, Player_LocalHuman = 1, TAInGame = 1;
 constexpr unsigned MK_CONTROL = 8, MK_SHIFT = 4, MK_RBUTTON = 2, MK_LBUTTON = 1;
-constexpr unsigned WM_LBUTTONUP = 0x202, WM_RBUTTONDOWN = 0x204, VK_MENU = 0x12;
+constexpr unsigned WM_LBUTTONUP = 0x202, WM_RBUTTONDOWN = 0x204, VK_CONTROL = 0x11, VK_MENU = 0x12;
 namespace ordertype { constexpr int STOP = 1; }
 struct Position_Dword { std::uint16_t x_, X, z_, Z, y_, Y; };
+struct GAFFrame {
+    unsigned short Width, Height, xPosition, yPosition;
+    unsigned char Background, Compressed;
+    unsigned short FramePointers;
+    unsigned Unknown0;
+    unsigned char* PtrFrameBits;
+    unsigned FPS;
+};
+struct GAFENTRY { GAFFrame* PtrFrame; int Animated; };
+struct GAFSequence {
+    unsigned short Frames;
+    unsigned Signature;
+    unsigned short Padding;
+    char Name[32];
+    GAFENTRY PtrFrameAry[1];
+};
+struct DesktopGUI { void* Cursor_3 = nullptr; };
 struct UnitDefStruct {
     char UnitName[32] = {};
     short* CANBUILD_ptr = nullptr;
@@ -98,6 +115,9 @@ struct TAdynmemStruct {
     UnitStruct* BeginUnitsArray_p = nullptr;
     UnitStruct* EndOfUnitsArray_p = nullptr;
     PlayerStruct Players[10];
+    unsigned CurrentCursora_Index = 0;
+    GAFSequence* cursor_ary[4] = {};
+    DesktopGUI desktopGUI;
 };
 struct _MOUSEEVENT { unsigned fwKeys = 0, Msg = WM_LBUTTONUP; };
 struct SharedData { int TAProgress = TAInGame; bool PlayingDemo = false; } shared;
@@ -116,7 +136,14 @@ struct IDDrawSurface {
     static void OutptTxt(const char*) {}
     template<class... Args> static void OutptFmtTxt(const char*, Args...) {}
 };
-static short GetAsyncKeyState(unsigned) { return 0; }
+static bool controlDown, altDown;
+static int cursorChanges;
+static short GetAsyncKeyState(unsigned key) {
+    return ((key == VK_CONTROL && controlDown) || (key == VK_MENU && altDown)) ? -32768 : 0;
+}
+static void SetUICursor(DesktopGUI* desktop, GAFSequence* cursor) {
+    desktop->Cursor_3 = cursor; ++cursorChanges;
+}
 struct Upgrade { UnitStruct* constructor; UnitStruct* target; const char* replacement; int type; Position_Dword buildPos; };
 struct UpgradePair { const char* from; const char* to; };
 struct Actions { unsigned reclaim, build; };
@@ -132,6 +159,7 @@ static int gridCalls, nativeSends, removedOrders;
 static const char* originalYard;
 static std::vector<char> probedYard;
 static unsigned probedPacked, probedSlot;
+static std::vector<unsigned> allowedGridSites, probedSites;
 struct SiteProbe {
     bool previous = checkingSite;
     SiteProbe() { checkingSite = true; }
@@ -141,8 +169,10 @@ static int MockGridHeight() { return 77; }
 static int TestGridSpot(UnitDefStruct* preview, unsigned packed, unsigned slot, PlayerStruct*) {
     assert(checkingSite && preview->YardMap != originalYard);
     ++gridCalls; probedPacked = packed; probedSlot = slot;
+    probedSites.push_back(packed);
     probedYard.assign(preview->YardMap, preview->YardMap + preview->FootX * preview->FootY);
-    return gridAllowed;
+    return gridAllowed && (allowedGridSites.empty()
+        || std::find(allowedGridSites.begin(), allowedGridSites.end(), packed) != allowedGridSites.end());
 }
 static bool CanReclaim(UnitStruct*, UnitStruct*) { return reclaimAllowed; }
 static Actions UpgradeActions(const UnitStruct&) { return {11,12}; }
@@ -167,6 +197,8 @@ static void Remove(UnitStruct* unit, UnitOrdersStruct* victim) {
 namespace MexUpgrade {
     bool Enabled();
     bool TryCommand(TAdynmemStruct*, const _MOUSEEVENT*);
+    bool IsQueuedBuild(const TAdynmemStruct*, const UnitStruct*, const UnitOrdersStruct*);
+    void UpdateCursor(TAdynmemStruct*);
 }
 
 // PRODUCTION_FUNCTIONS
@@ -183,9 +215,12 @@ struct World {
     short canbuild[3] = {3,4,0};
     std::vector<FeatureStruct> map = std::vector<FeatureStruct>(32*32);
     std::vector<char> yard;
+    GAFSequence stockCursor = {}, otherCursor = {};
     World(int footX = 7, int footY = 7) : yard(footX * footY, 3) {
         gridAllowed = reclaimAllowed = true; checkingSite = false;
         gridCalls = nativeSends = removedOrders = 0; probedYard.clear(); allocatedOrders.clear();
+        allowedGridSites.clear(); probedSites.clear();
+        controlDown = altDown = false; cursorChanges = 0;
         shared = SharedData{};
         ta.UnitDef = defs; ta.FeatureMap = map.data();
         ta.BeginUnitsArray_p = units; ta.EndOfUnitsArray_p = units+8;
@@ -205,12 +240,32 @@ struct World {
         units[2].SizeFootX = units[2].SizeFootZ = 5;
         for (int y = 18; y < 23; ++y) for (int x = 18; x < 23; ++x) map[y*32+x].occupyingUnitNumber = 2;
         originalYard = yard.data();
+        ta.cursor_ary[0] = &stockCursor; ta.desktopGUI.Cursor_3 = &stockCursor;
     }
     UnitStruct& old() { return units[2]; }
     UnitDefStruct& replacement() { return defs[3]; }
     PlayerStruct& owner() { return ta.Players[0]; }
     Upgrade candidate() { Upgrade out = {}; assert(FindUpgradeTarget(&ta, out)); return out; }
 };
+
+static unsigned Packed(int left, int top) {
+    return (static_cast<unsigned>(top) << 16) | static_cast<unsigned>(left);
+}
+
+static void WindmillCorner(World& world) {
+    // Adjacent windmills block the centered footprint, leaving only the
+    // upper-right corner placement while the source footprint stays covered.
+    const auto& old = world.old();
+    for (int y = old.YGridPos; y < old.YGridPos+old.SizeFootZ; ++y)
+        world.map[y*32+old.XGridPos-1].occupyingUnitNumber = 99;
+    for (int x = old.XGridPos; x < old.XGridPos+old.SizeFootX; ++x)
+        world.map[(old.YGridPos+old.SizeFootZ)*32+x].occupyingUnitNumber = 99;
+}
+
+static void BlockAllLargerSites(World& world) {
+    for (int y = 0; y < 32; ++y) for (int x = 0; x < 32; ++x)
+        world.map[y*32+x].occupyingUnitNumber = (x >= 18 && x < 23 && y >= 18 && y < 23) ? 2 : 99;
+}
 
 static void TestMappingsAndNoTierSkipping() {
     const char* pairs[][2] = {
@@ -280,17 +335,92 @@ static void TestExpandedSiteAndPrivateYard() {
     assert(ReplacementTile(ownOutside.old(), ownOutside.replacement(), left, top));
     ownOutside.map[top*32+left].occupyingUnitNumber = 2;
     Position_Dword pos = {}; unsigned blocker = 0;
-    assert(CheckReplacementSite(ownOutside.ta, ownOutside.owner(), ownOutside.old(), 2, ownOutside.replacement(), pos, blocker));
+    assert(CheckReplacementTile(ownOutside.ta, ownOutside.owner(), ownOutside.old(), 2,
+        ownOutside.replacement(), left, top, pos, blocker));
     assert(probedYard[0] == 3); // Same slot outside its real footprint is not masked.
 
     World blocked; const auto original = blocked.yard;
     assert(ReplacementTile(blocked.old(), blocked.replacement(), left, top));
     blocked.map[top*32+left].occupyingUnitNumber = 99;
-    assert(!CheckReplacementSite(blocked.ta, blocked.owner(), blocked.old(), 2, blocked.replacement(), pos, blocker));
+    assert(!CheckReplacementTile(blocked.ta, blocked.owner(), blocked.old(), 2,
+        blocked.replacement(), left, top, pos, blocker));
     assert(blocker == 99 && gridCalls == 0 && blocked.yard == original);
     World terrain; gridAllowed = false;
     assert(!CheckReplacementSite(terrain.ta, terrain.owner(), terrain.old(), 2, terrain.replacement(), pos, blocker));
-    assert(gridCalls == 1 && !checkingSite);
+    assert(gridCalls >= 1 && !checkingSite);
+}
+
+static void TestOffsetSites() {
+    // Clear space keeps the existing centered position, even though every
+    // corner could also cover the source metal extractor.
+    World centered; Position_Dword pos = {}; unsigned blocker = 0;
+    assert(CheckReplacementSite(centered.ta, centered.owner(), centered.old(), 2,
+        centered.replacement(), pos, blocker));
+    assert(pos.X == 328 && pos.Y == 328 && gridCalls == 1);
+
+    World corner; WindmillCorner(corner); const auto original = corner.yard;
+    assert(CheckReplacementSite(corner.ta, corner.owner(), corner.old(), 2,
+        corner.replacement(), pos, blocker));
+    assert(pos.X == 344 && pos.Y == 312 && pos.Z == 77);
+    assert(probedPacked == Packed(18,16) && gridCalls == 1 && corner.yard == original && !checkingSite);
+    assert(ReplacementContainsTarget(corner.old(), corner.replacement(), 18,16));
+    for (int y = 0; y < 7; ++y) for (int x = 0; x < 7; ++x) {
+        const bool source = x < 5 && y >= 2;
+        assert(probedYard[y*7+x] == (source ? 2 : 3));
+    }
+
+    // Native terrain/depth checks can reject an otherwise empty center.
+    // Prefer the nearest valid candidate over a diagonal candidate that
+    // would be encountered first by a simple row-major search.
+    World nearest; allowedGridSites = {Packed(18,17),Packed(16,16)};
+    assert(CheckReplacementSite(nearest.ta, nearest.owner(), nearest.old(), 2,
+        nearest.replacement(), pos, blocker));
+    assert(pos.X == 344 && pos.Y == 328 && probedSites.front() == Packed(17,17));
+
+    // Equal distances resolve in a fixed order (top, then left), independent
+    // of the build/menu/occupancy iteration order.
+    World tie; allowedGridSites = {Packed(18,17),Packed(17,18),Packed(16,17),Packed(17,16)};
+    assert(CheckReplacementSite(tie.ta, tie.owner(), tie.old(), 2,
+        tie.replacement(), pos, blocker));
+    assert(pos.X == 328 && pos.Y == 312);
+
+    World impossible; BlockAllLargerSites(impossible); const auto impossibleYard = impossible.yard;
+    assert(!CheckReplacementSite(impossible.ta, impossible.owner(), impossible.old(), 2,
+        impossible.replacement(), pos, blocker));
+    assert(gridCalls == 0 && blocker == 99 && impossible.yard == impossibleYard);
+
+    // A free footprint beside the metal spot is not a fallback. Every
+    // fallback must still contain the complete footprint of the old mex.
+    World uncovered; BlockAllLargerSites(uncovered);
+    for (int y = 18; y < 25; ++y) for (int x = 19; x < 26; ++x)
+        uncovered.map[y*32+x].occupyingUnitNumber = 0;
+    assert(!CheckReplacementSite(uncovered.ta, uncovered.owner(), uncovered.old(), 2,
+        uncovered.replacement(), pos, blocker));
+    assert(!ReplacementContainsTarget(uncovered.old(), uncovered.replacement(), 19,18));
+}
+
+static void TestAllPairsOffsetFootprints() {
+    const char* pairs[][2] = {
+        {"ARMMEX","ARMMOHO"}, {"CORMEX","CORMOHO"},
+        {"ARMUWMEX","ARMUWMOHO"}, {"CORUWMEX","CORUWMOHO"},
+        {"ARMMOHO","ARMMAS"}, {"CORMOHO","CORMAS"},
+        {"ARMUWMOHO","ARMUWMAS"}, {"CORUWMOHO","CORUWMAS"}
+    };
+    for (unsigned pair = 0; pair < 8; ++pair) {
+        const int sourceFoot = pair < 4 ? 3 : 5, replacementFoot = sourceFoot+2;
+        World world(replacementFoot,replacementFoot);
+        Name(world.defs[2],pairs[pair][0]); Name(world.defs[3],pairs[pair][1]);
+        world.old().SizeFootX = world.old().SizeFootZ = sourceFoot;
+        world.old().XPos = world.old().YPos = 18*16+sourceFoot*8;
+        world.map.assign(32*32,FeatureStruct{}); world.ta.FeatureMap = world.map.data();
+        for (int y = 18; y < 18+sourceFoot; ++y) for (int x = 18; x < 18+sourceFoot; ++x)
+            world.map[y*32+x].occupyingUnitNumber = 2;
+        WindmillCorner(world); auto upgrade = world.candidate(); const auto original = world.yard;
+        assert(PrepareUpgrade(world.ta,upgrade,false));
+        assert(upgrade.type == 3 && upgrade.buildPos.X == 18*16+replacementFoot*8
+            && upgrade.buildPos.Y == 16*16+replacementFoot*8);
+        assert(world.yard == original && gridCalls == 1);
+    }
 }
 
 static void TestAlignmentAndEdges() {
@@ -307,13 +437,44 @@ static void TestAlignmentAndEdges() {
     }
     World maximum; maximum.defs[3].FootX = maximum.defs[3].FootY = kMaxUpgradeFootprint;
     int left, top; assert(ReplacementTile(maximum.old(), maximum.replacement(), left, top));
-    for (int edge : {0,1,2}) {
+    for (int edge : {0,1,2,3}) {
         World world; Position_Dword pos = {}; unsigned blocker = 0;
-        if (edge == 0) world.old().XPos = 8;
-        if (edge == 1) world.old().XPos = 510;
-        if (edge == 2) world.old().YPos = 510;
-        assert(!CheckReplacementSite(world.ta, world.owner(), world.old(), 2, world.replacement(), pos, blocker));
-        assert(gridCalls == 0);
+        world.map.assign(32*32, FeatureStruct{}); world.ta.FeatureMap = world.map.data();
+        world.old().XGridPos = (edge == 0 || edge == 2) ? 0 : 27;
+        world.old().YGridPos = (edge == 0 || edge == 1) ? 0 : 27;
+        world.old().XPos = world.old().XGridPos*16+40;
+        world.old().YPos = world.old().YGridPos*16+40;
+        for (int y = world.old().YGridPos; y < world.old().YGridPos+5; ++y)
+            for (int x = world.old().XGridPos; x < world.old().XGridPos+5; ++x)
+                world.map[y*32+x].occupyingUnitNumber = 2;
+        assert(CheckReplacementSite(world.ta, world.owner(), world.old(), 2, world.replacement(), pos, blocker));
+        assert(pos.X == ((edge == 0 || edge == 2) ? 56 : 456));
+        assert(pos.Y == ((edge == 0 || edge == 1) ? 56 : 456));
+        assert(gridCalls == 1);
+    }
+    World tooSmall; tooSmall.ta.FeatureMapSizeX = 6;
+    tooSmall.old().XGridPos = 0; tooSmall.old().XPos = 40;
+    Position_Dword pos = {}; unsigned blocker = 0;
+    assert(!CheckReplacementSite(tooSmall.ta, tooSmall.owner(), tooSmall.old(), 2,
+        tooSmall.replacement(), pos, blocker) && gridCalls == 0);
+}
+
+static void TestOffsetOrderRecognition() {
+    World world; auto upgrade = world.candidate(); WindmillCorner(world);
+    assert(PrepareUpgrade(world.ta, upgrade, false));
+    UnitOrdersStruct build; build.BuildUnitID = 3; build.Pos = upgrade.buildPos;
+    assert(IsReplacementBuild(world.ta, build, world.old(), upgrade.replacement));
+    for (int reason = 0; reason < 8; ++reason) {
+        auto unrelated = build;
+        if (reason == 0) unrelated.Pos.X += 16; // Loses the source's left edge.
+        if (reason == 1) unrelated.Pos.Y -= 16; // Loses the source's bottom edge.
+        if (reason == 2) unrelated.Pos.X += 1; // Not aligned to TA's build grid.
+        if (reason == 3) unrelated.Pos.x_ = 1;
+        if (reason == 4) unrelated.Pos.y_ = 1;
+        if (reason == 5) unrelated.BuildUnitID = 4; // Different extractor tier.
+        if (reason == 6) unrelated.State = 1;
+        if (reason == 7) unrelated.AttackTargat = &world.old();
+        assert(!IsReplacementBuild(world.ta, unrelated, world.old(), upgrade.replacement));
     }
 }
 
@@ -338,6 +499,162 @@ static void TestShiftCancellationBeforeBlockedPreparation() {
     assert(MexUpgrade::TryCommand(&right.ta, &click) && nativeSends == 2);
 }
 
+static void TestOffsetQueueAndCancellation() {
+    for (int interface : {0,1}) for (bool queued : {false,true}) {
+        World world; WindmillCorner(world);
+        world.ta.InterfaceType = interface;
+        if (interface) world.ta.BuildSpotState |= 4;
+        _MOUSEEVENT click; click.Msg = interface ? WM_RBUTTONDOWN : WM_LBUTTONUP;
+        UnitOrdersStruct* previous = nullptr;
+        if (queued) {
+            Position_Dword pos = {}; Send(99,0,&world.units[1],nullptr,&pos,0,0);
+            previous = world.units[1].UnitOrders; click.fwKeys = MK_SHIFT;
+        }
+        assert(MexUpgrade::TryCommand(&world.ta, &click));
+        auto* reclaim = previous ? previous->NextOrder : world.units[1].UnitOrders;
+        assert(reclaim && reclaim->COBHandler_index == 11);
+        auto* build = reclaim->NextOrder;
+        assert(build && build->BuildUnitID == 3 && build->Pos.X == 344 && build->Pos.Y == 312);
+        assert(MexUpgrade::IsQueuedBuild(&world.ta,&world.units[1],reclaim));
+        const int probes = gridCalls, sends = nativeSends;
+        // Cancellation recognizes the saved shifted order, without finding
+        // a new site or changing an unrelated preceding order.
+        BlockAllLargerSites(world); world.defs[3].buildLimit = 0; click.fwKeys = MK_SHIFT;
+        assert(MexUpgrade::TryCommand(&world.ta, &click));
+        assert(removedOrders == 2 && gridCalls == probes && nativeSends == sends);
+        assert(world.units[1].UnitOrders == previous && (!previous || !previous->NextOrder));
+    }
+
+    World world; auto upgrade = world.candidate();
+    Position_Dword pos = {}; pos.X = 360; pos.Y = 328;
+    Send(11,0,&world.units[1],&world.old(),&pos,0,0);
+    Send(12,1,&world.units[1],nullptr,&pos,3,0);
+    auto* reclaim = world.units[1].UnitOrders;
+    // An adjacent build that does not fully cover the old metal spot is not
+    // an upgrade pair and cannot be removed or trigger upgrade protection.
+    assert(!CancelUpgrade(world.ta,upgrade,UpgradeActions(world.units[1])));
+    assert(!MexUpgrade::IsQueuedBuild(&world.ta,&world.units[1],reclaim));
+    assert(removedOrders == 0 && world.units[1].UnitOrders == reclaim && reclaim->NextOrder);
+}
+
+static GAFSequence* DisplayedCursor(World& world) {
+    return reinterpret_cast<GAFSequence*>(world.ta.desktopGUI.Cursor_3);
+}
+
+static int CursorPixels(GAFSequence* cursor, unsigned char color) {
+    assert(cursor && cursor->Frames == 1 && cursor->Signature == 1);
+    const auto* frame = cursor->PtrFrameAry[0].PtrFrame;
+    assert(frame && frame->Width == 13 && frame->Height == 14 && frame->Background == 9);
+    assert(!frame->Compressed && frame->PtrFrameBits);
+    return std::count(frame->PtrFrameBits,frame->PtrFrameBits+13*14,color);
+}
+
+static void AssertBlockedCursor(GAFSequence* cursor) {
+    assert(CursorPixels(cursor,211) > 0 && CursorPixels(cursor,232) == 0);
+    const auto* frame = cursor->PtrFrameAry[0].PtrFrame;
+    assert(frame->xPosition == 6 && frame->yPosition == 6);
+    // A red X has branches at both upper corners and its center, rather
+    // than the up-arrow's colored tip at the top center.
+    assert(frame->PtrFrameBits[0] != 9 && frame->PtrFrameBits[12] != 9);
+    assert(frame->PtrFrameBits[6] == 9 && frame->PtrFrameBits[6*13+6] == 211);
+}
+
+static void TestUpgradeCursorTransitions() {
+    for (int interface : {0,1}) {
+        World world; world.ta.InterfaceType = interface;
+        if (interface) world.ta.BuildSpotState |= 4;
+        MexUpgrade::UpdateCursor(&world.ta);
+        auto* green = DisplayedCursor(world);
+        assert(green != &world.stockCursor && CursorPixels(green,232) > 0);
+        assert(green->PtrFrameAry[0].PtrFrame->xPosition == 6
+            && green->PtrFrameAry[0].PtrFrame->yPosition == 0);
+        assert(nativeSends == 0 && removedOrders == 0 && !world.units[1].UnitOrders);
+        const int changes = cursorChanges;
+        MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == green && cursorChanges == changes);
+
+        WindmillCorner(world); MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == green && nativeSends == 0);
+        BlockAllLargerSites(world); MexUpgrade::UpdateCursor(&world.ta);
+        auto* red = DisplayedCursor(world);
+        assert(red != green && red != &world.stockCursor);
+        AssertBlockedCursor(red);
+        assert(nativeSends == 0 && removedOrders == 0 && !world.units[1].UnitOrders);
+        const int blockedChanges = cursorChanges;
+        MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == red && cursorChanges == blockedChanges);
+
+        // Modifier keys restore the native cursor and never probe or issue
+        // orders. Releasing them restores the blocked-upgrade cursor.
+        const int probes = gridCalls;
+        controlDown = true; MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == &world.stockCursor && gridCalls == probes);
+        controlDown = false; altDown = true; MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == &world.stockCursor && gridCalls == probes);
+        altDown = false; MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == red);
+
+        std::fill(world.map.begin(),world.map.end(),FeatureStruct{});
+        MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == green);
+        gridAllowed = false; MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == red && nativeSends == 0);
+        gridAllowed = true; MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == green);
+
+        // Wreck snapping and other patches own their custom cursors.
+        world.ta.desktopGUI.Cursor_3 = &world.otherCursor;
+        const int beforeProbes = gridCalls, beforeChanges = cursorChanges;
+        MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == &world.otherCursor && gridCalls == beforeProbes
+            && cursorChanges == beforeChanges);
+        world.ta.desktopGUI.Cursor_3 = &world.stockCursor;
+        world.ta.CurrentCursora_Index = 4;
+        MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == &world.stockCursor && cursorChanges == beforeChanges);
+        world.ta.CurrentCursora_Index = 0; world.ta.cursor_ary[0] = nullptr;
+        MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == &world.stockCursor && cursorChanges == beforeChanges);
+    }
+}
+
+static void TestUpgradeCursorContextAndCapability() {
+    for (int reason = 0; reason < 15; ++reason) {
+        World world; MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) != &world.stockCursor);
+        const int probes = gridCalls;
+        if (reason == 0) Name(world.defs[2],"ARMMAS"); // No further upgrade tier.
+        if (reason == 1) world.defs[2].extractsmetal = 0;
+        if (reason == 2) world.defs[1].CANBUILD_ptr = nullptr;
+        if (reason == 3) world.canbuild[0] = 0;
+        if (reason == 4) world.info.PropertyMask |= WATCH;
+        if (reason == 5) world.old().Owner_PlayerPtr0 = &world.ta.Players[1];
+        if (reason == 6) world.old().Nanoframe = .5f;
+        if (reason == 7) world.old().UnitSelected |= UnitSelected_State;
+        if (reason == 8) controlDown = true;
+        if (reason == 9) altDown = true;
+        if (reason == 10) shared.PlayingDemo = true;
+        if (reason == 11) world.ta.PrepareOrder_Type = 99;
+        if (reason == 12) world.ta.InterfaceType = 1; // No command mode bit.
+        if (reason == 13) world.defs[3].UnitTypeMask_0 = 0;
+        if (reason == 14) world.defs[1].UnitTypeMask_0 &= ~builder;
+        MexUpgrade::UpdateCursor(&world.ta);
+        assert(DisplayedCursor(world) == &world.stockCursor && gridCalls == probes);
+        assert(nativeSends == 0 && removedOrders == 0 && !world.units[1].UnitOrders);
+    }
+    for (int reason : {0,1}) {
+        World world; MexUpgrade::UpdateCursor(&world.ta);
+        auto* green = DisplayedCursor(world);
+        if (reason == 0) reclaimAllowed = false;
+        if (reason == 1) world.defs[3].buildLimit = 0;
+        MexUpgrade::UpdateCursor(&world.ta);
+        auto* red = DisplayedCursor(world);
+        assert(red != green && red != &world.stockCursor);
+        AssertBlockedCursor(red);
+        assert(nativeSends == 0 && removedOrders == 0);
+    }
+}
+
 int main(int argc, char** argv) {
     assert(argc == 2); config.active = std::string(argv[1]) == "1";
     assert(!MexUpgrade::Enabled()); // Missing config does not initialize the static cache.
@@ -352,8 +669,16 @@ int main(int argc, char** argv) {
     TestMappingsAndNoTierSkipping();
     TestBuilderAndDefinitionEligibility();
     TestExpandedSiteAndPrivateYard();
+    TestOffsetSites();
+    TestAllPairsOffsetFootprints();
     TestAlignmentAndEdges();
-    if (enabled) TestShiftCancellationBeforeBlockedPreparation();
+    TestOffsetOrderRecognition();
+    if (enabled) {
+        TestShiftCancellationBeforeBlockedPreparation();
+        TestOffsetQueueAndCancellation();
+        TestUpgradeCursorTransitions();
+        TestUpgradeCursorContextAndCapability();
+    }
     else {
         World world; _MOUSEEVENT click;
         assert(!MexUpgrade::TryCommand(&world.ta, &click) && nativeSends == 0 && gridCalls == 0);
@@ -367,12 +692,15 @@ def main():
     source = (DDRAW / "MexUpgrade.cpp").read_text()
     constants = "\n".join(re.findall(r'^\s*constexpr (?:unsigned|int) k(?:DefinitionEnabled|MaxOrders|MaxUpgradeFootprint)\s*=.*?;', source, re.M))
     table = extract(source, "constexpr UpgradePair kUpgrades[]") + ";"
+    table += "\n\n" + extract(source,"struct UpgradeCursor") + ";"
     signatures = (
         "bool LiveOwned(", "UnitStruct* SingleSelectedUnit(", "const char* ReplacementName(",
         "int FindReplacement(", "bool UnderBuildLimit(", "bool ReplacementTile(",
-        "bool CheckReplacementSite(", "bool FindUpgradeTarget(", "bool PrepareUpgrade(",
+        "bool ReplacementContainsTarget(", "bool CheckReplacementTile(", "bool CheckReplacementSite(",
+        "bool FindUpgradeTarget(", "bool PrepareUpgrade(",
         "UnitOrdersStruct* FindReclaim(", "bool IsBuildAt(", "bool IsReplacementBuild(",
-        "bool CancelUpgrade(", "bool QueueUpgrade(", "bool MexUpgrade::Enabled()", "bool MexUpgrade::TryCommand(",
+        "bool CancelUpgrade(", "bool QueueUpgrade(", "bool MexUpgrade::Enabled()",
+        "bool MexUpgrade::IsQueuedBuild(", "bool MexUpgrade::TryCommand(", "void MexUpgrade::UpdateCursor(",
     )
     methods = "\n\n".join(extract(source, signature) for signature in signatures)
     bridge = "reinterpret_cast<int (__cdecl*)()>(0x0047C780u)"

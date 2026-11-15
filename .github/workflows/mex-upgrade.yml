@@ -29,7 +29,7 @@ jobs:
       - name: Build patch DLL
         run: msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=Win32 /p:TDRAW_CONFIG=TDRAW_CONFIG_${{ matrix.mod }}
       - name: Verify extractor upgrades are enabled only in Escalation
-        run: python -c "from pathlib import Path; b=Path('src/DDraw/Public/tdraw.dll').read_bytes(); assert (b'[MexUpgrade] build=escalation-tiers-v6' in b) == ('${{ matrix.mod }}' == 'ESCALATION')"
+        run: python -c "from pathlib import Path; b=Path('src/DDraw/Public/tdraw.dll').read_bytes(); assert (b'[MexUpgrade] build=escalation-cursors-v8' in b) == ('${{ matrix.mod }}' == 'ESCALATION')"
       - name: Verify Windows 7 imports
         run: python src/DDraw/tools/check_win7_imports.py src/DDraw/Public/tdraw.dll
       - uses: actions/upload-artifact@v4
