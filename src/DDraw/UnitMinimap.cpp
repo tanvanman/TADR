@@ -1667,7 +1667,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 // Downscaled feature sprite, stored as straight-alpha RGBA so the antialiased
 // edges keep their partial coverage (alpha) and can be composited correctly
 // onto the 8-bit megamap terrain. 4 bytes/pixel: R,G,B,A.
-struct MexSprite { LPBYTE rgba; int w, h; int builtPx; };
+struct MexSprite { LPBYTE rgba; int w, h; int builtPx; BYTE used[256]; };
 static MexSprite gMexCache[1024];
 static void* gMexCacheMap = NULL;
 static bool      gMexCacheInit = false;
@@ -1678,6 +1678,7 @@ static void MexCacheFlush()
 	for (int i = 0; i < 1024; ++i) {
 		if (gMexCache[i].rgba) { delete[] gMexCache[i].rgba; gMexCache[i].rgba = NULL; }
 		gMexCache[i].builtPx = 0;
+		memset(gMexCache[i].used, 0, sizeof(gMexCache[i].used));
 	}
 }
 
@@ -1791,6 +1792,7 @@ static MexSprite* GetMexSprite(int defIndex, FeatureDefStruct* def, int targetPx
 
 	BYTE bg = fr->Background;                 // transparent palette index
 	const BYTE* pal = MegamapColormap();      // same colormap the terrain uses
+	memset(s->used, 0, sizeof(s->used));
 
 	// Area-average (box-filter) downscale into straight-alpha RGBA. This is the
 	// terrain downscaler's "average covered source pixels" approach, extended
@@ -1816,6 +1818,7 @@ static MexSprite* GetMexSprite(int defIndex, FeatureDefStruct* def, int targetPx
 					++total;
 					BYTE idx = row[sx];
 					if (idx == bg) continue;     // transparent -> 0 coverage
+					s->used[idx] = 1;
 					int r, g, b;
 					MegamapIndexRGB(pal, idx, &r, &g, &b);
 					sumR += r; sumG += g; sumB += b;
@@ -1869,6 +1872,100 @@ static MexSprite* GetMexSprite(int defIndex, FeatureDefStruct* def, int targetPx
 // feature's GAF art can't be resolved.
 // ===================================================================
 
+static void BlitMexSpriteToMappedBits(
+	LPBYTE bits,
+	int mapW,
+	int mapH,
+	int left,
+	int top,
+	const MexSprite* spr,
+	const BYTE* pal,
+	const MegamapPaletteSubset* palSubset,
+	bool dither,
+	std::vector<int>& errCur,
+	std::vector<int>& errNext)
+{
+	const int w = spr->w;
+	const int h = spr->h;
+	if (w <= 0 || h <= 0) return;
+
+	if (dither) {
+		const size_t errStride = static_cast<size_t>(w + 2) * 3;
+		errCur.assign(errStride, 0);
+		errNext.assign(errStride, 0);
+	}
+
+	int scanDir = 1;
+	for (int yy = 0; yy < h; ++yy) {
+		const int Y = top + yy;
+		if (Y >= mapH) break;
+
+		if (Y >= 0) {
+			const BYTE* srow = spr->rgba + (yy * w) * 4;
+			BYTE* drow = bits + Y * mapW;
+			const int xFirst = dither ? ((scanDir > 0) ? 0 : (w - 1)) : 0;
+			const int xStep = dither ? scanDir : 1;
+
+			for (int step = 0; step < w; ++step) {
+				const int xx = xFirst + xStep * step;
+				const int X = left + xx;
+				if (X < 0 || X >= mapW) continue;
+
+				const BYTE* sp = srow + xx * 4;
+				const int a = sp[3];
+				if (a == 0) continue;                 // fully transparent
+
+				int R = sp[0], G = sp[1], B = sp[2];
+				if (a < 255) {
+					// alpha-blend the antialiased edge over the terrain
+					int dr, dg, db;
+					MegamapIndexRGB(pal, drow[X], &dr, &dg, &db);
+					R = (R * a + dr * (255 - a)) / 255;
+					G = (G * a + dg * (255 - a)) / 255;
+					B = (B * a + db * (255 - a)) / 255;
+				}
+
+				if (dither) {
+					const int here = (xx + 1) * 3;
+					const int fwd = (xx + scanDir + 1) * 3;
+					const int back = (xx - scanDir + 1) * 3;
+
+					R += MegamapErr16(errCur[here + 0]);
+					G += MegamapErr16(errCur[here + 1]);
+					B += MegamapErr16(errCur[here + 2]);
+					if (R < 0) R = 0; else if (R > 255) R = 255;
+					if (G < 0) G = 0; else if (G > 255) G = 255;
+					if (B < 0) B = 0; else if (B > 255) B = 255;
+
+					const BYTE idx = (palSubset->count > 0)
+						? MegamapSnap(palSubset, R, G, B)
+						: MegamapNearestIndex(pal, R, G, B);
+					drow[X] = idx;
+
+					int pr, pg, pb;
+					MegamapIndexRGB(pal, idx, &pr, &pg, &pb);
+					const int er = R - pr, eg = G - pg, eb = B - pb;
+					errCur[fwd + 0] += er * 7;  errCur[fwd + 1] += eg * 7;  errCur[fwd + 2] += eb * 7;
+					errNext[back + 0] += er * 3; errNext[back + 1] += eg * 3; errNext[back + 2] += eb * 3;
+					errNext[here + 0] += er * 5; errNext[here + 1] += eg * 5; errNext[here + 2] += eb * 5;
+					errNext[fwd + 0] += er;     errNext[fwd + 1] += eg;     errNext[fwd + 2] += eb;
+				}
+				else {
+					drow[X] = (palSubset->count > 0)
+						? MegamapSnap(palSubset, R, G, B)
+						: MegamapNearestIndex(pal, R, G, B);
+				}
+			}
+		}
+
+		if (dither) {
+			errCur.swap(errNext);
+			memset(errNext.data(), 0, errNext.size() * sizeof(int));
+			scanDir = -scanDir;
+		}
+	}
+}
+
 void DrawFeaturesIntoMappedBits(LPBYTE bits, int Width, int Height)
 {
 	if (!bits || Width <= 0 || Height <= 0)
@@ -1898,6 +1995,23 @@ void DrawFeaturesIntoMappedBits(LPBYTE bits, int Width, int Height)
 	// Live colormap (same one the terrain image uses) for blending the
 	// antialiased sprite edges over the terrain and snapping back to 8-bit.
 	const BYTE* pal = MegamapColormap();
+	const bool dither = MegamapDitherEnabled();
+
+	// Match the terrain downscaler's OKLab + Floyd-Steinberg dither path so
+	// features with terrain-blended skirts (e.g. underwater metal patches)
+	// reproduce the surrounding dithered terrain instead of collapsing to a
+	// single flat palette entry.
+	BYTE terrainUsed[256];
+	memset(terrainUsed, 0, sizeof(terrainUsed));
+	for (int i = 0, n = Width * Height; i < n; ++i)
+		terrainUsed[bits[i]] = 1;
+
+	BYTE allMask[256];
+	memset(allMask, 1, sizeof(allMask));
+	MegamapPaletteSubset fullPalette;
+	MegamapBuildPaletteSubsetFromMask(&fullPalette, pal, allMask);
+
+	std::vector<int> errCur, errNext;
 
 	for (int gy = 0; gy < fh; ++gy)
 		for (int gx = 0; gx < fw; ++gx)
@@ -1969,30 +2083,14 @@ void DrawFeaturesIntoMappedBits(LPBYTE bits, int Width, int Height)
 				int left = px - anchorX;
 				int top = py - anchorY;
 
-				for (int yy = 0; yy < spr->h; ++yy) {
-					int Y = top + yy;
-					if (Y < 0 || Y >= Height) continue;
-					const BYTE* srow = spr->rgba + (yy * spr->w) * 4;
-					int rowD = Y * Width;
-					for (int xx = 0; xx < spr->w; ++xx) {
-						int X = left + xx;
-						if (X < 0 || X >= Width) continue;
-						const BYTE* sp = srow + xx * 4;
-						int a = sp[3];
-						if (a == 0) continue;                 // fully transparent
-						int R = sp[0], G = sp[1], B = sp[2];
-						if (a < 255) {
-							// alpha-blend the antialiased edge over the terrain
-							int dr, dg, db;
-							MegamapIndexRGB(pal, bits[rowD + X], &dr, &dg, &db);
-							R = (R * a + dr * (255 - a)) / 255;
-							G = (G * a + dg * (255 - a)) / 255;
-							B = (B * a + db * (255 - a)) / 255;
-						}
-						// snap back to an 8-bit index; fog pass greys this later
-						bits[rowD + X] = MegamapNearestIndex(pal, R, G, B);
-					}
-				}
+				BYTE combinedMask[256];
+				for (int i = 0; i < 256; ++i)
+					combinedMask[i] = terrainUsed[i] | spr->used[i];
+				MegamapPaletteSubset spritePalette;
+				MegamapFilterPaletteSubset(&fullPalette, combinedMask, &spritePalette);
+
+				BlitMexSpriteToMappedBits(
+					bits, Width, Height, left, top, spr, pal, &spritePalette, dither, errCur, errNext);
 			}
 			else {
 				// fallback dot (rarely hit art unresolvable)
