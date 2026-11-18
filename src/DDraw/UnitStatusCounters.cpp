@@ -33,8 +33,19 @@ namespace
     std::unique_ptr<SingleHook> g_groupNumberHook;
     void* g_measuredFontHandle = nullptr;
     bool g_glyphInkMetricsValid[256] = {};
+    bool g_glyphHasInk[256] = {};
     signed char g_glyphInkLeft[256] = {};
     signed char g_glyphInkRight[256] = {};
+
+    struct PendingGroupNumberLayout
+    {
+        bool valid;
+        int expectedX;
+        int expectedY;
+        int extraYOffset;
+    };
+
+    PendingGroupNumberLayout g_pendingGroupNumberLayout = {};
 
     struct UnitWeaponView
     {
@@ -203,76 +214,113 @@ namespace
         return DrawTextWithColor(offscreen, program, text, x, y, length, colorIndex);
     }
 
-    int GetVisibleGlyphCenterOffset(TAProgramStruct* program, const char* text)
+    void EnsureGlyphInkMetrics(TAProgramStruct* program, unsigned char glyph)
     {
-        if (!program || !program->fontHandle || !text || !text[0] || text[1])
-            return GetTextWidth(program ? program->fontHandle : nullptr, text) / 2;
-
         if (g_measuredFontHandle != program->fontHandle)
         {
             g_measuredFontHandle = program->fontHandle;
             std::memset(g_glyphInkMetricsValid, 0, sizeof(g_glyphInkMetricsValid));
+            std::memset(g_glyphHasInk, 0, sizeof(g_glyphHasInk));
         }
 
-        const unsigned char glyph = static_cast<unsigned char>(text[0]);
-        if (!g_glyphInkMetricsValid[glyph])
+        if (g_glyphInkMetricsValid[glyph])
+            return;
+
+        const int probeWidth = 64;
+        const int probeHeight = 64;
+        const int probeOrigin = 8;
+        unsigned char pixels[probeWidth * probeHeight] = {};
+        OFFSCREEN probe = {};
+        probe.Width = probeWidth;
+        probe.Height = probeHeight;
+        probe.lPitch = probeWidth;
+        probe.lpSurface = pixels;
+        probe.ScreenRect.left = 0;
+        probe.ScreenRect.top = 0;
+        probe.ScreenRect.right = probeWidth;
+        probe.ScreenRect.bottom = probeHeight;
+
+        char chText[2] = { static_cast<char>(glyph), '\0' };
+        const int oldFrontColor = program->fontFrontColour;
+        const int oldBackColor = program->fontBackColour;
+        const int oldAlphaColor = program->fontAlpha;
+        program->fontFrontColour = 1;
+        program->fontBackColour = 0;
+        program->fontAlpha = 0;
+        DrawTextInScreen(&probe, chText, probeOrigin, probeOrigin, -1);
+        program->fontFrontColour = oldFrontColor;
+        program->fontBackColour = oldBackColor;
+        program->fontAlpha = oldAlphaColor;
+
+        int left = probeWidth;
+        int right = -1;
+        for (int y = 0; y < probeHeight; ++y)
         {
-            const int probeWidth = 64;
-            const int probeHeight = 64;
-            const int probeOrigin = 8;
-            unsigned char pixels[probeWidth * probeHeight] = {};
-            OFFSCREEN probe = {};
-            probe.Width = probeWidth;
-            probe.Height = probeHeight;
-            probe.lPitch = probeWidth;
-            probe.lpSurface = pixels;
-            probe.ScreenRect.left = 0;
-            probe.ScreenRect.top = 0;
-            probe.ScreenRect.right = probeWidth;
-            probe.ScreenRect.bottom = probeHeight;
-
-            const int oldFrontColor = program->fontFrontColour;
-            const int oldBackColor = program->fontBackColour;
-            const int oldAlphaColor = program->fontAlpha;
-            program->fontFrontColour = 1;
-            program->fontBackColour = 0;
-            program->fontAlpha = 0;
-            DrawTextInScreen(&probe, const_cast<char*>(text), probeOrigin, probeOrigin, 1);
-            program->fontFrontColour = oldFrontColor;
-            program->fontBackColour = oldBackColor;
-            program->fontAlpha = oldAlphaColor;
-
-            int left = probeWidth;
-            int right = -1;
-            for (int y = 0; y < probeHeight; ++y)
+            for (int x = 0; x < probeWidth; ++x)
             {
-                for (int x = 0; x < probeWidth; ++x)
+                if (pixels[y * probeWidth + x] != 0)
                 {
-                    if (pixels[y * probeWidth + x] != 0)
-                    {
-                        if (x < left) left = x;
-                        if (x > right) right = x;
-                    }
+                    if (x < left) left = x;
+                    if (x > right) right = x;
+                }
+            }
+        }
+
+        if (right >= left)
+        {
+            g_glyphHasInk[glyph] = true;
+            g_glyphInkLeft[glyph] = static_cast<signed char>(left - probeOrigin);
+            g_glyphInkRight[glyph] = static_cast<signed char>(right - probeOrigin);
+        }
+        else
+        {
+            g_glyphHasInk[glyph] = false;
+            g_glyphInkLeft[glyph] = 0;
+            g_glyphInkRight[glyph] = static_cast<signed char>(
+                GetTextWidth(program->fontHandle, chText) - 1);
+        }
+        g_glyphInkMetricsValid[glyph] = true;
+    }
+
+    int GetVisibleTextCenterOffset(TAProgramStruct* program, const char* text)
+    {
+        if (!program || !program->fontHandle || !text || !text[0])
+            return GetTextWidth(program ? program->fontHandle : nullptr, text) / 2;
+
+        bool hasAnyInk = false;
+        int minInkX = 0;
+        int maxInkX = 0;
+        int penX = 0;
+
+        for (int i = 0; text[i] != '\0'; ++i)
+        {
+            const unsigned char glyph = static_cast<unsigned char>(text[i]);
+            EnsureGlyphInkMetrics(program, glyph);
+            if (g_glyphHasInk[glyph])
+            {
+                const int glyphLeft = penX + static_cast<int>(g_glyphInkLeft[glyph]);
+                const int glyphRight = penX + static_cast<int>(g_glyphInkRight[glyph]);
+                if (!hasAnyInk)
+                {
+                    minInkX = glyphLeft;
+                    maxInkX = glyphRight;
+                    hasAnyInk = true;
+                }
+                else
+                {
+                    if (glyphLeft < minInkX) minInkX = glyphLeft;
+                    if (glyphRight > maxInkX) maxInkX = glyphRight;
                 }
             }
 
-            if (right >= left)
-            {
-                g_glyphInkLeft[glyph] = static_cast<signed char>(left - probeOrigin);
-                g_glyphInkRight[glyph] = static_cast<signed char>(right - probeOrigin);
-            }
-            else
-            {
-                g_glyphInkLeft[glyph] = 0;
-                g_glyphInkRight[glyph] = static_cast<signed char>(
-                    GetTextWidth(program->fontHandle, text) - 1);
-            }
-            g_glyphInkMetricsValid[glyph] = true;
+            char chText[2] = { text[i], '\0' };
+            penX += GetTextWidth(program->fontHandle, chText);
         }
 
-        const int doubledCenter =
-            static_cast<int>(g_glyphInkLeft[glyph]) +
-            static_cast<int>(g_glyphInkRight[glyph]);
+        if (!hasAnyInk)
+            return penX / 2;
+
+        const int doubledCenter = minInkX + maxInkX;
         return doubledCenter >= 0 ? (doubledCenter + 1) / 2 : doubledCenter / 2;
     }
 
@@ -303,6 +351,16 @@ namespace
         int y,
         int length)
     {
+        if (g_pendingGroupNumberLayout.valid)
+        {
+            if (x == g_pendingGroupNumberLayout.expectedX &&
+                y == g_pendingGroupNumberLayout.expectedY)
+            {
+                y += g_pendingGroupNumberLayout.extraYOffset;
+            }
+            g_pendingGroupNumberLayout = {};
+        }
+
         TAProgramStruct* program = TAProgramStruct_PtrPtr ? *TAProgramStruct_PtrPtr : nullptr;
         if (!program)
             return DrawTextInScreen(offscreen, text, x, y, length);
@@ -310,7 +368,7 @@ namespace
         const int oldFrontColor = program->fontFrontColour;
         const int oldBackColor = program->fontBackColour;
         const int oldAlphaColor = program->fontAlpha;
-        const int visibleCenterOffset = GetVisibleGlyphCenterOffset(program, text);
+        const int visibleCenterOffset = GetVisibleTextCenterOffset(program, text);
         const int result = DrawReadableText(
             offscreen,
             program,
@@ -377,7 +435,25 @@ namespace UnitStatusCounters
     void Shutdown()
     {
         g_groupNumberHook.reset();
+        g_pendingGroupNumberLayout = {};
         g_installed = false;
+    }
+
+    void ResetPendingGroupNumberOffset()
+    {
+        g_pendingGroupNumberLayout = {};
+    }
+
+    void SetPendingGroupNumberOffset(int expectedX, int expectedY, int extraYOffset)
+    {
+        g_pendingGroupNumberLayout = {};
+        if (extraYOffset <= 0)
+            return;
+
+        g_pendingGroupNumberLayout.valid = true;
+        g_pendingGroupNumberLayout.expectedX = expectedX;
+        g_pendingGroupNumberLayout.expectedY = expectedY;
+        g_pendingGroupNumberLayout.extraYOffset = extraYOffset;
     }
 
     void DrawForUnit(OFFSCREEN* offscreen, UnitStruct* unit, int centerX, int centerY)
@@ -425,15 +501,13 @@ namespace UnitStatusCounters
 
         unsigned char* counterFont = program->fontHandle;
         const int fontHeight = counterFont ? counterFont[0] : 8;
-        const int textY = centerY - fontHeight - 3;
-        const int stockWidth = GetTextWidth(counterFont, stockText);
-        const int transportWidth = GetTextWidth(counterFont, transportText);
-        const int stockX = centerX - stockWidth / 2;
-        const int transportX = centerX - transportWidth / 2;
+        const int textY = centerY + BarOverlayMetrics::kHealthBarTopOffset - fontHeight - BarOverlayMetrics::kCounterAboveBarGap;
+        const int stockX = centerX - GetVisibleTextCenterOffset(program, stockText);
+        const int transportX = centerX - GetVisibleTextCenterOffset(program, transportText);
         int transportY = textY;
 
         if (stockText[0] && transportText[0])
-            transportY -= fontHeight + 1;
+            transportY -= fontHeight + BarOverlayMetrics::kCounterStackGap;
 
         if (stockText[0])
             DrawCounterText(offscreen, program, stockText, stockX, textY, g_stockpileCounterColor);

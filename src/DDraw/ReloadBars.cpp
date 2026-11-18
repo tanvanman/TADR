@@ -148,13 +148,13 @@ namespace
         return colorsPalette ? colorsPalette[colorIndex] : colorIndex;
     }
 
-    void DrawReloadBar(OFFSCREEN* offscreen, int centerX, int topY, unsigned short curReload, unsigned short maxReload)
+    int DrawReloadBar(OFFSCREEN* offscreen, int centerX, int topY, unsigned short curReload, unsigned short maxReload)
     {
-        if (maxReload == 0) return;
+        if (!offscreen || maxReload == 0) return 0;
 
         if (curReload > maxReload) curReload = maxReload;
 
-        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        TAdynmemStruct* ta = TAmainStruct_PtrPtr ? *TAmainStruct_PtrPtr : nullptr;
         const unsigned char backgroundColor = GetGuiPaletteColor(ta, 0);
         unsigned char fillColor = GetGuiPaletteColor(ta, 144);
         if (maxReload > 0)
@@ -165,59 +165,64 @@ namespace
             fillColor = GetGuiPaletteColor(ta, shadeIndex);
         }
 
-        const int outerHalfWidth = 17;
-        const int outerHeight = 4;
-        const int innerWidth = 32;
-
-        const int left = centerX - outerHalfWidth;
-        const int right = centerX + outerHalfWidth;
-        const int bottom = topY + outerHeight;
+        namespace Metrics = UnitStatusCounters::BarOverlayMetrics;
+        const int left = centerX - Metrics::kBarHalfWidth;
+        const int right = centerX + Metrics::kBarHalfWidth;
+        const int bottom = topY + Metrics::kBarOuterHeight;
 
         DrawBarRect(offscreen, left, topY, right, bottom, backgroundColor);
         DrawBarRect(offscreen, left + 1, topY + 1, right - 1, bottom - 1, backgroundColor);
 
-        const int fillWidth = static_cast<int>((static_cast<unsigned>(innerWidth) * curReload) / maxReload);
+        const int fillWidth = static_cast<int>((static_cast<unsigned>(Metrics::kBarInnerWidth) * curReload) / maxReload);
         if (fillWidth > 0)
         {
             DrawBarRect(offscreen, left + 1, topY + 1, left + 1 + fillWidth, bottom - 1, fillColor);
         }
+
+        return bottom;
     }
 
-    void DrawReloadBarForUnit(OFFSCREEN* offscreen, UnitStruct* unit, int centerX, int centerY)
+    int DrawReloadBarForUnit(OFFSCREEN* offscreen, UnitStruct* unit, int centerX, int centerY)
     {
-        if (!unit) return;
-        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!offscreen || !unit)
+            return 0;
+        TAdynmemStruct* ta = TAmainStruct_PtrPtr ? *TAmainStruct_PtrPtr : nullptr;
         if (!ta)
-            return;
+            return 0;
         if ((ta->GameOptionMask & 1) == 0)
-            return;
+            return 0;
         if (centerX == 0 || centerY == 0)
-            return;
+            return 0;
         if (!unit->UnitType)
-            return;
+            return 0;
+        if (unit->Health <= 0)
+            return 0;
 
         if (unit->Nanoframe != 0.0f)
-            return;
+            return 0;
 
         PlayerStruct* owner = unit->Owner_PlayerPtr0 ? unit->Owner_PlayerPtr0 : unit->Owner_PlayerPtr1;
         if (!owner || owner->PlayerAryIndex != ta->LocalHumanPlayer_PlayerID)
-            return;
+            return 0;
 
         UnitWeaponView* weaponView = nullptr;
         unsigned short maxReload = 0;
         if (!SelectTrackedWeapon(unit, weaponView, maxReload))
-            return;
+            return 0;
 
         unsigned short curReload = 0;
         if (weaponView->nReloadTime <= maxReload)
             curReload = static_cast<unsigned short>(maxReload - weaponView->nReloadTime);
 
-        DrawReloadBar(offscreen, centerX, centerY + 3, curReload, maxReload);
-
+        namespace Metrics = UnitStatusCounters::BarOverlayMetrics;
+        const int reloadBarTopY = centerY + Metrics::kHealthBarBottomOffset + Metrics::kStackedBarGap;
+        return DrawReloadBar(offscreen, centerX, reloadBarTopY, curReload, maxReload);
     }
 
     int __stdcall DrawUnitBarsHookProc(PInlineX86StackBuffer pBuf)
     {
+        UnitStatusCounters::ResetPendingGroupNumberOffset();
+
         __try
         {
             UnitStruct* unit = reinterpret_cast<UnitStruct*>(pBuf->Edi);
@@ -226,10 +231,19 @@ namespace
             OFFSCREEN* offscreen = reinterpret_cast<OFFSCREEN*>(pBuf->Esp + kOffscreenStackOffset);
 
             UnitStatusCounters::DrawForUnit(offscreen, unit, centerX, centerY);
-            DrawReloadBarForUnit(offscreen, unit, centerX, centerY);
+            const int belowBarsBottomY = DrawReloadBarForUnit(offscreen, unit, centerX, centerY);
+            if (belowBarsBottomY != 0)
+            {
+                namespace Metrics = UnitStatusCounters::BarOverlayMetrics;
+                const int healthBarBottomY = centerY + Metrics::kHealthBarBottomOffset;
+                const int expectedGroupY = healthBarBottomY + Metrics::kGroupNumberBelowBarOffset;
+                const int extraYOffset = belowBarsBottomY - healthBarBottomY;
+                UnitStatusCounters::SetPendingGroupNumberOffset(centerX, expectedGroupY, extraYOffset);
+            }
         }
         __except(EXCEPTION_EXECUTE_HANDLER)
         {
+            UnitStatusCounters::ResetPendingGroupNumberOffset();
         }
 
         return 0;
@@ -264,6 +278,7 @@ namespace ReloadBars
     void Shutdown()
     {
         g_drawHook.reset();
+        UnitStatusCounters::ResetPendingGroupNumberOffset();
         g_reloadBarWeapons.clear();
         g_reloadBarWeaponNames.clear();
         g_installed = false;
