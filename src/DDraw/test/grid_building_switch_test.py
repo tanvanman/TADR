@@ -108,7 +108,7 @@ def main():
         api = preprocess(header,formations,mex,grid)
         assert ('bool CTAHook::RectangleGestureMessage(' in output) == bool(grid)
         assert ('if (RectangleGestureMessage(' in output) == bool(grid)
-        assert ('[BuildRectangle] release-v4' in output) == bool(grid)
+        assert ('[BuildRectangle] click-v5' in output) == bool(grid)
         assert ('RefreshRectangleFootprint();' in output) == bool(grid)
         assert ('bool MegaMapControl::UpdateBuildMouse(' in mega) == bool(grid)
         assert ('DrawnMove::Message(' in output) == bool(formations)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive the production rectangle gesture and coordinate helpers with mocked TA.
 
-This tests press/drag/release ownership and both view-conversion branches using
+This tests drag/release and click/move/click ownership in both view-conversion branches using
 the actual methods extracted from tahook.cpp. Placement/pathfinding are mocked;
 their queue sequencing is covered separately by build_rectangle_input_test.py.
 """
@@ -51,6 +51,7 @@ HARNESS = r'''
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -111,10 +112,12 @@ namespace ordertype { enum { STOP = 1, BUILD = 14 }; }
 enum { TAInGame = 1 };
 struct SharedData { int TAProgress = TAInGame; } sharedData;
 static SharedData* DataShare = &sharedData;
+static int testInterfaceType;
 struct Position_Dword { std::uint16_t x_, X, z_, Z, y_, Y; };
 struct FakeTA {
     Position_Dword MouseMapPos = {};
     int PrepareOrder_Type = ordertype::BUILD;
+    int InterfaceType = 0;
     RECT GameSreen_Rect = {128,32,1023,767};
     int EyeBallMapXPos = 256, EyeBallMapYPos = 512;
     int MapSizeX = 4096, MapSizeY = 4096;
@@ -153,6 +156,8 @@ public:
     int VirtualKeyCode = VK_OEM_5;
     bool WriteLine = false, RingWrite = false, RectangleValid = false;
     bool RectangleMouseDown = false, RectangleCaptured = false;
+    bool RectangleAwaitingClick = false, RectangleDragged = false;
+    int RectanglePressX = 0, RectanglePressY = 0;
     bool ClickSnapPreviewBuild = false, ClickSnapPreviewWreck = false;
     int ClickSnapPreviewPosXY[2] = {};
     int StartX = 0, StartY = 0, EndX = 0, EndY = 0;
@@ -160,9 +165,11 @@ public:
     short XMatrix[1000] = {-1}, YMatrix[1000] = {-1};
     int calculations = 0, nativeRectEnabled = 0, nativeRectDisabled = 0, warnings = 0;
     bool rejectGeometry = false;
+    bool throwOnCalculate = false;
     bool throwOnCommit = false;
     std::vector<Commit> commits;
     CTAHook() {
+        state.InterfaceType = testInterfaceType;
         keys.clear(); sharedData.TAProgress = TAInGame; control.ta = &state;
         capturedWindow = nullptr; onCaptureRelease = nullptr; captureSets = captureReleases = 0;
         TAhWnd = nullptr; failCapture = false;
@@ -177,7 +184,9 @@ public:
     short GetFootY() { return 3; }
     void SendText(char*, int) { ++warnings; }
     void CalculateLine() {
-        ++calculations; RectangleValid = !rejectGeometry;
+        ++calculations;
+        if (throwOnCalculate) throw std::runtime_error("mock geometry failure");
+        RectangleValid = !rejectGeometry;
         XMatrix[0] = RectangleValid ? StartX : -1;
         YMatrix[0] = RectangleValid ? StartY : -1;
     }
@@ -187,6 +196,7 @@ public:
         commits.push_back({StartX,StartY,EndX,EndY,Spacing,WriteLine});
         if (throwOnCommit) throw std::runtime_error("mock native dispatch failure");
     }
+    // OWNERSHIP_METHOD
     bool Dispatch(UINT msg, WPARAM wParam = 0, LPARAM point = 0) {
         // GESTURE_DISPATCH
         return SpacingMessage(msg, wParam, point);
@@ -205,7 +215,83 @@ static void Begin(CTAHook& hook, bool overview, LPARAM point = Point(200,120)) {
 }
 static void ExpectCleared(const CTAHook& hook) {
     assert(!hook.WriteLine && !hook.RectangleValid);
+    assert(!hook.RectangleAwaitingClick && !hook.RectangleDragged);
     assert(hook.XMatrix[0] == -1 && hook.YMatrix[0] == -1);
+}
+
+static void AnchorClick(CTAHook& hook, bool overview, LPARAM point = Point(200,120)) {
+    Begin(hook, overview, point);
+    keys[VK_LBUTTON] = false;
+    assert(hook.Dispatch(WM_LBUTTONUP, 0, point));
+    assert(hook.WriteLine && hook.RectangleValid && hook.RectangleAwaitingClick);
+    assert(!hook.RectangleMouseDown && !hook.RectangleCaptured && GetCapture() == nullptr);
+    assert(hook.OwnsRectangleInput()); // Free preview remains ahead of other input consumers.
+    assert(hook.commits.empty());
+}
+
+static void TestClickMoveClickBothViews() {
+    for (bool overview : {false,true}) {
+        CTAHook hook;
+        AnchorClick(hook, overview);
+        const int startX = hook.StartX, startY = hook.StartY;
+        const int before = hook.calculations;
+        assert(hook.Dispatch(WM_MOUSEMOVE, 0, Point(250,180)));
+        assert(hook.calculations == before+1 && hook.commits.empty());
+        assert(hook.WriteLine && hook.RectangleAwaitingClick && !hook.RectangleMouseDown);
+        // Click position wins over stale native state and the last preview.
+        hook.state.MouseMapPos.X = 1; hook.state.MouseMapPos.Y = 2;
+        keys[VK_LBUTTON] = true;
+        assert(hook.Dispatch(WM_LBUTTONDOWN, MK_LBUTTON, Point(280,220)));
+        assert(hook.commits.size() == 1);
+        const auto& commit = hook.commits.front();
+        assert(commit.active && commit.startX == startX && commit.startY == startY);
+        assert(commit.endX == (overview ? (280-128)*4 : 280-128+256));
+        assert(commit.endY == (overview ? (220-32)*4+8 : 220-32+512+8));
+        ExpectCleared(hook);
+        assert(hook.RectangleMouseDown); // Final DOWN owns exactly its matching UP.
+        assert(hook.OwnsRectangleInput());
+        assert(!hook.RectangleCaptured && GetCapture() == nullptr);
+        keys[VK_LBUTTON] = false;
+        assert(hook.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
+        assert(!hook.RectangleMouseDown && hook.commits.size() == 1);
+        assert(!hook.OwnsRectangleInput());
+        assert(!hook.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
+        assert(!hook.Dispatch(WM_MOUSEMOVE, 0, Point(300,240)));
+        assert(!hook.WriteLine && hook.commits.size() == 1); // No implicit chaining/duplicate corner build.
+    }
+}
+
+static void TestClickThresholdAndReleaseOnlyMotion() {
+    for (bool overview : {false,true}) {
+        CTAHook small; Begin(small, overview);
+        // Chebyshev threshold: four pixels in both axes is still an anchor click.
+        assert(small.Dispatch(WM_MOUSEMOVE, MK_LBUTTON, Point(204,124)));
+        keys[VK_LBUTTON] = false;
+        assert(small.Dispatch(WM_LBUTTONUP, 0, Point(204,124)));
+        assert(small.WriteLine && small.RectangleAwaitingClick && small.commits.empty());
+
+        CTAHook release; Begin(release, overview);
+        keys[VK_LBUTTON] = false;
+        assert(release.Dispatch(WM_LBUTTONUP, 0, Point(205,120)));
+        assert(release.commits.size() == 1); // The release itself can cross the drag threshold.
+        ExpectCleared(release);
+
+        CTAHook excursion; Begin(excursion, overview);
+        assert(excursion.Dispatch(WM_MOUSEMOVE, MK_LBUTTON, Point(205,120)));
+        assert(excursion.RectangleDragged);
+        keys[VK_LBUTTON] = false;
+        assert(excursion.Dispatch(WM_LBUTTONUP, 0, Point(200,120)));
+        assert(excursion.commits.size() == 1); // Returning to the origin does not turn a drag into a click.
+        ExpectCleared(excursion);
+
+        CTAHook single; AnchorClick(single, overview);
+        keys[VK_LBUTTON] = true;
+        assert(single.Dispatch(WM_LBUTTONDOWN, MK_LBUTTON, Point(200,120)));
+        assert(single.commits.size() == 1); // Two clicks can intentionally place one building.
+        keys[VK_LBUTTON] = false;
+        assert(single.Dispatch(WM_LBUTTONUP, 0, Point(200,120)));
+        ExpectCleared(single);
+    }
 }
 
 static void TestDragReleaseBothViews() {
@@ -313,6 +399,93 @@ static void TestCancellationBothViews() {
     }
 }
 
+static void TestAnchoredCancellationBothViews() {
+    for (bool overview : {false,true}) {
+        for (int reason = 0; reason < 9; ++reason) {
+            CTAHook hook; AnchorClick(hook, overview);
+            switch (reason) {
+            case 0:
+                keys[hook.VirtualKeyCode] = false;
+                hook.Dispatch(WM_KEYUP, hook.VirtualKeyCode); break;
+            case 1:
+                hook.Dispatch(WM_KILLFOCUS); break;
+            case 2:
+                keys[hook.VirtualKeyCode] = false;
+                hook.Dispatch(WM_MOUSEMOVE, 0, Point(250,180)); break;
+            case 3:
+                hook.state.PrepareOrder_Type = ordertype::STOP;
+                hook.Dispatch(WM_MOUSEMOVE, 0, Point(250,180)); break;
+            case 4:
+                hook.Dispatch(WM_CANCELMODE); break;
+            case 5:
+                hook.Dispatch(WM_ACTIVATEAPP, 0); break;
+            case 6:
+                hook.Dispatch(WM_KEYUP, hook.VirtualKeyCode); break;
+            case 7:
+                hook.Dispatch(WM_KEYDOWN, VK_ESCAPE); break;
+            default:
+                keys[VK_CONTROL] = true;
+                hook.Dispatch(WM_KEYDOWN, VK_F2); break;
+            }
+            ExpectCleared(hook);
+            assert(!hook.RectangleMouseDown && !hook.RectangleCaptured && GetCapture() == nullptr);
+            assert(!hook.OwnsRectangleInput());
+            assert(!hook.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
+            assert(hook.commits.empty()); // No physical button means no release to swallow.
+        }
+
+        CTAHook outside; AnchorClick(outside, overview);
+        const int before = outside.calculations;
+        assert(outside.Dispatch(WM_MOUSEMOVE, 0, Point(50,120)));
+        assert(outside.commits.empty() && outside.calculations == before);
+        keys[VK_LBUTTON] = true;
+        assert(outside.Dispatch(WM_LBUTTONDOWN, MK_LBUTTON, Point(50,120)));
+        ExpectCleared(outside);
+        assert(outside.RectangleMouseDown && outside.commits.empty());
+        keys[VK_LBUTTON] = false;
+        assert(outside.Dispatch(WM_LBUTTONUP, 0, Point(50,120)));
+        assert(!outside.RectangleMouseDown && outside.commits.empty());
+
+        CTAHook tooLarge; AnchorClick(tooLarge, overview);
+        tooLarge.rejectGeometry = true; keys[VK_LBUTTON] = true;
+        assert(tooLarge.Dispatch(WM_LBUTTONDOWN, MK_LBUTTON, Point(280,220)));
+        ExpectCleared(tooLarge);
+        assert(tooLarge.commits.empty() && tooLarge.warnings == 1 && tooLarge.RectangleMouseDown);
+        keys[VK_LBUTTON] = false;
+        assert(tooLarge.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
+        assert(tooLarge.commits.empty() && !tooLarge.RectangleMouseDown);
+    }
+}
+
+static void TestAnchoredMapMarginsAndModifiers() {
+    CTAHook margin; control.overview = false;
+    margin.state.MapSizeX = 100; margin.state.MapSizeY = 80;
+    margin.state.EyeBallMapXPos = margin.state.EyeBallMapYPos = -200;
+    keys[margin.VirtualKeyCode] = keys[VK_LBUTTON] = true;
+    assert(!margin.Dispatch(WM_LBUTTONDOWN, MK_LBUTTON, Point(200,250)));
+    assert(!margin.WriteLine && margin.commits.empty()); // Black camera margin is not terrain.
+    AnchorClick(margin, false, Point(350,250));
+    keys[VK_LBUTTON] = true;
+    assert(margin.Dispatch(WM_LBUTTONDOWN, MK_LBUTTON, Point(200,250)));
+    ExpectCleared(margin); assert(margin.commits.empty() && margin.RectangleMouseDown);
+    keys[VK_LBUTTON] = false;
+    assert(margin.Dispatch(WM_LBUTTONUP, 0, Point(200,250)));
+    assert(margin.commits.empty() && !margin.RectangleMouseDown);
+
+    for (bool overview : {false,true}) {
+        CTAHook modified;
+        keys[VK_SHIFT] = keys[VK_CONTROL] = keys[VK_MENU] = true;
+        AnchorClick(modified, overview);
+        assert(modified.Dispatch(WM_MOUSEMOVE, MK_SHIFT, Point(250,180)));
+        keys[VK_LBUTTON] = true;
+        assert(modified.Dispatch(WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, Point(280,220)));
+        assert(modified.commits.size() == 1);
+        keys[VK_LBUTTON] = false;
+        assert(modified.Dispatch(WM_LBUTTONUP, MK_SHIFT, Point(280,220)));
+        ExpectCleared(modified);
+    }
+}
+
 static void TestSettingsAndCaptureFailure() {
     for (bool overview : {false,true}) {
         CTAHook settings; Begin(settings, overview);
@@ -363,6 +536,20 @@ static void TestWheelUpdatesOnlyPreview() {
         assert(hook.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
         assert(hook.commits.size() == 1 && hook.commits[0].spacing == 0);
     }
+    for (bool overview : {false,true}) {
+        CTAHook hook; AnchorClick(hook, overview);
+        assert(hook.Dispatch(WM_MOUSEMOVE, 0, Point(250,180)));
+        const int initialCalculations = hook.calculations;
+        assert(hook.Dispatch(WM_MOUSEWHEEL, std::uintptr_t(120) << 16, Point(220,140)));
+        assert(hook.Spacing == 1 && hook.calculations == initialCalculations + 1);
+        assert(hook.WriteLine && hook.RectangleAwaitingClick && hook.commits.empty());
+        keys[VK_LBUTTON] = true;
+        assert(hook.Dispatch(WM_LBUTTONDOWN, MK_LBUTTON, Point(280,220)));
+        assert(hook.commits.size() == 1 && hook.commits[0].spacing == 1);
+        keys[VK_LBUTTON] = false;
+        assert(hook.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
+        assert(hook.commits.size() == 1);
+    }
 }
 
 static void TestReentrantCaptureAndDoubleClick() {
@@ -393,9 +580,41 @@ static void TestReentrantCaptureAndDoubleClick() {
     keys[VK_LBUTTON] = false;
     assert(stolen.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
     assert(stolen.commits.empty());
+
+    for (bool overview : {false,true}) {
+        CTAHook anchored;
+        int ownChanges = 0;
+        onCaptureRelease = [&]() {
+            ++ownChanges;
+            anchored.Dispatch(WM_CAPTURECHANGED);
+        };
+        AnchorClick(anchored, overview);
+        assert(ownChanges == 1 && anchored.RectangleAwaitingClick && anchored.WriteLine);
+        assert(anchored.Dispatch(WM_MOUSEMOVE, 0, Point(250,180)));
+        keys[VK_LBUTTON] = true;
+        assert(anchored.Dispatch(WM_LBUTTONDBLCLK, MK_LBUTTON, Point(280,220)));
+        assert(anchored.commits.size() == 1 && ownChanges == 1);
+        ExpectCleared(anchored);
+        keys[VK_LBUTTON] = false;
+        assert(anchored.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
+        assert(anchored.commits.size() == 1 && !anchored.RectangleMouseDown);
+        assert(!anchored.Dispatch(WM_MOUSEMOVE, 0, Point(300,240)));
+    }
 }
 
 static void TestDispatchFailureAndGameExitCleanup() {
+    for (bool overview : {false,true}) {
+        CTAHook geometryFailure; Begin(geometryFailure, overview);
+        geometryFailure.throwOnCalculate = true; keys[VK_LBUTTON] = false;
+        bool failed = false;
+        try { geometryFailure.Dispatch(WM_LBUTTONUP, 0, Point(200,120)); }
+        catch (const std::runtime_error&) { failed = true; }
+        assert(failed && geometryFailure.commits.empty());
+        ExpectCleared(geometryFailure);
+        assert(!geometryFailure.RectangleMouseDown && !geometryFailure.RectangleCaptured);
+        assert(GetCapture() == nullptr && captureReleases == 1);
+    }
+
     CTAHook failure; Begin(failure, false);
     failure.throwOnCommit = true; keys[VK_LBUTTON] = false;
     bool threw = false;
@@ -413,24 +632,54 @@ static void TestDispatchFailureAndGameExitCleanup() {
     assert(leaving.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
     ExpectCleared(leaving);
     assert(leaving.commits.empty() && !leaving.RectangleMouseDown && GetCapture() == nullptr);
+
+    for (bool overview : {false,true}) {
+        CTAHook anchoredFailure; AnchorClick(anchoredFailure, overview);
+        anchoredFailure.throwOnCommit = true; keys[VK_LBUTTON] = true;
+        bool failed = false;
+        try { anchoredFailure.Dispatch(WM_LBUTTONDOWN, MK_LBUTTON, Point(280,220)); }
+        catch (const std::runtime_error&) { failed = true; }
+        assert(failed && anchoredFailure.commits.size() == 1);
+        ExpectCleared(anchoredFailure); assert(anchoredFailure.RectangleMouseDown);
+        keys[VK_LBUTTON] = false;
+        assert(anchoredFailure.Dispatch(WM_LBUTTONUP, 0, Point(280,220)));
+        assert(anchoredFailure.commits.size() == 1 && !anchoredFailure.RectangleMouseDown);
+
+        CTAHook anchoredExit; AnchorClick(anchoredExit, overview);
+        sharedData.TAProgress = 0; anchoredExit.TAdynmem = nullptr;
+        assert(!anchoredExit.Dispatch(WM_MOUSEMOVE, 0, Point(250,180)));
+        ExpectCleared(anchoredExit);
+        assert(anchoredExit.commits.empty() && !anchoredExit.RectangleMouseDown);
+    }
 }
 
 int main() {
     (void)DataShare;
-    TestDragReleaseBothViews();
-    TestConfiguredKeyAndNativePassThrough();
-    TestCancellationBothViews();
-    TestSettingsAndCaptureFailure();
-    TestWheelUpdatesOnlyPreview();
-    TestReentrantCaptureAndDoubleClick();
-    TestDispatchFailureAndGameExitCleanup();
-    std::cout << "Rectangle gesture integration tests passed\n";
+    for (int interfaceType : {0,1}) {
+        testInterfaceType = interfaceType;
+        TestDragReleaseBothViews();
+        TestClickMoveClickBothViews();
+        TestClickThresholdAndReleaseOnlyMotion();
+        TestConfiguredKeyAndNativePassThrough();
+        TestCancellationBothViews();
+        TestAnchoredCancellationBothViews();
+        TestAnchoredMapMarginsAndModifiers();
+        TestSettingsAndCaptureFailure();
+        TestWheelUpdatesOnlyPreview();
+        TestReentrantCaptureAndDoubleClick();
+        TestDispatchFailureAndGameExitCleanup();
+    }
+    std::cout << "Rectangle drag/release and click/move/click tests passed (both interfaces/views)\n";
 }
 '''
 
 
 def main():
     source = (DDRAW / "tahook.cpp").read_text()
+    header = (DDRAW / "tahook.h").read_text()
+    ownership = extract_method(header, "bool OwnsRectangleInput() const")
+    winproc = extract_method((DDRAW / "iddrawsurface.cpp").read_text(), "LRESULT CALLBACK _WinProc(")
+    assert winproc.index("->OwnsRectangleInput()") < winproc.index("NowSupportUnicode")
     helper = re.search(r'bool CTAHook::RectangleGestureMessage\(([^)]*)\)', source)
     if not helper:
         raise RuntimeError("Expected the production RectangleGestureMessage helper")
@@ -451,7 +700,8 @@ def main():
         wheel,
     ))
     harness = HARNESS.replace("// GESTURE_DECLARATION", declaration).replace(
-        "// GESTURE_DISPATCH", dispatch).replace("// PRODUCTION_METHODS", methods)
+        "// GESTURE_DISPATCH", dispatch).replace("// PRODUCTION_METHODS", methods).replace(
+        "// OWNERSHIP_METHOD", ownership)
     with tempfile.TemporaryDirectory(prefix="rectangle-gesture-test-") as temp:
         cpp = Path(temp) / "rectangle_gesture_test.cpp"
         binary = Path(temp) / "rectangle_gesture_test"

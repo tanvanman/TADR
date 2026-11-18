@@ -55,6 +55,9 @@ class CTAHook
     bool RectangleValid;
     bool RectangleMouseDown;
     bool RectangleCaptured;
+    bool RectangleAwaitingClick;
+    bool RectangleDragged;
+    int RectanglePressX, RectanglePressY;
     void EndRectangleGesture(HWND window, bool keepRelease);
 #endif
     void OptimizeDTRows();
@@ -155,7 +158,7 @@ class CTAHook
     ~CTAHook();
     bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 #if GRID_BUILDING_ENABLE
-    bool OwnsRectangleInput() const { return RectangleMouseDown; }
+    bool OwnsRectangleInput() const { return RectangleMouseDown || WriteLine; }
     bool RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPARAM lParam);
 #else
     bool OwnsRectangleInput() const { return false; }

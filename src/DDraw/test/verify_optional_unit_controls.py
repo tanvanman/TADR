@@ -12,7 +12,7 @@ args = parser.parse_args()
 data = args.dll.read_bytes()
 checks = ((b'[DrawnMove] build=alt-v6', args.formations),
           (b'[MexUpgrade] build=optional-cursors-v10', args.mex),
-          (b'[BuildRectangle] release-v4', args.grid))
+          (b'[BuildRectangle] click-v5', args.grid))
 for marker, enabled in checks:
     if (marker in data) != bool(enabled):
         raise SystemExit('Wrong feature selection for ' + marker.decode())

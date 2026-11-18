@@ -11,7 +11,7 @@ that layer disabled.
 | --- | --- | --- |
 | `DRAWN_MOVE_FORMATIONS_ENABLE` | Alt-drag movement formations on the battlefield and megamap; Shift+Alt queues them | Original movement and selection controls |
 | `MEX_UPGRADE_ENABLE` | One-click extractor upgrades with Shift queue/cancel, offset placement and green-arrow/red-X cursors | Original extractor click behavior and cursors |
-| `GRID_BUILDING_ENABLE` | Hold the configured Autoclick Key and drag building grids on the battlefield and megamap; wheel adjusts spacing; mouse release queues construction | Original row building, including its spacing controls |
+| `GRID_BUILDING_ENABLE` | Hold the configured Autoclick Key and click–move–click to place grids on the battlefield and megamap; drag–release also works; wheel adjusts spacing | Original row building, including its spacing controls |
 
 ## Profile defaults
 

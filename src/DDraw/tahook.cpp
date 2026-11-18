@@ -158,6 +158,8 @@ CTAHook::CTAHook(BOOL VidMem)
 #if GRID_BUILDING_ENABLE
 	WriteLine = RingWrite = false;
 	RectangleValid = RectangleMouseDown = RectangleCaptured = false;
+	RectangleAwaitingClick = RectangleDragged = false;
+	RectanglePressX = RectanglePressY = 0;
 	TAhWnd = NULL;
 #endif
 
@@ -196,6 +198,8 @@ CTAHook::CTAHook(BOOL VidMem)
 #if GRID_BUILDING_ENABLE
 	RectangleValid = false;
 	RectangleMouseDown = RectangleCaptured = false;
+	RectangleAwaitingClick = RectangleDragged = false;
+	RectanglePressX = RectanglePressY = 0;
 	MatrixLength = 0;
 	XMatrix[0] = YMatrix[0] = -1;
 #endif
@@ -226,7 +230,7 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	IDDrawSurface::OutptTxt ( "New CTAHook");
 #if GRID_BUILDING_ENABLE
-	IDDrawSurface::OutptTxt ( "[BuildRectangle] release-v4");
+	IDDrawSurface::OutptTxt ( "[BuildRectangle] click-v5");
 #endif
 }
 
@@ -434,6 +438,7 @@ void CTAHook::EndRectangleGesture(HWND window, bool keepRelease)
 {
 	WriteLine = false;
 	RectangleValid = false;
+	RectangleAwaitingClick = RectangleDragged = false;
 	XMatrix[0] = YMatrix[0] = -1;
 	if (!keepRelease) RectangleMouseDown = false;
 	EnableTABuildRect();
@@ -463,17 +468,29 @@ bool CTAHook::RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPAR
 			|| (wParam == VK_F2 && (GetAsyncKeyState(VK_CONTROL)&0x8000))))
 		|| Msg == WM_KILLFOCUS || Msg == WM_CANCELMODE
 		|| (Msg == WM_ACTIVATEAPP && !wParam)
-		|| (Msg == WM_CAPTURECHANGED && reinterpret_cast<HWND>(lParam) != window)))
+		|| (RectangleCaptured && Msg == WM_CAPTURECHANGED && reinterpret_cast<HWND>(lParam) != window)))
 		EndRectangleGesture(window, true);
 
-	if (Msg == WM_LBUTTONUP && RectangleMouseDown)
+	// A small amount of click jitter is not a drag. Test the release too:
+	// Windows may coalesce motion events before the button comes back up.
+	if (WriteLine && RectangleMouseDown && !RectangleAwaitingClick
+		&& (Msg == WM_MOUSEMOVE || Msg == WM_LBUTTONUP))
 	{
-		// Consume this release even if the modifier/focus was lost after DOWN.
-		// Keep WriteLine set through dispatch: it selects rectangle exit routing.
-		RectangleMouseDown = false;
+		const int x = static_cast<short>(LOWORD(lParam));
+		const int y = static_cast<short>(HIWORD(lParam));
+		if (x < RectanglePressX-4 || x > RectanglePressX+4
+			|| y < RectanglePressY-4 || y > RectanglePressY+4)
+			RectangleDragged = true;
+	}
+
+	if (press && WriteLine && RectangleAwaitingClick)
+	{
+		// The second press places the grid, as the original row tool did.
+		// Retain ownership of its UP even if placement changes input mode.
+		RectangleMouseDown = true;
 		__try
 		{
-			if (WriteLine && UpdateRectangleMouse(lParam))
+			if (UpdateRectangleMouse(lParam))
 			{
 				EndX = TAdynmem->MouseMapPos.X;
 				EndY = TAdynmem->MouseMapPos.Y;
@@ -488,7 +505,50 @@ bool CTAHook::RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPAR
 		}
 		__finally
 		{
-			EndRectangleGesture(window, false);
+			EndRectangleGesture(window, true);
+		}
+		return true;
+	}
+
+	if (Msg == WM_LBUTTONUP && RectangleMouseDown)
+	{
+		// Consume this release even if the modifier/focus was lost after DOWN.
+		// Keep WriteLine set through dispatch: it selects rectangle exit routing.
+		RectangleMouseDown = false;
+		bool anchor = false;
+		__try
+		{
+			if (WriteLine && UpdateRectangleMouse(lParam))
+			{
+				EndX = TAdynmem->MouseMapPos.X;
+				EndY = TAdynmem->MouseMapPos.Y;
+				CalculateLine();
+				if (!RectangleDragged)
+				{
+					// A click anchors the first corner. Continue previewing
+					// without holding the mouse, while the binding stays held.
+					RectangleAwaitingClick = true;
+					anchor = true;
+				}
+				else if (RectangleValid) WriteDTLine();
+				else
+				{
+					char text[] = "Rectangle too large (maximum 999 buildings). Increase spacing or use a smaller area.";
+					SendText(text, 0);
+				}
+			}
+		}
+		__finally
+		{
+			if (anchor)
+			{
+				// Capture release can re-enter with WM_CAPTURECHANGED.
+				// Clear ownership first so it cannot cancel this anchor.
+				const bool captured = RectangleCaptured;
+				RectangleCaptured = false;
+				if (captured && GetCapture() == window) ReleaseCapture();
+			}
+			else EndRectangleGesture(window, false);
 		}
 		return true;
 	}
@@ -498,6 +558,9 @@ bool CTAHook::RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPAR
 	{
 		WriteLine = true;
 		RectangleMouseDown = true;
+		RectangleAwaitingClick = RectangleDragged = false;
+		RectanglePressX = static_cast<short>(LOWORD(lParam));
+		RectanglePressY = static_cast<short>(HIWORD(lParam));
 		TAhWnd = window;
 		DisableTABuildRect();
 		StartX = ClickSnapPreviewBuild ? ClickSnapPreviewPosXY[0]*16 : TAdynmem->MouseMapPos.X;

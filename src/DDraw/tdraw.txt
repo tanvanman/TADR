@@ -1204,11 +1204,12 @@ NEW FEATURES IN DETAIL:
   Requires GRID_BUILDING_ENABLE=1 in the mod build. When excluded, the
   original row-building tool and its spacing controls remain available.
 
-  Choose a building, hold the configured Autoclick Key (X by default), then
-  press and hold the left mouse button at the first corner. Drag to size
-  the rectangle and release the mouse button to queue it. Release the key
-  before the mouse button to cancel the current preview. The
-  same controls work on the battlefield and megamap.
+  Choose a building and hold the configured Autoclick Key (X by default).
+  Click and release at the first corner, move the mouse to size the grid,
+  then click again to queue it. Keep the key held until that final click.
+  You can also hold the left mouse button, drag and release to queue a grid.
+  Releasing the key or pressing Escape cancels an unfinished preview.
+  The same controls work on the battlefield and megamap.
 
   The rectangle fills with rows and columns. A narrow rectangle makes a
   single row or column. Rows, columns and individual buildings use the
