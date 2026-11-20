@@ -55,6 +55,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
+    <OptionalUnitControlDefinitions Condition="'$(DRAWN_MOVE_FORMATIONS_ENABLE)' != ''">$(OptionalUnitControlDefinitions);DRAWN_MOVE_FORMATIONS_ENABLE=$(DRAWN_MOVE_FORMATIONS_ENABLE)</OptionalUnitControlDefinitions>
+    <OptionalUnitControlDefinitions Condition="'$(MEX_UPGRADE_ENABLE)' != ''">$(OptionalUnitControlDefinitions);MEX_UPGRADE_ENABLE=$(MEX_UPGRADE_ENABLE)</OptionalUnitControlDefinitions>
+    <OptionalUnitControlDefinitions Condition="'$(GRID_BUILDING_ENABLE)' != ''">$(OptionalUnitControlDefinitions);GRID_BUILDING_ENABLE=$(GRID_BUILDING_ENABLE)</OptionalUnitControlDefinitions>
+  </PropertyGroup>
+  <PropertyGroup>
     <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.\Debug\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.\Debug\</IntDir>
@@ -521,6 +526,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="sharedialog.cpp" />
     <ClCompile Include="TABugFix.cpp" />
     <ClCompile Include="TAConfig.cpp" />
+    <ClCompile Include="DrawnMove.cpp" />
+    <ClCompile Include="MexUpgrade.cpp" />
     <ClCompile Include="tahook.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -614,7 +621,13 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="TAbugfix.h" />
     <ClInclude Include="TAConfig.h" />
     <ClInclude Include="tafunctions.h" />
+    <ClInclude Include="DrawnMove.h" />
+    <ClInclude Include="MexUpgrade.h" />
+    <ClInclude Include="MexUpgradeMenu.h" />
+    <ClInclude Include="OptionalUnitControls.h" />
+    <ClInclude Include="DrawnMoveGeometry.h" />
     <ClInclude Include="tahook.h" />
+    <ClInclude Include="BuildRectangleGeometry.h" />
     <ClInclude Include="taHPI.h" />
     <ClInclude Include="tamem.h" />
     <ClInclude Include="AiSeardchMapEntriesLimit.h" />
@@ -659,6 +672,16 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions);$(TDRAW_CONFIG)</PreprocessorDefinitions>
     </ResourceCompile>
   </ItemGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);$(OptionalUnitControlDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <Target Name="ValidateOptionalUnitControls" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(DRAWN_MOVE_FORMATIONS_ENABLE)' != '' and '$(DRAWN_MOVE_FORMATIONS_ENABLE)' != '0' and '$(DRAWN_MOVE_FORMATIONS_ENABLE)' != '1'" Text="DRAWN_MOVE_FORMATIONS_ENABLE must be 0 or 1." />
+    <Error Condition="'$(MEX_UPGRADE_ENABLE)' != '' and '$(MEX_UPGRADE_ENABLE)' != '0' and '$(MEX_UPGRADE_ENABLE)' != '1'" Text="MEX_UPGRADE_ENABLE must be 0 or 1." />
+    <Error Condition="'$(GRID_BUILDING_ENABLE)' != '' and '$(GRID_BUILDING_ENABLE)' != '0' and '$(GRID_BUILDING_ENABLE)' != '1'" Text="GRID_BUILDING_ENABLE must be 0 or 1." />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

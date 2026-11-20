@@ -1,0 +1,89 @@
+name: Validate optional unit controls
+on:
+  push:
+    branches: ['feature/optional-unit-controls']
+  pull_request:
+    paths:
+      - 'src/DDraw/**'
+      - '.github/workflows/optional-unit-controls.yml'
+permissions:
+  contents: read
+jobs:
+  behavior:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check defaults, overrides and excluded-feature fallbacks
+        run: |
+          python3 src/DDraw/test/optional_unit_controls_test.py
+          python3 src/DDraw/test/grid_building_switch_test.py
+          python3 src/DDraw/test/mex_upgrade_test.py
+          python3 src/DDraw/test/mex_upgrade_menu_io_test.py
+          python3 src/DDraw/test/drawn_move_input_test.py
+          python3 src/DDraw/test/drawn_move_input_test.py --mod PROTA
+          python3 src/DDraw/test/drawn_move_input_test.py --mod OTA
+      - name: Check enabled geometry and grid controls
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/drawn_move_geometry_test.cpp -o /tmp/drawn-move-test
+          /tmp/drawn-move-test
+          g++ -std=c++11 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/build_rectangle_geometry_test.cpp -o /tmp/build-rectangle-test
+          /tmp/build-rectangle-test
+          python3 src/DDraw/test/build_rectangle_input_test.py
+          python3 src/DDraw/test/build_rectangle_gesture_test.py
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        include:
+          - {name: esc-000, mod: ESCALATION, formations: 0, mex: 0, grid: 0, override: true}
+          - {name: esc-001, mod: ESCALATION, formations: 0, mex: 0, grid: 1, override: true}
+          - {name: esc-010, mod: ESCALATION, formations: 0, mex: 1, grid: 0, override: true}
+          - {name: esc-011, mod: ESCALATION, formations: 0, mex: 1, grid: 1, override: true}
+          - {name: esc-100, mod: ESCALATION, formations: 1, mex: 0, grid: 0, override: true}
+          - {name: esc-101, mod: ESCALATION, formations: 1, mex: 0, grid: 1, override: true}
+          - {name: esc-110, mod: ESCALATION, formations: 1, mex: 1, grid: 0, override: true}
+          - {name: esc-111, mod: ESCALATION, formations: 1, mex: 1, grid: 1, override: true}
+          - {name: escalation-default, mod: ESCALATION, formations: 1, mex: 1, grid: 1, override: false}
+          - {name: prota-default, mod: PROTA, formations: 1, mex: 0, grid: 1, override: false}
+          - {name: ota-default, mod: OTA, formations: 0, mex: 0, grid: 0, override: false}
+          - {name: tazero-default, mod: TAZERO, formations: 0, mex: 0, grid: 0, override: false}
+          - {name: bta-default, mod: BTA, formations: 0, mex: 0, grid: 0, override: false}
+          - {name: mayhem-default, mod: MAYHEM, formations: 0, mex: 0, grid: 0, override: false}
+          - {name: twilight-default, mod: TWILIGHT, formations: 0, mex: 0, grid: 0, override: false}
+          - {name: ota-opt-in, mod: OTA, formations: 1, mex: 1, grid: 1, override: true}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_x86
+      - name: Build selected feature combination
+        shell: pwsh
+        run: |
+          $buildArgs = @('src/DDraw/ddraw.vcxproj', '/p:Configuration=ReleasePublic', '/p:Platform=Win32', '/p:TDRAW_CONFIG=TDRAW_CONFIG_${{ matrix.mod }}')
+          if ('${{ matrix.override }}' -eq 'true') {
+            $buildArgs += @('/p:DRAWN_MOVE_FORMATIONS_ENABLE=${{ matrix.formations }}', '/p:MEX_UPGRADE_ENABLE=${{ matrix.mex }}', '/p:GRID_BUILDING_ENABLE=${{ matrix.grid }}')
+          }
+          & msbuild @buildArgs
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      - name: Verify exact feature selection in the DLL
+        run: python src/DDraw/test/verify_optional_unit_controls.py src/DDraw/Public/tdraw.dll --formations ${{ matrix.formations }} --mex ${{ matrix.mex }} --grid ${{ matrix.grid }}
+      - name: Verify Windows 7 imports
+        run: python src/DDraw/tools/check_win7_imports.py src/DDraw/Public/tdraw.dll
+      - name: Reject invalid MSBuild switch values
+        if: matrix.name == 'esc-000'
+        shell: pwsh
+        run: |
+          foreach ($flag in @('DRAWN_MOVE_FORMATIONS_ENABLE', 'MEX_UPGRADE_ENABLE', 'GRID_BUILDING_ENABLE')) {
+            & msbuild src/DDraw/ddraw.vcxproj /t:ValidateOptionalUnitControls /p:Configuration=ReleasePublic /p:Platform=Win32 /p:TDRAW_CONFIG=TDRAW_CONFIG_ESCALATION "/p:$flag=2"
+            if ($LASTEXITCODE -eq 0) { throw "Invalid $flag was accepted" }
+          }
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unit-controls-${{ matrix.name }}
+          path: |
+            src/DDraw/Public/tdraw.dll
+            src/DDraw/Public/tdraw.pdb
+            src/DDraw/Public/tdraw.map

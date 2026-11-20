@@ -49,6 +49,18 @@ class CTAHook
     //void SendQueued();
     void WriteDTLine();
     void CalculateLine();
+#if GRID_BUILDING_ENABLE
+    bool UpdateRectangleMouse(LPARAM lParam);
+    void RefreshRectangleFootprint();
+    bool RectangleValid;
+    bool RectangleMouseDown;
+    bool RectangleCaptured;
+    bool RectangleAwaitingClick;
+    bool RectangleDragged;
+    bool RectangleLineMode;
+    int RectanglePressX, RectanglePressY;
+    void EndRectangleGesture(HWND window, bool keepRelease);
+#endif
     void OptimizeDTRows();
     void VisualizeRow();
     void WriteScrollDTLine();
@@ -146,6 +158,13 @@ class CTAHook
     CTAHook(BOOL VidMem);
     ~CTAHook();
     bool Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+#if GRID_BUILDING_ENABLE
+    bool OwnsRectangleInput() const { return RectangleMouseDown || WriteLine; }
+    bool RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPARAM lParam);
+#else
+    bool OwnsRectangleInput() const { return false; }
+    bool RectangleGestureMessage(HWND, UINT, WPARAM, LPARAM) { return false; }
+#endif
     void Set(int KeyCodei, const char *ChatMacroi, bool OptimizeRowsi, bool FullRingsi, int iDelay, int iMexSnapRadius, int iWreckSnapRadius, int ClickSnapOverrideKey);
     void WriteShareMacro();
     void Blit(LPDIRECTDRAWSURFACE DestSurf);
