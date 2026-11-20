@@ -22,7 +22,8 @@ namespace
     constexpr unsigned kMaxOrders = 8192;
     constexpr int kMaxUpgradeFootprint = 32;
     constexpr unsigned kFeedbackTicks = 45;
-    thread_local bool checkingSite = false;
+    // Cursor probes and build input run on TA's main thread.
+    static bool checkingSite = false;
 
     struct SiteProbe
     {
@@ -492,9 +493,14 @@ namespace
         // positions within one tile and could cancel an unrelated nearby order.
         Remove(&constructor, build);
         Remove(&constructor, reclaim);
-        IDDrawSurface::OutptFmtTxt("[MexUpgrade] cancelled builder=%u extractor=%u",
-            static_cast<unsigned short>(constructor.UnitInGameIndex),
-            static_cast<unsigned short>(upgrade.target->UnitInGameIndex));
+        static unsigned cancelledLogs = 0;
+        if (cancelledLogs < 32)
+        {
+            ++cancelledLogs;
+            IDDrawSurface::OutptFmtTxt("[MexUpgrade] cancelled builder=%u extractor=%u",
+                static_cast<unsigned short>(constructor.UnitInGameIndex),
+                static_cast<unsigned short>(upgrade.target->UnitInGameIndex));
+        }
         return true;
     }
 
@@ -533,14 +539,19 @@ namespace
         {
             feedback = {&ta, static_cast<unsigned short>(constructor.UnitInGameIndex),
                 constructor.UnitID, build, order->NextOrder->StartTime, type, buildPos};
-            IDDrawSurface::OutptFmtTxt("[MexUpgrade] queued builder=%u extractor=%u build=%d shift=%d first=%d",
-                static_cast<unsigned short>(constructor.UnitInGameIndex),
-                static_cast<unsigned short>(target.UnitInGameIndex), type, shift, constructor.UnitOrders == order);
-            if (!shift && constructor.UnitOrders && constructor.UnitOrders != order)
+            static unsigned queuedLogs = 0;
+            if (queuedLogs < 32)
             {
-                const auto& head = *constructor.UnitOrders;
-                IDDrawSurface::OutptFmtTxt("[MexUpgrade] native order still ahead of replacement: action=%u state=%u flags=%08X",
-                    static_cast<unsigned>(head.COBHandler_index), static_cast<unsigned>(head.State), head.Order_State);
+                ++queuedLogs;
+                IDDrawSurface::OutptFmtTxt("[MexUpgrade] queued builder=%u extractor=%u build=%d shift=%d first=%d",
+                    static_cast<unsigned short>(constructor.UnitInGameIndex),
+                    static_cast<unsigned short>(target.UnitInGameIndex), type, shift, constructor.UnitOrders == order);
+                if (!shift && constructor.UnitOrders && constructor.UnitOrders != order)
+                {
+                    const auto& head = *constructor.UnitOrders;
+                    IDDrawSurface::OutptFmtTxt("[MexUpgrade] native order still ahead of replacement: action=%u state=%u flags=%08X",
+                        static_cast<unsigned>(head.COBHandler_index), static_cast<unsigned>(head.State), head.Order_State);
+                }
             }
             return true;
         }

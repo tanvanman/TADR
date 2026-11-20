@@ -19,6 +19,14 @@ parser.add_argument('--feature', choices=('on', 'off', 'both'), default='both',
 args = parser.parse_args()
 
 root = Path(__file__).resolve().parent
+# The megamap must forward rapid presses before native double-click selection.
+overview = (root.parent / 'MegamapControl.cpp').read_text()
+gate_start = overview.index('#if DRAWN_MOVE_FORMATIONS_ENABLE', overview.index('bool MegaMapControl::Message('))
+gate = overview[gate_start:overview.index('#endif', gate_start)]
+press_condition = gate[:gate.index('{')]
+assert all(message in press_condition for message in (
+    'WM_LBUTTONDOWN', 'WM_RBUTTONDOWN', 'WM_LBUTTONDBLCLK', 'WM_RBUTTONDBLCLK'))
+assert 'DrawnMove::Message(' in gate
 source = (root.parent / 'DrawnMove.cpp').read_text()
 source = '\n'.join(line for line in source.splitlines() if not line.startswith('#include') or line == '#include "config.h"' )
 source = source.replace('__try', '').replace('__finally', '')
@@ -27,11 +35,11 @@ with tempfile.TemporaryDirectory() as temp:
     from itertools import product
     variants = []
     if args.feature != 'off':
-        variants.extend((1, megamap, preview, no_orders)
-                        for megamap, preview, no_orders in product((0, 1), repeat=3))
+        variants.extend((1, debug, megamap, preview, no_orders)
+                        for debug, megamap, preview, no_orders in product((0, 1), repeat=4))
     if args.feature != 'on':
-        variants.extend((0, megamap, 1, 0) for megamap in (0, 1))
-    for enabled, megamap, preview, no_orders in variants:
+        variants.extend((0, 0, megamap, 1, 0) for megamap in (0, 1))
+    for enabled, debug, megamap, preview, no_orders in variants:
         variant = source.replace('#include "config.h"',
             f'#include "config.h"\n#undef USEMEGAMAP\n#define USEMEGAMAP {megamap}')
         (path / 'test.cpp').write_text(
@@ -39,12 +47,16 @@ with tempfile.TemporaryDirectory() as temp:
             '\n#include "drawn_move_input_cases.h"\n')
         subprocess.run(['g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
                         '-fsanitize=address,undefined', '-g', f'-DTDRAW_CONFIG_{args.mod}',
+                        *(['-D_DEBUG'] if debug else []),
                         f'-DDRAWN_MOVE_FORMATIONS_ENABLE={enabled}',
                         f'-DDRAWN_MOVE_TEST_PREVIEW={preview}', f'-DDRAWN_MOVE_TEST_NO_ORDERS={no_orders}',
                         '-I', str(root), '-I', str(root.parent), str(path / 'test.cpp'),
                         '-o', str(path / 'test')], check=True)
         # An omitted feature contributes no build marker or gesture implementation.
         assert (b'[DrawnMove] build=alt-v6' in (path / 'test').read_bytes()) == bool(enabled)
+        # Both release knob values must dispatch orders; the diagnostic key is
+        # absent from release code, rather than merely defaulting to false.
+        assert (b'DrawnMoveTestNoOrders' in (path / 'test').read_bytes()) == bool(enabled and debug)
         subprocess.run([str(path / 'test')], check=True,
                        env={**os.environ, 'ASAN_OPTIONS': 'detect_leaks=0'})
     # Regression: the original test harness supplied USEMEGAMAP itself and

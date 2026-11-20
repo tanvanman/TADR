@@ -534,7 +534,8 @@ bool MegaMapControl::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lP
                 // Capture a move drag before SelectDown can issue a prepared
                 // command or start a selection box. Refresh hover at the press
                 // so clicks on unit icons retain attack/guard/selection actions.
-                if (Msg == WM_LBUTTONDOWN || Msg == WM_RBUTTONDOWN)
+                if (Msg == WM_LBUTTONDOWN || Msg == WM_RBUTTONDOWN
+                    || Msg == WM_LBUTTONDBLCLK || Msg == WM_RBUTTONDBLCLK)
                 {
                     MouseMove(xPos,yPos);
                     static unsigned formationPressLogs=0;

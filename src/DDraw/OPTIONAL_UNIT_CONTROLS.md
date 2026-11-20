@@ -77,3 +77,9 @@ reports repeated live multiplayer testing on TAF. These are user playtests;
 CI checks code paths and builds rather than establishing multiplayer
 compatibility. The new Alt row override still needs its own in-game test;
 no replay-watch result is claimed here.
+
+Review follow-up also preserves rapid double-click formation starts on both
+maps, includes constructors without an AI build plan when choosing grid build
+order, and bounds routine gesture logging. The `DrawnMoveTestNoOrders`
+diagnostic preference exists only in Debug builds; release builds always
+submit the requested native orders. These changes do not alter feature defaults.

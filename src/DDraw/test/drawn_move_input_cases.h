@@ -26,6 +26,102 @@ void selected() {
     for(int i=0;i<3;++i) assert(units[i].UnitSelected & UnitSelected_State);
     assert(!(units[3].UnitSelected & UnitSelected_State));
 }
+
+#if DRAWN_MOVE_FORMATIONS_ENABLE
+constexpr bool diagnosticNoOrders =
+#if defined(_DEBUG) && DRAWN_MOVE_TEST_NO_ORDERS
+    true;
+#else
+    false;
+#endif
+
+void TestGestureLogLimit() {
+    for (int i=0;i<64;++i) {
+        reset();
+        units[3].UnitID=0;units[3].UnitSelected |= UnitSelected_State;
+        assert(event(WM_RBUTTONDOWN));
+        event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
+        assert(!DrawnMove::OwnsInput() && capture==0);
+    }
+    const auto begins=std::count_if(logMessages.begin(),logMessages.end(),[](const std::string& s) {
+        return s.find("[DrawnMove] begin")==0;
+    });
+    const auto quarantines=std::count_if(logMessages.begin(),logMessages.end(),[](const std::string& s) {
+        return s.find("[DrawnMove] quarantined")==0;
+    });
+    assert(begins==32 && quarantines==(diagnosticNoOrders ? 0 : 32));
+    // Keep the counter values, rather than resetting production's trace budget.
+    // Later gestures must not resume per-gesture logging.
+}
+
+void TestRapidDoubleClickGestures() {
+    for (int interface : {0,1}) for (bool mega : {false,true}) for (bool queue : {false,true}) {
+#if !USEMEGAMAP
+        if (mega) continue;
+#endif
+        const UINT down=interface==0 ? WM_LBUTTONDOWN : WM_RBUTTONDOWN;
+        const UINT dbl=interface==0 ? WM_LBUTTONDBLCLK : WM_RBUTTONDBLCLK;
+        const UINT up=interface==0 ? WM_LBUTTONUP : WM_RBUTTONUP;
+        const UINT otherDbl=interface==0 ? WM_RBUTTONDBLCLK : WM_LBUTTONDBLCLK;
+        const UINT otherUp=interface==0 ? WM_RBUTTONUP : WM_LBUTTONUP;
+        const unsigned keys=queue ? MK_SHIFT : 0;
+        reset(interface);megaController.visible=mega;altHeld=false;
+        assert(!event(dbl,300,200,keys,true,mega));
+        assert(orders.empty() && !DrawnMove::OwnsInput()); // Native type selection keeps plain double-click.
+
+        reset(interface);megaController.visible=mega;
+        assert(event(down,300,200,keys,true,mega));
+        assert(event(up,300,200,keys));
+        assert(orders.size()==(diagnosticNoOrders ? 0 : 1));
+        orders.clear();
+        assert(event(dbl,300,200,keys,true,mega));
+        assert(orders.empty() && DrawnMove::OwnsInput());
+        event(WM_MOUSEMOVE,500,200,keys);assert(event(up,500,200,keys));
+        assert(orders.size()==(diagnosticNoOrders ? 0 : 3));
+        for (const auto& order:orders) assert(order.shift==queue && order.selected.size()==1);
+        assert(!DrawnMove::OwnsInput() && capture==0);selected();
+        assert(!event(up,500,200,keys) && orders.size()==(diagnosticNoOrders ? 0 : 3));
+
+        reset(interface);megaController.visible=mega;
+        assert(event(dbl,300,200,keys,true,mega));
+        assert(event(up,300,200,keys));
+        assert(orders.size()==(diagnosticNoOrders ? 0 : 1));
+        if (!orders.empty()) assert(orders.front().selected.size()==3);
+
+        // A second press while already captured cancels the old stroke and
+        // cannot dispatch a duplicate or fall through into native selection.
+        reset(interface);megaController.visible=mega;
+        assert(event(down,300,200,keys,true,mega));
+        assert(event(dbl,300,200,keys,true,mega));
+        assert(event(up,500,200,keys));
+        assert(orders.empty() && !DrawnMove::OwnsInput());
+        for (bool otherFirst : {false,true}) {
+            reset(interface);megaController.visible=mega;
+            assert(event(down,300,200,keys,true,mega));
+            assert(event(otherDbl,300,200,keys,true,mega));
+            assert(event(otherFirst ? otherUp : up,500,200,keys));
+            assert(event(otherFirst ? up : otherUp,500,200,keys));
+            assert(orders.empty() && !DrawnMove::OwnsInput());
+        }
+
+        // A missed release after focus/capture loss must recover on a rapid press.
+        reset(interface);megaController.visible=mega;
+        assert(event(down,300,200,keys,true,mega));event(WM_KILLFOCUS);
+        assert(event(dbl,300,200,keys,true,mega));event(up,500,200,keys);
+        assert(orders.size()==(diagnosticNoOrders ? 0 : 3) && !DrawnMove::OwnsInput());
+
+        reset(interface);megaController.visible=mega;world.MouseOverUnit=1;
+        assert(!event(dbl,300,200,keys,true,mega));
+        assert(orders.empty() && !DrawnMove::OwnsInput());
+        reset(interface);megaController.visible=mega;world.PrepareOrder_Type=ordertype::MOVE;
+        assert(!event(WM_RBUTTONDBLCLK,300,200,keys,true,mega));
+        assert(event(WM_LBUTTONDBLCLK,300,200,keys,true,mega));
+        event(WM_LBUTTONUP,500,200,keys);
+        assert(orders.size()==(diagnosticNoOrders ? 0 : 3));
+    }
+}
+#endif
+
 int main() {
 #if !DRAWN_MOVE_FORMATIONS_ENABLE
     // The disabled production entry points must not intercept native selection,
@@ -36,13 +132,14 @@ int main() {
         FakeSurface surface;
         DrawnMove::LogBuild();
         for (unsigned keys : {0u,MK_SHIFT,MK_CONTROL,MK_SHIFT|MK_CONTROL})
-            for (UINT message : {WM_LBUTTONDOWN,WM_MOUSEMOVE,WM_LBUTTONUP,WM_RBUTTONDOWN,
+            for (UINT message : {WM_LBUTTONDOWN,WM_LBUTTONDBLCLK,WM_MOUSEMOVE,WM_LBUTTONUP,WM_RBUTTONDOWN,WM_RBUTTONDBLCLK,
                 WM_RBUTTONUP,WM_MOUSEWHEEL,WM_KEYDOWN,WM_SYSKEYDOWN,WM_KILLFOCUS,
                 WM_CANCELMODE,WM_CAPTURECHANGED,WM_ACTIVATEAPP})
                 for (bool start : {false,true})
                     assert(!event(message,300,200,keys,start,mega));
         DrawnMove::Draw(&surface);
         assert(!DrawnMove::OwnsInput() && capture==0 && orders.empty() && !surface.locked);
+        assert(logMessages.empty() && config.noOrdersReads==0);
         assert(std::memcmp(snapshot,units,sizeof(snapshot))==0);
         assert(std::all_of(surface.pixels.begin(),surface.pixels.end(),[](unsigned char c){return c==0;}));
     }
@@ -54,7 +151,9 @@ int main() {
     std::cout << "Disabled drawn move controls leave native input and rendering untouched\n";
     return 0;
 #else
-#if DRAWN_MOVE_TEST_NO_ORDERS
+    TestGestureLogLimit();
+    TestRapidDoubleClickGestures();
+#if defined(_DEBUG) && DRAWN_MOVE_TEST_NO_ORDERS
     reset();assert(event(WM_RBUTTONDOWN));event(WM_MOUSEMOVE,500,300);event(WM_RBUTTONUP,500,300);
     assert(orders.empty());selected();assert(!DrawnMove::OwnsInput());
     assert(event(WM_RBUTTONDOWN));event(WM_RBUTTONUP);assert(orders.empty());
@@ -64,6 +163,7 @@ int main() {
     assert(orders.empty());selected();assert(!DrawnMove::OwnsInput());
 #endif
     std::cout << "Drawn move no-orders diagnostic tests passed\n";
+    assert(config.noOrdersReads==1);
     return 0;
 #endif
     // Shift-only and Ctrl+Shift input belongs entirely to native selection /
@@ -257,6 +357,15 @@ int main() {
     reset();megaController.visible=true;world.MouseOverUnit=1;
     assert(!event(WM_RBUTTONDOWN,300,200,0,true,true));
     world.MouseOverUnit=0;altHeld=false;assert(!event(WM_RBUTTONDOWN,300,200,MK_CONTROL,true,true));altHeld=true;
+#endif
+    assert(std::count_if(logMessages.begin(),logMessages.end(),[](const std::string& s) {
+        return s.find("[DrawnMove] begin")==0;
+    })==32);
+    assert(logMessages.size()<=96);
+#ifdef _DEBUG
+    assert(config.noOrdersReads==1);
+#else
+    assert(config.noOrdersReads==0);
 #endif
     std::cout << "Drawn move input tests passed (USEMEGAMAP=" << USEMEGAMAP << ")\n";
 #endif

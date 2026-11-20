@@ -120,7 +120,9 @@ int __stdcall SuppressShowReclaimCursorProc(PInlineX86StackBuffer X86StrackBuffe
 		return X86STRACKBUFFERCHANGE;
 	}
 	else {
-		// do nothing
+		// Continue through the native cursor-update call. TABugFix.cpp can wrap
+		// this same 0x4992cd call with DispatchUpgradeCursor, so its
+		// upgrade cursor also runs after this wreck-snap redirect.
 		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x4992cd;
 		return X86STRACKBUFFERCHANGE;
 	}
@@ -1421,7 +1423,8 @@ void CTAHook::CalculateLine()
 				if (unit->UnitID == 0 || unit->Owner_PlayerPtr0 != owner || !unit->UnitType
 					|| !(unit->UnitSelected & UnitSelected_State)
 					|| !(unit->UnitSelected & 0x10000000) || (unit->UnitSelected & 0x4000)
-					|| !unit->UnitType->CANBUILD_ptr)
+					// CANBUILD_ptr is an optional AI plan, not constructor capability.
+					|| !(unit->UnitType->UnitTypeMask_0 & builder))
 					continue;
 				totalX += unit->XPos;
 				totalY += unit->YPos;

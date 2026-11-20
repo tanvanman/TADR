@@ -38,7 +38,7 @@ namespace
     struct Gesture {
         HWND window = NULL;
         UINT button = 0;
-        bool cancelled = false, dragged = false, shift = false;
+        bool cancelled = false, dragged = false, shift = false, trace = false;
         int player = -1, startX = 0, startY = 0;
         TAdynmemStruct* world = NULL;
         unsigned char prepared = 0;
@@ -47,6 +47,7 @@ namespace
         std::vector<UnitRef> units;
     } g;
     UINT suppressedUp = 0;
+    unsigned gestureLogs = 0;
 
     bool Megamap() {
 #if USEMEGAMAP
@@ -169,7 +170,7 @@ namespace
                 else ++staleOther;
             }
         }
-        if (staleFree || staleOther)
+        if (g.trace && (staleFree || staleOther))
             IDDrawSurface::OutptFmtTxt("[DrawnMove] quarantined selected slots: free=%u dead_or_foreign=%u",
                 staleFree,staleOther);
         return selection;
@@ -192,8 +193,12 @@ namespace
         const std::vector<SelectionRef>&, const std::vector<SelectionRef>&,
         const std::vector<Position_Dword>&, bool, unsigned char);
     bool CommitOrders() {
+#ifdef _DEBUG
         static const bool noOrders=MyConfig->GetIniBool("DrawnMoveTestNoOrders",FALSE) != FALSE;
         return !noOrders;
+#else
+        return true;
+#endif
     }
     void Issue(TAdynmemStruct* ta) {
         if (!CommitOrders()) return;
@@ -290,6 +295,10 @@ namespace DrawnMove
     }
     bool Message(HWND window, UINT message, WPARAM keys, LPARAM position, bool allowStart, bool fromMegamap) {
         std::lock_guard<std::recursive_mutex> lock(gestureMutex);
+        // Windows replaces the second rapid press with DBLCLK. Treat it as
+        // another gesture press so Alt input never falls into type selection.
+        if (message == WM_LBUTTONDBLCLK) message=WM_LBUTTONDOWN;
+        else if (message == WM_RBUTTONDBLCLK) message=WM_RBUTTONDOWN;
         TAdynmemStruct* ta=*TAmainStruct_PtrPtr;
         const int x=static_cast<short>(LOWORD(position)), y=static_cast<short>(HIWORD(position));
         if (message == suppressedUp && suppressedUp != 0) { suppressedUp=0; return true; }
@@ -344,7 +353,8 @@ namespace DrawnMove
             || !Playable(ta) || Megamap() != fromMegamap
             || (message != WM_LBUTTONDOWN && message != WM_RBUTTONDOWN)) return false;
         static unsigned megamapPressLogs=0;
-        const bool trace=fromMegamap && megamapPressLogs++ < 32;
+        const bool trace=fromMegamap && megamapPressLogs < 32;
+        if (trace) ++megamapPressLogs;
         static const bool enabled=MyConfig->GetIniBool("DrawnMoveFormations",TRUE) != FALSE;
         // Megamap input refreshes MouseOverUnit for this exact press before
         // entering here. Resolve its contextual cursor now instead of using
@@ -385,11 +395,14 @@ namespace DrawnMove
         next.prepared=ta->PrepareOrder_Type; next.shift=(keys & MK_SHIFT) != 0;
         next.megamap=fromMegamap;
         next.startX=x; next.startY=y; next.path.push_back(point);
+        next.trace=gestureLogs < 32;
+        if (next.trace) ++gestureLogs;
         g=next;
         SetCapture(window);
-        IDDrawSurface::OutptFmtTxt("[DrawnMove] begin view=%s units=%u shift=%d cursor=%d preview=%d orders=%d",
-            fromMegamap ? "megamap" : "battlefield",static_cast<unsigned>(g.units.size()),g.shift,cursor,
-            MyConfig->GetIniBool("DrawnMovePreview",TRUE),CommitOrders());
+        if (g.trace)
+            IDDrawSurface::OutptFmtTxt("[DrawnMove] begin view=%s units=%u shift=%d cursor=%d preview=%d orders=%d",
+                fromMegamap ? "megamap" : "battlefield",static_cast<unsigned>(g.units.size()),g.shift,cursor,
+                MyConfig->GetIniBool("DrawnMovePreview",TRUE),CommitOrders());
         return true;
     }
 

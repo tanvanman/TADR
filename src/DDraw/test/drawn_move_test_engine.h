@@ -7,6 +7,7 @@
 #include <mutex>
 #include <cstring>
 #include <functional>
+#include <string>
 #include <vector>
 #include "../DrawnMoveGeometry.h"
 using HWND=void*;
@@ -23,7 +24,8 @@ using BOOL=int;
 #define HIWORD(x) (((x)>>16)&0xffff)
 constexpr UINT WM_LBUTTONDOWN=1, WM_LBUTTONUP=2, WM_RBUTTONDOWN=3, WM_RBUTTONUP=4,
     WM_MOUSEMOVE=5, WM_KILLFOCUS=6, WM_CANCELMODE=7, WM_CAPTURECHANGED=8,
-    WM_ACTIVATEAPP=9, WM_KEYDOWN=10, WM_MOUSEWHEEL=11, WM_SYSKEYDOWN=12;
+    WM_ACTIVATEAPP=9, WM_KEYDOWN=10, WM_MOUSEWHEEL=11, WM_SYSKEYDOWN=12,
+    WM_LBUTTONDBLCLK=13, WM_RBUTTONDBLCLK=14;
 constexpr unsigned MK_SHIFT=4, MK_CONTROL=8, VK_SHIFT=16, VK_MENU=18;
 constexpr int TAInGame=6, Player_LocalHuman=1, WATCH=0x40, UnitSelected_State=0x10,
     canmove=1, cursormove=14, cursornormal=19;
@@ -72,10 +74,17 @@ Share* DataShare=&share;
 #define DRAWN_MOVE_TEST_PREVIEW 1
 #endif
 struct Config {
+    unsigned noOrdersReads=0;
     BOOL GetIniBool(const char* key, BOOL fallback) {
         if (std::strcmp(key,"DrawnMovePreview")==0) return DRAWN_MOVE_TEST_PREVIEW;
-        if (std::strcmp(key,"DrawnMoveTestNoOrders")==0) return DRAWN_MOVE_TEST_NO_ORDERS;
-        return fallback;
+        if (std::strcmp(key,"DrawnMoveFormations")==0) return fallback;
+        ++noOrdersReads;
+#ifdef _DEBUG
+        assert(std::strcmp(key,"DrawnMoveTestNoOrders")==0);
+#else
+        assert(false && "Release must not request a diagnostic preference");
+#endif
+        return DRAWN_MOVE_TEST_NO_ORDERS;
     }
 } config;
 Config* MyConfig=&config;
@@ -149,7 +158,8 @@ struct FakeMinimap { MegaMapControl* Controler=&megaController; } fakeMinimap;
 struct FakeExpander { FakeMinimap* myMinimap=&fakeMinimap; } fakeExpander;
 FakeExpander* GUIExpander=&fakeExpander;
 
+std::vector<std::string> logMessages;
 struct IDDrawSurface {
-    static void OutptTxt(const char*) {}
-    static void OutptFmtTxt(const char*,...) {}
+    static void OutptTxt(const char* message) { logMessages.emplace_back(message); }
+    static void OutptFmtTxt(const char* message,...) { logMessages.emplace_back(message); }
 };

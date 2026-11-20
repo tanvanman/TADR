@@ -45,7 +45,7 @@ HARNESS = r'''
 #include "BuildRectangleGeometry.h"
 
 constexpr int VK_MENU = 0x12;
-constexpr unsigned UnitSelected_State = 0x10, canmove = 1, canfly = 2;
+constexpr unsigned UnitSelected_State = 0x10, canmove = 1, canfly = 2, builder = 0x40;
 bool altHeld = false;
 short GetAsyncKeyState(int key) { assert(key == VK_MENU); return altHeld ? static_cast<short>(0x8000) : 0; }
 struct PlayerStruct;
@@ -214,10 +214,35 @@ static void TestDefaultGridAndLiveModeRefresh() {
 }
 #endif
 
+
+#if GRID_BUILDING_ENABLE
+static void TestBuilderWithoutAIPlan() {
+    altHeld = false;
+    CTAHook hook; hook.EndX = 224; hook.EndY = 384;
+    PlayerStruct& owner = hook.state.Players[0];
+    UnitDefStruct type;
+    type.CANBUILD_ptr = nullptr; // Human constructors can have no AI build plan.
+    type.UnitTypeMask_0 = builder | canmove;
+    UnitStruct unit;
+    unit.UnitID = 1; unit.Owner_PlayerPtr0 = &owner; unit.UnitType = &type;
+    unit.UnitSelected = UnitSelected_State | 0x10000000;
+    unit.IsUnit = &unit; unit.XPos = hook.EndX; unit.YPos = hook.EndY;
+    owner.Units = owner.UnitsAry_End = &unit;
+    hook.CalculateLine();
+    auto points = Snapshot(hook);
+    assert(hook.RectangleValid && points.size() == 9);
+    assert(points.back() == std::make_pair(hook.EndX,hook.EndY));
+    type.UnitTypeMask_0 = canmove; // A non-constructor must not bias the sweep.
+    hook.CalculateLine(); points = Snapshot(hook);
+    assert(points.back() == std::make_pair(hook.StartX,hook.StartY));
+    std::cout << "Builder centroid uses capability without requiring an AI plan\n";
+}
+#endif
+
 int main(int argc, char** argv) {
     assert(argc == 2); altHeld = std::string(argv[1]) == "1";
 #if GRID_BUILDING_ENABLE
-    if (!altHeld) { TestDefaultGridAndLiveModeRefresh(); return 0; }
+    if (!altHeld) { TestDefaultGridAndLiveModeRefresh(); TestBuilderWithoutAIPlan(); return 0; }
 #endif
     TestKnownRows();
     TestRowsAcrossAnglesAndSpacing();

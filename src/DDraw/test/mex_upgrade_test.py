@@ -141,9 +141,13 @@ struct Config {
 };
 static Config config;
 static Config* MyConfig = nullptr;
+static unsigned queuedGestureLogs, cancelledGestureLogs;
 struct IDDrawSurface {
     static void OutptTxt(const char*) {}
-    template<class... Args> static void OutptFmtTxt(const char*, Args...) {}
+    template<class... Args> static void OutptFmtTxt(const char* format, Args...) {
+        if (std::strstr(format,"[MexUpgrade] queued ") == format) ++queuedGestureLogs;
+        if (std::strstr(format,"[MexUpgrade] cancelled ") == format) ++cancelledGestureLogs;
+    }
 };
 static bool controlDown, altDown;
 static int cursorChanges, feedbackDrawCalls;
@@ -750,6 +754,25 @@ static void TestOffsetOrderRecognition() {
     }
 }
 
+static void TestGestureLoggingIsBounded() {
+    World world; _MOUSEEVENT click;
+    assert(queuedGestureLogs == 0 && cancelledGestureLogs == 0);
+    for (unsigned cycle = 0; cycle < 40; ++cycle) {
+        click.fwKeys = 0;
+        assert(MexUpgrade::TryCommand(&world.ta,&click));
+        auto* reclaim = world.units[1].UnitOrders;
+        assert(reclaim && reclaim->COBHandler_index == 11 && reclaim->NextOrder);
+        assert(reclaim->NextOrder->BuildUnitID == 3);
+        click.fwKeys = MK_SHIFT;
+        assert(MexUpgrade::TryCommand(&world.ta,&click));
+        assert(!world.units[1].UnitOrders);
+        assert(nativeSends == static_cast<int>((cycle+1)*2));
+        assert(removedOrders == static_cast<int>((cycle+1)*2));
+        const unsigned logged = std::min(cycle+1,32u);
+        assert(queuedGestureLogs == logged && cancelledGestureLogs == logged);
+    }
+}
+
 static void TestShiftCancellationBeforeBlockedPreparation() {
     World world; _MOUSEEVENT click;
     assert(MexUpgrade::TryCommand(&world.ta, &click));
@@ -944,6 +967,7 @@ int main(int argc, char** argv) {
     TestAlignmentAndEdges();
     TestOffsetOrderRecognition();
     if (enabled) {
+        TestGestureLoggingIsBounded();
         TestInclusiveUnitQueueAndFeedback();
         TestShiftCancellationBeforeBlockedPreparation();
         TestOffsetQueueAndCancellation();

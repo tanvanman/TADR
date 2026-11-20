@@ -19,7 +19,9 @@
 #include "IncreaseCompositeSize.h"
 #include "CameraBounds.h"
 #include "SmallMapViewport.h"
+#if MEX_UPGRADE_ENABLE
 #include "MexUpgrade.h"
+#endif
 
 #include "ddraw.h"
 #include "Profiler.h"
@@ -221,6 +223,9 @@ namespace
     SmallMapCall MexUpgradeRightClick = {
         0x004993ACu, {0xE8,0x4F,0xFD,0xFF,0xFF}, reinterpret_cast<void*>(&DispatchRightCommand)
     };
+    // SuppressShowReclaimCursorProc in tahook.cpp redirects wreck-snap handling
+    // here too. Keep the CALL boundary at 0x004992CD intact so that path also
+    // runs DispatchUpgradeCursor.
     SmallMapCall MexUpgradeCursor = {
         0x004992CDu, {0xE8,0xAE,0x2E,0xF8,0xFF}, reinterpret_cast<void*>(&DispatchUpgradeCursor)
     };
