@@ -73,6 +73,7 @@ static LPARAM Point(int x, int y) {
 enum {
     WM_KILLFOCUS = 0x0008, WM_CANCELMODE = 0x001f, WM_ACTIVATEAPP = 0x001c,
     WM_KEYDOWN = 0x0100, WM_KEYUP = 0x0101, WM_CHAR = 0x0102,
+    WM_SYSKEYDOWN = 0x0104, WM_SYSKEYUP = 0x0105,
     WM_MOUSEMOVE = 0x0200, WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202,
     WM_LBUTTONDBLCLK = 0x0203, WM_RBUTTONDOWN = 0x0204, WM_RBUTTONUP = 0x0205,
     WM_MOUSEWHEEL = 0x020a, WM_CAPTURECHANGED = 0x0215,
@@ -103,10 +104,15 @@ namespace ChatLayout { static bool ScrollbackWheel(short) { return false; } }
 class Dialog { public: int GetClickSnapOverrideKey() { return VK_MENU; } };
 struct SharedLocal { void* Dialog = nullptr; } localShare;
 static SharedLocal* LocalShare = &localShare;
+static int rotationCycles, rotationTurns;
+static bool rotationAvailable;
 class CUnitRotate {
 public:
-    static CUnitRotate* GetInstance() { return nullptr; }
-    bool TryCycleRotation(int) { return false; }
+    static CUnitRotate* GetInstance() {
+        static CUnitRotate instance;
+        return rotationAvailable ? &instance : nullptr;
+    }
+    bool TryCycleRotation(int direction) { ++rotationCycles; rotationTurns += direction; return true; }
 };
 namespace ordertype { enum { STOP = 1, BUILD = 14 }; }
 enum { TAInGame = 1 };
@@ -148,7 +154,7 @@ static Controller control;
 static Minimap minimap = {&control};
 static Expander expander = {&minimap};
 static Expander* GUIExpander = &expander;
-struct Commit { int startX, startY, endX, endY, spacing; bool active; };
+struct Commit { int startX, startY, endX, endY, spacing; bool active, lineMode; };
 class CTAHook {
 public:
     FakeTA state;
@@ -157,6 +163,7 @@ public:
     bool WriteLine = false, RingWrite = false, RectangleValid = false;
     bool RectangleMouseDown = false, RectangleCaptured = false;
     bool RectangleAwaitingClick = false, RectangleDragged = false;
+    bool RectangleLineMode = false;
     int RectanglePressX = 0, RectanglePressY = 0;
     bool ClickSnapPreviewBuild = false, ClickSnapPreviewWreck = false;
     int ClickSnapPreviewPosXY[2] = {};
@@ -173,6 +180,7 @@ public:
         keys.clear(); sharedData.TAProgress = TAInGame; control.ta = &state;
         capturedWindow = nullptr; onCaptureRelease = nullptr; captureSets = captureReleases = 0;
         TAhWnd = nullptr; failCapture = false;
+        rotationAvailable = false; rotationCycles = rotationTurns = 0;
     }
     bool UpdateRectangleMouse(LPARAM lParam);
     // GESTURE_DECLARATION
@@ -186,6 +194,7 @@ public:
     void CalculateLine() {
         ++calculations;
         if (throwOnCalculate) throw std::runtime_error("mock geometry failure");
+        RectangleLineMode = (GetAsyncKeyState(VK_MENU)&0x8000) != 0;
         RectangleValid = !rejectGeometry;
         XMatrix[0] = RectangleValid ? StartX : -1;
         YMatrix[0] = RectangleValid ? StartY : -1;
@@ -193,7 +202,7 @@ public:
     void UpdateSpacing();
     void CalculateRing() {}
     void WriteDTLine() {
-        commits.push_back({StartX,StartY,EndX,EndY,Spacing,WriteLine});
+        commits.push_back({StartX,StartY,EndX,EndY,Spacing,WriteLine,RectangleLineMode});
         if (throwOnCommit) throw std::runtime_error("mock native dispatch failure");
     }
     // OWNERSHIP_METHOD
@@ -215,7 +224,7 @@ static void Begin(CTAHook& hook, bool overview, LPARAM point = Point(200,120)) {
 }
 static void ExpectCleared(const CTAHook& hook) {
     assert(!hook.WriteLine && !hook.RectangleValid);
-    assert(!hook.RectangleAwaitingClick && !hook.RectangleDragged);
+    assert(!hook.RectangleAwaitingClick && !hook.RectangleDragged && !hook.RectangleLineMode);
     assert(hook.XMatrix[0] == -1 && hook.YMatrix[0] == -1);
 }
 
@@ -552,6 +561,95 @@ static void TestWheelUpdatesOnlyPreview() {
     }
 }
 
+static void TestLiveAltModeChangesBothViews() {
+    for (bool overview : {false,true}) for (bool anchored : {false,true})
+    for (bool finalAlt : {false,true}) {
+        CTAHook hook;
+        if (anchored) AnchorClick(hook,overview);
+        else Begin(hook,overview);
+        assert(hook.Dispatch(WM_MOUSEMOVE, anchored ? 0 : MK_LBUTTON, Point(250,180)));
+        const int before = hook.calculations;
+        const bool down = hook.RectangleMouseDown, capture = hook.RectangleCaptured;
+        assert(!hook.RectangleLineMode);
+        keys[VK_MENU] = true;
+        assert(hook.Dispatch(WM_KEYDOWN,VK_MENU));
+        assert(hook.RectangleLineMode && hook.calculations == before+1);
+        keys[VK_MENU] = false;
+        assert(hook.Dispatch(WM_KEYUP,VK_MENU));
+        assert(!hook.RectangleLineMode && hook.calculations == before+2);
+        keys[VK_MENU] = true;
+        assert(hook.Dispatch(WM_SYSKEYDOWN,VK_MENU));
+        assert(hook.RectangleLineMode && hook.calculations == before+3);
+        keys[VK_MENU] = false;
+        assert(hook.Dispatch(WM_SYSKEYUP,VK_MENU));
+        assert(!hook.RectangleLineMode && hook.calculations == before+4);
+        assert(!hook.Dispatch(WM_SYSKEYDOWN,VK_SHIFT));
+        assert(hook.calculations == before+4 && hook.commits.empty());
+        assert(hook.WriteLine && hook.RectangleAwaitingClick == anchored);
+        assert(hook.RectangleMouseDown == down && hook.RectangleCaptured == capture);
+
+        // A final mouse event must sample Alt again even if no key message arrived.
+        keys[VK_MENU] = finalAlt;
+        if (anchored) {
+            keys[VK_LBUTTON] = true;
+            assert(hook.Dispatch(WM_LBUTTONDOWN,MK_LBUTTON,Point(280,220)));
+        } else {
+            keys[VK_LBUTTON] = false;
+            assert(hook.Dispatch(WM_LBUTTONUP,0,Point(280,220)));
+        }
+        assert(hook.commits.size() == 1 && hook.commits.front().lineMode == finalAlt);
+        ExpectCleared(hook);
+        if (anchored) {
+            keys[VK_LBUTTON] = false;
+            keys[VK_MENU] = !finalAlt;
+            assert(hook.Dispatch(WM_LBUTTONUP,0,Point(280,220)));
+            assert(hook.commits.size() == 1); // Final release cannot queue another mode.
+        }
+    }
+}
+
+static void TestAltWheelSpacingAndIdleRotation() {
+    for (bool overview : {false,true}) for (bool anchored : {false,true}) {
+        CTAHook hook;
+        if (anchored) AnchorClick(hook,overview);
+        else Begin(hook,overview);
+        keys[VK_MENU] = true; rotationAvailable = true;
+        assert(hook.Dispatch(WM_SYSKEYDOWN,VK_MENU) && hook.RectangleLineMode);
+        const int before = hook.calculations;
+        assert(hook.Dispatch(WM_MOUSEWHEEL,std::uintptr_t(120)<<16,Point(220,140)));
+        assert(hook.Spacing == 1 && hook.calculations == before+1 && rotationCycles == 0);
+        assert(hook.Dispatch(WM_MOUSEWHEEL,
+            std::uintptr_t(static_cast<unsigned short>(-120))<<16,Point(220,140)));
+        assert(hook.Spacing == 0 && hook.calculations == before+2 && rotationCycles == 0);
+        assert(hook.RectangleLineMode && hook.commits.empty() && hook.WriteLine);
+        if (anchored) {
+            keys[VK_LBUTTON] = true;
+            assert(hook.Dispatch(WM_LBUTTONDOWN,MK_LBUTTON,Point(280,220)));
+        } else {
+            keys[VK_LBUTTON] = false;
+            assert(hook.Dispatch(WM_LBUTTONUP,0,Point(280,220)));
+        }
+        assert(hook.commits.size() == 1 && hook.commits.front().lineMode);
+        if (anchored) {
+            keys[VK_LBUTTON] = false;
+            assert(hook.Dispatch(WM_LBUTTONUP,0,Point(280,220)));
+        }
+        ExpectCleared(hook);
+    }
+
+    for (bool binding : {false,true}) {
+        CTAHook idle;
+        keys[idle.VirtualKeyCode] = binding; keys[VK_MENU] = true; rotationAvailable = true;
+        assert(idle.Dispatch(WM_MOUSEWHEEL,std::uintptr_t(120)<<16,Point(220,140)));
+        assert(rotationCycles == 1 && rotationTurns == 1 && idle.Spacing == 0);
+        assert(idle.Dispatch(WM_MOUSEWHEEL,
+            std::uintptr_t(static_cast<unsigned short>(-120))<<16,Point(220,140)));
+        assert(rotationCycles == 2 && rotationTurns == 0 && idle.Spacing == 0);
+        assert(idle.commits.empty() && !idle.WriteLine); // Idle Alt+wheel keeps native rotation behavior.
+        assert(!idle.Dispatch(WM_SYSKEYUP,VK_MENU));
+    }
+}
+
 static void TestReentrantCaptureAndDoubleClick() {
     CTAHook hook; Begin(hook, true);
     int reentrant = 0;
@@ -666,10 +764,12 @@ int main() {
         TestAnchoredMapMarginsAndModifiers();
         TestSettingsAndCaptureFailure();
         TestWheelUpdatesOnlyPreview();
+        TestLiveAltModeChangesBothViews();
+        TestAltWheelSpacingAndIdleRotation();
         TestReentrantCaptureAndDoubleClick();
         TestDispatchFailureAndGameExitCleanup();
     }
-    std::cout << "Rectangle drag/release and click/move/click tests passed (both interfaces/views)\n";
+    std::cout << "Grid/Alt-row gestures and wheel tests passed (both interfaces/views)\n";
 }
 '''
 
@@ -708,6 +808,7 @@ def main():
         cpp.write_text(harness)
         subprocess.run(shlex.split(os.environ.get("CXX", "g++")) + [
             "-std=c++11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-g",
+            "-DGRID_BUILDING_ENABLE=1",
             "-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-I", str(DDRAW),
             str(cpp), "-o", str(binary),
         ], check=True)

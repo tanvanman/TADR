@@ -1211,6 +1211,10 @@ NEW FEATURES IN DETAIL:
   Releasing the key or pressing Escape cancels an unfinished preview.
   The same controls work on the battlefield and megamap.
 
+  Hold Alt as well as the Autoclick Key to use the original arbitrary-angle
+  row tool, including diagonal walls. Alt can be changed during the preview.
+  The wheel still adjusts spacing while drawing an Alt row.
+
   The rectangle fills with rows and columns. A narrow rectangle makes a
   single row or column. Rows, columns and individual buildings use the
   usual build queue. The mouse wheel (or Page Up/Down) adjusts the gap

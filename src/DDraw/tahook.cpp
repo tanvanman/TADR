@@ -158,7 +158,7 @@ CTAHook::CTAHook(BOOL VidMem)
 #if GRID_BUILDING_ENABLE
 	WriteLine = RingWrite = false;
 	RectangleValid = RectangleMouseDown = RectangleCaptured = false;
-	RectangleAwaitingClick = RectangleDragged = false;
+	RectangleAwaitingClick = RectangleDragged = RectangleLineMode = false;
 	RectanglePressX = RectanglePressY = 0;
 	TAhWnd = NULL;
 #endif
@@ -198,7 +198,7 @@ CTAHook::CTAHook(BOOL VidMem)
 #if GRID_BUILDING_ENABLE
 	RectangleValid = false;
 	RectangleMouseDown = RectangleCaptured = false;
-	RectangleAwaitingClick = RectangleDragged = false;
+	RectangleAwaitingClick = RectangleDragged = RectangleLineMode = false;
 	RectanglePressX = RectanglePressY = 0;
 	MatrixLength = 0;
 	XMatrix[0] = YMatrix[0] = -1;
@@ -230,7 +230,7 @@ CTAHook::CTAHook(BOOL VidMem)
 
 	IDDrawSurface::OutptTxt ( "New CTAHook");
 #if GRID_BUILDING_ENABLE
-	IDDrawSurface::OutptTxt ( "[BuildRectangle] click-v5");
+	IDDrawSurface::OutptTxt ( "[BuildRectangle] row-alt-v6");
 #endif
 }
 
@@ -438,7 +438,7 @@ void CTAHook::EndRectangleGesture(HWND window, bool keepRelease)
 {
 	WriteLine = false;
 	RectangleValid = false;
-	RectangleAwaitingClick = RectangleDragged = false;
+	RectangleAwaitingClick = RectangleDragged = RectangleLineMode = false;
 	XMatrix[0] = YMatrix[0] = -1;
 	if (!keepRelease) RectangleMouseDown = false;
 	EnableTABuildRect();
@@ -471,6 +471,15 @@ bool CTAHook::RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPAR
 		|| (RectangleCaptured && Msg == WM_CAPTURECHANGED && reinterpret_cast<HWND>(lParam) != window)))
 		EndRectangleGesture(window, true);
 
+	// Alt changes geometry without changing the anchored/dragging lifecycle.
+	// Handle system-key messages as well, so a stationary preview updates now.
+	if (WriteLine && (Msg == WM_KEYDOWN || Msg == WM_KEYUP
+		|| Msg == WM_SYSKEYDOWN || Msg == WM_SYSKEYUP) && wParam == VK_MENU)
+	{
+		CalculateLine();
+		return true;
+	}
+
 	// A small amount of click jitter is not a drag. Test the release too:
 	// Windows may coalesce motion events before the button comes back up.
 	if (WriteLine && RectangleMouseDown && !RectangleAwaitingClick
@@ -498,7 +507,7 @@ bool CTAHook::RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPAR
 				if (RectangleValid) WriteDTLine();
 				else
 				{
-					char text[] = "Rectangle too large (maximum 999 buildings). Increase spacing or use a smaller area.";
+					char text[] = "Building pattern too large (maximum 999 buildings). Increase spacing or use a smaller area.";
 					SendText(text, 0);
 				}
 			}
@@ -513,7 +522,7 @@ bool CTAHook::RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPAR
 	if (Msg == WM_LBUTTONUP && RectangleMouseDown)
 	{
 		// Consume this release even if the modifier/focus was lost after DOWN.
-		// Keep WriteLine set through dispatch: it selects rectangle exit routing.
+		// Keep WriteLine and the planned geometry set through dispatch.
 		RectangleMouseDown = false;
 		bool anchor = false;
 		__try
@@ -533,7 +542,7 @@ bool CTAHook::RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPAR
 				else if (RectangleValid) WriteDTLine();
 				else
 				{
-					char text[] = "Rectangle too large (maximum 999 buildings). Increase spacing or use a smaller area.";
+					char text[] = "Building pattern too large (maximum 999 buildings). Increase spacing or use a smaller area.";
 					SendText(text, 0);
 				}
 			}
@@ -558,7 +567,7 @@ bool CTAHook::RectangleGestureMessage(HWND window, UINT Msg, WPARAM wParam, LPAR
 	{
 		WriteLine = true;
 		RectangleMouseDown = true;
-		RectangleAwaitingClick = RectangleDragged = false;
+		RectangleAwaitingClick = RectangleDragged = RectangleLineMode = false;
 		RectanglePressX = static_cast<short>(LOWORD(lParam));
 		RectanglePressY = static_cast<short>(HIWORD(lParam));
 		TAhWnd = window;
@@ -1101,7 +1110,12 @@ bool CTAHook::Message(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 				int snapOverrideKey = VK_MENU;
 				if (LocalShare && LocalShare->Dialog)
 					snapOverrideKey = reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetClickSnapOverrideKey();
-				if ((GetAsyncKeyState(snapOverrideKey) & 0x8000) != 0)
+				if ((GetAsyncKeyState(snapOverrideKey) & 0x8000) != 0
+#if GRID_BUILDING_ENABLE
+					// During a grid/Alt-row gesture, the wheel always owns spacing.
+					&& !(WriteLine && (GetAsyncKeyState(VirtualKeyCode)&0x8000))
+#endif
+					)
 				{
 					if (CUnitRotate* rot = CUnitRotate::GetInstance())
 					{
@@ -1349,9 +1363,10 @@ void CTAHook::WriteDTLine()
 {
 #if GRID_BUILDING_ENABLE
 
-	// Rectangle geometry already gives a complete row-by-row build order.
+	// Keep the rectangle sweep intact, but retain the original staircase
+	// optimizer for Alt rows and rings. Use the planned mode, not a new key poll.
 	// Submit ordinary queued builds; native placement/pathfinding handles each.
-	if (!WriteLine && OptimizeRows && FootPrintX == 2 && FootPrintY == 2)
+	if ((!WriteLine || RectangleLineMode) && OptimizeRows && FootPrintX == 2 && FootPrintY == 2)
 		OptimizeDTRows();
 	for (int index = 0; index < 999 && XMatrix[index] != -1 && YMatrix[index] != -1; ++index)
 		ClickBuilding(XMatrix[index], YMatrix[index]);
@@ -1387,62 +1402,72 @@ void CTAHook::CalculateLine()
 	FootPrintX = std::max(1, static_cast<int>(GetFootX()));
 	FootPrintY = std::max(1, static_cast<int>(GetFootY()));
 
-	// Prefer the constructors' side, independent of the direction of the drag.
-	// This only reads live local slots; it does not change selection or orders.
-	int builderX = StartX, builderY = StartY;
-	long long totalX = 0, totalY = 0;
-	long long groundX = 0, groundY = 0;
-	int builders = 0;
-	int groundBuilders = 0;
-	PlayerStruct* owner = &TAdynmem->Players[TAdynmem->LocalHumanPlayer_PlayerID];
-	if (owner->Units && owner->UnitsAry_End && owner->Units <= owner->UnitsAry_End)
+	// Alt restores the original arbitrary-angle row tool, including spacing.
+	RectangleLineMode = (GetAsyncKeyState(VK_MENU)&0x8000) != 0;
+	if (!RectangleLineMode)
 	{
-		for (UnitStruct* unit = owner->Units; unit <= owner->UnitsAry_End; ++unit)
+		// Prefer the constructors' side, independent of the direction of the drag.
+		// This only reads live local slots; it does not change selection or orders.
+		int builderX = StartX, builderY = StartY;
+		long long totalX = 0, totalY = 0;
+		long long groundX = 0, groundY = 0;
+		int builders = 0;
+		int groundBuilders = 0;
+		PlayerStruct* owner = &TAdynmem->Players[TAdynmem->LocalHumanPlayer_PlayerID];
+		if (owner->Units && owner->UnitsAry_End && owner->Units <= owner->UnitsAry_End)
 		{
-			if (unit->UnitID == 0 || unit->Owner_PlayerPtr0 != owner || !unit->UnitType
-				|| !(unit->UnitSelected & UnitSelected_State)
-				|| !(unit->UnitSelected & 0x10000000) || (unit->UnitSelected & 0x4000)
-				|| !unit->UnitType->CANBUILD_ptr)
-				continue;
-			totalX += unit->XPos;
-			totalY += unit->YPos;
-			++builders;
-			if (unit->IsUnit && unit->Nanoframe == 0.0f
-				&& (unit->UnitType->UnitTypeMask_0 & canmove)
-				&& !(unit->UnitType->UnitTypeMask_0 & canfly))
+			for (UnitStruct* unit = owner->Units; unit <= owner->UnitsAry_End; ++unit)
 			{
-				groundX += unit->XPos;
-				groundY += unit->YPos;
-				++groundBuilders;
+				if (unit->UnitID == 0 || unit->Owner_PlayerPtr0 != owner || !unit->UnitType
+					|| !(unit->UnitSelected & UnitSelected_State)
+					|| !(unit->UnitSelected & 0x10000000) || (unit->UnitSelected & 0x4000)
+					|| !unit->UnitType->CANBUILD_ptr)
+					continue;
+				totalX += unit->XPos;
+				totalY += unit->YPos;
+				++builders;
+				if (unit->IsUnit && unit->Nanoframe == 0.0f
+					&& (unit->UnitType->UnitTypeMask_0 & canmove)
+					&& !(unit->UnitType->UnitTypeMask_0 & canfly))
+				{
+					groundX += unit->XPos;
+					groundY += unit->YPos;
+					++groundBuilders;
+				}
 			}
 		}
-	}
-	if (groundBuilders)
-	{
-		builderX = static_cast<int>(groundX/groundBuilders);
-		builderY = static_cast<int>(groundY/groundBuilders);
-	}
-	else if (builders)
-	{
-		builderX = static_cast<int>(totalX/builders);
-		builderY = static_cast<int>(totalY/builders);
-	}
+		if (groundBuilders)
+		{
+			builderX = static_cast<int>(groundX/groundBuilders);
+			builderY = static_cast<int>(groundY/groundBuilders);
+		}
+		else if (builders)
+		{
+			builderX = static_cast<int>(totalX/builders);
+			builderY = static_cast<int>(totalY/builders);
+		}
 
-	std::vector<BuildRectangleGeometry::Point> points;
-	if (!BuildRectangleGeometry::Generate(StartX, StartY, EndX, EndY,
-		FootPrintX, FootPrintY, Spacing, builderX, builderY, 999, points))
+		std::vector<BuildRectangleGeometry::Point> points;
+		if (!BuildRectangleGeometry::Generate(StartX, StartY, EndX, EndY,
+			FootPrintX, FootPrintY, Spacing, builderX, builderY, 999, points))
+			return;
+		for (size_t i = 0; i < points.size(); ++i)
+		{
+			XMatrix[i] = static_cast<short>(points[i].x);
+			YMatrix[i] = static_cast<short>(points[i].y);
+		}
+		XMatrix[points.size()] = YMatrix[points.size()] = -1;
+		MatrixLength = static_cast<int>(points.size())-1;
+		RectangleValid = true;
+
 		return;
-	for (size_t i = 0; i < points.size(); ++i)
-	{
-		XMatrix[i] = static_cast<short>(points[i].x);
-		YMatrix[i] = static_cast<short>(points[i].y);
 	}
-	XMatrix[points.size()] = YMatrix[points.size()] = -1;
-	MatrixLength = static_cast<int>(points.size())-1;
-	RectangleValid = true;
 
-#else
+#endif
 
+	// Leave a safe empty plan if an oversized legacy row is rejected.
+	XMatrix[0] = YMatrix[0] = -1;
+	MatrixLength = Direction = 0;
 	int dx = (EndX - StartX)/16;
 	int dy = (EndY - StartY)/16;
 	int x_inc = 16;
@@ -1473,8 +1498,8 @@ void CTAHook::CalculateLine()
 		dx = dx/footprintx;
 		x_inc *= footprintx;
 
-		if(dx>999)
-			return; //argh..
+		if(dx>=999)
+			return; // Reserve the final slot for the terminator.
 
 		YMatrix[dx+1]=-1;
 		XMatrix[dx+1]=-1;
@@ -1506,7 +1531,7 @@ void CTAHook::CalculateLine()
 		dy = dy/footprinty;
 		y_inc *= footprinty;
 
-		if(dy>999)
+		if(dy>=999)
 			return;
 
 		YMatrix[dy+1]=-1;
@@ -1533,6 +1558,8 @@ void CTAHook::CalculateLine()
 		} // end for
 	} // end else if dx > dy
 
+#if GRID_BUILDING_ENABLE
+	RectangleValid = true;
 #endif
 }
 
@@ -1626,7 +1653,8 @@ void CTAHook::RefreshRectangleFootprint()
 	if (!WriteLine || TAdynmem->PrepareOrder_Type != ordertype::BUILD) return;
 	if (CUnitRotate* rotation = CUnitRotate::GetInstance())
 		rotation->ApplyRotationTo(TAdynmem->BuildUnitID);
-	if (FootPrintX != std::max(1, static_cast<int>(GetFootX()))
+	if (RectangleLineMode != ((GetAsyncKeyState(VK_MENU)&0x8000) != 0)
+		|| FootPrintX != std::max(1, static_cast<int>(GetFootX()))
 		|| FootPrintY != std::max(1, static_cast<int>(GetFootY())))
 		CalculateLine();
 }

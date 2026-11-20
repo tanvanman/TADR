@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Verify that disabling grid building restores the stock row tool.
 
-Runs the production row calculation/dispatch with GRID_BUILDING_ENABLE=0,
-and preprocesses the actual input paths for every independent feature mix.
-The enabled grid geometry and gestures have their own regression suites.
+Compares production legacy row plans with the enabled grid tool's live Alt
+override, and preprocesses input paths for every independent feature mix.
+Also exercises default grids, planned-mode dispatch and capacity boundaries.
 """
 
 import itertools
@@ -37,15 +37,43 @@ def preprocess(source, formations, mex, grid):
 HARNESS = r'''
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
+#include <string>
 #include <utility>
 #include <vector>
+#include "BuildRectangleGeometry.h"
+
+constexpr int VK_MENU = 0x12;
+constexpr unsigned UnitSelected_State = 0x10, canmove = 1, canfly = 2;
+bool altHeld = false;
+short GetAsyncKeyState(int key) { assert(key == VK_MENU); return altHeld ? static_cast<short>(0x8000) : 0; }
+struct PlayerStruct;
+struct UnitDefStruct { void* CANBUILD_ptr = nullptr; unsigned UnitTypeMask_0 = 0; };
+struct UnitStruct {
+    int UnitID = 0, XPos = 0, YPos = 0;
+    PlayerStruct* Owner_PlayerPtr0 = nullptr;
+    UnitDefStruct* UnitType = nullptr;
+    unsigned UnitSelected = 0;
+    void* IsUnit = nullptr;
+    float Nanoframe = 0;
+};
+struct PlayerStruct { UnitStruct* Units = nullptr; UnitStruct* UnitsAry_End = nullptr; };
+namespace ordertype { constexpr int BUILD = 14; }
+struct FakeTA { int LocalHumanPlayer_PlayerID = 0, BuildUnitID = 1, PrepareOrder_Type = ordertype::BUILD; PlayerStruct Players[10]; };
+class CUnitRotate {
+public:
+    static CUnitRotate* GetInstance() { return nullptr; }
+    void ApplyRotationTo(int) {}
+};
 
 class CTAHook {
 public:
     int StartX = 160, StartY = 320, EndX = 160, EndY = 320;
     int FootPrintX = 2, FootPrintY = 2, Spacing = 0, MatrixLength = 0, Direction = 0;
-    bool OptimizeRows = false, WriteLine = true;
+    bool OptimizeRows = false, WriteLine = true, RectangleValid = false, RectangleLineMode = false;
+    FakeTA state;
+    FakeTA* TAdynmem = &state;
     short XMatrix[1000], YMatrix[1000];
     int optimized = 0;
     std::vector<std::pair<int,int>> dispatched;
@@ -55,6 +83,9 @@ public:
     }
     void CalculateLine();
     void WriteDTLine();
+    void RefreshRectangleFootprint();
+    int GetFootX() { return FootPrintX; }
+    int GetFootY() { return FootPrintY; }
     void OptimizeDTRows() { ++optimized; }
     void ClickBuilding(int x, int y) { dispatched.emplace_back(x,y); }
 };
@@ -69,7 +100,7 @@ static void ExpectPlan(CTAHook& hook, const std::vector<std::pair<int,int>>& exp
     assert(hook.dispatched == expected);
 }
 
-int main() {
+static void TestKnownRows() {
     CTAHook horizontal;
     horizontal.EndX = 288;
     ExpectPlan(horizontal,{{160,320},{192,320},{224,320},{256,320},{288,320}},1);
@@ -93,7 +124,104 @@ int main() {
     optimized.EndX = 224; optimized.OptimizeRows = true;
     ExpectPlan(optimized,{{160,320},{192,320},{224,320}},1);
     assert(optimized.optimized == 1); // Stock rows retain their existing optimizer.
-    std::cout << "Disabled grid: stock row geometry and dispatch passed\n";
+    std::cout << "Original row examples and optimizer passed\n";
+}
+
+static std::vector<std::pair<int,int>> Snapshot(const CTAHook& hook) {
+    std::vector<std::pair<int,int>> points;
+    for (int i=0; i<1000; ++i) {
+        if (hook.XMatrix[i] == -1 || hook.YMatrix[i] == -1) return points;
+        points.emplace_back(hook.XMatrix[i],hook.YMatrix[i]);
+    }
+    assert(false && "Missing native matrix sentinel");
+    return points;
+}
+
+static void TestRowsAcrossAnglesAndSpacing() {
+    int id = 0;
+    for (const auto& footprint : std::vector<std::pair<int,int>>{{1,1},{2,2},{2,3},{5,7}})
+    for (int spacing : {0,1,3})
+    for (const auto& delta : std::vector<std::pair<int,int>>{{192,64},{64,192},{192,192},{0,192},{192,0},{0,0}})
+    for (int sx : {-1,1}) for (int sy : {-1,1}) {
+        CTAHook hook;
+        hook.StartX = hook.StartY = 4096;
+        hook.EndX = hook.StartX + sx*delta.first; hook.EndY = hook.StartY + sy*delta.second;
+        hook.FootPrintX = footprint.first; hook.FootPrintY = footprint.second; hook.Spacing = spacing;
+        hook.CalculateLine();
+        const auto points = Snapshot(hook);
+        assert(!points.empty() && points.size() <= 999);
+#if GRID_BUILDING_ENABLE
+        assert(hook.RectangleLineMode && hook.RectangleValid);
+#endif
+        hook.WriteDTLine(); assert(hook.dispatched == points);
+        std::cout << "PLAN " << id++ << ' ' << hook.Direction << ' ' << points.size();
+        for (const auto& p : points) std::cout << ' ' << p.first << ',' << p.second;
+        std::cout << '\n';
+    }
+    assert(id == 288);
+}
+
+static void TestRowCapacityAndSafeRejection() {
+    for (bool vertical : {false,true}) {
+        CTAHook hook;
+        hook.FootPrintX = hook.FootPrintY = 1;
+        if (vertical) hook.EndY += 998*16;
+        else hook.EndX += 998*16;
+        hook.CalculateLine(); assert(Snapshot(hook).size() == 999);
+        assert(hook.XMatrix[999] == -1 && hook.YMatrix[999] == -1);
+        hook.WriteDTLine(); assert(hook.dispatched.size() == 999);
+        hook.dispatched.clear();
+        if (vertical) hook.EndY += 16;
+        else hook.EndX += 16;
+        hook.CalculateLine(); assert(Snapshot(hook).empty());
+        assert(hook.Direction == 0 && hook.MatrixLength == 0);
+#if GRID_BUILDING_ENABLE
+        assert(!hook.RectangleValid);
+#endif
+        hook.WriteDTLine(); assert(hook.dispatched.empty());
+    }
+}
+
+#if GRID_BUILDING_ENABLE
+static void TestDefaultGridAndLiveModeRefresh() {
+    CTAHook hook; hook.EndX = 224; hook.EndY = 384; hook.OptimizeRows = true;
+    const std::vector<std::pair<int,int>> rectangle = {
+        {224,384},{192,384},{160,384},{160,352},{192,352},{224,352},{224,320},{192,320},{160,320}};
+    const std::vector<std::pair<int,int>> diagonal = {{160,320},{192,352},{224,384}};
+    hook.CalculateLine();
+    assert(!hook.RectangleLineMode && hook.RectangleValid && hook.Direction == 0);
+    assert(Snapshot(hook) == rectangle);
+    hook.WriteDTLine(); assert(hook.dispatched == rectangle && hook.optimized == 0);
+
+    hook.dispatched.clear(); altHeld = true;
+    hook.RefreshRectangleFootprint(); // A missed key message still updates stationary previews.
+    assert(hook.RectangleLineMode && Snapshot(hook) == diagonal);
+    altHeld = false; // Dispatch must use the previewed mode, not another key poll.
+    hook.WriteDTLine(); assert(hook.dispatched == diagonal && hook.optimized == 1);
+
+    hook.dispatched.clear(); hook.RefreshRectangleFootprint();
+    assert(!hook.RectangleLineMode && Snapshot(hook) == rectangle);
+    hook.WriteDTLine(); assert(hook.dispatched == rectangle && hook.optimized == 1);
+
+    CTAHook capacity;
+    capacity.StartX = capacity.StartY = 0;
+    capacity.FootPrintX = capacity.FootPrintY = 1;
+    capacity.EndX = 26*16; capacity.EndY = 36*16;
+    capacity.CalculateLine(); assert(capacity.RectangleValid && Snapshot(capacity).size() == 999);
+    capacity.EndX += 16; capacity.CalculateLine();
+    assert(!capacity.RectangleValid && Snapshot(capacity).empty());
+    std::cout << "Default grids, live Alt refresh and planned-mode dispatch passed\n";
+}
+#endif
+
+int main(int argc, char** argv) {
+    assert(argc == 2); altHeld = std::string(argv[1]) == "1";
+#if GRID_BUILDING_ENABLE
+    if (!altHeld) { TestDefaultGridAndLiveModeRefresh(); return 0; }
+#endif
+    TestKnownRows();
+    TestRowsAcrossAnglesAndSpacing();
+    TestRowCapacityAndSafeRejection();
 }
 '''
 
@@ -108,7 +236,7 @@ def main():
         api = preprocess(header,formations,mex,grid)
         assert ('bool CTAHook::RectangleGestureMessage(' in output) == bool(grid)
         assert ('if (RectangleGestureMessage(' in output) == bool(grid)
-        assert ('[BuildRectangle] click-v5' in output) == bool(grid)
+        assert ('[BuildRectangle] row-alt-v6' in output) == bool(grid)
         assert ('RefreshRectangleFootprint();' in output) == bool(grid)
         assert ('bool MegaMapControl::UpdateBuildMouse(' in mega) == bool(grid)
         assert ('DrawnMove::Message(' in output) == bool(formations)
@@ -125,16 +253,24 @@ def main():
 
     methods = '\n\n'.join(extract_method(source,signature) for signature in (
         'void CTAHook::CalculateLine()', 'void CTAHook::WriteDTLine()'))
+    methods += '\n#if GRID_BUILDING_ENABLE\n' + extract_method(source,
+        'void CTAHook::RefreshRectangleFootprint()') + '\n#endif\n'
     with tempfile.TemporaryDirectory(prefix='grid-switch-test-') as temp:
         cpp = Path(temp) / 'stock_rows.cpp'
-        binary = Path(temp) / 'stock_rows'
         cpp.write_text(HARNESS.replace('// PRODUCTION_METHODS',methods))
-        subprocess.run(CXX + ['-std=c++11','-Wall','-Wextra','-Werror','-g',
-            '-DGRID_BUILDING_ENABLE=0','-fsanitize=address,undefined',
-            '-fno-omit-frame-pointer',str(cpp),'-o',str(binary)],check=True)
         env = os.environ.copy()
         env['ASAN_OPTIONS'] = env.get('ASAN_OPTIONS','') + ':detect_leaks=0'
-        subprocess.run([str(binary)],check=True,env=env)
+        results = []
+        for grid in (0,1):
+            binary = Path(temp) / ('rows_' + str(grid))
+            subprocess.run(CXX + ['-std=c++11','-Wall','-Wextra','-Werror','-g',
+                '-DGRID_BUILDING_ENABLE='+str(grid),'-fsanitize=address,undefined',
+                '-fno-omit-frame-pointer','-I',str(DDRAW),str(cpp),'-o',str(binary)],check=True)
+            run = subprocess.run([str(binary),'1'],check=True,env=env,capture_output=True,text=True)
+            results.append([line for line in run.stdout.splitlines() if line.startswith('PLAN ')])
+            if grid: subprocess.run([str(binary),'0'],check=True,env=env)
+        assert results[0] == results[1] and len(results[0]) == 288
+    print('Legacy and Alt row plans match for 288 angle/sign/footprint/spacing cases')
     print('Independent grid/formation input switches passed all eight feature combinations')
 
 

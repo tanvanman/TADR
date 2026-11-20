@@ -11,7 +11,7 @@ that layer disabled.
 | --- | --- | --- |
 | `DRAWN_MOVE_FORMATIONS_ENABLE` | Alt-drag movement formations on the battlefield and megamap; Shift+Alt queues them | Original movement and selection controls |
 | `MEX_UPGRADE_ENABLE` | One-click extractor upgrades with Shift queue/cancel, offset placement and green-arrow/red-X cursors | Original extractor click behavior and cursors |
-| `GRID_BUILDING_ENABLE` | Hold the configured Autoclick Key and click–move–click to place grids on the battlefield and megamap; drag–release also works; wheel adjusts spacing | Original row building, including its spacing controls |
+| `GRID_BUILDING_ENABLE` | Hold the configured Autoclick Key and click–move–click to place grids on the battlefield and megamap; drag–release also works; add Alt for the original diagonal row tool; wheel adjusts spacing | Original row building, including its spacing controls |
 
 ## Profile defaults
 
@@ -55,9 +55,14 @@ An included formation feature can still be disabled with
 Extractor upgrades similarly honor `MexUpgrade=FALSE`. Restart TA after
 changing these preferences. An INI setting cannot enable a compiled-out feature.
 
-Grid placement uses the existing Autoclick Key and spacing controls. Its build
-switch chooses grids versus the original row tool; it does not remove row
-building from TAHook.
+Grid placement uses the existing Autoclick Key and spacing controls. Hold
+that key alone for a filled grid, or add Alt for the original arbitrary-angle
+row tool, including diagonal walls and its existing row optimization. Alt can
+be pressed or released during the preview to switch between the two shapes.
+Both shapes support click–move–click and drag–release on the battlefield and
+megamap. While a pattern is active, wheel input changes spacing even with Alt
+held; outside a pattern, the existing Alt+wheel building rotation is unchanged.
+Excluding grid building at compile time retains the original row-only controls.
 
 ## Validation
 
@@ -67,6 +72,8 @@ markers, Windows 7 imports, configuration validation and input/geometry
 regressions. Disabled-feature tests verify native input passes through and
 grid exclusion restores the original row placement behavior.
 
-The combined Escalation feature set was playtested under Wine. Multiplayer
-and replay testing of the combined build remains necessary; CI does not
-establish multiplayer compatibility.
+The combined Escalation feature set was playtested under Wine. The author
+reports repeated live multiplayer testing on TAF. These are user playtests;
+CI checks code paths and builds rather than establishing multiplayer
+compatibility. The new Alt row override still needs its own in-game test;
+no replay-watch result is claimed here.

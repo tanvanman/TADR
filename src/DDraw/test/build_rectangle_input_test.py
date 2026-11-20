@@ -43,7 +43,7 @@ HARNESS = r'''
 using Point = std::pair<int, int>;
 class CTAHook {
 public:
-    bool WriteLine = true, OptimizeRows = false;
+    bool WriteLine = true, OptimizeRows = false, RectangleLineMode = false;
     int FootPrintX = 2, FootPrintY = 3;
     short XMatrix[1000] = {}, YMatrix[1000] = {};
     int optimized = 0, warnings = 0;

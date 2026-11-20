@@ -57,6 +57,7 @@ class CTAHook
     bool RectangleCaptured;
     bool RectangleAwaitingClick;
     bool RectangleDragged;
+    bool RectangleLineMode;
     int RectanglePressX, RectanglePressY;
     void EndRectangleGesture(HWND window, bool keepRelease);
 #endif
