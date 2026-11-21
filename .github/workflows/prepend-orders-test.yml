@@ -1,0 +1,58 @@
+name: Test Ctrl+Shift queue prepending
+on:
+  push:
+    branches: ['feature/prepend-orders']
+  pull_request:
+    paths:
+      - '.github/workflows/prepend-orders-test.yml'
+      - 'src/DDraw/**'
+permissions:
+  contents: read
+jobs:
+  behavior:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Queue transactions and native input adapter
+        run: |
+          g++ -std=c++11 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/prepend_queue_test.cpp -o /tmp/prepend-queue
+          /tmp/prepend-queue
+          python3 src/DDraw/test/prepend_orders_adapter_test.py
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: escalation, mod: ESCALATION, prepend: 1}
+          - {name: prota, mod: PROTA, prepend: 1}
+          - {name: escalation-disabled, mod: ESCALATION, prepend: 0}
+          - {name: ota-disabled, mod: OTA, prepend: 0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_x86
+      - name: Compile the selected mod profile
+        shell: pwsh
+        run: |
+          if ('${{ matrix.name }}' -eq 'escalation-disabled') {
+            python -c "from pathlib import Path; p=Path('src/DDraw/config_escalation.h'); b=p.read_bytes(); old=b'#define PREPEND_ORDERS_ENABLE 1'; assert b.count(old)==1; p.write_bytes(b.replace(old,b'#define PREPEND_ORDERS_ENABLE 0'))"
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to select disabled test profile' }
+          }
+          msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=Win32 /p:TDRAW_CONFIG=TDRAW_CONFIG_${{ matrix.mod }}
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      - name: Verify the release feature and Windows 7 imports
+        shell: pwsh
+        run: |
+          python src/DDraw/test/verify_prepend_orders.py src/DDraw/Public/tdraw.dll --enabled ${{ matrix.prepend }}
+          if ($LASTEXITCODE -ne 0) { throw 'Prepend feature verification failed' }
+          python src/DDraw/tools/check_win7_imports.py src/DDraw/Public/tdraw.dll
+          if ($LASTEXITCODE -ne 0) { throw 'Windows 7 import verification failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prepend-${{ matrix.name }}
+          path: |
+            src/DDraw/Public/tdraw.dll
+            src/DDraw/Public/tdraw.pdb
+            src/DDraw/Public/tdraw.map
