@@ -1,5 +1,10 @@
 #pragma once
 
+// Ctrl+Shift queue prepending. Explicit per-mod build choice.
+#ifndef PREPEND_ORDERS_ENABLE
+#define PREPEND_ORDERS_ENABLE 0
+#endif
+
 #define TDRAW_CONFIG_NAME "mayhem"
 
 // Allied projectile collision is a mod build choice, never an INI preference.

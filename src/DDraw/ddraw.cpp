@@ -24,6 +24,7 @@ using namespace std;
 #include "TAbugfix.h"
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
+#include "PrependOrders.h"
 #include "StartPositions.h"
 #include "AutoTeam.h"
 #include "TakeClaim.h"
@@ -222,6 +223,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		NowCrackLimit= new LimitCrack;
 
 		FixTABug= new TABugFixing;
+		PrependOrders::Install();
 		InstallCrashTrace();
 		EngineLimits::Install();
 
