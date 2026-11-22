@@ -1081,8 +1081,8 @@ struct UnitStruct {
   char HealthPerB;  //health in percent, changes slower (?)
   char data19[2];
   unsigned char RecentDamage;  //0xFA
-  unsigned char Height;		//0xfb
-  short int  OwnerIndex ;	//0xfc
+  unsigned char Height;		//0xfb: actually bytes 0..3 of a 4-byte transfer-cooldown timer
+  short int  OwnerIndex ;	//0xfc: NOT owner slot (always 0 except transfer timer); use cOwnerID (+0xff)
   char data28;				//0xfe
   // 0xff: the slot of the player who OWNS this unit (Ghidra: cOwnerID). This is
   // what UNITS_KillAllForPlayer is passed on a commander death. Formerly named
@@ -1964,6 +1964,7 @@ static_assert(offsetof(UnitStruct, pSortBucket)               == 0x82,   "UnitSt
 static_assert(offsetof(UnitStruct, pNextUnitInSortBucket)     == 0x8E,   "UnitStruct sort-bucket link");
 static_assert(offsetof(UnitStruct, UnitType)                  == 0x92,   "UnitStruct.UNITINFO_p");
 static_assert(offsetof(UnitStruct, Owner_PlayerPtr0)          == 0x96,   "UnitStruct.Owner_PlayerPtr0");
+static_assert(offsetof(UnitStruct, cOwnerID)                  == 0xFF,   "UnitStruct.cOwnerID");
 static_assert(offsetof(UnitStruct, cIsCloaked)                == 0x10E,  "UnitStruct.nShortUnitStateMask");
 static_assert(offsetof(UnitStruct, UnitSelected)              == 0x110,  "UnitStruct.UnitStateMask");
 static_assert(offsetof(PlayerStruct, LOS_MEMORY_p)            == 0x7C,   "PlayerStruct LOS buffer");
