@@ -27,6 +27,7 @@ using namespace std;
 #include "VoteDialog.h"
 #include "tahook.h"
 #include "DrawnMove.h"
+#include "MoveOrderFeedback.h"
 #include "commanderwarp.h"
 #include "maprect.h"
 
@@ -742,6 +743,10 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 #endif
 
+#if DRAWN_MOVE_FORMATIONS_ENABLE
+            { PROFILE_SCOPE("Unlock.MoveOrderFeedback"); MoveOrderFeedback::Draw(lpBack); }
+#endif
+
 			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }
 			if (GameingState_P && ResourceBarsGameState(GameingState_P->State))
 			{
@@ -881,6 +886,10 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				PROFILE_SCOPE("Unlock.Minimap_Blit");
 				GUIExpander->myMinimap->Blit ( lpBack);
 			}
+#endif
+
+#if DRAWN_MOVE_FORMATIONS_ENABLE
+            { PROFILE_SCOPE("Unlock.MoveOrderFeedback"); MoveOrderFeedback::Draw(lpBack); }
 #endif
 
 			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }

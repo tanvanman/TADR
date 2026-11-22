@@ -646,6 +646,20 @@ bool MegaMapControl::FormationScreenPoint(POINT* screen, RECT* clip, const Posit
     --clip->bottom;
     return CheckInControl(screen->x,screen->y) && CheckInMap(screen->x,screen->y);
 }
+
+bool MegaMapControl::MoveFeedbackScreenPoint(POINT* screen, RECT* clip, const Position_Dword& point)
+{
+    if (!screen || !clip || !TAmainStruct_Ptr || !IsBliting()) return false;
+    TAPos2ScreenPos(screen, point.X, point.Y, point.Z);
+    screen->x += MegaMapScreen.left;
+    screen->y += MegaMapScreen.top;
+    *clip = MegaMapScreen;
+    --clip->right;
+    --clip->bottom;
+    // Endpoint visibility is deliberately left to the segment clipper. A unit
+    // outside the current view can still have a line crossing the viewport.
+    return true;
+}
 #endif
 
 #if GRID_BUILDING_ENABLE

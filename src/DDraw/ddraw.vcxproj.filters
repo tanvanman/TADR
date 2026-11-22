@@ -140,6 +140,8 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DrawnMove.cpp" />
+    <ClCompile Include="MoveOrderFeedback.cpp" />
+    <ClCompile Include="MoveOrderFeedbackCapture.cpp" />
     <ClCompile Include="MexUpgrade.cpp" />
     <ClCompile Include="tahook.cpp">
       <Filter>Source Files</Filter>
@@ -528,6 +530,8 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DrawnMove.h" />
+    <ClInclude Include="MoveOrderFeedback.h" />
+    <ClInclude Include="MoveOrderFeedbackGeometry.h" />
     <ClInclude Include="MexUpgrade.h" />
     <ClInclude Include="MexUpgradeMenu.h" />
     <ClInclude Include="OptionalUnitControls.h" />
