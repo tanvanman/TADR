@@ -17,6 +17,8 @@
 #include "TAConfig.h"
 #include "LimitCrack.h"
 #include "IncreaseCompositeSize.h"
+#include "CameraBounds.h"
+#include "SmallMapViewport.h"
 
 #include "ddraw.h"
 #include "Profiler.h"
@@ -30,6 +32,309 @@
 #include <tlhelp32.h>
 
 TABugFixing * FixTABug;
+
+namespace
+{
+    static_assert(offsetof(TAdynmemStruct, MapSizeX)==0x1422B && offsetof(TAdynmemStruct, MapSizeY)==0x1422F, "Camera map extents");
+    static_assert(offsetof(TAdynmemStruct, EyeBallMapXPos)==0x1431F && offsetof(TAdynmemStruct, MapXScrollingTo)==0x14327, "Camera coordinates");
+    static_assert(offsetof(TAdynmemStruct, GameScreenWidth)==0x37E37 && offsetof(TAdynmemStruct, GameScreenHeight)==0x37E3B, "Camera viewport spans");
+    static_assert(offsetof(TAdynmemStruct, BuildSpotState)==0x2CC6 && offsetof(TAdynmemStruct, TILE_SET)==0x14283, "Small-map input and tile bank");
+    static_assert(offsetof(OFFSCREEN, lpSurface)==0x0C && offsetof(OFFSCREEN, ScreenRect)==0x1C, "Indexed framebuffer ABI");
+    BYTE CameraBoundsCode[sizeof(CameraBounds::Sites) / sizeof(CameraBounds::Sites[0])][32];
+    BYTE SmallMapPhaseCode[32];
+    const BYTE SmallMapPhaseExpected[] = {0x8B,0x0D,0xE8,0x1D,0x51,0x00};
+    bool SmallMapHooksInstalled = false;
+
+    bool HasSmallMap(const TAdynmemStruct* ta)
+    {
+        return ta && SmallMapViewport::Small(ta->MapSizeX, ta->MapSizeY,
+            static_cast<int>(ta->GameScreenWidth), static_cast<int>(ta->GameScreenHeight));
+    }
+
+    void __stdcall ClampCurrentCamera()
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        CameraBounds::ClampPair(ta->EyeBallMapXPos, ta->EyeBallMapYPos, ta->MapSizeX, ta->MapSizeY,
+            ta->GameScreenWidth, ta->GameScreenHeight);
+    }
+    void __stdcall ClampDesiredCamera()
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        CameraBounds::ClampPair(ta->MapXScrollingTo, ta->MapYScrollingTo, ta->MapSizeX, ta->MapSizeY,
+            ta->GameScreenWidth, ta->GameScreenHeight);
+    }
+
+    // Reset/save/mode transitions can leave a zero destination on a centred
+    // axis. Normalize both positions before the glide compares them, so an
+    // idle camera does not try to approach zero again on every simulation tick.
+    void __stdcall NormalizeSmallMapState()
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta)) return;
+        const int oldX=ta->EyeBallMapXPos, oldY=ta->EyeBallMapYPos;
+        ClampCurrentCamera();
+        ClampDesiredCamera();
+        if(oldX!=ta->EyeBallMapXPos || oldY!=ta->EyeBallMapYPos)
+        {
+            *reinterpret_cast<BYTE*>(reinterpret_cast<BYTE*>(ta)+0x142F1) |= 2;
+            ta->LosType &= ~8u;
+        }
+    }
+
+    SmallMapViewport::Rect WorldView(const TAdynmemStruct* ta)
+    {
+        const RECT& r = ta->GameSreen_Rect;
+        return {r.left, r.top, r.right + 1, r.bottom + 1};
+    }
+    SmallMapViewport::Surface PixelSurface(OFFSCREEN* surface)
+    {
+        const RECT& r = surface->ScreenRect;
+        return {static_cast<BYTE*>(surface->lpSurface), surface->Width, surface->Height,
+            surface->lPitch, {r.left, r.top, r.right + 1, r.bottom + 1}};
+    }
+
+    // Small-map terrain fix by TAG_Venom. Clip source rows/columns before
+    // reading tile IDs: clipping only the destination allowed horizontal wrap.
+    void __stdcall DrawSmallMapTerrain(OFFSCREEN* surface)
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta))
+        {
+            reinterpret_cast<void (__stdcall*)(OFFSCREEN*)>(0x00483FA0u)(surface);
+            return;
+        }
+        const DWORD* bank = reinterpret_cast<const DWORD*>(ta->TILE_SET);
+        const WORD* ids = *reinterpret_cast<const WORD* const*>(reinterpret_cast<const BYTE*>(ta) + 0x1428B);
+        SmallMapViewport::Terrain terrain = {ids, bank ? reinterpret_cast<const BYTE*>(bank[1]) : NULL,
+            ta->FeatureMapSizeX / 2, ta->FeatureMapSizeY / 2, bank ? bank[0] : 0,
+            ta->MapSizeX, ta->MapSizeY};
+        SmallMapViewport::DrawTerrain(PixelSurface(surface), WorldView(ta),
+            ta->EyeBallMapXPos, ta->EyeBallMapYPos, terrain);
+    }
+
+    // This call is after world/fog/selection drawing and before HUD drawing.
+    // Mask only unused world margins, never the sidebar, minimap or resource UI.
+    void __stdcall DrawStripWithSmallMapMargins(OFFSCREEN* surface)
+    {
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (HasSmallMap(ta))
+            SmallMapViewport::ClearMargins(PixelSurface(surface), WorldView(ta),
+                ta->EyeBallMapXPos, ta->EyeBallMapYPos, ta->MapSizeX, ta->MapSizeY);
+        reinterpret_cast<void (__stdcall*)(OFFSCREEN*)>(0x004689C0u)(surface);
+    }
+
+    void __stdcall BuildSmallMapFogCache()
+    {
+        reinterpret_cast<void (__stdcall*)()>(0x004843C0u)();
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta)) return;
+        // Stock extends missing corners at the screen borders. A centred map
+        // needs that same extension at its actual grid borders inside the view.
+        const int* cache = *reinterpret_cast<const int* const*>(reinterpret_cast<const BYTE*>(ta)+0x1421F);
+        if (cache)
+            SmallMapViewport::ExtendFogEdges(reinterpret_cast<BYTE*>(cache[0]),cache[1],cache[2],cache[3],
+                ta->EyeBallMapXPos,ta->EyeBallMapYPos,ta->FeatureMapSizeX/2,ta->FeatureMapSizeY/2);
+    }
+
+    void __stdcall UpdateSmallMapMinimap(int* rect)
+    {
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta))
+        {
+            reinterpret_cast<void (__stdcall*)(int*)>(0x00466B70u)(rect);
+            return;
+        }
+        const BYTE* state = reinterpret_cast<const BYTE*>(ta);
+        SmallMapViewport::MinimapAxis(rect[0],rect[2],*reinterpret_cast<const short*>(state+0x142E7),
+            ta->RadarPicSizeX,ta->EyeBallMapXPos,ta->GameScreenWidth,ta->MapSizeX);
+        SmallMapViewport::MinimapAxis(rect[1],rect[3],*reinterpret_cast<const short*>(state+0x142E9),
+            ta->RadarPicSizeY,ta->EyeBallMapYPos,ta->GameScreenHeight,ta->MapSizeY);
+    }
+
+    void __stdcall ProjectSmallMapPointer(int x, int y, void* position)
+    {
+        TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (HasSmallMap(ta))
+            ta->BuildSpotState = SmallMapViewport::PointerFlags(ta->BuildSpotState,
+                x, y, ta->MapSizeX, ta->MapSizeY);
+        reinterpret_cast<void (__stdcall*)(int, int, void*)>(0x00484B50u)(x, y, position);
+    }
+
+    int __stdcall SmallMapBuildPreviewContains(const RECT* rect, int x, int y)
+    {
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (!HasSmallMap(ta))
+            return reinterpret_cast<int (__stdcall*)(const RECT*,int,int)>(0x004B6720u)(rect,x,y);
+        return SmallMapViewport::ContainsScreen(WorldView(ta),ta->EyeBallMapXPos,ta->EyeBallMapYPos,
+            ta->MapSizeX,ta->MapSizeY,x,y) ? 1 : 0;
+    }
+
+    // Preserve the original ECX receiver/flag word and four-byte stack cleanup.
+    // Margin clicks must not turn the clamped height-resolver point into orders.
+    void __fastcall DispatchSmallMapCommand(void* context, void*, int* message)
+    {
+        const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+        if (HasSmallMap(ta) && (ta->BuildSpotState & 3) == 0) return;
+        reinterpret_cast<void (__thiscall*)(void*, int*)>(0x00498F70u)(context, message);
+    }
+
+    struct SmallMapCall
+    {
+        DWORD address;
+        BYTE expected[5];
+        void* replacement;
+        BYTE patch[5];
+    };
+    SmallMapCall SmallMapCalls[] = {
+        // The clamp at 0041C3C6 always resumes at 0041C43C; its other
+        // minimap CALL at 0041C426 is bypassed and must remain untouched.
+        {0x0041C442u, {0xE8,0x29,0xA7,0x04,0x00}, reinterpret_cast<void*>(&UpdateSmallMapMinimap)},
+        {0x00468DB0u, {0xE8,0xEB,0xB1,0x01,0x00}, reinterpret_cast<void*>(&DrawSmallMapTerrain)},
+        {0x004848FAu, {0xE8,0xC1,0xFA,0xFF,0xFF}, reinterpret_cast<void*>(&BuildSmallMapFogCache)},
+        {0x00469F9Fu, {0xE8,0x1C,0xEA,0xFF,0xFF}, reinterpret_cast<void*>(&DrawStripWithSmallMapMargins)},
+        {0x00469DF6u, {0xE8,0x25,0xC9,0x04,0x00}, reinterpret_cast<void*>(&SmallMapBuildPreviewContains)},
+        {0x00498EF9u, {0xE8,0x52,0xBC,0xFE,0xFF}, reinterpret_cast<void*>(&ProjectSmallMapPointer)},
+        {0x004995B3u, {0xE8,0xB8,0xF9,0xFF,0xFF}, reinterpret_cast<void*>(&DispatchSmallMapCommand)}
+    };
+    // Map-selection preview fix by TAG_Venom.
+    const DWORD MapPreviewCopyCallAddr = 0x004666C0u;
+    // PUSH 0, PUSH 0, LEA EDX,[ESP+68], PUSH EDI, PUSH EDX, CALL DrawFrame.
+    const BYTE MapPreviewCopyContext[] = {
+        0x6A, 0x00, 0x6A, 0x00, 0x8D, 0x54, 0x24, 0x68, 0x57, 0x52,
+        0xE8, 0xCB, 0x18, 0x05, 0x00
+    };
+    BYTE MapPreviewCopyCallPatch[5];
+
+    static_assert(sizeof(GAFFrame) == 0x18, "Retail frame ABI");
+    static_assert(offsetof(GAFFrame, Background) == 0x08, "Retail color key ABI");
+    static_assert(offsetof(GAFFrame, PtrFrameBits) == 0x10, "Retail pixels ABI");
+    static_assert(sizeof(OFFSCREEN) == 0x30, "Retail surface ABI");
+
+    // This CALL alone is intercepted. The stock allocator leaves frame+08
+    // uninitialized; DrawFrame uses it as a color key, leaving matching pixels
+    // in the temporary image untouched. Preserve every index before stock scaling.
+    void __stdcall CopyMapPreviewFrame(OFFSCREEN* destination, GAFFrame* source,
+        int x, int y)
+    {
+        typedef void (__stdcall *DrawFrameFn)(OFFSCREEN*, GAFFrame*, int, int);
+        const DrawFrameFn original = reinterpret_cast<DrawFrameFn>(0x004B7F90u);
+        const bool expected = destination && source && destination->lpSurface &&
+            source->PtrFrameBits && x == 0 && y == 0 && source->xPosition == 0 &&
+            source->yPosition == 0 && source->Compressed == 0 && source->FramePointers == 0 &&
+            source->Width > 0 && source->Height > 0 &&
+            destination->Width == source->Width && destination->Height == source->Height &&
+            destination->lPitch >= source->Width &&
+            destination->ScreenRect.left == 0 && destination->ScreenRect.top == 0 &&
+            destination->ScreenRect.right == source->Width - 1 &&
+            destination->ScreenRect.bottom == source->Height - 1;
+        if (!expected)
+        {
+            original(destination, source, x, y);
+            return;
+        }
+
+        BYTE* output = static_cast<BYTE*>(destination->lpSurface);
+        for (int row = 0; row < source->Height; ++row)
+            std::memcpy(output + static_cast<size_t>(row) * destination->lPitch,
+                source->PtrFrameBits + static_cast<size_t>(row) * source->Width,
+                source->Width);
+    }
+
+	const DWORD AntiNukeTargetSearchAddr = 0x0049D120u;
+	const BYTE AntiNukeTargetSearchExpected[5] = { 0x8B, 0x44, 0x24, 0x08, 0x53 };
+	BYTE AntiNukeTargetSearchPatch[5];
+	const DWORD AntiNukeMinimapCoverageAdjustAddr = 0x004670C4u;
+	const BYTE AntiNukeMinimapCoverageAdjustExpected[6] = { 0x81, 0xE9, 0x00, 0x02, 0x00, 0x00 };
+	BYTE AntiNukeMinimapCoverageAdjustPatch[6] = { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+
+#if AI_COMMANDER_KEEPS_ORDERS_ENABLE
+	// Skips ReactToAttack's DeleteOrders on a hit local-AI commander, which stalls the AI.
+	// Only the AI's host runs that block, so it cannot desync. The 3.9.02 exe ships this patch.
+	const DWORD AiCommanderKeepsOrdersCheckAddr = 0x00406FAEu;
+	const BYTE AiCommanderKeepsOrdersExpected[11] = {
+		0x8B, 0x88, 0x45, 0x02, 0x00, 0x00,  // mov ecx,[eax+245h]
+		0xF6, 0xC5, 0x10,                    // test ch,10h
+		0x74, 0x3D                           // je 0x00406FF6
+	};
+	const DWORD AiCommanderKeepsOrdersPatchAddr = 0x00406FB4u;
+	BYTE AiCommanderKeepsOrdersPatch[2] = { 0xEB, 0x40 };  // jmp 0x00406FF6
+#endif
+
+	// Mirror TA's target search at 0x0049D120, replacing only its independent
+	// X/Y bounds with a circular horizontal-distance check.
+	ProjectileStruct* __stdcall FindAntiNukeTargetCircular(UnitStruct* unit, unsigned int weaponIndex)
+	{
+		weaponIndex &= 0xFFu;
+		if (!unit || weaponIndex >= 3u)
+		{
+			return NULL;
+		}
+
+		const BYTE* unitBytes = reinterpret_cast<const BYTE*>(unit);
+		const unsigned int weaponOffset = weaponIndex * 0x1Cu;
+		if (unitBytes[weaponOffset + 0x1E] == 0)
+		{
+			return NULL;
+		}
+
+		WeaponStruct* weapon = *reinterpret_cast<WeaponStruct* const*>(unitBytes + weaponOffset + 0x10);
+		TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+		if (!weapon || !ta || !ta->Projectiles || ta->NumProjectiles <= 0)
+		{
+			return NULL;
+		}
+
+		const __int64 radius = static_cast<__int64>(weapon->coverage) << 16;
+		const __int64 radiusSquared = radius * radius;
+		const int unitX = *reinterpret_cast<const int*>(unitBytes + 0x6A);
+		const int unitMapY = *reinterpret_cast<const int*>(unitBytes + 0x72);
+
+		ProjectileStruct* projectiles = ta->Projectiles;
+		const int projectileCount = ta->NumProjectiles;
+		for (int i = 0; i < projectileCount; ++i)
+		{
+			ProjectileStruct* candidate = &projectiles[i];
+			if (candidate->myLos_PlayerID == unit->cOwnerID
+				|| !candidate->Weapon
+				|| (candidate->Weapon->WeaponTypeMask & WTM_Targetable) == 0)
+			{
+				continue;
+			}
+
+			const BYTE* candidateBytes = reinterpret_cast<const BYTE*>(candidate);
+			const __int64 dx = static_cast<__int64>(unitX)
+				- *reinterpret_cast<const int*>(candidateBytes + 0x28);
+			// The engine keeps the projectile's current 16.16 map coordinates at
+			// +0x28 and +0x30; these are the same fields used by the original search.
+			const __int64 dy = static_cast<__int64>(unitMapY)
+				- *reinterpret_cast<const int*>(candidateBytes + 0x30);
+			if (dx < -radius || dx > radius || dy < -radius || dy > radius
+				|| dx * dx + dy * dy > radiusSquared)
+			{
+				continue;
+			}
+
+			bool alreadyTargeted = false;
+			for (int j = 0; j < projectileCount; ++j)
+			{
+				ProjectileStruct* target = *reinterpret_cast<ProjectileStruct**>(
+					reinterpret_cast<BYTE*>(&projectiles[j]) + 0x56);
+				if (target == candidate)
+				{
+					alreadyTargeted = true;
+					break;
+				}
+			}
+
+			if (!alreadyTargeted)
+			{
+				return candidate;
+			}
+		}
+
+		return NULL;
+	}
+}
 ///////---------------------
 /*
 .text:004866E8 078 75 04                                                           jnz     short loc_4866EE
@@ -356,8 +661,71 @@ int __stdcall GhostComFixAssistProc(PInlineX86StackBuffer X86StrackBuffer)
 // TA natively assigns the first available ID, starting its search from 0.
 // Unfortunately if that ID was used by a recently-deceased unit, we may still receive damage packets for it.
 // So we're going to additionally require that the ID be available for at least a few seconds before making it available for recycling.
-static std::vector<int> unitIdRecycleTimestamps[10];	// The timestamp at which the ID becomes available
+//
+// Beyond that margin we hand out the slot free the LONGEST, not the lowest-numbered one: a stale
+// packet naming a recycled slot finds a live unit of the wrong TYPE, the divergence that kills
+// ReceiveWeaponFired (UnitIdentity.h), and LRU maximises the window in which it lands on an empty
+// slot instead and is discarded.
+//
+// Per player: a FIFO of freed slots holding freedAt, plus a bump pointer over never-used ones.
+// GameTime is monotonic so the queue stays sorted by age. Both ends O(1); the old lowest-free
+// search was O(nIds) per create, quadratic across a mass transfer (UNITS_GiveUnit is destroy +
+// recreate, so a '.take' of a 1000-unit army is 1000 creates).
+//
+// UNITS_CreateFromNetwork @0x4861d0 writes UnitINFOID directly and never reaches this hook, so a
+// held slot can be occupied behind our back. Every hand-out re-checks UnitID == 0 and skips; a
+// skipped slot rejoins the FIFO when its unit dies.
 static const int RECYCLE_MARGIN_TIME = 5 * 30;			// 5 sec
+
+// Why holding a slot longer helps: Send_UnitStatAndMove_2C @0x0048B710 advertises
+// Units_Begin + (GameTime % Skim) each tick, an empty slot as typeID 0; then
+// UnitMove_DeserializeAndUpdate @0x0048B3F0 sets PENDING_DEATH at 0x0048B42C and
+// AutoHealAndAimLoop @0x0048AFB9 reaps it. One sweep clears a ghost.
+
+struct UnitIdFreeList
+{
+	struct Entry
+	{
+		unsigned short slot;
+		int freedAt;    // GameTime the slot was released; both age tests derive from this
+	};
+
+	std::vector<Entry> ring;
+	unsigned head = 0;			// oldest entry
+	unsigned count = 0;
+	unsigned bumpNext = 0;		// slots [bumpNext, ring.size()) have never been handed out
+
+	void Reset(unsigned nIds)
+	{
+		ring.assign(nIds, Entry{ 0, 0 });
+		head = 0;
+		count = 0;
+		bumpNext = 0;
+	}
+
+	void Push(unsigned short slot, int freedAt)
+	{
+		// One push per free (UNITS_ReceiveUnitDeath bails on an already-dead unit at 0x486706),
+		// and a slot is popped before it can be freed again, so the ring cannot overflow.
+		if (ring.empty() || count >= ring.size()) {
+			return;
+		}
+		ring[(head + count) % ring.size()] = Entry{ slot, freedAt };
+		++count;
+	}
+};
+
+static UnitIdFreeList unitIdFreeList[10];
+
+static void UnitIdFreeList_SyncSize(const TAdynmemStruct* taPtr)
+{
+	const unsigned nIds = taPtr->PlayerUnitsNumber_Skim;
+	for (int i = 0; i < 10; ++i) {
+		if (taPtr->GameTime == 0 || unitIdFreeList[i].ring.size() != nIds) {
+			unitIdFreeList[i].Reset(nIds);
+		}
+	}
+}
 
 unsigned int FixFactoryExplosionsAssignUnitIdAddr = 0x486036;
 int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86StrackBuffer)
@@ -368,13 +736,8 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 	int playerIndex = *(int*)(X86StrackBuffer->Esp + 0x14 - 4) / 0x14b;
 	int unitIndexRequested = X86StrackBuffer->Edx;
 
-	unsigned nIds = taPtr->PlayerUnitsNumber_Skim;
-	for (int i = 0; i < 10; ++i) {
-		if (taPtr->GameTime == 0 || unitIdRecycleTimestamps[i].size() < nIds) {
-			unitIdRecycleTimestamps[i].clear();
-			unitIdRecycleTimestamps[i].resize(nIds, 0);		// all IDs available since t=0
-		}
-	}
+	UnitIdFreeList_SyncSize(taPtr);
+	const unsigned nIds = taPtr->PlayerUnitsNumber_Skim;
 
 	PlayerStruct* player = &taPtr->Players[playerIndex];
 	UnitStruct* units = (UnitStruct*)X86StrackBuffer->Esi;
@@ -391,13 +754,50 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 		}
 	}
 
-	for (int n = 0; n < taPtr->PlayerUnitsNumber_Skim; ++n) {
-		if (0 == player->Units[n].UnitID && taPtr->GameTime >= unitIdRecycleTimestamps[playerIndex][n]) {
-			//IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId=%d\n", playerIndex, n);
-			X86StrackBuffer->Esi = (DWORD)&player->Units[n];
-			X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x48605d;
-			return X86STRACKBUFFERCHANGE;
+	int assigned = -1;
+	if (unsigned(playerIndex) >= 10) {
+		// Shouldn't happen; fall back to stock lowest-free rather than refuse to create.
+		for (unsigned n = 0; n < nIds; ++n) {
+			if (0 == player->Units[n].UnitID) {
+				assigned = int(n);
+				break;
+			}
 		}
+	}
+	else {
+		UnitIdFreeList& freeList = unitIdFreeList[playerIndex];
+
+		// Prefer a slot that has never been handed out: no stale packet can name it at all.
+		while (assigned < 0 && freeList.bumpNext < nIds) {
+			const unsigned n = freeList.bumpNext++;
+			if (0 == player->Units[n].UnitID) {
+				assigned = int(n);
+			}
+		}
+
+		// Oldest-first, one age gate; the queue is sorted by age so "the front is too young"
+		// proves none qualify. Nothing old enough => "no ids available", as stock TA did.
+		//
+		// A stricter 2*Skim gate was tried and removed as dead code: FIFO considers the oldest
+		// first whatever the threshold, so it can never pick a different slot than this one does.
+		while (assigned < 0 && freeList.count > 0) {
+			const UnitIdFreeList::Entry entry = freeList.ring[freeList.head];
+			if (taPtr->GameTime - entry.freedAt < RECYCLE_MARGIN_TIME) {
+				break;
+			}
+			freeList.head = (freeList.head + 1) % freeList.ring.size();
+			--freeList.count;
+			if (0 == player->Units[entry.slot].UnitID) {
+				assigned = entry.slot;
+			}
+		}
+	}
+
+	if (assigned >= 0) {
+		//IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsAssignUnitIdProc] player=%d, assignedId=%d\n", playerIndex, assigned);
+		X86StrackBuffer->Esi = (DWORD)&player->Units[assigned];
+		X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)0x48605d;
+		return X86STRACKBUFFERCHANGE;
 	}
 
 	// no UnitIds available
@@ -414,14 +814,8 @@ int __stdcall FixFactoryExplosionsRecycleUnitIdProc(PInlineX86StackBuffer X86Str
 	UnitStruct* unit = (UnitStruct*)(X86StrackBuffer->Esi);
 	char* packetData = *(char**)(X86StrackBuffer->Esp + 0x7c);
 	int unitInGameIndex = *(unsigned short*)(packetData + 1);
-	
-	unsigned nIds = taPtr->PlayerUnitsNumber_Skim;
-	for (int i = 0; i < 10; ++i) {
-		if (taPtr->GameTime == 0 || unitIdRecycleTimestamps[i].size() < nIds) {
-			unitIdRecycleTimestamps[i].clear();
-			unitIdRecycleTimestamps[i].resize(nIds, 0);		// all IDs available since t=0
-		}
-	}
+
+	UnitIdFreeList_SyncSize(taPtr);
 
 	if (!unit) {
 		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] null unit!\n");
@@ -443,9 +837,8 @@ int __stdcall FixFactoryExplosionsRecycleUnitIdProc(PInlineX86StackBuffer X86Str
 				unit->UnitInGameIndex, unit->Owner_PlayerPtr0->UnitsIndex_Begin, taPtr->PlayerUnitsNumber_Skim);
 		}
 		else {
-			unitIdRecycleTimestamps[unit->OwnerIndex][playerUnitIndex] = taPtr->GameTime + RECYCLE_MARGIN_TIME;
-			//IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsRecycleUnitIdProc] player=%d, UnitId=%d, timestampWhenAvailable=%d\n",
-			//	int(unit->OwnerIndex), playerUnitIndex, unitIdRecycleTimestamps[unit->OwnerIndex][playerUnitIndex]);
+			// Store when it was freed, not a deadline, so the age test lives with the allocator.
+			unitIdFreeList[unit->OwnerIndex].Push((unsigned short)playerUnitIndex, taPtr->GameTime);
 		}
 	}
 	return 0;
@@ -947,6 +1340,290 @@ int __stdcall CrashFix004cbed5Proc(PInlineX86StackBuffer X)
 }
 
 // ============================================================================
+// Order-state-machine dispatch guard.
+//
+// MainOrderStateController (0x0043B7C0) and BackgroundOrderStateController
+// (0x0043BAD0) dispatch a unit's current order through
+//
+//     CALL dword ptr [g_COBTable + order->COBHandler_index * 0x19 + 4]
+//
+// with NO bounds check against g_COBTable_end (0x00512348). COBHandler_index is
+// a raw byte, so any recycled / half-freed OrderStruct drives an indirect call
+// through whatever lies past the end of the table. Diagnosed from game 189724
+// (ProTA 4.9test2, 2026-08-31): EIP ended up on dynmem+0x14353 -- a data address
+// -- out of MainOrderStateController, with an empty breadcrumb ring because
+// nothing on the order path recorded anything.
+//
+// We hook the instruction that loads the table base (BEFORE the three argument
+// pushes), so ESP is still exactly at the post-prologue level. That makes a
+// clean bail-out possible: jumping to the function's own epilogue unwinds the
+// frame correctly.
+//
+//   site 0x0043B865  MOV ECX,[0x00512344]  (6 bytes)  -> epilogue 0x0043BA9C
+//                    ESI=OrderStruct*, unit at [Esp+0x18]   (5 POPs + RET 4)
+//   site 0x0043BB0F  MOV EDX,[0x00512344]  (6 bytes)  -> epilogue 0x0043BC57
+//                    ESI=OrderStruct*, EDI=UnitStruct*      (4 POPs + RET 4)
+//   site 0x0043A202  MOV ECX,[0x00512344]  (6 bytes)  -> resume 0x0043A21E
+//                    ESI=OrderStruct*, unit at ESI->Unit_ptr
+//
+// The third site (added 2026-09-15) is UnitScriptingData_CancelOrder's teardown
+// dispatch -- the one that re-entered Order_MobileBuild in the 2026-09-14 "venom"
+// crash. Without it a re-entrant dispatch appeared as an MBRE breadcrumb with no
+// matching "Order dispatch" row, which reads like the two views disagree.
+//
+// Two things differ from the other sites. Its bail-out is not the epilogue: the
+// call here is one optional notification (condition_mask bit 1), so resuming at
+// 0x0043A21E leaves the rest of the cancel to run. ESP matches at both addresses
+// (the argument pushes are balanced by the handler's RET 0xC). And it does NOT
+// stamp g_currentOrderUnit -- it runs nested inside another unit's live handler,
+// so stamping would mis-attribute that unit's nanolathe for the rest of the
+// outer dispatch.
+//
+// DEFAULT IS OBSERVE-ONLY -- WE WANT THE CRASH.
+// Bailing out would work (the epilogue targets above unwind cleanly, and this
+// path writes nothing to game state so there is no new desync surface), but a
+// client that survives never produces an ErrorLog and nobody ever sends the
+// report in. No crash, no report, no diagnosis. So while we are still hunting
+// this bug the guard records everything and then lets the dispatch proceed
+// exactly as before, i.e. straight into the crash -- which now arrives with the
+// offending order named in the report's "Order dispatch" section and the
+// preceding KICK / MBRE breadcrumbs still in the ring.
+//
+// Flip TDRAW_ORDER_DISPATCH_BAILOUT to 1 once the cause is understood and the
+// goal changes from "diagnose" to "protect players". Compile-time only, per the
+// no-runtime-switches-on-sim-features rule: a mixed fleet where some clients
+// bail and others don't is exactly the kind of divergence that rule exists to
+// prevent.
+// ============================================================================
+
+#define TDRAW_ORDER_DISPATCH_BAILOUT 0
+
+static const unsigned OrderDispatchGuardMainAddr       = 0x0043b865;
+static const unsigned OrderDispatchGuardMainBailout    = 0x0043ba9c;
+static const unsigned OrderDispatchGuardBgAddr         = 0x0043bb0f;
+static const unsigned OrderDispatchGuardBgBailout      = 0x0043bc57;
+// "Bailout" here means "skip the notification call", not "unwind the function".
+static const unsigned OrderDispatchGuardTeardownAddr   = 0x0043a202;
+static const unsigned OrderDispatchGuardTeardownSkip   = 0x0043a21e;
+
+// Last few dispatches, kept OUTSIDE the breadcrumb ring on purpose: this path
+// runs once per order per unit per tick (~10k/s in a big game), which would
+// flush the 128-entry ring in a few milliseconds and bury every rare event.
+// A tiny dedicated ring costs 6 stores and gives the crash report the one thing
+// it most needs -- the order that was being dispatched when we died.
+struct OrderDispatchNote
+{
+	DWORD unit, order, idx, count, handler, tick;
+	const char* which;
+};
+static const int ORDER_DISPATCH_NOTES = 4;
+static OrderDispatchNote g_orderDispatchNotes[ORDER_DISPATCH_NOTES];
+static volatile LONG     g_orderDispatchHead = 0;
+static DWORD             g_orderDispatchRejects = 0;
+
+// A permanently-corrupt order would otherwise re-reject every tick forever.
+// Breadcrumbs are cheap and always recorded; only the tdrawlog line is throttled.
+static bool OrderDispatchShouldLog(DWORD n)
+{
+	return n <= 20 || (n % 1000) == 0;
+}
+
+// TotalA.exe code range -- a handler_fn outside this is garbage even when the
+// index happens to fall inside the table (the recycled-table case).
+static const DWORD kTaCodeLo = 0x00401000u;
+static const DWORD kTaCodeHi = 0x004fc000u;
+
+// Published for TeamColorNanolathe: during order dispatch the unit whose handler is running is
+// the one emitting nanolathe particles, so it can be used directly instead of scanning the whole
+// unit array for the nearest unit to the emission point. Stamped with GameTime so a consumer can
+// reject it outside the dispatch window rather than reading a stale unit.
+DWORD g_currentOrderUnit = 0;
+int   g_currentOrderUnitTick = -1;
+
+static int OrderDispatchGuardCommon(PInlineX86StackBuffer buf, DWORD unit,
+                                    unsigned bailout, const char* which)
+{
+	UnitOrdersStruct* order = (UnitOrdersStruct*)buf->Esi;
+
+	// The order pointer itself can already be freed memory. Probe only the 5
+	// bytes we are about to read (through COBHandler_index at +4) -- this runs
+	// once per order per unit per tick, and SafeIsBadReadPtr is a byte-at-a-time
+	// volatile loop, so probing the whole 0x56-byte struct here would cost ~17x
+	// more for no benefit. The reject path re-probes in full before it logs the
+	// deeper fields.
+	const bool readable = order && !SafeIsBadReadPtr(order, 5);
+
+	unsigned idx = 0xFFFFFFFFu, count = 0;
+	DWORD handler = 0;
+	if (readable)
+	{
+		const BYTE* begin = (const BYTE*)*COBSciptHandler_Begin;
+		const BYTE* end   = (const BYTE*)*COBSciptHandler_End;
+		// sizeof(COBHandle) is 0x19 -- tamem.h is inside #pragma pack(1). Spelled
+		// out so a stray packing change can't silently re-scale the stride.
+		const unsigned kStride = 0x19u;
+		count = (begin && end && end > begin) ? (unsigned)((end - begin) / kStride) : 0;
+		idx   = order->COBHandler_index;
+		if (idx < count)
+			handler = *(const DWORD*)(begin + idx * kStride + 4);  // COBHandle::orderFunctionPointer
+	}
+
+	// Record the note for EVERY dispatch, good or bad. The whole point of this
+	// snapshot is to survive into the crash report, and the dispatch we care
+	// about most is the one that is about to kill us -- so it must be the
+	// newest entry, not squeezed out by the reject path returning early.
+	LONG slot = InterlockedIncrement(&g_orderDispatchHead) - 1;
+	OrderDispatchNote& n = g_orderDispatchNotes[slot & (ORDER_DISPATCH_NOTES - 1)];
+	n.unit = unit; n.order = (DWORD)order; n.idx = idx; n.count = count;
+	n.handler = handler; n.which = which;
+	TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+	n.tick = ta ? (DWORD)ta->GameTime : 0;
+
+	if (readable && idx < count && handler >= kTaCodeLo && handler < kTaCodeHi)
+		return 0;                       // normal case: let the dispatch proceed
+
+	++g_orderDispatchRejects;
+	CrashTrace_RecordEvent(TRACE_CAT_OBAD, unit, (DWORD)order,
+		readable ? (idx | (count << 16)) : 0xFFFFFFFFu, handler);
+	if (OrderDispatchShouldLog(g_orderDispatchRejects))
+	{
+		// Only the first 5 bytes are known-readable, and maybe not even those.
+		bool deep = readable && !SafeIsBadReadPtr(order, sizeof(UnitOrdersStruct));
+		IDDrawSurface::OutptFmtTxt(
+			"[OrderDispatchGuard] %s: BAD dispatch unit=%08X order=%08X readable=%d "
+			"COBHandler_index=%d (table has %u) handler=%08X state=%d orderState=%08X "
+			"next=%08X tick=%lu (#%u)",
+			which, unit, (DWORD)order, (int)readable,
+			readable ? (int)idx : -1, count, handler,
+			readable ? (int)order->State : -1,
+			deep ? order->Order_State : 0xBADBAD00u,
+			deep ? (DWORD)order->NextOrder : 0xBADBAD00u,
+			(unsigned long)n.tick, g_orderDispatchRejects);
+	}
+
+#if TDRAW_ORDER_DISPATCH_BAILOUT
+	// Survive instead of crashing: unwind via the function's own epilogue,
+	// costing one tick of this unit's order processing. Verified stack-correct
+	// (ESP is still at post-prologue level at the hook site), but OFF by default
+	// -- see the comment block above for why.
+	buf->rtnAddr_Pvoid = (LPVOID)bailout;
+	return X86STRACKBUFFERCHANGE;
+#else
+	(void)bailout;
+	return 0;
+#endif
+}
+
+// Only the two top-level controllers publish the current unit; the teardown site
+// is nested inside one of them and must not overwrite the stamp.
+static void StampCurrentOrderUnit(DWORD unit)
+{
+	const TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+	g_currentOrderUnit = unit;
+	g_currentOrderUnitTick = ta ? ta->GameTime : -1;
+}
+
+int __stdcall OrderDispatchGuardMainProc(PInlineX86StackBuffer buf)
+{
+	// MainOrderStateController: unit_ptr is the stdcall arg at [Esp+0x18]
+	// (5 pushed regs + return address below it).
+	const DWORD* stackTop = (const DWORD*)buf->Esp;
+	DWORD unit = (stackTop && !SafeIsBadReadPtr(stackTop, 0x1c)) ? stackTop[6] : 0;
+	StampCurrentOrderUnit(unit);
+	return OrderDispatchGuardCommon(buf, unit, OrderDispatchGuardMainBailout, "main");
+}
+
+int __stdcall OrderDispatchGuardBgProc(PInlineX86StackBuffer buf)
+{
+	// BackgroundOrderStateController keeps unit_ptr in EDI across the loop.
+	StampCurrentOrderUnit(buf->Edi);
+	return OrderDispatchGuardCommon(buf, buf->Edi, OrderDispatchGuardBgBailout, "background");
+}
+
+int __stdcall OrderDispatchGuardTeardownProc(PInlineX86StackBuffer buf)
+{
+	// __fastcall, order in ESI since 0x0043A1F2; the unit is order->Unit_ptr, the
+	// same value the engine pushes at 0x0043A219. Probe first -- this whole guard
+	// exists because the order can be freed memory.
+	const UnitOrdersStruct* order = (const UnitOrdersStruct*)buf->Esi;
+	DWORD unit = (order && !SafeIsBadReadPtr(order, 0x12)) ? (DWORD)order->Unit_ptr : 0;
+	return OrderDispatchGuardCommon(buf, unit, OrderDispatchGuardTeardownSkip, "teardown");
+}
+
+// ============================================================================
+// Sound instance limiting -- see config.h for why and the measurements behind it.
+// ============================================================================
+#if SOUND_INSTANCE_LIMIT_MS > 0
+
+static const unsigned kSoundSlots = 512;          // power of two
+struct SoundStamp { DWORD key; DWORD ms; };
+static SoundStamp g_playStamp[kSoundSlots];
+static unsigned g_sndPlayed = 0, g_sndDropped = 0;
+static DWORD g_sndLogMs = 0;
+
+static inline unsigned SoundSlot(DWORD key)
+{
+	key ^= key >> 16; key *= 0x7FEB352Du; key ^= key >> 15;
+	return key & (kSoundSlots - 1);
+}
+
+// True when this key already fired inside the window, i.e. the caller should suppress.
+// Direct-mapped: a colliding key simply refreshes the slot, so the worst case is a missed
+// suppression, never a wrongly suppressed sound.
+static bool SoundFiredRecently(SoundStamp* table, DWORD key, DWORD windowMs, DWORD now)
+{
+	SoundStamp& s = table[SoundSlot(key)];
+	if (s.key == key && (now - s.ms) < windowMs)
+		return true;
+	s.key = key;
+	s.ms = now;
+	return false;
+}
+
+static void SoundLimitHeartbeat(DWORD now)
+{
+	if (now - g_sndLogMs < 30000u)
+		return;
+	g_sndLogMs = now;
+	const unsigned play = g_sndPlayed + g_sndDropped;
+	IDDrawSurface::OutptFmtTxt(
+		"[SoundLimit] played=%u dropped=%u (%u%% dropped)",
+		g_sndPlayed, g_sndDropped, play ? (g_sndDropped * 100u / play) : 0u);
+}
+#endif
+
+#if SOUND_INSTANCE_LIMIT_MS > 0
+// Hooked just past DSoundP_PlayBuffer's prologue (SUB ESP,0x1C + 4 pushes), so the suppress path
+// can jump to the function's own early return at 0x004CF5D7 rather than doing stack surgery.
+// The two stolen instructions are local-variable stores the early-return path never reads.
+// arg1 is SoundEffectsArray[soundId] -- a stable per-sound object, verified in Ghidra at
+// 0047F367 (MOV EBX,[EAX+ECX*4+0x33A13]), so it keys the cooldown correctly.
+static const unsigned SoundPlayHookAddr  = 0x004cf582;
+static const unsigned SoundPlayHookLen   = 8;          // resumes at 0x004CF58A
+static const unsigned SoundPlayEarlyRet  = 0x004cf5d7; // XOR EAX,EAX; POP x4; ADD ESP,0x1C; RET 0xC
+static const unsigned char SoundPlayBytes[8] = { 0x89, 0x74, 0x24, 0x18, 0x89, 0x6C, 0x24, 0x10 };
+
+int __stdcall SoundInstanceLimitProc(PInlineX86StackBuffer buf)
+{
+	// SUB ESP,0x1C then 4 pushes => the caller's arguments start at Esp+0x30.
+	const DWORD* args = (const DWORD*)(buf->Esp + 0x30);
+	const DWORD soundObj = args[0];
+	const DWORD now = GetTickCount();
+
+	if (soundObj && SoundFiredRecently(g_playStamp, soundObj, SOUND_INSTANCE_LIMIT_MS, now))
+	{
+		++g_sndDropped;
+		buf->rtnAddr_Pvoid = (LPVOID)SoundPlayEarlyRet;
+		return X86STRACKBUFFERCHANGE;
+	}
+	++g_sndPlayed;
+	SoundLimitHeartbeat(now);
+	return 0;
+}
+#endif
+
+
+// ============================================================================
 // Generic crash report — fires for ANY fatal exception that the address-specific
 // handlers above don't claim. Captures registers, bytes@EIP, the faulting-memory
 // window, an EBP stack walk + raw stack attributed to modules, a TA game-state
@@ -1036,6 +1713,48 @@ static void CaptureSelfModuleRange()
 			CloseHandle(snap);
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Crash-report timestamping.
+//
+// Errorlog.txt is append-only across runs and has no clock of its own, so a
+// CRASHTRACE block on its own can't be placed in time: you can't tell whether
+// it killed the process or whether it was a swallowed first-chance probe that
+// the run sailed straight past. (Real case: game 188954, where cnc-ddraw's
+// SEH-guarded module scan produced a full CRASHTRACE at startup and the player
+// then went on to play a 24-minute game and exit cleanly.)
+//
+// Every block therefore carries wall-clock local time plus process uptime, and
+// InstallCrashTrace/ExitProcess bracket the run so a reader can see at a glance
+// that play continued after the report. Wall clock is what lines up with
+// game_<id>.log; uptime is what survives a machine whose clock is wrong.
+// ---------------------------------------------------------------------------
+static DWORD  g_crashTraceInstallTick = 0;
+static volatile LONG g_crashReportCount = 0;
+
+static void FormatLocalTime(char* buf, size_t cb)
+{
+	SYSTEMTIME st;
+	GetLocalTime(&st);
+	_snprintf_s(buf, cb, _TRUNCATE, "%04u-%02u-%02u %02u:%02u:%02u.%03u",
+		st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+}
+
+// Milliseconds since InstallCrashTrace(). GetTickCount wraps at 49.7 days;
+// unsigned subtraction still yields the correct delta across the wrap.
+static DWORD CrashTraceUptimeMs()
+{
+	return g_crashTraceInstallTick ? (DWORD)(GetTickCount() - g_crashTraceInstallTick) : 0;
+}
+
+static void WriteCrashTimestamp(FILE* f)
+{
+	char when[40];
+	FormatLocalTime(when, sizeof(when));
+	DWORD ms = CrashTraceUptimeMs();
+	fprintf(f, "Time = %s local, %u.%03us after CrashTrace install (report #%ld)\n",
+		when, ms / 1000, ms % 1000, (long)InterlockedIncrement(&g_crashReportCount));
 }
 
 static const char* ExceptionCodeName(DWORD code)
@@ -1182,6 +1901,29 @@ static void WriteGameStateSnapshot(FILE* f)
 	}
 }
 
+// The order that was being dispatched when we died. Kept separate from the
+// breadcrumb ring because this path is far too hot to breadcrumb (see the
+// OrderDispatchGuard comment block).
+static void WriteOrderDispatch(FILE* f)
+{
+	fprintf(f, "--- Order dispatch (last %d, newest first; %u flagged bad this run) ---\n",
+		ORDER_DISPATCH_NOTES, g_orderDispatchRejects);
+	LONG head = g_orderDispatchHead;
+	bool any = false;
+	for (int i = 1; i <= ORDER_DISPATCH_NOTES; ++i)
+	{
+		const OrderDispatchNote& n = g_orderDispatchNotes[(head - i) & (ORDER_DISPATCH_NOTES - 1)];
+		if (!n.order) continue;
+		any = true;
+		fprintf(f, "  %-10s tick=%-8lu unit=%08X order=%08X idx=%-4d/%-4u handler=%08X%s\n",
+			n.which ? n.which : "?", (unsigned long)n.tick,
+			n.unit, n.order, (int)n.idx, n.count, n.handler,
+			(n.idx == 0xFFFFFFFFu || n.idx >= n.count ||
+			 n.handler < kTaCodeLo || n.handler >= kTaCodeHi) ? "   <== BAD" : "");
+	}
+	if (!any) fprintf(f, "(none)\n");
+}
+
 static void WriteTraceRing(FILE* f)
 {
 	fprintf(f, "--- Breadcrumb ring (last %d events, oldest first) ---\n", TRACE_RING_SIZE);
@@ -1230,6 +1972,12 @@ static void WriteGenericCrashReport(FILE* f, PEXCEPTION_POINTERS ei)
 
 	fprintf(f, "\n===== CRASHTRACE: %s (0x%08X) at %08X (%s) =====\n",
 		ExceptionCodeName(code), code, (unsigned)eip, ModForAddr(mods, nmods, eip));
+	WriteCrashTimestamp(f);
+	// This is a FIRST-CHANCE report: the VEH runs before any __try/__except in
+	// the faulting module gets a look, and we return EXCEPTION_CONTINUE_SEARCH.
+	// The process may well survive this. Compare the timestamp above against the
+	// "process exiting" line at the end of the run before calling it a crash.
+	fprintf(f, "(first-chance report - the process may have handled this and continued)\n");
 	// VEH runs on the faulting thread, so this is the thread that crashed
 	// (cross-reference against the per-event tid in the breadcrumb ring below).
 	fprintf(f, "Faulting thread id = %lu\n", (unsigned long)GetCurrentThreadId());
@@ -1245,6 +1993,7 @@ static void WriteGenericCrashReport(FILE* f, PEXCEPTION_POINTERS ei)
 	WriteStackWalk(f, ctx->Ebp, mods, nmods);
 	WriteRawStack(f, ctx->Esp, mods, nmods, 32);
 	WriteGameStateSnapshot(f);
+	WriteOrderDispatch(f);
 	WriteTraceRing(f);
 
 	fprintf(f, "--- modules ---\n");
@@ -1275,10 +2024,12 @@ LONG CALLBACK VectoredHandler(
 				? ExceptionInfo->ExceptionRecord->ExceptionInformation[1] : 0;
 			int isWrite = ExceptionInfo->ExceptionRecord->NumberParameters >= 1
 				? (int)ExceptionInfo->ExceptionRecord->ExceptionInformation[0] : -1;
+			DWORD elapsed = CrashTraceUptimeMs();
 			IDDrawSurface::OutptFmtTxt(
-				"[CrashTrace] first-chance AV #%ld at EIP=0x%08X (%s 0x%p) "
+				"[CrashTrace] first-chance AV #%ld t=+%u.%03us at EIP=0x%08X (%s 0x%p) "
 				"EAX=%08X ECX=%08X EDX=%08X EBX=%08X ESI=%08X EDI=%08X EBP=%08X ESP=%08X",
-				n, (unsigned)ExceptionInfo->ExceptionRecord->ExceptionAddress,
+				n, elapsed / 1000, elapsed % 1000,
+				(unsigned)ExceptionInfo->ExceptionRecord->ExceptionAddress,
 				isWrite == 1 ? "write" : isWrite == 0 ? "read" : "?",
 				(void*)faultAddr,
 				ctx->Eax, ctx->Ecx, ctx->Edx, ctx->Ebx,
@@ -1299,6 +2050,7 @@ LONG CALLBACK VectoredHandler(
 			// --- Crash registers ---
 			const CONTEXT* ctx = ExceptionInfo->ContextRecord;
 			fprintf(f, "\n===== CRASH AT 0x4CBED5 =====\n");
+			WriteCrashTimestamp(f);
 			fprintf(f, "Registers: EAX=%08X EBX=%08X ECX=%08X EDX=%08X\n",
 				ctx->Eax, ctx->Ebx, ctx->Ecx, ctx->Edx);
 			fprintf(f, "           ESI=%08X EDI=%08X EBP=%08X ESP=%08X\n",
@@ -1731,10 +2483,228 @@ int __stdcall NullLpszPasswordInUpdateGameInfoProc(PInlineX86StackBuffer X)
 	return 0;
 }
 
+
+// ---------------------------------------------------------------------------
+// MultiplayerPlayerLost @ 0x00450380 reads one slot PAST the end of Player_Ary.
+//
+// It looks the dying player up by DirectPlayID twice. The first result is
+// guarded (index 10 -> NULL); the second is not:
+//
+//   0045046e  MOV byte ptr [ESP+0xc],0xa       ; not found -> index = 10
+//   00450488  LEA ESI,[EDX + ECX*2 + 0x1b63]   ; Player_Ary + 10*0x14B
+//   0045048f  TEST ESI,ESI                     ; only catches NULL - never true
+//   004504a9  LEA EAX,[ESI + 0x2b]             ; ->Name, out of bounds
+//   004504b7  CALL sprintf                     ; "%s %s", garbage name, phrase
+//   004504bc  MOV DL,byte ptr [ESI + 0x146]    ; ->colour index, also garbage
+//
+// So when the owner is already out of the table it announces a departure with a
+// name and colour read from whatever follows the array - which is dplayIds, and
+// prints as a junk chat line right after "X has been eliminated".
+//
+// Reachable whenever the player is removed before their last unit deaths are
+// dispatched. '.take' now rejects on transfer completion, which makes that the
+// normal case rather than a rarity.
+//
+// __stdcall, arg at [Esp+4] with the prologue not yet run; epilogue is RET 4.
+static unsigned int MultiplayerPlayerLostAddr = 0x00450380;
+
+__declspec(naked) void MultiplayerPlayerLostSuppressStub()
+{
+    __asm { ret 4 }
+}
+
+int __stdcall MultiplayerPlayerLostProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    const unsigned dpid = *(unsigned*)(X86StrackBuffer->Esp + 4);
+    TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+    if (ta)
+    {
+        // Same test TA uses: a slot with Controller 0 is not a player.
+        for (int i = 0; i < 10; ++i)
+            if (ta->Players[i].My_PlayerType != 0 &&
+                (unsigned)ta->Players[i].DirectPlayID == dpid)
+                return 0;                       // found: let TA announce it
+    }
+    IDDrawSurface::OutptFmtTxt(
+        "[TABugFix] suppressed MultiplayerPlayerLost for unknown dpid %08x"
+        " (would have read Player_Ary[10])", dpid);
+    X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)&MultiplayerPlayerLostSuppressStub;
+    return X86STRACKBUFFERCHANGE;
+}
+
+
+// ---------------------------------------------------------------------------
+// Guard: never let TA print a chat line from a packet that is not a chat packet.
+//
+// Packet_Dispatcher's chat branch prints from PACKET_DATA + 1. PACKET_DATA is a
+// fixed staging buffer refilled by getNextPacket(), so that is normally exactly
+// the chat subpacket being handled. It stops being true if anything refills the
+// buffer between the switch and the call at 0x00455250 - which is what happens
+// when one of our own packet handlers sends, re-entering TA's network stack. TA
+// then prints the packet that replaced ours, as text.
+//
+// The handlers no longer send (TakeClaim::OnClaimPacket, VoteReject::OnReceive),
+// so this should never fire. It logs when it does: that junk line was the only
+// symptom that led us to the re-entrancy, and silently swallowing the next one
+// would be worse than printing it.
+//
+// Tests the STRUCTURE, not the content - the residue is sometimes printable.
+static unsigned int NewChatTextGuardAddr = 0x00463ca0;
+
+// NewChatText is __stdcall with four args; skipping it means RET 0x10.
+__declspec(naked) void NewChatTextSuppressStub()
+{
+    __asm { ret 0x10 }
+}
+
+int __stdcall NewChatTextGuardProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+    const DWORD* sp   = (const DWORD*)X86StrackBuffer->Esp;
+    const DWORD  ret  = sp[0];
+    const char*  text = (const char*)sp[1];
+
+    if (ret != 0x00455255)              // only TA's received-chat branch
+        return 0;
+
+    TAdynmemStruct* ta = *(TAdynmemStruct**)0x00511de8;
+    const unsigned char* base = ta ? (const unsigned char*)ta->PacketBuffer_p : 0;
+    if (!base || IsBadReadPtr(base, 1) ||
+        (const void*)text != (const void*)(base + 1) || base[0] == 0x05)
+        return 0;
+
+    IDDrawSurface::OutptFmtTxt(
+        "[TABugFix] suppressed chat printed from a non-chat packet (base code %02x)",
+        base[0]);
+    X86StrackBuffer->rtnAddr_Pvoid = (LPVOID)&NewChatTextSuppressStub;
+    return X86STRACKBUFFERCHANGE;
+}
+
+static const unsigned int ReserveLoopingSoundSlotAddr = 0x004CF5B2;
+static const BYTE ReserveLoopingSoundSlotBytes[] = { 0x8B, 0x46, 0x30, 0x8B, 0x4E, 0x2C };
+static const DWORD SoundBufferSlotCount = 32; // pBufferSlots_32 has 32 entries.
+static const DWORD DSoundPlayLoopingAddr = 0x0051FF48; // Used for DSBPLAY_LOOPING at 0x004CF766.
+
+static int __stdcall ReserveLoopingSoundSlotProc(PInlineX86StackBuffer X86StrackBuffer)
+{
+	if (!*reinterpret_cast<const DWORD*>(DSoundPlayLoopingAddr))
+		return 0;
+
+	const DWORD self = X86StrackBuffer->Esi;
+	X86StrackBuffer->Eax = *reinterpret_cast<const DWORD*>(self + 0x30);
+	const DWORD maxChannels = *reinterpret_cast<const DWORD*>(self + 0x2C);
+	X86StrackBuffer->Ecx = maxChannels > SoundBufferSlotCount
+		? SoundBufferSlotCount : maxChannels;
+	X86StrackBuffer->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(0x004CF5B8);
+	return X86STRACKBUFFERCHANGE;
+}
+
+bool SmallMapCameraEnabled()
+{
+    return SmallMapHooksInstalled;
+}
+
 TABugFixing::TABugFixing ()
 {
+    // Camera, bounded terrain, fog edges, margins, minimap and input are one guarded
+    // installation. A centred origin must never reach the unbounded stock pass.
+    bool cameraBoundsMatch = true;
+    for (const auto& site : CameraBounds::Sites)
+    {
+        cameraBoundsMatch = cameraBoundsMatch && CameraBounds::Matches(site,
+            reinterpret_cast<const void*>(site.calculation))
+            && CameraBounds::MatchesContinuation(site,reinterpret_cast<const void*>(site.continuation));
+    }
+    for (const auto& site : SmallMapCalls)
+        cameraBoundsMatch = cameraBoundsMatch
+            && memcmp(reinterpret_cast<const void*>(site.address), site.expected, sizeof(site.expected)) == 0;
+    cameraBoundsMatch = cameraBoundsMatch
+        && memcmp(reinterpret_cast<const void*>(0x0041CA10u), SmallMapPhaseExpected, sizeof(SmallMapPhaseExpected)) == 0;
+    if (cameraBoundsMatch)
+    {
+        for (unsigned i = 0; i < sizeof(CameraBounds::Sites) / sizeof(CameraBounds::Sites[0]); ++i)
+        {
+            const auto& site = CameraBounds::Sites[i];
+            CameraBounds::BuildTrampoline(CameraBoundsCode[i],
+                reinterpret_cast<DWORD>(site.current ? &ClampCurrentCamera : &ClampDesiredCamera),
+                site.continuation);
+        }
+        DWORD oldProtection;
+        CameraBounds::BuildTrampoline(SmallMapPhaseCode, reinterpret_cast<DWORD>(&NormalizeSmallMapState),
+            0x0041CA16u, SmallMapPhaseExpected, sizeof(SmallMapPhaseExpected));
+        if (VirtualProtect(CameraBoundsCode, sizeof(CameraBoundsCode), PAGE_EXECUTE_READWRITE,
+            &oldProtection) && VirtualProtect(SmallMapPhaseCode, sizeof(SmallMapPhaseCode),
+            PAGE_EXECUTE_READWRITE, &oldProtection))
+        {
+            const size_t firstCameraHook=m_hooks.size();
+            FlushInstructionCache(GetCurrentProcess(), CameraBoundsCode, sizeof(CameraBoundsCode));
+            FlushInstructionCache(GetCurrentProcess(), SmallMapPhaseCode, sizeof(SmallMapPhaseCode));
+            for (unsigned i = 0; i < sizeof(CameraBounds::Sites) / sizeof(CameraBounds::Sites[0]); ++i)
+            {
+                const auto& site = CameraBounds::Sites[i];
+                const DWORD address = site.calculation;
+                m_hooks.push_back(std::make_unique<SingleHook>(address, 6,
+                    INLINE_SINGLEJMP, CameraBoundsCode[i]));
+                FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<void*>(address), 6);
+            }
+            for (auto& site : SmallMapCalls)
+            {
+                site.patch[0] = 0xE8;
+                const DWORD displacement = reinterpret_cast<DWORD>(site.replacement) - (site.address + 5);
+                memcpy(site.patch + 1, &displacement, sizeof(displacement));
+                m_hooks.push_back(std::make_unique<SingleHook>(site.address, sizeof(site.patch),
+                    INLINE_UNPROTECTEVINMENT, site.patch));
+                FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<void*>(site.address), sizeof(site.patch));
+            }
+            m_hooks.push_back(std::make_unique<SingleHook>(0x0041CA10u, sizeof(SmallMapPhaseExpected),
+                INLINE_SINGLEJMP, SmallMapPhaseCode));
+            FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<void*>(0x0041CA10u), sizeof(SmallMapPhaseExpected));
+            bool installed=true;
+            for(size_t i=firstCameraHook;i<m_hooks.size();++i)
+            {
+                const SingleHook* hook=m_hooks[i].get();
+                installed = installed && memcmp(hook->m_AddrToHook,hook->m_NewBytes_Pbyte,hook->m_LenToModify_Dw)==0;
+            }
+            if(installed) SmallMapHooksInstalled=true;
+            else
+            {
+                m_hooks.resize(firstCameraHook); // restore every original site on a failed write
+                FlushInstructionCache(GetCurrentProcess(),NULL,0);
+            }
+        }
+    }
+
+    if (memcmp(reinterpret_cast<const void*>(MapPreviewCopyCallAddr - 10u),
+        MapPreviewCopyContext, sizeof(MapPreviewCopyContext)) == 0)
+    {
+        MapPreviewCopyCallPatch[0] = 0xE8;
+        *reinterpret_cast<DWORD*>(MapPreviewCopyCallPatch + 1) =
+            reinterpret_cast<DWORD>(&CopyMapPreviewFrame) - (MapPreviewCopyCallAddr + 5u);
+        m_hooks.push_back(std::make_unique<SingleHook>(MapPreviewCopyCallAddr,
+            sizeof(MapPreviewCopyCallPatch), INLINE_UNPROTECTEVINMENT, MapPreviewCopyCallPatch));
+    }
 
 	MaxUnitID= 0;
+	// Unlimited mixing deliberately allows untracked one-shots, but a looping
+	// sound needs a tracked slot so TA's stop-all can find it. The old hook at
+	// 0x004CF5B8 covered the eviction loop's back-edge target at 0x004CF5BC.
+	// This site ends before the comparison and leaves that target untouched.
+	// The earlier looping-sound check at 0x004CF590 rules out pinned slots,
+	// so TA's existing eviction path still has a non-looping slot to remove.
+#if MENU_HUM_TRACKED_LOOPING
+	if (memcmp(reinterpret_cast<const void*>(ReserveLoopingSoundSlotAddr),
+		ReserveLoopingSoundSlotBytes, sizeof(ReserveLoopingSoundSlotBytes)) == 0)
+	{
+		m_hooks.push_back(std::make_unique<InlineSingleHook>(ReserveLoopingSoundSlotAddr,
+			sizeof(ReserveLoopingSoundSlotBytes), INLINE_5BYTESLAGGERJMP,
+			ReserveLoopingSoundSlotProc));
+	}
+	else
+	{
+		IDDrawSurface::OutptFmtTxt(
+			"[MenuHum] SKIPPED sound hook: bytes at 0x%08X not stock",
+			ReserveLoopingSoundSlotAddr);
+	}
+#endif
 
 	NullUnitDeathVictim= NULL;
 	CircleRadius= NULL;
@@ -1815,6 +2785,11 @@ TABugFixing::TABugFixing ()
 	}
 
     SavePlayerColor.reset(new InlineSingleHook(SavePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, SavePlayerColorProc));
+    // 6 bytes: the whole MOV EDX,[0x00511de8] - a 5-byte cut would split it.
+    MultiplayerPlayerLostGuard.reset(new InlineSingleHook(MultiplayerPlayerLostAddr, 6, INLINE_5BYTESLAGGERJMP, MultiplayerPlayerLostProc));
+    // 6 bytes: PUSH EBP / PUSH ESI / MOV ESI,[ESP+0xc]
+    // 6 bytes: PUSH EBP / PUSH ESI / MOV ESI,[ESP+0xc]
+    NewChatTextGuard.reset(new InlineSingleHook(NewChatTextGuardAddr, 6, INLINE_5BYTESLAGGERJMP, NewChatTextGuardProc));
     RestorePlayerColor.reset(new InlineSingleHook(RestorePlayerColorHookAddr, 5, INLINE_5BYTESLAGGERJMP, RestorePlayerColorProc));
 	UnitDeath_BeforeUpdateUI.reset(new InlineSingleHook ( UnitDeath_BeforeUpdateUIAddr, 5, INLINE_5BYTESLAGGERJMP, UnitDeath_BeforeUpdateUI_Proc));
 	ResourceStripHeightFix.reset(new InlineSingleHook(ResourceStripHeightFixAddr, 5, INLINE_5BYTESLAGGERJMP, ResourceStripHeightFixProc));
@@ -1834,7 +2809,76 @@ TABugFixing::TABugFixing ()
 	FixFactoryExplosionsRecycleUnitId.reset(new InlineSingleHook(FixFactoryExplosionsRecycleUnitIdAddr, 5, INLINE_5BYTESLAGGERJMP, FixFactoryExplosionsRecycleUnitIdProc));
 	HostDoesntLeave.reset(new InlineSingleHook(PutDeadHostInWatchModeAddr, 5, INLINE_5BYTESLAGGERJMP, PutDeadHostInWatchModeProc));
 	JunkYardmapFix.reset(new InlineSingleHook(JunkYardmapFixAddr, 5, INLINE_5BYTESLAGGERJMP, JunkYardmapFixProc));
+	// 6 bytes each: MOV ECX/EDX,[0x00512344] -- a whole instruction, and it sits
+	// before the dispatch's argument pushes so the bail-out is stack-correct.
+	OrderDispatchGuardMain.reset(new InlineSingleHook(
+		OrderDispatchGuardMainAddr, 6, INLINE_5BYTESLAGGERJMP, OrderDispatchGuardMainProc));
+	OrderDispatchGuardBackground.reset(new InlineSingleHook(
+		OrderDispatchGuardBgAddr, 6, INLINE_5BYTESLAGGERJMP, OrderDispatchGuardBgProc));
+	// Same 6-byte MOV ECX,[0x00512344]; nothing branches into those bytes (the
+	// JZ at 0x0043A200 targets 0x0043A21E, past the end of the patch).
+	OrderDispatchGuardTeardown.reset(new InlineSingleHook(
+		OrderDispatchGuardTeardownAddr, 6, INLINE_5BYTESLAGGERJMP, OrderDispatchGuardTeardownProc));
+#if SOUND_INSTANCE_LIMIT_MS > 0
+	if (memcmp((const void*)SoundPlayHookAddr, SoundPlayBytes, SoundPlayHookLen) == 0)
+	{
+		SoundInstanceLimit.reset(new InlineSingleHook(
+			SoundPlayHookAddr, SoundPlayHookLen, INLINE_5BYTESLAGGERJMP, SoundInstanceLimitProc));
+	}
+	else
+	{
+		IDDrawSurface::OutptFmtTxt("[SoundLimit] SKIPPED play hook: bytes at 0x%08X not stock", SoundPlayHookAddr);
+	}
+#endif
+#if SOUND_INSTANCE_LIMIT_MS > 0
+	IDDrawSurface::OutptFmtTxt("[SoundLimit] installed: playback=%dms", SOUND_INSTANCE_LIMIT_MS);
+#endif
+
+	IDDrawSurface::OutptFmtTxt(
+		"[OrderDispatchGuard] installed at 0x%08X (main), 0x%08X (background) and "
+		"0x%08X (teardown): COBHandler_index + handler_fn checked, OBSERVE-ONLY (bailout=%d)",
+		OrderDispatchGuardMainAddr, OrderDispatchGuardBgAddr, OrderDispatchGuardTeardownAddr,
+		TDRAW_ORDER_DISPATCH_BAILOUT);
 	CanBuildArrayBufferOverrunFix.reset(new SingleHook(CanBuildArrayBufferOverrunFixAddr, sizeof(CanBuildArrayBufferOverrunFixBytes), INLINE_UNPROTECTEVINMENT, CanBuildArrayBufferOverrunFixBytes));
+	if (memcmp(reinterpret_cast<const void*>(AntiNukeTargetSearchAddr),
+		AntiNukeTargetSearchExpected, sizeof(AntiNukeTargetSearchExpected)) == 0)
+	{
+		AntiNukeTargetSearchPatch[0] = 0xE9;
+		*reinterpret_cast<DWORD*>(AntiNukeTargetSearchPatch + 1) =
+			reinterpret_cast<DWORD>(&FindAntiNukeTargetCircular) - (AntiNukeTargetSearchAddr + 5u);
+		m_hooks.push_back(std::make_unique<SingleHook>(AntiNukeTargetSearchAddr,
+			sizeof(AntiNukeTargetSearchPatch), INLINE_UNPROTECTEVINMENT, AntiNukeTargetSearchPatch));
+	}
+	else
+	{
+		IDDrawSurface::OutptTxt("[AntiNukeCoverage] target-search entry did not match; circular coverage fix skipped");
+	}
+	if (memcmp(reinterpret_cast<const void*>(AntiNukeMinimapCoverageAdjustAddr),
+		AntiNukeMinimapCoverageAdjustExpected, sizeof(AntiNukeMinimapCoverageAdjustExpected)) == 0)
+	{
+		m_hooks.push_back(std::make_unique<SingleHook>(AntiNukeMinimapCoverageAdjustAddr,
+			sizeof(AntiNukeMinimapCoverageAdjustPatch), INLINE_UNPROTECTEVINMENT,
+			AntiNukeMinimapCoverageAdjustPatch));
+	}
+	else
+	{
+		IDDrawSurface::OutptTxt("[AntiNukeCoverage] minimap radius adjustment did not match; minimap coverage fix skipped");
+	}
+#if AI_COMMANDER_KEEPS_ORDERS_ENABLE
+	if (memcmp(reinterpret_cast<const void*>(AiCommanderKeepsOrdersCheckAddr),
+		AiCommanderKeepsOrdersExpected, sizeof(AiCommanderKeepsOrdersExpected)) == 0)
+	{
+		m_hooks.push_back(std::make_unique<SingleHook>(AiCommanderKeepsOrdersPatchAddr,
+			sizeof(AiCommanderKeepsOrdersPatch), INLINE_UNPROTECTEVINMENT,
+			AiCommanderKeepsOrdersPatch));
+	}
+	else if (memcmp(reinterpret_cast<const void*>(AiCommanderKeepsOrdersPatchAddr),
+		AiCommanderKeepsOrdersPatch, sizeof(AiCommanderKeepsOrdersPatch)) != 0)
+	{
+		IDDrawSurface::OutptFmtTxt("[AiCommanderKeepsOrders] bytes at 0x%08X not stock; patch skipped",
+			AiCommanderKeepsOrdersCheckAddr);
+	}
+#endif
 	// Redirect the cmalloc_comt CALL at 0x42dd74 to ZeroingDownloadMenuAlloc (see comment at its definition).
 	ZeroDownloadMenuCallPatch[0] = 0xE8;
 	*(DWORD*)(ZeroDownloadMenuCallPatch + 1) = (DWORD)((BYTE*)&ZeroingDownloadMenuAlloc - (0x42dd74 + 5));
@@ -1861,6 +2905,9 @@ TABugFixing::TABugFixing ()
 	// Minimal SetSessionDesc guard (see comment on NullLpszPasswordInUpdateGameInfoAddr).
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(NullLpszPasswordInUpdateGameInfoAddr, 5, INLINE_5BYTESLAGGERJMP, NullLpszPasswordInUpdateGameInfoProc));
 
+	// Start the crash-report clock here rather than in InstallCrashTrace():
+	// the VEH goes live now, so a report can be written before that runs.
+	g_crashTraceInstallTick = GetTickCount();
 	AddVectoredExceptionHandler ( TRUE, VectoredHandler );
 }
 
@@ -1946,6 +2993,27 @@ static void DumpStackForCrashTrace(DWORD ebp, DWORD esp)
 	}
 }
 
+// Close the bracket opened by any CRASHTRACE block written this run, so
+// Errorlog.txt answers "did the process survive it?" on its own. Only emitted
+// when a report was actually written — otherwise every launch would append a
+// line to a file that already carries the VerCheck hash dumps.
+static void NoteProcessExitInErrorlog(const char* how, UINT exitCode)
+{
+	if (g_crashReportCount <= 0) return;
+	static volatile LONG s_noted = 0;
+	if (InterlockedExchange(&s_noted, 1)) return;   // first exit path wins
+
+	FILE* f = fopen("Errorlog.txt", "a");
+	if (!f) return;
+	char when[40];
+	FormatLocalTime(when, sizeof(when));
+	DWORD ms = CrashTraceUptimeMs();
+	fprintf(f, "\n===== CRASHTRACE: process exiting via %s(0x%X) at %s local, "
+		"%u.%03us after CrashTrace install; %ld report(s) written this run =====\n",
+		how, exitCode, when, ms / 1000, ms % 1000, (long)g_crashReportCount);
+	fclose(f);
+}
+
 // __stdcall ExitProcess(UINT exitCode). At entry: [ESP]=retaddr, [ESP+4]=exitCode.
 static int __stdcall ExitProcessHookProc(PInlineX86StackBuffer X)
 {
@@ -1955,6 +3023,7 @@ static int __stdcall ExitProcessHookProc(PInlineX86StackBuffer X)
 	IDDrawSurface::OutptFmtTxt("[CrashTrace] ExitProcess(0x%X) called from 0x%08X",
 		exitCode, retAddr);
 	DumpStackForCrashTrace(X->Ebp, X->Esp);
+	NoteProcessExitInErrorlog("ExitProcess", exitCode);
 	return 0;
 }
 
@@ -1971,7 +3040,11 @@ static int __stdcall TerminateProcessHookProc(PInlineX86StackBuffer X)
 		|| hProc == (HANDLE)(LONG_PTR)-1);
 	IDDrawSurface::OutptFmtTxt("[CrashTrace] TerminateProcess(hProc=%p%s, code=0x%X) from 0x%08X",
 		hProc, isSelf ? " [SELF]" : "", exitCode, retAddr);
-	if (isSelf) DumpStackForCrashTrace(X->Ebp, X->Esp);
+	if (isSelf)
+	{
+		DumpStackForCrashTrace(X->Ebp, X->Esp);
+		NoteProcessExitInErrorlog("TerminateProcess", exitCode);
+	}
 	return 0;
 }
 
@@ -2024,6 +3097,9 @@ static void LogLoadedModules()
 
 void InstallCrashTrace()
 {
+	// Normally already set by the TABugFixing ctor (which arms the VEH); this
+	// covers the case where InstallCrashTrace is reached without it.
+	if (!g_crashTraceInstallTick) g_crashTraceInstallTick = GetTickCount();
 	LogLoadedModules();
 	CaptureSelfModuleRange();
 
@@ -2049,7 +3125,15 @@ void InstallCrashTrace()
 	_set_invalid_parameter_handler(OurInvalidParameterHandler);
 	signal(SIGABRT, OurAbortHandler);
 
-	IDDrawSurface::OutptTxt("[CrashTrace] installed (ExitProcess + TerminateProcess + CRT + first-chance AV)");
+	// tdrawlog.txt has no clock of its own; this one line anchors the whole
+	// file to wall time, and every later CrashTrace line carries t=+<elapsed>.
+	{
+		char when[40];
+		FormatLocalTime(when, sizeof(when));
+		IDDrawSurface::OutptFmtTxt(
+			"[CrashTrace] installed (ExitProcess + TerminateProcess + CRT + first-chance AV) at %s local",
+			when);
+	}
 }
 
 void LogToErrorlog (LPSTR Str)

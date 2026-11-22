@@ -44,6 +44,12 @@ private:
 	SurfaceFire();
 	~SurfaceFire();
 	static SurfaceFire* m_instance;
+
+	// Installed lazily, only if a loaded weapon TDF actually uses the tag --
+	// these all sit in combat hot paths. See WeaponTags::OnFirstUse.
+	static void InstallSurfaceFireHooks();
+	static void InstallNotToUnderwaterHooks();
+
 	std::unique_ptr<InlineSingleHook> m_rejectHook;      // REJECT 1 @ 0x49AC0F
 	std::unique_ptr<InlineSingleHook> m_weaponCheckHook; // REJECT 2 @ 0x49AC20
 	std::unique_ptr<InlineSingleHook> m_canAimHook;

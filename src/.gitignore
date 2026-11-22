@@ -11,6 +11,5 @@
 
 # Throwaway debug artifacts
 **/scripts/
-**/test/
 **/*.bak.*
 **/ghidra_analysis_log.md

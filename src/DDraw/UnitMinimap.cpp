@@ -27,6 +27,30 @@ using namespace std;
 
 #if USEMEGAMAP
 
+static int GetFlatWeaponRange(const WeaponStruct* weapon)
+{
+	int range = weapon->Range;
+	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	if ((weapon->WeaponTypeMask & WTM_Ballistic) && ta && ta->GameingState_Ptr)
+	{
+		const int velocity = *reinterpret_cast<const int*>(reinterpret_cast<const BYTE*>(weapon) + 0x68);
+		const unsigned int gravity = ta->GameingState_Ptr->gravity;
+		if (velocity > 0 && gravity > 0)
+		{
+			// TA stores weapon velocity as 16.16 world units per 30 Hz tick.
+			const __int64 fixedPointScale = 65536;
+			const int ballisticRange = static_cast<int>(
+				(static_cast<__int64>(velocity) * velocity * 30 * 30) /
+				(fixedPointScale * fixedPointScale * gravity));
+			if (ballisticRange < range)
+			{
+				range = ballisticRange;
+			}
+		}
+	}
+	return range;
+}
+
 //hook .text:00466DC0 000 83 EC 1C                                                        sub     esp, 1Ch
 //  .text:00466E83 02C 0F BF 43 6C      movsx   eax, word ptr [ebx+(UnitsInGame.UnitPosition.X+2)] ; //0x6A
 
@@ -1383,12 +1407,14 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 	UnitPicture( unitPtr, PlayerID, &GafPixelBits, &GafAspect);
 	int mmFW = (*TAmainStruct_PtrPtr)->FeatureMapSizeX;
 	int mmRight = (mmFW - 2) * 16; if (mmRight <= 0) mmRight = parent->TAMAPTAPos.right;
-	DescRect.left = static_cast<int>(static_cast<float>(TAx) * (static_cast<float>(Width_m) / static_cast<float>(mmRight))) - GafAspect.x / 2;
+	int IconCenterX = static_cast<int>(static_cast<float>(TAx) * (static_cast<float>(Width_m) / static_cast<float>(mmRight)));
+	DescRect.left = IconCenterX - GafAspect.x / 2;
 	DescRect.right= DescRect.left+ GafAspect.x;
 	
 	int mmFH = (*TAmainStruct_PtrPtr)->FeatureMapSizeY;
 	int mmBottom = (mmFH - 8) * 16; if (mmBottom <= 0) mmBottom = parent->TAMAPTAPos.bottom;
-	DescRect.top = static_cast<int>(static_cast<float>(TAy) * (static_cast<float>(Height_m) / static_cast<float>(mmBottom))) - GafAspect.y / 2;
+	int IconCenterY = static_cast<int>(static_cast<float>(TAy) * (static_cast<float>(Height_m) / static_cast<float>(mmBottom)));
+	DescRect.top = IconCenterY - GafAspect.y / 2;
 	DescRect.bottom = DescRect.top + GafAspect.y;
 
 	Aspect->x= (Aspect->x)/ 4* 4;// avoid draw out of the surface, this x== pitch
@@ -1400,9 +1426,12 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 		return ;
 	}
 
+	int SrcX= 0;
+	int SrcY= 0;
 	// do not draw out of the map part
 	if (DescRect.left<0)
 	{
+		SrcX= -DescRect.left;
 		DescRect.left= 0;
 	}
 	if (Aspect->x<DescRect.right)
@@ -1411,6 +1440,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 	}
 	if (DescRect.top<0)
 	{
+		SrcY= -DescRect.top;
 		DescRect.top= 0;
 	}
 	if (Aspect->y<DescRect.bottom)
@@ -1431,7 +1461,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 			for (int YPos= 0; YPos<DescHeight_I; YPos++)
 			{	//Y
 				int DescPixelYStart= (YPos+ DescRect.top)* (DesclPitch);
-				int SrcPixelYStart= YPos* GafAspect.x;
+				int SrcPixelYStart= (YPos+ SrcY)* GafAspect.x+ SrcX;
 				for (int XPos= 0; XPos<DescWidth_I; XPos++)
 				{//X 
 					register int Color= GafPixelBits[SrcPixelYStart+ XPos];
@@ -1444,8 +1474,8 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 		}
 		
 
-		TAx= DescRect.left+ GafAspect.x/ 2;
-		TAy= DescRect.top+ GafAspect.y/ 2;
+		TAx= IconCenterX;
+		TAy= IconCenterY;
 		
 		if (UseCircleHover
 			&&((*TAmainStruct_PtrPtr)->MouseOverUnit==unitPtr->UnitInGameIndex))
@@ -1474,7 +1504,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 				{
 					if (unitPtr->Weapon3->Range)
 					{
-						Radius= (static_cast<int>(unitPtr->Weapon3->Range)* static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right;
+						Radius= (GetFlatWeaponRange(unitPtr->Weapon3)* Width_m)/ mmRight;
 
 						DrawRadarCircle ( (LPBYTE)PixelBits, Aspect,
 							TAx, TAy, 
@@ -1487,7 +1517,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 				{
 					if (unitPtr->Weapon2->Range)
 					{
-						Radius= (static_cast<int>(unitPtr->Weapon2->Range)* static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right;
+						Radius= (GetFlatWeaponRange(unitPtr->Weapon2)* Width_m)/ mmRight;
 
 						DrawRadarCircle ( (LPBYTE)PixelBits, Aspect,
 							TAx, TAy, 
@@ -1499,7 +1529,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 				{
 					if (unitPtr->Weapon1->Range)
 					{
-						Radius= (static_cast<int>(unitPtr->Weapon1->Range)* static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right;
+						Radius= (GetFlatWeaponRange(unitPtr->Weapon1)* Width_m)/ mmRight;
 
 
 						DrawRadarCircle ( (LPBYTE)PixelBits, Aspect,
@@ -1520,7 +1550,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 			{
 				DrawRadarCircle ( PixelBits, Aspect,
 					TAx, TAy, 
-					(static_cast<int>(unitPtr->UnitType->nRadarDistance)* static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right, 
+					(static_cast<int>(unitPtr->UnitType->nRadarDistance)* Width_m)/ mmRight, 
 					MegamapRadarColor );
 			}
 
@@ -1529,7 +1559,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 
 				DrawRadarCircle ( PixelBits, Aspect,
 					TAx, TAy, 
-					(static_cast<int>(unitPtr->UnitType->nSonarDistance)* static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right, 
+					(static_cast<int>(unitPtr->UnitType->nSonarDistance)* Width_m)/ mmRight, 
 					MegamapSonarColor );
 			}
 	
@@ -1537,7 +1567,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 			{
 				DrawRadarCircle ( PixelBits, Aspect,
 					TAx, TAy, 
-					(static_cast<int>(unitPtr->UnitType->radardistancejam)* static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right, 
+					(static_cast<int>(unitPtr->UnitType->radardistancejam)* Width_m)/ mmRight, 
 					MegamapRadarJamColor  );
 			}
 
@@ -1545,7 +1575,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 			{
 				DrawRadarCircle ( PixelBits, Aspect,
 					TAx, TAy, 
-					(static_cast<int>(unitPtr->UnitType->sonardistancejam)* static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right, 
+					(static_cast<int>(unitPtr->UnitType->sonardistancejam)* Width_m)/ mmRight, 
 					MegamapSonarJamColor  );
 			}
 
@@ -1557,7 +1587,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 				{
 					if (MegamapAntiNukeMinimum<static_cast<int>(unitPtr->Weapon1->coverage))
 					{
-						int Radius= (static_cast<int>(unitPtr->Weapon1->coverage- 0x200)* (static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right);
+						int Radius= (static_cast<int>(unitPtr->Weapon1->coverage)* Width_m/ mmRight);
 
 						if (unitPtr->Weapon1Dotte)
 						{
@@ -1581,8 +1611,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 				{
 					if (MegamapAntiNukeMinimum<static_cast<int>(unitPtr->Weapon2->coverage))
 					{
-						int Radius= (static_cast<int>(unitPtr->Weapon2->coverage- 0x200)* (static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right);
-						//int Radius= static_cast<int>(static_cast<float>(unitPtr->Weapon2->coverage- 0x200)* (static_cast<float>(Aspect->x)/ static_cast<float>(parent->TAMAPTAPos.right)));
+						int Radius= (static_cast<int>(unitPtr->Weapon2->coverage)* Width_m/ mmRight);
 						if (unitPtr->Weapon2Dotte)
 						{
 							DrawDotteCircle ( PixelBits, Aspect,
@@ -1605,7 +1634,7 @@ void UnitsMinimap::DrawUnit ( LPBYTE PixelBits, POINT * Aspect, UnitStruct * uni
 				{
 					if (MegamapAntiNukeMinimum<static_cast<int>(unitPtr->Weapon3->coverage))
 					{
-						int Radius= (static_cast<int>(unitPtr->Weapon3->coverage- 0x200)* (static_cast<int>(Aspect->x))/ parent->TAMAPTAPos.right);
+						int Radius= (static_cast<int>(unitPtr->Weapon3->coverage)* Width_m/ mmRight);
 						if (unitPtr->Weapon3Dotte)
 						{
 							DrawDotteCircle ( PixelBits, Aspect,

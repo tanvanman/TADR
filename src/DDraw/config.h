@@ -7,7 +7,9 @@
      defined(TDRAW_CONFIG_ESCALATION) + \
      defined(TDRAW_CONFIG_OTA) + \
      defined(TDRAW_CONFIG_TAZERO) + \
-     defined(TDRAW_CONFIG_BTA)) != 1
+     defined(TDRAW_CONFIG_BTA) + \
+     defined(TDRAW_CONFIG_MAYHEM) + \
+     defined(TDRAW_CONFIG_TWILIGHT)) != 1
 #pragma message ( __FILE__ " - Warning: Exactly one TDRAW_CONFIG_* configurations must be #define'd. defaulting to TDRAW_CONFIG_PROTA" )
 #define TDRAW_CONFIG_PROTA
 // Implicit-default builds (no explicit config selected) get the profiler
@@ -31,6 +33,36 @@
 #include "config_tazero.h"
 #elif defined(TDRAW_CONFIG_BTA)
 #include "config_bta.h"
+#elif defined(TDRAW_CONFIG_MAYHEM)
+#include "config_mayhem.h"
+#elif defined(TDRAW_CONFIG_TWILIGHT)
+#include "config_twilight.h"
+#endif
+
+// Keep looping menu audio in TA's tracked sound slots. Override per config if needed.
+#ifndef MENU_HUM_TRACKED_LOOPING
+#define MENU_HUM_TRACKED_LOOPING 1
+#endif
+
+// Every mod explicitly selects this simulation rule at build time.
+#ifndef ALLIED_PROJECTILE_COLLISION_ENABLE
+#error "config_*.h must define ALLIED_PROJECTILE_COLLISION_ENABLE"
+#endif
+#if ALLIED_PROJECTILE_COLLISION_ENABLE != 0 && ALLIED_PROJECTILE_COLLISION_ENABLE != 1
+#error "ALLIED_PROJECTILE_COLLISION_ENABLE must be 0 or 1"
+#endif
+
+#ifndef AI_COMMANDER_KEEPS_ORDERS_ENABLE
+#error "config_*.h must define AI_COMMANDER_KEEPS_ORDERS_ENABLE"
+#endif
+#if AI_COMMANDER_KEEPS_ORDERS_ENABLE != 0 && AI_COMMANDER_KEEPS_ORDERS_ENABLE != 1
+#error "AI_COMMANDER_KEEPS_ORDERS_ENABLE must be 0 or 1"
+#endif
+
+// ProCast-inspired economy panels. Mods explicitly opt in in config_*.h.
+// Opted-in builds offer a local Classic/New choice and replay totals settings.
+#ifndef MODERN_ALLY_RESOURCE_UI_ENABLE
+#define MODERN_ALLY_RESOURCE_UI_ENABLE 0
 #endif
 
 //
@@ -45,6 +77,17 @@
 #endif
 #ifndef WEATHER_REPORT_TIDAL
 #define WEATHER_REPORT_TIDAL WEATHER_REPORT
+#endif
+
+//
+// Megamap nuke icon: a projectile is drawn with the nuke picture when its
+// weapon is cruise + targetable (+ stockpile when this is 1), or when it is an
+// interceptor.  TA:Zero's nukes are not stockpile weapons, so it sets this to 0
+// (tanvanman/TADR#31).  Display-only.  Defaulted so a config_*.h that predates
+// it keeps the old behaviour.
+//
+#ifndef MEGAMAP_NUKE_REQUIRES_STOCKPILE
+#define MEGAMAP_NUKE_REQUIRES_STOCKPILE 1
 #endif
 
 //
@@ -64,4 +107,316 @@
 //
 #ifndef TDRAW_EXTENDED_WEAPON_IDS
 #define TDRAW_EXTENDED_WEAPON_IDS 0
+#endif
+
+//
+// AirCorpseFall: make the wreck of an aircraft killed over land fall to the
+// ground instead of hanging at the altitude it died. Changes vanilla behaviour
+// for every unit that dies airborne, so it is opt-in per config.
+//
+#ifndef AIR_CORPSE_FALL_ENABLE
+#define AIR_CORPSE_FALL_ENABLE 0
+#endif
+
+//
+// PlayerMute: the local, display-only `.mute` / `.unmute` typed command --
+// see PlayerMute.h. Splices Net_PushChatHudMessage @0x00463CA0 and
+// Chat_FormatAndSend @0x00463E50; touches no simulation state and needs no
+// version gate in principle (a runtime ini key would do), but every other
+// splice this codebase installs unconditionally on every config is either
+// engine-version-signature-checked (ChatPosition) or itself opt-in
+// (AlliedBuildQueueSync, AirCorpseFall) -- PlayerMute was neither. Gated the
+// same way as those: every config_*.h defines this explicitly.
+//
+#ifndef PLAYER_MUTE_ENABLE
+#define PLAYER_MUTE_ENABLE 0
+#endif
+
+//
+// LagSwitchGuard: freeze the local simulation while every remote peer is
+// silent, so a lag switch cannot buy the cheater invulnerable manoeuvring
+// time.  Defaulted on so a config_*.h that predates the flag keeps the
+// behaviour it shipped with; a mod that would rather ride out packet loss
+// than stall sets it to 0.
+//
+#ifndef LAG_SWITCH_GUARD_ENABLE
+#define LAG_SWITCH_GUARD_ENABLE 1
+#endif
+
+//
+// AlliedBuildQueue: show allies' queued (not yet started) build placements --
+// on the game screen while SHIFT is held with an allied builder under the
+// cursor/camera, and on the megamap -- and share requested placements with
+// mutual allies over CHAT_05-hijack version 2 (msgId 0x60). TA does not keep
+// remote peers' complete future placement queues locally. Purely additive
+// display: it changes no simulation state, and a client built without it
+// neither sends nor parses the packet. Demand leases, acknowledged deltas and
+// a wall-time budget bound traffic. This remains a choice per mod profile.
+// Defaulted OFF so a config_*.h predating the flag does not pick it up
+// silently.  When 0, AlliedBuildQueueSync.cpp compiles to nothing, no hook or
+// packet handler is installed, neither overlay is drawn, and the "Show ally
+// queues" dialog checkbox is not created.
+//
+#ifndef ALLIED_BUILD_QUEUE_ENABLE
+#define ALLIED_BUILD_QUEUE_ENABLE 0
+#endif
+
+// Developer measurements only; no runtime/INI setting or production file I/O.
+#ifndef TDRAW_ALLIED_BUILD_QUEUE_DIAGNOSTICS
+#define TDRAW_ALLIED_BUILD_QUEUE_DIAGNOSTICS 0
+#endif
+
+//
+// COB dispatch-table patch -- Class A (bit-identical, purely faster). See
+// ai-reference/simulation-performance/COB_DISPATCH_PROJECT.md and CLAUDE.md.
+// Escalation-only -- the splice window and every hardcoded address are
+// specific to that exact binary. Every config_*.h defines this explicitly;
+// this fallback is only for a future one that forgets to.
+//
+#ifndef COB_DISPATCH_TABLE_ENABLE
+#define COB_DISPATCH_TABLE_ENABLE 0
+#endif
+
+//
+// BuildWeaponSlotGuard -- fixes the stockpile ("Nanolathing") build-percent
+// divide-by-zero crash. Real cause (corrected 2026-09-14, PR #26 review): a
+// unit-identity divergence can make a legitimately-issued order reference a weapon
+// slot that is locally unarmed, resolving to WeaponsTypedefArray[0] -- TA's permanent
+// "no weapon" sentinel, whose reload divisor is 0 by construction. Both
+// Unit_GetLinkedBuildWeaponPercent and MissionTick_BuildWeapon divide by that field
+// unchecked; also bounds-checks the adjacent unchecked weapon-slot index in the same
+// two functions. See BuildWeaponSlotGuard.h for the full derivation.
+//
+// Gated to Escalation only -- this project has verified these addresses against
+// Escalation's TotalA.exe alone. PR #26's review found the same six hook/bail-out
+// signatures byte-identical on all seven shipped TotalA.exe builds (stock TA engine
+// code, not Escalation-specific), but this project has not re-run that verification
+// itself, so this stays a staged rollout rather than an assumption either way. Every
+// config_*.h defines this explicitly; this fallback is only for a future one that
+// forgets to.
+//
+#ifndef BUILD_WEAPON_SLOT_GUARD_ENABLE
+#define BUILD_WEAPON_SLOT_GUARD_ENABLE 0
+#endif
+
+//
+// ReceiveWeaponFired: take the projectile-kind branch from the firing unit's own weapon slot
+// rather than from the weapon id in the packet.
+//
+// TA picks the branch at 0x0049D42A from WeaponsTypedefArray[pkt[0x19]], but all three
+// UNITS_FireProjectile_* callees build from -- and Ballistic divides by the weaponvelocity of --
+// shooter->UnitWeapons[pkt[0x23]].p_Weapon, with nothing checking the two agree. When a client's
+// copy of the shooter has the wrong unit type its slot can be the all-zero "no weapon" entry
+// while the packet names a ballistic weapon: divide by zero, on a well-formed packet, killing
+// only that client. Reading from p_Weapon is what TA's own local firing path does at 0x0049D742,
+// so this is a no-op unless the client is already diverged. (The meteor test at the top of
+// ReceiveWeaponFired still uses the packet weapon, correctly -- it has no unit at all.)
+//
+// Compile-time only per the standing rule: a fleet split over which projectile gets created is
+// exactly the divergence that rule exists to prevent. 0 still installs the hook, but it only
+// records the TRACE_CAT_WPNX breadcrumb.
+//
+#ifndef WEAPONFIRE_DISPATCH_FROM_SLOT
+#define WEAPONFIRE_DISPATCH_FROM_SLOT 1
+#endif
+
+//
+// Unit-identity audit: every ~900 ticks, walk each player's block of the unit array, compare the
+// walked live count against that player's nNumUnits, and broadcast the owner's own count+digest
+// on CHAT_05 hijack msgId 0x31 (ChatHijackId::UnitIdentityDigest) so every client can check its
+// copy of that block against the authority. TA has never had an "am I in sync?" signal.
+//
+// Diagnostic only -- no simulation state. One block walk and one 65-byte packet per player per
+// ~30 s. A disagreement must survive three consecutive audits before it is reported: the two
+// clients sample different instants and TA is not lockstep. A client built without this neither
+// sends nor parses the packet, and an old client ignores the unregistered msgId.
+//
+// The MORF/GHST/WPNX breadcrumbs in UnitIdentity.cpp are NOT gated by this -- always on.
+//
+#ifndef UNIT_IDENTITY_AUDIT_ENABLE
+#define UNIT_IDENTITY_AUDIT_ENABLE 1
+#endif
+
+//
+// 0x2C dirty-entry bailout. OBSERVE-ONLY until the 2CBD breadcrumbs explain what produces the bad
+// entries. Prod bundles show 18 fatals inside Receive_UnitStatAndMove_2C (13 at 0048BA07 on a null
+// move-class, 5 at 0048B9AD on a wild unit pointer), and the wild pointers are ~1000x further from
+// the unit array than a 16-bit slotDelta can reach -- so this is not simply an unvalidated index,
+// and a guard that skipped the entry would hide the fault while leaving it active. 1 bails to
+// 0x0048BA28, the engine's own end-of-list fall-through.
+//
+#ifndef TDRAW_2C_ENTRY_BAILOUT
+#define TDRAW_2C_ENTRY_BAILOUT 0
+#endif
+
+//
+// Sound instance limiting: drop a local playback whose sound object already started inside this
+// window, in milliseconds. 0 disables.
+//
+// TA plays a 3D sound per projectile event and every play reaches DirectSound, which does registry
+// lookups per buffer play -- sampling put ~26% of the main thread in DSOUND, ~20% of it in
+// RegOpenKeyExA. Hooks DSoundP_PlayBuffer @0x004CF582, the single choke point for 2D, 3D and
+// remote players' sounds (Packet_Dispatcher @0045563F feeds wire sounds into PlaySound_3D_ID_P13),
+// so one hook covers every origin. Audio only: no simulation state, no wire effect.
+//
+// A companion SOUND_BROADCAST_LIMIT_MS was removed 2026-09-09 -- it read "sent=0 dropped=0" in
+// every log, because every caller passes priority 0 and TA never broadcasts sounds here. Do not
+// re-add it without first confirming a caller that passes a non-zero priority.
+//
+#ifndef SOUND_INSTANCE_LIMIT_MS
+#define SOUND_INSTANCE_LIMIT_MS 50
+#endif
+
+//
+// Repair-rate fix heal multipliers -- see config_escalation.h for the tunable
+// values and RepairRateFix.cpp for how they're applied. Every config_*.h must
+// define both explicitly (same convention as REPAIR_RATE_FIX_ENABLE itself,
+// SS9), so there is no #ifndef fallback here on purpose: a config that forgets
+// one gets a hard compiler error at the #ifndef check below, not a silent 1.
+//
+#ifndef REPAIR_RATE_FIX_REPAIR_MULTIPLIER
+#error "config_*.h must define REPAIR_RATE_FIX_REPAIR_MULTIPLIER explicitly (1 if REPAIR_RATE_FIX_ENABLE is 0)"
+#endif
+#ifndef REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER
+#error "config_*.h must define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER explicitly (1 if REPAIR_RATE_FIX_ENABLE is 0)"
+#endif
+
+// Rule: both multipliers are meaningless -- and forbidden -- unless the fix
+// itself is installed. They scale RepairRateFix's accumulator formula, which
+// only exists when REPAIR_RATE_FIX_ENABLE is 1 (ddraw.cpp guards Install()
+// with it). A config that sets a multiplier != 1 while the fix is off would
+// silently do nothing at runtime -- fail the build instead, loudly, so that
+// mistake can't ship unnoticed.
+#if !REPAIR_RATE_FIX_ENABLE && \
+    (REPAIR_RATE_FIX_REPAIR_MULTIPLIER != 1 || REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER != 1)
+#error "REPAIR_RATE_FIX_REPAIR_MULTIPLIER / SELFHEAL_MULTIPLIER require REPAIR_RATE_FIX_ENABLE 1 -- they scale RepairRateFix's accumulator, which is not installed in this config."
+#endif
+
+//
+// GroundToAirGuard: lets a ground CanGuard unit be given an explicit Guard order on a
+// flying ally (e.g. a ground constructor guarding/assisting an air constructor's
+// build) -- vanilla only allows this when the GUARDIAN flies. Reachable only through
+// the explicit Guard command; the Move-click-becomes-Guard convenience is patched to
+// keep refusing this one pairing. See GroundToAirGuard.h for the full derivation.
+//
+// Class B: two of the six sites change simulation behaviour (which orders can be
+// constructed and what the sim does with one), so every client in a game must run the
+// same build. Gated to Escalation only -- this project has verified these addresses
+// against Escalation's TotalA.exe alone. Every config_*.h defines this explicitly;
+// this fallback is only for a future one that forgets to.
+//
+//
+// VtolRepairBeamFix: stop an air constructor emitting the nanolathe beam while its
+// repair is not actually being paid for. MissionTick_VTOL_RepairUnit is the only
+// repair tick in the engine that ignores Unit_ApplyRepairHealProgress's return value
+// before spawning the beam; its own ground counterpart and both other repair ticks
+// test it and skip. One InlineSingleHook, redirecting to vanilla's own shared tail.
+//
+// Class B (uniform simulation change): the skipped region runs a COB script function
+// (UnitScript_QueryNanoPiece), so every client in a game must run the same build.
+// Compile-time only, no runtime switch. Addresses verified against Escalation's
+// TotalA.exe; see VtolRepairBeamFix.h for the full derivation.
+//
+#ifndef VTOL_REPAIR_BEAM_FIX_ENABLE
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 0
+#endif
+
+#ifndef GROUND_TO_AIR_GUARD_ENABLE
+#define GROUND_TO_AIR_GUARD_ENABLE 0
+#endif
+
+//
+// SharePercent: accept a `%` suffix on +setsharemetal / +setshareenergy
+// (e.g. `+setshareenergy 50%`) so the share threshold tracks a percentage of
+// max storage instead of a fixed absolute that never adjusts as storage
+// grows. A plain integer keeps vanilla behaviour unchanged. Local per-client
+// state only -- cannot desync. Defaulted OFF; when 0, SharePercent.cpp
+// compiles to nothing.
+//
+#ifndef SHARE_PERCENT_ENABLE
+#define SHARE_PERCENT_ENABLE 0
+#endif
+
+//
+// PatrolReclaimThreshold: +setreclaimmetal / +setreclaimenergy <0-100>[%] set, per player, the
+// storage level below which a patrolling constructor reclaims features (vanilla: 20%). Local
+// decision state, nothing replicated -- not a Class B patch. Escalation only: the addresses are
+// specific to that TotalA.exe and the module refuses to install unless every byte matches.
+// See PatrolReclaimThreshold.h.
+//
+#ifndef PATROL_RECLAIM_THRESHOLD_ENABLE
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 0
+#endif
+
+//
+// PatrolReclaimThreshold air gate: a vanilla air constructor on patrol has no "stock is high, do not
+// reclaim" check (a ground one does). 1 applies the ground rule to air constructors. THIS CHANGES
+// DEFAULT AIR-CONSTRUCTOR BEHAVIOUR for every player of the config, including units whose patrol
+// mode is Reclaim Only (the Hold Pos default), which vanilla never gated. Thresholds reset every
+// game; 100% for both resources restores the old behaviour (except while both stocks are exactly
+// full) and limits assisting to full energy. 0 leaves air patrol vanilla apart from honouring
+// typed thresholds. Requires PATROL_RECLAIM_THRESHOLD_ENABLE.
+//
+#ifndef PATROL_RECLAIM_AIR_GATE_ENABLE
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 0
+#endif
+#if PATROL_RECLAIM_AIR_GATE_ENABLE && !PATROL_RECLAIM_THRESHOLD_ENABLE
+#error "PATROL_RECLAIM_AIR_GATE_ENABLE requires PATROL_RECLAIM_THRESHOLD_ENABLE 1 -- the gate reads the per-player thresholds that module owns."
+#endif
+
+//
+// ShareSplit: the auto-share (the 2-second resource pulse of Share_AutoAllyResourcesAndMap) divides the surplus among
+// every eligible ally with free storage -- mutual allies that are less full than the sender -- in equal shares capped at
+// each ally's free storage, instead of sending all of it to the last qualifying slot. Local decision state: the amount
+// travels in the packet, so it is not a Class B patch and interoperates with unpatched clients.
+// Gated to Escalation as a staged rollout, not because the addresses differ: every relied-on byte was verified against
+// Escalation's TotalA.exe and is byte-identical in Cavedog v3.1; other shipped builds have not been checked. The module
+// refuses to install unless every byte matches. See ShareSplit.h.
+//
+#ifndef SHARE_SPLIT_ENABLE
+#define SHARE_SPLIT_ENABLE 0
+#endif
+
+//
+// GiveCommands: +givemetal / +giveenergy <player> <amount> and a fixed +give (allies only, capped at the giver's stock and
+// the receiver's free storage, with a chat line for every result). Local command, same transfer and packet as vanilla.
+// Gated and byte-verified like ShareSplit (staged rollout). See GiveCommands.h.
+//
+#ifndef GIVE_COMMANDS_ENABLE
+#define GIVE_COMMANDS_ENABLE 0
+#endif
+
+//
+// GiveCommands receive guard: the engine applies the amount of a received 0x16 resource packet without validating it. Two hooks
+// on the packet switch drop a packet whose amount is not positive and finite, as if it had not arrived. Protects the receiving
+// client only.
+// Gated and byte-verified like ShareSplit (staged rollout). Requires GIVE_COMMANDS_ENABLE (the code lives in GiveCommands.cpp).
+// See GiveCommands.h.
+//
+#ifndef GIVE_RECEIVE_GUARD_ENABLE
+#define GIVE_RECEIVE_GUARD_ENABLE 0
+#endif
+#if GIVE_RECEIVE_GUARD_ENABLE && !GIVE_COMMANDS_ENABLE
+#error "GIVE_RECEIVE_GUARD_ENABLE requires GIVE_COMMANDS_ENABLE 1 -- the guard is part of the GiveCommands module."
+#endif
+
+//
+// HealthBarColors: the unit health bar in five colours (20 % steps) instead of thirds. Visual and
+// client-local, nothing replicated. Tested on Escalation only; the other mods were not tested, so the
+// flag is 0 in their configs. The colour slots were chosen from Escalation's palettes. The address is not
+// what limits it: the same 19 bytes are in the other TotalA.exe builds checked, and the module refuses to
+// install unless they match. See HealthBarColors.h.
+//
+#ifndef HEALTH_BAR_COLORS_ENABLE
+#define HEALTH_BAR_COLORS_ENABLE 0
+#endif
+
+//
+// RepairHealthSync: display-only synchronization of remote construction, completion,
+// and repair health displays without mutating remote unit simulation state. Opt-in per
+// build configuration (no totala.ini switch). All 10 hook sites are verified byte-for-byte
+// before installation and fail closed on mismatch. See RepairHealthSync.h.
+//
+#ifndef REPAIR_HEALTH_SYNC_ENABLE
+#define REPAIR_HEALTH_SYNC_ENABLE 0
 #endif

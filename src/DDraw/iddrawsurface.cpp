@@ -9,6 +9,7 @@
 using namespace std;
 
 #include "tamem.h"
+#include "ResourceBarAi.h"
 #include "ChallengeResponse.h"
 #include "tafunctions.h"
 
@@ -20,7 +21,6 @@ using namespace std;
 #include "TenPlayerReplay.h"
 #include "whiteboard.h"
 #include "MinimapHandler.h"
-#include "dddta.h"
 #include "tafstatusexporter.h"
 #include "cincome.h"
 #include "dialog.h"
@@ -178,7 +178,7 @@ IDDrawSurface::IDDrawSurface(LPDIRECTDRAW lpDD, LPDDSURFACEDESC lpTAddsc, LPDIRE
 	CommanderWarp= new CWarp ( VidMem);
 	SharedRect= new CMapRect ( VidMem) ;
 	ChangeQueue= new CChangeQueue ;
-	DDDTA= new CDDDTA ;
+	LocalShare->DDDTA = NULL;
 	TAFStatusExporter = new CTAFStatusExporter((TAdynmemStruct*)(*((int*)0x00511de8)));
 
 #if CONSTRUCTION_KICKOUT_ENABLE
@@ -283,8 +283,6 @@ ULONG __stdcall IDDrawSurface::Release()
 	VoteRejectDlg = nullptr;
 	delete ChangeQueue;
 	ChangeQueue= NULL;
-	delete DDDTA;
-	DDDTA= NULL;
 	delete (CUnitRotate*)LocalShare->UnitRotate;
 	LocalShare->UnitRotate = NULL;
 	delete TAFStatusExporter;
@@ -495,12 +493,6 @@ HRESULT __stdcall IDDrawSurface::ReleaseDC(HDC arg1)
 HRESULT __stdcall IDDrawSurface::Restore()
 {
 	PROFILE_SCOPE("Restore.total");
-#ifndef XPOYDEBG
-	{
-		PROFILE_SCOPE("Restore.DDDTA_FrameUpdate");
-		((CDDDTA*)LocalShare->DDDTA)->FrameUpdate();
-	}
-#endif
 	return lpFront->Restore();
 }
 
@@ -708,12 +700,14 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 				// Direct-pixel overlays must write while lpBack is still locked
 				// (i.e. before the lpBack->Unlock below).  Subsequent DDraw blits
-				// (DDDTA, Income, dialogs, TAHook) deliberately paint on top.
+				// (Income, dialogs, TAHook) deliberately paint on top.
 #if WEATHER_REPORT
 				{ PROFILE_SCOPE("Unlock.WeatherReport"); Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 #endif
 				{ PROFILE_SCOPE("Unlock.VoteReject_Tick"); VoteReject::GetInstance()->Tick(); }
+#if LAG_SWITCH_GUARD_ENABLE
 				{ PROFILE_SCOPE("Unlock.LagSwitchGuard_Tick"); LagSwitchGuard::GetInstance()->Tick(); }
+#endif
 				{ PROFILE_SCOPE("Unlock.HudNotifications_Blit"); HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 			}
 
@@ -725,8 +719,6 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				PROFILE_DUMP_IF_DUE();
 				return result;
 			}
-			{ PROFILE_SCOPE("Unlock.DDDTA_Blit"); DDDTA->Blit(lpBack); }
-
 			{ PROFILE_SCOPE("Unlock.SetClipBattle"); lpDDClipper->SetClipList ( BattleFieldRegion,0); }
 			{ PROFILE_SCOPE("Unlock.WhiteBoard_Blit"); WhiteBoard->Blit(lpBack); }
 
@@ -750,8 +742,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 #endif
 
 			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }
-			if (GameingState_P
-				&&(gameingstate::MULTI==GameingState_P->State))
+			if (GameingState_P && ResourceBarsGameState(GameingState_P->State))
 			{
 				PROFILE_SCOPE("Unlock.Income_Blit");
 				Income->BlitIncome(lpBack);
@@ -849,12 +840,14 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 				// Direct-pixel overlays must write while lpBack is still locked
 				// (i.e. before the lpBack->Unlock below).  Subsequent DDraw blits
-				// (DDDTA, Income, dialogs, TAHook) deliberately paint on top.
+				// (Income, dialogs, TAHook) deliberately paint on top.
 #if WEATHER_REPORT
 				{ PROFILE_SCOPE("Unlock.WeatherReport"); Income->BlitWeatherReport((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 #endif
 				{ PROFILE_SCOPE("Unlock.VoteReject_Tick"); VoteReject::GetInstance()->Tick(); }
+#if LAG_SWITCH_GUARD_ENABLE
 				{ PROFILE_SCOPE("Unlock.LagSwitchGuard_Tick"); LagSwitchGuard::GetInstance()->Tick(); }
+#endif
 				{ PROFILE_SCOPE("Unlock.HudNotifications_Blit"); HudNotifications::GetInstance()->Blit((char*)SurfaceMemory, dwWidth, dwHeight, lPitch); }
 			}
 
@@ -866,8 +859,6 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				PROFILE_DUMP_IF_DUE();
 				return result;
 			}
-
-			{ PROFILE_SCOPE("Unlock.DDDTA_Blit"); DDDTA->Blit(lpBack); }
 
 			{ PROFILE_SCOPE("Unlock.SetClipBattle"); lpDDClipper->SetClipList ( BattleFieldRegion,0); }
 			{ PROFILE_SCOPE("Unlock.WhiteBoard_Blit"); WhiteBoard->Blit(lpBack); }
@@ -893,8 +884,7 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 
 			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }
 
-			if (GameingState_P
-				&&(gameingstate::MULTI==GameingState_P->State))
+			if (GameingState_P && ResourceBarsGameState(GameingState_P->State))
 			{
 				PROFILE_SCOPE("Unlock.Income_Blit");
 				Income->BlitIncome(lpBack);
@@ -1355,10 +1345,6 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 
 		//   if(((CChangeQueue*)LocalShare->ChangeQueue)->Message(WinProcWnd, Msg, wParam, lParam))
 		//     return 0;
-
-		if((NULL!=LocalShare->DDDTA)
-			&&(((CDDDTA*)LocalShare->DDDTA)->Message(WinProcWnd, Msg, wParam, lParam)))
-			return 0;
 
 		if((NULL!=LocalShare->UnitRotate)
 			&&(((CUnitRotate*)LocalShare->UnitRotate)->Message(WinProcWnd, Msg, wParam, lParam)))

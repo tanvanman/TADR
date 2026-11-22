@@ -1,11 +1,13 @@
 #ifndef dialogH
 #define dialogH
 
+#include "config.h"
 #include "DialogBase.h"
 
 #include <memory>
 #include <string>
 #include <vector>
+#include <array>
 
 struct tagInlineX86StackBuffer;
 typedef struct tagInlineX86StackBuffer * PInlineX86StackBuffer;
@@ -15,12 +17,13 @@ class VirtualKeyField;
 class IntegerField;
 class TextField;
 class Button;
+class TabButton;
 class Widget;
 
 #define ROW_HEIGHT 18
-#define ROW(n) (n*ROW_HEIGHT + ROW_HEIGHT/2 - 1)
-#define DialogHeight (15*ROW_HEIGHT)
-#define DialogWidth 382
+#define ROW(n) ((n)*ROW_HEIGHT + ROW_HEIGHT/2 - 1)
+#define DialogHeight 320
+#define DialogWidth 512
 
 class Dialog : public DialogBase
 {
@@ -67,15 +70,36 @@ public:
 	// When false the build menu behaves stock. Default ON.
 	bool GetBuildMenuRotationOverlayEnabled();
 
+#if ALLIED_BUILD_QUEUE_ENABLE
 	// Local display preference for allied queued-build overlays. Default ON.
 	bool GetShowAlliedBuildQueuesEnabled();
+#endif
 
 	// True when the player wants a solid black backdrop drawn behind in-game
 	// chat text (top-left) for legibility. Default OFF. Read each frame by
 	// ChatBackdrop::Draw.
 	bool GetChatBackdropEnabled();
 
+	bool GetReplayTotalsEnabled();
+	int GetReplayTotalsMask();
+	int GetEconomyEnabledView();
+	int GetReplayTotalsLayout();
+	int GetIncomeLayout();
+	bool GetNewResourceBarsEnabled();
+	int GetEconomyView();
+	void SetEconomyView(int view);
+
   private:
+	enum Page { Controls, Units, Economy, PageCount };
+	std::array<std::vector<std::shared_ptr<Widget>>, PageCount> m_pages;
+	int m_page = Controls;
+	void BuildControls();
+	void AddControl(Page page, const std::shared_ptr<Widget>& widget);
+    void AddEnhancedControl(const std::shared_ptr<Widget>& widget);
+    std::vector<std::shared_ptr<Widget>> m_enhancedControls;
+	void SelectPage(int page);
+	bool EditingField() const;
+	void UpdateEconomyControls();
 	// all widgets
 	// (m_widgets vector is inherited from DialogBase)
 
@@ -86,8 +110,17 @@ public:
 	std::shared_ptr <VirtualKeyField> m_megaMapVirtualKeyField;
 	std::shared_ptr <VirtualKeyField> m_rotateBuildVirtualKeyField;
 	std::shared_ptr <Button>          m_buildMenuRotationOverlayButton;
+#if ALLIED_BUILD_QUEUE_ENABLE
 	std::shared_ptr <Button>          m_showAlliedBuildQueuesButton;
+#endif
 	std::shared_ptr <Button>          m_chatBackdropButton;
+	std::shared_ptr <Button>          m_metalTotalsButton;
+	std::shared_ptr <Button>          m_energyTotalsButton;
+	std::shared_ptr <Button>          m_unitTotalsButton;
+	std::shared_ptr <Button>          m_economyViewButton;
+	std::shared_ptr <Button>          m_replayTotalsLayoutButton;
+	std::shared_ptr <Button>          m_incomeLayoutButton;
+	std::shared_ptr <Button>          m_resourceBarStyleButton;
 	std::shared_ptr <IntegerField> m_mexSnapRadiusIntegerField;
 	std::shared_ptr <IntegerField> m_wreckSnapRadiusIntegerField;
 	std::shared_ptr <TextField> m_chatMacroTextField;
@@ -95,7 +128,7 @@ public:
 	std::shared_ptr <Button> m_vsyncButton;
 	std::shared_ptr <Button> m_optimiseDtRowsButton;
 	std::shared_ptr <Button> m_enableFullRingsButton;
-	std::shared_ptr <Button> m_okButton;
+	std::shared_ptr <TabButton> m_okButton;
 	std::shared_ptr <Button> m_conUnitPatrolHoldPosButton;
 	std::shared_ptr <Button> m_conUnitPatrolManeuverButton;
 	std::shared_ptr <Button> m_conUnitPatrolRoamButton;
@@ -104,11 +137,12 @@ public:
 	std::shared_ptr <Button> m_conUnitGuardRoamButton;
 
 	// Button skin surfaces (Dialog-specific; fonts/background/cursor are in DialogBase)
-    LPDIRECTDRAWSURFACE lpOKButton;
+    LPDIRECTDRAWSURFACE lpMenuButton;
+    LPDIRECTDRAWSURFACE lpPagePrevious, lpPageNext;
+    LPDIRECTDRAWSURFACE lpStyleSelector, lpViewSelector;
     LPDIRECTDRAWSURFACE lpStagedButton3;
     LPDIRECTDRAWSURFACE lpCheckBox;
     LPDIRECTDRAWSURFACE lpStagedButton1;
-    LPDIRECTDRAWSURFACE lpStandardButton;
 
 	InlineSingleHook * EnterOption_hook;
 	InlineSingleHook * PressInOption_hook;
@@ -116,6 +150,7 @@ public:
 	bool FirstBlit;
 
 	void RestoreAll() override;
+	void RenderDialog() override;
 	void OnDragMoved() override;
 	void OnMouseInsideDialog(int mx, int my) override;
 

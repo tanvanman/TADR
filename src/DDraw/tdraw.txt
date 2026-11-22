@@ -12,29 +12,59 @@ The present release includes contributions from Axle, FunkyFresh, tagROCK and TA
 
 CONFIGURATIONS
 
-The release .zip files are annotated with a build configuration tag: "tdraw-<config>.zip".  The various configurations are:
-  * tdraw-prota.zip: all features enabled (this is the mainline build, used by ProTA)
-  * tdraw-escalation.zip: built for TA:Escalation.  disables the following features
-    - mex snap
-    - that is all
-    and enables the following features, which no other configuration has:
-    - share-abuse guard (structure share rate limit, and .take refused against a destroyed commander - see below)
-    - fix repair rate exploit
-  * tdraw-tazero.zip: built for TA:Zero.  same as tdraw-prota.zip except it disables the following features
-    - wind and tidal readouts in the weather report at top of screen (the game time clock is retained)
-    - that is all
-  * tdraw-ota.zip: built for original TA (OTA).  disables the following features
-    - mex/wreck snap
-    - options for construction units to stay put when guarding
-    - options for construction units to only reclaim or onlt assist while patrolling
-    - auto kickout construction units that are blocking another builder
-    - weather report at top of screen
-    - sync wind speed between players
-    - map DT's always visible.
-    - rendering of map features (mexes, geos, spires, walls) on the megamap
-  * tdraw-bta.zip: same as tdraw-prota.zip except
-    - rendering of map features (mexes, geos, spires, walls) on the megamap is disabled
-    - mex and wreck snap radius limited to 1
+The release .zip files are annotated with a build configuration tag: "tdraw-<config>.zip".  Each zip
+carries tdraw.dll together with that mod's recorder DLL.  The configurations are:
+
+  tdraw-prota.zip        ProTA.  The mainline build
+  tdraw-escalation.zip   TA:Escalation
+  tdraw-mayhem.zip       TA:Mayhem
+  tdraw-ota.zip          original TA (OTA).  Deliberately the most conservative build
+  tdraw-tazero.zip       TA:Zero
+  tdraw-bta.zip          Beta patch (BTA)
+  tdraw-twilight.zip     Twilight
+
+Everything described in this file is in every build EXCEPT the features in the table below, which is
+the complete list of differences between the configurations.  Anything not in the table is in all
+seven builds -- the TA Hook, the megamap, the whiteboard, ".take" claim arbitration, lag-switch
+mitigation, the local ".mute" command, and every bug fix not named here.
+
+  y = enabled    n = disabled    a number = that setting's value for the build
+
+                                                            prota  esc  mayhem  ota  tazero  bta  twilight
+  mex snap radius, in tiles                                   3     0     3      0     3      1      3
+  wreck snap radius, in tiles                                 1     1     1      0     1      1      1
+  construction units stay put while guarding a factory        y     y     y      n     y      y      y
+  construction units reclaim-only / assist-only on patrol     y     y     y      n     y      y      y
+  auto kickout of construction units blocking a builder       y     y     y      n     y      y      y
+  patrol reclaim thresholds, +setreclaimmetal/energy  [1]     y     y     y      n     y      y      y
+  percentage share thresholds, +setsharemetal 50%             y     y     y      n     y      y      y
+  weather report at top of screen (the game clock)            y     y     y      n     y      y      y
+     ... including its wind and tidal readouts                y     y     y      n     n      y      y
+  sync wind speed between players                             y     y     y      n     y      y      y
+  map DTs and fortwalls always visible                        y     y     y      n     y      y      y
+  map features (mexes, geos, spires, walls) on megamap        y     y     y      n     y      n      y
+  off-map aircraft targetable, in tiles past the map edge     1     32    32     1     1      1      1
+  explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     n      n      y
+  projectiles pass through allied players' units              y     n     n      n     y      n      n
+  ground constructors can guard / assist air constructors     n     y     y      n     n      n      n
+  air repair beam shown only while the repair is paid for     n     y     y      n     n      n      n
+  weapon IDs above 255 in Weapons/*.tdf                       n     y     y      n     n      n      y
+  share-abuse guard (share rate limit, .take refusal)         n     y     n      n     n      n      n
+  repair rate exploit fix  [3]                                n     y     n      n     n      n      n
+  wrecks of aircraft killed over land fall to the ground      n     y     n      n     n      n      n
+  stockpile build-percent / weapon-slot crash guard  [4]      n     y     n      n     n      n      n
+  COB opcode jump table (speed only, same behaviour)  [4]     n     y     n      n     n      n      n
+  allied queued-build overlays                                y     n     n      n     n      n      n
+  display-only construction and repair health sync            y     n     n      n     n      n      n
+
+  [1] the thresholds also gate air construction units, which vanilla never gated at all --
+      read NEW FEATURES IN DETAIL before enabling this for a new mod
+  [2] together with the contested-cell tie-break that makes every client agree which unit
+      holds a map cell.  Both are simulation changes: all players must run the same build,
+      and demos recorded with them will not replay against a build without them
+  [3] tdraw-escalation.zip additionally runs repair and self-heal at 3x the fixed rate
+  [4] a fix, off elsewhere only because its engine addresses have not been re-verified
+      against the other mods' TotalA.exe; it will be turned on as that is done
 
 
 INSTALLATION
@@ -54,14 +84,103 @@ ProTA 4.6               ProTA.ini       tdraw.dll
 Zero Alpha5-060322      tazero.ini      zdraw.dll
 
 
+GUI FILES
+
+tdraw.dll ships no .gui files.  The buttons and sliders below appear only when the mod's own GUI files
+contain a gadget with exactly this name.  With stock TA's GUI files they are silently absent.
+
+  guis/SHARE.GUI (in-game share dialog)
+    SRL_SETSHRMETAL, SRL_SETSHAREGRY   sliders (id=4): metal / energy share threshold, applied on OK
+    SM#, SE#                           labels (id=5): show the two slider values
+    EN_SHAREMETAL, EN_SHAREENERGY      buttons (id=1): +sharemetal / +shareenergy
+    EN_SHOOTALL                        button (id=1): +shootall
+    EN_NOSHAKE                         button (id=1): toggles +noshake
+    EN_READY                           button (id=1): sends .ready
+    SRL_GAMESPEED                      slider (id=4): game speed, 0-20
+
+  guis/LOUNGE2.GUI (battleroom; greyed out for everyone but the host)
+    AUTOPAUSE                          button (id=1): .autopause
+    AUTOTEAM                           button (id=1): +autoteam
+    RANDOMTEAM                         button (id=1): +randomteam
+    CRCREPORT                          button (id=1): .crcreport
+
+The SHARE.GUI in the 3.9.02 unofficial patch's rev31.gp3 has every share-dialog gadget except EN_NOSHAKE,
+EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom buttons.
+
+
 NEW FEATURES IN BRIEF:
 
 *????.??.??
-- Synchronize remote construction and repair health progress (thanks TAG_Venom)
+- Synchronize remote construction, completion, and repair health displays without modifying simulation health (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
+- Optimise allied queued-build overlays with on-demand, paced queue updates (thanks TAG_Venom)
+- Add opt-in ally economy bars and replay totals using the native TA HUD font (thanks TAG_Venom)
+- Organise Ctrl-F2 settings into shared TA-style tabbed pages (thanks TAG_Venom)
+- Fix automatic dragon's teeth rings to follow rotated rectangular building footprints (thanks TAG_Venom)
+- Restore the tenth replay player's POV, camera follow and starting allies (thanks TAG_Venom)
+- Show allied AI resource bars in skirmish (thanks TAG_Venom)
+- Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
+- Enable allied projectile pass-through (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
+- Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
+- Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
+- Stop the main-menu background hum from continuing into a restarted game when unlimited sound mixing is enabled (thanks TAG_Venom)
+- AI commanders no longer abandon their orders when attacked
+
+*2026.10.6
+- Fix ctrl-F and ctrl-B skipping your most recently built factories/constructors once you had lost any units
+- Lag-switch mitigation is now a per-build option.  It is enabled in every build, and now logs each time it engages,
+  releases, or fails to freeze the simulation
+- add "notoverwater" and "notoverland" flags for weapons (see NEW FEATURES IN DETAIL)
+- (escalation only) wrecks of aircraft destroyed over land now fall to the ground instead of hanging in the air where
+  the aircraft died (see NEW FEATURES IN DETAIL)
+- Keep the +bps network and game-time display visible over the megamap (thanks TAG_Venom)
+- Fix megamap projectile icons and range displays, and make anti-nuke coverage circular and consistent with its
+  displayed ring (thanks TAG_Venom)
+- Fix megamap cursor hit testing, order placement, stationary hover updates, and edge/one-axis selection drags (thanks
+  TAG_Venom)
+- Fix resurrected units intermittently being left incomplete or as unusable wireframes (thanks TAG_Venom)
+- New build configuration for TA:Mayhem (tdraw-mayhem.zip): see CONFIGURATIONS
+- New build configuration "twilight" (tdraw-twilight.zip): see CONFIGURATIONS
+- Aircraft hiding near the map edge can now be shot down (thanks RDKL)
+- Explosions now damage every aircraft stacked on the same spot instead of only one of them, and every client agrees
+  which unit holds a contested map cell (thanks RDKL; prota, escalation and mayhem only)
+- Increase TotalA.exe projectile and explosion-related limits to ten times their stock values (thanks TAG_Venom; see NEW
+  FEATURES IN DETAIL)
+- Add stockpile and transport counters above unit health bars, with configurable counter and group number colours
+  (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
+- Fix black model faces caused by zero shade level (thanks TAG_Venom)
 - Add team-coloured nanolathe effects (thanks TAG_Venom)
-- Add optional TransportedExplodeAs and TransportedSelfDestructAs unit FBI tags for using different explosion weapons while a unit is being transported (thanks TAG_Venom)
+- Add optional TransportedExplodeAs and TransportedSelfDestructAs unit FBI tags for using different explosion weapons
+  while a unit is being transported (thanks TAG_Venom)
 - Add reload bars for tagged weapons (thanks TAG_Venom)
-- Add allied queued-build overlays (thanks TAG_Venom)
+- Allied queued-build overlays (thanks TAG_Venom) are now a per-build option, and are disabled in every build for now
+- the nanoframe build preview can now also be turned off entirely: totala.ini [Preferences] "NanoframePreview" takes
+  FULL, WIREFRAME or DISABLED (replaces the old TRUE/FALSE "NanoframePreviewFill", still honoured)
+- New in-game chat drawer: "all" and "allies" chat split into their own channels, scrollback through what you missed,
+  and a larger, coloured, outlined font.  The chat text can also be moved around the screen (thanks RDKL)
+- Add .mute and .unmute to silence another player's chat, map pings and whiteboard drawings for yourself only - nobody
+  else is affected and nothing is sent over the network (thanks RDKL)
+- Add a "%" suffix to +setsharemetal and +setshareenergy (eg "+setshareenergy 50%") so the share threshold keeps
+  tracking your storage as it grows.  A plain number behaves as before (thanks RDKL, all builds except ota)
+- Add +setreclaimmetal / +setreclaimenergy to set the level below which patrolling construction units reclaim (default
+  20%); air ones now follow it too (thanks RDKL, all but ota; see NEW FEATURES IN DETAIL)
+- (escalation and mayhem) a ground construction unit can now be given an explicit Guard order on a flying ally, so it
+  can assist an air constructor's build or repair (thanks RDKL)
+- (escalation and mayhem) an air construction unit no longer shows the nanolathe beam while its repair is not actually
+  being paid for, which is what ground construction units already did (thanks RDKL)
+- (escalation only) the repair rate fix now heals at 3x the rate it shipped with in 2026.8.6, for both repair and
+  self-heal (thanks RDKL)
+- (escalation only) Fix divide-by-zero crash when a stockpile weapon's build percentage is drawn, and bounds-check the
+  weapon slot index it is read from (thanks RDKL)
+- (escalation only) Replace the COB script interpreter's opcode compare ladder with a jump table: identical behaviour,
+  less CPU per simulation tick (thanks RDKL)
+- Crash mitigation for units whose identity has drifted apart between clients, the usual cause of "one player crashed
+  and nobody else did": round-robin unit id recycling, weapon fire from the firing unit's own slot
+- Fix crash caused by a re-entrant build order on a rotated structure
+- Limit a given sound to one playback per 50ms, which cuts a large slice of the stutter caused by many simultaneous
+  explosions or weapon impacts
+- Clients now exchange a unit-identity digest about every 30 seconds and log any disagreement to tdrawlog.txt, so
+  desyncs can be diagnosed after the fact
+- (tazero only) Nukes now show the nuke icon on the megamap; TA:Zero's nukes have no stockpile (thanks Sircrashalot)
 
 *2026.8.6
 - Build configuration "full" renamed to "prota" (tdraw-prota.zip) and "minimal" renamed to "ota" (tdraw-ota.zip).  No feature changes - the names now say which mod each build is intended for
@@ -237,6 +356,279 @@ NEW FEATURES IN BRIEF:
 
 NEW FEATURES IN DETAIL:
 
+- Display-only construction and repair health synchronization
+
+  In stock multiplayer, remote units that finish building can remain stuck at
+  0% health with heavy black smoke until the engine's slow periodic status
+  sweep catches up, and repairs performed by a unit's owner are not shown on
+  other clients while the unit is under fire.
+
+  This feature keeps remote health bars, construction wireframes, and damage
+  smoke accurate strictly at display time without modifying remote unit
+  simulation state. Completed builds immediately reflect their finished health
+  (accounting for any damage taken during construction), while owner-local
+  repairs, construction progress, and self-reclaim are sent as bounded
+  additive deltas over the hidden chat channel (at most 20 packets/s globally
+  and 5 packets/s per peer, gated by native line of sight). Because local
+  weapon hits apply immediately and owner repairs apply additively, combat
+  health bars update with zero latency and do not bounce during firefights.
+
+  Older clients silently ignore custom message 0x41 and simply do not sync
+  health updates in mixed games. Enabled per build configuration (see
+  CONFIGURATIONS above); no totala.ini setting is required.
+
+- Enhanced allied resource bars and replay totals
+
+  Enhanced allied resource bars show current resources and storage capacity,
+  with separate green production and red requested-usage rates for metal and
+  energy. Text uses TA's native top resource HUD font without scaling. White
+  player names, team-colour boxes and underlines identify players; blue metal
+  and yellow energy bars have black empty tracks and outlines.
+
+  Replay totals rank Total metal produced, Total energy produced and Total
+  current units. Each ranking shows every recorded player, including defeated
+  players. Names have team-colour boxes; comparison bars use blue for metal,
+  yellow for energy and white for units. The joining spectator is excluded;
+  the shared tenth-player slot appears after recorded resource data confirms it.
+
+  In builds supporting the feature, Ctrl-F2 > Resources > Style selects Classic
+  or Enhanced. Classic retains the original resource bars and F4 behaviour.
+  Enhanced-only settings are grayed out in Classic but retain their saved
+  choices. Background applies immediately to both styles: None, Text or Solid.
+
+  Show selects Incomes, Totals, Both or Off. Separate Metal, Energy and Units
+  checkboxes choose which replay totals are included. Metal and Energy measure
+  total production; Units measures the current total, not units built or combat
+  strength. Totals require an active recorded multiplayer replay. Live games,
+  including spectators, skirmish and campaigns, cannot display them. Drawing
+  and screen-copy checks also reject cached totals outside replay mode.
+  With no totals selected, only incomes remain.
+
+  F4 cycles available views and the native scoreboard states. Over a single
+  visible panel, mouse wheel up selects incomes and down selects totals. The
+  wheel leaves Both and Off unchanged and passes through outside the overlay.
+  Show stays synchronised with F4 and mouse wheel changes.
+
+  Income layout and Totals layout each offer Vertical or Horizontal. Horizontal
+  incomes wrap player cards into up to three columns, preferring complete rows;
+  ten players use two columns of five when space permits. Horizontal totals
+  place the selected rankings beside each other. Vertical panels stack down
+  the right edge where they fit, otherwise totals sit beside incomes. With
+  the standard HUD font, ten-player incomes and all three vertical rankings
+  fit at 1080 height; omitting unit totals allows the stack to fit at 900.
+  Larger fonts may need horizontal layouts. Very small panels provide paging.
+
+  Drag panels to reposition them. Yellow arrows temporarily collapse a panel,
+  leaving a tab in place to reopen it. F4 first restores collapsed panels.
+  Restore reopens selected panels and resets their positions and pages without
+  changing the totals selected. Double-click a player for recorded POV, then
+  double-click again to follow or stop following that player's camera.
+  My Original Camera restores the viewer's original view.
+
+  Rates use cumulative resource counters per game second. Sparse recordings
+  retain the last measured rate between updates instead of alternating with
+  zero. Unknown or stale rates show --; pauses retain rates. Requested usage
+  can exceed accepted spending during stalls. Production includes reclaim and
+  transfers. Displaying these values does not change simulation or replay data.
+
+  The capability is selected at build time with MODERN_ALLY_RESOURCE_UI_ENABLE.
+  Display choices use the existing Eye preferences; no font assets or recorder
+  packet changes are required. Text and bars remain at native pixel size.
+
+- Tabbed Ctrl-F2 settings
+
+  Ctrl-F2 uses one compact menu with Controls, Units and Resources pages,
+  replacing the crowded single panel. Native TA button faces, pressed states,
+  build-page arrows and sounds match the game interface. Click a page or use
+  comma/full stop (including < and >) to switch pages. Escape, Ctrl-F2 or OK
+  saves and closes the menu. Existing settings retain their saved preferences.
+
+  Resources groups shared Style and Background settings above Enhanced Settings.
+  Unsupported capabilities are omitted. In builds supporting allied queued-build
+  overlays, Show ally queues sits below VSync on Controls. Custom menu background
+  artwork may need adapting to the shared 512 x 320 dimensions.
+
+- Tenth replay player POV
+
+  Double-clicking the recorded player sharing the viewer slot selects that
+  player's fog and allied vision; My Original Camera restores full-map LOS.
+  A second double-click follows the recorded camera, including the shared
+  player's camera. A small stripe in the player's colour pulses every 0.4
+  seconds to indicate camera follow; the row highlight stays steady.
+  In My Original Camera, the stock top resource HUD leaves its background
+  visible without displaying the shared player's resource values.
+  The legacy resource list includes the shared player with its native resource
+  values. This fix does not require the experimental ally resource UI.
+
+  Updated replay tools supply the starting team already saved in existing
+  recordings. Both directions of those starting alliances are restored once;
+  later recorded alliance changes are not overwritten. No replay conversion
+  or new setting is needed. Older replay tools keep the legacy observer path,
+  including their existing shared-slot limitations.
+
+- Allied AI resource bars
+
+  Allied computer players now appear in the legacy resource list during
+  skirmish, using the game's native names, stored amounts, capacities and
+  local AI income rates. Mutual alliances are required; enemy AI, spectators
+  and your own slot remain excluded. Existing human multiplayer data is
+  unchanged. No new setting is needed. Remote AI rates show as unknown
+  when no recorder rate data is available.
+
+- Centred camera on small maps
+
+  At high or wide resolutions, TA can calculate a negative maximum camera
+  position and repeatedly move between that position and zero. This makes
+  small maps, including CORE Campaign Mission 1, jump across the screen.
+
+  Each undersized axis now has one fixed, centred camera position. The map
+  appears once, with black margins in the unused game area. Any axis larger
+  than the viewport retains its normal scrolling range. Current positions,
+  destinations, follow and recentre paths use the same boundaries.
+
+  Small-map terrain reads are limited to valid map rows and columns, and the
+  minimap viewport outline stays inside its picture. Black margins do not
+  accept world orders, placement previews or whiteboard input. The sidebar,
+  resource bars and selected display resolution stay unchanged.
+
+  Shared allied camera outlines also stay inside the minimap picture,
+  including on narrow or short maps. Existing position-sharing packets and
+  replay camera tracking remain compatible.
+
+  Position sharing must be enabled on both clients. The .sharemappos command
+  toggles it; check the ON/OFF message. Turning it off also hides incoming
+  allied camera outlines.
+
+  Fog masks extend the nearest map-edge visibility into missing corners in
+  the screen cache, preventing bright terrain seams on centred map borders.
+  The underlying mapped and line-of-sight grids are not changed.
+
+  The fix is automatic in every build and requires no INI setting. It does
+  not change map files or simulation. The camera, terrain and input hooks
+  are installed together only when all required executable signatures match.
+  Normal-sized maps retain the original terrain renderer and camera controls.
+
+- Allied projectile pass-through
+
+  Projectiles normally ignore the firing player's own units but can detonate
+  on another player's allied units. When enabled, projectiles pass through
+  units whose owners the firing player currently considers allied. This is a
+  build-time choice with no INI override. Builds without the feature retain
+  their existing collision behavior.
+  Both native unit-collision slots and off-map aircraft use this rule; enemies
+  retain their normal height checks and impacts. Ownership is never changed.
+  Transfers use the candidate's current owner; shots already in flight use
+  their original firing player and the current alliance at collision time.
+  One-way alliances follow the firing player's offer, independently in each
+  direction. Same-owner pass-through does not depend on self-alliance flags.
+
+  Splash, ground/feature impacts, interception, timed detonation, guidance and
+  weapon-specific rules are unchanged, including damage they can cause to own
+  or allied units. This is collision pass-through, not damage immunity.
+  Weapons that bypass the native unit-collision path retain their own rules.
+
+  All players must use matching DLL builds; replay playback must match
+  the recording session. The active rule participates in TADR's existing
+  game-data verification hash, but mismatches are not automatically blocked.
+  Check each player's build before launch and heed VerCheck warnings after
+  the game starts. Mixed gameplay rules are unsupported.
+  Unsupported or conflicting collision code is rejected before patching;
+  a build using this feature then prevents startup instead of silently using
+  other gameplay rules. To restore the previous behavior, use a matching build
+  with this feature disabled on every client. Unloading restores both hooks.
+
+- Map-selection preview
+
+  Fixes intermittent corruption in the preview shown when selecting a map.
+  TA accidentally treated one of the minimap's colours as transparent while
+  copying the image, leaving old buffer contents in place of those pixels.
+  The preview now copies every colour correctly before TA scales and draws it.
+
+  The original map selector, preview size, colours, scaling and black borders
+  are preserved.  The fix is automatic and requires no configuration settings.
+
+- Shared unit settings
+
+  TA shares a unit by creating a replacement for its new owner.  It clears
+  the replacement's fire and movement orders to Hold Fire and Hold Position,
+  and does not send those orders or the requested cloak setting to the recipient.
+
+  Voluntary shares now preserve the giver's fire and movement orders, on/off
+  state, and cloak request, as well as the operational state TA already copies.
+  A unit temporarily decloaked by firing or nearby enemies keeps its requested
+  cloak setting.  Factories retain the standing orders inherited by products.
+  Stockpiled ammunition and building orientation continue through TA's existing
+  transfer path.  Command queues, factory build queues, groups and experience
+  are separate from these settings and retain TA's existing transfer behavior.
+
+  This is automatic in all builds, with no INI setting.  Both giver and receiver
+  need the updated DLL for network transfers.  An older DLL ignores or omits
+  the settings snapshot, so TA's original receiving behavior applies instead.
+  Sharing to an unallied player also preserves settings; captures are unchanged.
+  Escalation's structure-share delay still applies; settings are taken when
+  the delayed transfer actually happens.
+
+- Resurrection finalization fix
+
+  TA can create a replacement unit from a wreck and then fail its second lookup
+  of that wreck after unit creation has already cleared it.  The resurrection
+  order then exits before initialization is complete, leaving a mobile unit
+  partly built or a structure as a permanent unusable wireframe.
+
+  TADR preserves the validated wreck information immediately before creation.
+  If the requested replacement unit was successfully created but only the
+  post-create wreck lookup failed, TADR supplies that preserved information and
+  lets TA continue its normal finalization path.  Successful resurrections,
+  invalid wrecks, and retryable unit-creation failures are unchanged.
+
+- Expanded projectile and explosion-related limits
+
+  TotalA.exe uses several fixed-size pools for projectiles, explosions, flying
+  model pieces, and related effects.  When a stock pool is full, TA silently
+  refuses new entries.  In particular, reaching the projectile limit can make
+  units stop firing until older projectiles disappear.
+
+  TADR increases all four capacities to ten times their stock values:
+  - Active projectiles: 300 to 3000
+  - Active explosion effects: 300 to 3000
+  - Flying model-piece effect slots: 100 to 1000
+  - Auxiliary debris/effect records and workspaces: 300 to 3000
+
+  These are fixed safety limits and require no totala.ini settings.  Entries
+  beyond the new limits are still discarded, preventing an extreme effect burst
+  from growing without bound.  The model-piece allocator grows from 100,000 to
+  1,000,000 bytes alongside its slot table.  The relocated fixed pools reserve
+  approximately 1.3 MB of additional DLL memory.
+
+  The projectile limit affects game simulation.  In multiplayer, every player
+  must therefore use the same TADR version; mixing this version with an older
+  projectile limit can desynchronize the game after the stock limit is exceeded.
+  If the required TotalA.exe instructions cannot be validated or patched, TADR
+  displays an error and closes TA rather than continuing with mismatched limits.
+
+- Unit status counters
+
+  When TA's health bars are enabled, status counters are shown above the local
+  player's applicable units.  Stockpile weapons show "stocked +queued", for
+  example "1 +99".  Loaded transports show "loaded/capacity", for example
+  "2/3".
+
+  The transport count reflects the units actually carried, so it can exceed
+  the FBI transportcapacity value when a unit script permits over-capacity
+  loading.  Counters are hidden for single-unit flying transports whose cargo
+  is already visible beneath the aircraft.  Flying transports with a declared
+  capacity above one retain the counter.
+
+  Counter text and TA's existing control-group number use a one-pixel black
+  outline for readability.  The following [Preferences] settings take effect
+  at the next TA start.  Colours are TA palette indexes from 0 to 255:
+
+      ShowStockpileCounter = TRUE;
+      ShowTransportCounter = TRUE;
+      StockpileCounterColor = 255;
+      TransportCounterColor = 255;
+      GroupNumberColor = 255;
+
 - Start positions
 
   Start positions are now assigned based on battleroom teams/alliances.
@@ -293,6 +685,29 @@ NEW FEATURES IN DETAIL:
     Maneuvre/roam: your construction units will both look for reclaim and for units that need repair or assist
 
   Mash the 'v' key to get the desired movement order and then set a patrol route.
+
+- Patrol reclaim thresholds (all builds except tdraw-ota.zip)
+
+  A patrolling construction unit looks for something to reclaim only while metal or energy is
+  below 20% of your storage.  These commands change that level for your own units:
+
+    +setreclaimmetal <0-100>[%]
+    +setreclaimenergy <0-100>[%]
+
+  With no value they print the current levels.  The levels belong to the player who types the
+  command, are not sent to other players, and go back to 20% at the start of every game.
+  0 never counts as low, so patrols do not reclaim and always assist; 100 counts as low unless
+  the storage is exactly full.
+
+  The energy level also decides when patrols assist: a patrolling unit assists only while energy
+  is at or above it.  In the "Assist Only" patrol mode it is the only level that has an effect.
+
+  Air construction units used to reclaim on patrol whatever your stocks were.  They now follow
+  the same rule as ground units and look for something to reclaim only while metal or energy is
+  below its level.  This includes air units set to "Reclaim Only", which is the default for Hold
+  Position.  To get the old air behaviour back, type +setreclaimmetal 100 and +setreclaimenergy
+  100 at the start of a game; as the energy level is shared, that also limits assisting to
+  moments when energy is full.
 
 - Neutral unit and/or per-player additional unit spawn
 
@@ -457,7 +872,7 @@ NEW FEATURES IN DETAIL:
   - Reload time: up to 16 levels or the number of VeterancyThresholds, whichever is lower
   - Accuracy buff: no limit
 
-- Weapon TDF flags: nottoair, nottounderwater, surfacefire, nomapweaponalert and reloadbar
+- Weapon TDF flags: nottoair, nottounderwater, notoverwater, notoverland, surfacefire, nomapweaponalert and reloadbar
 
   Optional keys for weapon definition files (weapons/*.tdf) give mod developers
   finer control over targeting and alert behaviour.
@@ -506,6 +921,51 @@ NEW FEATURES IN DETAIL:
       nottounderwater=1;
       }
 
+  notoverwater=1
+    The weapon will not fire while the FIRING unit is over water, that is, while the terrain
+    beneath it is at or below sea level.  It is aimed at aircraft weapons, and is about where
+    the firer is, not where the target is - so a bomber with notoverwater=1 bombs will stop
+    bombing as it crosses a coastline and start again once it is back over land.
+
+    While suppressed the weapon does not aim or track, and its turret holds its last angle, but
+    it keeps reloading and does not lose its target.  It resumes on the first frame the unit is
+    over land again, with no reload penalty.  Ammunition and per-shot resource costs are not
+    consumed while suppressed.
+
+    Note the flag is a property of the weapon, so every unit using that weapon is affected.  If
+    only one unit should be restricted, give it its own copy of the weapon under a new name and
+    a spare ID.
+
+    Example:
+
+      [BOMB]
+      {
+      ...
+      dropped=1;
+      notoverwater=1;
+      }
+
+  notoverland=1
+    The mirror of notoverwater: the weapon will not fire while the FIRING unit is over land,
+    that is, while the terrain beneath it is above sea level.  Suppression behaves exactly as
+    for notoverwater - no aiming or turret tracking, but reloading continues, the target is
+    kept, and no ammunition or per-shot resources are spent.
+
+    Use it for weapons that only make sense over water, such as an aircraft-dropped torpedo or
+    depth charge, so the unit cannot release them over dry ground.
+
+    Setting both notoverwater=1 and notoverland=1 on the same weapon leaves nowhere for it to
+    fire from, and it will never fire.
+
+    Example:
+
+      [AIR_TORPEDO]
+      {
+      ...
+      dropped=1;
+      notoverland=1;
+      }
+
   surfacefire=1
     Used together with waterweapon=1.  Normally a water weapon can only target submarines and
     other units that are at or below sea level.  With surfacefire=1 the weapon can also target
@@ -536,6 +996,38 @@ NEW FEATURES IN DETAIL:
       ...
       damage=0;
       nomapweaponalert=1;
+      }
+
+- Aircraft wrecks fall to the ground (escalation build only)
+
+  When a unit dies, TA places its Corpse= wreck at the exact position the unit died,
+  including its altitude.  For a unit killed over water the engine gives that wreck a
+  downward velocity so it sinks, but for one killed over land it gives it none - and a
+  wreck with no velocity is never simulated, so it simply hangs in the air at the height
+  the unit was flying.
+
+  With this feature a wreck created above the terrain is given a downward velocity, so it
+  falls under the map's normal gravity, lands on the terrain and stops.  It can then be
+  reclaimed on the ground like any other wreck.
+
+  Only wrecks that are created above the terrain are affected.  Ground units die at ground
+  level already, so their wrecks are untouched and behave exactly as before, as do wrecks
+  created over water, which keep the engine's existing sinking behaviour.
+
+  The wreck falls straight down; it does not carry the aircraft's forward momentum.  That is
+  deliberate - a wreck that travelled any distance would separate from the map tile it is
+  registered on, and reclaim and blocking would stay behind at the tile where the unit died.
+
+  Note that this only does anything for units that actually define a corpse.  Most mods give
+  their aircraft no Corpse= key at all, in which case nothing is placed when they die and
+  nothing changes.  To see it, give the aircraft a corpse in its FBI:
+
+    Example:
+
+      [UNITINFO]
+      {
+      ...
+      Corpse=armthund_dead;
       }
 
 - Unit FBI transported explosion overrides
@@ -569,30 +1061,44 @@ NEW FEATURES IN DETAIL:
 - Allied queued-build overlays
 
   Hold Shift in the normal construction-queue viewing context to display an
-  ally's queued buildings as two-tone purple rectangles.  The local player's
-  normal green/blue queued-build rectangles take priority, except while
-  hovering an allied construction unit.  The megamap uses the dark purple
-  outline.  In multiplayer, players using this version of TADR share their
-  queued build positions with mutual allies.
+  ally's queued buildings as two-tone purple rectangles. The local player's
+  normal green/blue rectangles take priority, except while hovering an allied
+  construction unit. The megamap uses dark-purple outlines. Up to 1200 distinct
+  nonmobile building placements are shared per player; mobile factory products
+  and their production counts are not part of this overlay.
 
-  The display is enabled by default and can be disabled locally with the
-  "Show ally queues" checkbox in the ctrl-f2 menu.  The option only hides the
-  overlay; it does not affect game orders or the queue information sent to
-  allies.  Up to 1200 queued structures are shared per player.
+  Use "Show ally queues" in ctrl-F2 to show or hide the overlay. Hiding it
+  stops your requests without preventing allies from viewing your placements.
 
-- Construction and repair health synchronization
+  Queue positions are shared on demand while Shift is held. After an initial
+  snapshot, smaller updates carry changes instead of repeatedly sending the
+  whole queue. Updates are paced across allies to avoid bursts, and queue
+  collection stops when nobody requests it. Large first snapshots can take
+  longer to arrive. Releasing Shift stops requests; a lost stop expires after
+  six seconds. Completed overlays remain visible while the game is paused.
 
-  Stock TA can leave remote clients showing stale health and construction
-  progress for many seconds while a unit is being built or repaired.  TADR
-  sends batched progress updates at 5 Hz for locally owned units whose health
-  or construction state is currently increasing, plus a one-second trailing
-  window after progress stops.
+  Only active mutual allies exchange queues. Partial updates do not replace
+  a complete display, and missing data is retried. Silent caches expire after
+  ten seconds while unpaused. This changes no game orders or simulation state.
+  Complete queue exchange requires updated clients at both ends. Locally
+  available allied orders can still be drawn.
 
-  Updates are sent only to remote human players who have line of sight to the
-  unit.  Received records are checked against the sending player, unit slot,
-  unit type, maximum health, and local line of sight before an upward progress
-  correction is applied.  This is an always-on synchronization fix with no
-  totala.ini setting; normal damage, orders, and simulation are unchanged.
+- Unit model zero-shade fallback
+
+  At some model and build rotations, TA can calculate shade level zero for a
+  valid model face.  Stock PALETTE.SHD resolves ordinary colours at that level
+  to black, which can make the entire face appear completely black.
+
+  TADR replaces only calculated shade level zero.  Other shade levels are left
+  unchanged.  Configure the replacement under [Preferences] in totala.ini:
+
+    ShadingZeroFallbackLevel=5
+
+  The stock-palette default is 5.  Values 1 to 31 select progressively brighter
+  shade rows.  Set the value to 0 to disable the correction and preserve stock
+  behaviour.  Mods with a custom PALETTE.SHD may need to choose a different
+  value.  This setting changes local model rendering only and does not affect
+  simulation or multiplayer synchronization.
 
 - Building rotation
 

@@ -81,7 +81,7 @@ void Button::DoDraw(DialogBase* dialog)
 	if (xofs <= m_skinWidth - m_width)
 	{
 		int dy = (dialog->m_rowHeight - m_height) / 2;
-		dialog->DrawTexture(m_x, m_y + dy, m_width, m_height, m_skin, xofs, 0);
+		dialog->DrawTexture(m_x, m_y + dy, m_width, m_height, m_skin, xofs, 0, m_colourKey);
 	}
 
 	if (unsigned(m_state) < m_stateLabels.size())

@@ -1,3 +1,6 @@
+#include <array>
+#include <algorithm>
+#include <climits>
 #include "DialogBase.h"
 
 #include "font.h"
@@ -411,13 +414,46 @@ void DialogBase::DrawSmallText(LPDIRECTDRAWSURFACE dest, int x, int y, const cha
 // -----------------------------------------------------------------------
 // DrawTexture: blit a region of texture onto lpDialogSurf.
 // -----------------------------------------------------------------------
+// Desaturate and dim only explicitly unavailable controls, using TA's palette.
+void DialogBase::DimRect(int x, int y, int width, int height)
+{
+    extern PALETTEENTRY TAPalette[];
+    static const std::array<unsigned char,256> ramp = []() {
+        std::array<unsigned char,256> result = {};
+        for (int i=0;i<256;++i)
+        {
+            int gray=(TAPalette[i].peRed*30+TAPalette[i].peGreen*59+TAPalette[i].peBlue*11)*55/10000;
+            int best=0,score=INT_MAX;
+            for(int j=0;j<256;++j)
+            {
+                int r=TAPalette[j].peRed-gray,g=TAPalette[j].peGreen-gray,b=TAPalette[j].peBlue-gray;
+                int distance=r*r+g*g+b*b;
+                if(distance<score){score=distance;best=j;}
+            }
+            result[i]=static_cast<unsigned char>(best);
+        }
+        return result;
+    }();
+    DDSURFACEDESC desc = {};desc.dwSize=sizeof(desc);
+    if(lpDialogSurf->Lock(nullptr,&desc,DDLOCK_WAIT|DDLOCK_SURFACEMEMORYPTR,nullptr)!=DD_OK)return;
+    for(int row=(std::max)(0,y);row<(std::min)(y+height,static_cast<int>(desc.dwHeight));++row)
+        for(int col=(std::max)(0,x);col<(std::min)(x+width,static_cast<int>(desc.dwWidth));++col)
+        {
+            auto pixel=static_cast<unsigned char*>(desc.lpSurface)+row*desc.lPitch+col;*pixel=ramp[*pixel];
+        }
+    lpDialogSurf->Unlock(nullptr);
+}
+
 void DialogBase::DrawTexture(int x, int y, int width, int height,
-                             LPDIRECTDRAWSURFACE texture, int texturePosX, int texturePosY)
+                             LPDIRECTDRAWSURFACE texture, int texturePosX, int texturePosY, int colourKey)
 {
     RECT Dest   = { x,           y,            x + width,          y + height          };
     RECT Source = { texturePosX, texturePosY,  texturePosX + width, texturePosY + height };
-    if (lpDialogSurf->Blt(&Dest, texture, &Source, DDBLT_ASYNC, NULL) != DD_OK)
-        lpDialogSurf->Blt(&Dest, texture, &Source, DDBLT_WAIT, NULL);
+    DDBLTFX effects = {}; effects.dwSize = sizeof(effects);
+    effects.ddckSrcColorkey.dwColorSpaceLowValue = effects.ddckSrcColorkey.dwColorSpaceHighValue = colourKey;
+    DWORD flags = colourKey >= 0 ? DDBLT_KEYSRCOVERRIDE : 0;
+    if (lpDialogSurf->Blt(&Dest, texture, &Source, DDBLT_ASYNC | flags, &effects) != DD_OK)
+        lpDialogSurf->Blt(&Dest, texture, &Source, DDBLT_WAIT | flags, &effects);
 }
 
 // -----------------------------------------------------------------------

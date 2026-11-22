@@ -1,6 +1,9 @@
 #include "config.h"
 #include "oddraw.h"
 #include "cincome.h"
+#include "TenPlayerReplay.h"
+#include "ResourceBarAi.h"
+#include "EconomyPanels.h"
 #include "iddrawsurface.h"
 #include "font.h"
 #include "tamem.h"
@@ -55,6 +58,9 @@ CIncome::CIncome(BOOL VidMem):
 	StartedInRect(false),
 	Minimised(false)
 {
+#if MODERN_ALLY_RESOURCE_UI_ENABLE
+	m_economyPanels.reset(new EconomyPanels());
+#endif
 	std::memset(&m_weatherCacheKey, 0, sizeof(m_weatherCacheKey));
 	std::memset(MinimiseWidgetBoxMin, 0, sizeof(MinimiseWidgetBoxMin));
 	std::memset(MinimiseWidgetBoxMax, 0, sizeof(MinimiseWidgetBoxMax));
@@ -101,6 +107,23 @@ CIncome::~CIncome()
 
 void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 {
+	bool useNewBars = m_economyPanels && m_economyPanels->UseNewBars();
+	if (useNewBars != m_usedNewBars)
+	{
+		First = true;
+		BlitState = 0;
+		if (!useNewBars) LocalShare->Height = PlayerHight * 11;
+		m_usedNewBars = useNewBars;
+	}
+	if (m_economyPanels)
+	{
+		if (useNewBars)
+		{
+			m_economyPanels->Blit(DestSurf);
+			LocalShare->Width = LocalShare->Height = 0;
+			return;
+		}
+	}
 	if(lpIncomeSurf->IsLost() != DD_OK)
 	{
 		if(lpIncomeSurf->Restore() != DD_OK)
@@ -112,12 +135,18 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 	if(DataShare->TAProgress == TAInGame)
 	{
 		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
+		UpdateLegacyLayout();
 		int targetPosX = GetMinimiseWidgetXPos()
-			? Ptr->GameSreen_Rect.right - MinimiseWidgetSize
+			? Ptr->GameSreen_Rect.right - ResourceBarTransform::Pixels(MinimiseWidgetSize, m_legacyScale)
 			: Ptr->GameSreen_Rect.left;
 
+		// Refresh on pulse edges as well as the usual resource refresh. This
+		// keeps the follow indicator's timing independent of the frame rate.
+		const bool followPulseOn = (GetTickCount() / 400 & 1) == 0;
 		if (GetCurrentThreadId() == LocalShare->GuiThreadId &&
-			(BlitState % 30 == 1 || Minimised && posX != targetPosX))
+			(BlitState % 30 == 1 ||
+				(ReplayCameraFollowSlot() >= 0 && followPulseOn != m_followPulseOn) ||
+				Minimised && posX != targetPosX))
 		{
 			DDSURFACEDESC ddsd;
 			DDRAW_INIT_STRUCT(ddsd);
@@ -132,6 +161,7 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 			{
 				SurfaceMemory = ddsd.lpSurface;
 				lPitch = ddsd.lPitch;
+				m_followPulseOn = followPulseOn;
 
 				if((0!=(WATCH& (Ptr->Players[LocalShare->OrgLocalPlayerID].PlayerInfo->PropertyMask)))
 					||DataShare->PlayingDemo)
@@ -155,22 +185,35 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 			lpIncomeSurf->Unlock(NULL);
 		}
 
+		UpdateLegacyLayout();
 		RECT Dest;
 		Dest.left = posX;
 		Dest.top = posY;
-		Dest.right = posX + PlayerWidth;
-		Dest.bottom = posY + LocalShare->Height;
+		Dest.right = posX + ResourceBarTransform::Pixels(LocalShare->Width, m_legacyScale);
+		Dest.bottom = posY + ResourceBarTransform::Pixels(LocalShare->Height, m_legacyScale);
 		RECT Source;
 		Source.left = 0;
 		Source.top = 0;
-		Source.right = PlayerWidth;
+		Source.right = LocalShare->Width;
 		Source.bottom = LocalShare->Height;
+		RECT fullDest = Dest;
+		RECT bounds = Ptr->GameSreen_Rect;
+		Dest.left = std::max(Dest.left, bounds.left); Dest.top = std::max(Dest.top, bounds.top);
+		Dest.right = std::min(Dest.right, bounds.right); Dest.bottom = std::min(Dest.bottom, bounds.bottom);
+		if (Dest.right > Dest.left && Dest.bottom > Dest.top && fullDest.right > fullDest.left && fullDest.bottom > fullDest.top)
+		{
+			Source.left = (Dest.left - fullDest.left) * LocalShare->Width / (fullDest.right - fullDest.left);
+			Source.top = (Dest.top - fullDest.top) * LocalShare->Height / (fullDest.bottom - fullDest.top);
+			Source.right = (Dest.right - fullDest.left) * LocalShare->Width / (fullDest.right - fullDest.left);
+			Source.bottom = (Dest.bottom - fullDest.top) * LocalShare->Height / (fullDest.bottom - fullDest.top);
+		}
 
 		DDBLTFX ddbltfx;
 		DDRAW_INIT_STRUCT(ddbltfx);
 		ddbltfx.ddckSrcColorkey.dwColorSpaceLowValue = 1;
 		ddbltfx.ddckSrcColorkey.dwColorSpaceHighValue = 1;
-		if (DestSurf->Blt(&Dest, lpIncomeSurf, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx) != DD_OK)
+		if (Dest.right > Dest.left && Dest.bottom > Dest.top && Source.right > Source.left && Source.bottom > Source.top &&
+			DestSurf->Blt(&Dest, lpIncomeSurf, &Source, DDBLT_ASYNC | DDBLT_KEYSRCOVERRIDE, &ddbltfx) != DD_OK)
 		{
 			DestSurf->Blt(&Dest, lpIncomeSurf, &Source, DDBLT_WAIT | DDBLT_KEYSRCOVERRIDE, &ddbltfx);
 		}
@@ -180,6 +223,11 @@ void CIncome::BlitIncome(LPDIRECTDRAWSURFACE DestSurf)
 			&&(CursorX!=-1))
 		{
 			((Dialog *)LocalShare->Dialog)->BlitCursor ( DestSurf, CursorX, CursorY);
+		}
+		if (m_economyPanels)
+		{
+			RECT legacyBounds = m_legacyRect;
+			m_economyPanels->Blit(DestSurf, &legacyBounds);
 		}
 	}
 	
@@ -244,13 +292,14 @@ int CIncome::GetMinimiseWidgetXPos()
 
 int CIncome::ShowAllIncome()
 {
+	for (int& player : m_replayPlayers) player = -1;
 	DataShare->IsRunning = 15;
 
 	if (Minimised)
 	{
 		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
 		int targetPosX = GetMinimiseWidgetXPos()
-			? Ptr->GameSreen_Rect.right - MinimiseWidgetSize
+			? Ptr->GameSreen_Rect.right - ResourceBarTransform::Pixels(MinimiseWidgetSize, m_legacyScale)
 			: Ptr->GameSreen_Rect.left;
 
 		if (std::abs(targetPosX - posX) < 10)
@@ -269,11 +318,13 @@ int CIncome::ShowAllIncome()
 	LocalShare->Width = PlayerWidth;
 
 	int j = 0;
-	for(int i=1; i<10; i++)
+	for(int i=TenPlayerReplay_HasPovMetadata() ? 0 : 1; i<10; i++)
 	{
-		if(strlen(DataShare->PlayerNames[i])>0)
+		bool funnel = TenPlayerReplay_IsFunnelPlayer(&(*TAmainStruct_PtrPtr)->Players[i]);
+		if(funnel || strlen(DataShare->PlayerNames[i])>0)
 		{
 			DataShare->IsRunning = 50;
+			m_replayPlayers[j] = i;
 			ShowPlayerIncome(i, 0, j*PlayerHight);
 			j++;
 		}
@@ -292,13 +343,14 @@ int CIncome::ShowAllIncome()
 
 int CIncome::ShowAllyIncome()
 {
+	for (int& player : m_replayPlayers) player = -1;
 	DataShare->IsRunning = 15;
 
 	if (Minimised)
 	{
 		TAdynmemStruct* Ptr = *(TAdynmemStruct**)0x00511de8;
 		int targetPosX = GetMinimiseWidgetXPos()
-			? Ptr->GameSreen_Rect.right - MinimiseWidgetSize
+			? Ptr->GameSreen_Rect.right - ResourceBarTransform::Pixels(MinimiseWidgetSize, m_legacyScale)
 			: Ptr->GameSreen_Rect.left;
 
 		if (std::abs(targetPosX - posX) < 10)
@@ -320,11 +372,17 @@ int CIncome::ShowAllyIncome()
 	//int OffsetY = posY;
 	LocalShare->Height = 0;
 	int j = 0;
-	for(int i=1; i<10; i++)
+	for(int i=0; i<10; i++)
 	{
-		if(DataShare->allies[i])
+		const TAdynmemStruct& ta = **TAmainStruct_PtrPtr;
+		const int original = LocalShare->OrgLocalPlayerID;
+		const bool allied = ResourceBarsAI(ta.Players[i])
+			? ResourceBarsAlliedAI(ta, original, i)
+			: i != original && DataShare->allies[i];
+		if(allied)
 		{
 			DataShare->IsRunning = 100;
+			m_replayPlayers[j] = i;
 			ShowPlayerIncome(i, 0, j*PlayerHight);
 			j++;
 		}
@@ -359,57 +417,81 @@ void CIncome::ShowMyViewIncome (int posx, int posy)
 
 void CIncome::ShowPlayerIncome(int Player, int posx, int posy)
 {
+	PlayerStruct& nativePlayer = (*TAmainStruct_PtrPtr)->Players[Player];
+	const PlayerResourcesStruct& res = nativePlayer.PlayerRes;
+	const bool nativeEconomy = ResourceBarsAI(nativePlayer) || TenPlayerReplay_IsFunnelPlayer(&nativePlayer);
+	const bool nativeRates = nativePlayer.My_PlayerType == Player_LocalAI || TenPlayerReplay_IsFunnelPlayer(&nativePlayer);
+	const bool haveRates = nativeRates || !nativeEconomy || DataShare->PlayerNames[Player][0];
 	float ValueF;
 	char Value[100];
 
 	char C = GetPlayerDotColor(Player);
 
-	static unsigned char LockColor= 20;
-	static unsigned char LosViewColor= 20^ 0x20;
-	
-	if (Player==DataShare->LockOn)
-	{//hignlight the player name that lockon
-		if (NULL!=SurfaceMemory)
+	const bool following = Player == ReplayCameraFollowSlot();
+	if (SurfaceMemory && (following ||
+		(Player == DataShare->LosViewOn && IsWatchingOtherPlayerPov())))
+	{
+		char* pixels = (char*)SurfaceMemory;
+		for (int i = 0; i < PlayerHight; ++i)
 		{
-			LockColor= LockColor^ 0x20;
-			char *SurfMem = (char*)SurfaceMemory;
-
-			for(int i=0; i<PlayerHight; i++)
-			{
-				memset(&SurfMem[posx+(posy+i)*lPitch], LockColor, PlayerWidth);
-			}
-		}
-	}
-	else if (Player==DataShare->LosViewOn)
-	{//hignlight the player that lockon
-		if (NULL!=SurfaceMemory)
-		{
-			char *SurfMem = (char*)SurfaceMemory;
-
-			for(int i=0; i<PlayerHight; i++)
-			{
-				memset(&SurfMem[posx+(posy+i)*lPitch], LosViewColor, PlayerWidth);
-			}
+			memset(&pixels[posx + (posy+i)*lPitch], 20 ^ 0x20, PlayerWidth);
+			if (following && m_followPulseOn)
+				memset(&pixels[posx + (posy+i)*lPitch], (unsigned char)C, 3);
 		}
 	}
 
 	//DrawText(DataShare->PlayerNames[Player], posx+45, posy+1, 0);
 	DrawPlayerRect(posx+36, posy+1, C);
 
-	DrawText(DataShare->PlayerNames[Player], posx+44, posy, PlayerNameColour);
+	DrawText(nativeEconomy ? nativePlayer.Name : DataShare->PlayerNames[Player], posx+44, posy, PlayerNameColour);
 
-	DrawStorageText(DataShare->storedM[Player], posx, posy+10);
-	DrawStorageText(DataShare->storedE[Player], posx, posy+20);
+	DrawStorageText(nativeEconomy ? res.fCurrentMetal : DataShare->storedM[Player], posx, posy+10);
+	DrawStorageText(nativeEconomy ? res.fCurrentEnergy : DataShare->storedE[Player], posx, posy+20);
 
 	PaintStoragebar(posx+44, posy+10, Player , MetalBar);
-	ValueF = DataShare->incomeM[Player];
-	sprintf_s(Value, 100, "+%.1f", ValueF);
+	ValueF = nativeRates ? res.fMetalProduction : DataShare->incomeM[Player];
+	if (haveRates) sprintf_s(Value, 100, "+%.1f", ValueF);
+	else strcpy_s(Value, "-");
 	DrawText(Value, posx+149, posy+10, ResourceValueColour);
 
 	PaintStoragebar(posx+44, posy+20, Player , EnergyBar);
-	ValueF = DataShare->incomeE[Player];
-	sprintf_s(Value, 100, "+%.0f", ValueF);
+	ValueF = nativeRates ? res.fEnergyProducton : DataShare->incomeE[Player];
+	if (haveRates) sprintf_s(Value, 100, "+%.0f", ValueF);
+	else strcpy_s(Value, "-");
 	DrawText(Value, posx+149, posy+20, ResourceValueColour);
+}
+
+void CIncome::SelectReplayPlayer(int slot)
+{
+	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	const int following = ReplayCameraFollowSlot();
+	if (slot < 0)
+	{
+		SetReplayCameraFollowSlot(-1);
+		DataShare->LosViewOn = 0xa;
+	}
+	else if (slot == following)
+	{
+		SetReplayCameraFollowSlot(-1);
+		return;
+	}
+	else if (slot == DataShare->LosViewOn && IsWatchingOtherPlayerPov())
+	{
+		SetReplayCameraFollowSlot(slot);
+		return;
+	}
+	else
+	{
+		DataShare->LosViewOn = slot;
+		if (following >= 0) SetReplayCameraFollowSlot(slot);
+	}
+
+	DeselectUnits();
+	UpdateSelectUnitEffect();
+	ApplySelectUnitMenu_Wapper();
+	const bool control = slot >= 0 ? bool(DataShare->PlayingDemo) :
+		LocalShare->OrgLocalPlayerID != ta->LocalHumanPlayer_PlayerID;
+	ViewPlayerLos_Replay(slot < 0 ? 0 : slot, control, slot < 0);
 }
 
 int CIncome::DrawStorageText(float Storage, int posx, int posy)
@@ -511,15 +593,19 @@ int CIncome::DrawMinimiseWidget(int posx, int posy, char Color)
 			SurfMem[x + y * lPitch] = Color;
 		}
 	}
-	MinimiseWidgetBoxMin[0] = posX + posx;
-	MinimiseWidgetBoxMin[1] = posY + posy;
-	MinimiseWidgetBoxMax[0] = posX + posx + MinimiseWidgetSize;
-	MinimiseWidgetBoxMax[1] = posY + posy + MinimiseWidgetSize;
+	m_widgetLocal = { posx, posy };
 	return MinimiseWidgetSize;
 }
 
 void CIncome::PaintStoragebar(int posx, int posy, int Player, int Type)
 {
+	const PlayerStruct& nativePlayer = (*TAmainStruct_PtrPtr)->Players[Player];
+	const bool nativeEconomy = ResourceBarsAI(nativePlayer) || TenPlayerReplay_IsFunnelPlayer(&nativePlayer);
+	const PlayerResourcesStruct& res = nativePlayer.PlayerRes;
+	const float energy = nativeEconomy ? res.fCurrentEnergy : DataShare->storedE[Player];
+	const float energyMax = nativeEconomy ? res.fMaxEnergyStorage : DataShare->storageE[Player];
+	const float metal = nativeEconomy ? res.fCurrentMetal : DataShare->storedM[Player];
+	const float metalMax = nativeEconomy ? res.fMaxMetalStorage : DataShare->storageM[Player];
 	if(SurfaceMemory == NULL)
 		return;
 
@@ -540,14 +626,14 @@ void CIncome::PaintStoragebar(int posx, int posy, int Player, int Type)
 
 	if(Type == EnergyBar)
 	{
-		if(DataShare->storageE[Player]!=0)
-			StorageBarLength = static_cast<int>((DataShare->storedE[Player] / DataShare->storageE[Player])*100);
+		if(energyMax!=0)
+			StorageBarLength = static_cast<int>((energy / energyMax)*100);
 		FillColor = 208U;
 	}
 	else if(Type == MetalBar)
 	{
-		if(DataShare->storageM[Player]!=0)
-			StorageBarLength = static_cast<int>((DataShare->storedM[Player] / DataShare->storageM[Player])*100);
+		if(metalMax!=0)
+			StorageBarLength = static_cast<int>((metal / metalMax)*100);
 		FillColor = 224U;
 	}
 	if ( StorageBarLength>99)
@@ -581,6 +667,22 @@ void CIncome::FillRect(char Color)
 void CIncome::Set(int BGType)
 {
 	BackgroundType = BGType;
+	BlitState = 0;
+	if (m_economyPanels) m_economyPanels->SetBackgroundType(BGType);
+}
+
+void CIncome::UpdateLegacyLayout()
+{
+    // Native pixel size; scale controls and stored scale values are retired.
+    const int scale = 100;
+    if (scale != m_legacyScale) { m_legacyScale = scale; BlitState = 0; First = true; }
+    if (!Minimised) CorrectPos();
+    m_legacyRect = { posX, posY, posX + ResourceBarTransform::Pixels(LocalShare->Width, scale),
+        posY + ResourceBarTransform::Pixels(LocalShare->Height, scale) };
+    MinimiseWidgetBoxMin[0] = posX + ResourceBarTransform::Pixels(m_widgetLocal.x, scale);
+    MinimiseWidgetBoxMin[1] = posY + ResourceBarTransform::Pixels(m_widgetLocal.y, scale);
+    MinimiseWidgetBoxMax[0] = posX + ResourceBarTransform::Pixels(m_widgetLocal.x + MinimiseWidgetSize, scale);
+    MinimiseWidgetBoxMax[1] = posY + ResourceBarTransform::Pixels(m_widgetLocal.y + MinimiseWidgetSize, scale);
 }
 
 void CIncome::ReadPos()
@@ -634,19 +736,37 @@ void CIncome::WritePos()
 	RegCloseKey(hKey1);
 }
 
+void CIncome::ResetEconomyPositions()
+{
+    if (m_economyPanels) m_economyPanels->ResetPositions();
+}
+
 bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
 	__try
 	{
+		if (m_economyPanels)
+		{
+			if (m_economyPanels->Message(Msg, wParam, lParam)) return true;
+			if (m_economyPanels->UseNewBars()) return false;
+		}
 		if(DataShare->TAProgress != TAInGame)
 			return false;
+		POINT mouse = { static_cast<short>(LOWORD(lParam)), static_cast<short>(HIWORD(lParam)) };
+		if (Msg >= WM_MOUSEFIRST && Msg <= WM_MOUSELAST)
+		{
+			UpdateLegacyLayout();
+			POINT logical = ResourceBarTransform::Logical(mouse, posX, posY, m_legacyScale,
+				LocalShare->Width, LocalShare->Height);
+			lParam = MAKELPARAM(logical.x, logical.y);
+		}
 		switch(Msg)
 		{
 		case WM_MOUSEMOVE:
 			if(LOWORD(lParam)>posX && LOWORD(lParam)<(posX+LocalShare->Width) && HIWORD(lParam)>(posY) && HIWORD(lParam)<((posY)+LocalShare->Height))
 			{
-				CursorX = LOWORD(lParam);
-				CursorY = HIWORD(lParam);
+				CursorX = mouse.x;
+				CursorY = mouse.y;
 
 #if USEMEGAMAP
 				if ((GUIExpander)
@@ -667,24 +787,28 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			if((wParam&MK_LBUTTON)>0 && StartedInRect == true)
 			{
 				Minimised = false;
-				posX += LOWORD(lParam)-X;
-				posY += HIWORD(lParam)-Y;
+				posX += mouse.x-X;
+				posY += mouse.y-Y;
                 CorrectPos();
-				X = LOWORD(lParam);
-				Y = HIWORD(lParam);
+				X = mouse.x;
+				Y = mouse.y;
 				return true;
 			}
 			else
 				StartedInRect = false;
-			X = LOWORD(lParam);
-			Y = HIWORD(lParam);
+			X = mouse.x;
+			Y = mouse.y;
 			break;
 		case WM_LBUTTONDOWN:
+			X = mouse.x; Y = mouse.y;
 			if(LOWORD(lParam)>posX && LOWORD(lParam)<(posX+LocalShare->Width) && HIWORD(lParam)>(posY) && HIWORD(lParam)<((posY)+LocalShare->Height))
 			{
 				StartedInRect = true;
 				return true;
 			}
+			break;
+		case WM_LBUTTONUP:
+			if (StartedInRect) { StartedInRect = false; return true; }
 			break;
 		case WM_KEYDOWN:
 			if ((int)wParam == VK_F4 && LocalShare->Height > 0)
@@ -715,8 +839,9 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		case WM_LBUTTONDBLCLK:
-			if (LOWORD(lParam) >= MinimiseWidgetBoxMin[0] && LOWORD(lParam) < MinimiseWidgetBoxMax[0] &&
-				HIWORD(lParam) >= MinimiseWidgetBoxMin[1] && HIWORD(lParam) < MinimiseWidgetBoxMax[1])
+			StartedInRect = false;
+			if (mouse.x >= MinimiseWidgetBoxMin[0] && mouse.x < MinimiseWidgetBoxMax[0] &&
+				mouse.y >= MinimiseWidgetBoxMin[1] && mouse.y < MinimiseWidgetBoxMax[1])
 			{
 				Minimised = !Minimised;
 				if (Minimised)
@@ -736,63 +861,11 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 					//((Dialog*)LocalShare->Dialog)->ShowDialog();
 					WORD CurtXPos= LOWORD(lParam);
 					WORD CurtYPos= HIWORD(lParam);
-					int ClickedPlayerID= (CurtYPos- posY)/ PlayerHight+ 1;
+					int clickedRow = (CurtYPos - posY) / PlayerHight;
+					int ClickedPlayerID = clickedRow >= 0 && clickedRow < 10 ? m_replayPlayers[clickedRow] : -1;
 
-					if (CurtYPos>(posY+ LocalShare->Height- PlayerHight))
-					{
-						DataShare->LockOn= 0;
-						DataShare->LosViewOn= 0xa;
-						if (LocalShare->OrgLocalPlayerID!=Ptr->LocalHumanPlayer_PlayerID)
-						{
-							DeselectUnits ( );
-							UpdateSelectUnitEffect ( ) ;
-							ApplySelectUnitMenu_Wapper ( );
-							ViewPlayerLos_Replay ( 0, TRUE);
-						}
-						else
-						{
-
-							DeselectUnits ( );
-							UpdateSelectUnitEffect ( ) ;
-							ApplySelectUnitMenu_Wapper ( );
-
-							ViewPlayerLos_Replay ( 0);
-						}
-					}
-					else if (ClickedPlayerID==DataShare->LockOn)
-					{// now we deal about click in player res bar. first check if already lockon someone
-						DataShare->LockOn= 0;
-					}
-					else if (ClickedPlayerID==(DataShare->LosViewOn))
-					{// if not lock on this one, maybe watching this one's res bar
-						DataShare->LockOn= DataShare->LosViewOn;
-					}
-					else
-					{// when watching not the one res bar, exchange this this one.
-						DataShare->LosViewOn= (CurtYPos- posY)/ PlayerHight+ 1;
-
-						if (DataShare->PlayingDemo)
-						{
-							DeselectUnits ( );
-							UpdateSelectUnitEffect ( ) ;
-							ApplySelectUnitMenu_Wapper ( );
-							ViewPlayerLos_Replay ( DataShare->LosViewOn, TRUE);
-						}
-						else
-						{
-							DeselectUnits ( );
-
-							UpdateSelectUnitEffect ( ) ;
-							ApplySelectUnitMenu_Wapper ( );
-							ViewPlayerLos_Replay ( DataShare->LosViewOn);
-						}
-						
-						//
-						if (LocalShare->OrgLocalPlayerID!=DataShare->LockOn)
-						{
-							DataShare->LockOn= DataShare->LosViewOn;;
-						}
-					}
+					SelectReplayPlayer(ClickedPlayerID);
+					BlitState = 0; // Repaint selection/follow changes on the next frame.
 
 					return true;
 				}
@@ -807,20 +880,28 @@ bool CIncome::Message(HWND WinProchWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	return false;
 }
 
+bool CIncome::IsPointOver(int x, int y)
+{
+    if (m_economyPanels)
+    {
+        if (m_economyPanels->Contains(x, y)) return true;
+        if (m_economyPanels->UseNewBars()) return false;
+    }
+    RECT rect;
+    return IsShow(&rect) && x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
+}
+
 bool CIncome::IsShow (RECT * Rect_p)
 {
 	if (Rect_p)
 
 	{
-		Rect_p->left= posX;
-		Rect_p->right= posX+ LocalShare->Width;
-		Rect_p->top= posY;
-		Rect_p->bottom= LocalShare->Height;
+		*Rect_p = m_legacyRect;
 	}
 
 	GameingState * GameingState_P= (*TAmainStruct_PtrPtr)->GameingState_Ptr;
 	if (GameingState_P
-		&&(gameingstate::MULTI==GameingState_P->State))
+		&& ResourceBarsGameState(GameingState_P->State))
 	{
 		return true;
 	}
@@ -841,13 +922,13 @@ void CIncome::CorrectPos()
 
     if (posX < bounds.left)
         posX = bounds.left;
-    if (posX > 1+ bounds.right - LocalShare->Width)
-        posX = 1+ bounds.right - LocalShare->Width;
+    if (posX > bounds.right - ResourceBarTransform::Pixels(LocalShare->Width, m_legacyScale))
+        posX = bounds.right - ResourceBarTransform::Pixels(LocalShare->Width, m_legacyScale);
 
     if (posY < bounds.top)
         posY = bounds.top;
-    if (posY > 1+ bounds.bottom - LocalShare->Height)
-        posY = 1+ bounds.bottom - LocalShare->Height;
+    if (posY > bounds.bottom - ResourceBarTransform::Pixels(LocalShare->Height, m_legacyScale))
+        posY = bounds.bottom - ResourceBarTransform::Pixels(LocalShare->Height, m_legacyScale);
 }
 
 void CIncome::DrawPlayerRect(int posx, int posy, char Color)

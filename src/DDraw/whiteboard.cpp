@@ -8,6 +8,9 @@
 
 #include "tafunctions.h"
 #include "dialog.h"
+#include "PlayerMute.h"
+#include "CameraBounds.h"
+#include "SmallMapViewport.h"
 
 #include "pcxread.h"
 #include "maprect.h"
@@ -166,6 +169,23 @@ char AlliesWhiteboard::LookupPlayerCurrentColor(char colorAtLaunch)
 	}
 }
 
+bool AlliesWhiteboard::IsSenderMuted(char colorAtLaunch, int category)
+{
+	if (unsigned(colorAtLaunch) >= 10)
+		return false;					// unknown colour: never suppress
+
+	const int slot = PlayerNumbersByInitialColor[colorAtLaunch];
+	if (unsigned(slot) >= 10)
+		return false;					// colour not resolvable to a player
+
+	// Never suppress our own markers/lines. Compared in colour space, which
+	// is the only identity this packet actually carries.
+	if (colorAtLaunch == LocalPlayerColorAtLaunch)
+		return false;
+
+	return PlayerMute::IsMuted(slot, PlayerMute::Category(category));
+}
+
 void AlliesWhiteboard::DebugPlayerNumberFromInitialColor()
 {
 	char buff[128];
@@ -232,6 +252,16 @@ void AlliesWhiteboard::LockBlit(char *VidBuf, int Pitch)
 	min_clip_x = 128;
 	max_clip_x = SizeX-1;
 	max_clip_y = SizeY-1;
+	const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+	if (ta && SmallMapCameraEnabled()
+		&& SmallMapViewport::Small(ta->MapSizeX, ta->MapSizeY, ta->GameScreenWidth, ta->GameScreenHeight))
+	{
+		const RECT& r = ta->GameSreen_Rect;
+		const auto clip = SmallMapViewport::MapClip({r.left,r.top,r.right+1,r.bottom+1},
+			ta->EyeBallMapXPos, ta->EyeBallMapYPos, ta->MapSizeX, ta->MapSizeY);
+		min_clip_x = clip.left; min_clip_y = clip.top;
+		max_clip_x = clip.right-1; max_clip_y = clip.bottom-1;
+	}
 
 	std::vector<GraphicElement*> ElementPTR;
 	int x1 = *MapX-75;
@@ -798,18 +828,27 @@ void AlliesWhiteboard::ReceiveMarkers()
 			PtC *ptc = (PtC*)Data;
 			Data += sizeof(PtC);
 
-			ElementHandler.AddElement(new GraphicText(ptc->x, ptc->y, Data, ptc->Color));
-			EchoMarker(Data, ptc->Color);
-			LastMarkerX = ptc->x;
-			LastMarkerY = ptc->y;
+			// Muting pings drops the marker, its minimap flash and its chat
+			// echo together. Data is already advanced, so the walk stays in
+			// step whether or not the element is added.
+			if (!IsSenderMuted(ptc->Color, PlayerMute::CatPings))
+			{
+				ElementHandler.AddElement(new GraphicText(ptc->x, ptc->y, Data, ptc->Color));
+				EchoMarker(Data, ptc->Color);
+				LastMarkerX = ptc->x;
+				LastMarkerY = ptc->y;
 
-			MMHS mmhs(ptc->x, ptc->y);
-			MinimapMarkerHandler.push_front(mmhs);
+				MMHS mmhs(ptc->x, ptc->y);
+				MinimapMarkerHandler.push_front(mmhs);
+			}
 		}
 		else if(*Type == PacketGraphicLine)
 		{
 			PtL *ptl = (PtL*)Data;
-			ElementHandler.AddElement(new GraphicLine(ptl->x, ptl->y, ptl->x2, ptl->y2, ptl->Color));
+			if (!IsSenderMuted(ptl->Color, PlayerMute::CatDraw))
+			{
+				ElementHandler.AddElement(new GraphicLine(ptl->x, ptl->y, ptl->x2, ptl->y2, ptl->Color));
+			}
 			Data += sizeof(PtL);
 		}
 		else if(*Type == PacketDeleteOn)
@@ -1532,5 +1571,13 @@ bool AlliesWhiteboard::IsInGameArea(LPARAM lParam)
 bool AlliesWhiteboard::IsInGameArea(LONG x, LONG y)
 {
 	TAdynmemStruct *Ptr = *(TAdynmemStruct**)0x00511de8;
+	if (SmallMapCameraEnabled()
+		&& SmallMapViewport::Small(Ptr->MapSizeX, Ptr->MapSizeY, Ptr->GameScreenWidth, Ptr->GameScreenHeight))
+	{
+		const RECT& r = Ptr->GameSreen_Rect;
+		return SmallMapViewport::ContainsScreen({r.left,r.top,r.right+1,r.bottom+1},
+			Ptr->EyeBallMapXPos, Ptr->EyeBallMapYPos, Ptr->MapSizeX, Ptr->MapSizeY, x, y);
+	}
 	return x >= Ptr->GameSreen_Rect.left && y >= Ptr->GameSreen_Rect.top && y < Ptr->GameSreen_Rect.bottom;
 }
+

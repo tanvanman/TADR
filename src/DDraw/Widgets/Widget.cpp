@@ -1,5 +1,6 @@
 #include "Widget.h"
 #include "../DialogBase.h"
+#include "../font.h"
 
 Widget::Widget(int x, int y, int width, int height) :
 	m_x(x),
@@ -31,5 +32,20 @@ void Widget::Draw(DialogBase* dialog)
 	if (!m_hidden)
 	{
 		this->DoDraw(dialog);
+        if (m_dimmed)
+        {
+            int width = m_width, y = m_y - 1, height = m_height + 2;
+            if (!width)
+            {
+                for (unsigned char c : ToString())
+                {
+                    if (c >= 33 && c <= 90) width += SmallFontOffsetUC[c - 33][0];
+                    else if (c >= 'a' && c <= 'z') width += SmallFontOffsetLC[c - 'a'][0];
+                    else if (c == ' ') width += 6;
+                }
+                y = m_y + 5; height = 12;
+            }
+            dialog->DimRect(m_x, y, width, height);
+        }
 	}
 }

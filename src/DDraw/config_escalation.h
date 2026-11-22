@@ -2,6 +2,9 @@
 
 #define TDRAW_CONFIG_NAME "escalation"
 
+// Allied projectile collision is a mod build choice, never an INI preference.
+#define ALLIED_PROJECTILE_COLLISION_ENABLE 0
+
 //
 // Snap radii
 //
@@ -18,11 +21,30 @@
 #define SHARE_ABUSE_GUARD 1
 
 //
+// '.take' claim arbitration
+//
+// Per-target claims and a deterministic election replace dplayx's single global
+// TakeStatus latch; '.take' gains an explicit target.  See TakeClaim.h.
+#define TAKE_CLAIM_ENABLE 1
+
+//
+// Lag-switch mitigation
+//
+// Freezes the local simulation while every remote peer is silent, so a player
+// pulling the plug on his own connection cannot manoeuvre while immune to
+// incoming damage.  Purely local -- it only suppresses this client's own sim
+// ticks, so it neither desyncs nor changes the wire protocol.  It does,
+// however, stall the game on ordinary packet loss too.  See LagSwitchGuard.h.
+#define LAG_SWITCH_GUARD_ENABLE 1
+
+//
 // Construction / AI behavior
 //
 #define FIXED_POSN_GUARDING_CONS_ENABLE 1
 #define PATROLING_CONS_RECLAIM_OR_ASSIST_ENABLE 1
 #define CONSTRUCTION_KICKOUT_ENABLE 1
+// Host-only AI code, so no sync risk: turning it off is purely a balance choice.
+#define AI_COMMANDER_KEEPS_ORDERS_ENABLE 1
 
 //
 // Balance
@@ -31,6 +53,90 @@
 // rounding-bug bonus that favored massed cheap repairers over fewer expensive
 // ones), not a pure engine-bug fix, so it is scoped to this config only.
 #define REPAIR_RATE_FIX_ENABLE 1
+
+// HP delivered per tick is multiplied by one of these two factors -- which one
+// applies is decided per call by RepairRateFix.cpp itself (return-address
+// check against the one known passive-regen call site), NOT by anything in
+// this file. Energy cost is computed independently and is NOT scaled by
+// either -- per Wotan, the buff is meant to make healing cheaper in effective
+// E/HP, not change the E drain itself.
+//
+// Deliberately separate knobs: a flat 3x lands very differently on the two
+// mechanics. Repair ends up at 154-289% of pre-fix vanilla (a straightforward
+// buff), but self-heal for most units is still far below pre-fix vanilla even
+// at 3x -- RepairRateFix already cut it 1-2 orders of magnitude for units with
+// huge BuildTime (median unit: 4.01% of vanilla regen retained at 1x -> 12.0%
+// at 3x; corms: 0.28% -> 0.84%), while four fast-BuildTime units (corcom,
+// armcom, cordecom, armdecom) OVERSHOOT vanilla at 3x. One knob can't serve
+// both populations. Census: 59 of 547 units have HealTime > 0, re-verified
+// 2026-08-18 from the shipping archives -- see ENGINE_NOTES.md SS25.7.1 and
+// SS25.7.2 for the full per-unit table.
+//
+// Both require REPAIR_RATE_FIX_ENABLE 1 (config.h enforces this at compile
+// time) and are Escalation-only, same rationale as the fix itself above.
+// Agreed value for both is 3x for the initial playtest; flip either constant
+// and rebuild to retune independently.
+#define REPAIR_RATE_FIX_REPAIR_MULTIPLIER 3
+#define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 3
+
+// Wrecks of aircraft killed over land fall to the ground instead of hanging at
+// the altitude they died. Vanilla only seeds a fall velocity on the water path,
+// so land wrecks are never simulated. Changes where reclaimable wreckage ends
+// up, so it is scoped to this config.
+#define AIR_CORPSE_FALL_ENABLE 1
+
+//
+// COB script VM -- opcode dispatch
+//
+// Replaces the 28-node compare-ladder opcode dispatch with a 256-entry jump
+// table. Class A (bit-identical, purely faster). Full derivation, status and
+// test results: ai-reference/simulation-performance/COB_DISPATCH_PROJECT.md
+// and CLAUDE.md. Verify the static case against the binary with
+// ai-reference/tools/exe/cob_dispatch.py --verify.
+//
+// Escalation-only by construction -- the splice window and all 57 hardcoded
+// addresses belong to Escalation GOLD 10.1/10.2's TotalA.exe specifically.
+// config.h defaults this to 0 everywhere else.
+#define COB_DISPATCH_TABLE_ENABLE 1
+
+//
+// BuildWeaponSlotGuard -- fixes the stockpile-weapon build-percent divide-by-zero
+// crash (real cause, corrected 2026-09-14: unit-identity divergence resolving a
+// weapon slot to WeaponsTypedefArray[0], TA's zero-divisor "no weapon" sentinel --
+// see BuildWeaponSlotGuard.h), plus a bounds check on the adjacent unchecked
+// weapon-slot index. See BuildWeaponSlotGuard.h for the full derivation and evidence.
+//
+// Gated to Escalation because this project has verified these addresses against
+// Escalation's TotalA.exe alone -- not because the addresses are believed unique to
+// it (PR #26's review found them byte-identical on all seven shipped TotalA.exe
+// builds; this project has not re-run that check itself). config.h defaults this to
+// 0 everywhere else. Active by default here: this is a fix, not a diagnostic -- both
+// the reload-divisor clamp (Class A: only touches weapons that are already
+// degenerate, bit-identical otherwise) and the weapon-slot bounds check (Class B, but
+// the DLL ships with a new game version, so there is no mixed-client-version fleet to
+// keep in lockstep) are meant to be on for every player, not staged behind further
+// review.
+#define BUILD_WEAPON_SLOT_GUARD_ENABLE 1
+
+//
+// Extended weapon IDs (>= 256)
+//
+// Installs WeaponIdOverflow (heap-backed weapon slots above TA's hard-coded
+// Weapons[256]) plus WeaponFiredExt (the CHAT_05-hijack packet that carries
+// fire events for those overflow IDs, which the native WEAPON_FIRED_0D byte ID
+// cannot address).  See config.h for the full description.
+#define TDRAW_EXTENDED_WEAPON_IDS 1
+
+//
+// Off-map aircraft
+//
+// Width, in map tiles (16 world units each), of the band outside the map where aircraft can
+// still be seen, targeted and killed; stock TA cannot touch them at all.  0 disables the whole
+// module, including the separate LOS-shear fix that this number does not bound.
+// ~32 covers a whole attack-run overshoot; 1-3 covers only the immediate edge.
+// Compile-time only, deliberately -- it decides who can shoot what, so a per-machine
+// override would be a mixed-fleet vector.  See OFFMAP_AIRCRAFT.md.
+#define OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES 32
 
 //
 // Environment / sim sync
@@ -48,3 +154,70 @@
 #define USEMEGAMAP 1
 #define MEGAMAP_FEATURES 1
 #define USEWHITEBOARD 1
+
+//
+// Allied build-queue overlay -- see AlliedBuildQueueSync.h, and config.h for
+// the full description.  Draws allies' queued build placements (game screen
+// while SHIFT is held with an allied builder under the cursor/camera, and the
+// megamap) and broadcasts the local player's own queue to allies on
+// CHAT_05-hijack msgId 0x60.  Off: nothing is hooked, sent, parsed or drawn,
+// and the "Show ally queues" dialog checkbox is not created.
+#define ALLIED_BUILD_QUEUE_ENABLE 0
+
+// PlayerMute: local `.mute` / `.unmute` -- see config.h.  Display-only and cannot
+// desync; both splice sites are byte-checked at static-init time and the feature
+// disables itself (logged) if the exe does not match, so it ships on every config.
+#define PLAYER_MUTE_ENABLE 1
+
+//
+// Air-unit stacking / area-damage immunity -- see AreaDamageOverflow.h.
+// Lets one explosion damage every airborne unit on a cell instead of only the one
+// holding the cell's air slot. Air-only; ground/naval splash is unchanged.
+// Class B patch: every player must run the same build, old demos will not replay.
+#define AREA_DAMAGE_OVERFLOW_ENABLE 1
+// 1 = dedup victims with no cap, which also repairs vanilla's 20-victim overflow bug
+//     (unit 21+ otherwise takes one blast once per cell it occupies).
+// 0 = restrict dedup to overflow slots, leaving vanilla ground behaviour bit-exact.
+#define AREA_DAMAGE_OVERFLOW_FIX_DEDUP_CAP 1
+
+// Contested-cell tie-break -- see GridClaimTieBreak.h, and READ ITS SCOPE WARNING.
+// Replaces the client-relative "evict if the incumbent belongs to a remote human" rule
+// with "the lower UnitInGameIndex wins", so every client agrees on who holds a cell.
+// WIDER SCOPE THAN AreaDamageOverflow: this sits in the claim path used by every unit
+// type on both layers, not just aircraft. Class B patch.
+#define GRID_CLAIM_TIEBREAK_ENABLE 1
+
+//
+// Percentage-based resource share thresholds -- see SharePercent.h and config.h for
+// the full description. Purely local per-client state; not a Class B patch, does not
+// require every player to run the same build.
+#define SHARE_PERCENT_ENABLE 1
+
+// Ground-to-air Guard -- see GroundToAirGuard.h. Lets a ground CanGuard unit guard a
+// flying ally (e.g. a ground constructor assisting an air constructor's build),
+// reachable only via the explicit Guard command. Class B: changes which orders can be
+// constructed and what the simulation does with one, so every client must run the
+// same build. Active by default here, same rationale as BuildWeaponSlotGuard above:
+// this is a feature this config ships with, not a diagnostic staged behind review.
+#define GROUND_TO_AIR_GUARD_ENABLE 1
+
+// VtolRepairBeamFix -- see VtolRepairBeamFix.h. On: a stalled air constructor stops
+// showing the nanolathe beam, which is what every ground repair tick already does.
+#define VTOL_REPAIR_BEAM_FIX_ENABLE 1
+
+// Per-player patrol reclaim thresholds and the air-constructor gate; see PatrolReclaimThreshold.h.
+#define PATROL_RECLAIM_THRESHOLD_ENABLE 1
+#define PATROL_RECLAIM_AIR_GATE_ENABLE 1
+
+// Fair split of the auto-share among allies, and +givemetal / +giveenergy; see ShareSplit.h and GiveCommands.h.
+// Staged rollout: verified against Escalation's TotalA.exe (see config.h).
+#define SHARE_SPLIT_ENABLE 1
+#define GIVE_COMMANDS_ENABLE 1
+// Drops received resource packets whose amount is not positive and finite; see GiveCommands.h.
+#define GIVE_RECEIVE_GUARD_ENABLE 1
+
+// Five-colour unit health bar; see HealthBarColors.h.
+#define HEALTH_BAR_COLORS_ENABLE 1
+
+// Display-only construction, completion, and repair health sync; see RepairHealthSync.h.
+#define REPAIR_HEALTH_SYNC_ENABLE 0

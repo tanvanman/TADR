@@ -1,5 +1,6 @@
 /// hook in .text:00493A92 054 8B 0D E8 1D 51 00                                               mov     ecx, TAMainStructPtr
 //text:004934F5 00C 68 CC 93 50 00                                                  push    offset aMapinfo ; "MAPINFO"
+#include "config.h"
 #include "oddraw.h"
 #include "iddrawsurface.h"
 #include "tamem.h"
@@ -8,10 +9,20 @@
 #include "hook/hook.h"
 #include "sharedialog.h"
 #include "BattleroomCommands.h"
+#include "SharePercent.h"
 
 using namespace softwaredebugmode;
 
-
+#if SHARE_PERCENT_ENABLE
+namespace
+{
+	// Last percentage WRITTEN to each label, so the redundant-write guard in
+	// {Metal,Energy}PosProc has a percentage to compare against instead of
+	// the raw absolute ShareMetal/ShareEnergy float.
+	int g_lastShownMetalPercent = -1;
+	int g_lastShownEnergyPercent = -1;
+}
+#endif
 
 void __stdcall MetalPosProc(GUIInfo * GUIINFO_P, int)
 {
@@ -34,11 +45,24 @@ void __stdcall MetalPosProc(GUIInfo * GUIINFO_P, int)
 			scale= 0;
 		}
 		int Metal= static_cast<int>(scale* setsharemetal->thick);
+#if SHARE_PERCENT_ENABLE
+		// thick is 100 in this mode, so Metal here IS the 0-100 percentage
+		// already; clamp defensively against the range/range-1 off-by-one.
+		if (Metal<0)   Metal= 0;
+		if (Metal>100) Metal= 100;
+		if (Metal!=g_lastShownMetalPercent)
+		{
+			g_lastShownMetalPercent= Metal;
+			wsprintfA ( Num, "%d%%", Metal);
+			SetValue_GUI5ID ( GUIINFO_P, "SM#", Num, 0);
+		}
+#else
 		if (Metal!=static_cast<int>((*(TAmainStruct_PtrPtr))->Players[(*(TAmainStruct_PtrPtr))->LocalHumanPlayer_PlayerID].ShareMetal))
 		{
 			wsprintfA ( Num, "%d", Metal);
 			SetValue_GUI5ID ( GUIINFO_P, "SM#", Num, 0);
 		}
+#endif
 	}
 }
 
@@ -64,12 +88,24 @@ void __stdcall EnergyPosProc(GUIInfo * GUIINFO_P, int)
 		}
 
 		int Energy= static_cast<int>(scale* setshareenergy->thick);
+#if SHARE_PERCENT_ENABLE
+		if (Energy<0)   Energy= 0;
+		if (Energy>100) Energy= 100;
+		if (Energy!=g_lastShownEnergyPercent)
+		{
+			g_lastShownEnergyPercent= Energy;
+			wsprintfA ( Num, "%d%%", Energy);
+
+			SetValue_GUI5ID ( GUIINFO_P, "SE#", Num, 0);
+		}
+#else
 		if (Energy!=static_cast<int>((*(TAmainStruct_PtrPtr))->Players[(*(TAmainStruct_PtrPtr))->LocalHumanPlayer_PlayerID].ShareEnergy))
 		{
 			wsprintfA ( Num, "%d", Energy);
 
 			SetValue_GUI5ID ( GUIINFO_P, "SE#", Num, 0);
 		}
+#endif
 	}
 }
 
@@ -95,6 +131,7 @@ int __stdcall ShareDialogInit (PInlineX86StackBuffer X86StrackBuffer)
 
 	GUIInfo * UpperGUIInfo= reinterpret_cast<GUIInfo *>(X86StrackBuffer->Esi);
 	char Num[100];
+
 	if (0xffffffff!=SubGUIIndex ( UpperControl, "EN_SHAREMETAL", 0xe))
 	{//
 		GUI1IDControl * sharemetal;
@@ -114,12 +151,31 @@ int __stdcall ShareDialogInit (PInlineX86StackBuffer X86StrackBuffer)
 	if (0xffffffff!=SubGUIIndex ( UpperControl, "SRL_SETSHRMETAL", 0xe))
 	{//
 		GUI3_4IDControl * setsharemetal;
-		
+
 		setsharemetal= (GUI3_4IDControl *)SubControl_str2ptr ( UpperControl, "SRL_SETSHRMETAL");
+#if SHARE_PERCENT_ENABLE
+		// Slider is always 0-100 when this module is compiled in (no in-dialog
+		// toggle without a SHARE.gui gadget). thick=100 also means knobpos
+		// below can never divide by a max-storage value of 0.
+		setsharemetal->thick= 100;
+		setsharemetal->knobsize=setsharemetal->height;
+		setsharemetal->range= setsharemetal->width- setsharemetal->knobsize;
+
+		int displayMetalPct= SharePercent::GetDisplayPercent(/*isMetal=*/true);
+		g_lastShownMetalPercent= displayMetalPct;
+		setsharemetal->knobpos= static_cast<short int>((displayMetalPct* setsharemetal->range)/ 100);
+		setsharemetal->pos_proc= MetalPosProc;
+
+		if (0xffffffff!=SubGUIIndex ( UpperControl, "SM#", 0xe))
+		{
+			wsprintfA ( Num, "%d%%", displayMetalPct);
+			SetValue_GUI5ID ( UpperGUIInfo, "SM#", Num, 0);
+		}
+#else
 		setsharemetal->thick=static_cast<int>((*(TAmainStruct_PtrPtr))->Players[(*(TAmainStruct_PtrPtr))->LocalHumanPlayer_PlayerID].PlayerRes.fMaxMetalStorage);
 		setsharemetal->knobsize=setsharemetal->height;
 		setsharemetal->range= setsharemetal->width- setsharemetal->knobsize;
-		
+
 		setsharemetal->knobpos= static_cast<short int>((((*(TAmainStruct_PtrPtr))->Players[(*(TAmainStruct_PtrPtr))->LocalHumanPlayer_PlayerID].ShareMetal)/setsharemetal->thick)* setsharemetal->range);
 		setsharemetal->pos_proc= MetalPosProc;
 
@@ -129,6 +185,7 @@ int __stdcall ShareDialogInit (PInlineX86StackBuffer X86StrackBuffer)
 
 			SetValue_GUI5ID ( UpperGUIInfo, "SM#", Num, 0);
 		}
+#endif
 	}
 	if (0xffffffff!=SubGUIIndex ( UpperControl, "EN_SHAREENERGY", 0xe))
 	{//
@@ -151,20 +208,37 @@ int __stdcall ShareDialogInit (PInlineX86StackBuffer X86StrackBuffer)
 		GUI3_4IDControl * setshareenergy;
 		setshareenergy= (GUI3_4IDControl *)SubControl_str2ptr ( UpperControl, "SRL_SETSHAREGRY");
 
+#if SHARE_PERCENT_ENABLE
+		setshareenergy->thick= 100;
+		setshareenergy->knobsize= setshareenergy->height;
+		setshareenergy->range= setshareenergy->width- setshareenergy->knobsize;
+
+		int displayEnergyPct= SharePercent::GetDisplayPercent(/*isMetal=*/false);
+		g_lastShownEnergyPercent= displayEnergyPct;
+		setshareenergy->knobpos= static_cast<short int>((displayEnergyPct* setshareenergy->range)/ 100);
+		setshareenergy->pos_proc= EnergyPosProc;
+
+		if (0xffffffff!=SubGUIIndex ( UpperControl, "SE#", 0xe))
+		{
+			wsprintfA ( Num, "%d%%", displayEnergyPct);
+			SetValue_GUI5ID ( UpperGUIInfo, "SE#", Num, 0);
+		}
+#else
 		setshareenergy->thick=static_cast<int>((*(TAmainStruct_PtrPtr))->Players[(*(TAmainStruct_PtrPtr))->LocalHumanPlayer_PlayerID].PlayerRes.fMaxEnergyStorage);
 		setshareenergy->knobsize= setshareenergy->height;
 		setshareenergy->range= setshareenergy->width- setshareenergy->knobsize;
 
 		setshareenergy->knobpos= static_cast<short int>((((*(TAmainStruct_PtrPtr))->Players[(*(TAmainStruct_PtrPtr))->LocalHumanPlayer_PlayerID].ShareEnergy)/setshareenergy->thick)* setshareenergy->range);
 		setshareenergy->pos_proc= EnergyPosProc;
-		
+
 		if (0xffffffff!=SubGUIIndex ( UpperControl, "SE#", 0xe))
 		{
 			wsprintfA ( Num, "%d",  static_cast<int>(((*(TAmainStruct_PtrPtr))->Players[(*(TAmainStruct_PtrPtr))->LocalHumanPlayer_PlayerID].ShareEnergy)));
 			SetValue_GUI5ID ( UpperGUIInfo, "SE#", Num, 0);
 		}
+#endif
 	}
-	
+
 	if (0xffffffff!=SubGUIIndex ( UpperControl, "EN_SHOOTALL", 0xe))
 	{//
 		GUI1IDControl * shootall;
@@ -223,7 +297,7 @@ int __stdcall ShareDialogProc (PInlineX86StackBuffer X86StrackBuffer)
 {
 	GUIInfo * TAUI_p= reinterpret_cast<GUIInfo *> (X86StrackBuffer->Edi);
 	GUI0IDControl * UpperControl= TAUI_p->TheActive_GUIMEM->ControlsAry;
-	
+
 	if (0xffffffff!=SubGUIIndex ( UpperControl, "EN_SHAREMETAL", 0xe))
 	{//
 		if (IsPressCommand ( TAUI_p, "EN_SHAREMETAL"))
@@ -284,11 +358,21 @@ int __stdcall ShareDialogProc (PInlineX86StackBuffer X86StrackBuffer)
 				scale= 0;
 			}
 			int Metal= static_cast<int>(scale* setsharemetal->thick);
+#if SHARE_PERCENT_ENABLE
+			if (Metal<0)   Metal= 0;
+			if (Metal>100) Metal= 100;
+			if (Metal!=SharePercent::GetDisplayPercent(/*isMetal=*/true))
+			{
+				wsprintfA ( Buf, "+setsharemetal %d%%", Metal);
+				ChatText ( Buf);
+			}
+#else
 			if (Metal!=static_cast<int>((*(TAmainStruct_PtrPtr))->Players[(*(TAmainStruct_PtrPtr))->LocalHumanPlayer_PlayerID].ShareMetal))
 			{
 				wsprintfA ( Buf, "+setsharemetal %d", Metal);
 				ChatText ( Buf);
 			}
+#endif
 		}
 
 		if (0xffffffff!=SubGUIIndex ( UpperControl, "SRL_SETSHAREGRY", 0xe))
@@ -308,11 +392,21 @@ int __stdcall ShareDialogProc (PInlineX86StackBuffer X86StrackBuffer)
 			}
 
 			int Energy= static_cast<int>(scale* setshareenergy->thick);
+#if SHARE_PERCENT_ENABLE
+			if (Energy<0)   Energy= 0;
+			if (Energy>100) Energy= 100;
+			if (Energy!=SharePercent::GetDisplayPercent(/*isMetal=*/false))
+			{
+				wsprintfA ( Buf, "+setshareenergy %d%%", Energy);
+				ChatText ( Buf);
+			}
+#else
 			if (Energy!=static_cast<int>((*(TAmainStruct_PtrPtr))->Players[(*(TAmainStruct_PtrPtr))->LocalHumanPlayer_PlayerID].ShareEnergy))
 			{
 				wsprintfA ( Buf, "+setshareenergy %d", Energy);
 				ChatText ( Buf);
 			}
+#endif
 
 		}
 

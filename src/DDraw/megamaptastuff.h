@@ -1,5 +1,7 @@
 #pragma  once
 
+#include "config.h"
+
 class FullScreenMinimap;
 class MegamapTAStuff 
 {
@@ -39,10 +41,12 @@ public:
 private:
 
 	void VisualizeRow_ForME_megamap (OFFSCREEN * argc);
+#if ALLIED_BUILD_QUEUE_ENABLE
 	void DrawAlliedBuildRect(OFFSCREEN* offscreen, unsigned char color,
 		UnitDefStruct* buildTarget,
 		int taX, int taY, int taZ, int rotation);
 	void DrawAlliedBuildQueues(OFFSCREEN* offscreen);
+#endif
 
 	Position_Dword * ScreenPos2TAPos (Position_Dword * TAPos, int x, int y, BOOL UseTAHeight= FALSE);
 	POINT * TAPos2ScreenPos (POINT * ScreenPos, unsigned int TAX, unsigned int TAY, unsigned int TAZ);

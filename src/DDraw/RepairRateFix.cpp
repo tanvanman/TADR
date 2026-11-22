@@ -1,15 +1,35 @@
 #include "RepairRateFix.h"
+#include "config.h"
 #include "tamem.h"
 #include "hook/hook.h"
 
 #include <cstdint>
 #include <cstdlib>
+#include <intrin.h>   // _ReturnAddress()
 
 // The table is sized by dividing the engine's unit-array byte span by this stride,
 // and the engine's own index math is `Begin + 0x118 * UnitInGameIndex`. If the
 // struct ever stops matching, that division silently mis-sizes the table.
 static_assert(sizeof(UnitStruct) == 0x118,
               "UnitStruct must be exactly 0x118 bytes -- the engine's unit array stride");
+
+// Sanity bounds on the two balance multipliers, not just documentation: a typo
+// that turns "3" into "30" or "0" is a real failure mode for a value meant to
+// be hand-edited by a non-programmer before a rebuild (see config_escalation.h).
+//   - 0 or negative silently reproduces the exact bug this whole module exists
+//     to prevent: the resource gate still runs (energy drains), ApplyHeal's
+//     callers still see a truthy return (nano-beam still draws), but `whole`
+//     is <= 0 every tick so no HP ever moves. Indistinguishable in-game from
+//     "repair completely broken" while every other signal says it's working.
+//   - A very large value is still safe arithmetically (see the int64_t
+//     overflow note below) but is almost certainly a fat-fingered extra
+//     digit, not an intended balance value.
+static_assert(REPAIR_RATE_FIX_REPAIR_MULTIPLIER >= 1 && REPAIR_RATE_FIX_REPAIR_MULTIPLIER <= 100,
+              "REPAIR_RATE_FIX_REPAIR_MULTIPLIER out of sane range [1,100] -- 0/negative silently "
+              "disables healing while still draining energy and drawing the nano-beam; see comment");
+static_assert(REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER >= 1 && REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER <= 100,
+              "REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER out of sane range [1,100] -- 0/negative silently "
+              "disables self-heal while still draining energy and drawing the nano-beam; see comment");
 
 namespace {
 
@@ -159,6 +179,44 @@ _RepairHasEnoughResources RepairHasEnoughResources = (_RepairHasEnoughResources)
 typedef int (__stdcall* _ApplyHeal)(void* repairer, void* target, int amount, int type, int unused);
 _ApplyHeal ApplyHeal = (_ApplyHeal)0x00489BB0u;
 
+// ---- repair vs. self-heal discrimination ---------------------------------------
+//
+// The five vanilla call sites into 0x41BD10 split into two groups that want
+// different multipliers: four active-repair orders (ground / self / no-move /
+// VTOL, all sourcing t from WorkerTime/30) and one passive-regen path (t from
+// HealTime, call site 0x48AF96). `repairer == target` does NOT distinguish
+// them -- Order_SelfRepair (0x402518) also has repairer == target, so a unit
+// ordered to repair itself would be misclassified as passive regen by that
+// test alone.
+//
+// What DOES distinguish them, with no new hook and no mutable state: this
+// function is reached from all five sites via a `jmp` (not `call`) at 0x41BD10
+// -- SingleHook/INLINE_SINGLEJMP patches 0x41BD10's own first 5 bytes with an
+// unconditional jmp here. A `jmp` pushes nothing, so the return address still
+// on the stack when this function's prologue runs is exactly whichever
+// vanilla `call 0x41BD10` the CPU actually executed. That return address is
+// call-site address + 5 (the length of a `call rel32`), a compile-time
+// constant identical on every client running this build -- no pointer-value
+// dependence, satisfies the determinism rule in ENGINE_NOTES SS10 trivially.
+//
+// Deliberately NOT a second inline hook at 0x48AF96: that would need a naked
+// trampoline to preserve/replay the original `call` instruction with correct
+// register and stack state, which is real risk (relocation of a relative
+// call, naked-function ABI edge cases) for no benefit over reading data that
+// is already sitting on the stack at this function's own entry.
+constexpr uintptr_t kPassiveRegenReturnAddr = 0x48AF9Bu;   // 0x48AF96 (the call) + 5 bytes
+
+// If a unit is simultaneously the target of an Order_SelfRepair order AND
+// eligible for passive regen in the same tick, both calls have repairer ==
+// target == that unit and so land in the SAME accumulator slot (AccSlot is
+// keyed on repairer index + target pointer, not on which call path invoked
+// it). This is safe, not a bug: the exact-remainder accumulator is agnostic
+// to where a (num, buildTime) contribution came from, and buildTime is
+// necessarily identical between the two calls here (it's read from the
+// target's UnitDef, and target is the same unit both times) -- see the
+// accumulator math below. Two different multipliers threading through one
+// slot in the same tick still sums exactly.
+
 // ---- energy cost: vanilla-identical ceil, unchanged ---------------------------
 //
 // Vanilla computes max(1, ceil(BuildCostEnergy * t / BuildTime)) with a chained x87
@@ -221,6 +279,11 @@ int32_t ComputeVanillaEnergyCeil(float buildCostEnergy, float t, int32_t buildTi
 //      float loses precision past 2^24, reachable only at factory-tier t.
 //   5. The applied amount is clamped to 0..65535 (see below). Vanilla does not
 //      clamp, which is a latent bug in vanilla rather than a behaviour to copy.
+//   6. HP delivered is scaled by REPAIR_RATE_FIX_REPAIR_MULTIPLIER or
+//      REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER (config_escalation.h) depending on
+//      which of the two the call turns out to be -- see the discrimination
+//      comment below. A balance buff, not a fix; energy cost is untouched on
+//      purpose, per Wotan.
 int __stdcall HealUnit_HealTimeWay_Fixed(void* repairer, void* target, float t)
 {
     UnitStruct* tgt = static_cast<UnitStruct*>(target);
@@ -263,7 +326,28 @@ int __stdcall HealUnit_HealTimeWay_Fixed(void* repairer, void* target, float t)
                                             // the five callers gate nano-beam drawing on the
                                             // return value, so this must still be 1
 
-    int64_t num   = static_cast<int64_t>(maxHp) * static_cast<int64_t>(tInt);
+    const bool isPassiveSelfHeal =
+        (reinterpret_cast<uintptr_t>(_ReturnAddress()) == kPassiveRegenReturnAddr);
+    const int32_t multiplier = isPassiveSelfHeal
+        ? REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER
+        : REPAIR_RATE_FIX_REPAIR_MULTIPLIER;
+
+    // The multiplier scales the numerator, not the final `whole`, so the
+    // exact-remainder accumulator below banks fractional HP at the multiplied
+    // rate too -- e.g. 3 ticks that would each round to 0.9 HP bank as
+    // 3x0.9=2.7 (delivering 1 HP on tick 3) rather than 3x floor(0.9)=0 every
+    // tick forever. Energy is computed separately, above, from the
+    // unmultiplied buildCostEnergy/t/buildTime -- this only changes HP
+    // delivered per unit of energy already spent, never the energy cost
+    // itself.
+    //
+    // Overflow: maxHp is a dword (up to ~2^31, see the nMaxHP comment above),
+    // tInt reaches 640 at factory tier, multiplier is bounded to 100 by the
+    // static_asserts above. Worst case ~2^31 * 640 * 100 ~= 1.4e14, four
+    // orders of magnitude under int64_t's ~9.2e18 ceiling -- no overflow at
+    // any value the static_asserts allow, real mod data or not.
+    int64_t num   = static_cast<int64_t>(maxHp) * static_cast<int64_t>(tInt)
+                   * static_cast<int64_t>(multiplier);
     int32_t whole = static_cast<int32_t>(num / buildTime);
     int32_t rem   = static_cast<int32_t>(num % buildTime);
 
@@ -293,18 +377,27 @@ int __stdcall HealUnit_HealTimeWay_Fixed(void* repairer, void* target, float t)
     if (whole <= 0)
         return 1;
 
-    // 16-bit clamp. UNITS_MakeDamage stores the amount into a 16-bit HpChangeNum
-    // field and reads it back as unsigned, so a value outside 0..65535 wraps -- and
-    // a wrapped value then clamps against nMaxHP, i.e. it FULL-HEALS the target.
-    // Vanilla has the same hole; it is simply unreachable there because vanilla's
-    // amount is small in practice. Guard explicitly rather than relying on that:
-    // maxHp is read as a dword spanning nMaxHP plus the adjacent field, and
-    // factory-tier t reaches 640, so a large product is not structurally impossible.
+    // 16-bit clamp. Two VERIFIED facts combine into a real hazard here
+    // (ENGINE_NOTES SS25.3/SS25.8, not this file's own claim): the amount this
+    // call passes ends up truncated into a 16-bit word in the net damage
+    // packet (0x489C71), so a value outside 0..65535 wraps to something much
+    // smaller; and the store that applies it, `HP = min(HP + amount, nMaxHP)`
+    // at 0x489D7A, compares UNSIGNED against a dword nMaxHP -- documented as a
+    // live full-heal hazard when HP is ever negative (T5 proved -16608 is
+    // reachable). Vanilla has the same 16-bit truncation; it is simply
+    // unreachable there because vanilla's amount is always small. Guard
+    // explicitly rather than relying on that: maxHp is read as a dword
+    // spanning nMaxHP plus the adjacent field, and factory-tier t (640)
+    // combined with a multiplier up to 100 is not structurally small.
     if (whole > 65535)
         whole = 65535;
 
-    // DmgType 0x0A is the raw path -- amount applied verbatim. Every other type
-    // routes through armour lookup, a 30000 clamp and kill-count scaling.
+    // DmgType 0x0A is the raw path -- amount applied verbatim, no scaling. All
+    // OTHER damage types route through armour lookup, EXCEPT that damage
+    // >= 30000 bypasses armour entirely (it doesn't clamp the amount -- it
+    // skips the *scaling*, at 0x489BD1; that bypass exists so the engine's
+    // universal kill token, always exactly 30000, can't be blocked by
+    // armour). Not relevant to this call: type 0x0A never reaches that check.
     ApplyHeal(repairer, target, whole, 0x0A, 0);
     return 1;
 }

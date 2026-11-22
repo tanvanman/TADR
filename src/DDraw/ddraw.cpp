@@ -26,27 +26,50 @@ using namespace std;
 #include "GUIExpand.h"
 #include "StartPositions.h"
 #include "AutoTeam.h"
+#include "TakeClaim.h"
 #include "ChatBackdrop.h"
+#include "ChatPosition.h"
+#include "ChatLayout.h"
+#include "PlayerMute.h"
 #include "MultiplayerSchemaUnits.h"
 #include "UnitDefExtensions.h"
 #include "unitrotate.h"
 #include "buildghost.h"
 #include "VeterancyHack.h"
 #include "NotToAir.h"
+#include "OffMapAircraft.h"
+#include "AlliedProjectileCollision.h"
 #include "SurfaceFire.h"
+#include "TerrainFireGate.h"
+#include "AirCorpseFall.h"
 #include "PacketChatRouter.h"
 #include "AlliedBuildQueueSync.h"
 #include "VoteReject.h"
 #include "ShareGuard.h"
+#include "ShareUnitSettings.h"
+#include "ShadingFix.h"
 #include "WeaponIdOverflow.h"
 #include "WeaponFiredExt.h"
+#include "UnitIdentity.h"
 #include "ReloadBars.h"
+#include "HealthBarColors.h"
+#include "UnitStatusCounters.h"
+#include "EngineLimits.h"
 #include "RepairHealthSync.h"
-#include "ExplosionCapsTelemetry.h"
 #include "ZeroDamageMapWeapons.h"
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
+#include "CobDispatchTable.h"
+#include "BuildWeaponSlotGuard.h"
 #include "TransportedExplosions.h"
+#include "AreaDamageOverflow.h"
+#include "GridClaimTieBreak.h"
+#include "SharePercent.h"
+#include "GroundToAirGuard.h"
+#include "VtolRepairBeamFix.h"
+#include "PatrolReclaimThreshold.h"
+#include "ShareSplit.h"
+#include "GiveCommands.h"
 #ifdef TADR_DEBUG_PIPE
 #include "DebugPipeServer.h"
 #endif
@@ -123,6 +146,9 @@ void AddtionRelease (void)
 }
 int __stdcall AddtionInitAfterDDraw (PInlineX86StackBuffer X86StrackBuffer)
 {
+	EngineLimits::AbortIfInstallFailed();
+	AlliedProjectileCollision::AbortIfInstallFailed();
+
 	char FontName[0x100];
 	FontName[0]= 0;
 	MyConfig->GetIniStr ( "UnicodeSupport", FontName, 0x100, NULL);
@@ -198,12 +224,19 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 		FixTABug= new TABugFixing;
 		InstallCrashTrace();
+		EngineLimits::Install();
 
 		StartPositions::GetInstance();
 		AutoTeam::Install();
+		// ChatPosition must go in before ChatBackdrop: the backdrop reads
+		// ChatPosition::X()/Y() to keep its box under the relocated text.
+		ChatPosition::Install();
+		ChatLayout::Install();   // after ChatPosition, before ChatBackdrop (checks Active())
+#if PLAYER_MUTE_ENABLE
+		PlayerMute::Install();
+#endif
 		ChatBackdrop::Install();
 		MultiplayerSchemaUnits::GetInstance();
-		ExplosionCapsTelemetry::Install();
 
 #if USEMEGAMAP
 		GUIExpander= new GUIExpand;
@@ -213,10 +246,15 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 			INLINE_5BYTESLAGGERJMP, AddtionInitAfterDDraw);
 
 		PacketChatRouter::GetInstance();
+		TakeClaim::Install();          // owns the _ShowText hook; ShareGuard rides it
+#if ALLIED_BUILD_QUEUE_ENABLE
 		AlliedBuildQueueSync::Install();
+#endif
 		ChallengeResponse::GetInstance();
 		UnitDefExtensions::GetInstance();
 		TransportedExplosions::Install();
+		AreaDamageOverflow::Install();
+		GridClaimTieBreak::Install();
 		CUnitRotate::RegisterUnitDefKeys();
 		CBuildGhost::RegisterUnitDefKeys();
 		// Eager-construct so the DrawGameScreen inline hook is
@@ -224,22 +262,60 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		CBuildGhost::GetInstance();
 		VeterancyHack::GetInstance();
 		NotToAir::Install();
+		AlliedProjectileCollision::Install();
+#if OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES > 0
+		OffMapAircraft::Install(OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES);
+#endif
 		SurfaceFire::Install();
+		TerrainFireGate::Install();
+#if AIR_CORPSE_FALL_ENABLE
+		AirCorpseFall::Install();
+#endif
+		UnitStatusCounters::Install();
 		ReloadBars::Install();
+#if HEALTH_BAR_COLORS_ENABLE
+		HealthBarColors::Install();          // own bytes only: the 5-byte entry of Unit_DrawHealthBar 0x46A430 (ReloadBars and UnitStatusCounters hook its caller, 0x469CB1 / 0x469CF9)
+#endif
+		ShadingFix::Install();
+#if REPAIR_HEALTH_SYNC_ENABLE
 		RepairHealthSync::Install();
+#endif
 		ZeroDamageMapWeapons::Install();
 		TeamColorNanolathe::Install();
 		VoteReject::Install();
+		ShareUnitSettings::Install();
 #if SHARE_ABUSE_GUARD
 		ShareGuard::Install();
+#endif
+#if SHARE_PERCENT_ENABLE
+		SharePercent::Install();       // does not share a hook address with anything above; order-independent
+#endif
+#if PATROL_RECLAIM_THRESHOLD_ENABLE
+		PatrolReclaimThreshold::Install();   // own bytes only: patrol handler operands/entries, one call operand, one registration site
+#endif
+#if SHARE_SPLIT_ENABLE
+		ShareSplit::Install();               // own bytes only: one jne at 0x457D5F, one call operand at 0x49563B
+#endif
+#if GIVE_COMMANDS_ENABLE
+		GiveCommands::Install();             // own bytes only: registration site at 0x4195C9 (disjoint from PatrolReclaimThreshold and AutoTeam); receive guard: 8 bytes each at 0x4558C2 / 0x4558E0
 #endif
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponIdOverflow::Install();
 		WeaponFiredExt::Install();
 #endif
+		// After WeaponFiredExt: both hook ReceiveWeaponFired, but at different
+		// addresses (0x0049D27E entry vs 0x0049D42A dispatch), so they do not
+		// collide. Install order is not load-bearing; keep them adjacent.
+		UnitIdentity::Install();
 #if REPAIR_RATE_FIX_ENABLE
 		RepairRateFix::Install();
 #endif
+#if COB_DISPATCH_TABLE_ENABLE
+		CobDispatchTable::Install();
+#endif
+		BuildWeaponSlotGuard::Install();
+		GroundToAirGuard::Install();
+		VtolRepairBeamFix::Install();
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Start();
 #endif
@@ -247,17 +323,47 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 	}
 	if(reason==DLL_PROCESS_DETACH)
 	{
+		AlliedProjectileCollision::Shutdown();
+		EngineLimits::Uninstall();
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Stop();
 #endif
+#if PLAYER_MUTE_ENABLE
+		PlayerMute::Shutdown();
+#endif
+		ChatLayout::Shutdown();
+		ChatPosition::Shutdown();
+#if HEALTH_BAR_COLORS_ENABLE
+		HealthBarColors::Shutdown();
+#endif
 		ReloadBars::Shutdown();
+		UnitStatusCounters::Shutdown();
+#if REPAIR_HEALTH_SYNC_ENABLE
 		RepairHealthSync::Shutdown();
+#endif
+#if ALLIED_BUILD_QUEUE_ENABLE
 		AlliedBuildQueueSync::Shutdown();
+#endif
+		ShadingFix::Shutdown();
 		ZeroDamageMapWeapons::Shutdown();
 		TeamColorNanolathe::Shutdown();
 #if SHARE_ABUSE_GUARD
 		ShareGuard::Shutdown();
 #endif
+#if SHARE_PERCENT_ENABLE
+		SharePercent::Shutdown();
+#endif
+#if PATROL_RECLAIM_THRESHOLD_ENABLE
+		PatrolReclaimThreshold::Shutdown();
+#endif
+#if SHARE_SPLIT_ENABLE
+		ShareSplit::Shutdown();
+#endif
+#if GIVE_COMMANDS_ENABLE
+		GiveCommands::Shutdown();
+#endif
+		ShareUnitSettings::Shutdown();
+		UnitIdentity::Shutdown();
 #if TDRAW_EXTENDED_WEAPON_IDS
 		WeaponFiredExt::Shutdown();
 		WeaponIdOverflow::Shutdown();
@@ -265,6 +371,12 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if REPAIR_RATE_FIX_ENABLE
 		RepairRateFix::Shutdown();
 #endif
+#if COB_DISPATCH_TABLE_ENABLE
+		CobDispatchTable::Shutdown();
+#endif
+		BuildWeaponSlotGuard::Shutdown();
+		GroundToAirGuard::Shutdown();
+		VtolRepairBeamFix::Shutdown();
 		/* KillTimer(NULL, Timer);
 		KillTimer(NULL, DetectTimer); */
 		AddtionReleaseAfterDDraw ( );
@@ -292,6 +404,8 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 
 HRESULT WINAPI DirectDrawCreate(GUID FAR *lpGUID, LPDIRECTDRAW FAR *lplpDD, IUnknown FAR *pUnkOuter)
 {
+	EngineLimits::AbortIfInstallFailed();
+	AlliedProjectileCollision::AbortIfInstallFailed();
 	IDDrawSurface::OutptTxt("DirectDrawCreate");
 	if(SDDraw == NULL)
 	{
@@ -435,8 +549,8 @@ void EnableSound()
 	WriteProcessMemory(GetCurrentProcess(), (void*)0x4CEFE2, &adress, 4, NULL);
 
 	//secondary buffer
-	//adress = 0x4092;
-	//WriteProcessMemory(GetCurrentProcess(), (void*)0x4CF3CF, &adress, 4, NULL);
+	adress = 0x4092;
+	WriteProcessMemory(GetCurrentProcess(), (void*)0x4CF3CF, &adress, 4, NULL);
 }
 
 /*

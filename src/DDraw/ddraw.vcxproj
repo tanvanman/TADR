@@ -307,6 +307,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="EconomyPanels.cpp" />
     <ClCompile Include="AutoTeam.cpp" />
     <ClCompile Include="BattleroomCommands.cpp" />
     <ClCompile Include="ChallengeResponse.cpp" />
@@ -321,11 +322,14 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="MegamapControl.cpp" />
     <ClCompile Include="MegamapTAStuff.cpp" />
     <ClCompile Include="MultiplayerSchemaUnits.cpp" />
-    <ClCompile Include="ExplosionCapsTelemetry.cpp" />
+    <ClCompile Include="EngineLimits.cpp" />
     <ClCompile Include="nswfl_crc32.cpp" />
     <ClCompile Include="ProjectileMap.cpp" />
+    <ClCompile Include="ShadingFix.cpp" />
     <ClCompile Include="Profiler.cpp" />
     <ClCompile Include="ReloadBars.cpp" />
+    <ClCompile Include="HealthBarColors.cpp" />
+    <ClCompile Include="UnitStatusCounters.cpp" />
     <ClCompile Include="RepairHealthSync.cpp" />
     <ClCompile Include="AlliedBuildQueueSync.cpp" />
     <ClCompile Include="tafstatusexporter.cpp" />
@@ -333,22 +337,36 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="PacketChatRouter.cpp" />
     <ClCompile Include="HudNotifications.cpp" />
     <ClCompile Include="ChatBackdrop.cpp" />
+    <ClCompile Include="ChatPosition.cpp" />
+    <ClCompile Include="ChatLayout.cpp" />
+    <ClCompile Include="PlayerMute.cpp" />
     <ClCompile Include="ChatFont.cpp" />
     <ClCompile Include="WeaponTdfHook.cpp" />
+    <ClCompile Include="WeaponTags.cpp" />
     <ClCompile Include="WeaponIdOverflow.cpp" />
     <ClCompile Include="WeaponFiredExt.cpp" />
+    <ClCompile Include="UnitIdentity.cpp" />
     <ClCompile Include="NotToAir.cpp" />
+    <ClCompile Include="OffMapAircraft.cpp" />
+    <ClCompile Include="AlliedProjectileCollision.cpp" />
     <ClCompile Include="SurfaceFire.cpp" />
+    <ClCompile Include="TerrainFireGate.cpp" />
+    <ClCompile Include="AirCorpseFall.cpp" />
     <ClCompile Include="ZeroDamageMapWeapons.cpp" />
     <ClCompile Include="TeamColorNanolathe.cpp" />
     <ClCompile Include="RepairRateFix.cpp" />
+    <ClCompile Include="CobDispatchTable.cpp" />
+    <ClCompile Include="BuildWeaponSlotGuard.cpp" />
     <ClCompile Include="DebugPipeServer.cpp" />
     <ClCompile Include="VoteDialog.cpp" />
     <ClCompile Include="LagSwitchGuard.cpp" />
     <ClCompile Include="VoteReject.cpp" />
     <ClCompile Include="ShareGuard.cpp" />
+    <ClCompile Include="ShareUnitSettings.cpp" />
+    <ClCompile Include="TakeClaim.cpp" />
     <ClCompile Include="VeterancyHack.cpp" />
     <ClCompile Include="Widgets\Button.cpp" />
+    <ClCompile Include="Widgets\TabButton.cpp" />
     <ClCompile Include="Widgets\IntegerField.cpp" />
     <ClCompile Include="Widgets\Label.cpp" />
     <ClCompile Include="Widgets\TextField.cpp" />
@@ -360,28 +378,53 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="ChatHijackIds.h" />
     <ClInclude Include="WeaponIdOverflow.h" />
     <ClInclude Include="WeaponFiredExt.h" />
+    <ClInclude Include="UnitIdentity.h" />
     <ClInclude Include="DialogBase.h" />
+    <ClInclude Include="ShadingFix.h" />
     <ClInclude Include="PacketChatRouter.h" />
     <ClInclude Include="ReloadBars.h" />
+    <ClInclude Include="HealthBarColors.h" />
+    <ClInclude Include="UnitStatusCounters.h" />
     <ClInclude Include="RepairHealthSync.h" />
+    <ClInclude Include="RepairHealthSyncState.h" />
     <ClInclude Include="AlliedBuildQueueSync.h" />
+    <ClInclude Include="AlliedBuildQueueProtocol.h" />
     <ClInclude Include="HudNotifications.h" />
     <ClInclude Include="ChatBackdrop.h" />
+    <ClInclude Include="ChatPosition.h" />
+    <ClInclude Include="ChatLayout.h" />
+    <ClInclude Include="ChatClassify.h" />
+    <ClInclude Include="PlayerMute.h" />
     <ClInclude Include="ChatFont.h" />
     <ClInclude Include="DebugPipeServer.h" />
     <ClInclude Include="VoteDialog.h" />
     <ClInclude Include="LagSwitchGuard.h" />
     <ClInclude Include="VoteReject.h" />
     <ClInclude Include="ShareGuard.h" />
+    <ClInclude Include="ShareUnitSettings.h" />
+    <ClInclude Include="TakeClaim.h" />
     <ClInclude Include="ZeroDamageMapWeapons.h" />
     <ClInclude Include="TeamColorNanolathe.h" />
     <ClInclude Include="RepairRateFix.h" />
+    <ClInclude Include="CobDispatchTable.h" />
+    <ClInclude Include="BuildWeaponSlotGuard.h" />
     <ClInclude Include="TransportedExplosions.h" />
+    <ClInclude Include="AreaDamageOverflow.h" />
+    <ClInclude Include="GridClaimTieBreak.h" />
+    <ClInclude Include="SharePercent.h" />
+    <ClInclude Include="GroundToAirGuard.h" />
+    <ClInclude Include="VtolRepairBeamFix.h" />
+    <ClInclude Include="PatrolReclaimThreshold.h" />
+    <ClInclude Include="ShareSplit.h" />
+    <ClInclude Include="GiveCommands.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="config_prota.h" />
     <ClInclude Include="config_ota.h" />
     <ClInclude Include="config_escalation.h" />
     <ClInclude Include="config_bta.h" />
+    <ClInclude Include="config_mayhem.h" />
+    <ClInclude Include="config_twilight.h" />
+    <ClInclude Include="config_tazero.h" />
     <ClInclude Include="ConstructionKickout.h" />
     <ClInclude Include="GameTickHook.h" />
     <ClInclude Include="HexDump.h" />
@@ -390,13 +433,21 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="MegamapControl.h" />
     <ClInclude Include="megamaptastuff.h" />
     <ClInclude Include="MultiplayerSchemaUnits.h" />
-    <ClInclude Include="ExplosionCapsTelemetry.h" />
+    <ClInclude Include="EngineLimits.h" />
     <ClInclude Include="nswfl_crc32.h" />
     <ClInclude Include="ProjectilesMap.h">
       <FileType>CppCode</FileType>
     </ClInclude>
     <ClCompile Include="StartPositions.cpp" />
     <ClCompile Include="TransportedExplosions.cpp" />
+    <ClCompile Include="AreaDamageOverflow.cpp" />
+    <ClCompile Include="GridClaimTieBreak.cpp" />
+    <ClCompile Include="SharePercent.cpp" />
+    <ClCompile Include="GroundToAirGuard.cpp" />
+    <ClCompile Include="VtolRepairBeamFix.cpp" />
+    <ClCompile Include="PatrolReclaimThreshold.cpp" />
+    <ClCompile Include="ShareSplit.cpp" />
+    <ClCompile Include="GiveCommands.cpp" />
     <ClCompile Include="TenPlayerReplay.cpp" />
     <ClCompile Include="TPacket.cpp" />
     <ClCompile Include="UnitIcon.cpp" />
@@ -432,12 +483,6 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="MenuResolution.cpp" />
     <ClCompile Include="rings.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <ClCompile Include="dddta.cpp">
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AssemblyAndSourceCode</AssemblerOutput>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='ReleasePublic|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -523,6 +568,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="UnitDefExtensions.h" />
     <ClInclude Include="VeterancyHack.h" />
     <ClInclude Include="Widgets\Button.h" />
+    <ClInclude Include="Widgets\TabButton.h" />
     <ClInclude Include="Widgets\IntegerField.h" />
     <ClInclude Include="Widgets\Label.h" />
     <ClInclude Include="Widgets\TextField.h" />
@@ -531,10 +577,10 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BMP.h" />
-    <ClInclude Include="dddta.h" />
     <ClInclude Include="bookmarks.h" />
     <ClInclude Include="cgraphic.h" />
     <ClInclude Include="changequeue.h" />
+    <ClInclude Include="EconomyPanels.h" />
     <ClInclude Include="cincome.h" />
     <ClInclude Include="commanderwarp.h" />
     <ClInclude Include="ddraw.h" />
@@ -581,6 +627,8 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="UnitDrawer.h" />
     <ClInclude Include="UnitLimit.h" />
     <ClInclude Include="UnitTypeLimit.h" />
+    <ClInclude Include="OffMapAircraft.h" />
+    <ClInclude Include="AlliedProjectileCollision.h" />
     <ClInclude Include="unitrotate.h" />
     <ClInclude Include="buildghost.h" />
     <ClInclude Include="whiteboard.h" />
@@ -601,6 +649,9 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <None Include="bitmaps\smallcircle.pcx" />
     <None Include="bitmaps\StagedButtn1.pcx" />
     <None Include="bitmaps\standarbutton.pcx" />
+    <None Include="resources\default\bitmaps\MenuButton.pcx" />
+    <None Include="resources\default\bitmaps\StyleSelector.pcx" />
+    <None Include="resources\default\bitmaps\ViewSelector.pcx" />
     <None Include="bitmaps\tacursor.pcx" />
     <None Include="tdraw.def" />
   </ItemGroup>

@@ -39,14 +39,6 @@ constexpr int kStructuresPerWin = 10;                    // free allowance per w
 
 constexpr unsigned TA_MAIN_PTR_ADDR = 0x00511de8;
 
-// _ShowText — the single choke point for OUTGOING chat. 10-byte prologue of
-// whole instructions:
-//   8B 44 24 10          MOV EAX,[ESP+0x10]
-//   81 EC C8 00 00 00    SUB ESP,0xC8
-// NOTE it is __stdcall with FOUR args (RET 0x10); Ghidra infers three.
-constexpr DWORD kShowTextAddr = 0x00463e50u;
-constexpr DWORD kShowTextLen  = 10u;
-
 // GiveSelectUnits — the only player-initiated share path (reached solely from
 // ShareDialog_proc). 7-byte prologue:
 //   83 EC 10       SUB ESP,0x10
@@ -121,7 +113,6 @@ int  g_lastTick      = 0;
 
 DWORD g_giveSelectRealReturn = 0;
 
-InlineSingleHook* g_showTextHook   = nullptr;
 InlineSingleHook* g_giveSelectHook = nullptr;
 
 // ---- helpers ---------------------------------------------------------------
@@ -188,6 +179,9 @@ bool HasDestroyedCommander(PlayerStruct* ps)
 
 void LocalMessage(const char* msg)
 {
+    // 4th arg is playerIndex, and 10 ('\n') is TA's own sentinel for a system
+    // message: NewChatText @0x463ca0 skips the arrival sound on exactly that
+    // value, and TA's own death announcement passes PUSH 0xa. Not a bug.
     NewChatText(const_cast<char*>(msg), 1, 0, '\n');
 }
 
@@ -315,68 +309,6 @@ __declspec(naked) void GiveSuppressStub()
     __asm { ret 0xC }
 }
 
-// Returns from _ShowText (__stdcall, RET 0x10) without running it, so the
-// chat is never formatted, broadcast, or displayed.
-__declspec(naked) void ShowTextSuppressStub()
-{
-    __asm { ret 0x10 }
-}
-
-// Case-insensitive match for ".take" / ".takecmd", tolerating surrounding
-// whitespace. Anything with arguments is not a take command.
-bool IsTakeCommand(const char* text)
-{
-    if (!text) return false;
-    while (*text == ' ' || *text == '\t') ++text;
-    if (*text != '.') return false;
-    ++text;
-
-    const char* kCmds[] = { "takecmd", "take" };   // longest first
-    for (const char* cmd : kCmds)
-    {
-        const size_t n = std::strlen(cmd);
-        if (_strnicmp(text, cmd, n) != 0) continue;
-        const char* rest = text + n;
-        while (*rest == ' ' || *rest == '\t' || *rest == '\r' || *rest == '\n') ++rest;
-        if (*rest == '\0') return true;
-    }
-    return false;
-}
-
-// _ShowText entry. At the hook site the prologue has not run, so
-// [Esp+4]=player, [Esp+8]=text.
-int __stdcall ShowText_Entry_Proc(PInlineX86StackBuffer pBuf)
-{
-    DWORD* args = reinterpret_cast<DWORD*>(pBuf->Esp);
-    const char* text = reinterpret_cast<const char*>(args[2]);
-    if (!IsTakeCommand(text)) return 0;
-
-    if (!ShareGuard::IsComEndsGame()) return 0;   // rule is inert without com-ends
-
-    TAdynmemStruct* ta = GetTA();
-    if (!ta) return 0;
-
-    const unsigned char localSlot = (unsigned char)ta->LocalHumanPlayer_PlayerID;
-    for (unsigned p = 0; p < kMaxPlayers; ++p)
-    {
-        if (p == localSlot) continue;
-        PlayerStruct* ps = &ta->Players[p];
-        if (!HasDestroyedCommander(ps)) continue;
-
-        char msg[160];
-        _snprintf(msg, sizeof(msg) - 1,
-                  "Cannot take %s: their commander has been destroyed.",
-                  ps->Name[0] ? ps->Name : "that player");
-        msg[sizeof(msg) - 1] = '\0';
-        LocalMessage(msg);
-        IDDrawSurface::OutptFmtTxt("[ShareGuard] blocked take of slot %u (commander at 0 HP)", p);
-
-        pBuf->rtnAddr_Pvoid = reinterpret_cast<LPVOID>(&ShowTextSuppressStub);
-        return X86STRACKBUFFERCHANGE;
-    }
-    return 0;
-}
-
 // GiveSelectUnits return thunk — the whole selection has now been offered, so
 // this is where the block is sized and either released or held.
 extern "C" void __cdecl GiveSelectEnvelopeCleanup()
@@ -420,6 +352,25 @@ int __stdcall GiveSelect_Entry_Proc(PInlineX86StackBuffer pBuf)
 
 namespace ShareGuard {
 
+// Refuse a take of one named player.
+bool RefusesTake(unsigned targetDpid, char* reason, size_t reasonSize)
+{
+    if (!IsComEndsGame()) return false;      // rule is inert without com-ends
+    PlayerStruct* ps = FindPlayerByDPID(targetDpid);
+    if (!HasDestroyedCommander(ps)) return false;
+
+    if (reason && reasonSize)
+    {
+        _snprintf(reason, reasonSize - 1,
+                  "Cannot take %s: their commander has been destroyed.",
+                  ps->Name[0] ? ps->Name : "that player");
+        reason[reasonSize - 1] = 0;
+    }
+    IDDrawSurface::OutptFmtTxt("[ShareGuard] refused take of %08x (commander at 0 HP)",
+                               targetDpid);
+    return true;
+}
+
 bool IsComEndsGame()
 {
     TAdynmemStruct* ta = GetTA();
@@ -461,12 +412,7 @@ bool ShouldSuppressGive(void* srcUnit, void* targetPlayer, const void* givePkt)
 
 void Install()
 {
-    if (g_showTextHook) return;
-
-    g_showTextHook = new InlineSingleHook(
-        kShowTextAddr, kShowTextLen,
-        INLINE_5BYTESLAGGERJMP,
-        (InlineX86HookRouter)ShowText_Entry_Proc);
+    if (g_giveSelectHook) return;
 
     g_giveSelectHook = new InlineSingleHook(
         kGiveSelectAddr, kGiveSelectLen,
@@ -478,7 +424,6 @@ void Install()
 
 void Shutdown()
 {
-    delete g_showTextHook;   g_showTextHook   = nullptr;
     delete g_giveSelectHook; g_giveSelectHook = nullptr;
     ResetState();
 }
@@ -491,6 +436,7 @@ namespace ShareGuard {
 void  Install() {}
 void  Shutdown() {}
 bool  IsComEndsGame() { return false; }
+bool  RefusesTake(unsigned, char*, size_t) { return false; }
 bool  ShouldSuppressGive(void*, void*, const void*) { return false; }
 void* GetGiveSuppressStub() { return nullptr; }
 }

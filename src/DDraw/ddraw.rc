@@ -2,7 +2,7 @@
 //
 #include "resource.h"
 
-#define BASE_VERSION "2026.8.6.0"
+#define BASE_VERSION "2026.10.6.0"
 
 #if defined(TDRAW_CONFIG_PROTA)
 #define VERSION_TAG ""
@@ -12,6 +12,12 @@
 #define VERSION_TAG "-ota"
 #elif defined(TDRAW_CONFIG_TAZERO)
 #define VERSION_TAG "-zero"
+#elif defined(TDRAW_CONFIG_BTA)
+#define VERSION_TAG "-bta"
+#elif defined(TDRAW_CONFIG_MAYHEM)
+#define VERSION_TAG "-mayhem"
+#elif defined(TDRAW_CONFIG_TWILIGHT)
+#define VERSION_TAG "-twilight"
 #elif defined(TDRAW_CONFIG_BTA)
 #define VERSION_TAG "-bta"
 #else
@@ -69,8 +75,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2026,8,6,0
- PRODUCTVERSION 2026,8,6,0
+ FILEVERSION 2026,10,6,0
+ PRODUCTVERSION 2026,10,6,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -143,6 +149,12 @@ END
 
 
 
+
+MENUBUTTON RCDATA "resources/default/bitmaps/MenuButton.pcx"
+PAGEPREVIOUS RCDATA "resources/default/bitmaps/ARMPREV.pcx"
+PAGENEXT RCDATA "resources/default/bitmaps/ARMNEXT.pcx"
+STYLESELECTOR RCDATA "resources/default/bitmaps/StyleSelector.pcx"
+VIEWSELECTOR RCDATA "resources/default/bitmaps/ViewSelector.pcx"
 
 #endif    // 瑞典语(瑞典) resources
 /////////////////////////////////////////////////////////////////////////////

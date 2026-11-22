@@ -1,4 +1,5 @@
 #include "VoteDialog.h"
+#include "TakeClaim.h"
 #include "VoteReject.h"
 #include "iddrawsurface.h"
 #include "pcxread.h"
@@ -152,12 +153,13 @@ void VoteDialog::RebuildRows(const std::vector<VoteReject::VoteDisplayInfo>& vot
 
         if (v.isAllyOfLocal && v.rejectMask == 6)
         {
+            // Names its own row's target: with several votes open a bare
+            // ".take" is ambiguous.
             row.takeButton = std::make_shared<Button>(
                 BTN_TAKE_X, buttonY, m_lpButtonSkin, 0, 1, true,
                 std::vector<std::string>{".take"}, "",
-                [](int) {
-                    TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-                    ShowText(&taPtr->Players[taPtr->LocalHumanPlayer_PlayerID], ".take", 0, 0);
+                [dpid](int) {
+                    TakeClaim::RequestTake(dpid, /*includeCommander*/ false);
                 });
         }
 

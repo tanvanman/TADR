@@ -33,17 +33,49 @@ using namespace std;
 #if USEMEGAMAP
 namespace
 {
+#if ALLIED_BUILD_QUEUE_ENABLE
 	const unsigned char kAlliedBuildOuterColor = 221;
+#endif
+	const unsigned int kDrawBpsAddress = 0x00468380;
+	typedef void (__stdcall* DrawBpsFn)(OFFSCREEN*);
 
-	bool IsMegamapBuildOrder(const UnitOrdersStruct* order)
+	void DrawBpsOverlay(OFFSCREEN* offscreen)
 	{
-		if (!order || order->BuildUnitID == 0
-			|| !COBSciptHandler_Begin || !*COBSciptHandler_Begin)
+		TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+		TAProgramStruct* program = *TAProgramStruct_PtrPtr;
+		DrawBpsFn drawBps = reinterpret_cast<DrawBpsFn>(kDrawBpsAddress);
+
+		const int localPlayerId = ta->LocalHumanPlayer_PlayerID;
+		PlayerInfoStruct* playerInfo = localPlayerId >= 0 && localPlayerId < 10
+			? ta->Players[localPlayerId].PlayerInfo
+			: NULL;
+		const int raceSide = playerInfo ? playerInfo->RaceSide : -1;
+
+		if (program && raceSide >= 0 && raceSide < 5)
 		{
-			return false;
+			unsigned char* previousFont = program->fontHandle;
+			const int previousFrontColour = program->fontFrontColour;
+			const int previousBackColour = program->fontBackColour;
+
+			program->fontHandle = reinterpret_cast<unsigned char*>(ta->RaceSideDataAry[raceSide].Font_File);
+			program->fontFrontColour = ta->desktopGUI.RadarObjecColor[15];
+			program->fontBackColour = program->fontAlpha;
+			drawBps(offscreen);
+
+			program->fontHandle = previousFont;
+			program->fontFrontColour = previousFrontColour;
+			program->fontBackColour = previousBackColour;
+			return;
 		}
 
-		return ((*COBSciptHandler_Begin)[order->COBHandler_index].COBScripMask & 1) != 0;
+		drawBps(offscreen);
+	}
+
+#if ALLIED_BUILD_QUEUE_ENABLE
+	// Helpers used only by DrawAlliedBuildQueues().
+	bool IsMegamapBuildOrder(const UnitOrdersStruct* order)
+	{
+		return AlliedBuildQueueSync::IsBuildOrder(order);
 	}
 
 	bool IsMegamapLiveUnit(const UnitStruct* unit)
@@ -52,6 +84,7 @@ namespace
 			&& (unit->UnitSelected & 0x10000000) != 0
 			&& (unit->UnitSelected & 0x4000) == 0;
 	}
+#endif // ALLIED_BUILD_QUEUE_ENABLE
 }
 
 MegamapTAStuff::MegamapTAStuff (FullScreenMinimap * parent_p, RECT * MegaMapScreen_p, RECT * TAMap_p, RECT * GameScreen_p,
@@ -183,6 +216,11 @@ void MegamapTAStuff::LockBlit_TA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight
 	DrawPopupF4Dialog ( &OffScreen);
 	memcpy ( &OffScreen.ScreenRect, &(*TAmainStruct_PtrPtr)->GameSreen_Rect, sizeof(RECT));
 	
+	if ((*TAmainStruct_PtrPtr)->bps)
+	{
+		DrawBpsOverlay(&OffScreen);
+	}
+
 	DrawChatText ( &OffScreen);
 
 	if (1& (*TAmainStruct_PtrPtr)->IsGamePaused)
@@ -635,6 +673,7 @@ void MegamapTAStuff::DrawBuildRect (OFFSCREEN * offscren_p, unsigned char  Color
 	::TADrawRect ( offscren_p, &Rect, Color);
 }
 
+#if ALLIED_BUILD_QUEUE_ENABLE
 void MegamapTAStuff::DrawAlliedBuildRect(
 	OFFSCREEN* offscreen,
 	unsigned char color,
@@ -686,8 +725,8 @@ void MegamapTAStuff::DrawAlliedBuildRect(
 
 void MegamapTAStuff::DrawAlliedBuildQueues(OFFSCREEN* offscreen)
 {
-	if (LocalShare && LocalShare->Dialog
-		&& !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetShowAlliedBuildQueuesEnabled())
+	if (!AlliedBuildQueueSync::Enabled() || (LocalShare && LocalShare->Dialog
+		&& !reinterpret_cast<Dialog*>(LocalShare->Dialog)->GetShowAlliedBuildQueuesEnabled()))
 	{
 		return;
 	}
@@ -732,7 +771,7 @@ void MegamapTAStuff::DrawAlliedBuildQueues(OFFSCREEN* offscreen)
 		const int ownerId = owner ? owner->PlayerAryIndex : -1;
 		preferAlliedOverlap = owner && hovered->UnitType && hovered->UnitType->CANBUILD_ptr
 			&& ownerId >= 0 && ownerId < 10 && ownerId != localPlayerId
-			&& TAmainStruct_Ptr->Players[localPlayerId].AllyFlagAry[ownerId] != 0;
+			&& AlliedBuildQueueSync::CanSeePlayer(ownerId);
 	}
 
 	auto drawOne = [this, offscreen, &drawn, &ownQueuedBuilds, preferAlliedOverlap](
@@ -762,7 +801,7 @@ void MegamapTAStuff::DrawAlliedBuildQueues(OFFSCREEN* offscreen)
 			continue;
 		const int ownerId = owner->PlayerAryIndex;
 		if (ownerId < 0 || ownerId >= 10 || ownerId == localPlayerId
-			|| TAmainStruct_Ptr->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+			|| !AlliedBuildQueueSync::CanSeePlayer(ownerId))
 		{
 			continue;
 		}
@@ -779,7 +818,7 @@ void MegamapTAStuff::DrawAlliedBuildQueues(OFFSCREEN* offscreen)
 
 	for (int ownerId = 0; ownerId < 10; ++ownerId)
 	{
-		if (ownerId == localPlayerId || TAmainStruct_Ptr->Players[localPlayerId].AllyFlagAry[ownerId] == 0)
+		if (!AlliedBuildQueueSync::CanSeePlayer(ownerId))
 			continue;
 
 		const vector<AlliedBuildQueueRecord>& queue = AlliedBuildQueueSync::GetPlayerQueue(ownerId);
@@ -790,6 +829,7 @@ void MegamapTAStuff::DrawAlliedBuildQueues(OFFSCREEN* offscreen)
 		}
 	}
 }
+#endif // ALLIED_BUILD_QUEUE_ENABLE
 
 void MegamapTAStuff::DrawTargatOrder (OFFSCREEN * OffScreen, UnitOrdersStruct * Order, PlayerStruct * me)
 {
@@ -808,10 +848,10 @@ void MegamapTAStuff::DrawTargatOrder (OFFSCREEN * OffScreen, UnitOrdersStruct * 
 				Order->Order_State|= 0x200000;											
 			}
 			Order->RemeberX= Order->AttackTargat->XPos;
-			Order->RemeberY= Order->AttackTargat->YPos- Order->AttackTargat->ZPos/ 2;
+			Order->RemeberY= Order->AttackTargat->YPos;
 
 		} while (false);
-		TAPos2ScreenPos ( &Pos, Order->RemeberX, Order->RemeberY, 0);
+		TAPos2ScreenPos ( &Pos, Order->RemeberX, Order->RemeberY, Order->AttackTargat->ZPos);
 	}
 	else
 	{
@@ -857,7 +897,7 @@ void MegamapTAStuff::DrawOrderPath (OFFSCREEN * OffScreen, UnitOrdersStruct * Or
 	{
 		X1= Order->RemeberX;
 		X2= UnitPos->X;
-		Y1= Order->RemeberY;
+		Y1= Order->RemeberY- Order->AttackTargat->ZPos/ 2;
 		Y2=  UnitPos->Y- UnitPos->Z/ 2;
 	}
 	else
@@ -1015,10 +1055,14 @@ void MegamapTAStuff::BlitOrder (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 		}
 	}
 
+#if ALLIED_BUILD_QUEUE_ENABLE
 	if (OtherBuilder)
 	{
 		DrawAlliedBuildQueues(&OffScreen);
 	}
+#else
+	(void)OtherBuilder;
+#endif
 
 	vector<Position_Dword> DrawedTargat;
 	Position_Dword TargatPos;
@@ -1092,7 +1136,7 @@ void MegamapTAStuff::BlitOrder (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 							{
 								TargatPos.X= Order->RemeberX;
 								TargatPos.Y= Order->RemeberY;
-								TargatPos.Z= 0;
+								TargatPos.Z= Order->AttackTargat->ZPos;
 							}
 							else
 							{
@@ -1142,7 +1186,7 @@ void MegamapTAStuff::BlitOrder (LPVOID lpSurfaceMem, int dwWidth, int dwHeight, 
 							{
 								TargatPos.X= Order->RemeberX;
 								TargatPos.Y= Order->RemeberY;
-								TargatPos.Z= 0;
+								TargatPos.Z= Order->AttackTargat->ZPos;
 							}
 							else
 							{

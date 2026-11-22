@@ -20,6 +20,8 @@ public:
 	virtual void RegistryWrite(HKEY hKey);
 	virtual int GetState() { return m_state; }
 	virtual void SetState(int state) { m_state = state % m_numStates; }
+	void CancelInteraction() override { Widget::CancelInteraction(); m_depressed = false; }
+    int m_colourKey = -1;
 
 private:
 	std::vector<std::string> m_stateLabels;
