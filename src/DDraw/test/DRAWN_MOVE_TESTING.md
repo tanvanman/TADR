@@ -27,8 +27,8 @@ maintain the wall while travelling. No new network packet types are introduced.
 ## Move destination feedback
 
 All accepted move orders show green lines and destination arrows for 0.5 seconds
-on the battlefield and megamap, including ordinary single-unit moves from a
-commander, Shift-queued moves and committed formations. A line follows its unit
+at approximately 80% opacity on the battlefield and megamap, including ordinary
+single-unit moves from a commander, Shift-queued moves and committed formations. A line follows its unit
 as it moves; its outlined destination arrow stays fixed. This requires no held
 key after the command. The drawing preview's green squares are unchanged.
 

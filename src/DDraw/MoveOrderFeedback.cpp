@@ -115,6 +115,44 @@ namespace
         __try { return TAmainStruct_PtrPtr ? *TAmainStruct_PtrPtr : nullptr; }
         __except (EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
     }
+    bool ReadPalette(TAdynmemStruct* ta, Geometry::Palette& palette)
+    {
+        __try
+        {
+            if (World() != ta || !Playable(ta) || !ta->TAProgramStruct_Ptr) return false;
+            // Same active base R,G,B,0 colormap used by MapParse::MegamapColormap.
+            // Copy values only: no native palette pointer survives this helper.
+            const unsigned char* data = reinterpret_cast<const unsigned char*>(ta->TAProgramStruct_Ptr) + 0x214;
+            for (std::size_t i = 0; i < palette.size(); ++i)
+                palette[i] = {data[i * 4], data[i * 4 + 1], data[i * 4 + 2]};
+            return true;
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    }
+    bool SamePalette(const Geometry::Palette& a, const Geometry::Palette& b)
+    {
+        for (std::size_t i = 0; i < a.size(); ++i)
+            if (a[i].red != b[i].red || a[i].green != b[i].green || a[i].blue != b[i].blue)
+                return false;
+        return true;
+    }
+    Geometry::BlendTable PaletteBlend(const Geometry::Palette& palette)
+    {
+        static std::mutex paletteMutex;
+        static Geometry::Palette cachedPalette = {};
+        static Geometry::BlendTable cachedBlend = {};
+        static bool ready = false;
+        std::lock_guard<std::mutex> lock(paletteMutex);
+        if (!ready || !SamePalette(cachedPalette, palette))
+        {
+            cachedBlend = Geometry::MakeBlendTable(palette);
+            cachedPalette = palette;
+            ready = true;
+        }
+        // Rendering receives an immutable copy, so no cache mutex crosses a
+        // surface Lock or native projection and no pixel performs a color search.
+        return cachedBlend;
+    }
     bool CapturePositions(TAdynmemStruct* ta, unsigned unitIndex, const Position_Dword& origin,
         const Position_Dword& destination, Position_Dword& from, Position_Dword& to)
     {
@@ -353,11 +391,15 @@ namespace
         __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     }
     void PaintWithUnlock(LPDIRECTDRAWSURFACE surface, const DDSURFACEDESC& desc, const Scene& scene,
-        const std::vector<ScreenRecord>& projected, unsigned serial, PaintStats& stats)
+        const std::vector<ScreenRecord>& projected, unsigned serial, PaintStats& stats,
+        const Geometry::Palette& palette, const Geometry::BlendTable& blend)
     {
         __try
         {
             if (!CurrentScene(scene, serial)) return;
+            stats.stage = "palette-changed";
+            Geometry::Palette currentPalette = {};
+            if (!ReadPalette(scene.world, currentPalette) || !SamePalette(palette, currentPalette)) return;
             stats.stage = "surface-format";
             if (desc.ddpfPixelFormat.dwRGBBitCount == 8 && desc.dwWidth <= 65536 && desc.dwHeight <= 65536)
             {
@@ -375,7 +417,7 @@ namespace
                     if (now - item.at >= lifetime) { ++stats.expired; continue; }
                     const Geometry::Surface target = {static_cast<unsigned char*>(desc.lpSurface),
                         static_cast<int>(desc.dwWidth), static_cast<int>(desc.dwHeight), static_cast<int>(desc.lPitch),
-                        item.clip, scene.excluded};
+                        item.clip, scene.excluded, &blend};
                     if (!Geometry::Valid(target)) { stats.stage = "surface-invalid"; continue; }
                     Geometry::Draw(target, item.from.x, item.from.y, item.to.x, item.to.y, scene.megamap);
                     ++stats.submitted;
@@ -385,9 +427,10 @@ namespace
         __finally { surface->Unlock(nullptr); }
     }
     void PaintProtected(LPDIRECTDRAWSURFACE surface, const DDSURFACEDESC& desc, const Scene& scene,
-        const std::vector<ScreenRecord>& projected, unsigned serial, PaintStats& stats)
+        const std::vector<ScreenRecord>& projected, unsigned serial, PaintStats& stats,
+        const Geometry::Palette& palette, const Geometry::BlendTable& blend)
     {
-        __try { PaintWithUnlock(surface, desc, scene, projected, serial, stats); }
+        __try { PaintWithUnlock(surface, desc, scene, projected, serial, stats, palette, blend); }
         __except (EXCEPTION_EXECUTE_HANDLER) { stats.stage = "paint-fault"; }
     }
 }
@@ -492,6 +535,21 @@ namespace MoveOrderFeedback
                 scene, desc, first, stats);
             return;
         }
+        Geometry::Palette palette = {};
+        if (!ReadPalette(ta, palette))
+        {
+            LogRender(diagnostic, "palette-unavailable", static_cast<unsigned>(snapshot.size()),
+                static_cast<unsigned>(projected.size()), scene, desc, first, stats);
+            return;
+        }
+        Geometry::BlendTable blend = {};
+        try { blend = PaletteBlend(palette); }
+        catch (...)
+        {
+            LogRender(diagnostic, "palette-cache-fault", static_cast<unsigned>(snapshot.size()),
+                static_cast<unsigned>(projected.size()), scene, desc, first, stats);
+            return;
+        }
         desc.dwSize = sizeof(desc);
         if (!LockSurface(surface, desc))
         {
@@ -501,7 +559,7 @@ namespace MoveOrderFeedback
         }
         // Separate POD SEH envelopes avoid MSVC C2712 and always release a
         // successfully locked surface, including on a native rendering fault.
-        PaintProtected(surface, desc, scene, projected, serial, stats);
+        PaintProtected(surface, desc, scene, projected, serial, stats, palette, blend);
         stats.liveRejected += static_cast<unsigned>(snapshot.size() - projected.size());
         LogRender(diagnostic, stats.stage, static_cast<unsigned>(snapshot.size()),
             static_cast<unsigned>(projected.size()), scene, desc, first, stats);

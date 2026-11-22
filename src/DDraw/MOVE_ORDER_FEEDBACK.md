@@ -12,7 +12,10 @@ units. Queued commands show feedback when issued rather than when the units
 reach that part of the queue. Cancelling a queued destination removes its
 matching temporary feedback. Refused commands do not create feedback.
 
-The arrow has a black outline for visibility on light terrain. Its size follows
+The green lines/arrows and dark arrow outlines blend at approximately **80%
+opacity** with the terrain beneath them. A cached palette lookup keeps this
+fast on TA's indexed-color surface. The live palette is checked on each draw,
+and each pixel of a marker is blended only once. The arrow size follows
 the current view: larger on the battlefield and smaller on the megamap. Lines
 and arrows are clipped to the map view and kept out of native popup panels.
 
@@ -51,9 +54,9 @@ spectating. The renderer does not issue commands or change simulation state.
 ## Validation
 
 Portable geometry, controller and native capture tests cover clipping, endpoint
-arrows, moving origins, unit replacement, expiry, context changes and accepted,
-cancelled or refused commands. Existing formation, grid and extractor
-regressions run alongside them.
+arrows, palette blending and changes, moving origins, unit replacement, expiry,
+context changes and accepted, cancelled or refused commands. Existing formation,
+grid and extractor regressions run alongside them.
 
 The optional-unit-controls workflow builds all eight Escalation switch
 combinations, all seven mod defaults and an OTA opt-in configuration. Each build
