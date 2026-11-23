@@ -13,6 +13,9 @@
 #include "ShareUnitSettings.h"
 #include "Profiler.h"
 #include "config.h"
+#if PREPEND_ORDERS_ENABLE
+#include "PrependOrders.h"
+#endif
 
 #include <cctype>
 #include <cstddef>
@@ -1878,11 +1881,15 @@ bool CUnitRotate::Message(HWND, UINT Msg, WPARAM wParam, LPARAM)
     // genuinely active. Same check the ghost renderer uses.
     if (ta->PrepareOrder_Type != ordertype::BUILD) return false;
 
-    // Don't intercept if Ctrl is held — that's reserved for other hotkeys.
+    // Reserve Ctrl for other hotkeys, except the active prepend chord.
     // Shift is INTENTIONALLY allowed: line-building (shift-click rows) is
     // exactly when the player most often wants to rotate, and forcing them to
     // lift Shift just to press '/' is friction.
-    if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) return false;
+    if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0
+#if PREPEND_ORDERS_ENABLE
+        && !PrependOrders::ModifierDown()
+#endif
+        ) return false;
 
     // The rotation key (default '/' = VK_OEM_2) cycles through the rotations
     // allowed by the current build unit's "Rotations" FBI field. The actual

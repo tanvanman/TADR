@@ -19,6 +19,7 @@
 #include "IncreaseCompositeSize.h"
 #include "CameraBounds.h"
 #include "SmallMapViewport.h"
+#include "PrependOrders.h"
 
 #include "ddraw.h"
 #include "Profiler.h"
@@ -173,10 +174,24 @@ namespace
     // Margin clicks must not turn the clamped height-resolver point into orders.
     void __fastcall DispatchSmallMapCommand(void* context, void*, int* message)
     {
+#if PREPEND_ORDERS_ENABLE
+        const auto* mouse = reinterpret_cast<const MOUSEEVENT*>(message);
+        PrependOrders::Batch prependBatch(mouse && PrependOrders::CommandMessage(mouse->Msg)
+            && PrependOrders::ModifierForMouse(mouse->fwKeys), true);
+#endif
         const TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
         if (HasSmallMap(ta) && (ta->BuildSpotState & 3) == 0) return;
         reinterpret_cast<void (__thiscall*)(void*, int*)>(0x00498F70u)(context, message);
     }
+
+#if PREPEND_ORDERS_ENABLE
+    void __fastcall DispatchRightCommand(void* context, void*, MOUSEEVENT* message)
+    {
+        PrependOrders::Batch prependBatch(message && PrependOrders::CommandMessage(message->Msg)
+            && PrependOrders::ModifierForMouse(message->fwKeys), true);
+        reinterpret_cast<void (__thiscall*)(void*, MOUSEEVENT*)>(0x00499100u)(context, message);
+    }
+#endif
 
     struct SmallMapCall
     {
@@ -196,6 +211,12 @@ namespace
         {0x00498EF9u, {0xE8,0x52,0xBC,0xFE,0xFF}, reinterpret_cast<void*>(&ProjectSmallMapPointer)},
         {0x004995B3u, {0xE8,0xB8,0xF9,0xFF,0xFF}, reinterpret_cast<void*>(&DispatchSmallMapCommand)}
     };
+#if PREPEND_ORDERS_ENABLE
+    SmallMapCall PrependRightClick = {
+        0x004993ACu, {0xE8,0x4F,0xFD,0xFF,0xFF}, reinterpret_cast<void*>(&DispatchRightCommand)
+    };
+#endif
+
     // Map-selection preview fix by TAG_Venom.
     const DWORD MapPreviewCopyCallAddr = 0x004666C0u;
     // PUSH 0, PUSH 0, LEA EDX,[ESP+68], PUSH EDI, PUSH EDX, CALL DrawFrame.
@@ -2672,6 +2693,27 @@ TABugFixing::TABugFixing ()
             }
         }
     }
+
+#if PREPEND_ORDERS_ENABLE
+    {
+        const auto installCall = [this](SmallMapCall& site) {
+            const auto* address = reinterpret_cast<const void*>(site.address);
+            if (memcmp(address, site.expected, sizeof(site.expected)) != 0) return false;
+            site.patch[0] = 0xE8;
+            const DWORD displacement = reinterpret_cast<DWORD>(site.replacement) - (site.address + 5);
+            memcpy(site.patch + 1, &displacement, sizeof(displacement));
+            m_hooks.push_back(std::make_unique<SingleHook>(site.address, sizeof(site.patch),
+                INLINE_UNPROTECTEVINMENT, site.patch));
+            FlushInstructionCache(GetCurrentProcess(), address, sizeof(site.patch));
+            if (memcmp(address, site.patch, sizeof(site.patch)) == 0) return true;
+            m_hooks.pop_back();
+            FlushInstructionCache(GetCurrentProcess(), address, sizeof(site.patch));
+            return false;
+        };
+        const bool right = installCall(PrependRightClick);
+        IDDrawSurface::OutptFmtTxt("[QueuePrepend] input hooks left=%d right=%d", SmallMapHooksInstalled, right);
+    }
+#endif
 
     if (memcmp(reinterpret_cast<const void*>(MapPreviewCopyCallAddr - 10u),
         MapPreviewCopyContext, sizeof(MapPreviewCopyContext)) == 0)
