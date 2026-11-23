@@ -178,6 +178,22 @@
 #endif
 
 //
+// Faster simulation in big battles: engine functions replaced by ones that give
+// the same results, purely faster, so a peer with them and one without stay in
+// sync. One switch for all of them:
+//   * TargetCandidates.h -- the enemies-in-range search (0x40AD80).
+// Every config_*.h defines this explicitly; this fallback is only for a future
+// one that forgets to. Each has a check build for developer measurements, set on
+// the build command line: TDRAW_TARGET_CANDIDATES_VERIFY=1.
+//
+#ifndef FAST_SIMULATION_ENABLE
+#define FAST_SIMULATION_ENABLE 0
+#endif
+#ifndef TDRAW_TARGET_CANDIDATES_VERIFY
+#define TDRAW_TARGET_CANDIDATES_VERIFY 0
+#endif
+
+//
 // BuildWeaponSlotGuard -- fixes the stockpile ("Nanolathing") build-percent
 // divide-by-zero crash. Real cause (corrected 2026-09-14, PR #26 review): a
 // unit-identity divergence can make a legitimately-issued order reference a weapon

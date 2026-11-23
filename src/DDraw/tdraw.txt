@@ -122,6 +122,7 @@ NEW FEATURES IN BRIEF:
 - Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
 - Stop the main-menu background hum from continuing into a restarted game when unlimited sound mixing is enabled (thanks TAG_Venom)
 - AI commanders no longer abandon their orders when attacked
+- Faster weapon target search in large battles: the same targets are chosen, so it cannot desync a game
 
 *2026.10.6
 - Fix ctrl-F and ctrl-B skipping your most recently built factories/constructors once you had lost any units

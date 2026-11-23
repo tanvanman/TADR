@@ -313,6 +313,12 @@
     <ClCompile Include="CobDispatchTable.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FunctionPatch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TargetCandidates.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="BuildWeaponSlotGuard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -706,6 +712,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CobDispatchTable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FunctionPatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TargetCandidates.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="BuildWeaponSlotGuard.h">
