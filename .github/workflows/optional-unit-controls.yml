@@ -30,12 +30,6 @@ jobs:
           /tmp/build-rectangle-test
           python3 src/DDraw/test/build_rectangle_input_test.py
           python3 src/DDraw/test/build_rectangle_gesture_test.py
-      - name: Check move destination capture and rendering
-        run: |
-          g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/move_order_feedback_geometry_test.cpp -o /tmp/move-feedback-geometry
-          /tmp/move-feedback-geometry
-          python3 src/DDraw/test/move_order_feedback_capture_test.py
-          python3 src/DDraw/test/move_order_feedback_controller_test.py
   windows:
     runs-on: windows-latest
     strategy:
@@ -78,8 +72,6 @@ jobs:
         run: |
           python src/DDraw/test/verify_optional_unit_controls.py src/DDraw/Public/tdraw.dll --formations ${{ matrix.formations }} --mex ${{ matrix.mex }} --grid ${{ matrix.grid }}
           if ($LASTEXITCODE -ne 0) { throw 'Optional unit controls verification failed' }
-          python src/DDraw/test/verify_move_order_feedback.py src/DDraw/Public/tdraw.dll --enabled ${{ matrix.formations }}
-          if ($LASTEXITCODE -ne 0) { throw 'Move destination feedback verification failed' }
       - name: Verify Windows 7 imports
         shell: pwsh
         run: |

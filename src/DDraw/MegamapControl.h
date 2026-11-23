@@ -38,8 +38,6 @@ public:
     // ordinary megamap commands. Screen arguments are absolute client pixels.
     bool FormationGroundPoint(Position_Dword* point, int screenX, int screenY);
     bool FormationScreenPoint(POINT* screen, RECT* clip, const Position_Dword& point);
-    // Passive projection for clipped command lines, including off-screen units.
-    bool MoveFeedbackScreenPoint(POINT* screen, RECT* clip, const Position_Dword& point);
 #endif
 
 #if GRID_BUILDING_ENABLE

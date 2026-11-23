@@ -24,19 +24,6 @@ The engine still handles terrain and pathfinding, so blocked or unreachable
 positions may prevent an exact formation. Units move individually; they do not
 maintain the wall while travelling. No new network packet types are introduced.
 
-## Move destination feedback
-
-All accepted move orders show green lines and destination arrows for 0.5 seconds
-at approximately 80% opacity on the battlefield and megamap, including ordinary
-single-unit moves from a commander, Shift-queued moves and committed formations. A line follows its unit
-as it moves; its outlined destination arrow stays fixed. This requires no held
-key after the command. The drawing preview's green squares are unchanged.
-
-Feedback follows the existing `DRAWN_MOVE_FORMATIONS_ENABLE` compile switch.
-`DrawnMoveFormations=FALSE` and `DrawnMovePreview=FALSE` do not disable it.
-Feedback is local presentation and is not displayed while spectating or watching
-a replay. See [move order feedback](../MOVE_ORDER_FEEDBACK.md).
-
 ## Automated checks
 
 From the repository root on Linux:
@@ -46,16 +33,11 @@ g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/t
 /tmp/drawn-move-test
 python3 src/DDraw/test/drawn_move_input_test.py
 python3 src/DDraw/test/drawn_move_input_test.py --mod PROTA
-g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/move_order_feedback_geometry_test.cpp -o /tmp/move-feedback-geometry
-/tmp/move-feedback-geometry
-python3 src/DDraw/test/move_order_feedback_capture_test.py
-python3 src/DDraw/test/move_order_feedback_controller_test.py
 ```
 
-The validation workflow builds all eight Escalation switch combinations,
-all seven mod defaults and an OTA opt-in configuration with MSVC. Each build
-checks that feedback follows the formations compile switch and uploads a DLL
-artifact. It does not publish releases.
+The validation workflow builds Escalation and ProTA on the test branch and all seven
+mod configurations for pull requests with MSVC, and
+uploads one DLL artifact per mod. It does not publish releases.
 
 ## Required in-game checks before declaring ready for release
 
@@ -94,15 +76,7 @@ artifact. It does not publish releases.
   the normal selected-unit dispatcher emits one move for each intended unit,
   no commands reach other units, and no desynchronisation occurs.
 - Record that game and replay it on both clients, including Shift queues.
-- Disable DrawnMoveFormations and confirm stock input is restored while accepted
-  ordinary moves still show their brief destination feedback.
-- With one commander selected, issue an ordinary move and a Shift-queued move
-  on each map. Confirm both show feedback after native acceptance.
-- During the 0.5-second feedback, confirm the line follows the unit and the
-  arrow stays at the assigned destination. Verify expiry while paused, Shift
-  cancellation, death, transfer and unit replacement. Feedback must not survive
-  returning to the menu and starting a new game.
-- Confirm destination feedback is absent while watching a replay or spectating.
+- Disable DrawnMoveFormations and confirm stock input is restored.
 
 Multiplayer/replay behaviour and terrain projection require the actual game;
 geometry tests and a successful DLL build do not establish these properties.
