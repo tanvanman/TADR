@@ -115,7 +115,14 @@ EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom b
 
 NEW FEATURES IN BRIEF:
 
-*????.??.??
+*2026.11.25
+- Split the auto-share surplus among all allies, add +givemetal and +giveenergy, and drop invalid received resource
+  packets (escalation only; thanks RDKL; see NEW FEATURES IN DETAIL)
+- Show the unit health bar in five colours, in 20% steps (escalation only; thanks RDKL)
+- TA:Zero: aircraft are targetable up to 32 tiles off the map, explosions damage every aircraft stacked on a spot,
+  projectiles pass through allied players' units, and nukes get the megamap nuke icon
+- Recorder update to 2026.11.4, including fixes for recorder exceptions, configuration handling and timer overflow (thanks
+  TAG_Venom)
 - Optimise allied queued-build overlays with on-demand, paced queue updates (thanks TAG_Venom)
 - Add opt-in ally economy bars and replay totals using the native TA HUD font (thanks TAG_Venom)
 - Organise Ctrl-F2 settings into shared TA-style tabbed pages (thanks TAG_Venom)
@@ -359,6 +366,22 @@ NEW FEATURES IN BRIEF:
 - Change ctrl+s to use CTRL_W and NOTAIR/NAIR categories so as not to select jammers etc
 
 NEW FEATURES IN DETAIL:
+
+- Auto-share split and +givemetal / +giveenergy (escalation only)
+
+  Auto-share divides the surplus equally among every eligible ally instead of
+  sending it all to one. Each share is capped at that ally's free storage. An
+  ally is eligible if both players have allied each other, it is alive and not
+  a spectator, has free storage, and is less full than the sender.
+
+  +givemetal <player> <amount>
+  +giveenergy <player> <amount>
+  +give <player> <amount> metal|energy
+
+  <player> is an exact name, a slot number from 0 to 9, or the start of a name
+  if only one player matches. Only allies can receive. The amount sent is
+  limited to what you have and what the receiver has room for. A chat line
+  reports the result or why nothing was sent.
 
 - Enhanced allied resource bars and replay totals
 
