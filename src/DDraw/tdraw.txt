@@ -38,13 +38,17 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   auto kickout of construction units blocking a builder       y     y     y      n     y      y      y
   patrol reclaim thresholds, +setreclaimmetal/energy  [1]     y     y     y      n     y      y      y
   percentage share thresholds, +setsharemetal 50%             y     y     y      n     y      y      y
+  auto-share surplus split among all allies                   n     y     n      n     n      n      n
+  +givemetal / +giveenergy                                    n     y     n      n     n      n      n
+  invalid received resource packets are dropped               n     y     n      n     n      n      n
   weather report at top of screen (the game clock)            y     y     y      n     y      y      y
      ... including its wind and tidal readouts                y     y     y      n     n      y      y
   sync wind speed between players                             y     y     y      n     y      y      y
   map DTs and fortwalls always visible                        y     y     y      n     y      y      y
   map features (mexes, geos, spires, walls) on megamap        y     y     y      n     y      n      y
-  off-map aircraft targetable, in tiles past the map edge     1     32    32     1     1      1      1
-  explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     n      n      y
+  megamap nuke icon needs a stockpile weapon                  y     y     y      y     n      y      y
+  off-map aircraft targetable, in tiles past the map edge     1     32    32     1     32     1      1
+  explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     y      n      n
   projectiles pass through allied players' units              y     n     n      n     y      n      n
   ground constructors can guard / assist air constructors     n     y     y      n     n      n      n
   air repair beam shown only while the repair is paid for     n     y     y      n     n      n      n
@@ -55,6 +59,8 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   stockpile build-percent / weapon-slot crash guard  [4]      n     y     n      n     n      n      n
   COB opcode jump table (speed only, same behaviour)  [4]     n     y     n      n     n      n      n
   allied queued-build overlays                                y     n     n      n     n      n      n
+  enhanced allied resource bars and replay totals             y     n     n      n     n      n      n
+  five-colour unit health bar                                 n     y     n      n     n      n      n
 
   [1] the thresholds also gate air construction units, which vanilla never gated at all --
       read NEW FEATURES IN DETAIL before enabling this for a new mod

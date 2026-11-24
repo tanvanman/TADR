@@ -1,54 +1,46 @@
 name: Build and Release tdraw.dll
 
+# Pull requests and master: build all seven configurations and check them.
+# release-candidate/*: the same, run by the release automation before anything reaches master.
+# v* tags: build, then publish the release with all seven zips in one step.
 on:
   push:
     branches:
       - master
+      - 'release-candidate/**'
     tags:
-      - '*'
+      - 'v*'
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  create-release:
+  config-table:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-      pull-requests: write
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    #
-    # MASTER → prerelease ("latest")
-    #
-
-    - name: Create prerelease
-      uses: marvinpinto/action-automatic-releases@latest
-      if: github.ref == 'refs/heads/master'
       with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "latest"
-        prerelease: true
-        title: "Development Build"
+        persist-credentials: false
 
-    #
-    # TAGS → real releases
-    #
+    # Contributors leave tdraw.txt alone (see CONTRIBUTING.md), so on a pull request this only
+    # checks that the headers can be evaluated; releases must match exactly.
+    - name: Evaluate the per-mod configuration headers
+      run: python3 src/DDraw/tools/config_table.py --markdown >> "$GITHUB_STEP_SUMMARY" || ${{ github.event_name == 'pull_request' }}
 
-    - name: Create release
-      uses: marvinpinto/action-automatic-releases@latest
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        prerelease: false
+    - name: Check the configurations table in tdraw.txt
+      if: startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/release-candidate/')
+      run: python3 src/DDraw/tools/config_table.py --check
 
   build-tdraw:
     runs-on: windows-latest
-    needs: create-release
-
-    permissions:
-      contents: write
 
     strategy:
       matrix:
@@ -77,7 +69,9 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Set up MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -120,46 +114,46 @@ jobs:
         }
         Compress-Archive -Path $items -DestinationPath "src/DDraw/Public/tdraw-${{ matrix.config.name }}.zip" -Force
 
-    - name: Upload prerelease asset (${{ matrix.config.name }})
-      if: github.ref == 'refs/heads/master'
-      shell: pwsh
-      run: |
-        gh release upload latest src/DDraw/Public/tdraw-${{ matrix.config.name }}.zip --clobber
-        if ($LASTEXITCODE -ne 0) { throw "gh release upload failed with $LASTEXITCODE" }
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Keep archive (${{ matrix.config.name }})
+      uses: actions/upload-artifact@v4
+      with:
+        name: tdraw-${{ matrix.config.name }}
+        path: src/DDraw/Public/tdraw-${{ matrix.config.name }}.zip
+        if-no-files-found: error
 
-    - name: Upload release asset (${{ matrix.config.name }})
-      if: startsWith(github.ref, 'refs/tags/')
-      shell: pwsh
-      run: |
-        gh release upload "${{ github.ref_name }}" src/DDraw/Public/tdraw-${{ matrix.config.name }}.zip --clobber
-        if ($LASTEXITCODE -ne 0) { throw "gh release upload failed with $LASTEXITCODE" }
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  verify-assets:
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    needs: build-tdraw
+    needs: [config-table, build-tdraw]
 
+    # The only job that can write. It runs no repository code.
     permissions:
-      contents: read
+      contents: write
 
     steps:
-    - name: Confirm every expected asset is attached
-      shell: bash
+    - name: Collect the seven archives
+      uses: actions/download-artifact@v4
+      with:
+        path: zips
+        merge-multiple: true
+
+    - name: Confirm every expected asset was built
       run: |
-        if [ "${{ github.ref_type }}" = "tag" ]; then TAG="${{ github.ref_name }}"; else TAG="latest"; fi
-        # Every mod now ships one zip carrying tdraw.dll and that mod's recorder DLL.
-        EXPECTED="tdraw-ota.zip tdraw-prota.zip tdraw-escalation.zip tdraw-tazero.zip \
-                  tdraw-bta.zip tdraw-mayhem.zip tdraw-twilight.zip"
-        ACTUAL=$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')
-        echo "attached to $TAG:"; echo "$ACTUAL" | sed 's/^/  /'
-        MISSING=""
-        for a in $EXPECTED; do
-          echo "$ACTUAL" | grep -qx "$a" || MISSING="$MISSING $a"
+        for m in ota prota escalation tazero bta mayhem twilight; do
+          test -s "zips/tdraw-$m.zip" || { echo "missing tdraw-$m.zip"; exit 1; }
         done
-        if [ -n "$MISSING" ]; then echo "MISSING:$MISSING"; exit 1; fi
-        echo "all 7 assets present"
+
+    # The release notes are the annotated tag's message. A four-part version such as
+    # v2026.11.25.2 (second release of a day) is fine here; nothing parses it as semver.
+    - name: Publish
+      run: |
+        gh api "repos/$REPO/git/ref/tags/$TAG" --jq '.object | select(.type=="tag") | .sha' > tagsha
+        : > notes.md
+        if [ -s tagsha ]; then
+          gh api "repos/$REPO/git/tags/$(cat tagsha)" --jq .message | tail -n +3 > notes.md
+        fi
+        gh release create "$TAG" zips/*.zip --repo "$REPO" --verify-tag --latest --title "$TAG" --notes-file notes.md
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        TAG: ${{ github.ref_name }}
