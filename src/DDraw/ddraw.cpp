@@ -60,6 +60,7 @@ using namespace std;
 #include "RepairRateFix.h"
 #include "CobDispatchTable.h"
 #include "TargetCandidates.h"
+#include "ParticleWalk.h"
 #include "BuildWeaponSlotGuard.h"
 #include "TransportedExplosions.h"
 #include "AreaDamageOverflow.h"
@@ -312,6 +313,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if FAST_SIMULATION_ENABLE
 		TargetCandidates::Install();
+		ParticleWalk::Install();
 #endif
 		BuildWeaponSlotGuard::Install();
 		GroundToAirGuard::Install();
@@ -373,6 +375,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if FAST_SIMULATION_ENABLE
 		TargetCandidates::Shutdown();
+		ParticleWalk::Shutdown();
 #endif
 		BuildWeaponSlotGuard::Shutdown();
 		GroundToAirGuard::Shutdown();

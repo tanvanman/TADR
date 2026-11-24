@@ -181,16 +181,21 @@
 // Faster simulation in big battles: engine functions replaced by ones that give
 // the same results, purely faster, so a peer with them and one without stay in
 // sync. One switch for all of them:
-//   * TargetCandidates.h -- the enemies-in-range search (0x40AD80).
+//   * TargetCandidates.h -- the enemies-in-range search (0x40AD80);
+//   * ParticleWalk.h -- the particle layers' tick (0x471EB0) in one pass.
 // Every config_*.h defines this explicitly; this fallback is only for a future
 // one that forgets to. Each has a check build for developer measurements, set on
-// the build command line: TDRAW_TARGET_CANDIDATES_VERIFY=1.
+// the build command line: TDRAW_TARGET_CANDIDATES_VERIFY=1,
+// TDRAW_PARTICLE_WALK_VERIFY=1.
 //
 #ifndef FAST_SIMULATION_ENABLE
 #define FAST_SIMULATION_ENABLE 0
 #endif
 #ifndef TDRAW_TARGET_CANDIDATES_VERIFY
 #define TDRAW_TARGET_CANDIDATES_VERIFY 0
+#endif
+#ifndef TDRAW_PARTICLE_WALK_VERIFY
+#define TDRAW_PARTICLE_WALK_VERIFY 0
 #endif
 
 //

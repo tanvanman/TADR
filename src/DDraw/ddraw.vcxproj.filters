@@ -322,6 +322,9 @@
     <ClCompile Include="BuildWeaponSlotGuard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ParticleWalk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="TransportedExplosions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -721,6 +724,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="BuildWeaponSlotGuard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ParticleWalk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TransportedExplosions.h">

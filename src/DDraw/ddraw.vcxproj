@@ -360,6 +360,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="BuildWeaponSlotGuard.cpp" />
     <ClCompile Include="DebugPipeServer.cpp" />
     <ClCompile Include="VoteDialog.cpp" />
+    <ClCompile Include="ParticleWalk.cpp" />
     <ClCompile Include="LagSwitchGuard.cpp" />
     <ClCompile Include="VoteReject.cpp" />
     <ClCompile Include="ShareGuard.cpp" />
@@ -411,6 +412,7 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="BuildWeaponSlotGuard.h" />
     <ClInclude Include="TransportedExplosions.h" />
     <ClInclude Include="AreaDamageOverflow.h" />
+    <ClInclude Include="ParticleWalk.h" />
     <ClInclude Include="GridClaimTieBreak.h" />
     <ClInclude Include="SharePercent.h" />
     <ClInclude Include="GroundToAirGuard.h" />
