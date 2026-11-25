@@ -24,20 +24,20 @@ Anything that can change simulation results needs a switch, even a bug fix. So d
 - Define the switch explicitly, as 0 or 1, in **all seven** `config_*.h` files. Each mod's file lists what that mod enables.
 - Don't add a header per feature that decides which mods get it, infer a default from `TDRAW_CONFIG_*`, give a new switch a fallback in `config.h`, or add an override through MSBuild properties or `-D`. `config.h` may check a switch with `#error`.
 - Set a new switch to 0 for every mod you don't speak for, and leave other mods' existing values alone. If you maintain a mod and aren't recorded as speaking for it, say so in the pull request.
-- Simulation behaviour is chosen at compile time only, never by an ini key, environment variable or checkbox.
+- Only a `config_*.h` switch counts. An ini key, menu option, environment variable or checkbox is not a gate, even if it defaults to off: each player controls their own, and a mod must be able to guarantee that a feature is off for everyone. You may add an ini key as well, so that a player can turn off for themselves what the build enables.
 
 ## Patching the engine
 
 - Check the bytes before patching, and disable your feature with a log line if they don't match.
 - Look for other patches nearby, including in the recorder sources, where a splice is 5 bytes plus its `extra` argument. Say in your description what you checked.
-- Use the fields in `tamem.h` rather than your own offsets.
+- Use the fields in `tamem.h` rather than your own offsets, wherever practical. If the field you need is hidden inside a generic `data` member, split it out in `tamem.h` with a real name and type, keep the layout, and add a `static_assert` on its offset.
 - Nothing local may affect the simulation: settings, locale, wall-clock time, rendering, uninitialised memory or who the local player is.
 - No Windows 8+ imports. `tools/check_win7_imports.py` runs in CI.
 - Keep each file's line endings.
 
 ## Network and recordings
 
-- The `.tad` format is frozen. Don't change packet or status record sizes, or what an existing packet means.
+- The `.tad` format is frozen. Don't change packet or status record sizes, or what an existing packet means. If you use spare bytes of an existing packet, list every reader you checked; a maintainer has to agree to it.
 - New traffic goes in a chat-hijack packet with an ID reserved in `ChatHijackIds.h` and a size byte the receiver checks. Clients and parsers that don't know it must be able to ignore it.
 - Packet handlers never send.
 
