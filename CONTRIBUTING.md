@@ -45,9 +45,9 @@ Anything that can change simulation results needs a switch, even a bug fix. So d
 
 Players will be on different releases. Your change must work in a game with the previous release and with older recorders, or be 0 for every mod. It must not need another program, such as gpgnet4ta, the recorder, the replayer or the TAF client, to be updated at the same moment.
 
-## Play it
+## If you played it
 
-If your change affects simulation results, orders or network traffic, say in the description what you played in multiplayer and what you replayed, and on which commit.
+This isn't required, but if you played your change in multiplayer or replayed a recording, say so in the description, and on which commit. It helps the mod developers, who test before they release.
 
 ## The configurations table
 
