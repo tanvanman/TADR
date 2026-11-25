@@ -310,6 +310,9 @@
     <ClCompile Include="RepairRateFix.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SelfHealRate.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="CobDispatchTable.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -703,6 +706,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RepairRateFix.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SelfHealRate.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CobDispatchTable.h">

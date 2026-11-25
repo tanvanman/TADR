@@ -293,6 +293,30 @@
 #endif
 
 //
+// Self-heal energy and SelfHealRate -- see config_escalation.h. Both defined
+// explicitly in every config_*.h, no fallback.
+//
+#ifndef SELFHEAL_FREE_ENERGY
+#error "config_*.h must define SELFHEAL_FREE_ENERGY explicitly (0 or 1)"
+#endif
+#ifndef SELFHEAL_RATE_ENABLE
+#error "config_*.h must define SELFHEAL_RATE_ENABLE explicitly (0 or 1)"
+#endif
+// The energy cost is removed inside RepairRateFix's hook: without it the flag
+// would do nothing.
+#if SELFHEAL_FREE_ENERGY && !REPAIR_RATE_FIX_ENABLE
+#error "SELFHEAL_FREE_ENERGY requires REPAIR_RATE_FIX_ENABLE 1"
+#endif
+// SelfHealRate reproduces RepairRateFix's HealTime formula (exact accumulator,
+// SELFHEAL multiplier) with no energy cost for units without the key.
+#if SELFHEAL_RATE_ENABLE && !(REPAIR_RATE_FIX_ENABLE && SELFHEAL_FREE_ENERGY)
+#error "SELFHEAL_RATE_ENABLE requires REPAIR_RATE_FIX_ENABLE 1 and SELFHEAL_FREE_ENERGY 1"
+#endif
+#if SELFHEAL_RATE_ENABLE && !defined(SELFHEAL_RATE_FBI_KEY)
+#error "SELFHEAL_RATE_ENABLE requires SELFHEAL_RATE_FBI_KEY (\"SelfHealRate\" or \"HealTime\")"
+#endif
+
+//
 // GroundToAirGuard: lets a ground CanGuard unit be given an explicit Guard order on a
 // flying ally (e.g. a ground constructor guarding/assisting an air constructor's
 // build) -- vanilla only allows this when the GUARDIAN flies. Reachable only through

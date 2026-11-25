@@ -25,6 +25,8 @@
     {"label": "weapon IDs above 255 in Weapons/*.tdf", "macros": ["TDRAW_EXTENDED_WEAPON_IDS"], "kind": "bool"},
     {"label": "share-abuse guard (share rate limit, .take refusal)", "macros": ["SHARE_ABUSE_GUARD"], "kind": "bool"},
     {"label": "repair rate exploit fix  [3]", "macros": ["REPAIR_RATE_FIX_ENABLE"], "kind": "bool"},
+    {"label": "passive self-heal costs no energy", "macros": ["SELFHEAL_FREE_ENERGY"], "kind": "bool"},
+    {"label": "HealTime is effective HP per second, with decimals", "macros": ["SELFHEAL_RATE_ENABLE"], "kind": "bool"},
     {"label": "wrecks of aircraft killed over land fall to the ground", "macros": ["AIR_CORPSE_FALL_ENABLE"], "kind": "bool"},
     {"label": "stockpile build-percent / weapon-slot crash guard  [4]", "macros": ["BUILD_WEAPON_SLOT_GUARD_ENABLE"], "kind": "bool"},
     {"label": "COB opcode jump table (speed only, same behaviour)  [4]", "macros": ["COB_DISPATCH_TABLE_ENABLE"], "kind": "bool"},
@@ -37,6 +39,7 @@
     "MAX_WRECK_SNAP_RADIUS": "follows the default radius",
     "REPAIR_RATE_FIX_REPAIR_MULTIPLIER": "described in note [3]",
     "REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER": "described in note [3]",
+    "SELFHEAL_RATE_FBI_KEY": "the FBI key SelfHealRate reads, defined only where SELFHEAL_RATE_ENABLE is 1",
     "TDRAW_CONFIG_NAME": "the name of the build"
   }
 }

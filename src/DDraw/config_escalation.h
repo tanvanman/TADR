@@ -79,6 +79,32 @@
 #define REPAIR_RATE_FIX_REPAIR_MULTIPLIER 3
 #define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 3
 
+// Passive self-heal costs no energy and is not stopped by an energy stall.
+// Vanilla charges max(1, ceil(BuildCostEnergy * t / BuildTime)) energy per
+// regen firing (t = floor(HealTime * 16 / 15)), so raising HealTime to win back
+// regen speed raised the drain with it. Active repair still pays. Requires
+// REPAIR_RATE_FIX_ENABLE 1 (the cost is removed inside its hook).
+#define SELFHEAL_FREE_ENERGY 1
+
+// SelfHealRate.cpp takes over the passive-regen block (0x48AF37-0x48AF9A).
+// FBI key `<SELFHEAL_RATE_FBI_KEY>=N;` = N HP per second as the player sees it,
+// up to 3 decimals (12.5, 0.75): raw HP per second = N * DamageModifier, so two
+// units with the same N regenerate the same effective HP whatever
+// DamageModifier they use to fake their health. Applied every tick, free. A
+// unit whose key is absent or <= 0 keeps the HealTime formula above
+// (multiplier included), also free. Requires REPAIR_RATE_FIX_ENABLE 1 and
+// SELFHEAL_FREE_ENERGY 1.
+#define SELFHEAL_RATE_ENABLE 1
+// Which FBI key holds N. "HealTime" (Escalation's choice) = HealTime itself is
+// N for every unit: the engine reads HealTime nowhere else once the regen
+// block is replaced, and the key matches case-insensitively like every FBI
+// key. FBI data and this DLL must ship together: an older DLL (or a DISABLED
+// install) reads the integer part with the old formula. Any other name = a new
+// key, and units without it keep the HealTime formula.
+// N uses the unit type's DamageModifier (not the live ARMORED state), so a
+// unit that drops its armour (CORMS when stacked) does not heal faster.
+#define SELFHEAL_RATE_FBI_KEY "HealTime"
+
 // Wrecks of aircraft killed over land fall to the ground instead of hanging at
 // the altitude they died. Vanilla only seeds a fall velocity on the water path,
 // so land wrecks are never simulated. Changes where reclaimable wreckage ends

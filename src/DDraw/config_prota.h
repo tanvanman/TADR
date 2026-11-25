@@ -58,6 +58,9 @@
 // compile time) -- must be 1/1 here since the fix itself is off.
 #define REPAIR_RATE_FIX_REPAIR_MULTIPLIER 1
 #define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 1
+// Self-heal energy / SelfHealRate: Escalation-only (see config_escalation.h).
+#define SELFHEAL_FREE_ENERGY 0
+#define SELFHEAL_RATE_ENABLE 0
 
 //
 // COB script VM -- opcode dispatch

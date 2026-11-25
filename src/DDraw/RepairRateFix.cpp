@@ -284,6 +284,9 @@ int32_t ComputeVanillaEnergyCeil(float buildCostEnergy, float t, int32_t buildTi
 //      which of the two the call turns out to be -- see the discrimination
 //      comment below. A balance buff, not a fix; energy cost is untouched on
 //      purpose, per Wotan.
+//   7. With SELFHEAL_FREE_ENERGY, the passive-regen call (0x48AF96) costs no
+//      energy and skips the resource gate (see the body). Active repair keeps
+//      vanilla's energy cost and gate.
 int __stdcall HealUnit_HealTimeWay_Fixed(void* repairer, void* target, float t)
 {
     UnitStruct* tgt = static_cast<UnitStruct*>(target);
@@ -305,29 +308,42 @@ int __stdcall HealUnit_HealTimeWay_Fixed(void* repairer, void* target, float t)
 
     int32_t tInt = static_cast<int32_t>(t);   // t is always integral at every known call site (see CLAUDE.md)
 
-    int32_t energy = ComputeVanillaEnergyCeil(def->buildcostenergy, t, buildTime);
+    const bool isPassiveSelfHeal =
+        (reinterpret_cast<uintptr_t>(_ReturnAddress()) == kPassiveRegenReturnAddr);
 
-    // Unit+0xBC: unnamed resource-accounting block inside UnitStruct::data17[50] in
-    // this repo's tamem.h -- reached by raw offset rather than restructuring that
-    // struct (its layout beyond this one field is unverified and other code may
-    // depend on its declared size).
-    void* resourceBlock = reinterpret_cast<char*>(repairer) + 0xBC;
+    // SELFHEAL_FREE_ENERGY: passive HealTime regen skips the energy cost AND the
+    // resource gate, so it neither drains energy nor stops when the economy stalls.
+    // Vanilla charges it max(1, ceil(BuildCostEnergy * t / BuildTime)) per firing
+    // from the unit's own block, which grows with HealTime. Active repair (the four
+    // order call sites, including Order_SelfRepair) is unchanged. Passive regen runs
+    // only on the owner's client (owner gate 0x48AEB5, ENGINE_NOTES 14.4), so this
+    // changes only the owner's own economy accounting.
+#if SELFHEAL_FREE_ENERGY
+    if (!isPassiveSelfHeal)
+#endif
+    {
+        int32_t energy = ComputeVanillaEnergyCeil(def->buildcostenergy, t, buildTime);
 
-    // The resource gate MUST run, and MUST succeed, before the accumulator below is
-    // touched: otherwise a boundary-crossing tick that fails the energy check would
-    // silently discard banked HP fraction. (This was a real bug in the first
-    // live-tested version of this fix; the ordering here is load-bearing, not
-    // stylistic.)
-    if (!RepairHasEnoughResources(resourceBlock, static_cast<float>(energy)))
-        return 0;                          // gate failed: nothing banked, nothing lost
+        // Unit+0xBC: unnamed resource-accounting block inside UnitStruct::data17[50] in
+        // this repo's tamem.h -- reached by raw offset rather than restructuring that
+        // struct (its layout beyond this one field is unverified and other code may
+        // depend on its declared size).
+        void* resourceBlock = reinterpret_cast<char*>(repairer) + 0xBC;
+
+        // The resource gate MUST run, and MUST succeed, before the accumulator below is
+        // touched: otherwise a boundary-crossing tick that fails the energy check would
+        // silently discard banked HP fraction. (This was a real bug in the first
+        // live-tested version of this fix; the ordering here is load-bearing, not
+        // stylistic.)
+        if (!RepairHasEnoughResources(resourceBlock, static_cast<float>(energy)))
+            return 0;                      // gate failed: nothing banked, nothing lost
+    }
 
     if (tInt <= 0)
         return 1;                          // gate passed, nothing owed this tick -- two of
                                             // the five callers gate nano-beam drawing on the
                                             // return value, so this must still be 1
 
-    const bool isPassiveSelfHeal =
-        (reinterpret_cast<uintptr_t>(_ReturnAddress()) == kPassiveRegenReturnAddr);
     const int32_t multiplier = isPassiveSelfHeal
         ? REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER
         : REPAIR_RATE_FIX_REPAIR_MULTIPLIER;
