@@ -98,6 +98,11 @@ CIncome::CIncome(BOOL VidMem):
 
 CIncome::~CIncome()
 {
+	// The window procedure dispatches to LocalShare->Income; leaving it set made it call Message() on this freed object
+	// (use-after-free) until the next CIncome was created. Clear it only if it still points here.
+	if (LocalShare->Income == this)
+		LocalShare->Income = NULL;
+
 	if(lpIncomeSurf)
 		lpIncomeSurf->Release();
 

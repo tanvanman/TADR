@@ -85,5 +85,6 @@ void CMinimapHandler::FrameUpdate()
 		bufout[i] = bufin[i];
 	}
 
-	((AlliesWhiteboard*)LocalShare->Whiteboard)->DrawMinimapMarkers((char*)bufout, TAdynmem->RadarFinal->XSize, true);
+	if (LocalShare->Whiteboard)
+		((AlliesWhiteboard*)LocalShare->Whiteboard)->DrawMinimapMarkers((char*)bufout, TAdynmem->RadarFinal->XSize, true);
 }
