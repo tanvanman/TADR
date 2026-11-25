@@ -19,7 +19,7 @@ The release step writes `src/DDraw/tdraw.txt`, the version in `totala.ini` and t
 
 ## Gate it per mod
 
-Anything that can change simulation results needs a switch, even a bug fix. So does every feature, interface addition or assistance to the player. Display-only fixes, crash fixes that leave healthy games unchanged, and pure refactors don't.
+Anything that can change simulation results needs a switch, even a bug fix. So does every feature, interface addition or assistance to the player. Display-only fixes, crash fixes that leave healthy games unchanged, and pure refactors don't. Nor does a change that only takes effect while a recording is played back or watched, as long as it does nothing in a live game, including one played later in the same process.
 
 - Define the switch explicitly, as 0 or 1, in **all seven** `config_*.h` files. Each mod's file lists what that mod enables.
 - Don't add a header per feature that decides which mods get it, infer a default from `TDRAW_CONFIG_*`, give a new switch a fallback in `config.h`, or add an override through MSBuild properties or `-D`. `config.h` may check a switch with `#error`.
