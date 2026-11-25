@@ -99,7 +99,7 @@
 // config.h defaults this to 0 everywhere else.
 #define COB_DISPATCH_TABLE_ENABLE 1
 
-// Faster simulation in big battles, the same results. See config.h.
+// Faster simulation in big battles; cannot desync a game. See config.h.
 #define FAST_SIMULATION_ENABLE 1
 
 //

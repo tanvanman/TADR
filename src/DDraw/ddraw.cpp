@@ -61,6 +61,7 @@ using namespace std;
 #include "CobDispatchTable.h"
 #include "TargetCandidates.h"
 #include "ParticleWalk.h"
+#include "Pathfinder.h"
 #include "BuildWeaponSlotGuard.h"
 #include "TransportedExplosions.h"
 #include "AreaDamageOverflow.h"
@@ -314,6 +315,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if FAST_SIMULATION_ENABLE
 		TargetCandidates::Install();
 		ParticleWalk::Install();
+		Pathfinder::Install();
 #endif
 		BuildWeaponSlotGuard::Install();
 		GroundToAirGuard::Install();
@@ -376,6 +378,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if FAST_SIMULATION_ENABLE
 		TargetCandidates::Shutdown();
 		ParticleWalk::Shutdown();
+		Pathfinder::Shutdown();
 #endif
 		BuildWeaponSlotGuard::Shutdown();
 		GroundToAirGuard::Shutdown();
