@@ -43,6 +43,7 @@ static bool g_replayFinished = false;
 static bool g_replayEnding = false;
 static bool g_insideReplaySimulation = false;
 static bool g_forcedReplayEnd = false;
+static bool g_closingReplayToResults = false;
 
 static void ResetReplayEnd(int gameTime)
 {
@@ -54,15 +55,16 @@ static void ResetReplayEnd(int gameTime)
 		g_replayEnding = false;
 		g_insideReplaySimulation = false;
 		g_forcedReplayEnd = false;
+		g_closingReplayToResults = false;
 	}
 	g_endLastGameTime = gameTime;
 }
 
 static void RememberReplaySources(TAdynmemStruct* ta)
 {
-	// Explicit terminal role metadata also covers a tenth player with no data
+	// Explicit role metadata from BEG also covers a tenth player with no data
 	// packets. Resolve the real local controller independently of selected POV
-	// before its final funnel marker reaches the existing raw receive wrapper.
+	// during loading, before its first funnel packet reaches the receive wrapper.
 	if (!LOCAL_HUMAN_PLAYER && g_endFences.viewerIsRecordedPlayer==1)
 		for (unsigned i=0; i<10; ++i)
 			if (ta->Players[i].PlayerActive && ta->Players[i].My_PlayerType==Player_LocalHuman) {
@@ -80,7 +82,7 @@ static int __stdcall ReplaySimulationBeginProc(PInlineX86StackBuffer)
 	if (ta) {
 		ResetReplayEnd(ta->GameTime);
 		g_insideReplaySimulation = DataShare->PlayingDemo && DataShare->TAProgress==TAInGame &&
-			*(unsigned*)((char*)ta+0x38a3b)!=0;
+			ta->DeltaTime!=0;
 		if (g_insideReplaySimulation) RememberReplaySources(ta);
 	}
 	return 0;
@@ -112,7 +114,7 @@ static int __stdcall ReplayPacketDequeuedProc(PInlineX86StackBuffer stack)
 {
 	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
 	if (!ta || !DataShare->PlayingDemo) return 0;
-	const unsigned guiState = *(unsigned*)((char*)ta+0x391f1);
+	const int guiState = ta->State_GUI_CallBack;
 	if (guiState!=5 && guiState!=6) return 0;
 	ResetReplayEnd(ta->GameTime);
 	RememberReplaySources(ta);
@@ -629,15 +631,14 @@ static int __stdcall OriginalCameraHudPaintProc(PInlineX86StackBuffer stack)
 // Only the system provider's blocking Close runs off the GUI thread. The
 // native snapshot builder, recorder, unit cleanup and results GUI stay native.
 static std::unique_ptr<replayclose::Closer> g_transportCloser;
-static unsigned g_pendingMenu = 0;
+static GUIInfo* g_pendingMenu = nullptr;
 static int g_pendingMenuControl = 0;
-static bool g_closingReplayToResults = false;
 
 static bool ReplayMayCloseTransportAsync()
 {
 	TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
 	return g_closingReplayToResults && g_replayEnding && ta &&
-		*(unsigned*)((char*)ta+0x391f1)==6 && (ta->GameStateMask & 4);
+		ta->State_GUI_CallBack==6 && (ta->GameStateMask & 4);
 }
 
 static int __stdcall ReplayQueueMainMenuProc(PInlineX86StackBuffer stack)
@@ -645,8 +646,8 @@ static int __stdcall ReplayQueueMainMenuProc(PInlineX86StackBuffer stack)
 	if (!g_transportCloser || !g_transportCloser->pending()) return 0;
 	// Retain a genuine Main Menu click until transport cleanup finishes.
 	// The results continue rendering and handling input during that time.
-	g_pendingMenu = stack->Esi;
-	g_pendingMenuControl = *(int*)(g_pendingMenu+0x60);
+	g_pendingMenu = (GUIInfo*)stack->Esi;
+	g_pendingMenuControl = g_pendingMenu->UIChange_f;
 	stack->rtnAddr_Pvoid = (void*)0x41ee6e;
 	return X86STRACKBUFFERCHANGE;
 }
@@ -654,11 +655,11 @@ static int __stdcall ReplayQueueMainMenuProc(PInlineX86StackBuffer stack)
 static int __stdcall ReplayContinueMainMenuProc(PInlineX86StackBuffer stack)
 {
 	if (!g_pendingMenu || !g_transportCloser || g_transportCloser->pending()) return 0;
-	unsigned menu = g_pendingMenu;
-	g_pendingMenu = 0;
-	*(int*)(menu+0x60) = g_pendingMenuControl;
+	GUIInfo* menu = g_pendingMenu;
+	g_pendingMenu = nullptr;
+	menu->UIChange_f = g_pendingMenuControl;
 	// Resume the saved native event in its ordinary GUI dispatch slot.
-	((void(__stdcall*)(unsigned))0x41ec50)(menu);
+	((void(__stdcall*)(GUIInfo*))0x41ec50)(menu);
 	stack->rtnAddr_Pvoid = stack->myInlineHookClass_Pish->m_AddrToHook==(void*)0x41ffc3
 		? (void*)0x41ffd7 : (void*)0x420595;
 	return X86STRACKBUFFERCHANGE;
@@ -676,6 +677,9 @@ static int __stdcall ReplayResultsFrameProc(PInlineX86StackBuffer)
 	if (g_transportCloser) {
 		// Native HAPINET_close and all GUI-side Release calls have returned.
 		g_transportCloser->startQueued();
+		// Only the matching native battle->results transition may defer Close.
+		// A later direct-to-menu exit has no results frame to start a worker.
+		g_closingReplayToResults = false;
 		g_transportCloser->collect([](HRESULT result, DWORD) {
 			if (FAILED(result)) IDDrawSurface::OutptFmtTxt("[ReplayEnd] transport Close failed: %08x", (unsigned)result);
 		});
@@ -699,9 +703,9 @@ TenPlayerReplay::TenPlayerReplay()
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x453da8, 6, INLINE_5BYTESLAGGERJMP, ReplayPacketDequeuedProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x499639, 5, INLINE_5BYTESLAGGERJMP, ReplayFinalStatsProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x41dd61, 5, INLINE_5BYTESLAGGERJMP, ReplayStatsPlayerProc));
-	// Native confirmed quit/resign branches and transport-loss callback.
+	// Native confirmed exits and transport loss. 0x464e13 continues watching;
+	// it must not enable the forced-end bypass of the remaining replay queues.
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x46061a, 5, INLINE_5BYTESLAGGERJMP, ReplayForcedEndProc));
-	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x464e13, 5, INLINE_5BYTESLAGGERJMP, ReplayForcedEndProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x464e50, 5, INLINE_5BYTESLAGGERJMP, ReplayForcedEndProc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(0x4578f0, 6, INLINE_5BYTESLAGGERJMP, ReplayForcedEndProc));
 	// HAPINET_receivepacket is wrapped with a manual detour so the 10-player-replay

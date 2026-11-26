@@ -123,7 +123,7 @@ public:
         router = this;
         for (const auto& slot : slots) {
             DWORD old;
-            if (VirtualProtect(slot.address,sizeof(void*),PAGE_READWRITE,&old)) {
+            if (VirtualProtect(slot.address,sizeof(void*),PAGE_EXECUTE_READWRITE,&old)) {
                 InterlockedExchangePointer((void* volatile*)slot.address,(void*)RouteClose);
                 VirtualProtect(slot.address,sizeof(void*),old,&old);
             }
@@ -132,7 +132,7 @@ public:
     ~Closer() {
         for (const auto& slot : slots) {
             DWORD old;
-            if (VirtualProtect(slot.address,sizeof(void*),PAGE_READWRITE,&old)) {
+            if (VirtualProtect(slot.address,sizeof(void*),PAGE_EXECUTE_READWRITE,&old)) {
                 InterlockedExchangePointer((void* volatile*)slot.address,(void*)slot.original);
                 VirtualProtect(slot.address,sizeof(void*),old,&old);
             }
