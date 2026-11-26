@@ -360,7 +360,8 @@ NEW FEATURES IN DETAIL:
   Hover a scrollable text list, its scrollbar or its arrow buttons and use the
   wheel to scroll three rows per notch.  This includes Select Map and compatible
   saved-game and setup lists.  Partial wheel deltas accumulate while hovering
-  the same control.  Native value sliders move by one unit per notch.
+  the same control.  Native value sliders move by one unit per notch;
+  wheel-up increases horizontal values.
 
   Scrolling uses the existing GUI association and redraw behaviour, retaining
   the selected item, keyboard focus and original interface appearance.  Only

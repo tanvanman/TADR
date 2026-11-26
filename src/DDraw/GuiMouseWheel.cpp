@@ -12,21 +12,26 @@ namespace
 {
 	const int RowsPerNotch = 3;
 	static_assert(sizeof(GUI0IDControl) == 0x15B, "Native gadget stride");
+	static_assert(sizeof(GUI2IDControl) == 0x15B, "Native list stride");
+	static_assert(sizeof(GUI3_4IDControl) == 0x15B, "Native slider stride");
 	static_assert(offsetof(GUI2IDControl, selected_i) == 0xBA, "Native list selection");
+	static_assert(offsetof(GUI2IDControl, top_i) == 0xBC, "Native list top row");
+	static_assert(offsetof(GUI2IDControl, count) == 0xC0, "Native list item count");
 	static_assert(offsetof(GUI2IDControl, itemheight) == 0xDA, "Native list row height");
+	static_assert(sizeof(GUI2IDControl::itemheight) == 2, "Native row height is a word");
+	static_assert(offsetof(GUI2IDControl, unk_1) == 0xDE, "Preserve fields after row height");
+	static_assert(offsetof(GUI2IDControl, unk_proc) == 0x144, "Preserve list callback layout");
 	static_assert(offsetof(GUI3_4IDControl, knobpos) == 0x140, "Native slider position");
 	static_assert(offsetof(GUI3_4IDControl, TAMainPtr) == 0x14A, "Native slider callback payload");
+	static_assert(offsetof(GUI3_4IDControl, scrollbarDisabled) == 0x157, "Native slider disabled flag");
+	static_assert(offsetof(GUIInfo, PressedGadgetIndex) == 0x64, "Native GUI mouse capture");
+	static_assert(offsetof(GUIInfo, SliderThumbDragging) == 0x78, "Native slider drag state");
 	static_assert(offsetof(TAProgramStruct, CursorPos_Buf) == 0x196, "Native logical mouse record");
 	typedef void (__stdcall *GadgetProc)(GUIInfo*, int);
 	const GadgetProc DrawList = reinterpret_cast<GadgetProc>(0x004A1B40);
 	const GadgetProc Propagate = reinterpret_cast<GadgetProc>(0x004A2BE0);
 	const GadgetProc SliderBack = reinterpret_cast<GadgetProc>(0x004A96D0);
 	const GadgetProc SliderForward = reinterpret_cast<GadgetProc>(0x004A9780);
-
-	template<class T> T& Field(void* record, unsigned offset)
-	{
-		return *reinterpret_cast<T*>(static_cast<BYTE*>(record) + offset);
-	}
 
 	struct Target
 	{
@@ -51,6 +56,17 @@ namespace
 		wheelRemainder = 0;
 	}
 
+	bool GetLogicalMouse(POINT& mouse)
+	{
+		TAProgramStruct* program = *TAProgramStruct_PtrPtr;
+		if (!program)
+			return false;
+		// Use TA's logical record for both wheel targeting and fraction resets.
+		// Wrappers can scale/letterbox or rewrite message coordinates.
+		mouse = program->CursorPos_Buf[0];
+		return true;
+	}
+
 	bool Contains(const GUI0IDControl& control, int x, int y)
 	{
 		return control.width > 0 && control.height > 0
@@ -61,7 +77,7 @@ namespace
 	bool FindTarget(GUIInfo& gui, POINT mouse, Target& target)
 	{
 		GUIMEMSTRUCT* page = gui.TheActive_GUIMEM;
-		if (!page || !page->ControlsAry || gui.field_64 != -1 || gui.field_78)
+		if (!page || !page->ControlsAry || gui.PressedGadgetIndex != -1 || gui.SliderThumbDragging)
 			return false; // Native mouse capture/drag takes precedence.
 
 		GUI0IDControl* controls = page->ControlsAry;
@@ -107,18 +123,18 @@ namespace
 		if (!slider)
 			return false;
 		GUI3_4IDControl& bar = reinterpret_cast<GUI3_4IDControl&>(controls[slider]);
-		if (!bar.active || (bar.attribs & 0x10) || Field<int>(&bar, 0x157)
+		if (!bar.active || (bar.attribs & 0x10) || bar.scrollbarDisabled
 			|| bar.range <= 1)
 			return false;
 
 		if (list)
 		{
-			GUI0IDControl& rows = controls[list];
+			GUI2IDControl& rows = reinterpret_cast<GUI2IDControl&>(controls[list]);
 			// Text lists have a uniform item height. Picture lists can have
 			// variable heights and even zero itemheight, which native scrolling
 			// cannot propagate. Do not invent a different scroll model for them.
 			if (!rows.active || !(rows.attribs & 0x10)
-				|| Field<short>(&rows, 0xDA) <= 0 || Field<short>(&rows, 0xC0) <= 0)
+				|| rows.itemheight <= 0 || rows.count <= 0)
 				return false;
 		}
 		target = { page, controls, slider, list };
@@ -131,37 +147,38 @@ namespace
 		if (!target.list)
 		{
 			// A value slider uses precisely TA's existing one-unit key handler.
+			// Wheel-up increases horizontal values, while vertical bars move up.
+			if (bar.width > bar.height)
+				direction = -direction;
 			if ((direction < 0 && bar.knobpos > 0)
 				|| (direction > 0 && bar.knobpos < bar.range - 1))
 				(direction < 0 ? SliderBack : SliderForward)(&gui, target.slider);
 			return;
 		}
 
-		GUI0IDControl& list = target.controls[target.list];
-		short& top = Field<short>(&list, 0xBC);
-		const int visible = list.height / Field<short>(&list, 0xDA);
-		const int maximum = Field<short>(&list, 0xC0) - visible;
+		GUI2IDControl& list = reinterpret_cast<GUI2IDControl&>(target.controls[target.list]);
+		const int visible = list.height / list.itemheight;
+		const int maximum = list.count - visible;
 		if (visible <= 0 || maximum <= 0)
 			return;
-		int next = int(top) + direction * RowsPerNotch;
+		int next = int(list.top_i) + direction * RowsPerNotch;
 		if (next < 0) next = 0;
 		if (next > maximum) next = maximum;
-		if (next == top)
+		if (next == list.top_i)
 			return;
 
 		// Scroll a small number of rows, not 120 knob pixels. This is the native list
 		// auto-scroll redraw/association path (004A3E83), preserving selection.
 		// List -> slider sync can legitimately put knobpos == range at the end;
 		// retaining TA's own conversion also avoids coarse jumps on huge lists.
-		top = static_cast<short>(next);
+		list.top_i = static_cast<short>(next);
 		DrawList(&gui, target.list);
 		Propagate(&gui, target.list);
-		if (bar.pos_proc)
-			bar.pos_proc(&gui, bar.TAMainPtr); // Native callback payload at +14A.
+		// Like native list auto-scroll, do not fire selection/value callbacks.
 	}
 }
 
-bool GuiMouseWheel::Message(HWND, UINT message, WPARAM wParam, LPARAM lParam)
+bool GuiMouseWheel::Message(HWND, UINT message, WPARAM wParam, LPARAM)
 {
 	if (message != WM_MOUSEWHEEL)
 	{
@@ -169,9 +186,9 @@ bool GuiMouseWheel::Message(HWND, UINT message, WPARAM wParam, LPARAM lParam)
 		if (message == WM_MOUSEMOVE && remainderPage)
 		{
 			TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
-			POINT mouse = { static_cast<short>(LOWORD(lParam)), static_cast<short>(HIWORD(lParam)) };
+			POINT mouse;
 			Target target;
-			if (!ta || !FindTarget(ta->desktopGUI, mouse, target)
+			if (!ta || !GetLogicalMouse(mouse) || !FindTarget(ta->desktopGUI, mouse, target)
 				|| target.page != remainderPage || target.controls != remainderControls
 				|| target.slider != remainderSlider)
 				Reset();
@@ -197,16 +214,12 @@ bool GuiMouseWheel::Message(HWND, UINT message, WPARAM wParam, LPARAM lParam)
 		return false;
 	}
 
-	// Use TA's current mouse record, already in logical GUI coordinates.
-	// Wrappers can scale/letterbox and rewrite wheel lParam to client coords;
-	// applying ScreenToClient again would misidentify the hovered control.
-	TAProgramStruct* program = *TAProgramStruct_PtrPtr;
-	if (!program)
+	POINT mouse;
+	if (!GetLogicalMouse(mouse))
 	{
 		Reset();
 		return false;
 	}
-	POINT mouse = program->CursorPos_Buf[0];
 	Target target;
 	if (!FindTarget(ta->desktopGUI, mouse, target))
 	{
