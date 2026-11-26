@@ -68,6 +68,30 @@ BYTE MegamapNearestIndex(const BYTE* pal, int r, int g, int b);
 // are rendered at map load, so a change takes effect from the next map.
 bool MegamapDitherEnabled();
 
+struct MegamapPaletteSubset
+{
+	int   r[256], g[256], b[256];
+	BYTE  index[256];
+	float labL[256], labA[256], labB[256];
+	int   count;
+};
+
+// Build a palette subset from a 256-entry inclusion mask (non-zero => included).
+void MegamapBuildPaletteSubsetFromMask(MegamapPaletteSubset* out, const BYTE* pal, const BYTE used[256]);
+
+// Filter an already-built MegamapPaletteSubset by a 256-entry mask without
+// recomputing OKLab conversions.
+void MegamapFilterPaletteSubset(const MegamapPaletteSubset* src, const BYTE used[256], MegamapPaletteSubset* out);
+
+// Nearest entry in a palette subset (OKLab perceptual distance by default).
+BYTE MegamapSnap(const MegamapPaletteSubset* sub, int r, int g, int b);
+
+// Error accumulators are kept in 1/16ths; round-to-nearest, symmetric about 0.
+static inline int MegamapErr16(int v)
+{
+	return (v >= 0) ? ((v + 8) / 16) : (-((-v + 8) / 16));
+}
+
 class TNTtoMiniMap
 {
 public:

@@ -100,14 +100,11 @@ bool MegamapDitherEnabled()
 #endif
 }
 
-#if USE_AVERAGED_MINIMAP_COLORS
-
-// Palette subset used when snapping downscaled terrain colours back to 8-bit.
-// Restricting the search to indices that actually occur in this map's tile
+// Palette subset used when snapping downscaled colours back to 8-bit.
+// Restricting the search to indices that actually occur in the source
 // graphics keeps error diffusion from reaching for entries that exist in the
-// palette but never in terrain (GUI colours, the player-colour ramps, the pure
-// primaries at 248-255) - those would show up as bright speckle. It also
-// shortens the per-pixel nearest search, which runs Width*Height times.
+// palette but never in terrain/sprites (GUI colours, the player-colour ramps,
+// the pure primaries at 248-255) - those would show up as bright speckle.
 // ---- colour-space helpers ----
 
 static float g_srgbToLinear[256];
@@ -144,13 +141,87 @@ static void MegamapOKLab(int R, int G, int B, float* outL, float* outA, float* o
 	*outB = 0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_;
 }
 
-struct MegamapPaletteSubset
+void MegamapBuildPaletteSubsetFromMask(MegamapPaletteSubset* out, const BYTE* pal, const BYTE used[256])
 {
-	int   r[256], g[256], b[256];
-	BYTE  index[256];
-	float labL[256], labA[256], labB[256];
-	int   count;
-};
+	MegamapInitSrgbTables();
+
+	out->count = 0;
+	for (int i = 0; i < 256; ++i)
+	{
+		if (!used[i]) continue;
+		int r, g, b;
+		MegamapIndexRGB(pal, (BYTE)i, &r, &g, &b);
+		int k = out->count;
+		out->r[k] = r;
+		out->g[k] = g;
+		out->b[k] = b;
+		out->index[k] = (BYTE)i;
+		MegamapOKLab(r, g, b, &out->labL[k], &out->labA[k], &out->labB[k]);
+		++out->count;
+	}
+}
+
+void MegamapFilterPaletteSubset(const MegamapPaletteSubset* src, const BYTE used[256], MegamapPaletteSubset* out)
+{
+	out->count = 0;
+	for (int i = 0; i < src->count; ++i)
+	{
+		if (!used[src->index[i]]) continue;
+		int k = out->count;
+		out->r[k] = src->r[i];
+		out->g[k] = src->g[i];
+		out->b[k] = src->b[i];
+		out->index[k] = src->index[i];
+		out->labL[k] = src->labL[i];
+		out->labA[k] = src->labA[i];
+		out->labB[k] = src->labB[i];
+		++out->count;
+	}
+}
+
+static BYTE MegamapSubsetNearest(const MegamapPaletteSubset* sub, int R, int G, int B)
+{
+	int bestDist = 0x7fffffff, bestI = 0;
+	for (int i = 0; i < sub->count; ++i)
+	{
+		int dr = sub->r[i] - R, dg = sub->g[i] - G, db = sub->b[i] - B;
+		int d = dr * dr + dg * dg + db * db;
+		if (d < bestDist) { bestDist = d; bestI = i; }
+	}
+	return sub->index[bestI];
+}
+
+// Nearest by perceptual (OKLab) distance rather than RGB distance. The error
+// accumulator stays in gamma RGB - we change which entry is judged closest, not
+// what is conserved.
+static BYTE MegamapSubsetNearestOKLab(const MegamapPaletteSubset* sub, int R, int G, int B)
+{
+	float tL, tA, tB;
+	MegamapOKLab(R, G, B, &tL, &tA, &tB);
+
+	float bestDist = 3.4e38f;
+	int   bestI = 0;
+	for (int i = 0; i < sub->count; ++i)
+	{
+		float dL = sub->labL[i] - tL;
+		float dA = sub->labA[i] - tA;
+		float dB = sub->labB[i] - tB;
+		float d = dL * dL + dA * dA + dB * dB;
+		if (d < bestDist) { bestDist = d; bestI = i; }
+	}
+	return sub->index[bestI];
+}
+
+BYTE MegamapSnap(const MegamapPaletteSubset* sub, int R, int G, int B)
+{
+#if MEGAMAP_SNAP_OKLAB
+	return MegamapSubsetNearestOKLab(sub, R, G, B);
+#else
+	return MegamapSubsetNearest(sub, R, G, B);
+#endif
+}
+
+#if USE_AVERAGED_MINIMAP_COLORS
 
 static void BuildMegamapPaletteSubset(MegamapPaletteSubset* out, const BYTE* pal, PTNTHeaderStruct tnt)
 {
@@ -170,22 +241,7 @@ static void BuildMegamapPaletteSubset(MegamapPaletteSubset* out, const BYTE* pal
 		memset(used, 1, sizeof(used));
 	}
 
-	MegamapInitSrgbTables();
-
-	out->count = 0;
-	for (int i = 0; i < 256; ++i)
-	{
-		if (!used[i]) continue;
-		int r, g, b;
-		MegamapIndexRGB(pal, (BYTE)i, &r, &g, &b);
-		int k = out->count;
-		out->r[k] = r;
-		out->g[k] = g;
-		out->b[k] = b;
-		out->index[k] = (BYTE)i;
-		MegamapOKLab(r, g, b, &out->labL[k], &out->labA[k], &out->labB[k]);
-		++out->count;
-	}
+	MegamapBuildPaletteSubsetFromMask(out, pal, used);
 }
 
 static void BuildMegamapPaletteSubsetFromImage(
@@ -206,22 +262,7 @@ static void BuildMegamapPaletteSubsetFromImage(
 			used[row[x]] = 1;
 	}
 
-	MegamapInitSrgbTables();
-
-	out->count = 0;
-	for (int i = 0; i < 256; ++i)
-	{
-		if (!used[i]) continue;
-		int r, g, b;
-		MegamapIndexRGB(pal, (BYTE)i, &r, &g, &b);
-		int k = out->count;
-		out->r[k] = r;
-		out->g[k] = g;
-		out->b[k] = b;
-		out->index[k] = (BYTE)i;
-		MegamapOKLab(r, g, b, &out->labL[k], &out->labA[k], &out->labB[k]);
-		++out->count;
-	}
+	MegamapBuildPaletteSubsetFromMask(out, pal, used);
 }
 
 // Mean colour of the source tile-graphics pixels covered by one output pixel.
@@ -263,55 +304,6 @@ static void MegamapAveragePixel(PTNTHeaderStruct tnt, const BYTE* pal, int MapDa
 
 	if (count > 0) { *outR = sumR / count; *outG = sumG / count; *outB = sumB / count; }
 	else           { *outR = 0; *outG = 0; *outB = 0; }
-}
-
-// Error accumulators are kept in 1/16ths; round-to-nearest, symmetric about 0
-// (plain integer division truncates towards zero and would bias the dither).
-static inline int MegamapErr16(int v)
-{
-	return (v >= 0) ? ((v + 8) / 16) : (-((-v + 8) / 16));
-}
-
-static BYTE MegamapSubsetNearest(const MegamapPaletteSubset* sub, int R, int G, int B)
-{
-	int bestDist = 0x7fffffff, bestI = 0;
-	for (int i = 0; i < sub->count; ++i)
-	{
-		int dr = sub->r[i] - R, dg = sub->g[i] - G, db = sub->b[i] - B;
-		int d = dr * dr + dg * dg + db * db;
-		if (d < bestDist) { bestDist = d; bestI = i; }
-	}
-	return sub->index[bestI];
-}
-
-// Nearest by perceptual (OKLab) distance rather than RGB distance. The error
-// accumulator stays in gamma RGB - we change which entry is judged closest, not
-// what is conserved.
-static BYTE MegamapSubsetNearestOKLab(const MegamapPaletteSubset* sub, int R, int G, int B)
-{
-	float tL, tA, tB;
-	MegamapOKLab(R, G, B, &tL, &tA, &tB);
-
-	float bestDist = 3.4e38f;
-	int   bestI = 0;
-	for (int i = 0; i < sub->count; ++i)
-	{
-		float dL = sub->labL[i] - tL;
-		float dA = sub->labA[i] - tA;
-		float dB = sub->labB[i] - tB;
-		float d = dL * dL + dA * dA + dB * dB;
-		if (d < bestDist) { bestDist = d; bestI = i; }
-	}
-	return sub->index[bestI];
-}
-
-static inline BYTE MegamapSnap(const MegamapPaletteSubset* sub, int R, int G, int B)
-{
-#if MEGAMAP_SNAP_OKLAB
-	return MegamapSubsetNearestOKLab(sub, R, G, B);
-#else
-	return MegamapSubsetNearest(sub, R, G, B);
-#endif
 }
 
 #endif // USE_AVERAGED_MINIMAP_COLORS
