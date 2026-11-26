@@ -410,3 +410,12 @@
 #ifndef HEALTH_BAR_COLORS_ENABLE
 #define HEALTH_BAR_COLORS_ENABLE 0
 #endif
+
+// NanoframeNoLos: a unit under construction gives no sight until it completes. Changes who automatic
+// targeting can see, so every mod chooses it explicitly. See NanoframeNoLos.h.
+#ifndef NANOFRAME_NO_LOS_ENABLE
+#error "config_*.h must define NANOFRAME_NO_LOS_ENABLE"
+#endif
+#if NANOFRAME_NO_LOS_ENABLE != 0 && NANOFRAME_NO_LOS_ENABLE != 1
+#error "NANOFRAME_NO_LOS_ENABLE must be 0 or 1"
+#endif

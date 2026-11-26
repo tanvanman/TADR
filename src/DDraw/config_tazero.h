@@ -180,3 +180,7 @@
 
 // Five-colour unit health bar; see HealthBarColors.h.
 #define HEALTH_BAR_COLORS_ENABLE 0
+
+// A unit under construction gives no sight, mapping or death eye until it completes (simulation
+// change: automatic targeting reads the owner's sight); see NanoframeNoLos.h.
+#define NANOFRAME_NO_LOS_ENABLE 0
