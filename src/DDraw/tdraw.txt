@@ -115,6 +115,10 @@ EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom b
 
 NEW FEATURES IN BRIEF:
 
+*2026.11.27.2
+- Unit control-group numbers no longer overlap weapon reload bars, and stockpile, transport and group-number counters are
+  now centred on the unit bar (thanks TAG_Venom)
+
 *2026.11.27
 - Fix underwater metal patches and other megamap feature sprites showing a flat-colour outline against dithered water and
   terrain (thanks TAG_Venom)
