@@ -115,6 +115,10 @@ EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom b
 
 NEW FEATURES IN BRIEF:
 
+*2026.11.27
+- Fix underwater metal patches and other megamap feature sprites showing a flat-colour outline against dithered water and
+  terrain (thanks TAG_Venom)
+
 *2026.11.25
 - Split the auto-share surplus among all allies, add +givemetal and +giveenergy, and drop invalid received resource
   packets (escalation only; thanks RDKL; see NEW FEATURES IN DETAIL)
