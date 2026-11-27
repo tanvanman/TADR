@@ -59,6 +59,9 @@ using namespace std;
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
 #include "CobDispatchTable.h"
+#include "TargetCandidates.h"
+#include "ParticleWalk.h"
+#include "Pathfinder.h"
 #include "BuildWeaponSlotGuard.h"
 #include "TransportedExplosions.h"
 #include "AreaDamageOverflow.h"
@@ -309,6 +312,11 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Install();
 #endif
+#if FAST_SIMULATION_ENABLE
+		TargetCandidates::Install();
+		ParticleWalk::Install();
+		Pathfinder::Install();
+#endif
 		BuildWeaponSlotGuard::Install();
 		GroundToAirGuard::Install();
 		VtolRepairBeamFix::Install();
@@ -366,6 +374,11 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Shutdown();
+#endif
+#if FAST_SIMULATION_ENABLE
+		TargetCandidates::Shutdown();
+		ParticleWalk::Shutdown();
+		Pathfinder::Shutdown();
 #endif
 		BuildWeaponSlotGuard::Shutdown();
 		GroundToAirGuard::Shutdown();

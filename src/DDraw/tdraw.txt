@@ -140,9 +140,12 @@ NEW FEATURES IN BRIEF:
 - Fix camera flickering when the visible game area is larger than the map (thanks TAG_Venom)
 - Enable allied projectile pass-through (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
 - Fix intermittent corruption in the map-selection preview (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
+- Faster particle effects (smoke, trails) in large battles: the same effects, so it cannot desync a game
+- Faster ground-unit pathfinding in large battles, on helper threads: units find their paths sooner after an order, each path the one the game's own search finds; it cannot desync a game (AISearchMapEntries no longer applies)
 - Preserve fire and movement orders, on/off and cloak settings when sharing units with another player (thanks TAG_Venom)
 - Stop the main-menu background hum from continuing into a restarted game when unlimited sound mixing is enabled (thanks TAG_Venom)
 - AI commanders no longer abandon their orders when attacked
+- Faster weapon target search in large battles: the same targets are chosen, so it cannot desync a game
 
 *2026.10.6
 - Fix ctrl-F and ctrl-B skipping your most recently built factories/constructors once you had lost any units

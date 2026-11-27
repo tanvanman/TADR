@@ -178,6 +178,37 @@
 #endif
 
 //
+// Faster simulation in big battles. One switch for all of them:
+//   * TargetCandidates.h -- the enemies-in-range search (0x40AD80), the same
+//     targets in the same order;
+//   * ParticleWalk.h -- the particle layers' tick (0x471EB0) in one pass, the
+//     same particles;
+//   * Pathfinder.h -- the ground units' pathfinder: each path is the engine's own
+//     search, but searches are scheduled without the engine's budget and made on
+//     helper threads, so units are searched sooner than the engine would.
+// The first two give the engine's results exactly; the pathfinder changes only
+// when this machine's own units are searched, as each machine searches for its
+// own players' units alone and sends their moves. So none of these desyncs a
+// peer without them. Every config_*.h defines this
+// explicitly; this fallback is only for a future one that forgets to. Each has a
+// check build for developer measurements, set on the build command line:
+// TDRAW_TARGET_CANDIDATES_VERIFY=1, TDRAW_PARTICLE_WALK_VERIFY=1,
+// TDRAW_PATHFIND_VERIFY=1.
+//
+#ifndef FAST_SIMULATION_ENABLE
+#define FAST_SIMULATION_ENABLE 0
+#endif
+#ifndef TDRAW_TARGET_CANDIDATES_VERIFY
+#define TDRAW_TARGET_CANDIDATES_VERIFY 0
+#endif
+#ifndef TDRAW_PARTICLE_WALK_VERIFY
+#define TDRAW_PARTICLE_WALK_VERIFY 0
+#endif
+#ifndef TDRAW_PATHFIND_VERIFY
+#define TDRAW_PATHFIND_VERIFY 0
+#endif
+
+//
 // BuildWeaponSlotGuard -- fixes the stockpile ("Nanolathing") build-percent
 // divide-by-zero crash. Real cause (corrected 2026-09-14, PR #26 review): a
 // unit-identity divergence can make a legitimately-issued order reference a weapon

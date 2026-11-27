@@ -66,6 +66,9 @@
 // own exe.  See ai-reference/simulation-performance/COB_DISPATCH_PROJECT.md.
 #define COB_DISPATCH_TABLE_ENABLE 0
 
+// Faster simulation in big battles; cannot desync a game. See config.h.
+#define FAST_SIMULATION_ENABLE 1
+
 //
 // BuildWeaponSlotGuard -- stockpile-weapon divide-by-zero fix + weapon-slot bounds
 // check.

@@ -313,7 +313,22 @@
     <ClCompile Include="CobDispatchTable.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FunctionPatch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TargetCandidates.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="BuildWeaponSlotGuard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ParticleWalk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Pathfinder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PathSearch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TransportedExplosions.cpp">
@@ -708,7 +723,22 @@
     <ClInclude Include="CobDispatchTable.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FunctionPatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TargetCandidates.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="BuildWeaponSlotGuard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ParticleWalk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Pathfinder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PathSearch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TransportedExplosions.h">
