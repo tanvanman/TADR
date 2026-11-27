@@ -30,7 +30,8 @@
     {"label": "COB opcode jump table (speed only, same behaviour)  [4]", "macros": ["COB_DISPATCH_TABLE_ENABLE"], "kind": "bool"},
     {"label": "allied queued-build overlays", "macros": ["ALLIED_BUILD_QUEUE_ENABLE"], "kind": "bool"},
     {"label": "enhanced allied resource bars and replay totals", "macros": ["MODERN_ALLY_RESOURCE_UI_ENABLE"], "kind": "bool"},
-    {"label": "five-colour unit health bar", "macros": ["HEALTH_BAR_COLORS_ENABLE"], "kind": "bool"}
+    {"label": "five-colour unit health bar", "macros": ["HEALTH_BAR_COLORS_ENABLE"], "kind": "bool"},
+    {"label": "display-only construction and repair health sync", "macros": ["REPAIR_HEALTH_SYNC_ENABLE"], "kind": "bool"}
   ],
   "ignore": {
     "MAX_MEX_SNAP_RADIUS": "follows the default radius",

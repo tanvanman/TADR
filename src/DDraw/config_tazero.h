@@ -180,3 +180,6 @@
 
 // Five-colour unit health bar; see HealthBarColors.h.
 #define HEALTH_BAR_COLORS_ENABLE 0
+
+// Display-only construction, completion, and repair health sync; see RepairHealthSync.h.
+#define REPAIR_HEALTH_SYNC_ENABLE 0

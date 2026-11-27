@@ -1,4 +1,8 @@
 #include "TeamColorNanolathe.h"
+#include "config.h"
+#if REPAIR_HEALTH_SYNC_ENABLE
+#include "RepairHealthSync.h"
+#endif
 #include "hook/hook.h"
 #include "iddrawsurface.h"
 #include "TAbugfix.h"      // g_currentOrderUnit / g_currentOrderUnitTick
@@ -219,6 +223,9 @@ void PruneExpiredTags(DWORD gameTime) {
 }
 
 int __stdcall NanoframeStartProc(PInlineX86StackBuffer p) {
+#if REPAIR_HEALTH_SYNC_ENABLE
+	RepairHealthSync::BeginNanoframeDraw((UnitStruct*)p->Edx);
+#endif
 	g_nanoframePlayerColor = 0xFF;
 	UnitStruct* unit = (UnitStruct*)p->Edx;
 	if (unit && unit->Owner_PlayerPtr0 && unit->Owner_PlayerPtr0->PlayerInfo) {
@@ -436,12 +443,27 @@ unsigned char MapNanoframeColor(unsigned char playerColor, unsigned char stockCo
 }
 
 void Install() {
+#if REPAIR_HEALTH_SYNC_ENABLE
+	if (g_nanoframeStart || g_palette) return;
+	LoadColorConfig();
+	if (!g_enabled) {
+		if (RepairHealthSync::IsInstalled()) {
+			// This entry hook is also the safe display-only construction-progress
+			// substitution point used by RepairHealthSync; install it only when
+			// RepairHealthSync's byte-signature verification succeeded (fail closed).
+			g_nanoframeStart.reset(new InlineSingleHook(kNanoframeStart, 10, INLINE_5BYTESLAGGERJMP, NanoframeStartProc));
+		}
+		IDDrawSurface::OutptTxt("[TeamColorNanolathe] disabled");
+		return;
+	}
+#else
 	if (g_palette) return;
 	LoadColorConfig();
 	if (!g_enabled) {
 		IDDrawSurface::OutptTxt("[TeamColorNanolathe] disabled");
 		return;
 	}
+#endif
 	g_entry.reset(new InlineSingleHook(kEmitterEntry, 7, INLINE_5BYTESLAGGERJMP, EmitterEntry));
 	g_preTag.reset(new InlineSingleHook(kEmitterPreTag, 6, INLINE_5BYTESLAGGERJMP, PreTagEmitter));
 	g_postTag.reset(new InlineSingleHook(kEmitterPostTag, 5, INLINE_5BYTESLAGGERJMP, PostTagEmitter));

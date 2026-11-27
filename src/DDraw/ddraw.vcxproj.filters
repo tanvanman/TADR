@@ -247,6 +247,9 @@
     <ClCompile Include="HealthBarColors.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="RepairHealthSync.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="AlliedBuildQueueSync.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -652,6 +655,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="UnitStatusCounters.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RepairHealthSync.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RepairHealthSyncState.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="AlliedBuildQueueSync.h">

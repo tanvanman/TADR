@@ -55,6 +55,7 @@ using namespace std;
 #include "HealthBarColors.h"
 #include "UnitStatusCounters.h"
 #include "EngineLimits.h"
+#include "RepairHealthSync.h"
 #include "ZeroDamageMapWeapons.h"
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
@@ -276,6 +277,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		HealthBarColors::Install();          // own bytes only: the 5-byte entry of Unit_DrawHealthBar 0x46A430 (ReloadBars and UnitStatusCounters hook its caller, 0x469CB1 / 0x469CF9)
 #endif
 		ShadingFix::Install();
+#if REPAIR_HEALTH_SYNC_ENABLE
+		RepairHealthSync::Install();
+#endif
 		ZeroDamageMapWeapons::Install();
 		TeamColorNanolathe::Install();
 		VoteReject::Install();
@@ -334,6 +338,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 		ReloadBars::Shutdown();
 		UnitStatusCounters::Shutdown();
+#if REPAIR_HEALTH_SYNC_ENABLE
+		RepairHealthSync::Shutdown();
+#endif
 #if ALLIED_BUILD_QUEUE_ENABLE
 		AlliedBuildQueueSync::Shutdown();
 #endif

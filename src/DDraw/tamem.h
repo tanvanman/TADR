@@ -123,8 +123,7 @@ struct PlayerStruct
 	int field_10;
 	__int16 nPing;            // 0x14
 	__int16 field_16;         // 0x16
-	__int16 field_18;         // 0x18
-	__int16 field_1A;         // 0x1A
+	unsigned int Last2cGameTime; // 0x18: GameTime of the last 0x2C sent/received
 	int LastMsgTimeStamp;     // 0x1C: written by Packet_Dispatcher on every received packet (IDA/Ghidra wrongly splits as dw+field_1E dw)
 	char MultiLoadProgress;   // 0x20
 	__int16 field_21;         // 0x21
@@ -1966,6 +1965,7 @@ static_assert(offsetof(UnitStruct, UnitType)                  == 0x92,   "UnitSt
 static_assert(offsetof(UnitStruct, Owner_PlayerPtr0)          == 0x96,   "UnitStruct.Owner_PlayerPtr0");
 static_assert(offsetof(UnitStruct, cIsCloaked)                == 0x10E,  "UnitStruct.nShortUnitStateMask");
 static_assert(offsetof(UnitStruct, UnitSelected)              == 0x110,  "UnitStruct.UnitStateMask");
+static_assert(offsetof(PlayerStruct, Last2cGameTime)          == 0x18,   "PlayerStruct last 0x2C GameTime");
 static_assert(offsetof(PlayerStruct, LOS_MEMORY_p)            == 0x7C,   "PlayerStruct LOS buffer");
 static_assert(offsetof(PlayerStruct, LOS_Tilewidth)           == 0x80,   "PlayerStruct LOS width");
 static_assert(offsetof(PlayerStruct, LOS_Tileheight)          == 0x84,   "PlayerStruct LOS height");

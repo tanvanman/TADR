@@ -410,3 +410,13 @@
 #ifndef HEALTH_BAR_COLORS_ENABLE
 #define HEALTH_BAR_COLORS_ENABLE 0
 #endif
+
+//
+// RepairHealthSync: display-only synchronization of remote construction, completion,
+// and repair health displays without mutating remote unit simulation state. Opt-in per
+// build configuration (no totala.ini switch). All 10 hook sites are verified byte-for-byte
+// before installation and fail closed on mismatch. See RepairHealthSync.h.
+//
+#ifndef REPAIR_HEALTH_SYNC_ENABLE
+#error "REPAIR_HEALTH_SYNC_ENABLE must be defined in each config_*.h"
+#endif
