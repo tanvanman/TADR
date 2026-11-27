@@ -35,7 +35,7 @@ namespace {
 
 // ---- accumulator table -------------------------------------------------------
 //
-// Keyed by the repairer's UnitInGameIndex (Unit+0xA8, int16), which is the unit's
+// Keyed by the repairer's UnitInGameIndex (Unit+0xA8, uint16 in the engine), which is the unit's
 // position in the engine's flat unit array:
 //     Unit* u = BeginUnitsArray_p + 0x118 * UnitInGameIndex
 // VERIFIED two ways -- from the binary, and empirically against live captures where
@@ -76,6 +76,7 @@ constexpr int kSlotsPerUnit = 2;
 AccSlot*    g_table = nullptr;
 int         g_tableUnits = 0;      // capacity in units; slot count is x kSlotsPerUnit
 UnitStruct* g_cachedArrayBase = nullptr;
+UnitStruct* g_cachedArrayEnd = nullptr;
 int         g_fallbackHits = 0;    // canary: see AccumulatorFor()
 
 SingleHook* g_healHook = nullptr;
@@ -95,15 +96,17 @@ bool EnsureTable()
         return false;
 
     UnitStruct* begin = taPtr->BeginUnitsArray_p;
-    UnitStruct* end   = taPtr->EndOfUnitsArray_p;
-    if (!begin || !end || end <= begin)
+    UnitStruct* end   = taPtr->EndOfUnitsArray_p;   // the LAST unit, not one past it
+    if (!begin || !end || end < begin)
         return false;
 
-    if (g_table && begin == g_cachedArrayBase)
+    if (g_table && begin == g_cachedArrayBase && end == g_cachedArrayEnd)
         return true;   // unchanged since last check -- common case
 
     const ptrdiff_t bytes = (const char*)end - (const char*)begin;
-    const int units = (int)(bytes / (ptrdiff_t)sizeof(UnitStruct));
+    // InitInGameUnitArray stores End = Begin + (count - 1) * 0x118 (0x4855B8-0x4855D6),
+    // so the array holds one more slot than (End - Begin) / 0x118.
+    const int units = (int)(bytes / (ptrdiff_t)sizeof(UnitStruct)) + 1;
     if (units <= 0)
         return false;
 
@@ -117,6 +120,7 @@ bool EnsureTable()
     }
     g_tableUnits = units;
     g_cachedArrayBase = begin;
+    g_cachedArrayEnd = end;
     return true;
 }
 
@@ -136,7 +140,9 @@ int32_t* AccumulatorFor(UnitStruct* repairer, void* target)
         return nullptr;
     }
 
-    const int idx = repairer->UnitInGameIndex;   // Unit+0xA8
+    // Unit+0xA8, unsigned: the engine writes it from a 16-bit counter (0x4855E4-0x485629)
+    // and UnitLimit above 3276 goes past 32767.
+    const int idx = static_cast<uint16_t>(repairer->UnitInGameIndex);
     if (idx <= 0 || idx >= g_tableUnits)         // index 0 is reserved/invalid
     {
         ++g_fallbackHits;
@@ -443,6 +449,7 @@ void Shutdown()
     g_table = nullptr;
     g_tableUnits = 0;
     g_cachedArrayBase = nullptr;
+    g_cachedArrayEnd = nullptr;
     g_fallbackHits = 0;
 }
 

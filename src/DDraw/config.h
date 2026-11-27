@@ -312,8 +312,8 @@
 #if SELFHEAL_RATE_ENABLE && !(REPAIR_RATE_FIX_ENABLE && SELFHEAL_FREE_ENERGY)
 #error "SELFHEAL_RATE_ENABLE requires REPAIR_RATE_FIX_ENABLE 1 and SELFHEAL_FREE_ENERGY 1"
 #endif
-#if SELFHEAL_RATE_ENABLE && !defined(SELFHEAL_RATE_FBI_KEY)
-#error "SELFHEAL_RATE_ENABLE requires SELFHEAL_RATE_FBI_KEY (\"SelfHealRate\" or \"HealTime\")"
+#ifndef SELFHEAL_RATE_FBI_KEY
+#error "config_*.h must define SELFHEAL_RATE_FBI_KEY explicitly (the FBI key SelfHealRate reads, e.g. \"HealTime\")"
 #endif
 
 //

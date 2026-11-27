@@ -28,6 +28,9 @@ public:
 
 	unsigned LoadUnitDefs(PInlineX86StackBuffer X86StrackBuffer);
 
+	// Changes every time a unit's FBI is read, so a cache built from these values can tell it is stale.
+	static unsigned LoadGeneration() { return s_loadGeneration; }
+
 private:
 	UnitDefExtensions();
 
@@ -36,6 +39,7 @@ private:
 	static const unsigned STRING_KEY = 3u;
 
 	static std::unique_ptr<UnitDefExtensions> m_instance;
+	static unsigned s_loadGeneration;
 	std::unique_ptr<SingleHook> m_hook;
 
 	std::map<std::string, unsigned> m_keyIndices;

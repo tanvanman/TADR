@@ -101,8 +101,11 @@
 // key. FBI data and this DLL must ship together: an older DLL (or a DISABLED
 // install) reads the integer part with the old formula. Any other name = a new
 // key, and units without it keep the HealTime formula.
-// N uses the unit type's DamageModifier (not the live ARMORED state), so a
-// unit that drops its armour (CORMS when stacked) does not heal faster.
+// N uses the DamageModifier of the unit's UnitDef (the type's, or a recorder
+// per-unit copy if a script granted one), not the live ARMORED state, so a
+// unit that drops its armour (CORMS when stacked) does not heal faster. A
+// script that writes the unit's HealTime (COB SET_UNITINFO) overrides N with
+// that whole number of HP per second; 0 stops regen.
 #define SELFHEAL_RATE_FBI_KEY "HealTime"
 
 // Wrecks of aircraft killed over land fall to the ground instead of hanging at

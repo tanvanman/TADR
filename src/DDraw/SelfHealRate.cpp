@@ -73,15 +73,22 @@ namespace
 	constexpr int64_t kMaxHealTick  = 65535;                   // the amount is a word in the packet (0x489C71)
 
 	// ---- pure arithmetic (self-tested) ------------------------------------------------------
-	// acc == nullptr only when the table is unavailable: round up then, never down, the same
-	// invariant as RepairRateFix (a floor would stop slow regen entirely).
+	// acc == nullptr only when a unit has no cell. The rate key then pays the same rate from the
+	// game clock (exact, stateless); the HealTime formula rounds the firing up, as RepairRateFix
+	// does (at most once per firing). Neither forces 1 HP every tick.
 
 	// Rate key: raw HP this tick = (acc + rateMilli * Q) / (30 * 65536 * 1000); acc keeps the rest.
-	int64_t RateStep(int32_t rateMilli, uint32_t q, int32_t* acc)
+	// Without a cell: floor((g + 1) * x) - floor(g * x) for x = rateMilli * Q / kRateDen and g the
+	// game time, so any run of ticks pays the exact total to within 1 raw HP, with no state.
+	int64_t RateStep(int32_t rateMilli, uint32_t q, int32_t* acc, uint32_t gameTime)
 	{
 		int64_t num = static_cast<int64_t>(rateMilli) * static_cast<int64_t>(q);
 		if (!acc)
-			return (num + kRateDen - 1) / kRateDen;
+		{
+			const int64_t r = num % kRateDen;                                       // < 2^31
+			const int64_t g = static_cast<int64_t>(gameTime % static_cast<uint32_t>(kRateDen));
+			return num / kRateDen + ((g + 1) * r) / kRateDen - (g * r) / kRateDen;   // (g + 1) * r < 2^62
+		}
 		int64_t a = *acc;
 		if (a < 0 || a >= kRateDen)
 			a = 0;                                          // stale value from another formula
@@ -133,6 +140,16 @@ namespace
 		return v > kMaxRateMilli ? kMaxRateMilli : static_cast<int32_t>(v);
 	}
 
+	// A recorder script can give a unit its own UnitDef copy and write its HealTime (COB
+	// SET_UNITINFO). When the live integer differs from the one loaded with the FBI, the live
+	// value wins, as whole HP per second; 0 or less stops regen.
+	int32_t EffectiveRate(int32_t fbiRate, int16_t loadedHealTime, int16_t liveHealTime)
+	{
+		if (liveHealTime == loadedHealTime)
+			return fbiRate;
+		return liveHealTime > 0 ? static_cast<int32_t>(liveHealTime) * 1000 : 0;
+	}
+
 	// HealTime: RepairRateFix's exact accumulator for one regen firing.
 	int64_t LegacyStep(int32_t maxHp, int32_t t, int32_t buildTime, int32_t mult, int32_t* acc)
 	{
@@ -155,9 +172,10 @@ namespace
 	}
 
 	// The whole regen decision for one unit and one tick. Returns raw HP to add (0 = none).
-	int64_t ComputeRegen(const UnitStruct* unit, const UnitDefStruct* def, uint8_t tickLow,
+	int64_t ComputeRegen(const UnitStruct* unit, const UnitDefStruct* def, uint32_t gameTime,
 	                     int32_t rateMilli, int32_t* acc)
 	{
+		const uint8_t tickLow = static_cast<uint8_t>(gameTime & 0xFF);
 		const int16_t healTime = static_cast<int16_t>(def->nHealTime);   // movsx, 0x48AF3D
 		if (rateMilli <= 0 && healTime == 0)
 			return 0;
@@ -174,7 +192,7 @@ namespace
 		}
 
 		if (rateMilli > 0)
-			return RateStep(rateMilli, def->damagemodifier, acc);
+			return RateStep(rateMilli, def->damagemodifier, acc, gameTime);   // the unit's UnitDef
 
 		if ((tickLow & static_cast<uint8_t>(healTime)) != 0)               // 0x48AF67
 			return 0;
@@ -187,13 +205,17 @@ namespace
 	}
 
 	// ---- per-unit accumulator, keyed by UnitInGameIndex (Unit+0xA8) --------------------------
-	// Same lifetime rules as RepairRateFix's table: sized lazily from the engine's unit array,
-	// re-checked every call, index 0 invalid. Units at full HP or unfinished reset their cell,
+	// Same lifetime rules as RepairRateFix's table: sized lazily from the engine's unit array
+	// (End is the LAST unit, InitInGameUnitArray 0x4855B8-0x4855D6: one more slot than
+	// (End - Begin) / 0x118), Begin and End re-checked every call, index 0 invalid. The index
+	// is unsigned: the engine writes it from a 16-bit counter (0x4855E4-0x485629) and
+	// UnitLimit above 3276 goes past 32767. Units at full HP or unfinished reset their cell,
 	// and a value out of range for the formula reading it is discarded, so a recycled index
 	// inherits less than 1 raw HP.
 	int32_t*    g_acc = nullptr;
 	int         g_accUnits = 0;
 	UnitStruct* g_accBase = nullptr;
+	UnitStruct* g_accEnd = nullptr;
 	DWORD       g_fallbackHits = 0;
 	DWORD       g_heals = 0;
 
@@ -207,27 +229,28 @@ namespace
 		TAdynmemStruct* ta = Ta();
 		UnitStruct* begin = ta ? ta->BeginUnitsArray_p : nullptr;
 		UnitStruct* end   = ta ? ta->EndOfUnitsArray_p : nullptr;
-		if (!begin || !end || end <= begin)
+		if (!begin || !end || end < begin)
 		{
 			++g_fallbackHits;
 			return nullptr;
 		}
-		if (!g_acc || begin != g_accBase)
+		if (!g_acc || begin != g_accBase || end != g_accEnd)
 		{
 			const int units = static_cast<int>((reinterpret_cast<const char*>(end) -
-			                                    reinterpret_cast<const char*>(begin)) / sizeof(UnitStruct));
+			                                    reinterpret_cast<const char*>(begin)) / sizeof(UnitStruct)) + 1;
 			std::free(g_acc);
 			g_acc = units > 0 ? static_cast<int32_t*>(std::calloc(static_cast<size_t>(units), sizeof(int32_t)))
 			                  : nullptr;
 			g_accUnits = g_acc ? units : 0;
 			g_accBase  = g_acc ? begin : nullptr;
+			g_accEnd   = g_acc ? end : nullptr;
 			if (!g_acc)
 			{
 				++g_fallbackHits;
 				return nullptr;
 			}
 		}
-		const int idx = unit->UnitInGameIndex;
+		const int idx = static_cast<uint16_t>(unit->UnitInGameIndex);
 		if (idx <= 0 || idx >= g_accUnits)
 		{
 			++g_fallbackHits;
@@ -238,24 +261,31 @@ namespace
 
 	// ---- FBI key -> per-type rate table ------------------------------------------------------
 	// The key is registered as a string with UnitDefExtensions (read from each FBI at load) and
-	// parsed once into milli-HP/s per UnitTypeID. The table is rebuilt if the engine's unit-def
-	// array or count changes; each build logs one line per self-healing unit type.
+	// parsed once into milli-HP/s per UnitTypeID. The table is rebuilt if any FBI has been read
+	// since it was built (the engine frees and reloads the unit defs, possibly at the same
+	// address) or if the unit-def array or count changes; each build logs one line per
+	// self-healing unit type.
 	UnitDefExtensions* g_ude = nullptr;
 	unsigned           g_keyIdx = 0;
 	int32_t*           g_rates = nullptr;
+	int16_t*           g_loadedHt = nullptr;     // HealTime integer as loaded with the FBI, per type
 	unsigned           g_ratesSize = 0;
 	bool               g_ratesBuilt = false;
 	const void*        g_ratesDefs = nullptr;
 	unsigned           g_ratesCount = 0;
+	unsigned           g_ratesLoad = 0;
 
 	void BuildRates(TAdynmemStruct* ta)
 	{
 		std::free(g_rates);
 		g_rates = nullptr;
+		std::free(g_loadedHt);
+		g_loadedHt = nullptr;
 		g_ratesSize = 0;
-		g_ratesBuilt = true;
+		g_ratesBuilt = false;
 		g_ratesDefs = ta->UnitDef;
 		g_ratesCount = ta->UNITINFOCount;
+		g_ratesLoad = UnitDefExtensions::LoadGeneration();
 		if (!ta->UnitDef || ta->UNITINFOCount == 0)
 			return;
 		unsigned maxId = 0;
@@ -263,9 +293,17 @@ namespace
 			if (ta->UnitDef[i].UnitTypeID > maxId)
 				maxId = ta->UnitDef[i].UnitTypeID;
 		g_rates = static_cast<int32_t*>(std::calloc(maxId + 1u, sizeof(int32_t)));
-		if (!g_rates)
-			return;
+		g_loadedHt = static_cast<int16_t*>(std::calloc(maxId + 1u, sizeof(int16_t)));
+		if (!g_rates || !g_loadedHt)
+		{
+			std::free(g_rates);
+			g_rates = nullptr;
+			std::free(g_loadedHt);
+			g_loadedHt = nullptr;
+			return;                       // not marked built: the next tick tries again
+		}
 		g_ratesSize = maxId + 1u;
+		g_ratesBuilt = true;
 
 		int nRate = 0, nLegacy = 0;
 		for (unsigned i = 0; i < ta->UNITINFOCount; ++i)
@@ -274,6 +312,7 @@ namespace
 			const int32_t rate = ParseRateMilli(g_ude->getString(d->UnitTypeID, g_keyIdx).c_str());
 			g_rates[d->UnitTypeID] = rate;
 			const int16_t ht = static_cast<int16_t>(d->nHealTime);
+			g_loadedHt[d->UnitTypeID] = ht;
 			if (rate <= 0 && ht == 0)
 				continue;
 			char name[0x21];
@@ -301,10 +340,13 @@ namespace
 
 	int32_t RateFor(TAdynmemStruct* ta, const UnitDefStruct* def)
 	{
-		if (!g_ratesBuilt || g_ratesDefs != ta->UnitDef || g_ratesCount != ta->UNITINFOCount)
+		if (!g_ratesBuilt || g_ratesLoad != UnitDefExtensions::LoadGeneration() ||
+			g_ratesDefs != ta->UnitDef || g_ratesCount != ta->UNITINFOCount)
 			BuildRates(ta);
-		const unsigned id = def->UnitTypeID;
-		return id < g_ratesSize ? g_rates[id] : 0;
+		const unsigned id = def->UnitTypeID;   // a recorder per-unit copy keeps the type's id
+		return id < g_ratesSize
+			? EffectiveRate(g_rates[id], g_loadedHt[id], static_cast<int16_t>(def->nHealTime))
+			: 0;
 	}
 
 	// ---- the splice target ------------------------------------------------------------------
@@ -315,11 +357,12 @@ namespace
 		if (!def || !ta)
 			return 0;                        // the engine block would fault here
 		const int32_t rate = RateFor(ta, def);
+		if (!g_ratesBuilt)
+			return 0;                        // no table: do not read a HP/s value as a HealTime
 		if (rate <= 0 && def->nHealTime == 0)
 			return 0;                        // no self-heal: the common case
 
-		const uint8_t tickLow = static_cast<uint8_t>(ta->GameTime & 0xFF);
-		int64_t whole = ComputeRegen(unit, def, tickLow, rate, AccFor(unit));
+		int64_t whole = ComputeRegen(unit, def, static_cast<uint32_t>(ta->GameTime), rate, AccFor(unit));
 		if (whole <= 0)
 			return 0;
 		if (whole > kMaxHealTick)
@@ -395,11 +438,11 @@ namespace
 		t.def.buildtime = static_cast<unsigned long>(buildTime);
 	}
 
-	int64_t RunTicks(TestUnit& t, int32_t rate, int32_t* acc, int ticks, int firstTick)
+	int64_t RunTicks(TestUnit& t, int32_t rate, int32_t* acc, int ticks, uint32_t firstTick)
 	{
 		int64_t total = 0;
 		for (int i = 0; i < ticks; ++i)
-			total += ComputeRegen(&t.unit, &t.def, static_cast<uint8_t>((firstTick + i) & 0xFF), rate, acc);
+			total += ComputeRegen(&t.unit, &t.def, firstTick + static_cast<uint32_t>(i), rate, acc);
 		return total;
 	}
 
@@ -492,11 +535,23 @@ namespace
 		ok = Check(RunTicks(t, 0, &acc, 32, 0) == 16LL * (1000 * 17 * REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER) / 1000,
 		            "HealTime 16: 16 firings in 32 ticks, t 17") && ok;
 
-		// Table unavailable: round up, never down.
+		// No cell: the rate key pays from the game clock, exact, never 1 HP per tick.
 		SetupTest(t, 0, 30000, 100, 65536, 1000);
-		ok = Check(RunTicks(t, 1000, nullptr, 30, 0) == 30, "no table, rate 1 -> rounds up to 1 HP/tick") && ok;
+		ok = Check(RunTicks(t, 1000, nullptr, 30, 0) == 1, "no cell, rate 1 -> 1 HP in 30 ticks") && ok;
+		ok = Check(RunTicks(t, 1000, nullptr, 3000, 123456789u) == 100, "no cell, rate 1, any start -> 100 HP in 3000 ticks") && ok;
+		ok = Check(RunTicks(t, 12345, nullptr, 3000, 0) == 1234, "no cell, rate 12.345, 100 s -> 1234 HP") && ok;
+		SetupTest(t, 3, 23256, 100, 373, 24994360);
+		ok = Check(RunTicks(t, 100000, nullptr, 18000, 0) == 341, "no cell, CORMS rate 100 -> 341 raw in 18000 ticks") && ok;
+		const int64_t late = RunTicks(t, 100000, nullptr, 18000, 4294000000u);
+		ok = Check(late == 341 || late == 342, "no cell, CORMS rate 100 near the 32-bit wrap -> 341-342") && ok;
 		SetupTest(t, 3, 24480, 100, 8388, 1560065);
-		ok = Check(ComputeRegen(&t.unit, &t.def, 0, 0, nullptr) == 1, "no table, HealTime 3 -> rounds up to 1") && ok;
+		ok = Check(ComputeRegen(&t.unit, &t.def, 0, 0, nullptr) == 1, "no cell, HealTime 3 -> one firing rounds up to 1") && ok;
+
+		// A script-written HealTime overrides the FBI rate.
+		ok = Check(EffectiveRate(57050, 57, 57) == 57050 && EffectiveRate(57050, 57, 0) == 0 &&
+		           EffectiveRate(57050, 57, 10) == 10000 && EffectiveRate(0, 0, 5) == 5000 &&
+		           EffectiveRate(0, 0, -3) == 0 && EffectiveRate(7500, 7, -1) == 0,
+		           "script HealTime: unchanged keeps the FBI rate, changed = whole HP/s, 0 stops") && ok;
 
 		// A stale accumulator from the other formula is discarded, not paid out.
 		SetupTest(t, 0, 30000, 100, 65536, 1000);
@@ -507,7 +562,7 @@ namespace
 		ok = Check(ComputeRegen(&t.unit, &t.def, 0, 0, &acc) == 0, "stale acc on HealTime -> discarded") && ok;
 
 		// Rate clamp keeps the product in range.
-		ok = Check(RateStep(kMaxRateMilli, 0xFFFFFFFFu, nullptr) > 0, "max rate x max Q does not overflow") && ok;
+		ok = Check(RateStep(kMaxRateMilli, 0xFFFFFFFFu, nullptr, 0xFFFFFFFFu) > 0, "max rate x max Q does not overflow") && ok;
 
 		return ok;
 	}
@@ -567,8 +622,11 @@ namespace SelfHealRate
 		g_acc = nullptr;
 		g_accUnits = 0;
 		g_accBase = nullptr;
+		g_accEnd = nullptr;
 		std::free(g_rates);
 		g_rates = nullptr;
+		std::free(g_loadedHt);
+		g_loadedHt = nullptr;
 		g_ratesSize = 0;
 		g_ratesBuilt = false;
 		g_installed = false;

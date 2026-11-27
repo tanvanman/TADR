@@ -6,11 +6,13 @@
 // matched case-insensitively), value N = HP per second as the player experiences it, up to 3
 // decimals, parsed once per unit type with integer arithmetic: N points of
 // weapon damage undone per second while the unit is armoured. Raw HP per
-// second = N * DamageModifier (the Q16.16 value at UnitDef+0x1AA), so two units
+// second = N * DamageModifier (the Q16.16 value at UnitDef+0x1AA of the unit's
+// UnitDef: the type's, or a recorder per-unit copy), so two units
 // with the same N regenerate the same effective HP whatever DamageModifier they
 // use to emulate their health. Applied every tick through an exact remainder
 // accumulator; no energy cost; independent of BuildTime and of HealTime's bit
-// pattern.
+// pattern. A script-written HealTime (COB SET_UNITINFO) overrides N with that
+// whole number of HP per second; 0 stops regen.
 //
 // A unit whose key is absent (or N <= 0) keeps the HealTime formula exactly as
 // RepairRateFix computes it (gate (GameTime & HealTime & 0xFF) == 0,

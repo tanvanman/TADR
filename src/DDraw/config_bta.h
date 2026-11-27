@@ -59,6 +59,7 @@
 // Self-heal energy / SelfHealRate: Escalation-only (see config_escalation.h).
 #define SELFHEAL_FREE_ENERGY 0
 #define SELFHEAL_RATE_ENABLE 0
+#define SELFHEAL_RATE_FBI_KEY "HealTime"
 
 //
 // COB script VM -- opcode dispatch
