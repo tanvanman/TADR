@@ -418,5 +418,5 @@
 // before installation and fail closed on mismatch. See RepairHealthSync.h.
 //
 #ifndef REPAIR_HEALTH_SYNC_ENABLE
-#define REPAIR_HEALTH_SYNC_ENABLE 0
+#error "REPAIR_HEALTH_SYNC_ENABLE must be defined in each config_*.h"
 #endif

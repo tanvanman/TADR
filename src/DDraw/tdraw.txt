@@ -38,13 +38,17 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   auto kickout of construction units blocking a builder       y     y     y      n     y      y      y
   patrol reclaim thresholds, +setreclaimmetal/energy  [1]     y     y     y      n     y      y      y
   percentage share thresholds, +setsharemetal 50%             y     y     y      n     y      y      y
+  auto-share surplus split among all allies                   n     y     n      n     n      n      n
+  +givemetal / +giveenergy                                    n     y     n      n     n      n      n
+  invalid received resource packets are dropped               n     y     n      n     n      n      n
   weather report at top of screen (the game clock)            y     y     y      n     y      y      y
      ... including its wind and tidal readouts                y     y     y      n     n      y      y
   sync wind speed between players                             y     y     y      n     y      y      y
   map DTs and fortwalls always visible                        y     y     y      n     y      y      y
   map features (mexes, geos, spires, walls) on megamap        y     y     y      n     y      n      y
-  off-map aircraft targetable, in tiles past the map edge     1     32    32     1     1      1      1
-  explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     n      n      y
+  megamap nuke icon needs a stockpile weapon                  y     y     y      y     n      y      y
+  off-map aircraft targetable, in tiles past the map edge     1     32    32     1     32     1      1
+  explosions damage every aircraft stacked on a spot  [2]     y     y     y      n     y      n      n
   projectiles pass through allied players' units              y     n     n      n     y      n      n
   ground constructors can guard / assist air constructors     n     y     y      n     n      n      n
   air repair beam shown only while the repair is paid for     n     y     y      n     n      n      n
@@ -55,7 +59,8 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   stockpile build-percent / weapon-slot crash guard  [4]      n     y     n      n     n      n      n
   COB opcode jump table (speed only, same behaviour)  [4]     n     y     n      n     n      n      n
   allied queued-build overlays                                y     n     n      n     n      n      n
-  display-only construction and repair health sync            y     n     n      n     n      n      n
+  enhanced allied resource bars and replay totals             y     n     n      n     n      n      n
+  five-colour unit health bar                                 n     y     n      n     n      n      n
 
   [1] the thresholds also gate air construction units, which vanilla never gated at all --
       read NEW FEATURES IN DETAIL before enabling this for a new mod
@@ -110,8 +115,22 @@ EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom b
 
 NEW FEATURES IN BRIEF:
 
-*????.??.??
-- Synchronize remote construction, completion, and repair health displays without modifying simulation health (thanks TAG_Venom; see NEW FEATURES IN DETAIL)
+*2026.11.27.2
+- Unit control-group numbers no longer overlap weapon reload bars, and stockpile, transport and group-number counters are
+  now centred on the unit bar (thanks TAG_Venom)
+
+*2026.11.27
+- Fix underwater metal patches and other megamap feature sprites showing a flat-colour outline against dithered water and
+  terrain (thanks TAG_Venom)
+
+*2026.11.25
+- Split the auto-share surplus among all allies, add +givemetal and +giveenergy, and drop invalid received resource
+  packets (escalation only; thanks RDKL; see NEW FEATURES IN DETAIL)
+- Show the unit health bar in five colours, in 20% steps (escalation only; thanks RDKL)
+- TA:Zero: aircraft are targetable up to 32 tiles off the map, explosions damage every aircraft stacked on a spot,
+  projectiles pass through allied players' units, and nukes get the megamap nuke icon
+- Recorder update to 2026.11.4, including fixes for recorder exceptions, configuration handling and timer overflow (thanks
+  TAG_Venom)
 - Optimise allied queued-build overlays with on-demand, paced queue updates (thanks TAG_Venom)
 - Add opt-in ally economy bars and replay totals using the native TA HUD font (thanks TAG_Venom)
 - Organise Ctrl-F2 settings into shared TA-style tabbed pages (thanks TAG_Venom)
@@ -356,26 +375,21 @@ NEW FEATURES IN BRIEF:
 
 NEW FEATURES IN DETAIL:
 
-- Display-only construction and repair health synchronization
+- Auto-share split and +givemetal / +giveenergy (escalation only)
 
-  In stock multiplayer, remote units that finish building can remain stuck at
-  0% health with heavy black smoke until the engine's slow periodic status
-  sweep catches up, and repairs performed by a unit's owner are not shown on
-  other clients while the unit is under fire.
+  Auto-share divides the surplus equally among every eligible ally instead of
+  sending it all to one. Each share is capped at that ally's free storage. An
+  ally is eligible if both players have allied each other, it is alive and not
+  a spectator, has free storage, and is less full than the sender.
 
-  This feature keeps remote health bars, construction wireframes, and damage
-  smoke accurate strictly at display time without modifying remote unit
-  simulation state. Completed builds immediately reflect their finished health
-  (accounting for any damage taken during construction), while owner-local
-  repairs, construction progress, and self-reclaim are sent as bounded
-  additive deltas over the hidden chat channel (at most 20 packets/s globally
-  and 5 packets/s per peer, gated by native line of sight). Because local
-  weapon hits apply immediately and owner repairs apply additively, combat
-  health bars update with zero latency and do not bounce during firefights.
+  +givemetal <player> <amount>
+  +giveenergy <player> <amount>
+  +give <player> <amount> metal|energy
 
-  Older clients silently ignore custom message 0x41 and simply do not sync
-  health updates in mixed games. Enabled per build configuration (see
-  CONFIGURATIONS above); no totala.ini setting is required.
+  <player> is an exact name, a slot number from 0 to 9, or the start of a name
+  if only one player matches. Only allies can receive. The amount sent is
+  limited to what you have and what the receiver has room for. A chat line
+  reports the result or why nothing was sent.
 
 - Enhanced allied resource bars and replay totals
 

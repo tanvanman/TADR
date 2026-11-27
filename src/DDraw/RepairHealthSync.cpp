@@ -36,6 +36,8 @@ namespace
 	const unsigned int kBottomStateCompareAddress = 0x0046ACD7;
 	const unsigned int kBottomStateCompareExitAddress = 0x0046ACDD;
 	const unsigned int kCobEmitSfxAddress = 0x00480EB0;
+	const unsigned int kCobEmitSfxObjDispOpcodeAddress = 0x00480EBB; // 8B 86 <disp32> (mov eax, [esi+disp32])
+	const unsigned int kCobEmitSfxObjDispAddress = 0x00480EBD;
 	const unsigned int kNanoframeRenderEntryAddress = 0x00458DF1;
 	const unsigned int kNanoframeRenderExitAddress1 = 0x00458E08;
 	const unsigned int kNanoframeRenderExitAddress2 = 0x00458F85;
@@ -95,8 +97,8 @@ namespace
 		"Object3doStruct.ThisUnit");
 	static_assert(offsetof(UnitDefStruct, CANBUILD_ptr) == 0x156,
 		"UnitDefStruct.CANBUILD_ptr");
-	static_assert(offsetof(PlayerStruct, field_18) == 0x18,
-		"PlayerStruct +0x18 holds last 0x2C ownerGameTime");
+	static_assert(offsetof(PlayerStruct, Last2cGameTime) == 0x18,
+		"PlayerStruct.Last2cGameTime");
 
 	struct RepairTarget
 	{
@@ -295,15 +297,6 @@ namespace
 	unsigned short ClampedDisplayHealth(const HealthCorrection& correction, const UnitStruct* unit)
 	{
 		return ClampHealth(correction.rawDisplayHealth, MaximumDisplayHealth(unit));
-	}
-
-	unsigned int ReadPlayerLast2cGameTime(const PlayerStruct& player)
-	{
-		unsigned int ownerTick = 0;
-		std::memcpy(&ownerTick,
-			reinterpret_cast<const unsigned char*>(&player) + 0x18,
-			sizeof(ownerTick));
-		return ownerTick;
 	}
 
 	int ResolveOwnerSlotForUnit(const TAdynmemStruct* ta, const UnitStruct* unit)
@@ -766,7 +759,7 @@ namespace
 		if (ownerSlot >= 0 && ownerSlot < 10)
 		{
 			correction.ownerSlot = static_cast<unsigned char>(ownerSlot);
-			correction.last2cOwnerTick = ReadPlayerLast2cGameTime(ta->Players[ownerSlot]);
+			correction.last2cOwnerTick = ta->Players[ownerSlot].Last2cGameTime;
 			correction.hasLast2cOwnerTick = true;
 			if (keepDamageClock)
 			{
@@ -1071,34 +1064,40 @@ namespace
 		if (!ta || !scriptData || !EnsureTables(ta))
 			return nullptr;
 
-		// tplayx's optional expanded-script-slots patch moves pObject3D from
-		// 0x540 to 0x2920. Accept either layout, then validate the result against
-		// TA's live unit array and the unit's own object pointer.
-		const size_t objectOffsets[] = { 0x540, 0x2920 };
-		for (size_t offset : objectOffsets)
+		// Read the live disp32 from `mov eax, [esi+disp32]` at 0x480EBB..0x480EC0
+		// (0x540 in stock TA, or whatever offset the recorder's MaxScriptSlots
+		// patch wrote into 0x480EBD), avoiding any out-of-bounds probe or stale
+		// pointer match across script-block layouts.
+		__try
 		{
-			__try
+			const unsigned char* opcode =
+				reinterpret_cast<const unsigned char*>(kCobEmitSfxObjDispOpcodeAddress);
+			if (opcode[0] != 0x8B || opcode[1] != 0x86)
+				return nullptr;
+			const unsigned int offset =
+				*reinterpret_cast<const unsigned int*>(kCobEmitSfxObjDispAddress);
+			if (offset > 0x10000u)
+				return nullptr;
+
+			Object3doStruct* object = *reinterpret_cast<Object3doStruct* const*>(
+				reinterpret_cast<const unsigned char*>(scriptData) + offset);
+			if (!object)
+				return nullptr;
+			UnitStruct* unit = object->ThisUnit;
+			if (!unit)
+				return nullptr;
+			const uintptr_t address = reinterpret_cast<uintptr_t>(unit);
+			const uintptr_t base = reinterpret_cast<uintptr_t>(ta->BeginUnitsArray_p);
+			const uintptr_t end = reinterpret_cast<uintptr_t>(ta->EndOfUnitsArray_p);
+			if (address >= base && address < end
+				&& (address - base) % sizeof(UnitStruct) == 0
+				&& unit->Object3do == object)
 			{
-				Object3doStruct* object = *reinterpret_cast<Object3doStruct* const*>(
-					reinterpret_cast<const unsigned char*>(scriptData) + offset);
-				if (!object)
-					continue;
-				UnitStruct* unit = object->ThisUnit;
-				if (!unit)
-					continue;
-				const uintptr_t address = reinterpret_cast<uintptr_t>(unit);
-				const uintptr_t base = reinterpret_cast<uintptr_t>(ta->BeginUnitsArray_p);
-				const uintptr_t end = reinterpret_cast<uintptr_t>(ta->EndOfUnitsArray_p);
-				if (address >= base && address < end
-					&& (address - base) % sizeof(UnitStruct) == 0
-					&& unit->Object3do == object)
-				{
-					return unit;
-				}
+				return unit;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-			}
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
 		}
 		return nullptr;
 	}
@@ -1471,6 +1470,11 @@ namespace RepairHealthSync
 		RestoreRenderFrames();
 		g_hooks.clear();
 		ResetSession(0, -1);
+	}
+
+	bool IsInstalled()
+	{
+		return g_installed;
 	}
 
 	void BeginNanoframeDraw(UnitStruct* unit)

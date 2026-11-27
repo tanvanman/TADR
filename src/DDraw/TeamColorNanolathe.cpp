@@ -444,13 +444,15 @@ unsigned char MapNanoframeColor(unsigned char playerColor, unsigned char stockCo
 
 void Install() {
 #if REPAIR_HEALTH_SYNC_ENABLE
-	if (g_nanoframeStart) return;
+	if (g_nanoframeStart || g_palette) return;
 	LoadColorConfig();
-	// This entry hook is also the safe display-only construction-progress
-	// substitution point used by RepairHealthSync, so install it even when
-	// custom nanolathe colours are disabled.
-	g_nanoframeStart.reset(new InlineSingleHook(kNanoframeStart, 10, INLINE_5BYTESLAGGERJMP, NanoframeStartProc));
 	if (!g_enabled) {
+		if (RepairHealthSync::IsInstalled()) {
+			// This entry hook is also the safe display-only construction-progress
+			// substitution point used by RepairHealthSync; install it only when
+			// RepairHealthSync's byte-signature verification succeeded (fail closed).
+			g_nanoframeStart.reset(new InlineSingleHook(kNanoframeStart, 10, INLINE_5BYTESLAGGERJMP, NanoframeStartProc));
+		}
 		IDDrawSurface::OutptTxt("[TeamColorNanolathe] disabled");
 		return;
 	}
@@ -470,9 +472,7 @@ void Install() {
 	g_reversePostTag.reset(new InlineSingleHook(kReverseEmitterPostTag, 5, INLINE_5BYTESLAGGERJMP, PostTagEmitter));
 	g_palette.reset(new InlineSingleHook(kPalette, 6, INLINE_5BYTESLAGGERJMP, SetPalette));
 	g_paletteAdvance.reset(new InlineSingleHook(kPaletteAdvance, 11, INLINE_5BYTESLAGGERJMP, AdvancePalette));
-#if !REPAIR_HEALTH_SYNC_ENABLE
 	g_nanoframeStart.reset(new InlineSingleHook(kNanoframeStart, 10, INLINE_5BYTESLAGGERJMP, NanoframeStartProc));
-#endif
 	g_nanoframeColors.reset(new InlineSingleHook(kNanoframeColors, 10, INLINE_5BYTESLAGGERJMP, NanoframeColorsProc));
 	IDDrawSurface::OutptTxt("[TeamColorNanolathe] installed");
 }

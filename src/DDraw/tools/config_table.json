@@ -1,0 +1,43 @@
+{
+  "comment": "Rows of the CONFIGURATIONS table in tdraw.txt. kind bool prints y/n, value prints the number. macros that share a row must always have the same value. A row whose cells are all equal is left out of the table. Macros in ignore need no row.",
+  "rows": [
+    {"label": "mex snap radius, in tiles", "macros": ["DEFAULT_MEX_SNAP_RADIUS"], "kind": "value"},
+    {"label": "wreck snap radius, in tiles", "macros": ["DEFAULT_WRECK_SNAP_RADIUS"], "kind": "value"},
+    {"label": "construction units stay put while guarding a factory", "macros": ["FIXED_POSN_GUARDING_CONS_ENABLE"], "kind": "bool"},
+    {"label": "construction units reclaim-only / assist-only on patrol", "macros": ["PATROLING_CONS_RECLAIM_OR_ASSIST_ENABLE"], "kind": "bool"},
+    {"label": "auto kickout of construction units blocking a builder", "macros": ["CONSTRUCTION_KICKOUT_ENABLE"], "kind": "bool"},
+    {"label": "patrol reclaim thresholds, +setreclaimmetal/energy  [1]", "macros": ["PATROL_RECLAIM_THRESHOLD_ENABLE", "PATROL_RECLAIM_AIR_GATE_ENABLE"], "kind": "bool"},
+    {"label": "percentage share thresholds, +setsharemetal 50%", "macros": ["SHARE_PERCENT_ENABLE"], "kind": "bool"},
+    {"label": "auto-share surplus split among all allies", "macros": ["SHARE_SPLIT_ENABLE"], "kind": "bool"},
+    {"label": "+givemetal / +giveenergy", "macros": ["GIVE_COMMANDS_ENABLE"], "kind": "bool"},
+    {"label": "invalid received resource packets are dropped", "macros": ["GIVE_RECEIVE_GUARD_ENABLE"], "kind": "bool"},
+    {"label": "weather report at top of screen (the game clock)", "macros": ["WEATHER_REPORT"], "kind": "bool"},
+    {"label": "   ... including its wind and tidal readouts", "macros": ["WEATHER_REPORT_WIND", "WEATHER_REPORT_TIDAL"], "kind": "bool"},
+    {"label": "sync wind speed between players", "macros": ["WIND_SPEED_SYNC"], "kind": "bool"},
+    {"label": "map DTs and fortwalls always visible", "macros": ["VISIBLE_MAP_DTS"], "kind": "bool"},
+    {"label": "map features (mexes, geos, spires, walls) on megamap", "macros": ["MEGAMAP_FEATURES"], "kind": "bool"},
+    {"label": "megamap nuke icon needs a stockpile weapon", "macros": ["MEGAMAP_NUKE_REQUIRES_STOCKPILE"], "kind": "bool"},
+    {"label": "off-map aircraft targetable, in tiles past the map edge", "macros": ["OFFMAP_AIRCRAFT_TARGETABLE_MARGIN_TILES"], "kind": "value"},
+    {"label": "explosions damage every aircraft stacked on a spot  [2]", "macros": ["AREA_DAMAGE_OVERFLOW_ENABLE", "GRID_CLAIM_TIEBREAK_ENABLE"], "kind": "bool"},
+    {"label": "projectiles pass through allied players' units", "macros": ["ALLIED_PROJECTILE_COLLISION_ENABLE"], "kind": "bool"},
+    {"label": "ground constructors can guard / assist air constructors", "macros": ["GROUND_TO_AIR_GUARD_ENABLE"], "kind": "bool"},
+    {"label": "air repair beam shown only while the repair is paid for", "macros": ["VTOL_REPAIR_BEAM_FIX_ENABLE"], "kind": "bool"},
+    {"label": "weapon IDs above 255 in Weapons/*.tdf", "macros": ["TDRAW_EXTENDED_WEAPON_IDS"], "kind": "bool"},
+    {"label": "share-abuse guard (share rate limit, .take refusal)", "macros": ["SHARE_ABUSE_GUARD"], "kind": "bool"},
+    {"label": "repair rate exploit fix  [3]", "macros": ["REPAIR_RATE_FIX_ENABLE"], "kind": "bool"},
+    {"label": "wrecks of aircraft killed over land fall to the ground", "macros": ["AIR_CORPSE_FALL_ENABLE"], "kind": "bool"},
+    {"label": "stockpile build-percent / weapon-slot crash guard  [4]", "macros": ["BUILD_WEAPON_SLOT_GUARD_ENABLE"], "kind": "bool"},
+    {"label": "COB opcode jump table (speed only, same behaviour)  [4]", "macros": ["COB_DISPATCH_TABLE_ENABLE"], "kind": "bool"},
+    {"label": "allied queued-build overlays", "macros": ["ALLIED_BUILD_QUEUE_ENABLE"], "kind": "bool"},
+    {"label": "enhanced allied resource bars and replay totals", "macros": ["MODERN_ALLY_RESOURCE_UI_ENABLE"], "kind": "bool"},
+    {"label": "five-colour unit health bar", "macros": ["HEALTH_BAR_COLORS_ENABLE"], "kind": "bool"},
+    {"label": "display-only construction and repair health sync", "macros": ["REPAIR_HEALTH_SYNC_ENABLE"], "kind": "bool"}
+  ],
+  "ignore": {
+    "MAX_MEX_SNAP_RADIUS": "follows the default radius",
+    "MAX_WRECK_SNAP_RADIUS": "follows the default radius",
+    "REPAIR_RATE_FIX_REPAIR_MULTIPLIER": "described in note [3]",
+    "REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER": "described in note [3]",
+    "TDRAW_CONFIG_NAME": "the name of the build"
+  }
+}
