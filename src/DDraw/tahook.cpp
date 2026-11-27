@@ -1078,7 +1078,10 @@ void CTAHook::SendQueued()
 
 	case ScrolledDTLine:
 		if(MessageQueue[QueueLength-QueuePos].Message == SCROLL)
-			((AlliesWhiteboard*)LocalShare->Whiteboard)->InstantScrollTo(MessageQueue[QueueLength-QueuePos].wParam, MessageQueue[QueueLength-QueuePos].lParam);
+		{
+			if (LocalShare->Whiteboard)
+				((AlliesWhiteboard*)LocalShare->Whiteboard)->InstantScrollTo(MessageQueue[QueueLength-QueuePos].wParam, MessageQueue[QueueLength-QueuePos].lParam);
+		}
 		else
 			LocalShare->TAWndProc(TAhWnd, MessageQueue[QueueLength-QueuePos].Message, MessageQueue[QueueLength-QueuePos].wParam, MessageQueue[QueueLength-QueuePos].lParam);
 		QueuePos--;
@@ -1333,7 +1336,7 @@ void CTAHook::VisualizeRow()
 	int XCenter;
 	int YCenter;
 	int iMapX, iMapY;
-	if(ScrollEnabled)
+	if(ScrollEnabled && LocalShare->Whiteboard)
 	{
 	iMapX = ((AlliesWhiteboard*)LocalShare->Whiteboard)->GetMapX();
 	iMapY = ((AlliesWhiteboard*)LocalShare->Whiteboard)->GetMapY();

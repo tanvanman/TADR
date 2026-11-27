@@ -99,6 +99,9 @@
 // config.h defaults this to 0 everywhere else.
 #define COB_DISPATCH_TABLE_ENABLE 1
 
+// Arena size from unsigned RAM (ArenaCapacityFix.h). Escalation's TotalA.exe only; the splice verifies its bytes.
+#define ARENA_CAPACITY_FIX_ENABLE 1
+
 //
 // BuildWeaponSlotGuard -- fixes the stockpile-weapon build-percent divide-by-zero
 // crash (real cause, corrected 2026-09-14: unit-identity divergence resolving a

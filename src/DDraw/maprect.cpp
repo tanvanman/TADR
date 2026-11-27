@@ -128,6 +128,8 @@ void CMapRect::LockBlit(char *VidBuf, int Pitch)
 	DataShare->MapY = (*MapY)+HeightAdd;
 
 	AlliesWhiteboard *WhiteBoard = (AlliesWhiteboard*)LocalShare->Whiteboard;
+	if (!WhiteBoard)
+		return;
 
 	WhiteBoard->min_clip_y = 0;
 	WhiteBoard->min_clip_x = 0;

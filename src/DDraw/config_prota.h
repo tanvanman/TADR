@@ -68,6 +68,9 @@
 // own exe.  See ai-reference/simulation-performance/COB_DISPATCH_PROJECT.md.
 #define COB_DISPATCH_TABLE_ENABLE 0
 
+// Arena size from unsigned RAM (ArenaCapacityFix.h). Escalation's TotalA.exe only; the splice verifies its bytes.
+#define ARENA_CAPACITY_FIX_ENABLE 0
+
 //
 // BuildWeaponSlotGuard -- stockpile-weapon divide-by-zero fix + weapon-slot bounds
 // check.

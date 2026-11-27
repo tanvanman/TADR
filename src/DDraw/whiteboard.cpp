@@ -116,6 +116,10 @@ AlliesWhiteboard::AlliesWhiteboard(BOOL VidMem)
 
 AlliesWhiteboard::~AlliesWhiteboard()
 {
+	// Readers go through LocalShare->Whiteboard; don't leave it pointing at a freed object.
+	if (LocalShare->Whiteboard == this)
+		LocalShare->Whiteboard = NULL;
+
 	if(lpInputBox)
 		lpInputBox->Release();
 	lpInputBox= NULL;

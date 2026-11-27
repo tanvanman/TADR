@@ -59,6 +59,7 @@ using namespace std;
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
 #include "CobDispatchTable.h"
+#include "ArenaCapacityFix.h"
 #include "BuildWeaponSlotGuard.h"
 #include "TransportedExplosions.h"
 #include "AreaDamageOverflow.h"
@@ -309,6 +310,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Install();
 #endif
+#if ARENA_CAPACITY_FIX_ENABLE
+		ArenaCapacityFix::Install();
+#endif
 		BuildWeaponSlotGuard::Install();
 		GroundToAirGuard::Install();
 		VtolRepairBeamFix::Install();
@@ -366,6 +370,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Shutdown();
+#endif
+#if ARENA_CAPACITY_FIX_ENABLE
+		ArenaCapacityFix::Shutdown();
 #endif
 		BuildWeaponSlotGuard::Shutdown();
 		GroundToAirGuard::Shutdown();
