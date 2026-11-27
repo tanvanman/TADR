@@ -1081,7 +1081,7 @@ struct UnitStruct {
   char HealthPerB;  //health in percent, changes slower (?)
   char data19[2];
   unsigned char RecentDamage;  //0xFA
-  unsigned char Height;		//0xfb: actually bytes 0..3 of a 4-byte transfer-cooldown timer
+  unsigned char Height;		//0xfb: byte 0 of a 4-byte transfer-cooldown timer (UNITS_GiveUnit sets +0xfb=0x96, +0xfc/+0xfe=0)
   short int  OwnerIndex ;	//0xfc: NOT owner slot (always 0 except transfer timer); use cOwnerID (+0xff)
   char data28;				//0xfe
   // 0xff: the slot of the player who OWNS this unit (Ghidra: cOwnerID). This is

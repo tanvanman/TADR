@@ -691,7 +691,9 @@ struct UnitIdFreeList
 	};
 
 	std::vector<Entry> ring;
+#if UNIT_ID_RECYCLE_OWNER_FIX
 	std::vector<unsigned char> inRing;
+#endif
 	unsigned head = 0;			// oldest entry
 	unsigned count = 0;
 	unsigned bumpNext = 0;		// slots [bumpNext, ring.size()) have never been handed out
@@ -699,7 +701,9 @@ struct UnitIdFreeList
 	void Reset(unsigned nIds)
 	{
 		ring.assign(nIds, Entry{ 0, 0 });
+#if UNIT_ID_RECYCLE_OWNER_FIX
 		inRing.assign(nIds, 0);
+#endif
 		head = 0;
 		count = 0;
 		bumpNext = 0;
@@ -707,6 +711,7 @@ struct UnitIdFreeList
 
 	void Push(unsigned short slot, int freedAt)
 	{
+#if UNIT_ID_RECYCLE_OWNER_FIX
 		// One push per free (UNITS_ReceiveUnitDeath bails on an already-dead unit at 0x486706),
 		// and inRing prevents duplicates if UNITS_CreateFromNetwork overwrites a queued slot.
 		if (ring.empty() || slot >= inRing.size() || inRing[slot] || count >= ring.size()) {
@@ -715,6 +720,15 @@ struct UnitIdFreeList
 		ring[(head + count) % ring.size()] = Entry{ slot, freedAt };
 		inRing[slot] = 1;
 		++count;
+#else
+		// One push per free (UNITS_ReceiveUnitDeath bails on an already-dead unit at 0x486706),
+		// and a slot is popped before it can be freed again, so the ring cannot overflow.
+		if (ring.empty() || count >= ring.size()) {
+			return;
+		}
+		ring[(head + count) % ring.size()] = Entry{ slot, freedAt };
+		++count;
+#endif
 	}
 };
 
@@ -737,7 +751,11 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
 	int playerIndex = *(int*)(X86StrackBuffer->Esp + 0x14 - 4) / 0x14b;
+#if UNIT_ID_RECYCLE_OWNER_FIX
 	int unitIndexRequested = (int)(X86StrackBuffer->Edx & 0xFFFF);
+#else
+	int unitIndexRequested = X86StrackBuffer->Edx;
+#endif
 
 	UnitIdFreeList_SyncSize(taPtr);
 	const unsigned nIds = taPtr->PlayerUnitsNumber_Skim;
@@ -773,7 +791,11 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 		// Prefer a slot that has never been handed out: no stale packet can name it at all.
 		while (assigned < 0 && freeList.bumpNext < nIds) {
 			const unsigned n = freeList.bumpNext++;
+#if UNIT_ID_RECYCLE_OWNER_FIX
 			if (0 == player->Units[n].UnitID && !freeList.inRing[n]) {
+#else
+			if (0 == player->Units[n].UnitID) {
+#endif
 				assigned = int(n);
 			}
 		}
@@ -790,9 +812,11 @@ int __stdcall FixFactoryExplosionsAssignUnitIdProc(PInlineX86StackBuffer X86Stra
 			}
 			freeList.head = (freeList.head + 1) % freeList.ring.size();
 			--freeList.count;
+#if UNIT_ID_RECYCLE_OWNER_FIX
 			if (entry.slot < freeList.inRing.size()) {
 				freeList.inRing[entry.slot] = 0;
 			}
+#endif
 			if (0 == player->Units[entry.slot].UnitID) {
 				assigned = entry.slot;
 			}
@@ -829,6 +853,7 @@ int __stdcall FixFactoryExplosionsRecycleUnitIdProc(PInlineX86StackBuffer X86Str
 	else if (!unit->Owner_PlayerPtr0) {
 		IDDrawSurface::OutptTxt("[FixFactoryExplosionsRecycleUnitIdProc] null unit->Owner_PlayerPtr0!\n");
 	}
+#if UNIT_ID_RECYCLE_OWNER_FIX
 	else if ((unsigned short)unit->UnitInGameIndex != unitInGameIndex) {
 		IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsRecycleUnitIdProc] UnitInGameIndex misatch! packet:%d, unit:%d\n",
 			unitInGameIndex, (unsigned short)unit->UnitInGameIndex);
@@ -854,6 +879,26 @@ int __stdcall FixFactoryExplosionsRecycleUnitIdProc(PInlineX86StackBuffer X86Str
 			}
 		}
 	}
+#else
+	else if (unit->UnitInGameIndex != unitInGameIndex) {
+		IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsRecycleUnitIdProc] UnitInGameIndex misatch! packet:%d, unit:%d\n",
+			unitInGameIndex, unit->UnitInGameIndex);
+	}
+	else if (unit->OwnerIndex < 0 || unit->OwnerIndex >= 10) {
+		IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsRecycleUnitIdProc] Invalid unit->OwnerIndex:%d\n", unit->OwnerIndex);
+	}
+	else {
+		int playerUnitIndex = unit->UnitInGameIndex - unit->Owner_PlayerPtr0->UnitsIndex_Begin;
+		if (unsigned(playerUnitIndex) >= taPtr->PlayerUnitsNumber_Skim) {
+			IDDrawSurface::OutptFmtTxt("[FixFactoryExplosionsRecycleUnitIdProc] Out of range unit->UnitInGameIndex:%d. owner->UnitsIndex_Begin=%d, PlayerUnitsNumber_Skim=%d\n",
+				unit->UnitInGameIndex, unit->Owner_PlayerPtr0->UnitsIndex_Begin, taPtr->PlayerUnitsNumber_Skim);
+		}
+		else {
+			// Store when it was freed, not a deadline, so the age test lives with the allocator.
+			unitIdFreeList[unit->OwnerIndex].Push((unsigned short)playerUnitIndex, taPtr->GameTime);
+		}
+	}
+#endif
 	return 0;
 }
 

@@ -176,3 +176,6 @@
 
 // Five-colour unit health bar; see HealthBarColors.h.
 #define HEALTH_BAR_COLORS_ENABLE 0
+
+// Recycle destroyed unit IDs into the owning player's UnitIdFreeList (cOwnerID +0xFF); see TABugFix.cpp.
+#define UNIT_ID_RECYCLE_OWNER_FIX 1

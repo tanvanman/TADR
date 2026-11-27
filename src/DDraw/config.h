@@ -59,6 +59,15 @@
 #error "AI_COMMANDER_KEEPS_ORDERS_ENABLE must be 0 or 1"
 #endif
 
+// Fix UnitIdFreeList recycling to use UnitStruct::cOwnerID (+0xFF) instead of
+// OwnerIndex (+0xFC), with inRing duplicate tracking and 16-bit index handling.
+#ifndef UNIT_ID_RECYCLE_OWNER_FIX
+#error "config_*.h must define UNIT_ID_RECYCLE_OWNER_FIX"
+#endif
+#if UNIT_ID_RECYCLE_OWNER_FIX != 0 && UNIT_ID_RECYCLE_OWNER_FIX != 1
+#error "UNIT_ID_RECYCLE_OWNER_FIX must be 0 or 1"
+#endif
+
 // ProCast-inspired economy panels. Mods explicitly opt in in config_*.h.
 // Opted-in builds offer a local Classic/New choice and replay totals settings.
 #ifndef MODERN_ALLY_RESOURCE_UI_ENABLE
