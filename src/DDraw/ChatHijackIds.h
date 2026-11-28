@@ -21,6 +21,7 @@ namespace ChatHijackId {
     // 0x2f is spoken for by the parked UnitEstate work; check before reusing.
     constexpr unsigned char TakeClaim             = 0x30;  // TakeClaim.cpp
     constexpr unsigned char UnitIdentityDigest    = 0x31;  // UnitIdentity.cpp
+    constexpr unsigned char ReplayEnd             = 0x32;  // TAF ordered replay completion fence
 
     // ---- 0x40..0x5F : reserved for gameplay extensions ---------------------
     // ---- 0x60..0x7F : UI / HUD notifications -------------------------------
