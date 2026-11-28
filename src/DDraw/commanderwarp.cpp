@@ -29,6 +29,10 @@ CWarp::CWarp(BOOL VidMem)
 
 CWarp::~CWarp()
 {
+	// The window procedure dispatches through LocalShare->CommanderWarp; don't leave it pointing at a freed object.
+	if (LocalShare->CommanderWarp == this)
+		LocalShare->CommanderWarp = NULL;
+
 	if(lpButton)
 		lpButton->Release();
 

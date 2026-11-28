@@ -952,7 +952,7 @@ BOOL MegaMapControl::IsDrawCursor (int xPos, int yPos)
 		}
 	}
 
-	if (((CIncome *)LocalShare->Income)->IsPointOver(xPos, yPos))
+	if (LocalShare->Income && ((CIncome *)LocalShare->Income)->IsPointOver(xPos, yPos))
 		return FALSE;
 
 	if (TAmainStruct_Ptr->desktopGUI.TheActive_GUIMEM

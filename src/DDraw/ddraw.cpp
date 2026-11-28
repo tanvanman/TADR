@@ -53,12 +53,14 @@ using namespace std;
 #include "UnitIdentity.h"
 #include "ReloadBars.h"
 #include "HealthBarColors.h"
+#include "NanoframeNoLos.h"
 #include "UnitStatusCounters.h"
 #include "EngineLimits.h"
 #include "ZeroDamageMapWeapons.h"
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
 #include "CobDispatchTable.h"
+#include "ArenaCapacityFix.h"
 #include "BuildWeaponSlotGuard.h"
 #include "TransportedExplosions.h"
 #include "AreaDamageOverflow.h"
@@ -309,9 +311,15 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Install();
 #endif
+#if ARENA_CAPACITY_FIX_ENABLE
+		ArenaCapacityFix::Install();
+#endif
 		BuildWeaponSlotGuard::Install();
 		GroundToAirGuard::Install();
 		VtolRepairBeamFix::Install();
+#if NANOFRAME_NO_LOS_ENABLE
+		NanoframeNoLos::Install();           // own bytes only: entries 0x482AC0 / 0x4827B0 / 0x482090, 0x481796 in the LOS rebuild, the AddEyeball call 0x486748 (the recorder's LOS patches sit inside 0x481D50 / 0x482270)
+#endif
 #ifdef TADR_DEBUG_PIPE
 		DebugPipeServer::Start();
 #endif
@@ -331,6 +339,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		ChatPosition::Shutdown();
 #if HEALTH_BAR_COLORS_ENABLE
 		HealthBarColors::Shutdown();
+#endif
+#if NANOFRAME_NO_LOS_ENABLE
+		NanoframeNoLos::Shutdown();
 #endif
 		ReloadBars::Shutdown();
 		UnitStatusCounters::Shutdown();
@@ -366,6 +377,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Shutdown();
+#endif
+#if ARENA_CAPACITY_FIX_ENABLE
+		ArenaCapacityFix::Shutdown();
 #endif
 		BuildWeaponSlotGuard::Shutdown();
 		GroundToAirGuard::Shutdown();

@@ -178,6 +178,16 @@
 #endif
 
 //
+// ArenaCapacityFix -- the unit-picture arena is sized from dwTotalPhys through a signed shift, so a PC with 2 GB or more
+// of RAM gets the smallest arena (1920x1080: 5.14 MB instead of 25.7 MB) and thrashes on big models. 13-byte splice at
+// 0x42D41E, specific to Escalation's TotalA.exe (the original bytes are verified first). Every config_*.h must define it
+// explicitly as 0 or 1 (CONTRIBUTING.md: no fallback here).
+//
+#ifndef ARENA_CAPACITY_FIX_ENABLE
+#error "ARENA_CAPACITY_FIX_ENABLE must be defined as 0 or 1 in the selected config_*.h"
+#endif
+
+//
 // BuildWeaponSlotGuard -- fixes the stockpile ("Nanolathing") build-percent
 // divide-by-zero crash. Real cause (corrected 2026-09-14, PR #26 review): a
 // unit-identity divergence can make a legitimately-issued order reference a weapon
@@ -409,4 +419,13 @@
 //
 #ifndef HEALTH_BAR_COLORS_ENABLE
 #define HEALTH_BAR_COLORS_ENABLE 0
+#endif
+
+// NanoframeNoLos: a unit under construction gives no sight until it completes. Changes who automatic
+// targeting can see, so every mod chooses it explicitly. See NanoframeNoLos.h.
+#ifndef NANOFRAME_NO_LOS_ENABLE
+#error "config_*.h must define NANOFRAME_NO_LOS_ENABLE"
+#endif
+#if NANOFRAME_NO_LOS_ENABLE != 0 && NANOFRAME_NO_LOS_ENABLE != 1
+#error "NANOFRAME_NO_LOS_ENABLE must be 0 or 1"
 #endif

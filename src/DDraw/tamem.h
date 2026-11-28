@@ -1041,8 +1041,11 @@ struct UnitStruct {
   unsigned short YPos ;
   short XGridPos;
   short YGridPos;
-  short XLargeGridPos;
-  short YLargeGridPos;
+  // 0x7A/0x7C: the unit's cached sight cell (32-unit LOS grid), written only by the
+  // LOS functions 0x4816A0..0x482C16, zeroed at spawn (0x485C0A) and saved/loaded with
+  // games. Formerly named XLargeGridPos/YLargeGridPos.
+  short LosCacheCellX;
+  short LosCacheCellZ;
   // 0x7E/0x80 (Ghidra: SizeFootX / SizeFootZ). Footprint in TILES, baked from
   // UNITINFO.FootX/FootZ, used by Unit_ClaimFootprintCells @0047c790,
   // Unit_LinkToSpatialGrid @0047cc30 and Unit_ClearFootprintFromMap @0047d0e0 as the
@@ -1079,7 +1082,10 @@ struct UnitStruct {
   unsigned char LastDamageType; // 0xF5: 1=normal, 2=paralyze, 3=SD/resign, 10=heal, 11=net-pkt
   char HealthPerA;  //health in percent
   char HealthPerB;  //health in percent, changes slower (?)
-  char data19[2];
+  // 0xF8: LOS frame byte paired with LosCacheCellX/Z: the GAF circle frame in circular
+  // LOS, the cached eye height in true LOS. Zeroed at spawn (0x485D04).
+  unsigned char LosSightFrameIdx;
+  char data19;                 //0xF9
   unsigned char RecentDamage;  //0xFA
   unsigned char Height;		//0xfb
   short int  OwnerIndex ;	//0xfc
@@ -1958,6 +1964,11 @@ static_assert(offsetof(UnitStruct, XPos__)                    == 0x6A,   "UnitSt
 static_assert(offsetof(UnitStruct, ZPos__)                    == 0x6E,   "UnitStruct.Pos.y (altitude)");
 static_assert(offsetof(UnitStruct, YPos__)                    == 0x72,   "UnitStruct.Pos.z (map depth)");
 static_assert(offsetof(UnitStruct, XGridPos)                  == 0x76,   "UnitStruct.XZGridPos");
+static_assert(offsetof(UnitStruct, LosCacheCellX)             == 0x7A,   "UnitStruct LOS cache cell x");
+static_assert(offsetof(UnitStruct, LosCacheCellZ)             == 0x7C,   "UnitStruct LOS cache cell z");
+static_assert(offsetof(UnitStruct, UnitID)                    == 0xA6,   "UnitStruct.UnitID (type index)");
+static_assert(offsetof(UnitStruct, LosSightFrameIdx)          == 0xF8,   "UnitStruct LOS frame byte");
+static_assert(offsetof(UnitStruct, Nanoframe)                 == 0x104,  "UnitStruct build fraction remaining");
 static_assert(offsetof(UnitStruct, SizeFootX)                 == 0x7E,   "UnitStruct.SizeFootX");
 static_assert(offsetof(UnitStruct, SizeFootZ)                 == 0x80,   "UnitStruct.SizeFootZ");
 static_assert(offsetof(UnitStruct, pSortBucket)               == 0x82,   "UnitStruct.pSortBucket");
