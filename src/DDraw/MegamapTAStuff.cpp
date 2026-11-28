@@ -12,6 +12,7 @@
 #include "fullscreenminimap.h"
 #include "unitrotate.h"
 #include "AlliedBuildQueueSync.h"
+#include "UnitStatsPanel.h"
 
 
 #include "MegamapControl.h"
@@ -293,6 +294,7 @@ void MegamapTAStuff::LockBlit_TA (LPVOID lpSurfaceMem, int dwWidth, int dwHeight
 			memcpy ( &((LPBYTE)lpSurfaceMem)[Line], &ScreenBuf[Line], BackupWidth);
 		}
 	}
+	UnitStatsPanel::Draw(&OffScreen);
 }
 
 

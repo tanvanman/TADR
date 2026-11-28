@@ -39,6 +39,32 @@
 #include "config_twilight.h"
 #endif
 
+#include "OptionalUnitControls.h"
+
+#ifndef PREPEND_ORDERS_ENABLE
+#error "Each mod config must define PREPEND_ORDERS_ENABLE"
+#elif PREPEND_ORDERS_ENABLE != 0 && PREPEND_ORDERS_ENABLE != 1
+#error "PREPEND_ORDERS_ENABLE must be 0 or 1"
+#endif
+
+#ifndef ALLIED_CURSORS_ENABLE
+#error "Each mod config must define ALLIED_CURSORS_ENABLE"
+#elif ALLIED_CURSORS_ENABLE != 0 && ALLIED_CURSORS_ENABLE != 1
+#error "ALLIED_CURSORS_ENABLE must be 0 or 1"
+#endif
+
+#ifndef UNIT_STATS_PANEL_ENABLE
+#error "Each mod config must define UNIT_STATS_PANEL_ENABLE"
+#elif UNIT_STATS_PANEL_ENABLE != 0 && UNIT_STATS_PANEL_ENABLE != 1
+#error "UNIT_STATS_PANEL_ENABLE must be 0 or 1"
+#endif
+
+#ifndef LAB_BUILD_CYCLES_ENABLE
+#error "Each mod config must define LAB_BUILD_CYCLES_ENABLE"
+#elif LAB_BUILD_CYCLES_ENABLE != 0 && LAB_BUILD_CYCLES_ENABLE != 1
+#error "LAB_BUILD_CYCLES_ENABLE must be 0 or 1"
+#endif
+
 // Keep looping menu audio in TA's tracked sound slots. Override per config if needed.
 #ifndef MENU_HUM_TRACKED_LOOPING
 #define MENU_HUM_TRACKED_LOOPING 1

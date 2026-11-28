@@ -453,6 +453,15 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClCompile Include="TenPlayerReplay.cpp" />
     <ClCompile Include="TPacket.cpp" />
     <ClCompile Include="UnitIcon.cpp" />
+    <ClCompile Include="LabBuildCycles.cpp" />
+    <ClCompile Include="DrawnMove.cpp" />
+    <ClCompile Include="MexUpgrade.cpp" />
+    <ClCompile Include="PrependOrders.cpp" />
+    <ClCompile Include="AlliedCursors.cpp" />
+    <ClCompile Include="AlliedCursorDraw.cpp" />
+    <ClCompile Include="UnitStatsData.cpp" />
+    <ClCompile Include="UnitStatsPanel.cpp" />
+    <ClCompile Include="LabBuildCycleMenu.cpp" />
     <ClCompile Include="ddraw.cpp">
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -586,6 +595,24 @@ if NOT "$(LocalDebuggerWorkingDirectory)" == "$(ProjectDir)" if exist "$(LocalDe
     <ClInclude Include="cincome.h" />
     <ClInclude Include="commanderwarp.h" />
     <ClInclude Include="ddraw.h" />
+    <ClInclude Include="LabBuildCycles.h" />
+    <ClInclude Include="DrawnMove.h" />
+    <ClInclude Include="DrawnMoveGeometry.h" />
+    <ClInclude Include="MexUpgrade.h" />
+    <ClInclude Include="MexUpgradeMenu.h" />
+    <ClInclude Include="BuildRectangleGeometry.h" />
+    <ClInclude Include="OptionalUnitControls.h" />
+    <ClInclude Include="PrependOrders.h" />
+    <ClInclude Include="PrependQueue.h" />
+    <ClInclude Include="AlliedCursors.h" />
+    <ClInclude Include="AlliedCursorProtocol.h" />
+    <ClInclude Include="AlliedCursorGeometry.h" />
+    <ClInclude Include="AlliedCursorDraw.h" />
+    <ClInclude Include="UnitStatsCore.h" />
+    <ClInclude Include="UnitStatsData.h" />
+    <ClInclude Include="UnitStatsPanel.h" />
+    <ClInclude Include="LabBuildCycleMenu.h" />
+    <ClInclude Include="LabBuildCycleArt.h" />
     <ClInclude Include="Dialog.h" />
     <ClInclude Include="ElementHandler.h" />
     <ClInclude Include="ExternQuickKey.h" />

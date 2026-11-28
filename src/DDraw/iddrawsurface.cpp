@@ -26,6 +26,10 @@ using namespace std;
 #include "dialog.h"
 #include "VoteDialog.h"
 #include "tahook.h"
+#include "DrawnMove.h"
+#include "PrependOrders.h"
+#include "AlliedCursors.h"
+#include "AlliedCursorDraw.h"
 #include "commanderwarp.h"
 #include "maprect.h"
 
@@ -699,6 +703,16 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				}
 #endif
 
+#if ALLIED_CURSORS_ENABLE
+                {
+                    PROFILE_SCOPE("Unlock.AlliedCursors");
+                    TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+                    Position_Dword point = {};
+                    const bool valid = AlliedCursorDraw::Sample(ta, point);
+                    AlliedCursors::UpdateLocal(&point, valid);
+                }
+#endif
+
 				// Direct-pixel overlays must write while lpBack is still locked
 				// (i.e. before the lpBack->Unlock below).  Subsequent DDraw blits
 				// (Income, dialogs, TAHook) deliberately paint on top.
@@ -740,6 +754,30 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				GUIExpander->myMinimap->Blit ( lpBack);
 			}
 
+#endif
+
+#if ALLIED_CURSORS_ENABLE
+            {
+                // The megamap replaces the game-area pixels in Blit above.
+                // Draw onto its final surface, before dialogs and the local pointer.
+                PROFILE_SCOPE("Unlock.AlliedCursorDraw");
+                TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+                if (ta && DataShare && DataShare->TAProgress == TAInGame)
+                {
+                    DDSURFACEDESC surface;
+                    DDRAW_INIT_STRUCT(surface);
+                    if (lpBack->Lock(NULL, &surface, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL) == DD_OK)
+                    {
+                        // DDLOCK_WAIT can yield across a game/menu transition.
+                        ta = *TAmainStruct_PtrPtr;
+                        if (surface.ddpfPixelFormat.dwRGBBitCount == 8 && ta && DataShare
+                            && DataShare->TAProgress == TAInGame)
+                            AlliedCursorDraw::Draw(static_cast<char*>(surface.lpSurface), surface.dwWidth,
+                                surface.dwHeight, surface.lPitch, *ta, AlliedCursors::Snapshot(ta));
+                        lpBack->Unlock(NULL);
+                    }
+                }
+            }
 #endif
 
 			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }
@@ -839,6 +877,16 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				}
 #endif
 
+#if ALLIED_CURSORS_ENABLE
+                {
+                    PROFILE_SCOPE("Unlock.AlliedCursors");
+                    TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+                    Position_Dword point = {};
+                    const bool valid = AlliedCursorDraw::Sample(ta, point);
+                    AlliedCursors::UpdateLocal(&point, valid);
+                }
+#endif
+
 				// Direct-pixel overlays must write while lpBack is still locked
 				// (i.e. before the lpBack->Unlock below).  Subsequent DDraw blits
 				// (Income, dialogs, TAHook) deliberately paint on top.
@@ -881,6 +929,30 @@ HRESULT __stdcall IDDrawSurface::Unlock(LPVOID arg1)
 				PROFILE_SCOPE("Unlock.Minimap_Blit");
 				GUIExpander->myMinimap->Blit ( lpBack);
 			}
+#endif
+
+#if ALLIED_CURSORS_ENABLE
+            {
+                // The megamap replaces the game-area pixels in Blit above.
+                // Draw onto its final surface, before dialogs and the local pointer.
+                PROFILE_SCOPE("Unlock.AlliedCursorDraw");
+                TAdynmemStruct* ta = *TAmainStruct_PtrPtr;
+                if (ta && DataShare && DataShare->TAProgress == TAInGame)
+                {
+                    DDSURFACEDESC surface;
+                    DDRAW_INIT_STRUCT(surface);
+                    if (lpBack->Lock(NULL, &surface, DDLOCK_SURFACEMEMORYPTR | DDLOCK_WAIT, NULL) == DD_OK)
+                    {
+                        // DDLOCK_WAIT can yield across a game/menu transition.
+                        ta = *TAmainStruct_PtrPtr;
+                        if (surface.ddpfPixelFormat.dwRGBBitCount == 8 && ta && DataShare
+                            && DataShare->TAProgress == TAInGame)
+                            AlliedCursorDraw::Draw(static_cast<char*>(surface.lpSurface), surface.dwWidth,
+                                surface.dwHeight, surface.lPitch, *ta, AlliedCursors::Snapshot(ta));
+                        lpBack->Unlock(NULL);
+                    }
+                }
+            }
 #endif
 
 			{ PROFILE_SCOPE("Unlock.SetClipScreen"); lpDDClipper->SetClipList(ScreenRegion,0); }
@@ -1272,6 +1344,20 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
     __try
 	{
 		UpdateTAProcess ( );
+#if TA_HOOK_ENABLE
+		// The owner of a build press must see release/cancellation before
+		// dialogs or the whiteboard can consume the matching input.
+		if (LocalShare->TAHook
+			&& static_cast<CTAHook*>(LocalShare->TAHook)->OwnsRectangleInput()
+			&& static_cast<CTAHook*>(LocalShare->TAHook)->RectangleGestureMessage(WinProcWnd, Msg, wParam, lParam))
+			return 0;
+#endif
+#if DRAWN_MOVE_FORMATIONS_ENABLE
+        // A pending gesture must see release/cancellation even over a dialog,
+        // whiteboard or other overlay that consumes ordinary input.
+        if (DrawnMove::OwnsInput() && DrawnMove::Message(WinProcWnd, Msg, wParam, lParam, false))
+            return 0;
+#endif
 		if (NULL!=FixTABug)
 		{
 			FixTABug->AntiCheat ( );
@@ -1326,6 +1412,10 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 			&&(((AlliesWhiteboard*)LocalShare->Whiteboard)->Message(WinProcWnd, Msg, wParam, lParam)))
 			return 0;
 
+#if PREPEND_ORDERS_ENABLE
+        if (PrependOrders::KeyMessage(Msg, wParam)) return 0;
+#endif
+
 		if((NULL!=LocalShare->Income)
 			&&(((CIncome*)LocalShare->Income)->Message(WinProcWnd, Msg, wParam, lParam)))
 			return 0;  //message handled by the income class
@@ -1379,6 +1469,9 @@ LRESULT CALLBACK WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lParam
 {
 #ifdef SYNCHRONISE_THREADS
     std::lock_guard<std::recursive_mutex> lock(WinProcMutex);
+#endif
+#if PREPEND_ORDERS_ENABLE
+    PrependOrders::Batch prependBatch(PrependOrders::CommandMessage(Msg) && PrependOrders::ModifierDown());
 #endif
     return _WinProc(WinProcWnd, Msg, wParam, lParam);
 }
