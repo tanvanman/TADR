@@ -76,6 +76,13 @@
 // time) and are Escalation-only, same rationale as the fix itself above.
 // Agreed value for both is 3x for the initial playtest; flip either constant
 // and rebuild to retune independently.
+//
+// With SELFHEAL_RATE_ENABLE 1 (below), REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER no
+// longer scales self-heal: the HealTime key is N HP per second as written. It
+// applies only on the fallbacks: a SelfHealRate install that logs DISABLED
+// (the engine's regen block then calls RepairRateFix as before), and units
+// left on the HealTime formula (none in the tested Escalation data).
+// REPAIR_RATE_FIX_REPAIR_MULTIPLIER (active repair) is not affected.
 #define REPAIR_RATE_FIX_REPAIR_MULTIPLIER 3
 #define REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER 3
 
