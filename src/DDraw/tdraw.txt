@@ -62,6 +62,7 @@ mitigation, the local ".mute" command, and every bug fix not named here.
   allied queued-build overlays                                y     n     n      n     n      n      n
   enhanced allied resource bars and replay totals             y     n     n      n     n      n      n
   five-colour unit health bar                                 n     y     n      n     n      n      n
+  units under construction give no sight                      n     y     n      n     n      n      n
 
   [1] the thresholds also gate air construction units, which vanilla never gated at all --
       read NEW FEATURES IN DETAIL before enabling this for a new mod
@@ -115,6 +116,10 @@ EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom b
 
 
 NEW FEATURES IN BRIEF:
+
+*2026.11.28.2
+- Escalation: a unit under construction no longer reveals the map or spots targets for your units until it is finished
+  (thanks RDKL)
 
 *2026.11.28
 - Escalation: large unit models (such as scaled buildings) no longer force every unit to be re-drawn every frame on PCs
