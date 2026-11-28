@@ -117,6 +117,10 @@ EN_READY and SRL_GAMESPEED.  No stock or 3.9.02 file has any of the battleroom b
 
 NEW FEATURES IN BRIEF:
 
+*2026.11.28.3
+- Replays now end promptly on TA's normal results screen instead of hanging, and the extra watcher is left out of the
+  results (thanks TAG_Venom)
+
 *2026.11.28.2
 - Escalation: a unit under construction no longer reveals the map or spots targets for your units until it is finished
   (thanks RDKL)
