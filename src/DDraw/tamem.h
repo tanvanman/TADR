@@ -123,8 +123,7 @@ struct PlayerStruct
 	int field_10;
 	__int16 nPing;            // 0x14
 	__int16 field_16;         // 0x16
-	__int16 field_18;         // 0x18
-	__int16 field_1A;         // 0x1A
+	int LastUnitStateTick;    // 0x18: sender's GameTime from 0x2C (written by SendUnitStates @0x48b710 / ReceiveUnitStates @0x48b920)
 	int LastMsgTimeStamp;     // 0x1C: written by Packet_Dispatcher on every received packet (IDA/Ghidra wrongly splits as dw+field_1E dw)
 	char MultiLoadProgress;   // 0x20
 	__int16 field_21;         // 0x21
@@ -1965,6 +1964,7 @@ static_assert(sizeof(FeatureStruct)                           == 0x0D,   "map ti
 static_assert(offsetof(FeatureStruct, airborneUnitNumber)     == 0x02,   "tile airborne slot");
 static_assert(sizeof(UnitStruct)                              == 0x118,  "UnitStruct stride");
 static_assert(sizeof(PlayerStruct)                            == 0x14B,  "PlayerStruct stride");
+static_assert(offsetof(PlayerStruct, LastUnitStateTick)       == 0x18,   "PlayerStruct.LastUnitStateTick");
 static_assert(offsetof(UnitStruct, XPos__)                    == 0x6A,   "UnitStruct.Pos.x");
 static_assert(offsetof(UnitStruct, ZPos__)                    == 0x6E,   "UnitStruct.Pos.y (altitude)");
 static_assert(offsetof(UnitStruct, YPos__)                    == 0x72,   "UnitStruct.Pos.z (map depth)");

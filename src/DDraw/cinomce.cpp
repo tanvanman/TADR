@@ -60,6 +60,7 @@ CIncome::CIncome(BOOL VidMem):
 {
 #if MODERN_ALLY_RESOURCE_UI_ENABLE
 	m_economyPanels.reset(new EconomyPanels());
+	TenPlayerReplay_EnsureEconomyPacketHook();
 #endif
 	std::memset(&m_weatherCacheKey, 0, sizeof(m_weatherCacheKey));
 	std::memset(MinimiseWidgetBoxMin, 0, sizeof(MinimiseWidgetBoxMin));

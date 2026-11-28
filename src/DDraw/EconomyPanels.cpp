@@ -43,23 +43,24 @@ namespace
     }
 
     // At most five characters, leaving room for a sign in each rate column.
-    // Truncate suffix values so 999,999 cannot round up to a six-character 1000k.
+    // Round cleanly (matching classic DrawStorageText %.0f / %.1fK / %.0fK)
+    // while advancing the unit before rounding can overflow to 1000k.
     void Number(char (&text)[16], double value)
     {
         value = ResourceValue(value);
-        if (value >= 10.0 && value < 10000.0)
+        if (value < 9999.5)
         {
-            sprintf_s(text, "%.0f", std::floor(value));
+            sprintf_s(text, "%.0f", value);
             return;
         }
         const char* suffix[] = { "", "k", "M", "G", "T" };
         int unit = 0;
-        while (value >= 1000.0 && unit < 4) { value /= 1000.0; ++unit; }
-        if (value >= 1000.0) { strcpy_s(text, ">999T"); return; }
-        if (value < 100.0 && value != std::floor(value))
-            sprintf_s(text, "%.1f%s", std::floor(value * 10.0) / 10.0, suffix[unit]);
+        while (value >= 999.5 && unit < 4) { value /= 1000.0; ++unit; }
+        if (value >= 999.5) { strcpy_s(text, ">999T"); return; }
+        if (value < 99.95)
+            sprintf_s(text, "%.1f%s", value, suffix[unit]);
         else
-            sprintf_s(text, "%.0f%s", std::floor(value), suffix[unit]);
+            sprintf_s(text, "%.0f%s", value, suffix[unit]);
     }
 
     // Replays use the multiplayer engine mode. Never treat a live skirmish
@@ -83,6 +84,88 @@ namespace
     {
         return x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
     }
+}
+
+std::array<EconomyPanels::RateSample, 10> EconomyPanels::s_packetRates;
+unsigned EconomyPanels::s_packetSeq = 0;
+
+void EconomyPanels::ResetPacketSamples()
+{
+    s_packetRates = {};
+    ++s_packetSeq;
+}
+
+void EconomyPanels::RecordEconomyPacket(const PlayerStruct* player,
+    double metalProduced, double energyProduced,
+    double metalConsumed, double energyConsumed,
+    unsigned char flag)
+{
+    if (!player || !DataShare || DataShare->TAProgress != TAInGame) return;
+    auto ta = TAmainStruct_PtrPtr ? *TAmainStruct_PtrPtr : nullptr;
+    if (!ta) return;
+    const int slot = static_cast<int>(player - ta->Players);
+    if (slot < 0 || slot >= 10 || &ta->Players[slot] != player) return;
+    if (!player->Name[0] || player->My_PlayerType == Player_none) return;
+    // HandlePlayerEconomy returns early without updating PlayerRes when player+0x22 != 0.
+    static_assert(offsetof(PlayerStruct, field_21) == 0x21 && sizeof(PlayerStruct::field_21) == 2,
+        "PlayerStruct::field_21 moved (the byte read at +0x22 is its high byte)");
+    if ((static_cast<unsigned short>(player->field_21) >> 8) != 0) return;
+    if (!std::isfinite(metalProduced) || !std::isfinite(energyProduced) ||
+        !std::isfinite(metalConsumed) || !std::isfinite(energyConsumed)) return;
+
+    double counters[4] = {
+        ResourceValue(metalProduced),
+        ResourceValue(energyProduced),
+        ResourceValue(metalConsumed),
+        ResourceValue(energyConsumed)
+    };
+    const bool remoteClock = player->LastUnitStateTick > 0;
+    const int sampleTick = remoteClock ? player->LastUnitStateTick : ta->GameTime;
+    const int gameTime = ta->GameTime;
+
+    auto& sample = s_packetRates[slot];
+    bool reset = !sample.seeded || sample.dpid != player->DirectPlayID ||
+        strncmp(sample.name, player->Name, sizeof(sample.name) - 1) != 0 ||
+        gameTime < sample.seenGameTime ||
+        sample.remoteClock != remoteClock ||
+        sampleTick < sample.tick;
+    for (int i = 0; i < 4; ++i) reset = reset || counters[i] < sample.counters[i];
+    if (reset)
+    {
+        sample = {};
+        if (flag != 0) return;
+        sample.seeded = true;
+        sample.remoteClock = remoteClock;
+        sample.dpid = player->DirectPlayID;
+        memcpy(sample.name, player->Name, sizeof(sample.name) - 1);
+        memcpy(sample.counters, counters, sizeof(counters));
+        sample.tick = sampleTick;
+        sample.seenGameTime = gameTime;
+        return;
+    }
+
+    // Periodic economy broadcasts (every 120 sender ticks) always have flag == 0.
+    // Ignore endgame handshake packets (flag != 0) so they cannot shorten intervals.
+    if (flag != 0) return;
+
+    // UpdatePlayerEconomy steps once per 30 sender ticks; ignore duplicates or
+    // sub-second packets without advancing the baseline. Periodic 0x28 packets
+    // always span 120 sender ticks (4 economy steps); snap single-period jitter
+    // (< 180 ticks) to 120 to match TA's broadcast cadence and Recorder/classic bars.
+    const int dt = sampleTick - sample.tick;
+    if (dt < 30) return;
+    const int effectiveDt = dt < 180 ? 120 : dt;
+
+    const int seenDt = gameTime - sample.seenGameTime;
+    for (int i = 0; i < 4; ++i)
+        sample.rates[i] = (counters[i] - sample.counters[i]) * 30.0 / effectiveDt;
+    memcpy(sample.counters, counters, sizeof(counters));
+    sample.tick = sampleTick;
+    sample.seenGameTime = gameTime;
+    sample.interval = effectiveDt;
+    sample.seenInterval = std::max(1, seenDt);
+    sample.ready = true;
+    ++s_packetSeq;
 }
 
 EconomyPanels::EconomyPanels()
@@ -157,46 +240,81 @@ void EconomyPanels::Sample()
         // Remote 0x28 packets update cumulative counters, not the four HUD rate
         // fields. Despite their names, the consumed counters accumulate demand
         // before settlement, just like TA/ProCast's negative HUD values. They
-        // are not accepted spending during a stall. Use these recorded counters
-        // consistently for every controller, without touching the simulation.
+        // are not accepted spending during a stall. Prefer samples recorded on
+        // 0x28 arrival against the sender's own 0x2C simulation tick so fast
+        // replay playback cannot inflate rates against the viewer's GameTime.
         double counters[] = { ResourceValue(res.fTotalMetalProduced), ResourceValue(res.fTotalEnergyProduced),
             ResourceValue(res.fTotalMetalConsumed), ResourceValue(res.fTotalEnergyConsumed) };
-        auto& sample = m_rates[slot];
-        bool reset = !sample.seeded || sample.dpid != player.DirectPlayID ||
-            strncmp(sample.name, entry.name, sizeof(sample.name)) != 0 || ta->GameTime < sample.tick;
-        for (int i = 0; i < 4; ++i) reset = reset || counters[i] < sample.counters[i];
-        if (reset)
+        const bool countersFinite = std::isfinite(res.fTotalMetalProduced) &&
+            std::isfinite(res.fTotalEnergyProduced) &&
+            std::isfinite(res.fTotalMetalConsumed) &&
+            std::isfinite(res.fTotalEnergyConsumed);
+        auto& pkt = s_packetRates[slot];
+        bool pktValid = pkt.seeded && pkt.dpid == player.DirectPlayID &&
+            strncmp(pkt.name, entry.name, sizeof(pkt.name)) == 0 &&
+            ta->GameTime >= pkt.seenGameTime;
+        if (countersFinite)
+            for (int i = 0; i < 4; ++i) pktValid = pktValid && counters[i] >= pkt.counters[i];
+        if (!pktValid && pkt.seeded) pkt = {};
+        if (pktValid)
         {
-            sample = {};
-            sample.seeded = true;
-            sample.dpid = player.DirectPlayID;
-            memcpy(sample.name, entry.name, sizeof(sample.name));
-            memcpy(sample.counters, counters, sizeof(counters));
-            sample.tick = ta->GameTime;
+            entry.haveRates = pkt.ready &&
+                ta->GameTime - pkt.seenGameTime <= std::max(300, pkt.seenInterval * 4);
+            entry.made[0] = pkt.rates[0]; entry.made[1] = pkt.rates[1];
+            entry.spent[0] = pkt.rates[2]; entry.spent[1] = pkt.rates[3];
         }
         else
         {
-            int ticks = ta->GameTime - sample.tick;
-            bool changed = false;
-            for (int i = 0; i < 4; ++i) changed = changed || counters[i] != sample.counters[i];
-            // An unchanged render sample is not a fresh zero-activity packet.
-            // Hold the last rate until counters advance; never move its time
-            // baseline forward during a gap between recorded updates.
-            if (ticks > 0 && changed)
+            const bool useRemoteTick =
+                (player.My_PlayerType == Player_RemoteHuman || player.My_PlayerType == Player_RemoteAI) &&
+                player.LastUnitStateTick > 0;
+            const int sampleTick = useRemoteTick ? player.LastUnitStateTick : ta->GameTime;
+            auto& sample = m_rates[slot];
+            bool reset = !sample.seeded || sample.dpid != player.DirectPlayID ||
+                strncmp(sample.name, entry.name, sizeof(sample.name)) != 0 ||
+                ta->GameTime < sample.seenGameTime ||
+                sample.remoteClock != useRemoteTick ||
+                sampleTick < sample.tick;
+            for (int i = 0; i < 4; ++i) reset = reset || counters[i] < sample.counters[i];
+            if (reset)
             {
-                for (int i = 0; i < 4; ++i) sample.rates[i] = (counters[i] - sample.counters[i]) * 30.0 / ticks;
+                sample = {};
+                sample.seeded = true;
+                sample.remoteClock = useRemoteTick;
+                sample.dpid = player.DirectPlayID;
+                memcpy(sample.name, entry.name, sizeof(sample.name));
                 memcpy(sample.counters, counters, sizeof(counters));
-                sample.tick = ta->GameTime;
-                sample.interval = ticks;
-                sample.ready = true;
+                sample.tick = sampleTick;
+                sample.seenGameTime = ta->GameTime;
             }
+            else
+            {
+                int ticks = sampleTick - sample.tick;
+                bool changed = false;
+                for (int i = 0; i < 4; ++i) changed = changed || counters[i] != sample.counters[i];
+                // An unchanged render sample is not a fresh zero-activity packet.
+                // Hold the last rate until counters advance; never move its time
+                // baseline forward during a gap between recorded updates.
+                if (ticks > 0 && changed)
+                {
+                    const int seenDt = ta->GameTime - sample.seenGameTime;
+                    for (int i = 0; i < 4; ++i) sample.rates[i] = (counters[i] - sample.counters[i]) * 30.0 / ticks;
+                    memcpy(sample.counters, counters, sizeof(counters));
+                    sample.tick = sampleTick;
+                    sample.seenGameTime = ta->GameTime;
+                    sample.interval = ticks;
+                    sample.seenInterval = std::max(1, seenDt);
+                    sample.ready = true;
+                }
+            }
+            // A long gap is unknown, rather than measured zero. Allow at least ten
+            // simulation seconds, or four observed update intervals, and retain
+            // rates while paused. The next real update uses the complete interval.
+            entry.haveRates = sample.ready &&
+                ta->GameTime - sample.seenGameTime <= std::max(300, sample.seenInterval * 4);
+            entry.made[0] = sample.rates[0]; entry.made[1] = sample.rates[1];
+            entry.spent[0] = sample.rates[2]; entry.spent[1] = sample.rates[3];
         }
-        // A long gap is unknown, rather than measured zero. Allow at least ten
-        // simulation seconds, or four observed update intervals, and retain
-        // rates while paused. The next real update uses the complete interval.
-        entry.haveRates = sample.ready && ta->GameTime - sample.tick <= std::max(300, sample.interval * 4);
-        entry.made[0] = sample.rates[0]; entry.made[1] = sample.rates[1];
-        entry.spent[0] = sample.rates[2]; entry.spent[1] = sample.rates[3];
         if (!player.PlayerActive)
         {
             entry.haveRates = true;
@@ -494,6 +612,33 @@ int EconomyPanels::TextWidth(const char* text, int maxChars) const
     return width;
 }
 
+void EconomyPanels::FormatRate(char (&text)[16], double value, bool isMetal, char sign, int maxWidth) const
+{
+    value = ResourceValue(value);
+    if (isMetal && value < 999.95)
+    {
+        sprintf_s(text, "%c%.1f", sign, value);
+        if (TextWidth(text, 6) <= maxWidth) return;
+        sprintf_s(text, "%c%.0f", sign, value);
+        return;
+    }
+    if (value < 9999.5)
+    {
+        sprintf_s(text, "%c%.0f", sign, value);
+        return;
+    }
+    char compact[16];
+    Number(compact, value);
+    sprintf_s(text, "%c%s", sign, compact);
+    if (TextWidth(text, 6) <= maxWidth) return;
+    // Narrow fallback font: drop decimal before letting Text() clip the unit suffix.
+    const char* suffix[] = { "", "k", "M", "G", "T" };
+    int unit = 0;
+    while (value >= 999.5 && unit < 4) { value /= 1000.0; ++unit; }
+    if (value >= 999.5) { sprintf_s(text, "%c999T", sign); return; }
+    sprintf_s(text, "%c%.0f%s", sign, value, suffix[unit]);
+}
+
 void EconomyPanels::Text(Panel& panel, int x, int y, const char* text, unsigned char colour, int maxChars, int maxWidth)
 {
     int count = std::min(maxChars, static_cast<int>(strlen(text)));
@@ -592,17 +737,18 @@ void EconomyPanels::DrawBars()
         for (int resource = 0; resource < 2; ++resource)
         {
             int line = y + nameLine + resourceLine * resource;
-            char stored[16], capacity[16], made[16], spent[16], value[32];
+            char stored[16], capacity[16], rate[16], value[32];
             Number(stored, player.stored[resource]); Number(capacity, player.capacity[resource]);
-            Number(made, player.made[resource]); Number(spent, player.spent[resource]);
             unsigned char colour = resource == 0 ? m_metal : m_energy;
             Text(m_bars, x + 4, line, resource == 0 ? "M" : "E", colour);
             sprintf_s(value, "%s/%s", stored, capacity);
             Text(m_bars, x + 18, line, value, colour, 11, 74);
-            if (player.haveRates) sprintf_s(value, "+%s", made); else strcpy_s(value, "--");
-            Text(m_bars, x + 96, line, value, m_green, 6, 40);
-            if (player.haveRates) sprintf_s(value, "-%s", spent); else strcpy_s(value, "--");
-            Text(m_bars, x + 140, line, value, m_red, 6, 40);
+            if (player.haveRates) FormatRate(rate, player.made[resource], resource == 0, '+', 40);
+            else strcpy_s(rate, "--");
+            Text(m_bars, x + 96, line, rate, m_green, 6, 40);
+            if (player.haveRates) FormatRate(rate, player.spent[resource], resource == 0, '-', 40);
+            else strcpy_s(rate, "--");
+            Text(m_bars, x + 140, line, rate, m_red, 6, 40);
         }
     }
     // Paint bars last so the next row's text backdrop/outline cannot erase
@@ -718,13 +864,19 @@ void EconomyPanels::Blit(LPDIRECTDRAWSURFACE destination, const RECT* legacyBoun
     DWORD now = GetTickCount();
     if (m_gameTime < 0 || ta->GameTime < m_gameTime || m_replay != (ReplaySession() != 0))
     {
+        if (m_gameTime >= 0 && ta->GameTime < m_gameTime) ResetPacketSamples();
         m_bars.page = m_totals.page = 0;
         m_drag = nullptr;
         m_sampleTime = now - 250;
     }
     m_gameTime = ta->GameTime;
     m_replay = ReplaySession() != 0;
-    if (m_allPlayers.empty() || now - m_sampleTime >= 250) { Sample(); m_sampleTime = now; }
+    if (m_allPlayers.empty() || m_packetSeq != s_packetSeq || now - m_sampleTime >= 250)
+    {
+        Sample();
+        m_packetSeq = s_packetSeq;
+        m_sampleTime = now;
+    }
     Layout();
     if (m_bars.visible) DrawBars();
     if (m_totals.visible) DrawTotals();
@@ -781,6 +933,7 @@ bool EconomyPanels::Message(UINT message, WPARAM wParam, LPARAM lParam)
     {
         // Apply the enabled panels again after leaving a match;
         // seeking within the current replay keeps temporary F4 choices.
+        ResetPacketSamples();
         m_enabledView = -1;
         m_bars.visible = m_totals.visible = false;
         m_drag = nullptr;

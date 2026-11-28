@@ -1,6 +1,10 @@
+#include "config.h"
 #include "TenPlayerReplay.h"
 #include "ReplayFunnelInfo.h"
 #include "HexDump.h"
+#if MODERN_ALLY_RESOURCE_UI_ENABLE
+#include "EconomyPanels.h"
+#endif
 
 #include "iddrawsurface.h"
 #include "hook/etc.h"
@@ -14,6 +18,8 @@
 #include "ReplayEndFences.h"
 #include "ReplayTransportClose.h"
 
+#include <cmath>
+#include <cstring>
 #include <sstream>
 
 static bool HACK_ON = false;
@@ -466,10 +472,12 @@ int __stdcall PermSonarLosProc(PInlineX86StackBuffer X86StrackBuffer)
 struct FunnelEconomy
 {
 	bool   haveSample = false;
+	bool   prevRemoteClock = false;
 	int    dpid = 0;
 	double prevMetalProduced = 0.0, prevEnergyProduced = 0.0;
 	double prevMetalConsumed = 0.0, prevEnergyConsumed = 0.0;
-	int    prevGameTime = 0;
+	int    prevSampleTick = 0;
+	int    prevLocalGameTime = 0;
 	// Last good per-second rates; only updated when a sample passes every guard.
 	bool   haveRates = false;
 	float  metalProduction = 0.f, energyProduction = 0.f;
@@ -480,7 +488,7 @@ static FunnelEconomy g_funnelEcon;
 bool TenPlayerReplay_HasFunnelEconomySample(const PlayerStruct* player)
 {
 	if (!DataShare->PlayingDemo || DataShare->TAProgress != TAInGame) return false;
-	if (g_funnelEcon.haveSample && (*TAmainStruct_PtrPtr)->GameTime < g_funnelEcon.prevGameTime)
+	if (g_funnelEcon.haveSample && (*TAmainStruct_PtrPtr)->GameTime < g_funnelEcon.prevLocalGameTime)
 		g_funnelEcon = FunnelEconomy();
 	return player && player == LOCAL_HUMAN_PLAYER && g_funnelEcon.haveSample &&
 		player->DirectPlayID == g_funnelEcon.dpid;
@@ -491,77 +499,138 @@ bool TenPlayerReplay_HasFunnelEconomySample(const PlayerStruct* player)
 //   +0x2e fTotalMetalProduced,  +0x32 fTotalMetalConsumed.
 static void SampleFunnelEconomy(const std::uint8_t* payload, PlayerStruct* player)
 {
-	if (!HACK_ON || player == NULL || player != LOCAL_HUMAN_PLAYER || payload == NULL)
+	if (!DataShare || !DataShare->PlayingDemo || !HACK_ON || player == NULL || player != LOCAL_HUMAN_PLAYER || payload == NULL)
 		return;
 
 	TAdynmemStruct* taPtr = *(TAdynmemStruct**)0x00511de8;
-	int gameTime = taPtr->GameTime;
+	const int gameTime = taPtr->GameTime;
+	const bool remoteClock = player->LastUnitStateTick > 0;
+	const int sampleTick = remoteClock ? player->LastUnitStateTick : gameTime;
+	const unsigned char flag = payload[1];
 
 	double mProd = *(const float*)(payload + 0x2e);
 	double eProd = *(const float*)(payload + 0x22);
 	double mCons = *(const float*)(payload + 0x32);
 	double eCons = *(const float*)(payload + 0x26);
+	if (!std::isfinite(mProd) || !std::isfinite(eProd) || !std::isfinite(mCons) || !std::isfinite(eCons))
+		return;
 
-	if (g_funnelEcon.haveSample)
+	const bool reset = !g_funnelEcon.haveSample ||
+		g_funnelEcon.dpid != player->DirectPlayID ||
+		gameTime < g_funnelEcon.prevLocalGameTime ||
+		g_funnelEcon.prevRemoteClock != remoteClock ||
+		sampleTick < g_funnelEcon.prevSampleTick ||
+		mProd < g_funnelEcon.prevMetalProduced ||
+		eProd < g_funnelEcon.prevEnergyProduced ||
+		mCons < g_funnelEcon.prevMetalConsumed ||
+		eCons < g_funnelEcon.prevEnergyConsumed;
+	if (reset)
 	{
-		int    dt  = gameTime - g_funnelEcon.prevGameTime;
-		double dmp = mProd - g_funnelEcon.prevMetalProduced;
-		double dep = eProd - g_funnelEcon.prevEnergyProduced;
-		double dmc = mCons - g_funnelEcon.prevMetalConsumed;
-		double dec = eCons - g_funnelEcon.prevEnergyConsumed;
-		// Need forward time and monotonic deltas; a reset (new game/rollover) gives
-		// dt<=0 or a negative delta -> skip and just reseed the baseline below.
-		if (dt > 0 && dmp >= 0.0 && dep >= 0.0 && dmc >= 0.0 && dec >= 0.0)
+		g_funnelEcon = FunnelEconomy();
+		if (flag == 0)
 		{
-			// fMetalProduction is the per-resource-tick increment of the cumulative total, and
-			// the resource tick runs ~once per game-second. Convert our per-game-tick delta to
-			// that scale. (Sole calibration knob: flip to 1 if magnitudes read ~30x off.)
-			const float TICKS_PER_RESOURCE_UPDATE = 30.0f;
-			float mp = (float)(dmp / dt) * TICKS_PER_RESOURCE_UPDATE;
-			float ep = (float)(dep / dt) * TICKS_PER_RESOURCE_UPDATE;
-			float me = (float)(dmc / dt) * TICKS_PER_RESOURCE_UPDATE;
-			float ee = (float)(dec / dt) * TICKS_PER_RESOURCE_UPDATE;
-			const float LIM = 1.0e7f;   // reject absurd rates (and, implicitly, non-finite)
-			if (mp < LIM && ep < LIM && me < LIM && ee < LIM)
-			{
-				g_funnelEcon.metalProduction  = mp;
-				g_funnelEcon.energyProduction = ep;
-				g_funnelEcon.metalExpense     = me;
-				g_funnelEcon.energyExpense    = ee;
-				if (!g_funnelEcon.haveRates)
-					IDDrawSurface::OutptFmtTxt("[TenPlayerReplay] funnel econ first sample: prod M+%.1f E+%.1f / use M-%.1f E-%.1f (dt=%d)", mp, ep, me, ee, dt);
-				g_funnelEcon.haveRates = true;
-
-				// Write the arrow fields directly (player == LOCAL_HUMAN_PLAYER here): the
-				// funnel slot is type 3, so UNITS_GenerateResources never runs for it and won't
-				// overwrite these -- they persist until the next 0x28. (0x401bae override is a
-				// backup for any type-1/2 path where the sim does run.)
-				player->PlayerRes.fMetalProduction  = mp;
-				player->PlayerRes.fEnergyProducton  = ep;
-				player->PlayerRes.fMetalExpense     = me;
-				player->PlayerRes.fEnergyExpense    = ee;
-			}
+			g_funnelEcon.prevMetalProduced = mProd;
+			g_funnelEcon.prevEnergyProduced = eProd;
+			g_funnelEcon.prevMetalConsumed = mCons;
+			g_funnelEcon.prevEnergyConsumed = eCons;
+			g_funnelEcon.prevSampleTick = sampleTick;
+			g_funnelEcon.prevLocalGameTime = gameTime;
+			g_funnelEcon.prevRemoteClock = remoteClock;
+			g_funnelEcon.haveSample = true;
+			g_funnelEcon.dpid = player->DirectPlayID;
 		}
+		return;
+	}
+
+	if (flag != 0)
+		return;
+
+	int dt = sampleTick - g_funnelEcon.prevSampleTick;
+	if (dt < 30)
+		return;
+	const int effectiveDt = dt < 180 ? 120 : dt;
+
+	double dmp = mProd - g_funnelEcon.prevMetalProduced;
+	double dep = eProd - g_funnelEcon.prevEnergyProduced;
+	double dmc = mCons - g_funnelEcon.prevMetalConsumed;
+	double dec = eCons - g_funnelEcon.prevEnergyConsumed;
+	// fMetalProduction is the per-resource-tick increment of the cumulative total, and
+	// the resource tick runs ~once per game-second. Convert our per-game-tick delta to
+	// that scale using the sender's own 0x2C simulation tick (snapping single-period
+	// jitter < 180 ticks to the 120-tick broadcast interval, matching Recorder/classic
+	// bars) so replay speedup cannot inflate rates against the viewer's GameTime.
+	const float TICKS_PER_RESOURCE_UPDATE = 30.0f;
+	float mp = (float)(dmp / effectiveDt) * TICKS_PER_RESOURCE_UPDATE;
+	float ep = (float)(dep / effectiveDt) * TICKS_PER_RESOURCE_UPDATE;
+	float me = (float)(dmc / effectiveDt) * TICKS_PER_RESOURCE_UPDATE;
+	float ee = (float)(dec / effectiveDt) * TICKS_PER_RESOURCE_UPDATE;
+	const float LIM = 1.0e7f;   // reject absurd rates (and, implicitly, non-finite)
+	if (mp < LIM && ep < LIM && me < LIM && ee < LIM)
+	{
+		g_funnelEcon.metalProduction  = mp;
+		g_funnelEcon.energyProduction = ep;
+		g_funnelEcon.metalExpense     = me;
+		g_funnelEcon.energyExpense    = ee;
+		if (!g_funnelEcon.haveRates)
+			IDDrawSurface::OutptFmtTxt("[TenPlayerReplay] funnel econ first sample: prod M+%.1f E+%.1f / use M-%.1f E-%.1f (dt=%d)", mp, ep, me, ee, dt);
+		g_funnelEcon.haveRates = true;
+
+		// Write the arrow fields directly (player == LOCAL_HUMAN_PLAYER here): the
+		// funnel slot is type 3, so UNITS_GenerateResources never runs for it and won't
+		// overwrite these -- they persist until the next 0x28. (0x401bae override is a
+		// backup for any type-1/2 path where the sim does run.)
+		player->PlayerRes.fMetalProduction  = mp;
+		player->PlayerRes.fEnergyProducton  = ep;
+		player->PlayerRes.fMetalExpense     = me;
+		player->PlayerRes.fEnergyExpense    = ee;
 	}
 
 	g_funnelEcon.prevMetalProduced = mProd;
 	g_funnelEcon.prevEnergyProduced = eProd;
 	g_funnelEcon.prevMetalConsumed = mCons;
 	g_funnelEcon.prevEnergyConsumed = eCons;
-	g_funnelEcon.prevGameTime = gameTime;
-	g_funnelEcon.haveSample = true;
-	g_funnelEcon.dpid = player->DirectPlayID;
+	g_funnelEcon.prevSampleTick = sampleTick;
+	g_funnelEcon.prevLocalGameTime = gameTime;
 }
 
 // Entry hook on Receive_PacketPlayerRes (0x457540, __stdcall(packet, player)).
 // At the captured entry Esp: [Esp+4]=packet payload, [Esp+8]=PlayerStruct*. Read-only.
 unsigned int FunnelEconSampleAddr = 0x457540;
+static std::unique_ptr<InlineSingleHook> g_econPacketHook;
+static bool g_econPacketHookAttempted = false;
+
 int __stdcall FunnelEconSampleProc(PInlineX86StackBuffer X86StrackBuffer)
 {
 	const std::uint8_t* payload = *(const std::uint8_t**)(X86StrackBuffer->Esp + 4);
 	PlayerStruct* player = *(PlayerStruct**)(X86StrackBuffer->Esp + 8);
 	SampleFunnelEconomy(payload, player);
+#if MODERN_ALLY_RESOURCE_UI_ENABLE
+	if (payload && player)
+	{
+		EconomyPanels::RecordEconomyPacket(
+			player,
+			*(const float*)(payload + 0x2e),
+			*(const float*)(payload + 0x22),
+			*(const float*)(payload + 0x32),
+			*(const float*)(payload + 0x26),
+			payload[1]);
+	}
+#endif
 	return 0;
+}
+
+void TenPlayerReplay_EnsureEconomyPacketHook()
+{
+	if (g_econPacketHookAttempted) return;
+	g_econPacketHookAttempted = true;
+	// Prologue at 0x457540: push ebx; push ebp; push esi; push edi; mov edi, [esp+0x18]
+	static const unsigned char kExpected[8] = { 0x53, 0x55, 0x56, 0x57, 0x8B, 0x7C, 0x24, 0x18 };
+	if (std::memcmp((const void*)FunnelEconSampleAddr, kExpected, sizeof(kExpected)) != 0)
+	{
+		IDDrawSurface::OutptTxt("[TenPlayerReplay] Receive_PacketPlayerRes @0x457540 prologue mismatch; economy packet hook disabled");
+		return;
+	}
+	g_econPacketHook = std::make_unique<InlineSingleHook>(FunnelEconSampleAddr, 8, INLINE_5BYTESLAGGERJMP, FunnelEconSampleProc);
 }
 
 void TenPlayerReplay_OverrideFunnelIncome(PlayerStruct* player)
@@ -744,10 +813,8 @@ TenPlayerReplay::TenPlayerReplay()
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(LocalPlayerCheckHack18Addr, 5, INLINE_5BYTESLAGGERJMP, LocalPlayerCheckHack18Proc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(LocalPlayerCheckHack19Addr, 5, INLINE_5BYTESLAGGERJMP, LocalPlayerCheckHack19Proc));
 	m_hooks.push_back(std::make_unique<InlineSingleHook>(PermSonarLosAddr, 5, INLINE_5BYTESLAGGERJMP, PermSonarLosProc));
-	// Sample the funnel player's 0x28 resource totals so we can show its real
-	// income/expense arrows (overridden at the economy-sim tail). See the
-	// FunnelEconomy block above for the full rationale.
-	m_hooks.push_back(std::make_unique<InlineSingleHook>(FunnelEconSampleAddr, 5, INLINE_5BYTESLAGGERJMP, FunnelEconSampleProc));
+	// Sample 0x28 resource totals for the funnel player and enhanced economy UI.
+	TenPlayerReplay_EnsureEconomyPacketHook();
 }
 
 
