@@ -1,0 +1,110 @@
+name: Test Escalation player upgrades
+on:
+  push:
+    branches: ['feature/escalation-player-upgrades']
+permissions:
+  contents: read
+jobs:
+  behavior:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [configuration, input, queues, presentation]
+    env:
+      ASAN_OPTIONS: detect_leaks=0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run production adapters and portable calculations
+        shell: bash
+        run: |
+          set -e
+          case '${{ matrix.suite }}' in
+            configuration)
+              python3 src/DDraw/test/player_upgrades_config_test.py
+              python3 src/DDraw/tools/config_table.py --markdown
+              ;;
+            input)
+              g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/drawn_move_geometry_test.cpp -o /tmp/formation-geometry
+              /tmp/formation-geometry
+              python3 src/DDraw/test/drawn_move_input_test.py
+              g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/build_rectangle_geometry_test.cpp -o /tmp/grid-geometry
+              /tmp/grid-geometry
+              python3 src/DDraw/test/build_rectangle_gesture_test.py
+              python3 src/DDraw/test/build_rectangle_input_test.py
+              python3 src/DDraw/test/grid_building_switch_test.py
+              python3 src/DDraw/test/mex_upgrade_test.py
+              python3 src/DDraw/test/mex_upgrade_menu_io_test.py
+              ;;
+            queues)
+              g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/prepend_queue_test.cpp -o /tmp/prepend-queue
+              /tmp/prepend-queue
+              python3 src/DDraw/test/prepend_orders_adapter_test.py
+              python3 src/DDraw/test/lab_build_cycles_test.py
+              python3 src/DDraw/test/lab_build_cycles_menu_test.py
+              ;;
+            presentation)
+              g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/unit_stats_core_test.cpp -o /tmp/stats-core
+              /tmp/stats-core
+              python3 src/DDraw/test/unit_stats_data_test.py
+              python3 src/DDraw/test/unit_stats_panel_test.py
+              g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/allied_cursor_protocol_test.cpp -o /tmp/cursor-protocol
+              /tmp/cursor-protocol
+              g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -g src/DDraw/test/allied_cursor_geometry_test.cpp -o /tmp/cursor-geometry
+              /tmp/cursor-geometry
+              python3 src/DDraw/test/allied_cursor_controller_test.py
+              python3 src/DDraw/test/allied_cursor_draw_test.py
+              ;;
+          esac
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: escalation, mod: ESCALATION, mask: 127}
+          - {name: prota, mod: PROTA, mask: 0}
+          - {name: ota, mod: OTA, mask: 0}
+          - {name: tazero, mod: TAZERO, mask: 0}
+          - {name: bta, mod: BTA, mask: 0}
+          - {name: mayhem, mod: MAYHEM, mask: 0}
+          - {name: twilight, mod: TWILIGHT, mask: 0}
+          - {name: escalation-all-off, mod: ESCALATION, mask: 0}
+          - {name: formations-only, mod: ESCALATION, mask: 1}
+          - {name: mex-only, mod: ESCALATION, mask: 2}
+          - {name: grid-only, mod: ESCALATION, mask: 4}
+          - {name: prepend-only, mod: ESCALATION, mask: 8}
+          - {name: cursors-only, mod: ESCALATION, mask: 16}
+          - {name: stats-only, mod: ESCALATION, mask: 32}
+          - {name: cycles-only, mod: ESCALATION, mask: 64}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_x86
+      - name: Compile explicit mod header selection
+        shell: pwsh
+        run: |
+          if ('${{ matrix.mod }}' -eq 'ESCALATION') {
+            python src/DDraw/test/player_upgrades_config_test.py --prepare-escalation-mask ${{ matrix.mask }}
+            if ($LASTEXITCODE -ne 0) { throw 'CI header preparation failed' }
+          }
+          msbuild src/DDraw/ddraw.vcxproj /p:Configuration=ReleasePublic /p:Platform=Win32 /p:TDRAW_CONFIG=TDRAW_CONFIG_${{ matrix.mod }}
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      - name: Verify every upgrade and Windows 7 imports
+        shell: pwsh
+        run: |
+          python src/DDraw/test/verify_player_upgrades.py src/DDraw/Public/tdraw.dll --mask ${{ matrix.mask }}
+          if ($LASTEXITCODE -ne 0) { throw 'Feature selection mismatch' }
+          python src/DDraw/tools/check_win7_imports.py src/DDraw/Public/tdraw.dll
+          if ($LASTEXITCODE -ne 0) { throw 'Windows 7 imports failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: player-upgrades-${{ matrix.name }}
+          path: |
+            src/DDraw/Public/tdraw.dll
+            src/DDraw/Public/tdraw.map

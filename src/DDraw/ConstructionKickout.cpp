@@ -1,3 +1,4 @@
+#include "config.h"
 #include "ConstructionKickout.h"
 
 #include "dialog.h"
@@ -5,6 +6,9 @@
 #include "hook/hook.h"
 #include "tafunctions.h"
 #include "TAbugfix.h"
+#if MEX_UPGRADE_ENABLE
+#include "MexUpgrade.h"
+#endif
 
 #include <cmath>
 #include <set>
@@ -21,6 +25,9 @@ BYTE TargetAreaWasBlockedTimeoutBytes[] = { 20 };
 unsigned int TestGridSpot_Start_Addr = 0x47d2e0;
 int __stdcall TestGridSpot_Start_Proc(PInlineX86StackBuffer X86StrackBuffer)
 {
+#if MEX_UPGRADE_ENABLE
+	if (MexUpgrade::CheckingSite()) return 0;
+#endif
 	// reset build square colour to green
 	char byte = 6;
 	WriteProcessMemory(GetCurrentProcess(), (void*)0x469e7f, &byte, 1, NULL);

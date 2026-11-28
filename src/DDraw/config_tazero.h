@@ -2,6 +2,15 @@
 
 #define TDRAW_CONFIG_NAME "tazero"
 
+// Independent player upgrades. Escalation opts in; other profiles keep them out.
+#define DRAWN_MOVE_FORMATIONS_ENABLE 0
+#define MEX_UPGRADE_ENABLE 0
+#define GRID_BUILDING_ENABLE 0
+#define PREPEND_ORDERS_ENABLE 0
+#define ALLIED_CURSORS_ENABLE 0
+#define UNIT_STATS_PANEL_ENABLE 0
+#define LAB_BUILD_CYCLES_ENABLE 0
+
 // Allied projectile collision is a mod build choice, never an INI preference.
 #define ALLIED_PROJECTILE_COLLISION_ENABLE 1
 

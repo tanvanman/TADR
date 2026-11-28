@@ -3,6 +3,7 @@
   "rows": [
     {"label": "mex snap radius, in tiles", "macros": ["DEFAULT_MEX_SNAP_RADIUS"], "kind": "value"},
     {"label": "wreck snap radius, in tiles", "macros": ["DEFAULT_WRECK_SNAP_RADIUS"], "kind": "value"},
+    {"label": "factory build-cycle On/Off button", "macros": ["LAB_BUILD_CYCLES_ENABLE"], "kind": "bool"},
     {"label": "construction units stay put while guarding a factory", "macros": ["FIXED_POSN_GUARDING_CONS_ENABLE"], "kind": "bool"},
     {"label": "construction units reclaim-only / assist-only on patrol", "macros": ["PATROLING_CONS_RECLAIM_OR_ASSIST_ENABLE"], "kind": "bool"},
     {"label": "auto kickout of construction units blocking a builder", "macros": ["CONSTRUCTION_KICKOUT_ENABLE"], "kind": "bool"},
@@ -32,7 +33,13 @@
     {"label": "allied queued-build overlays", "macros": ["ALLIED_BUILD_QUEUE_ENABLE"], "kind": "bool"},
     {"label": "enhanced allied resource bars and replay totals", "macros": ["MODERN_ALLY_RESOURCE_UI_ENABLE"], "kind": "bool"},
     {"label": "five-colour unit health bar", "macros": ["HEALTH_BAR_COLORS_ENABLE"], "kind": "bool"},
-    {"label": "units under construction give no sight", "macros": ["NANOFRAME_NO_LOS_ENABLE"], "kind": "bool"}
+    {"label": "units under construction give no sight", "macros": ["NANOFRAME_NO_LOS_ENABLE"], "kind": "bool"},
+    {"label": "Alt-drawn unit formations", "macros": ["DRAWN_MOVE_FORMATIONS_ENABLE"], "kind": "bool"},
+    {"label": "contextual metal extractor upgrades", "macros": ["MEX_UPGRADE_ENABLE"], "kind": "bool"},
+    {"label": "grid building and Alt diagonal rows", "macros": ["GRID_BUILDING_ENABLE"], "kind": "bool"},
+    {"label": "Ctrl+Shift queue prepending", "macros": ["PREPEND_ORDERS_ENABLE"], "kind": "bool"},
+    {"label": "allied player cursor spots and names", "macros": ["ALLIED_CURSORS_ENABLE"], "kind": "bool"},
+    {"label": "bottom-bar unit stats and selection count", "macros": ["UNIT_STATS_PANEL_ENABLE"], "kind": "bool"}
   ],
   "ignore": {
     "MAX_MEX_SNAP_RADIUS": "follows the default radius",

@@ -190,10 +190,16 @@ struct WeaponStruct {
   short Damage; //d4
   short AOE;
   float EdgeEffectivnes;
-  short Range;
-  short data5;
+  union {
+    int FullRange;                  // 0xDC: native signed 32-bit weapon range
+    struct { short Range; short data5; }; // Legacy low/high-word aliases
+  };
   unsigned int coverage;
-  char data6[0x26];
+  unsigned short ReloadTicks;       // 0xE4: ticks at 30 Hz
+  char data6_preBurst[4];            // 0xE6
+  unsigned short BurstCount;        // 0xEA
+  unsigned short BurstRateTicks;    // 0xEC
+  char data6_postBurst[0x1C];        // 0xEE..0x10A
   unsigned char ID;
   char data8[1];
   char RenderType;
@@ -297,7 +303,9 @@ typedef struct _GUIInfo
 	char field_7C[60];
 	char  field_B8[2042];
 	unsigned char RadarObjecColor[16];
-	char field_8C2[1032];
+	char field_8C2[244]; // 0x8C2..0x9B6
+	char BuildMenuDirectory[256]; // 0x9B6: native per-mod GUI path
+	char field_AB6[532]; // 0xAB6..0xCCA
 	int GUIUpdated_b;
 }GUIInfo;
 typedef struct _RaceSideData
@@ -545,7 +553,9 @@ struct TAdynmemStruct{
 	_GAFSequence * nuclogo ;//00147E7
 	char data26__[0x30];
 	_GAFSequence * igpaused;
-	char data26_[0x60];///[0x94];
+	char data26_preInfoPanel[0x14]; // 0x1481F
+	_GAFSequence* InfoPanelBackgrounds[5]; // 0x14833: faction bottom-bar tiles
+	char data26_postInfoPanel[0x38]; // 0x14847..0x1487F
 	_GAFSequence * cursor_ary [0x15];//0x1487F
 	_GAFSequence * pathicon;		//0x148d3
 
@@ -567,7 +577,9 @@ struct TAdynmemStruct{
 	RECT GameSreen_Rect;					//0x37E27
 	unsigned int  GameScreenWidth;			//0x37e37
 	unsigned int  GameScreenHeight;			//0x37e3b
-	char data30[0x5d];						//0x37e3f
+	char data30_preInfoPanel[0x25]; // 0x37E3F..0x37E64
+	unsigned short InfoPanelCachedUnit; // 0x37E64: native local UI redraw cache
+	char data30_postInfoPanel[0x36]; // 0x37E66..0x37E9C
 	unsigned short ShowRangeUnitIndex;		//0x37e9c
 	unsigned short  field_37E9E;			//0x37e9e
 	char CurtUnitGUIName[0x1e];				//0x37ea0
@@ -936,8 +948,13 @@ struct UnitDefStruct {
 	/* 0x1EE */ WeaponStruct* weapon1;
 	/* 0x1F2 */ WeaponStruct* weapon2;
 	/* 0x1F6 */ WeaponStruct* weapon3;
-	/* 0x1FA */ unsigned short nMaxHP;   // the engine reads it as a dword with data8 (high word)
-	/* 0x1FC */ unsigned short data8;
+	union {
+		unsigned int MaxHealth; // 0x1FA: the engine reads all four bytes
+		struct {
+			unsigned short nMaxHP; // Legacy low-word alias
+			unsigned short data8;  // Legacy high-word alias
+		};
+	};
 	/* 0x1FE */ unsigned short nWorkerTime;
 	/* 0x200 */ unsigned short nHealTime;
 	/* 0x202 */ unsigned short nSightDistance;
@@ -1075,7 +1092,19 @@ struct UnitStruct {
   char data9[14];
 
   short Kills;
-  char data17[50];
+  unsigned short NetDirtyFlags; // 0xBA
+  float EnergyMake;             // 0xBC: resource accumulator for this tick
+  float EnergyUse;              // 0xC0
+  float EnergyUsePaid;          // 0xC4
+  float EnergyStall;            // 0xC8
+  float EnergyMakePrev;         // 0xCC: last completed resource tick
+  float EnergyUsePrev;          // 0xD0
+  float MetalMake;              // 0xD4
+  float MetalUse;               // 0xD8
+  float MetalUsePaid;           // 0xDC
+  float MetalStall;             // 0xE0
+  float MetalMakePrev;          // 0xE4
+  float MetalUsePrev;           // 0xE8
   PlayerStruct * Owner_PlayerPtr1; //?
   UnitStruct *Attacker_p;       // 0xF0: last attacker (set by UnitTakeDamage_packet)
   unsigned char ThisPlayer_ID;  // 0xF4: cOwnerID mirror of Attacker_p->cOwnerID
@@ -1167,7 +1196,8 @@ struct UnitOrdersStruct {
   short RemeberX;                    // 0x32
   short RemeberY;                    // 0x34
   unsigned int BuildUnitID;          // 0x36
-  char data4[8];                     // 0x3A
+  int BuildCount;                    // 0x3A: remaining factory batch; generic parameter for other orders
+  int OrderParameter3;              // 0x3E: progress / third native order parameter
   unsigned int Order_State;          // 0x42		// 0x40000: background order
   unsigned int StartTime;            // 0x46
   UnitOrdersStruct* NextOrder;       // 0x4A
@@ -1355,7 +1385,8 @@ typedef struct _GUI1IDControl
 	char fontnumber;
 	char active;
 	char commonattribs;
-	char gap_2B[8];
+	unsigned int GadgetArchive; // 0x2B: native owned GAF archive, if any
+	unsigned int GadgetGaf;     // 0x2F: borrowed native GAF sequence address
 	char help[128];
 	char gap_B3[1];
 	__int16 gaffile;
@@ -1393,7 +1424,8 @@ typedef struct _GUI0IDControl
 	char fontnumber;
 	char active;
 	char commonattribs;
-	char field_2B[8];
+	unsigned int GadgetArchive; // 0x2B: native owned GAF archive, if any
+	unsigned int GadgetGaf;     // 0x2F: borrowed native GAF sequence address
 	char help[128];
 	char gap_B3[1];
 	__int16 gaffile;
@@ -2009,6 +2041,27 @@ static_assert(offsetof(TAdynmemStruct, SortGridCols)          == 0x142A3, "sort 
 static_assert(offsetof(TAdynmemStruct, OffMapBucket_p)        == 0x142B7, "off-map bucket");
 static_assert(offsetof(TAdynmemStruct, MinimapRect)           == 0x142CB, "MinimapRect (data20 split)");
 static_assert(offsetof(TAdynmemStruct, LOS_Sight_PlayerID)    == 0x2A43, "cViewPlayerID");
+
+static_assert(sizeof(UnitOrdersStruct) == 0x56, "Native order size changed");
+static_assert(offsetof(UnitOrdersStruct, OrderParameter3) == 0x3E, "Native third order parameter moved");
+
+static_assert(offsetof(GUIInfo, BuildMenuDirectory) == 0x9B6, "Native build-menu directory moved");
+static_assert(offsetof(GUIInfo, GUIUpdated_b) == 0xCCA, "Native GUI redraw flag moved");
+static_assert(sizeof(GUIInfo) == 0xCCE, "Native GUI context size changed");
+
+// Native statistics fields: expose the loaded values without pointer arithmetic.
+static_assert(offsetof(UnitDefStruct, MaxHealth) == 0x1FA, "Full-width unit health moved");
+static_assert(offsetof(UnitStruct, Health) == 0x108, "Live unit health moved");
+static_assert(offsetof(UnitStruct, EnergyMakePrev) == 0xCC, "Live energy production moved");
+static_assert(offsetof(UnitStruct, EnergyUsePrev) == 0xD0, "Live energy use moved");
+static_assert(offsetof(UnitStruct, MetalMakePrev) == 0xE4, "Live metal production moved");
+static_assert(offsetof(WeaponStruct, Damage) == 0xD4, "Default weapon damage moved");
+static_assert(offsetof(WeaponStruct, FullRange) == 0xDC, "Full-width weapon range moved");
+static_assert(offsetof(WeaponStruct, ReloadTicks) == 0xE4, "Weapon reload ticks moved");
+static_assert(offsetof(WeaponStruct, BurstCount) == 0xEA, "Weapon burst count moved");
+static_assert(offsetof(WeaponStruct, BurstRateTicks) == 0xEC, "Weapon burst rate moved");
+static_assert(offsetof(TAdynmemStruct, InfoPanelBackgrounds) == 0x14833, "Bottom-bar backgrounds moved");
+static_assert(offsetof(TAdynmemStruct, InfoPanelCachedUnit) == 0x37E64, "Native status-bar cache moved");
 
 #pragma pack()
 

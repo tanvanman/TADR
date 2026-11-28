@@ -67,6 +67,15 @@
     <ClCompile Include="UnitIcon.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LabBuildCycles.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="DrawnMove.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="MexUpgrade.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="PrependOrders.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="AlliedCursors.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="AlliedCursorDraw.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="UnitStatsData.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="UnitStatsPanel.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="LabBuildCycleMenu.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="ddraw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -432,6 +441,24 @@
     <ClInclude Include="commanderwarp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="LabBuildCycles.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="DrawnMove.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="DrawnMoveGeometry.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="MexUpgrade.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="MexUpgradeMenu.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="BuildRectangleGeometry.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="OptionalUnitControls.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="PrependOrders.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="PrependQueue.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="AlliedCursors.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="AlliedCursorProtocol.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="AlliedCursorGeometry.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="AlliedCursorDraw.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="UnitStatsCore.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="UnitStatsData.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="UnitStatsPanel.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="LabBuildCycleMenu.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="LabBuildCycleArt.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="ddraw.h">
       <Filter>Header Files</Filter>
     </ClInclude>

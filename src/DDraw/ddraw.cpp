@@ -52,6 +52,11 @@ using namespace std;
 #include "WeaponFiredExt.h"
 #include "UnitIdentity.h"
 #include "ReloadBars.h"
+#include "LabBuildCycles.h"
+#include "DrawnMove.h"
+#include "PrependOrders.h"
+#include "AlliedCursors.h"
+#include "UnitStatsPanel.h"
 #include "HealthBarColors.h"
 #include "NanoframeNoLos.h"
 #include "UnitStatusCounters.h"
@@ -192,6 +197,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 	if(reason==DLL_PROCESS_ATTACH)
 	{
 		IDDrawSurface::OutptTxt("Process Attached.  config=" TDRAW_CONFIG_NAME);
+#if DRAWN_MOVE_FORMATIONS_ENABLE
+		DrawnMove::LogBuild();
+#endif
 
 		/* 
 			dplayx.dll TA Patch loader - https://github.com/FunkyFr3sh/Total-Annihilation-Patch-Loader 
@@ -224,6 +232,7 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		NowCrackLimit= new LimitCrack;
 
 		FixTABug= new TABugFixing;
+		PrependOrders::Install();
 		InstallCrashTrace();
 		EngineLimits::Install();
 
@@ -247,6 +256,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 			INLINE_5BYTESLAGGERJMP, AddtionInitAfterDDraw);
 
 		PacketChatRouter::GetInstance();
+#if ALLIED_CURSORS_ENABLE
+		AlliedCursors::Install();
+#endif
 		TakeClaim::Install();          // owns the _ShowText hook; ShareGuard rides it
 #if ALLIED_BUILD_QUEUE_ENABLE
 		AlliedBuildQueueSync::Install();
@@ -273,7 +285,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 		AirCorpseFall::Install();
 #endif
 		UnitStatusCounters::Install();
+		UnitStatsPanel::Install();
 		ReloadBars::Install();
+		LabBuildCycles::Install();
 #if HEALTH_BAR_COLORS_ENABLE
 		HealthBarColors::Install();          // own bytes only: the 5-byte entry of Unit_DrawHealthBar 0x46A430 (ReloadBars and UnitStatusCounters hook its caller, 0x469CB1 / 0x469CF9)
 #endif
@@ -343,7 +357,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if NANOFRAME_NO_LOS_ENABLE
 		NanoframeNoLos::Shutdown();
 #endif
+		LabBuildCycles::Shutdown();
 		ReloadBars::Shutdown();
+		UnitStatsPanel::Shutdown();
 		UnitStatusCounters::Shutdown();
 #if ALLIED_BUILD_QUEUE_ENABLE
 		AlliedBuildQueueSync::Shutdown();

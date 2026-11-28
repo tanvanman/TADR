@@ -26,5 +26,6 @@ namespace ChatHijackId {
     // ---- 0x40..0x5F : reserved for gameplay extensions ---------------------
     // ---- 0x60..0x7F : UI / HUD notifications -------------------------------
     constexpr unsigned char AlliedBuildQueue = 0x60;  // AlliedBuildQueueSync.cpp
+    constexpr unsigned char AlliedCursor     = 0x61;  // AlliedCursors.cpp
     // ---- 0x80..0xFF : reserved for future use ------------------------------
 }
