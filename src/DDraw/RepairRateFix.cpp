@@ -35,7 +35,7 @@ namespace {
 
 // ---- accumulator table -------------------------------------------------------
 //
-// Keyed by the repairer's UnitInGameIndex (Unit+0xA8, int16), which is the unit's
+// Keyed by the repairer's UnitInGameIndex (Unit+0xA8, uint16 in the engine), which is the unit's
 // position in the engine's flat unit array:
 //     Unit* u = BeginUnitsArray_p + 0x118 * UnitInGameIndex
 // VERIFIED two ways -- from the binary, and empirically against live captures where
@@ -76,6 +76,7 @@ constexpr int kSlotsPerUnit = 2;
 AccSlot*    g_table = nullptr;
 int         g_tableUnits = 0;      // capacity in units; slot count is x kSlotsPerUnit
 UnitStruct* g_cachedArrayBase = nullptr;
+UnitStruct* g_cachedArrayEnd = nullptr;
 int         g_fallbackHits = 0;    // canary: see AccumulatorFor()
 
 SingleHook* g_healHook = nullptr;
@@ -95,15 +96,17 @@ bool EnsureTable()
         return false;
 
     UnitStruct* begin = taPtr->BeginUnitsArray_p;
-    UnitStruct* end   = taPtr->EndOfUnitsArray_p;
-    if (!begin || !end || end <= begin)
+    UnitStruct* end   = taPtr->EndOfUnitsArray_p;   // the LAST unit, not one past it
+    if (!begin || !end || end < begin)
         return false;
 
-    if (g_table && begin == g_cachedArrayBase)
+    if (g_table && begin == g_cachedArrayBase && end == g_cachedArrayEnd)
         return true;   // unchanged since last check -- common case
 
     const ptrdiff_t bytes = (const char*)end - (const char*)begin;
-    const int units = (int)(bytes / (ptrdiff_t)sizeof(UnitStruct));
+    // InitInGameUnitArray stores End = Begin + (count - 1) * 0x118 (0x4855B8-0x4855D6),
+    // so the array holds one more slot than (End - Begin) / 0x118.
+    const int units = (int)(bytes / (ptrdiff_t)sizeof(UnitStruct)) + 1;
     if (units <= 0)
         return false;
 
@@ -117,6 +120,7 @@ bool EnsureTable()
     }
     g_tableUnits = units;
     g_cachedArrayBase = begin;
+    g_cachedArrayEnd = end;
     return true;
 }
 
@@ -136,7 +140,9 @@ int32_t* AccumulatorFor(UnitStruct* repairer, void* target)
         return nullptr;
     }
 
-    const int idx = repairer->UnitInGameIndex;   // Unit+0xA8
+    // Unit+0xA8, unsigned: the engine writes it from a 16-bit counter (0x4855E4-0x485629)
+    // and UnitLimit above 3276 goes past 32767.
+    const int idx = static_cast<uint16_t>(repairer->UnitInGameIndex);
     if (idx <= 0 || idx >= g_tableUnits)         // index 0 is reserved/invalid
     {
         ++g_fallbackHits;
@@ -284,6 +290,9 @@ int32_t ComputeVanillaEnergyCeil(float buildCostEnergy, float t, int32_t buildTi
 //      which of the two the call turns out to be -- see the discrimination
 //      comment below. A balance buff, not a fix; energy cost is untouched on
 //      purpose, per Wotan.
+//   7. With SELFHEAL_FREE_ENERGY, the passive-regen call (0x48AF96) costs no
+//      energy and skips the resource gate (see the body). Active repair keeps
+//      vanilla's energy cost and gate.
 int __stdcall HealUnit_HealTimeWay_Fixed(void* repairer, void* target, float t)
 {
     UnitStruct* tgt = static_cast<UnitStruct*>(target);
@@ -305,29 +314,42 @@ int __stdcall HealUnit_HealTimeWay_Fixed(void* repairer, void* target, float t)
 
     int32_t tInt = static_cast<int32_t>(t);   // t is always integral at every known call site (see CLAUDE.md)
 
-    int32_t energy = ComputeVanillaEnergyCeil(def->buildcostenergy, t, buildTime);
+    const bool isPassiveSelfHeal =
+        (reinterpret_cast<uintptr_t>(_ReturnAddress()) == kPassiveRegenReturnAddr);
 
-    // Unit+0xBC: unnamed resource-accounting block inside UnitStruct::data17[50] in
-    // this repo's tamem.h -- reached by raw offset rather than restructuring that
-    // struct (its layout beyond this one field is unverified and other code may
-    // depend on its declared size).
-    void* resourceBlock = reinterpret_cast<char*>(repairer) + 0xBC;
+    // SELFHEAL_FREE_ENERGY: passive HealTime regen skips the energy cost AND the
+    // resource gate, so it neither drains energy nor stops when the economy stalls.
+    // Vanilla charges it max(1, ceil(BuildCostEnergy * t / BuildTime)) per firing
+    // from the unit's own block, which grows with HealTime. Active repair (the four
+    // order call sites, including Order_SelfRepair) is unchanged. Passive regen runs
+    // only on the owner's client (owner gate 0x48AEB5, ENGINE_NOTES 14.4), so this
+    // changes only the owner's own economy accounting.
+#if SELFHEAL_FREE_ENERGY
+    if (!isPassiveSelfHeal)
+#endif
+    {
+        int32_t energy = ComputeVanillaEnergyCeil(def->buildcostenergy, t, buildTime);
 
-    // The resource gate MUST run, and MUST succeed, before the accumulator below is
-    // touched: otherwise a boundary-crossing tick that fails the energy check would
-    // silently discard banked HP fraction. (This was a real bug in the first
-    // live-tested version of this fix; the ordering here is load-bearing, not
-    // stylistic.)
-    if (!RepairHasEnoughResources(resourceBlock, static_cast<float>(energy)))
-        return 0;                          // gate failed: nothing banked, nothing lost
+        // Unit+0xBC: unnamed resource-accounting block inside UnitStruct::data17[50] in
+        // this repo's tamem.h -- reached by raw offset rather than restructuring that
+        // struct (its layout beyond this one field is unverified and other code may
+        // depend on its declared size).
+        void* resourceBlock = reinterpret_cast<char*>(repairer) + 0xBC;
+
+        // The resource gate MUST run, and MUST succeed, before the accumulator below is
+        // touched: otherwise a boundary-crossing tick that fails the energy check would
+        // silently discard banked HP fraction. (This was a real bug in the first
+        // live-tested version of this fix; the ordering here is load-bearing, not
+        // stylistic.)
+        if (!RepairHasEnoughResources(resourceBlock, static_cast<float>(energy)))
+            return 0;                      // gate failed: nothing banked, nothing lost
+    }
 
     if (tInt <= 0)
         return 1;                          // gate passed, nothing owed this tick -- two of
                                             // the five callers gate nano-beam drawing on the
                                             // return value, so this must still be 1
 
-    const bool isPassiveSelfHeal =
-        (reinterpret_cast<uintptr_t>(_ReturnAddress()) == kPassiveRegenReturnAddr);
     const int32_t multiplier = isPassiveSelfHeal
         ? REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER
         : REPAIR_RATE_FIX_REPAIR_MULTIPLIER;
@@ -427,6 +449,7 @@ void Shutdown()
     g_table = nullptr;
     g_tableUnits = 0;
     g_cachedArrayBase = nullptr;
+    g_cachedArrayEnd = nullptr;
     g_fallbackHits = 0;
 }
 

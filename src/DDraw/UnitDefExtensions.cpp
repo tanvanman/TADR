@@ -10,6 +10,7 @@ static unsigned int loadUnitDefHookProc(PInlineX86StackBuffer X86StrackBuffer)
 }
 
 std::unique_ptr<UnitDefExtensions> UnitDefExtensions::m_instance;
+unsigned UnitDefExtensions::s_loadGeneration = 0;
 
 UnitDefExtensions::UnitDefExtensions()
 {
@@ -192,6 +193,7 @@ unsigned UnitDefExtensions::LoadUnitDefs(PInlineX86StackBuffer X86StrackBuffer)
 {
 	TaTdfFile* tdf = (TaTdfFile*)X86StrackBuffer->Ecx;
 	UnitDefStruct* unitDef = (UnitDefStruct*)X86StrackBuffer->Ebp;
+	++s_loadGeneration;
 
 	for (auto it = m_keyIndices.begin(); it != m_keyIndices.end(); ++it)
 	{

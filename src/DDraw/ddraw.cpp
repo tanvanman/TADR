@@ -59,6 +59,7 @@ using namespace std;
 #include "ZeroDamageMapWeapons.h"
 #include "TeamColorNanolathe.h"
 #include "RepairRateFix.h"
+#include "SelfHealRate.h"
 #include "CobDispatchTable.h"
 #include "ArenaCapacityFix.h"
 #include "BuildWeaponSlotGuard.h"
@@ -308,6 +309,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #if REPAIR_RATE_FIX_ENABLE
 		RepairRateFix::Install();
 #endif
+#if SELFHEAL_RATE_ENABLE
+		SelfHealRate::Install();             // own bytes only: 6-byte jmp at 0x48AF37 (regen block); RepairRateFix owns 0x41BD10
+#endif
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Install();
 #endif
@@ -374,6 +378,9 @@ bool APIENTRY DllMain(HINSTANCE hinst, unsigned long reason, void*)
 #endif
 #if REPAIR_RATE_FIX_ENABLE
 		RepairRateFix::Shutdown();
+#endif
+#if SELFHEAL_RATE_ENABLE
+		SelfHealRate::Shutdown();
 #endif
 #if COB_DISPATCH_TABLE_ENABLE
 		CobDispatchTable::Shutdown();

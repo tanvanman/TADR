@@ -10,7 +10,9 @@
 // function wholesale with a version that carries the exact integer remainder forward
 // per (repairer, target) pair instead of re-rounding it away every tick.
 //
-// Energy cost is deliberately left as vanilla ceil (unchanged) -- see CLAUDE.md.
+// Energy cost is deliberately left as vanilla ceil (unchanged) -- see CLAUDE.md --
+// except for the passive HealTime regen call, which is free under
+// SELFHEAL_FREE_ENERGY (config_escalation.h).
 //
 // HP delivered is additionally scaled by REPAIR_RATE_FIX_REPAIR_MULTIPLIER (active
 // repair, four order call sites) or REPAIR_RATE_FIX_SELFHEAL_MULTIPLIER (passive
