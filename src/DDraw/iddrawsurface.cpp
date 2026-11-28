@@ -36,6 +36,7 @@ using namespace std;
 #include "TAbugfix.h"
 #include "fullscreenminimap.h"
 #include "GUIExpand.h"
+#include "GuiMouseWheel.h"
 
 #include "iddrawsurface.h"
 
@@ -1316,6 +1317,9 @@ LRESULT CALLBACK _WinProc(HWND WinProcWnd, UINT Msg, WPARAM wParam, LPARAM lPara
 		}
 
 		if (g_VoteDialog && g_VoteDialog->Message(WinProcWnd, Msg, wParam, lParam))
+			return 0;
+
+		if (GuiMouseWheel::Message(WinProcWnd, Msg, wParam, lParam))
 			return 0;
 
 		if((NULL!=LocalShare->Whiteboard)

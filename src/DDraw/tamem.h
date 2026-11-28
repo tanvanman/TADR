@@ -288,12 +288,12 @@ typedef struct _GUIInfo
 	int field_58;
 	int field_5C;
 	int UIChange_f;  // index into TheActive_GUIMEM->ControlsAry that was fiddled, or -1
-	int field_64;
+	int PressedGadgetIndex; // Native GUI mouse capture, or -1.
 	int field_68;
 	int field_6C;
 	int field_70;
 	int field_74;
-	int field_78;
+	int SliderThumbDragging;
 	char field_7C[60];
 	char  field_B8[2042];
 	unsigned char RadarObjecColor[16];
@@ -1447,10 +1447,14 @@ typedef struct _GUI2IDControl
 	char help[128];
 	char field_B3[7];
 	__int16 selected_i;
-	char field_BC[22];
+	__int16 top_i;
+	__int16 field_BE;
+	__int16 count;
+	char field_C2[16];
 	int unk_3;
 	int unk_0;
-	int itemheight;
+	__int16 itemheight;
+	char field_DC[2];
 	int unk_1;
 	char field_E2[98];
 	int unk_proc;
@@ -1493,7 +1497,8 @@ typedef struct _GUI3_4IDControl
 	_PosProc pos_proc;
 	__int16 field_148;
 	int TAMainPtr;
-	char field_14E[13];
+	char field_14E[9];
+	int scrollbarDisabled;
 }GUI3_4IDControl;
 
 

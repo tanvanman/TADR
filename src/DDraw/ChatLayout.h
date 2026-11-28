@@ -30,8 +30,9 @@ namespace ChatLayout
 	// its own 0x00464060 backdrop pass. Callable in every build.
 	bool TakingOver();
 
-	// Called from CTAHook::Message on WM_MOUSEWHEEL, ahead of every other wheel
-	// consumer. `wheelDeltaRaw` is signed HIWORD(wParam) (multiples of 120).
+	// Called from CTAHook::Message on WM_MOUSEWHEEL after native GUI handling
+	// declines, ahead of CTAHook's other wheel consumers. `wheelDeltaRaw` is
+	// signed HIWORD(wParam) (multiples of 120).
 	// Consumes the event and moves the scrollback offset only while scrollback
 	// is armed (the chat prompt is open); returns false untouched otherwise.
 	bool ScrollbackWheel(int wheelDeltaRaw);
