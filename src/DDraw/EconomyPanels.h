@@ -18,6 +18,11 @@ public:
     bool Contains(int x, int y) const;
     void SetBackgroundType(int type) { m_backgroundType = type >= 0 && type <= 2 ? type : 1; }
     void ResetPositions();
+    static void RecordEconomyPacket(const PlayerStruct* player,
+        double metalProduced, double energyProduced,
+        double metalConsumed, double energyConsumed,
+        unsigned char flag);
+    static void ResetPacketSamples();
 
 private:
     static const int Width = 184;
@@ -47,12 +52,16 @@ private:
     };
     struct RateSample
     {
-        bool seeded = false, ready = false;
-        int tick = 0, dpid = 0, interval = 30;
+        bool seeded = false, ready = false, remoteClock = false;
+        int tick = 0, seenGameTime = 0, dpid = 0;
+        int interval = 30, seenInterval = 30;
         char name[30] = {};
         double counters[4] = {}, rates[4] = {};
     };
+    static std::array<RateSample, 10> s_packetRates;
+    static unsigned s_packetSeq;
     std::array<RateSample, 10> m_rates;
+    unsigned m_packetSeq = 0;
     Panel m_bars, m_totals;
     std::vector<Player> m_players;
     std::vector<Player> m_allPlayers;
@@ -89,6 +98,7 @@ private:
     void BlitPanel(Panel& panel, LPDIRECTDRAWSURFACE destination);
     void Text(Panel& panel, int x, int y, const char* text, unsigned char colour, int maxChars = 25, int maxWidth = Width);
     int TextWidth(const char* text, int maxChars = 25) const;
+    void FormatRate(char (&text)[16], double value, bool isMetal, char sign, int maxWidth) const;
     void SelectFont();
     void Box(Panel& panel, int x, int y, int width, int height, unsigned char colour);
     void Bar(Panel& panel, int x, int y, int width, double value, double maximum, unsigned char colour, int thickness = 3);

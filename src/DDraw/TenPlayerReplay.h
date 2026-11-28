@@ -22,6 +22,8 @@ bool TenPlayerReplay_IsFunnelPlayer(const PlayerStruct* player);
 // Positive resource-packet confirmation for the enhanced economy list.
 bool TenPlayerReplay_HasFunnelEconomySample(const PlayerStruct* player);
 bool TenPlayerReplay_HasPovMetadata();
+// Install the shared, byte-checked Receive_PacketPlayerRes (0x457540) observer once.
+void TenPlayerReplay_EnsureEconomyPacketHook();
 
 // Keep zero as the recorder's "not following" value; 10 encodes replay slot zero.
 int ReplayCameraFollowSlot();
